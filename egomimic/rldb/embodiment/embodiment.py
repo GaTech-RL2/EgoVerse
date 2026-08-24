@@ -28,6 +28,10 @@ class EMBODIMENT(Enum):
     # Established simulator IDs used by datasets, checkpoints, and eval jobs.
     PUSHSHAPES_SIM = 15
     PUSHSHAPES_SIM_SMALL_CIRCLE = 17
+    # Keep 19 pinned: existing U-socket datasets and checkpoints already store
+    # this ID.  ID 18 belonged to HUMAN_BIMANUAL before the human-embodiment
+    # collapse and must not be reused.
+    PUSHSHAPES_SIM_U_SOCKET = 19
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

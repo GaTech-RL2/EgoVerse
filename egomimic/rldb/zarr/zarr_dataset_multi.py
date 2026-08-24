@@ -704,6 +704,39 @@ class LocalEpisodeResolver(EpisodeResolver):
         return datasets
 
 
+class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
+    """Resolve local episodes under a config-selected logical embodiment.
+
+    Historical PushShapes collections all advertise ``pushshapes_sim`` in
+    their Zarr metadata.  A folder-level override lets the data graph dispatch
+    U-socket and other pusher geometries through distinct model domains while
+    preserving the immutable episode stores.
+    """
+
+    def __init__(
+        self,
+        folder_path: Path,
+        key_map: dict | None = None,
+        transform_list: list | None = None,
+        debug=False,
+        embodiment_override: str | None = None,
+    ):
+        super().__init__(
+            folder_path=folder_path,
+            key_map=key_map,
+            transform_list=transform_list,
+            debug=debug,
+        )
+        self.embodiment_override = embodiment_override
+
+    def resolve(self, *args, **kwargs):
+        datasets = super().resolve(*args, **kwargs)
+        if self.embodiment_override is not None:
+            for dataset in datasets.values():
+                dataset.embodiment = self.embodiment_override
+        return datasets
+
+
 class MultiDataset(torch.utils.data.Dataset):
     """
     Wraps a dict of child datasets (Zarr leaves or other MultiDatasets) and

@@ -575,3 +575,80 @@ class NumpyToTensor(Transform):
                     f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
                 )
         return batch
+
+
+class ThetaToRotVec(Transform):
+    """Replace a planar angle with its continuous ``(cos, sin)`` encoding.
+
+    For an input whose last dimension is ``[..., x, y, theta, ...]``, the
+    angle at ``angle_col`` becomes two values and the output gains one column.
+    Missing optional keys are ignored, while malformed present keys fail
+    loudly so action-shape mistakes cannot silently reach normalization.
+    """
+
+    def __init__(self, keys: list[str], angle_col: int = 2):
+        self.keys = list(keys)
+        self.angle_col = int(angle_col)
+        if self.angle_col < 0:
+            raise ValueError("angle_col must be non-negative")
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            value = np.asarray(batch[key])
+            if value.ndim == 0 or value.shape[-1] <= self.angle_col:
+                raise ValueError(
+                    f"ThetaToRotVec needs angle_col={self.angle_col} in key "
+                    f"'{key}', got shape {value.shape}"
+                )
+            theta = value[..., self.angle_col]
+            batch[key] = np.concatenate(
+                [
+                    value[..., : self.angle_col],
+                    np.cos(theta)[..., None].astype(value.dtype, copy=False),
+                    np.sin(theta)[..., None].astype(value.dtype, copy=False),
+                    value[..., self.angle_col + 1 :],
+                ],
+                axis=-1,
+            )
+        return batch
+
+
+class RotVecToTheta(Transform):
+    """Invert :class:`ThetaToRotVec` with ``atan2(sin, cos)``.
+
+    The pair does not need to be unit length; only its direction determines
+    the reconstructed angle.  This is useful for model predictions before a
+    U-socket simulator step.
+    """
+
+    def __init__(self, keys: list[str], angle_col: int = 2):
+        self.keys = list(keys)
+        self.angle_col = int(angle_col)
+        if self.angle_col < 0:
+            raise ValueError("angle_col must be non-negative")
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            value = np.asarray(batch[key])
+            if value.ndim == 0 or value.shape[-1] <= self.angle_col + 1:
+                raise ValueError(
+                    f"RotVecToTheta needs cos/sin at columns "
+                    f"{self.angle_col}:{self.angle_col + 2} in key '{key}', "
+                    f"got shape {value.shape}"
+                )
+            theta = np.arctan2(
+                value[..., self.angle_col + 1], value[..., self.angle_col]
+            )
+            batch[key] = np.concatenate(
+                [
+                    value[..., : self.angle_col],
+                    theta[..., None].astype(value.dtype, copy=False),
+                    value[..., self.angle_col + 2 :],
+                ],
+                axis=-1,
+            )
+        return batch

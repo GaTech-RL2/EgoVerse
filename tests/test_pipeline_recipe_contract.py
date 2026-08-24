@@ -2,6 +2,7 @@ from pathlib import Path
 
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
+from hydra.utils import instantiate
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.pushshapes import get_keymap_hpt
@@ -52,6 +53,41 @@ def test_pusht_recipe_keeps_horizon_16_and_matching_optimizer_recipe():
     assert cfg.data.train_dataloader_params.pushshapes_sim_small_circle.batch_size == 16
 
 
+def test_usocket_recipe_uses_rotvec_actions_and_pinned_embodiment():
+    cfg = _compose("pusht/pipeline_sampler_usocket_h16")
+    model = cfg.model.robomimic_model
+    noise = model.stages[1]
+    sampler = model.stages[2]
+    encoder = model.stages[0].encoder
+    train_data = cfg.data.train_datasets.pushshapes_sim_u_socket
+
+    assert get_embodiment_id("pushshapes_sim_u_socket") == 19
+    assert list(model.domains) == ["pushshapes_sim_u_socket"]
+    assert model.rollout_adapter._target_.endswith("USocketRotVecRolloutAdapter")
+    assert model.action_horizon == 16
+    assert noise.action_horizon == 16
+    assert sampler.action_horizon == 16
+    assert sampler.denoising_module.act_seq == 16
+    assert dict(sampler.action_dims) == {"pushshapes_sim_u_socket": 4}
+    assert sampler.schedule_anchor_domain == "pushshapes_sim_u_socket"
+    assert encoder.obs_specs.state_agent_obj.input_dim == 3
+    assert list(encoder.obs_specs.state_agent_obj.input_slice) == [0, 3]
+    assert sampler.condition_input_dim == 67
+    assert train_data.resolver.embodiment_override == "pushshapes_sim_u_socket"
+    assert train_data.resolver.key_map.action_horizon == 16
+    assert train_data.bounds_check is False
+    assert cfg.norm_stats.norm_mode == "minmax"
+
+    # Instantiate the resolver target itself without touching the remote data
+    # directory. This catches stale Hydra target paths and verifies that the
+    # transform helper resolves to the concrete rotation-vector transform.
+    resolver = instantiate(train_data.resolver)
+    assert resolver.embodiment_override == "pushshapes_sim_u_socket"
+    assert resolver.key_map["actions"]["horizon"] == 16
+    assert len(resolver.transform_list) == 1
+    assert resolver.transform_list[0].__class__.__name__ == "ThetaToRotVec"
+
+
 def test_arc_length_recipe_keeps_tokenizer_model_and_rollout_horizons_aligned():
     cfg = _compose("fold/rh/pipeline_sampler_arc_length_nv")
     noise = cfg.model.robomimic_model.stages[1]
@@ -83,6 +119,7 @@ def test_arc_length_recipe_keeps_tokenizer_model_and_rollout_horizons_aligned():
 def test_pusht_dataset_schema_is_registered_and_leak_free():
     assert get_embodiment_id("pushshapes_sim") == 15
     assert get_embodiment_id("pushshapes_sim_small_circle") == 17
+    assert get_embodiment_id("pushshapes_sim_u_socket") == 19
     keymap = get_keymap_hpt(action_horizon=16)
     assert "horizon" not in keymap["front_img_1"]
     assert "horizon" not in keymap["state_agent_obj"]

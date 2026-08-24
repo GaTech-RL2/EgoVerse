@@ -1,0 +1,80 @@
+# U-socket-only Pipeline sampler.  Theta is represented continuously as a
+# rotation vector, so the action width is four: [x, y, cos(theta), sin(theta)].
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 16
+  domains: [pushshapes_sim_u_socket]
+  ac_keys:
+    pushshapes_sim_u_socket: actions
+  rollout_adapter:
+    _target_: egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter
+  stages:
+  - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+    n_obs_steps: 1
+    encoder:
+      _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+      obs_specs:
+        state_agent_obj: {input_dim: 3, input_slice: [0, 3]}
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 84
+          crop_width: 84
+          crop_eval_mode: center
+          crop_sample_mode: v02
+          crop_scope: frame
+          norm_layer: group
+          pool_type: spatial_softmax
+  - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+    action_horizon: 16
+    latent_dim: 64
+  - _target_: egomimic.pipeline.stages_sampler.MultiJActionSampler
+    condition_input_dim: 67
+    condition_dim: 384
+    gradient_accumulation_steps: 1
+    schedule_anchor_domain: pushshapes_sim_u_socket
+    action_horizon: 16
+    action_dims: {pushshapes_sim_u_socket: 4}
+    latent_dim: 64
+    decoder_hidden_dim: 512
+    denoiser_hidden_dim: 256
+    num_inference_steps: 16
+    sampling_schedule:
+      1: {1: 0.50, 2: 0.50}
+      2001: {2: 0.80, 4: 0.15, 8: 0.05}
+    gradient_checkpointing: true
+    denoising_module:
+      _target_: egomimic.models.denoising_nets.CrossTransformer
+      nblocks: 12
+      cond_dim: 384
+      hidden_dim: 256
+      act_dim: 64
+      act_seq: 16
+      n_heads: 8
+      dropout: 0.1
+      mlp_layers: 4
+      mlp_ratio: 4
+      time_conditioning: additive
+  - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 3000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5
