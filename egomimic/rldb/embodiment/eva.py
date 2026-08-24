@@ -65,7 +65,8 @@ class Eva(Embodiment):
         # min_distance_unit = D in meters (per-arm arc length span of one token),
         # resampled_vector_length = M (number of waypoints per token). The
         # emitted sequence has M+1 rows: M waypoints followed by 1 velocity
-        # token, each 8-dim [Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip].
+        # token, each 14-dim (xyz + ypr + grip per arm) [L xyz(3), L ypr(3),
+        # L grip(1), R xyz(3), R ypr(3), R grip(1)]. Rotation always supervised.
         min_distance_unit: float = 0.60,
         resampled_vector_length: int = 20,
     ) -> list[Transform]:
@@ -80,8 +81,8 @@ class Eva(Embodiment):
         to euler (xyz+ypr, 14D), quat (16D), or Zhou 6D (20D).
 
         ``arc_tokenizer_cartesian`` runs the cartesian pipeline for the chosen
-        frame and then rewrites ``actions_cartesian`` to (M+1, 8) arc-length
-        tokens.
+        frame and then rewrites ``actions_cartesian`` to (M+1, 14) arc-length
+        tokens -- xyz + ypr + grip per arm, rotation always included.
         """
         if action_mode not in ("cartesian", "arc_tokenizer_cartesian"):
             raise ValueError(f"unknown action_mode {action_mode!r}")
