@@ -1,23 +1,22 @@
 """Eval for arc-tokenized action policies.
 
-The trained model outputs a ``(B, M+1, 8)`` tensor per sample: M waypoints
-followed by 1 velocity token, each 8-dim
-``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]``. Training loss and validation
-MSE run in that arc-token space directly (matched targets from the same
-tokenizer that produced them).
+The trained model outputs a ``(B, M+1, 14)`` tensor per sample: M waypoints
+followed by 1 velocity token, each 14-dim
+``[L xyz, L ypr, L grip, R xyz, R ypr, R grip]``. Rotation is
+unconditionally supervised (no drop-rotation option). Training loss and
+validation MSE run in that arc-token space directly (matched targets from
+the same tokenizer that produced them).
 
 Val videos are the piece that need special handling: the canonical
 ``_viz_traj`` overlay expects a time-parameterized ``(H, 14)`` chunk and
 projects every row as a dot. So before handing predictions and GT to the
 viz path, we DETOKENIZE — reconstruct a stream of time-parameterized
-setpoints at the control rate using the predicted velocity token to set
-the timing, then zero-pad the missing rotation columns to match the
-canonical 14-dim layout. Output shape into viz: ``(B, H, 14)``.
-
-Rotation columns land as zeros because the arc-token variant doesn't
-supervise orientation; the projection just needs xyz so this is harmless.
-Gripper column continues to carry a real value (either the eva command or
-the human zero-pad).
+setpoints at the control rate using the predicted velocity token's xyz
+slots to set per-arm timing, then SLERP ypr / linear-interpolate xyz +
+gripper along the resampled xyz cumdist. Output shape into viz:
+``(B, H, 14)`` with real rotation values (from the model prediction).
+Gripper column continues to carry a real value (either the eva command
+or the human zero-pad).
 """
 
 from __future__ import annotations
@@ -47,7 +46,7 @@ class ArcTokEvalVideo(HPTEvalVideo):
         by the data pipeline. Determines the reconstruction speed via
         duration = D / ||vel||.
       * ``resampled_vector_length``: M — number of waypoints (also must
-        match the data pipeline). Model output must be ``(B, M+1, 8)``.
+        match the data pipeline). Model output must be ``(B, M+1, 14)``.
       * ``rollout_horizon``: H (frames) — how many control-period steps
         to reconstruct per sample. Default 100 to match the non-arc
         cotrain val-video length. If ``duration < H*dt``, the tail is
@@ -89,15 +88,13 @@ class ArcTokEvalVideo(HPTEvalVideo):
         self._M = int(resampled_vector_length)
 
     def _detokenize_batch(self, arc_tensor: torch.Tensor) -> torch.Tensor:
-        """(B, M+1, 8) arc tokens -> (B, H, 14) time-parameterized chunks
-        with zero-padded rotation columns.
+        """(B, M+1, 14) arc tokens -> (B, H, 14) time-parameterized chunks.
 
         The canonical ``_viz_traj`` reads xyz from dims 0:3 and 7:10 (see
-        ``viz_utils.py:150``). The detokenized 8-dim layout is
-        ``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]`` — after padding
-        rotation slots at 3:6 and 10:13 it becomes the canonical 14-dim
-        ``[L xyz ypr grip | R xyz ypr grip]`` and viz projects xyz through
-        K exactly like it does for time-based models.
+        ``viz_utils.py:150``). The detokenized 14-dim layout is
+        ``[L xyz ypr grip | R xyz ypr grip]`` — the same canonical layout
+        as time-based models, so viz projects xyz through K unchanged and
+        modes that read ypr get the model's predicted rotation.
         """
         if not isinstance(arc_tensor, torch.Tensor):
             arc_tensor = torch.as_tensor(arc_tensor)
@@ -116,19 +113,12 @@ class ArcTokEvalVideo(HPTEvalVideo):
         H = self.rollout_horizon
         out = np.zeros((B, H, 14), dtype=np.float64)
         for b in range(B):
-            det = self._detokenizer.detokenize(arc_np[b], action_horizon=H)  # (H, 8)
-            # Splice into canonical 14-dim layout with zero rotation.
-            out[b, :, 0:3] = det[:, 0:3]  # L xyz
-            out[b, :, 6:7] = det[:, 3:4]  # L gripper
-            out[b, :, 7:10] = det[:, 4:7]  # R xyz
-            out[b, :, 13:14] = det[:, 7:8]  # R gripper
-            # rotation columns [3:6] and [10:13] stay zero — the arc-token
-            # variant doesn't carry orientation, and viz never reads these
-            # dims for mode='traj'.
+            # (H, 14) directly -- rotation is unconditionally supervised.
+            out[b] = self._detokenizer.detokenize(arc_np[b], action_horizon=H)
         return torch.from_numpy(out).to(arc_tensor.device, dtype=arc_tensor.dtype)
 
     def _arc_match_source(self, tensor):
-        """Arc tokens are (B, M+1, 8); detokenize to the canonical (B, H, 14)
+        """Arc tokens are (B, M+1, 14); detokenize to the canonical (B, H, 14)
         cartesian chunk so the inherited arc-matched metric resamples the same
         representation the baseline does."""
         if tensor is None:
@@ -170,12 +160,14 @@ class ArcTokEvalVideo(HPTEvalVideo):
 
         We add, per embodiment:
           * ``Valid/{emb}_actions_cartesian_detok_paired_mse_avg`` —
-            MSE over the full (H, 8) detokenized chunk (waypoint-derived
-            xyz + gripper reconstructed via the predicted vel token).
+            MSE over the full (H, 14) detokenized chunk (waypoint-derived
+            xyz + ypr + gripper reconstructed via the predicted vel token).
           * ``Valid/{emb}_actions_cartesian_detok_final_mse_avg`` — MSE
             at the last reconstructed frame (t = H-1).
           * ``Valid/{emb}_actions_cartesian_detok_xyz_mse_avg`` — MSE
-            over just the 6 xyz dims (Lxyz + Rxyz), dropping grippers.
+            over just the 6 xyz dims (Lxyz + Rxyz).
+          * ``Valid/{emb}_actions_cartesian_detok_ypr_mse_avg`` — MSE
+            over just the 6 ypr dims (Lypr + Rypr).
           * ``Valid/{emb}_actions_cartesian_detok_gripper_mse_avg`` —
             MSE over just the 2 gripper dims (L_grip + R_grip).
 
@@ -203,20 +195,18 @@ class ArcTokEvalVideo(HPTEvalVideo):
             gt_arc = _batch[ac_key]
             if pred_arc is None or gt_arc is None:
                 continue
-            # Detokenize to (B, H, 14) then take only the xyz + gripper
-            # slots the arc variant actually supervises (rotation is
-            # zero-padded so including it would inflate MSE with pure
-            # zeros — mislead the metric).
+            # Detokenize to (B, H, 14) — full canonical layout with xyz +
+            # ypr + gripper all supervised (rotation is unconditionally
+            # part of the arc-tok output now).
             pred_det = self._detokenize_batch(pred_arc).cpu().contiguous()
             gt_det = self._detokenize_batch(gt_arc).cpu().contiguous()
-            xyzg = [0, 1, 2, 6, 7, 8, 9, 13]  # Lxyz, L_grip, Rxyz, R_grip
             # ``.contiguous()`` after every advanced-index slice: the
             # ``.contiguous()`` on pred_det/gt_det above does not survive
             # ``[..., xyzg]``, and torchmetrics' MSE calls ``.view()``
             # internally, which raises "view size is not compatible with input
             # tensor's size and stride" on a non-contiguous tensor.
-            pred_slice = pred_det[..., xyzg].contiguous()
-            gt_slice = gt_det[..., xyzg].contiguous()
+            pred_slice = pred_det.contiguous()
+            gt_slice = gt_det.contiguous()
 
             metrics[f"Valid/{pred_key}_detok_paired_mse_avg"] = mse(
                 pred_slice, gt_slice
@@ -224,15 +214,20 @@ class ArcTokEvalVideo(HPTEvalVideo):
             metrics[f"Valid/{pred_key}_detok_final_mse_avg"] = mse(
                 pred_slice[:, -1].contiguous(), gt_slice[:, -1].contiguous()
             )
-            # After the ``xyzg`` slice above, the 8 columns are laid out
-            # as ``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]``. Splitting
-            # into xyz vs gripper lets us tell a "position drift" story
-            # apart from a "gripper-timing" story in wandb.
-            xyz_slots = [0, 1, 2, 4, 5, 6]
-            grip_slots = [3, 7]
+            # Canonical 14-dim layout: [L xyz(0:3), L ypr(3:6), L grip(6),
+            # R xyz(7:10), R ypr(10:13), R grip(13)]. Splitting lets us
+            # tell "position drift" apart from "orientation drift" apart
+            # from "gripper-timing" in wandb.
+            xyz_slots = [0, 1, 2, 7, 8, 9]
+            ypr_slots = [3, 4, 5, 10, 11, 12]
+            grip_slots = [6, 13]
             metrics[f"Valid/{pred_key}_detok_xyz_mse_avg"] = mse(
                 pred_slice[..., xyz_slots].contiguous(),
                 gt_slice[..., xyz_slots].contiguous(),
+            )
+            metrics[f"Valid/{pred_key}_detok_ypr_mse_avg"] = mse(
+                pred_slice[..., ypr_slots].contiguous(),
+                gt_slice[..., ypr_slots].contiguous(),
             )
             metrics[f"Valid/{pred_key}_detok_gripper_mse_avg"] = mse(
                 pred_slice[..., grip_slots].contiguous(),

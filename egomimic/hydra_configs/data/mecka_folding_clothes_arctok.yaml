@@ -6,7 +6,7 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 #     total to 625 episodes → 500 train / 125 valid (deterministic under
 #     SEED-shuffled split_dataset_names).
 # stride=1 (mecka native 30 fps; no downsample). Uses arc_tokenizer_cartesian
-# which already appends PadGripperZeros → 14-dim base then (M+1, 8) tokens.
+# which already appends PadGripperZeros → 14-dim base then (M+1, 14) tokens.
 train_datasets:
   human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver

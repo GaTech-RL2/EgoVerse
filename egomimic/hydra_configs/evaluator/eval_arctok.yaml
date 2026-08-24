@@ -19,12 +19,13 @@ viz_func:
 
 # Val-video eval for arc-tokenized action policies.
 #
-# Model output shape: (B, M+1, 8). Before viz, the class detokenizes both
-# prediction and GT into (B, H, 14) time-parameterized chunks (with zero
-# rotation columns) so the canonical _viz_traj → draw_dot_on_frame path
-# runs unchanged. The reconstruction uses the model-predicted velocity
-# token to derive per-arm duration, so val videos are the same trajectory
-# an open-loop rollout would send to the controller.
+# Model output shape: (B, M+1, 14). Before viz, the class detokenizes both
+# prediction and GT into (B, H, 14) time-parameterized chunks (full canonical
+# layout with xyz + ypr + grip per arm; rotation unconditionally supervised)
+# so the canonical _viz_traj → draw_dot_on_frame path runs unchanged. The
+# reconstruction uses the model-predicted velocity token's xyz slots to
+# derive per-arm duration, so val videos are the same trajectory an open-loop
+# rollout would send to the controller.
 #
 # The three arc knobs (min_distance_unit, resampled_vector_length, dt)
 # MUST match the values the data pipeline used to produce the training
@@ -37,7 +38,7 @@ _target_: egomimic.eval.eval_arctok.ArcTokEvalVideo
 # fold_clothes sweep's mid-range.
 min_distance_unit: 0.60
 
-# M = number of waypoints per token. Model output must be (M+1, 8).
+# M = number of waypoints per token. Model output must be (M+1, 14).
 resampled_vector_length: 20
 
 # H = number of control-period steps to reconstruct per sample for the
