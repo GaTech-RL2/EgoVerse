@@ -944,7 +944,11 @@ class MultiDataset(torch.utils.data.Dataset):
             if isinstance(dataset, MultiDataset):
                 return data
 
-            violation = self._check_bounds(data, dataset, local_idx, dataset_name)
+            violation = (
+                self._check_bounds(data, dataset, local_idx, dataset_name)
+                if self.bounds_check
+                else None
+            )
             if violation is not None:
                 next_idx, attempts = self._next_after_failure(
                     idx,
