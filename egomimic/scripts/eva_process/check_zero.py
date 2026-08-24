@@ -34,6 +34,9 @@ def main(cfg: DictConfig) -> None:
     norm_stats_obj = MultiDataset(
         state={},
         norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
+        reduce_all_but_last=bool(
+            OmegaConf.select(cfg, "norm_stats.reduce_all_but_last", default=False)
+        ),
     )
     norm_stats_obj.populate_from_datasets(train_datasets)
 
