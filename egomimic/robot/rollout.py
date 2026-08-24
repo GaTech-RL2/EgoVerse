@@ -180,6 +180,29 @@ def _confirm_cartesian_action(kp, confirmations) -> bool:
             print("Please enter y/yes or n/no.")
 
 
+def _run_intervention_loop(
+    enter_intervention,
+    restart_rollout,
+    *,
+    ensure_reset_before_continue=False,
+):
+    """Keep restarts paused and require an explicit continue before returning."""
+    reset_performed = False
+    while True:
+        result = enter_intervention()
+        if result == "restart":
+            restart_rollout()
+            reset_performed = True
+            continue
+        if (
+            result == "continue"
+            and ensure_reset_before_continue
+            and not reset_performed
+        ):
+            restart_rollout()
+        return result
+
+
 class Rollout(ABC):
     def __init__(self):
         pass
@@ -483,13 +506,19 @@ def main(
                 else:
                     print(f"Unknown command: '{cmd}'. Use c / a <path> / r / q.")
 
-    def _intervene_until_continue(kp, policy, rollout_type):
+    def _intervene_until_continue(
+        kp,
+        policy,
+        rollout_type,
+        *,
+        ensure_reset_before_continue=False,
+    ):
         """Remain paused across any number of restarts until continue or quit."""
-        while True:
-            result = _enter_intervention(kp, policy, rollout_type)
-            if result != "restart":
-                return result
-            reset_rollout(ri, policy)
+        return _run_intervention_loop(
+            lambda: _enter_intervention(kp, policy, rollout_type),
+            lambda: reset_rollout(ri, policy),
+            ensure_reset_before_continue=ensure_reset_before_continue,
+        )
 
     try:
         with _KeyPoll() as kp:
@@ -498,11 +527,15 @@ def main(
                 "[robot] Controllers are initialized without homing. "
                 "Continuing authorizes homing and shadow inference."
             )
-            result = _enter_intervention(kp, policy, rollout_type)
+            result = _intervene_until_continue(
+                kp,
+                policy,
+                rollout_type,
+                ensure_reset_before_continue=True,
+            )
             if result == "quit":
                 print("Quit requested.")
                 return
-            reset_rollout(ri, policy)
             if rollout_type == "policy":
                 warmup_policy(ri, policy, arms, arms_list, cartesian)
 
@@ -533,10 +566,14 @@ def main(
 
                         if actions is None:
                             print("Finish rollout.")
-                            result = _enter_intervention(kp, policy, rollout_type)
+                            result = _intervene_until_continue(
+                                kp,
+                                policy,
+                                rollout_type,
+                                ensure_reset_before_continue=True,
+                            )
                             if result == "quit":
                                 return
-                            reset_rollout(ri, policy)
                             break
 
                         authorization = authorize_rollout_action(

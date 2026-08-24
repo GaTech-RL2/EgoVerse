@@ -348,6 +348,33 @@ def test_replay_cursor_survives_continue_and_resets_only_with_home():
     np.testing.assert_array_equal(replay.rollout_step(999), replay.actions[0])
 
 
+def test_restart_intervention_stays_paused_until_explicit_continue():
+    commands = iter(["restart", "restart", "continue"])
+    events = []
+
+    result = rollout._run_intervention_loop(
+        lambda: events.append("prompt") or next(commands),
+        lambda: events.append("reset"),
+        ensure_reset_before_continue=True,
+    )
+
+    assert result == "continue"
+    assert events == ["prompt", "reset", "prompt", "reset", "prompt"]
+
+
+def test_start_or_finished_continue_resets_once_before_motion():
+    events = []
+
+    result = rollout._run_intervention_loop(
+        lambda: events.append("prompt") or "continue",
+        lambda: events.append("reset"),
+        ensure_reset_before_continue=True,
+    )
+
+    assert result == "continue"
+    assert events == ["prompt", "reset"]
+
+
 def test_confirmation_accepts_yes_and_reprompts_invalid_input(monkeypatch, capsys):
     terminal_events = []
     responses = iter(["maybe", "yes"])
