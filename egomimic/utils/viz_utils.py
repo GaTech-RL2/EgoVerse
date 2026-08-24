@@ -3,8 +3,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from egomimic.utils.pose_utils import cam_frame_to_cam_pixels
-from egomimic.utils.pose_utils import _split_action_pose, _split_keypoints
+from egomimic.utils.pose_utils import (
+    _split_action_pose,
+    _split_keypoints,
+    cam_frame_to_cam_pixels,
+    ee_pose_to_cam_frame,
+    get_vector_from_yaw_pitch,
+)
 
 
 class ColorPalette:
@@ -311,9 +316,7 @@ def _split_hand_keypoint_chunks(actions):
     elif actions.shape[-1] == 126:
         left, right = actions[..., :63], actions[..., 63:]
     else:
-        raise ValueError(
-            f"Unsupported keypoint action width {actions.shape[-1]}"
-        )
+        raise ValueError(f"Unsupported keypoint action width {actions.shape[-1]}")
     return {
         "left": np.asarray(left).reshape(-1, 21, 3),
         "right": np.asarray(right).reshape(-1, 21, 3),
@@ -379,9 +382,7 @@ def _viz_keypoint_traj(
             if len(points_pixels) and valid[0]:
                 start = _safe_cv_point(points_pixels[0])
                 cv2.circle(rendered, start, 5, path_color, -1, lineType=cv2.LINE_AA)
-                cv2.circle(
-                    rendered, start, 5, (255, 255, 255), 1, lineType=cv2.LINE_AA
-                )
+                cv2.circle(rendered, start, 5, (255, 255, 255), 1, lineType=cv2.LINE_AA)
             if len(points_pixels) and valid[-1]:
                 end_x, end_y = _safe_cv_point(points_pixels[-1])
                 triangle = np.asarray(
@@ -392,9 +393,7 @@ def _viz_keypoint_traj(
                     ],
                     dtype=np.int32,
                 )
-                cv2.fillConvexPoly(
-                    rendered, triangle, path_color, lineType=cv2.LINE_AA
-                )
+                cv2.fillConvexPoly(rendered, triangle, path_color, lineType=cv2.LINE_AA)
                 cv2.polylines(
                     rendered,
                     [triangle],
@@ -562,10 +561,9 @@ def _viz_annotations(image, annotations: list[str], **kwargs):
 def save_image(image: np.ndarray, path: str) -> None:
     cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
-from egomimic.utils.pose_utils import ee_pose_to_cam_frame, get_vector_from_yaw_pitch
-
 
 # ---- moved from egomimicUtils.py (code unchanged) ----
+
 
 def draw_actions(
     im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None
@@ -618,6 +616,7 @@ def draw_actions(
 
     return im
 
+
 def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=5):
     """
     frame: (H, W, C) numpy array
@@ -650,6 +649,7 @@ def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=
             plt.show()
 
     return frame
+
 
 def get_gaze_endpoint(yaw_rads, pitch_rads, depth, T_cam_cpf):
     """

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import Literal
 
 import numpy as np
@@ -26,7 +25,6 @@ from egomimic.utils.viz_utils import (
     _viz_keypoint_traj,
     _viz_keypoints,
 )
-
 
 ARIA_INTRINSICS = np.array(
     [
@@ -81,14 +79,32 @@ ARIA_T_RGB_CPF = np.array(
 # Aria's raw 21-keypoint layout (0-4 fingertips, 5 palm root) — NOT MANO. Used
 # only for the opt-in raw-Aria-keypoint viz; the canonical keypoints are MANO.
 ARIA_FINGER_EDGES = [
-    (5, 6), (6, 7), (7, 0),                # thumb
-    (5, 8), (8, 9), (9, 10), (10, 1),      # index
-    (5, 11), (11, 12), (12, 13), (13, 2),  # middle
-    (5, 14), (14, 15), (15, 16), (16, 3),  # ring
-    (5, 17), (17, 18), (18, 19), (19, 4),  # pinky
+    (5, 6),
+    (6, 7),
+    (7, 0),  # thumb
+    (5, 8),
+    (8, 9),
+    (9, 10),
+    (10, 1),  # index
+    (5, 11),
+    (11, 12),
+    (12, 13),
+    (13, 2),  # middle
+    (5, 14),
+    (14, 15),
+    (15, 16),
+    (16, 3),  # ring
+    (5, 17),
+    (17, 18),
+    (18, 19),
+    (19, 4),  # pinky
 ]
 ARIA_FINGER_EDGE_RANGES = [
-    ("thumb", 0, 3), ("index", 3, 7), ("middle", 7, 11), ("ring", 11, 15), ("pinky", 15, 19),
+    ("thumb", 0, 3),
+    ("index", 3, 7),
+    ("middle", 7, 11),
+    ("ring", 11, 15),
+    ("pinky", 15, 19),
 ]
 MANO_TRAJECTORY_LANDMARKS = [
     ("wrist", 0),
@@ -120,6 +136,7 @@ class Human(Embodiment):
     zarr.json); ``cls.INTRINSICS`` is only a fallback for legacy episodes that
     lack them. The canonical keypoints are MANO for every vendor.
     """
+
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
     # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
@@ -128,11 +145,26 @@ class Human(Embodiment):
     T_RGB_CPF = ARIA_T_RGB_CPF  # for the opt-in aria gaze viz
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
-        (0, 5), (5, 6), (6, 7), (7, 8),         # index
-        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
-        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
-        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),  # thumb
+        (0, 5),
+        (5, 6),
+        (6, 7),
+        (7, 8),  # index
+        (0, 9),
+        (9, 10),
+        (10, 11),
+        (11, 12),  # middle
+        (0, 13),
+        (13, 14),
+        (14, 15),
+        (15, 16),  # ring
+        (0, 17),
+        (17, 18),
+        (18, 19),
+        (19, 20),  # pinky
     ]
     FINGER_COLORS = {
         "thumb": (255, 100, 100),
@@ -380,9 +412,9 @@ class Human(Embodiment):
         if mode == "cartesian":
             return _build_human_cartesian_bimanual_transform_list(stride=stride)
         if mode == "cartesian_padded":
-            return _build_human_cartesian_bimanual_transform_list(
-                stride=stride
-            ) + [PadGripperZeros(action_key="actions_cartesian")]
+            return _build_human_cartesian_bimanual_transform_list(stride=stride) + [
+                PadGripperZeros(action_key="actions_cartesian")
+            ]
         if mode == "cartesian_wristframe_ypr":
             return _build_human_cartesian_eef_frame_transform_list(stride=stride)
         if mode == "keypoints_headframe_ypr":
@@ -1208,6 +1240,4 @@ def build_fold_keypoint_wristframe_revert_transform_list(
         build_bimanual_keypoint_wrist_revert_transforms,
     )
 
-    return build_bimanual_keypoint_wrist_revert_transforms(
-        action_key, wrist_pose_key
-    )
+    return build_bimanual_keypoint_wrist_revert_transforms(action_key, wrist_pose_key)

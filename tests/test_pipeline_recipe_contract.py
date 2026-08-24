@@ -6,7 +6,6 @@ from hydra.core.global_hydra import GlobalHydra
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.pushshapes import get_keymap_hpt
 
-
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 
 
@@ -50,10 +49,7 @@ def test_pusht_recipe_keeps_horizon_16_and_matching_optimizer_recipe():
     assert sampler.num_inference_steps == 16
     assert dict(sampler.sampling_schedule[2001]) == {2: 0.8, 4: 0.15, 8: 0.05}
     assert cfg.data.train_dataloader_params.pushshapes_sim.batch_size == 16
-    assert (
-        cfg.data.train_dataloader_params.pushshapes_sim_small_circle.batch_size
-        == 16
-    )
+    assert cfg.data.train_dataloader_params.pushshapes_sim_small_circle.batch_size == 16
 
 
 def test_pusht_dataset_schema_is_registered_and_leak_free():

@@ -695,9 +695,7 @@ class CrossTransformer(nn.Module):
     ):
         super().__init__()
         if time_conditioning not in {"concat", "additive"}:
-            raise ValueError(
-                "time_conditioning must be either 'concat' or 'additive'"
-            )
+            raise ValueError("time_conditioning must be either 'concat' or 'additive'")
         if time_conditioning == "concat" and hidden_dim % 2:
             raise ValueError("concat time conditioning requires an even hidden_dim")
         self.time_conditioning = time_conditioning

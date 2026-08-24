@@ -1,7 +1,7 @@
 """Pipeline-native nodes for the rank-safe end-to-end latent sampler."""
 
-from fractions import Fraction
 import math
+from fractions import Fraction
 from typing import Dict, List
 
 import torch
