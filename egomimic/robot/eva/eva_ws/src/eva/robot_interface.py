@@ -124,7 +124,7 @@ class Robot_Interface(ABC):
 
 
 class ARXInterface(Robot_Interface):
-    MAX_TRANSLATION_STEP_M = 0.08
+    MAX_TRANSLATION_STEP_M = None
     HARD_MAX_TRANSLATION_STEP_M = 0.15
     MAX_ROTATION_STEP_RAD = None
 

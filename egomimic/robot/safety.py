@@ -73,7 +73,7 @@ def validate_cartesian_command(
     command,
     current_pose,
     *,
-    max_translation_step_m: float,
+    max_translation_step_m: float | None,
     max_rotation_step_rad: float | None,
     hard_max_translation_step_m: float | None = None,
     allow_soft_translation_jump: bool = False,
@@ -81,10 +81,15 @@ def validate_cartesian_command(
     command = validate_action_vector(command, 7)
     current_pose = validate_action_vector(current_pose, 7)
     validate_gripper(command[6])
-    if max_translation_step_m <= 0.0:
+    if max_translation_step_m is not None and max_translation_step_m <= 0.0:
         raise ValueError("Cartesian translation limit must be positive")
     if hard_max_translation_step_m is not None:
-        if hard_max_translation_step_m <= max_translation_step_m:
+        if hard_max_translation_step_m <= 0.0:
+            raise ValueError("Hard Cartesian translation limit must be positive")
+        if (
+            max_translation_step_m is not None
+            and hard_max_translation_step_m <= max_translation_step_m
+        ):
             raise ValueError(
                 "Hard Cartesian translation limit must exceed the automatic limit"
             )
@@ -99,6 +104,7 @@ def validate_cartesian_command(
         )
     if (
         hard_max_translation_step_m is None
+        and max_translation_step_m is not None
         and translation_step > max_translation_step_m
     ):
         raise ValueError(
@@ -116,6 +122,7 @@ def validate_cartesian_command(
             )
     if (
         hard_max_translation_step_m is not None
+        and max_translation_step_m is not None
         and translation_step > max_translation_step_m
         and not allow_soft_translation_jump
     ):

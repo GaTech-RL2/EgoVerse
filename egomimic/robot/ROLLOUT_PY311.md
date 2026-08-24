@@ -118,17 +118,12 @@ whose output is validated but never sent to the motors.
 Every command then passes application-level checks before the ARX controller:
 exact action shape, finite values, normalized gripper range, configured joint
 limits, a joint delta bounded by the controller's 200 ms preview window, an
-8 cm automatic Cartesian translation bound, a non-overridable 15 cm hard
-translation bound. The live per-step Cartesian rotation-jump gate is currently
-disabled; finite-value, IK, and joint checks remain active. A finite translation
-strictly above 8 cm but below 15 cm pauses before either arm is commanded and
-requires `y`/`yes` to authorize that one action vector. Rejecting it clears the
-queued policy plan and enters the intervention menu; continuing replans from a
-fresh observation. A translation at or above 15 cm remains a hard error and is
-never offered for confirmation. Any exception or normal exit commands the
-measured joint state and stops camera recorders. These are fail-closed rollout
-guards, not replacements for attended hardware testing or the controller's
-internal limits.
+non-overridable 15 cm hard translation bound. The live soft translation prompt
+and per-step Cartesian rotation-jump gate are currently disabled; finite-value,
+IK, and joint checks remain active. A translation at or above 15 cm remains a
+hard error. Any exception or normal exit commands the measured joint state and
+stops camera recorders. These are fail-closed rollout guards, not replacements
+for attended hardware testing or the controller's internal limits.
 
 Quantile unnormalization can produce finite decoded gripper values outside the
 robot-facing normalized range, including the saved right-gripper lower quantile

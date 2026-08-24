@@ -154,19 +154,16 @@ def test_cartesian_confirmation_never_bypasses_other_hard_checks():
         )
 
 
-def test_live_pose_validation_requires_one_shot_soft_jump_override():
+def test_live_pose_validation_uses_only_hard_translation_limit():
     interface = ARXInterface.__new__(ARXInterface)
     interface.get_pose_6d = lambda arm: np.zeros(6)
     interface.get_joints = lambda arm: np.asarray([0, 0, 0, 0, 0, 0, 0.5])
     command = np.asarray([0.09, 0, 0, 0, 0, 0, 0.5])
 
-    with pytest.raises(CartesianTranslationConfirmationRequired):
-        interface.validate_pose_command(command, "right")
-    interface.validate_pose_command(
-        command,
-        "right",
-        allow_soft_translation_jump=True,
-    )
+    interface.validate_pose_command(command, "right")
+
+    command[0] = np.nextafter(0.15, 0.0)
+    interface.validate_pose_command(command, "right")
 
     command[0] = 0.0
     command[3] = 1.0
@@ -178,7 +175,6 @@ def test_live_pose_validation_requires_one_shot_soft_jump_override():
         interface.validate_pose_command(
             command,
             "right",
-            allow_soft_translation_jump=True,
         )
 
 
