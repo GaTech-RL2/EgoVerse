@@ -4,7 +4,7 @@ defaults:
   - override /model: bf/bf_pipeline_sampler_robot_bc
   - override /data: fold_robot_normal_bc
   - override /logger: wandb
-  - override /evaluator: eval_rh_fold_viz_kp
+  - override /evaluator: eval_fold_robot_viz
 
 name: fold_robot_dense_bc
 description: pipeline_sampler_robot_bc_robot_only_cartesian_h100
