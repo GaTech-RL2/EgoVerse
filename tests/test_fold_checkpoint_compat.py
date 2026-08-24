@@ -39,6 +39,8 @@ def _legacy_model_config():
             {
                 "_target_": "egomimic.pipeline.stages_flow.DiffusionHead",
                 "chunk_len": 100,
+                "num_train_timesteps": 100,
+                "num_inference_steps": 100,
                 "denoiser": "single",
                 "moe_experts": 0,
             },
@@ -117,6 +119,7 @@ def test_fold_migration_is_stripped_idempotent_and_remaps_ids(
         hyper_parameters["config_tree"], resolve=True
     )["model"]["robomimic_model"]
     assert migrated_model["action_horizon"] == 100
+    assert migrated_model["stages"][5]["num_inference_steps"] == 100
     assert (
         tuple(stage["_target_"] for stage in migrated_model["stages"])
         == compat._COMPAT_TARGETS
@@ -166,6 +169,128 @@ def test_fold_compat_head_refuses_architecture_guessing():
             denoiser="single",
             action_dims={"eva_bimanual": 20},
         )
+
+
+def test_fold_live_sampler_override_preserves_strict_checkpoint_state():
+    head = compat.DiffusionHead(
+        d_a=4,
+        d_s=2,
+        action_dim=3,
+        chunk_len=100,
+        num_train_timesteps=100,
+        num_inference_steps=100,
+        d_model_a=8,
+        n_layers=1,
+        n_heads=2,
+        denoiser="single",
+    )
+    frozen_state = head.state_dict()
+    assert frozen_state["inf_levels"].shape == (100,)
+    assert "_rollout_inf_levels" not in frozen_state
+
+    clone = compat.DiffusionHead(
+        d_a=4,
+        d_s=2,
+        action_dim=3,
+        chunk_len=100,
+        num_train_timesteps=100,
+        num_inference_steps=100,
+        d_model_a=8,
+        n_layers=1,
+        n_heads=2,
+        denoiser="single",
+    )
+    clone.load_state_dict(frozen_state, strict=True)
+    configured = compat.configure_frozen_fold_live_sampling([clone], 100)
+
+    assert configured is clone
+    assert clone.S == 100
+    assert clone.C == 100
+    assert clone.active_num_inference_steps == 16
+    assert clone._rollout_inf_levels.tolist() == [
+        99,
+        92,
+        86,
+        79,
+        73,
+        66,
+        59,
+        53,
+        46,
+        40,
+        33,
+        26,
+        20,
+        13,
+        7,
+        0,
+    ]
+    assert clone.state_dict()["inf_levels"].shape == (100,)
+    assert "_rollout_inf_levels" not in clone.state_dict()
+
+
+@pytest.mark.parametrize("steps", [0, -1, 101])
+def test_fold_live_sampler_rejects_invalid_step_counts_without_mutation(steps):
+    head = compat.DiffusionHead(
+        d_a=4,
+        d_s=2,
+        action_dim=3,
+        chunk_len=5,
+        num_train_timesteps=100,
+        num_inference_steps=100,
+        d_model_a=8,
+        n_layers=1,
+        n_heads=2,
+        denoiser="single",
+    )
+    head.set_rollout_inference_steps(16)
+    previous = head._rollout_inf_levels.clone()
+    with pytest.raises(ValueError, match="must be in"):
+        head.set_rollout_inference_steps(steps)
+    torch.testing.assert_close(head._rollout_inf_levels, previous)
+
+
+def test_fold_live_sampler_executes_only_the_active_levels():
+    class CountingDenoiser(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def forward(self, noisy_action, timestep, *unused):
+            self.calls += 1
+            return torch.zeros_like(noisy_action), None, None
+
+    head = compat.DiffusionHead(
+        d_a=4,
+        d_s=2,
+        action_dim=3,
+        chunk_len=100,
+        num_train_timesteps=100,
+        num_inference_steps=100,
+        d_model_a=8,
+        n_layers=1,
+        n_heads=2,
+        denoiser="single",
+    ).eval()
+    denoiser = CountingDenoiser()
+    head.net = denoiser
+    head.set_rollout_inference_steps(16)
+    batch = {
+        "a_top": torch.zeros(1, 4),
+        "s": torch.zeros(1, 2),
+        "embodiment": "shared",
+        "rollout_t": 0,
+    }
+    output = head(batch)
+
+    assert denoiser.calls == 16
+    assert output["pred_action"].shape == (1, 100, 3)
+    assert torch.isfinite(output["pred_action"]).all()
+
+
+def test_fold_live_sampler_is_a_noop_for_native_pipeline_stages():
+    marker = object()
+    assert compat.configure_frozen_fold_live_sampling([marker], 100) is None
 
 
 def test_compat_loss_is_explicitly_train_only_for_rollout_planning():

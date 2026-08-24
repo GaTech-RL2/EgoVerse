@@ -56,13 +56,21 @@ across container recreation without being copied into the Docker image. Set
 `EVA_CHECKPOINT_DIR` only when that host directory intentionally lives outside
 the repository.
 
-The saved policy uses a 100-step DDIM sampling schedule and emits a 100-action
-chunk. The rollout artifact passed strict loading of all 335,564,596 model
-parameters on CUDA and a no-hardware synthetic observation-to-command shadow
-test. That test produced a finite `(100, 20)` normalized action chunk and a
-finite 14-D decoded EVA command in 0.667 seconds; it did not initialize or
-command the robot. Shape and finiteness alone do not validate the pose-frame
-contract, so the maintained tests also exercise a nontrivial two-arm
+The checkpoint records a 100-step DDIM schedule and emits a 100-action chunk.
+The rollout path strict-loads that original persistent schedule and all
+335,564,596 model parameters, then installs a nonpersistent 16-step schedule
+on the exact frozen Fold compatibility head. The checkpoint and 100-action
+horizon remain unchanged. On Bonjour's RTX 4090, a no-hardware warm benchmark
+measured median query times of 0.535 seconds at 100 steps and 0.0978 seconds at
+16 steps, a 5.48x speedup. The 16-step query is still longer than one 33 ms
+control period, so synchronous replanning can still cause a smaller periodic
+rate dip; uninterrupted 30 Hz control requires a separate asynchronous design.
+
+The artifact passed strict CUDA loading and a no-hardware synthetic
+observation-to-command shadow test, producing a finite `(100, 20)` normalized
+action chunk and finite 14-D decoded EVA command without initializing the
+robot. Shape and finiteness alone do not validate the pose-frame contract, so
+the maintained tests also exercise a nontrivial two-arm
 hardware-to-training-to-hardware round trip. Run it from inside the live
 container with:
 
@@ -76,7 +84,9 @@ python -m egomimic.robot.rollout \
 
 Do not pass `--resampled-action-len`; this checkpoint already has its trained
 100-action chunk. The shadow gate proves software compatibility and finite
-decoding only; it is not a physical-motion safety acceptance.
+decoding only; it is not a physical-motion safety acceptance. Reducing DDIM
+steps changes the sampling trajectory, so the first 16-step deployment still
+requires an attended behavior check with the physical E-stop available.
 
 ## EVA pose-frame contract
 

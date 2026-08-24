@@ -33,6 +33,7 @@ from egomimic.pipeline import packed
 from egomimic.pipeline.core import Stage
 
 COMPAT_VERSION = "fold-dn-single-cart-20260821-v1"
+FROZEN_FOLD_LIVE_INFERENCE_STEPS = 16
 # Canonical JSON SHA256 of model.robomimic_model in both the epoch-3
 # checkpoint and its complete .hydra/config.yaml (including both loss domains).
 LEGACY_FOLD_MODEL_SHA256 = (
@@ -744,6 +745,9 @@ class DiffusionHead(Stage):
             "inf_levels",
             torch.linspace(self.N - 1, 0, self.S).round().long(),
         )
+        # Keep the checkpoint's 100-level buffer intact for strict loading.
+        # Live rollout may install a shorter, nonpersistent schedule afterward.
+        self.register_buffer("_rollout_inf_levels", None, persistent=False)
         self.denoiser_kind = str(denoiser)
         names = [str(value) for value in embodiments] if embodiments else ["shared"]
         self.Dmap = {name: self.D for name in names}
@@ -766,6 +770,30 @@ class DiffusionHead(Stage):
 
     def _D(self, embodiment) -> int:
         return self.Dmap.get(str(embodiment), self.D)
+
+    @property
+    def active_num_inference_steps(self) -> int:
+        levels = self._rollout_inf_levels
+        return int(self.inf_levels.numel() if levels is None else levels.numel())
+
+    def set_rollout_inference_steps(self, steps: int) -> None:
+        """Install an ephemeral DDIM schedule without changing checkpoint state."""
+
+        steps = int(steps)
+        if not 1 <= steps <= self.N:
+            raise ValueError(
+                f"Rollout inference steps must be in [1, {self.N}], got {steps}"
+            )
+        self._rollout_inf_levels = (
+            torch.linspace(
+                self.N - 1,
+                0,
+                steps,
+                device=self.abar.device,
+            )
+            .round()
+            .long()
+        )
 
     def forward(self, batch: dict) -> dict:
         a_top = batch["a_top"]
@@ -815,14 +843,14 @@ class DiffusionHead(Stage):
                     device=a_top.device,
                     dtype=a_top.dtype,
                 )
-                for index in range(self.S):
-                    level = int(self.inf_levels[index])
-                    timestep = torch.full(
-                        (selected_total,),
-                        float(level),
-                        device=sample.device,
-                        dtype=sample.dtype,
-                    )
+                levels = (
+                    self._rollout_inf_levels
+                    if self._rollout_inf_levels is not None
+                    else self.inf_levels
+                )
+                for index in range(levels.numel()):
+                    level = levels[index]
+                    timestep = level.to(dtype=sample.dtype).expand(selected_total)
                     prediction, _, _ = self.net(
                         sample,
                         timestep,
@@ -833,8 +861,8 @@ class DiffusionHead(Stage):
                     alpha = self.abar[level]
                     estimate = (sample - (1 - alpha).sqrt() * prediction) / alpha.sqrt()
                     estimate = estimate.clamp(-1.0, 1.0)
-                    if index + 1 < self.S:
-                        next_alpha = self.abar[int(self.inf_levels[index + 1])]
+                    if index + 1 < levels.numel():
+                        next_alpha = self.abar[levels[index + 1]]
                         sample = (
                             next_alpha.sqrt() * estimate
                             + (1 - next_alpha).sqrt() * prediction
@@ -854,6 +882,33 @@ class DiffusionHead(Stage):
                     sample = output
                 batch["pred_action"] = sample
         return batch
+
+
+def configure_frozen_fold_live_sampling(stages, action_horizon: int):
+    """Apply the verified live sampler override to the exact frozen Fold head."""
+
+    heads = [stage for stage in stages if type(stage) is DiffusionHead]
+    if not heads:
+        return None
+    if len(heads) != 1:
+        raise ValueError(
+            f"Frozen Fold rollout expected one compatibility head, got {len(heads)}"
+        )
+    head = heads[0]
+    contract = (head.C, head.N, head.S, int(action_horizon))
+    if contract != (100, 100, 100, 100):
+        raise ValueError(
+            "Frozen Fold live sampler expected "
+            "(chunk_len, train_steps, saved_inference_steps, action_horizon)="
+            f"(100, 100, 100, 100), got {contract}"
+        )
+    head.set_rollout_inference_steps(FROZEN_FOLD_LIVE_INFERENCE_STEPS)
+    print(
+        "[rollout] Frozen Fold DDIM: "
+        f"saved_steps={head.S}, live_steps={head.active_num_inference_steps}, "
+        f"action_horizon={action_horizon}"
+    )
+    return head
 
 
 class MaskedActionLoss(Stage):

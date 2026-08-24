@@ -85,6 +85,14 @@ class PipelineAlgo(Algo):
         return self.nets["policy"]
 
     def create_rollout_policy(self, config):
+        from egomimic.pipeline.checkpoint_compat import (
+            configure_frozen_fold_live_sampling,
+        )
+
+        configure_frozen_fold_live_sampling(
+            self.policy.stages,
+            self.action_horizon,
+        )
         return Policy(self, config)
 
     def _resolve_keys(self) -> None:
