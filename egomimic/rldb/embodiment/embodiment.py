@@ -33,12 +33,14 @@ class EMBODIMENT(Enum):
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
 
 
-def _intrinsics_from_batch(batch, i: int):
-    """Return per-sample intrinsics from batch, or None if missing/NaN sentinel."""
-    K = batch.get("intrinsics") if isinstance(batch, dict) else None
+def _intrinsics_from_batch(batch, i: int, batch_key: str = "intrinsics"):
+    """Return per-sample intrinsics from ``batch_key``, or None when unavailable."""
+    K = batch.get(batch_key) if isinstance(batch, dict) else None
     if K is None:
         return None
-    K_i = K[i]
+    if not hasattr(K, "ndim"):
+        K = np.asarray(K)
+    K_i = K if K.ndim == 2 else K[i]
     if isinstance(K_i, torch.Tensor):
         if torch.isnan(K_i).any():
             return None
@@ -181,6 +183,7 @@ class Embodiment(ABC):
         mode=Literal["traj", "traj+rotation", "axes", "keypoints"],
         gt_alpha=1.0,
         pred_alpha=0.7,
+        intrinsics_batch_key=None,
         **kwargs,
     ):
         embodiment_id = batch["embodiment"][0].item()
@@ -200,7 +203,12 @@ class Embodiment(ABC):
             image = images[i]
             action = actions[i]
             pred_action = pred_actions[i]
-            K_i = _intrinsics_from_batch(batch, i)
+            intrinsics_key = intrinsics_batch_key or "intrinsics"
+            K_i = _intrinsics_from_batch(batch, i, intrinsics_key)
+            if intrinsics_batch_key is not None and K_i is None:
+                raise ValueError(
+                    f"Missing valid per-sample intrinsics in {intrinsics_batch_key!r}"
+                )
             ims = cls.viz(
                 image, action, mode=mode, color="Greens", alpha=gt_alpha,
                 intrinsics=K_i, **kwargs

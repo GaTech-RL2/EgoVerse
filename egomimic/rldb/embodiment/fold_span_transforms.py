@@ -16,6 +16,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     NumpyToTensor,
     Transform,
 )
+from egomimic.utils.pose_utils import base_frame_to_cam_frame
 
 ACTION_HORIZON = 100
 N_OBS_STEPS = 2
@@ -370,6 +371,75 @@ def build_bimanual_rot6d_wrist_revert_transforms(action_key="actions_cartesian",
         ActionChunkCoordinateFrameTransform("left.current_pose", "left.action_pose", "left.action_parent", mode="xyzypr", inverse=False),
         ActionChunkCoordinateFrameTransform("right.current_pose", "right.action_pose", "right.action_parent", mode="xyzypr", inverse=False),
         ConcatKeys(["left.action_parent", "left.action_grip", "right.action_parent", "right.action_grip"], action_key, delete_old_keys=True),
+    ]
+
+
+class BimanualCartesianBaseToCamera(Transform):
+    """Convert each arm's base-frame Cartesian chunk into the front-camera frame."""
+
+    def __init__(
+        self,
+        action_key="actions_cartesian",
+        left_extrinsics_key="left_camera_extrinsics",
+        right_extrinsics_key="right_camera_extrinsics",
+    ):
+        self.action_key = action_key
+        self.left_extrinsics_key = left_extrinsics_key
+        self.right_extrinsics_key = right_extrinsics_key
+
+    def transform(self, batch):
+        actions = np.asarray(batch[self.action_key])
+        if actions.shape[-1] != 14:
+            raise ValueError(
+                f"{self.action_key!r} must use [left xyz+ypr+grip, "
+                f"right xyz+ypr+grip], got width {actions.shape[-1]}"
+            )
+
+        leading_shape = actions.shape[:-1]
+        left = actions[..., :6].reshape(-1, 6)
+        right = actions[..., 7:13].reshape(-1, 6)
+        left_extrinsics = np.asarray(batch[self.left_extrinsics_key])
+        right_extrinsics = np.asarray(batch[self.right_extrinsics_key])
+        if left_extrinsics.shape != (4, 4) or right_extrinsics.shape != (4, 4):
+            raise ValueError("Robot camera extrinsics must each have shape (4, 4)")
+        if not (
+            np.isfinite(left_extrinsics).all()
+            and np.isfinite(right_extrinsics).all()
+        ):
+            raise ValueError("Robot camera extrinsics must be finite")
+
+        left_camera = base_frame_to_cam_frame(left, left_extrinsics).reshape(
+            *leading_shape, 6
+        )
+        right_camera = base_frame_to_cam_frame(right, right_extrinsics).reshape(
+            *leading_shape, 6
+        )
+        batch[self.action_key] = np.concatenate(
+            (
+                left_camera,
+                actions[..., 6:7],
+                right_camera,
+                actions[..., 13:14],
+            ),
+            axis=-1,
+        ).astype(actions.dtype, copy=False)
+        return batch
+
+
+def build_eva_rot6d_wrist_to_camera_transforms(
+    action_key="actions_cartesian",
+    state_key="state_ee_pose",
+    left_extrinsics_key="left_camera_extrinsics",
+    right_extrinsics_key="right_camera_extrinsics",
+):
+    """Recompose wrist-relative actions in robot base, then map base to camera."""
+    return [
+        *build_bimanual_rot6d_wrist_revert_transforms(action_key, state_key),
+        BimanualCartesianBaseToCamera(
+            action_key=action_key,
+            left_extrinsics_key=left_extrinsics_key,
+            right_extrinsics_key=right_extrinsics_key,
+        ),
     ]
 
 

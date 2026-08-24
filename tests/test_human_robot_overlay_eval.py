@@ -6,6 +6,7 @@ import torch
 
 from egomimic.eval.human_robot_overlay_eval import HumanRobotOverlayEval
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import (
     build_fold_keypoint_wristframe_revert_transform_list,
 )
@@ -128,3 +129,59 @@ def test_canonical_126d_overlay_reverts_keypoints_to_head_frame():
     assert seen == {"target": (2, 3, 126), "prediction": (2, 3, 126)}
     assert f"Valid/human_bimanual_{action_key}_camera_action_mse" in metrics
     assert images[emb_id].shape == (2, 8, 8, 3)
+
+
+def test_viz_gt_preds_uses_the_configured_per_sample_intrinsics(monkeypatch):
+    emb_id = get_embodiment_id("eva_bimanual")
+    action_key = "actions_cartesian"
+    actions = torch.zeros(2, 3, 14)
+    intrinsics = torch.tensor(
+        [
+            [[100.0, 0.0, 10.0, 0.0], [0.0, 101.0, 11.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+            [[200.0, 0.0, 20.0, 0.0], [0.0, 201.0, 21.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+        ]
+    )
+    seen = []
+
+    def capture_viz(cls, image, viz_data, *, intrinsics=None, **_kwargs):
+        seen.append(np.asarray(intrinsics))
+        return np.asarray(image)
+
+    monkeypatch.setattr(Eva, "viz", classmethod(capture_viz))
+    images = Eva.viz_gt_preds(
+        predictions={"eva_bimanual_actions_cartesian": actions},
+        batch={
+            "embodiment": torch.full((2,), emb_id),
+            "front_img_1": torch.zeros(2, 8, 8, 3),
+            action_key: actions,
+            "front_intrinsics": intrinsics,
+        },
+        image_key="front_img_1",
+        action_key=action_key,
+        intrinsics_batch_key="front_intrinsics",
+    )
+
+    assert images.shape == (2, 8, 8, 3)
+    assert len(seen) == 4
+    np.testing.assert_allclose(seen[0], intrinsics[0].numpy())
+    np.testing.assert_allclose(seen[1], intrinsics[0].numpy())
+    np.testing.assert_allclose(seen[2], intrinsics[1].numpy())
+    np.testing.assert_allclose(seen[3], intrinsics[1].numpy())
+
+
+def test_viz_gt_preds_rejects_missing_explicit_intrinsics():
+    emb_id = get_embodiment_id("eva_bimanual")
+    actions = torch.zeros(1, 3, 14)
+
+    with pytest.raises(ValueError, match="front_intrinsics"):
+        Eva.viz_gt_preds(
+            predictions={"eva_bimanual_actions_cartesian": actions},
+            batch={
+                "embodiment": torch.tensor([emb_id]),
+                "front_img_1": torch.zeros(1, 8, 8, 3),
+                "actions_cartesian": actions,
+            },
+            image_key="front_img_1",
+            action_key="actions_cartesian",
+            intrinsics_batch_key="front_intrinsics",
+        )

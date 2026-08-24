@@ -1,11 +1,14 @@
 import numpy as np
+import pytest
 from scipy.spatial.transform import Rotation as Rotation
 
 from egomimic.rldb.embodiment.fold_span_transforms import (
     ACTION_HORIZON,
     HUMAN_ACTION_SLOWDOWN,
     HUMAN_ACTION_SOURCE_HORIZON,
+    BimanualCartesianBaseToCamera,
     build_bimanual_keypoint_wrist_revert_transforms,
+    build_eva_rot6d_wrist_to_camera_transforms,
     human_normal_keymap,
     human_normal_keymap_kp,
     human_normal_transforms,
@@ -123,3 +126,54 @@ def test_canonical_126d_keypoints_revert_from_each_wrist_frame():
     assert out.shape == (4, 126)
     np.testing.assert_allclose(out[:, :63], actions[:, :63])
     np.testing.assert_allclose(out[:, 63:], actions[:, 63:])
+
+
+def test_eva_wrist_actions_revert_through_each_robot_base_into_camera():
+    identity_rot6d = np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0])
+    left_state = np.concatenate(([1.0, 2.0, 4.0], identity_rot6d, [0.0]))
+    right_state = np.concatenate(([-2.0, 1.0, 3.0], identity_rot6d, [0.0]))
+    state = np.concatenate((left_state, right_state))[None]
+
+    left_wrist = np.concatenate(([1.0, 0.0, 1.0], identity_rot6d, [0.25]))
+    right_wrist = np.concatenate(([0.0, 2.0, 0.0], identity_rot6d, [0.75]))
+    actions = np.repeat(np.concatenate((left_wrist, right_wrist))[None], 3, axis=0)
+
+    left_extrinsics = np.eye(4)
+    left_extrinsics[:3, :3] = Rotation.from_euler(
+        "z", 90.0, degrees=True
+    ).as_matrix()
+    left_extrinsics[:3, 3] = [1.0, 2.0, 3.0]
+    right_extrinsics = np.eye(4)
+    right_extrinsics[:3, :3] = Rotation.from_euler(
+        "z", -90.0, degrees=True
+    ).as_matrix()
+    right_extrinsics[:3, 3] = [-2.0, 1.0, 1.0]
+    batch = {
+        "actions_cartesian": actions,
+        "state_ee_pose": state,
+        "left_camera_extrinsics": left_extrinsics,
+        "right_camera_extrinsics": right_extrinsics,
+    }
+
+    out = _apply(build_eva_rot6d_wrist_to_camera_transforms(), batch)[
+        "actions_cartesian"
+    ]
+
+    np.testing.assert_allclose(out[:, :3], [[0.0, -1.0, 2.0]] * 3, atol=1e-6)
+    np.testing.assert_allclose(out[:, 7:10], [[-2.0, 0.0, 2.0]] * 3, atol=1e-6)
+    np.testing.assert_allclose(out[:, 6], 0.25)
+    np.testing.assert_allclose(out[:, 13], 0.75)
+
+
+def test_eva_camera_revert_rejects_nonfinite_extrinsics():
+    left_extrinsics = np.eye(4)
+    left_extrinsics[0, 0] = np.nan
+
+    with pytest.raises(ValueError, match="must be finite"):
+        BimanualCartesianBaseToCamera().transform(
+            {
+                "actions_cartesian": np.zeros((2, 14)),
+                "left_camera_extrinsics": left_extrinsics,
+                "right_camera_extrinsics": np.eye(4),
+            }
+        )
