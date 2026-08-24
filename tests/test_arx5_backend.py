@@ -63,9 +63,7 @@ def test_missing_binding_is_optional_until_live_control(monkeypatch):
 def test_python311_wheel_applies_bounded_x5_gripper_patch():
     patch_name = "0002-allow-bounded-x5-negative-gripper-close.patch"
     build_script = (ROOT / "scripts/build_arx5_py311_wheel.sh").read_text()
-    patch = (
-        ROOT / "egomimic/robot/eva/arx5_patches" / patch_name
-    ).read_text()
+    patch = (ROOT / "egomimic/robot/eva/arx5_patches" / patch_name).read_text()
 
     assert patch_name in build_script
     assert "kX5GripperPositionMinM = -0.012" in patch

@@ -523,9 +523,9 @@ class HPTModel(nn.Module):
         tokens1 = tokens1[:, : self.action_horizon]
         tokens2 = tokens2[:, : self.action_horizon]
 
-        assert tokens1.shape[1] == tokens2.shape[1], (
-            "input tokens must be of the same sequence length"
-        )
+        assert (
+            tokens1.shape[1] == tokens2.shape[1]
+        ), "input tokens must be of the same sequence length"
 
         emb1_actions = batch1["data"]["action"]
         emb2_actions = batch2["data"]["action"]

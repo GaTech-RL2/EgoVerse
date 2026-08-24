@@ -50,7 +50,7 @@ def test_robot_launcher_uses_the_validated_python311_image():
 def test_robot_launcher_preserves_hotplugged_usb_and_aria_auth():
     source = (ROOT / "run_eva_docker.sh").read_text()
     assert "/dev/bus/usb:/dev/bus/usb" in source
-    assert 'c 189:* rmw' in source
+    assert "c 189:* rmw" in source
     assert "/root/.aria" in source
     assert "/home/robot/robot_ws/external_ckpts,readonly" in source
     assert "EVA_CHECKPOINT_DIR" in source
