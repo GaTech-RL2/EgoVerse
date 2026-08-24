@@ -21,7 +21,7 @@ train_datasets:
     mode: total
 
 valid_datasets:
-  eva_bimanual: ${train_datasets.eva_bimanual}
+  eva_bimanual: ${data.train_datasets.eva_bimanual}
 
 # Two DDP ranks x 32 samples/rank = 64 robot samples per optimizer step,
 # matching the robot batch in the cotrain Dense parent.
