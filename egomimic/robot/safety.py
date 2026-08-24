@@ -6,6 +6,26 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 
+class CartesianTranslationConfirmationRequired(ValueError):
+    """A finite Cartesian command is safe only with attended confirmation."""
+
+    def __init__(
+        self,
+        translation_step_m: float,
+        automatic_limit_m: float,
+        hard_limit_m: float,
+    ):
+        self.translation_step_m = float(translation_step_m)
+        self.automatic_limit_m = float(automatic_limit_m)
+        self.hard_limit_m = float(hard_limit_m)
+        super().__init__(
+            f"Cartesian translation jump {self.translation_step_m:.4f} m exceeds "
+            f"the automatic limit {self.automatic_limit_m:.4f} m; attended "
+            f"confirmation is required below the hard limit "
+            f"{self.hard_limit_m:.4f} m"
+        )
+
+
 def validate_action_vector(action, expected_dim: int) -> np.ndarray:
     action = np.asarray(action, dtype=np.float64)
     if action.shape != (expected_dim,):
@@ -55,12 +75,32 @@ def validate_cartesian_command(
     *,
     max_translation_step_m: float,
     max_rotation_step_rad: float,
+    hard_max_translation_step_m: float | None = None,
+    allow_soft_translation_jump: bool = False,
 ) -> np.ndarray:
     command = validate_action_vector(command, 7)
     current_pose = validate_action_vector(current_pose, 7)
     validate_gripper(command[6])
+    if max_translation_step_m <= 0.0:
+        raise ValueError("Cartesian translation limit must be positive")
+    if hard_max_translation_step_m is not None:
+        if hard_max_translation_step_m <= max_translation_step_m:
+            raise ValueError(
+                "Hard Cartesian translation limit must exceed the automatic limit"
+            )
     translation_step = float(np.linalg.norm(command[:3] - current_pose[:3]))
-    if translation_step > max_translation_step_m:
+    if (
+        hard_max_translation_step_m is not None
+        and translation_step >= hard_max_translation_step_m
+    ):
+        raise ValueError(
+            f"Cartesian translation jump {translation_step:.4f} m reaches or "
+            f"exceeds the hard limit {hard_max_translation_step_m:.4f} m"
+        )
+    if (
+        hard_max_translation_step_m is None
+        and translation_step > max_translation_step_m
+    ):
         raise ValueError(
             f"Cartesian translation jump {translation_step:.4f} m exceeds "
             f"{max_translation_step_m:.4f} m"
@@ -72,5 +112,15 @@ def validate_cartesian_command(
         raise ValueError(
             f"Cartesian rotation jump {rotation_step:.4f} rad exceeds "
             f"{max_rotation_step_rad:.4f} rad"
+        )
+    if (
+        hard_max_translation_step_m is not None
+        and translation_step > max_translation_step_m
+        and not allow_soft_translation_jump
+    ):
+        raise CartesianTranslationConfirmationRequired(
+            translation_step,
+            max_translation_step_m,
+            hard_max_translation_step_m,
         )
     return command

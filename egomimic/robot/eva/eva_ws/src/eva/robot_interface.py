@@ -125,6 +125,7 @@ class Robot_Interface(ABC):
 
 class ARXInterface(Robot_Interface):
     MAX_TRANSLATION_STEP_M = 0.08
+    HARD_MAX_TRANSLATION_STEP_M = 0.15
     MAX_ROTATION_STEP_RAD = 0.50
 
     def __init__(self, arms):
@@ -259,7 +260,13 @@ class ARXInterface(Robot_Interface):
 
         self.controller[arm].set_joint_cmd(requested)
 
-    def validate_pose_command(self, pose, arm):
+    def validate_pose_command(
+        self,
+        pose,
+        arm,
+        *,
+        allow_soft_translation_jump=False,
+    ):
         current_pose = np.concatenate(
             [self.get_pose_6d(arm), [self.get_joints(arm)[6]]]
         )
@@ -268,11 +275,17 @@ class ARXInterface(Robot_Interface):
             current_pose,
             max_translation_step_m=self.MAX_TRANSLATION_STEP_M,
             max_rotation_step_rad=self.MAX_ROTATION_STEP_RAD,
+            hard_max_translation_step_m=self.HARD_MAX_TRANSLATION_STEP_M,
+            allow_soft_translation_jump=allow_soft_translation_jump,
         )
 
     # x,y,z,y,p,r
-    def set_pose(self, pose, arm):
-        pose = self.validate_pose_command(pose, arm)
+    def set_pose(self, pose, arm, *, allow_soft_translation_jump=False):
+        pose = self.validate_pose_command(
+            pose,
+            arm,
+            allow_soft_translation_jump=allow_soft_translation_jump,
+        )
         arm_joints = self.solve_ik(pose[:6], arm)
         joints = np.concatenate([arm_joints, [pose[6]]])
         self.set_joints(joints, arm)

@@ -3,6 +3,7 @@ import os
 import sys
 import warnings
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 
 warnings.filterwarnings("ignore", message="Can't initialize NVML")
 
@@ -14,7 +15,10 @@ import torch
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
 from egomimic.robot.robot_utils import RateLoop
-from egomimic.robot.safety import validate_action_vector
+from egomimic.robot.safety import (
+    CartesianTranslationConfirmationRequired,
+    validate_action_vector,
+)
 from egomimic.rollout.policy import RolloutPolicyConfig, load_rollout_policy
 from egomimic.utils.viz_utils import draw_actions
 
@@ -139,6 +143,43 @@ class _KeyPoll:
         return None
 
 
+@contextmanager
+def _cooked_terminal(kp):
+    """Temporarily restore line-buffered input and always re-enter cbreak mode."""
+    termios.tcsetattr(kp.fd, termios.TCSADRAIN, kp.old)
+    try:
+        yield
+    finally:
+        tty.setcbreak(kp.fd)
+
+
+def _confirm_cartesian_action(kp, confirmations) -> bool:
+    """Require explicit approval for one action in the 8-to-15 cm band."""
+    with _cooked_terminal(kp):
+        print("\n--- CARTESIAN SAFETY CONFIRMATION (rollout paused) ---")
+        print("No command has been sent.")
+        for arm, warning in confirmations:
+            print(
+                f"{arm}: requested jump {warning.translation_step_m:.4f} m "
+                f"(automatic limit {warning.automatic_limit_m:.4f} m; "
+                f"hard limit {warning.hard_limit_m:.4f} m)"
+            )
+        while True:
+            try:
+                response = input("Execute this one action vector? [y/N]: ")
+            except EOFError:
+                print("Input closed; rejecting the action.")
+                return False
+            response = response.strip().lower()
+            if response in ("y", "yes"):
+                print("Action approved once; future jumps require confirmation.")
+                return True
+            if response in ("", "n", "no"):
+                print("Action rejected; no command was sent.")
+                return False
+            print("Please enter y/yes or n/no.")
+
+
 class Rollout(ABC):
     def __init__(self):
         pass
@@ -161,12 +202,20 @@ class ReplayRollout(Rollout):
                 self.actions = np.asarray(
                     f["observations"]["joint_positions"][...], dtype=np.float32
                 )
+        self._action_index = 0
 
     def rollout_step(self, i):
-        if i < self.actions.shape[0]:
-            return self.actions[i]
-        else:
+        del i  # Replay owns its cursor so intervention does not rewind implicitly.
+        if self._action_index >= self.actions.shape[0]:
             return None
+        return self.actions[self._action_index]
+
+    def commit_step(self):
+        """Advance only after the current replay action was actually dispatched."""
+        self._action_index += 1
+
+    def reset(self):
+        self._action_index = 0
 
 
 def debug_policy(actions, front_img, step_i):
@@ -203,15 +252,21 @@ def reset_rollout(ri, policy):
     ri.set_home()
     if hasattr(policy, "reset"):
         policy.reset()
-    if hasattr(policy, "actions"):
-        policy.actions = None
-    if hasattr(policy, "debug_actions"):
-        policy.debug_actions = None
 
 
-def validate_rollout_action(ri, actions, arms, arms_list, cartesian):
+def validate_rollout_action(
+    ri,
+    actions,
+    arms,
+    arms_list,
+    cartesian,
+    *,
+    allowed_soft_translation_arms=None,
+):
     expected_dim = 14 if arms == "both" else 7
     actions = validate_action_vector(actions, expected_dim)
+    allowed_soft_translation_arms = frozenset(allowed_soft_translation_arms or ())
+    confirmations = []
     for arm in arms_list:
         offset = 7 if (arm == "right" and arms == "both") else 0
         arm_action = actions[offset : offset + 7]
@@ -220,8 +275,80 @@ def validate_rollout_action(ri, actions, arms, arms_list, cartesian):
         )
         validator = getattr(ri, validator_name, None)
         if validator is not None:
-            validator(arm_action, arm)
-    return actions
+            try:
+                if cartesian:
+                    validator(
+                        arm_action,
+                        arm,
+                        allow_soft_translation_jump=(
+                            arm in allowed_soft_translation_arms
+                        ),
+                    )
+                else:
+                    validator(arm_action, arm)
+            except CartesianTranslationConfirmationRequired as warning:
+                confirmations.append((arm, warning))
+    return actions, confirmations
+
+
+def authorize_rollout_action(kp, ri, actions, arms, arms_list, cartesian):
+    """Validate all arms, then optionally authorize exactly one soft jump."""
+    approved_arms = frozenset()
+    while True:
+        actions, confirmations = validate_rollout_action(
+            ri,
+            actions,
+            arms,
+            arms_list,
+            cartesian,
+            allowed_soft_translation_arms=approved_arms,
+        )
+        if not confirmations:
+            return actions, approved_arms
+        if not _confirm_cartesian_action(kp, confirmations):
+            return None
+        approved_arms |= frozenset(arm for arm, _ in confirmations)
+
+
+def dispatch_rollout_action(
+    ri,
+    actions,
+    arms,
+    arms_list,
+    cartesian,
+    *,
+    allowed_soft_translation_arms=None,
+):
+    """Send one fully authorized rollout action to the selected arm(s)."""
+    allowed_soft_translation_arms = frozenset(allowed_soft_translation_arms or ())
+    _, confirmations = validate_rollout_action(
+        ri,
+        actions,
+        arms,
+        arms_list,
+        cartesian,
+        allowed_soft_translation_arms=allowed_soft_translation_arms,
+    )
+    if confirmations:
+        arms_requiring_confirmation = [arm for arm, _ in confirmations]
+        raise RuntimeError(
+            "Cartesian command changed before dispatch; new confirmation is "
+            f"required for {arms_requiring_confirmation}"
+        )
+    for arm in arms_list:
+        arm_offset = 7 if (arm == "right" and arms == "both") else 0
+        arm_action = actions[arm_offset : arm_offset + 7]
+        if cartesian:
+            if arm in allowed_soft_translation_arms:
+                ri.set_pose(
+                    arm_action,
+                    arm,
+                    allow_soft_translation_jump=True,
+                )
+            else:
+                ri.set_pose(arm_action, arm)
+        else:
+            ri.set_joints(arm_action, arm)
 
 
 def warmup_policy(ri, policy, arms, arms_list, cartesian):
@@ -229,7 +356,19 @@ def warmup_policy(ri, policy, arms, arms_list, cartesian):
     print("[rollout] Running pre-motion shadow inference")
     observation = ri.get_obs()
     actions = policy.act(observation)
-    validate_rollout_action(ri, actions, arms, arms_list, cartesian)
+    _, confirmations = validate_rollout_action(
+        ri,
+        actions,
+        arms,
+        arms_list,
+        cartesian,
+    )
+    for arm, warning in confirmations:
+        print(
+            f"[rollout] Shadow-only {arm} translation "
+            f"{warning.translation_step_m:.4f} m is in the attended "
+            "confirmation band; no command was sent"
+        )
     policy.reset()
     print("[rollout] Shadow inference passed; no command was sent")
 
@@ -310,42 +449,47 @@ def main(
             "restart"   – restart rollout
             "quit"      – exit program
         """
-        # Restore normal terminal so the user can type freely
-        termios.tcsetattr(kp.fd, termios.TCSADRAIN, kp.old)
-        print("\n--- INTERVENTION (rollout paused) ---")
-        print("  c            : continue rollout")
-        print("  a <path>     : load new annotation file")
-        print("  r            : restart rollout")
-        print("  q            : quit")
+        with _cooked_terminal(kp):
+            print("\n--- INTERVENTION (rollout paused) ---")
+            print("  c            : continue rollout")
+            print("  a <path>     : load new annotation file")
+            print("  r            : restart rollout")
+            print("  q            : quit")
 
+            while True:
+                try:
+                    cmd = input("> ").strip()
+                except EOFError:
+                    return "quit"
+
+                if cmd == "c":
+                    print("Resuming rollout.")
+                    return "continue"
+                elif cmd == "q":
+                    return "quit"
+                elif cmd == "r":
+                    return "restart"
+                elif cmd.startswith("a "):
+                    ann_path = cmd[2:].strip()
+                    if not ann_path:
+                        print("Usage: a <annotation_path>")
+                        continue
+                    if rollout_type != "policy":
+                        print(
+                            "Annotation loading is only supported for policy rollouts."
+                        )
+                        continue
+                    policy.load_annotation(ann_path)
+                else:
+                    print(f"Unknown command: '{cmd}'. Use c / a <path> / r / q.")
+
+    def _intervene_until_continue(kp, policy, rollout_type):
+        """Remain paused across any number of restarts until continue or quit."""
         while True:
-            try:
-                cmd = input("> ").strip()
-            except EOFError:
-                tty.setcbreak(kp.fd)
-                return "quit"
-
-            if cmd == "c":
-                print("Resuming rollout.")
-                tty.setcbreak(kp.fd)
-                return "continue"
-            elif cmd == "q":
-                tty.setcbreak(kp.fd)
-                return "quit"
-            elif cmd == "r":
-                tty.setcbreak(kp.fd)
-                return "restart"
-            elif cmd.startswith("a "):
-                ann_path = cmd[2:].strip()
-                if not ann_path:
-                    print("Usage: a <annotation_path>")
-                    continue
-                if rollout_type != "policy":
-                    print("Annotation loading is only supported for policy rollouts.")
-                    continue
-                policy.load_annotation(ann_path)
-            else:
-                print(f"Unknown command: '{cmd}'. Use c / a <path> / r / q.")
+            result = _enter_intervention(kp, policy, rollout_type)
+            if result != "restart":
+                return result
+            reset_rollout(ri, policy)
 
     try:
         with _KeyPoll() as kp:
@@ -368,19 +512,10 @@ def main(
                         ch = kp.getch()
                         if ch is not None:
                             # Any key press triggers intervention
-                            result = _enter_intervention(kp, policy, rollout_type)
+                            result = _intervene_until_continue(kp, policy, rollout_type)
                             if result == "quit":
                                 print("Quit requested.")
                                 return
-                            elif result == "restart":
-                                print("Restart requested.")
-                                reset_rollout(ri, policy)
-                                result = _enter_intervention(kp, policy, rollout_type)
-                                if result == "quit":
-                                    return
-                                if result == "restart":
-                                    reset_rollout(ri, policy)
-                                break
                             if rollout_type == "policy":
                                 policy.reset()
                             break
@@ -404,9 +539,22 @@ def main(
                             reset_rollout(ri, policy)
                             break
 
-                        actions = validate_rollout_action(
-                            ri, actions, arms, arms_list, cartesian
+                        authorization = authorize_rollout_action(
+                            kp,
+                            ri,
+                            actions,
+                            arms,
+                            arms_list,
+                            cartesian,
                         )
+                        if authorization is None:
+                            if rollout_type == "policy" and hasattr(policy, "reset"):
+                                policy.reset()
+                            result = _intervene_until_continue(kp, policy, rollout_type)
+                            if result == "quit":
+                                return
+                            break
+                        actions, allowed_soft_translation_arms = authorization
 
                         if debug and rollout_type == "policy" and policy.just_queried:
                             debug_actions = policy.debug_actions
@@ -417,13 +565,19 @@ def main(
                                 step_i,
                             )
 
-                        for arm in arms_list:
-                            arm_offset = 7 if (arm == "right" and arms == "both") else 0
-                            arm_action = actions[arm_offset : arm_offset + 7]
-                            if cartesian:
-                                ri.set_pose(arm_action, arm)
-                            else:
-                                ri.set_joints(arm_action, arm)
+                        dispatch_rollout_action(
+                            ri,
+                            actions,
+                            arms,
+                            arms_list,
+                            cartesian,
+                            allowed_soft_translation_arms=(
+                                allowed_soft_translation_arms
+                            ),
+                        )
+                        commit_step = getattr(policy, "commit_step", None)
+                        if commit_step is not None:
+                            commit_step()
 
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected, exiting rollout.")
