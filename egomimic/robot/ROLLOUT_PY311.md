@@ -129,11 +129,12 @@ measured joint state and stops camera recorders. These are fail-closed rollout
 guards, not replacements for attended hardware testing or the controller's
 internal limits.
 
-Quantile unnormalization's range epsilon plus float32 rounding can leave a
-decoded gripper endpoint up to `1e-6` outside `[0, 1]`. The Pipeline EVA codec
-clips only that numerical residue to the exact endpoint before strict robot
-validation; larger excursions, including the saved right-gripper lower
-quantile `-0.018`, remain errors and stop rollout.
+Quantile unnormalization can produce finite decoded gripper values outside the
+robot-facing normalized range, including the saved right-gripper lower quantile
+`-0.018`. The Pipeline EVA codec clamps the two decoded gripper fields to
+`[0, 1]` before strict robot validation; non-finite predictions still stop the
+rollout. `ARXInterface` then maps normalized `0` and `1` to each arm's configured
+native `close` and `open` endpoints.
 
 Policy and teleoperation gripper values remain normalized: `0` is closed and
 `1` is open. Only after `ARXInterface` denormalizes that command does closed

@@ -19,8 +19,6 @@ from egomimic.rldb.embodiment.fold_span_transforms import (
 )
 from egomimic.rollout.core import RolloutNode
 
-_GRIPPER_ENDPOINT_ATOL = 1e-6
-
 
 def _ypr_pose_to_wxyz(pose: np.ndarray) -> np.ndarray:
     return hardware_ypr_pose_to_dataset_wxyz(pose).astype(np.float32)
@@ -139,15 +137,8 @@ class EvaActionCodec(RolloutNode):
             [left, encoded[:, 6:7], right, encoded[:, 13:14]], axis=-1
         )
         grippers = commands[:, [6, 13]]
-        if (
-            not np.all(np.isfinite(grippers))
-            or np.any(grippers < -_GRIPPER_ENDPOINT_ATOL)
-            or np.any(grippers > 1.0 + _GRIPPER_ENDPOINT_ATOL)
-        ):
-            raise ValueError(
-                "Decoded EVA gripper command exceeds [0, 1] beyond numerical "
-                f"tolerance: {grippers.tolist()}"
-            )
+        if not np.all(np.isfinite(grippers)):
+            raise ValueError(f"Decoded EVA gripper command must be finite: {grippers}")
         commands[:, [6, 13]] = np.clip(grippers, 0.0, 1.0)
         command = commands.astype(np.float32, copy=False)[0]
         if command.shape != (14,) or not np.all(np.isfinite(command)):

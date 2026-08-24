@@ -321,8 +321,18 @@ def test_eva_action_codec_canonicalizes_only_numerical_gripper_residue():
     assert stats.unnormalize_calls == 1
 
 
-@pytest.mark.parametrize("gripper", [1.000002, -0.000002, -0.018, np.nan, np.inf])
-def test_eva_action_codec_rejects_gripper_beyond_numerical_tolerance(gripper):
+@pytest.mark.parametrize(
+    ("gripper", "expected"),
+    [
+        (1.000002, 1.0),
+        (-0.000002, 0.0),
+        (-0.001948229968547821, 0.0),
+        (-0.018, 0.0),
+        (-10.0, 0.0),
+        (10.0, 1.0),
+    ],
+)
+def test_eva_action_codec_clamps_finite_gripper_predictions(gripper, expected):
     current = np.zeros(6, dtype=np.float64)
     native_state = np.concatenate(
         [
@@ -342,7 +352,39 @@ def test_eva_action_codec_rejects_gripper_beyond_numerical_tolerance(gripper):
         "native_state_ee_pose": np.stack([native_state, native_state]),
     }
 
-    with pytest.raises(ValueError, match="gripper command exceeds"):
+    EvaActionCodec(stats, get_embodiment_id("eva_bimanual"))(state)
+
+    assert state["command"][6] == expected
+    np.testing.assert_allclose(
+        state["command"][[0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12]],
+        0.0,
+        atol=1e-6,
+    )
+    assert stats.unnormalize_calls == 1
+
+
+@pytest.mark.parametrize("gripper", [np.nan, np.inf, -np.inf])
+def test_eva_action_codec_rejects_nonfinite_gripper_predictions(gripper):
+    current = np.zeros(6, dtype=np.float64)
+    native_state = np.concatenate(
+        [
+            _dataset_state_arm(current, 0.5),
+            _dataset_state_arm(current, 0.5),
+        ]
+    )
+    action = np.concatenate(
+        [
+            _relative_dataset_action(current, current, gripper),
+            _relative_dataset_action(current, current, 0.5),
+        ]
+    )
+    stats = _IdentityStats()
+    state = {
+        "action": torch.from_numpy(action).float(),
+        "native_state_ee_pose": np.stack([native_state, native_state]),
+    }
+
+    with pytest.raises(ValueError, match="gripper command must be finite"):
         EvaActionCodec(stats, get_embodiment_id("eva_bimanual"))(state)
     assert "command" not in state
     assert stats.unnormalize_calls == 1
