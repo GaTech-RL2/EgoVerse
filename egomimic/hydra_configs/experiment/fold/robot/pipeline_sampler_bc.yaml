@@ -31,6 +31,7 @@ norm_stats:
   norm_mode: quantile
   reduce_all_but_last: true
   sample_frac: 0.05
+  precomputed_norm_path: /coc/flash7/paphiwetsa3/datasets/norm_stats/fold_rh_jpeg_kp_h28to100_e20_h126_collapsed_ids/norm_stats/norm_stats.json
 
 callbacks:
   model_checkpoint:
