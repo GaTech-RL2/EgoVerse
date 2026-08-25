@@ -3,6 +3,7 @@
 # changes from the canonical human-robot Fold Pipeline recipe.
 defaults:
   - /experiment/fold/rh/pipeline_sampler_kp
+  - override /data: fold_rh_normal_cotrain_kp_holdout_20260825
   - _self_
 
 # The description starts with the Hydra cell name so the canonical Slurm
