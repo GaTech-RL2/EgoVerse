@@ -23,6 +23,7 @@ from gymnasium import spaces
 from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import unary_union
 
+from .agents import NEW_AGENTS as _NEW_AGENTS
 from .agents import make_agent
 from .obstacles import (
     OBSTACLE_LEVELS,
@@ -374,6 +375,9 @@ class PushShapesEnv(gym.Env):
         for _ in range(self.SUBSTEPS):
             captured = self.agent.pre_substep(self)
             self._drive_pusher_toward(tx, ty, dt_sub, target_angle)
+            # Articulated bodies must receive the velocity selected above,
+            # not the previous substep's stale master-body velocity.
+            self.agent.sync_auxiliary_bodies(self)
             self._space.step(dt_sub)
             self._clamp_pusher_to_static()
             self.agent.post_substep(self, captured)
@@ -534,7 +538,8 @@ class PushShapesEnv(gym.Env):
         if not self.solid_pusher:
             return
         body = self._pusher_body
-        for shape in self._pusher_shapes:
+        for shape in self.agent.physics_shapes(self):
+            self._space.reindex_shapes_for_body(shape.body)
             for query in self._space.shape_query(shape):
                 if query.shape.body.body_type != pymunk.Body.STATIC:
                     continue
@@ -547,10 +552,13 @@ class PushShapesEnv(gym.Env):
                 n = query.contact_point_set.normal
                 correction = -n * depth
                 body.position = body.position + correction
-                if self.socket_latched:
-                    # Preserve the welded relative pose when the socket itself
-                    # is projected out of static geometry.
+                if self.agent.active_constraints():
+                    # Preserve the constrained relative pose when an attached
+                    # embodiment is projected out of static geometry.
                     self._object_body.position = self._object_body.position + correction
+                self.agent.sync_auxiliary_bodies(self)
+                for agent_shape in self.agent.physics_shapes(self):
+                    self._space.reindex_shapes_for_body(agent_shape.body)
                 v = body.velocity
                 into = v.dot(n)
                 if into > 0.0:
@@ -575,10 +583,10 @@ class PushShapesEnv(gym.Env):
 
     def _pusher_object_penetration_depth(self) -> float:
         """Maximum current pusher/object overlap depth from shape queries."""
-        self._space.reindex_shapes_for_body(self._pusher_body)
         self._space.reindex_shapes_for_body(self._object_body)
         depths: list[float] = []
-        for pusher_shape in self._pusher_shapes:
+        for pusher_shape in self.agent.physics_shapes(self):
+            self._space.reindex_shapes_for_body(pusher_shape.body)
             for query in self._space.shape_query(pusher_shape):
                 if query.shape.body is not self._object_body:
                     continue
@@ -595,6 +603,7 @@ class PushShapesEnv(gym.Env):
         self._space.reindex_shapes_for_body(body)
         depths: list[float] = []
         for shape in shapes:
+            self._space.reindex_shapes_for_body(shape.body)
             for query in self._space.shape_query(shape):
                 if query.shape.body.body_type != pymunk.Body.STATIC:
                     continue
@@ -614,7 +623,7 @@ class PushShapesEnv(gym.Env):
             self._object_static_penetration_depth(),
             self._shapes_static_penetration_depth(
                 self._pusher_body,
-                self._pusher_shapes,
+                list(self.agent.physics_shapes(self)),
             ),
         )
 
@@ -717,6 +726,13 @@ class PushShapesEnv(gym.Env):
             pusher_pos=(pusher.position.x, pusher.position.y),
             pusher_angle=pusher.angle,
             obstacle_segments=self._obstacle_segments,
+            pusher_physics_shapes=(
+                shape
+                for shape in self._space.shapes
+                if shape.body.body_type == pymunk.Body.KINEMATIC
+            )
+            if self.pusher_shape in _NEW_AGENTS
+            else None,
         )
         return self._world_surface
 

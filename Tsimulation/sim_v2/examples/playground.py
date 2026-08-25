@@ -79,7 +79,7 @@ COL_DIM = (140, 140, 140)
 
 # What SPACE means, per agent -- shown in the HUD so the control is discoverable.
 ENGAGE_LABEL = {
-    "gripper": "SPACE close jaws",
+    "gripper": "SPACE catch/hold; S release",
     "suction": "SPACE suction on",
     "tether": "SPACE hook rope",
     "magnet": "SPACE magnetise",
@@ -91,6 +91,12 @@ ENGAGE_LABEL = {
 def _agent_state(env) -> tuple[str, bool]:
     """Human-readable mechanism state, and whether it is currently engaged."""
     a = env.agent
+    if env.pusher_shape == "gripper":
+        if bool(getattr(a, "grasped", False)):
+            return "GRASPED — A/D ROTATES; S RELEASES", True
+        if getattr(a, "_jaw_cmd", 1.0) <= 0.35 and a._spans(env):
+            return "PINCHED ONLY — ALIGN BOTH JAWS", False
+        return "OPEN — SPACE TO GRASP STEM", False
     for attr, name in (
         ("grasped", "GRASPED"),
         ("attached", "ATTACHED"),
@@ -233,6 +239,11 @@ def main() -> int:
             object_shape=objects[oi], pusher_shape=agents[ai],
             obstacle_level=args.obstacles, image_size=args.image_size,
         )
+        if not e.solid_pusher or not e.solid_contact_guard:
+            raise RuntimeError(
+                "Sim V2 collector requires solid_pusher=True and "
+                "solid_contact_guard=True"
+            )
         apply_gap(e)
         # Seed explicitly: it is the only thing needed to reproduce BOTH the
         # layout and the sampled compliance, and it goes into episode_init.
@@ -391,12 +402,22 @@ def main() -> int:
         # wrench/scoop had their orientation pinned to 0-or-1 radians because
         # engage landed in their angle slot -- 3-DOF in name only.
         spec = env.agent.action_spec
+        # Once the parallel gripper has actually formed a grasp, keep sending
+        # the closed command after SPACE is released.  Otherwise the very next
+        # frame opened the jaws, so A/D appeared unable to rotate a caught T.
+        # S remains an explicit, immediate release command.
+        retain_gripper_grasp = (
+            env.pusher_shape == "gripper"
+            and bool(getattr(env.agent, "grasped", False))
+            and not held[pygame.K_s]
+        )
+        commanded_grip = 1.0 if engage or retain_gripper_grasp else grip
         chan = {
             "x": wx, "y": wy,
             "angle": angle,
             # ONE meaning everywhere: SPACE = grip/engage/close/hitch, and
             # W/S grades it for the agents that accept a continuous value.
-            "grip": 1.0 if engage else grip,
+            "grip": commanded_grip,
         }
         act = np.array([chan[c] for c in spec], dtype=np.float64)
         dim = len(spec)
@@ -474,8 +495,11 @@ def main() -> int:
             bits.append(f"A/D angle {math.degrees(angle):4.0f}deg")
         if "grip" in spec:
             m = getattr(env.agent, "mode", "")
-            shown = 1.0 if held[pygame.K_SPACE] else grip
-            bits.append(f"SPACE/WS grip {shown:.2f}" + (f" [{m}]" if m else ""))
+            bits.append(
+                f"SPACE/WS grip {commanded_grip:.2f}"
+                + (" [held; S releases]" if retain_gripper_grasp else "")
+                + (f" [{m}]" if m else "")
+            )
         hint = "   ".join(bits)
         screen.blit(font.render(hint, True, COL_DIM), (170, y))
         y += 20

@@ -29,6 +29,7 @@ from Tsimulation.collect.zarr_writer import (
     ZarrDemoWriter,
 )
 from Tsimulation.pushshapes.env import PushShapesEnv
+from Tsimulation.pushshapes.render import PUSHER_COLOR
 from Tsimulation.pushshapes.shapes import (
     SHAPES,
     U_SOCKET_CROSSBAR_INNER_X,
@@ -39,6 +40,227 @@ from Tsimulation.pushshapes.shapes import (
 SHAPES_TO_TEST = list(SHAPES.keys())
 PUSHERS = ["circle", "stick", "u_socket"]
 OBSTACLES = [0, 1, 2, 3]
+
+
+def test_gripper_observation_renders_live_parallel_jaws():
+    """Recorded camera frames must show the articulated jaw configuration."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="gripper",
+        obstacle_level=0,
+        image_size=512,
+        seed=42,
+    )
+    try:
+        env.reset(seed=42)
+        env.set_state(
+            agent_pos=(256.0, 256.0),
+            agent_angle=0.0,
+            object_pose=(100.0, 100.0, 0.0),
+            goal_pose=(400.0, 400.0, 0.0),
+        )
+
+        open_obs, *_ = env.step(
+            np.array([256.0, 256.0, 0.0, 0.0], dtype=np.float64)
+        )
+        for _ in range(12):
+            closed_obs, *_ = env.step(
+                np.array([256.0, 256.0, 0.0, 1.0], dtype=np.float64)
+            )
+
+        colour = np.asarray(PUSHER_COLOR, dtype=np.uint8)
+        open_mask = np.all(open_obs["image"] == colour, axis=-1)
+        closed_mask = np.all(closed_obs["image"] == colour, axis=-1)
+        # Look in front of the palm, where only the two fingers are present.
+        open_x = np.flatnonzero(open_mask[268:290].any(axis=0))
+        closed_x = np.flatnonzero(closed_mask[268:290].any(axis=0))
+
+        assert open_x.size > 0 and closed_x.size > 0
+        assert np.ptp(open_x) > np.ptp(closed_x) + 20
+        assert not np.array_equal(open_obs["image"], closed_obs["image"])
+    finally:
+        env.close()
+
+
+def test_gripper_solid_contact_guard_includes_both_jaws():
+    """A jaw-only overlap must be detected and rolled back by Sim V2."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="gripper",
+        obstacle_level=0,
+        image_size=16,
+        seed=1,
+    )
+    try:
+        env.reset(seed=1)
+        env.set_state(
+            agent_pos=(256.0, 256.0),
+            agent_angle=0.0,
+            object_pose=(400.0, 400.0, 0.0),
+            goal_pose=(420.0, 420.0, 0.0),
+        )
+        env.agent._sync(env)
+        captured = env.agent.pre_substep(env)
+
+        # At this pose the T overlaps the left jaw by 18 units but does not
+        # touch the palm.  This was invisible when the guard considered only
+        # env._pusher_shapes (the palm returned by Agent.build()).
+        env.set_state(object_pose=(180.0, 310.0, 0.0))
+        env.agent._sync(env)
+        assert len(env.agent.physics_shapes(env)) == 3
+        assert env._pusher_object_penetration_depth() > 0.5
+
+        env.agent.post_substep(env, captured)
+
+        assert env.object_pose == pytest.approx((400.0, 400.0, 0.0))
+        assert env._pusher_object_penetration_depth() <= 0.5 + 1e-6
+    finally:
+        env.close()
+
+
+def test_gripper_solid_static_guard_includes_both_jaws():
+    """The jaw tips, not merely the palm, must stay inside arena walls."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="gripper",
+        obstacle_level=0,
+        image_size=16,
+        seed=1,
+    )
+    try:
+        env.reset(seed=1)
+        env.set_state(
+            agent_pos=(256.0, 480.0),
+            agent_angle=0.0,
+            object_pose=(100.0, 100.0, 0.0),
+            goal_pose=(420.0, 420.0, 0.0),
+        )
+        env.agent._sync(env)
+
+        before = env._shapes_static_penetration_depth(
+            env._pusher_body,
+            list(env.agent.physics_shapes(env)),
+        )
+        assert before > 1.0
+
+        env._clamp_pusher_to_static()
+
+        after = env._shapes_static_penetration_depth(
+            env._pusher_body,
+            list(env.agent.physics_shapes(env)),
+        )
+        assert after <= 1e-6
+    finally:
+        env.close()
+
+
+def test_gripper_cannot_ratchet_jaws_through_object_into_wall():
+    """Jaw sync must not hide progressively accumulated penetration."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="gripper",
+        obstacle_level=0,
+        image_size=16,
+        seed=1,
+    )
+    env._skip_obs_render = True
+    try:
+        env.reset(seed=1)
+        env.set_obstacles([((40.0, 256.0), (472.0, 256.0))])
+        env.set_state(
+            agent_pos=(256.0, 70.0),
+            agent_angle=0.0,
+            object_pose=(256.0, 170.0, 0.0),
+            goal_pose=(400.0, 400.0, 0.0),
+        )
+
+        max_pusher_depth = 0.0
+        max_static_depth = 0.0
+        for _ in range(120):
+            env.step(np.array([256.0, 430.0, 0.0, 0.0], dtype=np.float64))
+            max_pusher_depth = max(
+                max_pusher_depth,
+                env._pusher_object_penetration_depth(),
+            )
+            max_static_depth = max(
+                max_static_depth,
+                env._object_static_penetration_depth(),
+            )
+
+        assert max_pusher_depth <= 0.5 + 1e-6
+        assert max_static_depth <= 0.2 + 1e-6
+        assert env.object_pose[1] < 180.0
+    finally:
+        env.close()
+
+
+@pytest.mark.parametrize("agent_x", [255.0, 256.0, 257.0])
+def test_gripper_grasp_transfers_commanded_wrist_rotation_to_t(agent_x):
+    """A caught T must rotate rigidly with the parallel-gripper wrist."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="gripper",
+        obstacle_level=0,
+        image_size=16,
+        seed=4,
+    )
+    env._skip_obs_render = True
+    try:
+        env.reset(seed=4)
+        env.set_state(
+            # Centre the open jaws around the distal end of the 30-wide stem.
+            agent_pos=(agent_x, 341.0),
+            agent_angle=np.pi,
+            object_pose=(256.0, 256.0, 0.0),
+            goal_pose=(100.0, 100.0, 0.0),
+        )
+        env.agent._jaw_cmd = 1.0
+        env.agent._sync(env)
+        for _ in range(20):
+            env.step(np.array([agent_x, 341.0, np.pi, 1.0], dtype=np.float64))
+            if env.agent.grasped:
+                break
+        assert env.agent.grasped
+        assert env._pusher_object_penetration_depth() <= 0.5 + 1e-6
+
+        wrist_before = env.pusher_angle
+        object_before = env.object_pose[2]
+        captured_local_pos = env.agent._grasp_local_object_pos
+        captured_angle_offset = env.agent._grasp_angle_offset
+        target_angle = wrist_before + np.pi / 2
+        max_local_position_error = 0.0
+        max_angle_offset_error = 0.0
+        max_gripper_object_depth = 0.0
+        for _ in range(30):
+            x, y = env.agent_pos
+            env.step(np.array([x, y, target_angle, 1.0], dtype=np.float64))
+            local_pos = env._pusher_body.world_to_local(env._object_body.position)
+            max_local_position_error = max(
+                max_local_position_error,
+                np.linalg.norm(np.asarray(local_pos) - np.asarray(captured_local_pos)),
+            )
+            max_angle_offset_error = max(
+                max_angle_offset_error,
+                abs(
+                    (env.object_pose[2] - env.pusher_angle)
+                    - captured_angle_offset
+                ),
+            )
+            max_gripper_object_depth = max(
+                max_gripper_object_depth,
+                env._pusher_object_penetration_depth(),
+            )
+
+        wrist_delta = env.pusher_angle - wrist_before
+        object_delta = env.object_pose[2] - object_before
+        assert env.agent.grasped
+        assert wrist_delta > 1.4
+        assert object_delta == pytest.approx(wrist_delta, abs=1e-8)
+        assert max_local_position_error <= 1e-8
+        assert max_angle_offset_error <= 1e-8
+        assert max_gripper_object_depth <= 0.5 + 1e-6
+    finally:
+        env.close()
 
 
 def _add_fake_step(
