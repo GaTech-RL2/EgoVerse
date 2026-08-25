@@ -39,3 +39,28 @@ def get_rotvec_revert_transform_list(keys: list[str] | None = None, angle_col: i
     from egomimic.rldb.zarr.action_chunk_transforms import RotVecToTheta
 
     return [RotVecToTheta(keys=keys or ["actions"], angle_col=angle_col)]
+
+
+def get_arc_length_transform_list(
+    keys: list[str] | None = None,
+    min_distance_unit: float = 200.0,
+    resampled_vector_length: int = 25,
+    dt: float = 1.0 / 30.0,
+    rotation_radius: float = 40.0,
+):
+    """Create the planar SE(2) arc-length transform for U-socket actions."""
+    from egomimic.rldb.zarr.arc_length_tokenizer import TokenizeUSocketArcLength
+
+    action_keys = keys or ["actions"]
+    if len(action_keys) != 1:
+        raise ValueError("U-socket arc-length tokenization expects exactly one key")
+    return [
+        TokenizeUSocketArcLength(
+            action_key=action_keys[0],
+            output_action_key=action_keys[0],
+            min_distance_unit=min_distance_unit,
+            resampled_vector_length=resampled_vector_length,
+            dt=dt,
+            rotation_radius=rotation_radius,
+        )
+    ]

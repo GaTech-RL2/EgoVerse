@@ -1201,3 +1201,208 @@ class TokenizeBimanualArcLengthCartesian:
                 )
             arms_out.append(np.concatenate([pos_t, grip_t], axis=-1))
         return np.concatenate(arms_out, axis=-1)  # (H, 8)
+
+
+# Planar U-socket layout.  Waypoint rows are [x, y, cos(theta), sin(theta)]
+# and the final kinematics row is [vx, vy, omega, arc_speed].  The final row is
+# intentionally normalized slotwise rather than as another pose waypoint.
+USOCKET_ARC_DIM = 4
+
+
+class TokenizeUSocketArcLength:
+    """Tokenize a planar U-socket trajectory by SE(2) arc length.
+
+    The input is a time-indexed ``(T, 3)`` action chunk ``[x, y, theta]``.
+    Rows ``0..M-1`` of the output are uniformly spaced along a combined planar
+    arc whose segment length is
+
+    ``sqrt(dx**2 + dy**2 + (rotation_radius * dtheta)**2)``.
+
+    Including rotation in the metric is essential for U-socket: a physically
+    meaningful rotate-in-place segment must not collapse to a stationary
+    translation token.  The final row stores ``[vx, vy, omega, arc_speed]`` so
+    the fixed-rate rollout adapter can restore timing.
+    """
+
+    def __init__(
+        self,
+        action_key: str = "actions",
+        output_action_key: str = "actions",
+        min_distance_unit: float = 200.0,
+        resampled_vector_length: int = 25,
+        dt: float = 1.0 / 30.0,
+        rotation_radius: float = 40.0,
+        zero_dist_epsilon: float = 1e-6,
+    ):
+        self.action_key = str(action_key)
+        self.output_action_key = str(output_action_key)
+        self.min_distance_unit = float(min_distance_unit)
+        self.resampled_vector_length = int(resampled_vector_length)
+        self.dt = float(dt)
+        self.rotation_radius = float(rotation_radius)
+        self.zero_dist_epsilon = float(zero_dist_epsilon)
+        if self.min_distance_unit <= 0:
+            raise ValueError("min_distance_unit must be positive")
+        if self.resampled_vector_length < 2:
+            raise ValueError("resampled_vector_length must be at least 2")
+        if self.dt <= 0:
+            raise ValueError("dt must be positive")
+        if self.rotation_radius < 0:
+            raise ValueError("rotation_radius must be non-negative")
+
+    @property
+    def M(self) -> int:
+        return self.resampled_vector_length
+
+    def _arc_parameter(
+        self, xy: np.ndarray, theta_unwrapped: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        dxy = np.diff(xy, axis=0)
+        dtheta = np.diff(theta_unwrapped)
+        step = np.sqrt(
+            np.square(dxy).sum(axis=-1)
+            + np.square(self.rotation_radius * dtheta)
+        )
+        cumulative = np.concatenate(
+            [np.zeros(1, dtype=np.float64), np.cumsum(step)]
+        )
+        return cumulative, step
+
+    @staticmethod
+    def _interp(values: np.ndarray, cumulative: np.ndarray, target: float):
+        return _interp_linear_at_s(values, cumulative, float(target))
+
+    def transform(self, batch: dict) -> dict:
+        input_actions = np.asarray(batch[self.action_key])
+        if input_actions.ndim != 2 or input_actions.shape[1] != 3:
+            raise ValueError(
+                "TokenizeUSocketArcLength expects (T, 3) [x, y, theta], "
+                f"got {input_actions.shape}"
+            )
+        if len(input_actions) < 2:
+            raise ValueError("TokenizeUSocketArcLength needs at least two steps")
+        if not np.isfinite(input_actions).all():
+            raise ValueError(f"{self.action_key} contains non-finite values")
+
+        actions = input_actions.astype(np.float64, copy=False)
+        xy = actions[:, :2]
+        theta = np.unwrap(actions[:, 2])
+        cumulative, step = self._arc_parameter(xy, theta)
+        total = float(cumulative[-1])
+        covered = min(total, self.min_distance_unit)
+
+        if total <= self.zero_dist_epsilon:
+            xy_waypoints = np.repeat(xy[:1], self.M, axis=0)
+            theta_waypoints = np.repeat(theta[:1], self.M)
+            velocity = np.zeros(USOCKET_ARC_DIM, dtype=np.float64)
+        else:
+            targets = np.linspace(0.0, covered, self.M)
+            xy_waypoints = np.stack(
+                [self._interp(xy, cumulative, target) for target in targets]
+            )
+            theta_waypoints = np.array(
+                [
+                    self._interp(theta[:, None], cumulative, target)[0]
+                    for target in targets
+                ],
+                dtype=np.float64,
+            )
+
+            if covered < total - self.zero_dist_epsilon:
+                segment, alpha = _bracket_segment(cumulative, covered)
+                duration_steps = float(segment) + float(alpha)
+            else:
+                moving = np.flatnonzero(step > self.zero_dist_epsilon)
+                duration_steps = float(moving[-1] + 1) if moving.size else 0.0
+            duration = max(duration_steps * self.dt, self.dt)
+            delta_xy = xy_waypoints[-1] - xy_waypoints[0]
+            delta_theta = theta_waypoints[-1] - theta_waypoints[0]
+            velocity = np.array(
+                [
+                    delta_xy[0] / duration,
+                    delta_xy[1] / duration,
+                    delta_theta / duration,
+                    covered / duration,
+                ],
+                dtype=np.float64,
+            )
+
+        waypoints = np.column_stack(
+            [
+                xy_waypoints,
+                np.cos(theta_waypoints),
+                np.sin(theta_waypoints),
+            ]
+        )
+        output = np.concatenate([waypoints, velocity[None]], axis=0)
+        output_dtype = (
+            input_actions.dtype
+            if np.issubdtype(input_actions.dtype, np.floating)
+            else np.float32
+        )
+        batch[self.output_action_key] = output.astype(output_dtype, copy=False)
+        return batch
+
+    def detokenize(self, arc_actions: np.ndarray, action_horizon: int) -> np.ndarray:
+        """Decode ``(M+1, 4)`` tokens to fixed-rate ``(H, 3)`` actions."""
+        value = np.asarray(arc_actions, dtype=np.float64)
+        expected = (self.M + 1, USOCKET_ARC_DIM)
+        if value.shape != expected:
+            raise ValueError(
+                f"TokenizeUSocketArcLength.detokenize expects {expected}, "
+                f"got {value.shape}"
+            )
+        horizon = int(action_horizon)
+        if horizon <= 0:
+            raise ValueError("action_horizon must be positive")
+        if not np.isfinite(value).all():
+            raise ValueError("arc_actions contains non-finite values")
+
+        waypoints = value[: self.M]
+        kinematics = value[self.M]
+        xy = waypoints[:, :2]
+        rotvec = waypoints[:, 2:4]
+        rot_norm = np.linalg.norm(rotvec, axis=-1, keepdims=True)
+        safe_rotvec = np.divide(
+            rotvec,
+            rot_norm,
+            out=np.tile(np.array([[1.0, 0.0]]), (self.M, 1)),
+            where=rot_norm > self.zero_dist_epsilon,
+        )
+        theta = np.unwrap(np.arctan2(safe_rotvec[:, 1], safe_rotvec[:, 0]))
+        cumulative, _ = self._arc_parameter(xy, theta)
+        total = float(cumulative[-1])
+
+        path_speed = abs(float(kinematics[3]))
+        if path_speed <= self.zero_dist_epsilon and total > self.zero_dist_epsilon:
+            durations = []
+            xy_chord = float(np.linalg.norm(xy[-1] - xy[0]))
+            xy_speed = float(np.linalg.norm(kinematics[:2]))
+            if xy_chord > self.zero_dist_epsilon and xy_speed > self.zero_dist_epsilon:
+                durations.append(xy_chord / xy_speed)
+            theta_span = abs(float(theta[-1] - theta[0]))
+            omega = abs(float(kinematics[2]))
+            if theta_span > self.zero_dist_epsilon and omega > self.zero_dist_epsilon:
+                durations.append(theta_span / omega)
+            if durations:
+                path_speed = total / max(float(np.median(durations)), self.dt)
+
+        if total <= self.zero_dist_epsilon or path_speed <= self.zero_dist_epsilon:
+            xy_out = np.repeat(xy[:1], horizon, axis=0)
+            theta_out = np.repeat(theta[:1], horizon)
+        else:
+            targets = np.minimum(
+                path_speed * np.arange(horizon, dtype=np.float64) * self.dt,
+                total,
+            )
+            xy_out = np.stack(
+                [self._interp(xy, cumulative, target) for target in targets]
+            )
+            theta_out = np.array(
+                [
+                    self._interp(theta[:, None], cumulative, target)[0]
+                    for target in targets
+                ]
+            )
+        theta_out = np.angle(np.exp(1j * theta_out))
+        return np.column_stack([xy_out, theta_out])

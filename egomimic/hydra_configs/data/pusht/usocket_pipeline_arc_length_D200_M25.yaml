@@ -1,0 +1,60 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# U-socket SE(2) arc-length targets. Raw [x, y, theta] actions use simulator
+# pixel coordinates. A 100-step window has median translational arc length near
+# 197 px, so D=200 px covers a representative local manipulation path.
+# Rotation contributes to the arc metric at a 40 px effective radius so an
+# in-place grasp rotation remains observable.
+train_datasets:
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 100
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_arc_length_transform_list
+        min_distance_unit: 200.0
+        resampled_vector_length: 25
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 100
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_arc_length_transform_list
+        min_distance_unit: 200.0
+        resampled_vector_length: 25
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+
+train_dataloader_params:
+  pushshapes_sim_u_socket:
+    batch_size: 16
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+
+valid_dataloader_params:
+  pushshapes_sim_u_socket:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true

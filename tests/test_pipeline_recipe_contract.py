@@ -118,6 +118,39 @@ def test_arc_length_recipe_keeps_tokenizer_model_and_rollout_horizons_aligned():
     assert cfg.norm_stats.reduce_all_but_last is False
 
 
+def test_usocket_arc_recipe_aligns_source_token_and_rollout_horizons():
+    cfg = _compose("pusht/pipeline_sampler_usocket_arc_length")
+    model = cfg.model.robomimic_model
+    noise = model.stages[1]
+    sampler = model.stages[2]
+    adapter = model.rollout_adapter
+    train_data = cfg.data.train_datasets.pushshapes_sim_u_socket
+
+    assert model.action_horizon == 26
+    assert noise.action_horizon == 26
+    assert sampler.action_horizon == 26
+    assert sampler.denoising_module.act_seq == 26
+    assert dict(sampler.action_dims) == {"pushshapes_sim_u_socket": 4}
+    assert adapter._target_.endswith("USocketArcLengthRolloutAdapter")
+    assert adapter.min_distance_unit == 200.0
+    assert adapter.resampled_vector_length == 25
+    assert adapter.action_horizon == 100
+    assert adapter.rotation_radius == 40.0
+    assert train_data.resolver.key_map.action_horizon == 100
+    assert train_data.resolver.transform_list.min_distance_unit == 200.0
+    assert train_data.resolver.transform_list.resampled_vector_length == 25
+    assert train_data.resolver.transform_list.rotation_radius == 40.0
+    assert cfg.norm_stats.norm_mode == "minmax"
+    assert cfg.norm_stats.reduce_all_but_last is False
+
+    resolver = instantiate(train_data.resolver)
+    assert resolver.key_map["actions"]["horizon"] == 100
+    assert len(resolver.transform_list) == 1
+    assert resolver.transform_list[0].__class__.__name__ == (
+        "TokenizeUSocketArcLength"
+    )
+
+
 def test_pusht_dataset_schema_is_registered_and_leak_free():
     assert get_embodiment_id("pushshapes_sim") == 15
     assert get_embodiment_id("pushshapes_sim_small_circle") == 17
