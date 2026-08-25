@@ -64,7 +64,7 @@ robomimic_model:
     action_dims: {eva_bimanual: 20}
     latent_dim: ${model.robomimic_model.stages.1.latent_dim}
     decoder_hidden_dim: 512
-    denoiser_hidden_dim: 512
+    denoiser_hidden_dim: ${oc.select:dense_denoiser_hidden_dim,512}
     num_inference_steps: 16
     sampling_schedule:
       1: {1: 0.50, 2: 0.50}
@@ -74,7 +74,7 @@ robomimic_model:
       _target_: egomimic.models.denoising_nets.CrossTransformer
       nblocks: 16
       cond_dim: 384
-      hidden_dim: 512
+      hidden_dim: ${model.robomimic_model.stages.2.denoiser_hidden_dim}
       act_dim: ${model.robomimic_model.stages.1.latent_dim}
       act_seq: 100
       n_heads: 8

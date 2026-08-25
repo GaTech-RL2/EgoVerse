@@ -1,0 +1,15 @@
+# @package _global_
+# Denoiser-width ablation of the robot-only Dense BC control. Latent width,
+# denoiser depth, action decoder, data, evaluator, and training settings inherit.
+defaults:
+  - /experiment/fold/rh/pipeline_sampler_robot_bc
+  - _self_
+
+name: fold_robot_dense_bc_denoiser256
+description: pipeline_sampler_robot_bc_denoiser256_robot_only_cartesian_h100
+
+dense_denoiser_hidden_dim: 256
+
+logger:
+  wandb:
+    tags: [fold, robot_only, bc, dense_pipeline, denoiser256, "${oc.env:SOURCE_COMMIT_TAG,source_unset}"]
