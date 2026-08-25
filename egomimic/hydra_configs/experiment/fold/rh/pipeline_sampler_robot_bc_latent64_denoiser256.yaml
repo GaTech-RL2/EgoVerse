@@ -1,0 +1,15 @@
+# @package _global_
+# Combined capacity variant: 64-D action latent and 256-wide denoiser.
+# All other architecture, data, evaluator, and training settings inherit.
+defaults:
+  - /experiment/fold/rh/pipeline_sampler_robot_bc_denoiser256
+  - _self_
+
+name: fold_robot_dense_bc_latent64_denoiser256
+description: pipeline_sampler_robot_bc_latent64_denoiser256_robot_only_cartesian_h100
+
+dense_latent_dim: 64
+
+logger:
+  wandb:
+    tags: [fold, robot_only, bc, dense_pipeline, latent64, denoiser256, "${oc.env:SOURCE_COMMIT_TAG,source_unset}"]
