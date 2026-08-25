@@ -1,23 +1,19 @@
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import time
 import numpy as np
 import yaml
 from scipy.spatial.transform import Rotation as R
 
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
+from egomimic.robot.backends.arx5 import Arx5Unavailable, load_arx5_api
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
-
-try:
-    import arx5.arx5_interface as arx5
-    from arx5.arx5_interface import Arx5JointController
-    from arx5.arx5_interface import JointState as ArxJointState
-except ImportError:
-    arx5 = None
-    Arx5JointController = None
-    ArxJointState = None
+from egomimic.robot.safety import (
+    validate_cartesian_command,
+    validate_joint_command,
+)
 
 try:
     from stream_aria import AriaRecorder
@@ -41,10 +37,17 @@ def _get_model_xml_path():
 
 class Robot_Interface(ABC):
     def __init__(self):
-        if arx5 is None or Arx5JointController is None or ArxJointState is None:
+        try:
+            arx_api = load_arx5_api()
+        except Arx5Unavailable as error:
             raise ImportError(
-                "Live robot interface dependencies are unavailable. Use offline debug mode or install the ARX interface stack."
-            )
+                "Live robot interface dependencies are unavailable. Use "
+                "offline debug mode or install the Python 3.11 ARX wheel."
+            ) from error
+        self.arx5 = arx_api.module
+        self.arx_joint_controller = arx_api.joint_controller
+        self.arx_joint_state = arx_api.joint_state
+        self.arx_import_name = arx_api.import_name
         self.cfg = {}
         try:
             self.cfg = self.__get_config(self.cfg)
@@ -56,7 +59,9 @@ class Robot_Interface(ABC):
         model = self.cfg.get("model", "X5")
         self.robot_urdf = self.cfg.get("urdf", None)
 
-        self.robot_config = arx5.RobotConfigFactory.get_instance().get_config(model)
+        self.robot_config = self.arx5.RobotConfigFactory.get_instance().get_config(
+            model
+        )
         if self.robot_urdf:
             self.robot_config.urdf_path = self.robot_urdf
             # Match X5A URDF link names
@@ -64,12 +69,15 @@ class Robot_Interface(ABC):
         self.robot_config.eef_link_name = "link6"
         # Raise gripper torque limit so the torque protection (triggered at
         # gripper_torque_max/2) doesn't freeze the close command before the
-        # gripper reaches position zero.  Default 1.5 Nm gives only a 0.75 Nm
-        # threshold — lower than the ~1 Nm the motor draws closing from open.
+        # gripper reaches its configured closed position. Default 1.5 Nm gives
+        # only a 0.75 Nm threshold — lower than the ~1 Nm the motor draws
+        # closing from open.
         self.robot_config.gripper_torque_max = 4.0
 
-        self.controller_config = arx5.ControllerConfigFactory.get_instance().get_config(
-            "joint_controller", self.robot_config.joint_dof
+        self.controller_config = (
+            self.arx5.ControllerConfigFactory.get_instance().get_config(
+                "joint_controller", self.robot_config.joint_dof
+            )
         )
 
     def __get_config(self, cfg):
@@ -116,16 +124,24 @@ class Robot_Interface(ABC):
 
 
 class ARXInterface(Robot_Interface):
+    MAX_TRANSLATION_STEP_M = None
+    HARD_MAX_TRANSLATION_STEP_M = 0.15
+    MAX_ROTATION_STEP_RAD = None
+
     def __init__(self, arms):
         super().__init__()
 
         self.arms = arms
         self.controller = dict()
-        self._create_controllers(self.cfg)
-        self.__create_cam_recorders(self.cfg["cameras"])
-        self.kinematics_solver = EvaMinkKinematicsSolver(
-            model_path=_get_model_xml_path()
-        )
+        try:
+            self._create_controllers(self.cfg)
+            self.__create_cam_recorders(self.cfg["cameras"])
+            self.kinematics_solver = EvaMinkKinematicsSolver(
+                model_path=_get_model_xml_path()
+            )
+        except BaseException:
+            self.close()
+            raise
 
     def _create_controllers(self, cfg):
         interfaces_cfg = cfg.get("interfaces", {})
@@ -137,10 +153,9 @@ class ARXInterface(Robot_Interface):
                 default_iface = "can1"
                 selected_interface = interfaces_cfg.get("left", default_iface)
 
-            self.controller[arm] = Arx5JointController(
+            self.controller[arm] = self.arx_joint_controller(
                 self.robot_config, self.controller_config, selected_interface
             )
-            self.controller[arm].reset_to_home()
 
             gain = self.controller[arm].get_gain()
 
@@ -200,16 +215,39 @@ class ARXInterface(Robot_Interface):
                 raise ValueError("Invalid value in the config")
             self.camera_res[name] = (cam_cfg["height"], cam_cfg["width"])
 
-    def set_joints(self, desired_position, arm):
-        """
+    def validate_joints_command(
+        self,
+        desired_position,
+        arm,
+        *,
+        allow_preview_window_jump=False,
+    ):
+        current = self.get_joints(arm)
+        max_delta = np.asarray(self.robot_config.joint_vel_max, dtype=np.float64)[
+            :6
+        ] * float(self.ts_offset)
+        return validate_joint_command(
+            desired_position,
+            current,
+            np.asarray(self.robot_config.joint_pos_min)[:6],
+            np.asarray(self.robot_config.joint_pos_max)[:6],
+            max_delta,
+            allow_preview_window_jump=allow_preview_window_jump,
+        )
 
-        Args:
-            desired_position (np.array): 6 joints + gripper values (0 to 1)
-        """
-        if desired_position.shape != (7,):
-            raise ValueError(
-                "For Eva, desired position must be of shape (7,) for single arm"
-            )
+    def set_joints(
+        self,
+        desired_position,
+        arm,
+        *,
+        allow_preview_window_jump=False,
+    ):
+        """Send six joint positions plus a normalized gripper command."""
+        desired_position = self.validate_joints_command(
+            desired_position,
+            arm,
+            allow_preview_window_jump=allow_preview_window_jump,
+        )
 
         gripper_cmd = desired_position[6]
         desired_position = desired_position[:6]
@@ -222,7 +260,7 @@ class ARXInterface(Robot_Interface):
         current_ts = getattr(cur_joint_state, "timestamp", 0.0)
         self.timestamp = current_ts + self.ts_offset
 
-        requested = ArxJointState(
+        requested = self.arx_joint_state(
             desired_position.astype(np.float32),
             velocity.astype(np.float32),
             torque.astype(np.float32),
@@ -239,12 +277,32 @@ class ARXInterface(Robot_Interface):
 
         self.controller[arm].set_joint_cmd(requested)
 
+    def validate_pose_command(
+        self,
+        pose,
+        arm,
+        *,
+        allow_soft_translation_jump=False,
+    ):
+        current_pose = np.concatenate(
+            [self.get_pose_6d(arm), [self.get_joints(arm)[6]]]
+        )
+        return validate_cartesian_command(
+            pose,
+            current_pose,
+            max_translation_step_m=self.MAX_TRANSLATION_STEP_M,
+            max_rotation_step_rad=self.MAX_ROTATION_STEP_RAD,
+            hard_max_translation_step_m=self.HARD_MAX_TRANSLATION_STEP_M,
+            allow_soft_translation_jump=allow_soft_translation_jump,
+        )
+
     # x,y,z,y,p,r
-    def set_pose(self, pose, arm):
-        if pose.shape != (7,):
-            raise ValueError(
-                f"For Eva, target position must be of shape (7,), current shape: {pose.shape}"
-            )
+    def set_pose(self, pose, arm, *, allow_soft_translation_jump=False):
+        pose = self.validate_pose_command(
+            pose,
+            arm,
+            allow_soft_translation_jump=allow_soft_translation_jump,
+        )
         arm_joints = self.solve_ik(pose[:6], arm)
         joints = np.concatenate([arm_joints, [pose[6]]])
         self.set_joints(joints, arm)
@@ -344,12 +402,43 @@ class ARXInterface(Robot_Interface):
             time.sleep(1)
             self.controller[arm].reset_to_home()
 
+    def hold_position(self):
+        """Command the measured state so an exit does not leave a stale target."""
+        for arm in self.controller:
+            current = self.get_joints(arm)
+            current[6] = np.clip(current[6], 0.0, 1.0)
+            self.set_joints(current, arm)
+
+    def close(self):
+        errors = []
+        for arm in self.controller:
+            try:
+                current = self.get_joints(arm)
+                current[6] = np.clip(current[6], 0.0, 1.0)
+                self.set_joints(current, arm)
+            except Exception as error:
+                errors.append(f"{arm} hold failed: {error}")
+        for name, recorder in getattr(self, "recorders", {}).items():
+            stop = getattr(recorder, "stop", None)
+            if stop is None:
+                continue
+            try:
+                stop()
+            except Exception as error:
+                errors.append(f"{name} stop failed: {error}")
+        if errors:
+            print("[robot] Cleanup warnings: " + "; ".join(errors))
+
 
 class OfflineARXInterface:
     DEFAULT_IMAGE_SHAPE = (480, 640, 3)
 
-    def __init__(self, arms, dataset_path=None):
+    def __init__(self, arms, dataset_path=None, keymap_mode="cartesian"):
         self.arms = arms
+        # Eva.get_keymap REQUIRES keymap_mode; calling it bare raised TypeError
+        # and --offline-debug never produced an observation. Parameterised
+        # because this interface is shared across rollouts.
+        self.keymap_mode = keymap_mode
         self.recorders = {}
         self._joint_positions = {
             arm: np.zeros(7, dtype=np.float64) for arm in ("left", "right")
@@ -365,13 +454,58 @@ class OfflineARXInterface:
             if len(self.dataset) == 0:
                 raise ValueError(f"Offline dataset is empty: {self.dataset_path}")
 
+    @staticmethod
+    def _assert_per_frame_images(episode_path):
+        """Reject a chunk-indexed (h264) episode with an actionable message.
+
+        This reader indexes images per FRAME. An h264 episode stores them
+        chunk-indexed (e.g. images.front_1 shape [5] = 5 chunks x 300 frames),
+        so reads past the chunk count fail with an opaque IndexError from the
+        zarr layer. Compare the image array length against total_frames and say
+        what to use instead.
+        """
+        import json
+
+        attrs = episode_path / "zarr.json"
+        if not attrs.is_file():
+            return
+        try:
+            total = int(
+                json.loads(attrs.read_text())
+                .get("attributes", {})
+                .get("total_frames", 0)
+            )
+        except Exception:
+            return
+        if total <= 0:
+            return
+        for img in sorted(episode_path.glob("images.*")):
+            meta = img / "zarr.json"
+            if not meta.is_file():
+                continue
+            try:
+                shape = json.loads(meta.read_text()).get("shape") or []
+            except Exception:
+                continue
+            if shape and int(shape[0]) < total:
+                raise ValueError(
+                    f"Offline episode {episode_path.name} is CHUNK-INDEXED "
+                    f"(h264): {img.name} has length {shape[0]} for "
+                    f"{total} frames. This interface reads images per FRAME, so "
+                    f"it needs the per-frame JPEG copy of the same episode "
+                    f"(e.g. datasets/fold_rh_jpeg/... rather than "
+                    f"datasets/fold_rh/...). Same episode hashes, same "
+                    f"total_frames -- only the image encoding differs."
+                )
+
     def _build_dataset(self, dataset_path):
         episode_path = Path(dataset_path)
         if not episode_path.exists():
             raise FileNotFoundError(f"Offline episode path not found: {dataset_path}")
+        self._assert_per_frame_images(episode_path)
         return ZarrDataset(
             episode_path,
-            key_map=Eva.get_keymap(),
+            key_map=Eva.get_keymap(self.keymap_mode),
             transform_list=None,
         )
 
@@ -510,6 +644,12 @@ class OfflineARXInterface:
             self._joint_positions[arm] = np.zeros(7, dtype=np.float64)
             self._ee_pose[arm] = np.zeros(7, dtype=np.float64)
         self.frame_idx = 0
+
+    def hold_position(self):
+        return None
+
+    def close(self):
+        return None
 
 
 if __name__ == "__main__":

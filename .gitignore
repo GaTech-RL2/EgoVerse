@@ -25,6 +25,7 @@ egomimic/outputs
 outputs/
 logs/
 emimic/
+dist/arx5/
 emimic.egg-info/
 pyproject.bak
 egomimic/algo/pi_checkpoints/*

@@ -6,6 +6,22 @@ class Algo:
     def __init__(self):
         pass
 
+    @classmethod
+    def prepare_rollout_checkpoint(cls, checkpoint_path, checkpoint=None):
+        """Return a loadable checkpoint path after algorithm-specific preparation.
+
+        ``load_rollout_policy`` supplies its already-loaded checkpoint so an
+        algorithm does not need to deserialize a multi-gigabyte file twice.
+        Implementations may ignore it when no migration is required.
+        """
+        return checkpoint_path
+
+    def create_rollout_policy(self, config):
+        """Construct this algorithm's live-rollout adapter."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not provide a live rollout Policy"
+        )
+
     def process_batch_for_training(self, batch):
         """
         Processes input batch from a data loader to filter out

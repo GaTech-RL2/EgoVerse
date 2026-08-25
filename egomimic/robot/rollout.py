@@ -1,9 +1,9 @@
 # ruff: noqa: E402
 import os
 import sys
-import time
 import warnings
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 
 warnings.filterwarnings("ignore", message="Can't initialize NVML")
 
@@ -11,18 +11,17 @@ import cv2
 import h5py
 import numpy as np
 import torch
-from egomimic.robot.robot_utils import RateLoop
-from scipy.spatial.transform import Rotation as R
-from torch.utils.data import default_collate
 
-from egomimic.models.denoising_policy import DenoisingPolicy
-from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.rldb.embodiment.embodiment import get_embodiment
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
-from egomimic.utils.pose_utils import cam_frame_to_base_frame, interpolate_arr, interpolate_arr_euler
+from egomimic.robot.robot_utils import RateLoop
+from egomimic.robot.safety import (
+    CartesianTranslationConfirmationRequired,
+    CartesianTranslationHardLimitExceeded,
+    validate_action_vector,
+)
+from egomimic.rollout.policy import RolloutPolicyConfig, load_rollout_policy
 from egomimic.utils.viz_utils import draw_actions
-from egomimic.utils.pose_utils import xyzw_to_wxyz
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 
@@ -45,46 +44,6 @@ def visualize_actions(ims, actions, extrinsics, intrinsics, arm="both"):
     )
 
     return ims
-
-
-R_t_e = np.array(
-    [
-        [0, 0, 1],
-        [-1, 0, 0],
-        [0, -1, 0],
-    ],
-    dtype=float,
-)
-
-inv_R_t_e = np.linalg.inv(R_t_e)
-
-
-def ee_pose_to_rot_ee_frame_batch(pose):
-    pose = np.asarray(pose)
-    xyz = pose[..., :3]
-    ypr = pose[..., 3:6]
-    R_ee = R.from_euler("ZYX", ypr).as_matrix()
-    R_rot = R_t_e @ R_ee
-    ypr_rot = R.from_matrix(R_rot).as_euler("ZYX")
-    return np.concatenate([xyz, ypr_rot], axis=-1)
-
-
-def rot_ee_frame_to_ee_pose_batch(pose_rot):
-    pose_rot = np.asarray(pose_rot)
-    xyz = pose_rot[..., :3]
-    ypr = pose_rot[..., 3:6]
-    R_rot = R.from_euler("ZYX", ypr).as_matrix()
-    R_ee = inv_R_t_e @ R_rot
-    ypr_ee = R.from_matrix(R_ee).as_euler("ZYX")
-    return np.concatenate([xyz, ypr_ee], axis=-1)
-
-
-def ee_pose_to_rot_ee_frame(pose):
-    return ee_pose_to_rot_ee_frame_batch(pose[None, ...])[0]
-
-
-def rot_ee_frame_to_ee_pose(pose_rot):
-    return rot_ee_frame_to_ee_pose_batch(pose_rot[None, ...])[0]
 
 
 def viz_rot_ee_pose(image, eepose, action_image_path, rot_image_path):
@@ -140,22 +99,9 @@ def viz_rot_ee_pose(image, eepose, action_image_path, rot_image_path):
     return im_action, im_rot
 
 
-GRIPPER_WIDTH = 0.09
 # Control parameters
 DEFAULT_FREQUENCY = 30  # Hz
 QUERY_FREQUENCY = 30
-DEFAULT_RESAMPLE_LENGTH = 45
-
-RIGHT_CAM_SERIAL = ""
-LEFT_CAM_SERIAL = ""
-
-EMBODIMENT_MAP = {
-    "both": 8,
-    "left": 7,
-    "right": 6,
-}
-
-TEMP_DIR = "/home/robot/temp_dir"
 
 
 def _build_robot_interface(arms_list, offline_debug=False, offline_episode_path=None):
@@ -198,6 +144,78 @@ class _KeyPoll:
         return None
 
 
+@contextmanager
+def _cooked_terminal(kp):
+    """Temporarily restore line-buffered input and always re-enter cbreak mode."""
+    termios.tcsetattr(kp.fd, termios.TCSADRAIN, kp.old)
+    try:
+        yield
+    finally:
+        tty.setcbreak(kp.fd)
+
+
+def _confirm_cartesian_action(kp, confirmations) -> bool:
+    """Require explicit approval for one action in the 8-to-15 cm band."""
+    with _cooked_terminal(kp):
+        print("\n--- CARTESIAN SAFETY CONFIRMATION (rollout paused) ---")
+        print("No command has been sent.")
+        for arm, warning in confirmations:
+            print(
+                f"{arm}: requested jump {warning.translation_step_m:.4f} m "
+                f"(automatic limit {warning.automatic_limit_m:.4f} m; "
+                f"hard limit {warning.hard_limit_m:.4f} m)"
+            )
+        while True:
+            try:
+                response = input("Execute this one action vector? [y/N]: ")
+            except EOFError:
+                print("Input closed; rejecting the action.")
+                return False
+            response = response.strip().lower()
+            if response in ("y", "yes"):
+                print("Action approved once; future jumps require confirmation.")
+                return True
+            if response in ("", "n", "no"):
+                print("Action rejected; no command was sent.")
+                return False
+            print("Please enter y/yes or n/no.")
+
+
+def _report_cartesian_hard_pause(error, sent_arms=()) -> None:
+    print("\n--- CARTESIAN SAFETY PAUSE ---")
+    if sent_arms:
+        print(f"Dispatch stopped after commanding: {', '.join(sent_arms)}.")
+    else:
+        print("No command was sent.")
+    print(
+        f"Requested translation jump {error.translation_step_m:.4f} m reached "
+        f"the {error.hard_limit_m:.4f} m hard limit."
+    )
+
+
+def _run_intervention_loop(
+    enter_intervention,
+    restart_rollout,
+    *,
+    ensure_reset_before_continue=False,
+):
+    """Keep restarts paused and require an explicit continue before returning."""
+    reset_performed = False
+    while True:
+        result = enter_intervention()
+        if result == "restart":
+            restart_rollout()
+            reset_performed = True
+            continue
+        if (
+            result == "continue"
+            and ensure_reset_before_continue
+            and not reset_performed
+        ):
+            restart_rollout()
+        return result
+
+
 class Rollout(ABC):
     def __init__(self):
         pass
@@ -220,313 +238,20 @@ class ReplayRollout(Rollout):
                 self.actions = np.asarray(
                     f["observations"]["joint_positions"][...], dtype=np.float32
                 )
+        self._action_index = 0
 
     def rollout_step(self, i):
-        if i < self.actions.shape[0]:
-            return self.actions[i]
-        else:
+        del i  # Replay owns its cursor so intervention does not rewind implicitly.
+        if self._action_index >= self.actions.shape[0]:
             return None
+        return self.actions[self._action_index]
 
-
-class PolicyRollout(Rollout):
-    def __init__(
-        self,
-        arm,
-        policy_path,
-        query_frequency,
-        cartesian,
-        resampled_action_len=None,
-        debug=False,
-        annotation_path=None,
-    ):
-        super().__init__()
-        self.arm = arm
-        self.policy_path = policy_path
-        self.query_frequency = query_frequency
-        self.cartesian = cartesian
-        self.embodiment_id = EMBODIMENT_MAP[self.arm]
-        self.embodiment_name = get_embodiment(self.embodiment_id)
-        self.extrinsics = Eva.EXTRINSICS
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.policy_device = self.device
-        print(f"[rollout] Loading policy from {self.policy_path}")
-        self.policy = self._load_policy()
-        self.debug_actions = None
-        self.resampled_action_len = resampled_action_len
-        self.debug = debug
-        self.transform_list = Eva.get_transform_list(mode="cartesian_wristframe_ypr")
-        self.annotation = None
-        self._tokenizer = None
-        self.collate_fn = default_collate
-        if annotation_path is not None:
-            if not os.path.isfile(annotation_path):
-                print(
-                    f"[rollout] WARNING: annotation file not found: {annotation_path}  (continuing without annotation)"
-                )
-            else:
-                with open(annotation_path, "r") as f:
-                    self.annotation = f.read().strip()
-
-    LOCAL_WEIGHT_PATH = (
-        "/home/robot/robot_ws/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
-    )
-
-    @classmethod
-    def _patch_checkpoint_paths(cls, ckpt_path):
-        """Rewrite pytorch_weight_path in the checkpoint's saved config
-        to point to the local base model weights."""
-        import torch as _torch
-        from omegaconf import DictConfig, OmegaConf
-
-        ckpt = _torch.load(ckpt_path, map_location="cpu", weights_only=False)
-        ht = ckpt.get("hyper_parameters", {}).get("config_tree")
-        if ht is None:
-            return ckpt_path
-        if isinstance(ht, DictConfig):
-            cfg = OmegaConf.to_container(ht, resolve=True)
-        else:
-            cfg = ht
-        # Navigate to pytorch_weight_path in the config
-        robomimic = cfg.get("model", {}).get("robomimic_model", {})
-        config = robomimic.get("config", {})
-        old_path = config.get("pytorch_weight_path")
-        if old_path is None or old_path == cls.LOCAL_WEIGHT_PATH:
-            return ckpt_path
-        print(
-            f"[rollout] Patching pytorch_weight_path: {old_path} -> {cls.LOCAL_WEIGHT_PATH}"
-        )
-        config["pytorch_weight_path"] = cls.LOCAL_WEIGHT_PATH
-        ckpt["hyper_parameters"]["config_tree"] = OmegaConf.create(cfg)
-        patched_path = ckpt_path + ".patched"
-        _torch.save(ckpt, patched_path)
-        print(f"[rollout] Patched checkpoint saved to {patched_path}")
-        return patched_path
-
-    def _load_policy(self):
-        patched_path = self._patch_checkpoint_paths(self.policy_path)
-        policy = ModelWrapper.load_from_checkpoint(
-            patched_path, weights_only=False, map_location="cpu"
-        )
-        policy = policy.to(self.policy_device)
-        policy.eval()
-        policy.model.device = self.policy_device
-
-        # Unwrap torch.compile on sample_actions to avoid massive first-call
-        # compilation overhead (~50s). The compiled version (instance attribute)
-        # shadows the original class method; deleting it restores the fast
-        # uncompiled path which is sufficient for real-time rollout.
-        pi0 = policy.model.nets["policy"]
-        if "sample_actions" in vars(pi0):
-            del pi0.sample_actions
-            print(
-                "[rollout] Disabled torch.compile on sample_actions for rollout inference"
-            )
-
-        # Verify model is on GPU
-        try:
-            p = next(pi0.parameters())
-            print(f"[rollout] Model device: {p.device}, dtype: {p.dtype}")
-            if not p.is_cuda:
-                print(
-                    "[rollout] WARNING: model is NOT on GPU — inference will be very slow!"
-                )
-        except StopIteration:
-            pass
-
-        if getattr(policy.model, "diffusion", False):
-            for head in policy.model.nets.policy.heads:
-                if isinstance(policy.model.nets.policy.heads[head], DenoisingPolicy):
-                    policy.model.nets.policy.heads[head].num_inference_steps = 10
-        return policy
-
-    def _downsample_chunk(self, chunk: np.ndarray, target_len: int) -> np.ndarray:
-        if target_len is None or target_len <= 0 or chunk.shape[0] == target_len:
-            return chunk.astype(np.float32, copy=False)
-
-        # chunk: (T, D) -> (1, T, D) and back
-        if self.cartesian:
-            if self.arm == "both":
-                left = chunk[:, :7]
-                right = chunk[:, 7:14]
-                left_r = interpolate_arr_euler(left[None, ...], target_len)[0]
-                right_r = interpolate_arr_euler(right[None, ...], target_len)[0]
-                out = np.hstack([left_r, right_r])
-            else:
-                out = interpolate_arr_euler(chunk[None, ...], target_len)[0]
-        else:
-            out = interpolate_arr(chunk[None, ...], target_len)[0]
-
-        return out.astype(np.float32, copy=False)
-
-    def rollout_step(self, i, obs):
-        if i % self.query_frequency == 0:
-            start_infer_t = time.time()
-            transform_list_batch = self.process_obs_for_transform_list(obs)
-            for transform in self.transform_list:
-                transform_list_batch = transform.transform(transform_list_batch)
-            transform_list_batch = self.collate_fn([transform_list_batch])
-            if self.arm == "both":
-                embodiment_name = "eva_bimanual"
-            elif self.arm == "right":
-                embodiment_name = "eva_right_arm"
-
-            elif self.arm == "left":
-                embodiment_name = "eva_left_arm"
-            batch = {
-                embodiment_name: transform_list_batch,
-            }
-            processed_batch = self.policy.model.process_batch_for_training(batch)
-            preds = self.policy.model.forward_eval(processed_batch)[
-                f"{embodiment_name}_actions_cartesian"
-            ]
-            self.actions = preds.detach().cpu().numpy().squeeze()
-            self.debug_actions = self.actions.copy()
-            if self.cartesian:
-                if self.arm == "both":
-                    left_actions = self.actions[:, :7]
-                    right_actions = self.actions[:, 7:]
-
-                    transformed_left = cam_frame_to_base_frame(
-                        left_actions[:, :6].copy(), self.extrinsics["left"]
-                    )
-                    transformed_right = cam_frame_to_base_frame(
-                        right_actions[:, :6].copy(), self.extrinsics["right"]
-                    )
-                    transformed_left = rot_ee_frame_to_ee_pose_batch(transformed_left)
-                    transformed_right = rot_ee_frame_to_ee_pose_batch(transformed_right)
-                    gripper_left = left_actions[:, 6:7]
-                    gripper_right = right_actions[:, 6:7]
-                    if left_actions.shape[1] == 7:
-                        left_actions = np.hstack([transformed_left, gripper_left])
-                    else:
-                        left_actions = transformed_left
-                    if right_actions.shape[1] == 7:
-                        right_actions = np.hstack([transformed_right, gripper_right])
-                    else:
-                        right_actions = transformed_right
-                    self.actions = np.hstack([left_actions, right_actions])
-                else:
-                    eepose = rot_ee_frame_to_ee_pose_batch(self.actions[:, :6].copy())
-                    self.actions[:, :6] = eepose
-                    transformed_6dof = cam_frame_to_base_frame(
-                        self.actions[:, :6].copy(), self.extrinsics[self.arm]
-                    )
-                    # Preserve gripper if present (7th value)
-                    gripper = self.actions[:, 6:7]
-                    if self.actions.shape[1] == 7:
-                        self.actions = np.hstack([transformed_6dof, gripper])
-                    else:
-                        self.actions = transformed_6dof
-
-            if self.resampled_action_len is not None:
-                self.actions = self._downsample_chunk(
-                    self.actions, self.resampled_action_len
-                )
-            # print(f"actions: {self.actions[6:7]}, debug_actions: {self.debug_actions[6:7]}")
-
-            print(f"Inference time: {(time.time() - start_infer_t)}s")
-
-        act_i = i % self.query_frequency
-        return self.actions[act_i]
-
-    def process_obs_for_transform_list(self, obs):
-        # front camera: obs["front_img_1"] is BGR, shape [H, W, 3]
-        front = torch.from_numpy(obs["front_img_1"][None, ...])  # [1, H, W, 3]
-        front = front[..., [2, 1, 0]]  # BGR -> RGB
-        front = front.permute(0, 3, 1, 2).to(dtype=torch.float32) / 255.0
-        front = front.squeeze()
-        data = {
-            # Keep rollout-local keys, PI schematic aliases, and canonical
-            # dataset zarr keys so checkpoints with different data schematics
-            # can all resolve the same image tensor.
-            "front_img_1": front,
-            "base_0_rgb": front,
-            "observations.images.front_img_1": front,
-            "pad_mask": torch.ones((1, 100, 1), dtype=torch.bool),
-        }
-
-        eepose = obs["ee_poses"]
-
-        if self.arm in ["right", "both"]:
-            right = torch.from_numpy(
-                obs["right_wrist_img"][None, ...]
-            )  # [1, H, W, 3] BGR
-            right = right[..., [2, 1, 0]]  # BGR -> RGB
-            right = right.permute(0, 3, 1, 2).to(dtype=torch.float32) / 255.0
-            data["right_wrist_img"] = right.squeeze()
-            data["right_wrist_0_rgb"] = data["right_wrist_img"]
-            data["observations.images.right_wrist_img"] = data["right_wrist_img"]
-            right_ee_pose = eepose[7:13]
-            right_ee_pose = ee_pose_to_rot_ee_frame(right_ee_pose)
-            right_ypr = right_ee_pose[..., 3:6]
-            right_xyzw = R.from_euler("ZYX", right_ypr).as_quat()
-            right_wxyz = xyzw_to_wxyz(right_xyzw)
-            right_xyzwxyz = np.concatenate([eepose[7:10], right_wxyz], axis=-1)
-            data["right.obs_ee_pose"] = torch.from_numpy(right_xyzwxyz).reshape(-1)
-            data["right.obs_gripper"] = torch.from_numpy(eepose[13:14]).reshape(-1)
-            right_gripper = torch.from_numpy(eepose[13:14]).view(1, 1).repeat(45, 1)
-            data["right.cmd_gripper"] = right_gripper
-            right_cmd_ee_pose = torch.from_numpy(right_xyzwxyz).view(1, 7).repeat(45, 1)
-            data["right.cmd_ee_pose"] = right_cmd_ee_pose
-
-        if self.arm in ["left", "both"]:
-            left = torch.from_numpy(
-                obs["left_wrist_img"][None, ...]
-            )  # [1, H, W, 3] BGR
-            left = left[..., [2, 1, 0]]  # BGR -> RGB
-            left = left.permute(0, 3, 1, 2).to(dtype=torch.float32) / 255.0
-            data["left_wrist_img"] = left.squeeze()
-            data["left_wrist_0_rgb"] = data["left_wrist_img"]
-            data["observations.images.left_wrist_img"] = data["left_wrist_img"]
-            left_ee_pose = eepose[0:6]
-            left_ee_pose = ee_pose_to_rot_ee_frame(left_ee_pose)
-            left_ypr = left_ee_pose[..., 3:6]
-            left_xyzw = R.from_euler("ZYX", left_ypr).as_quat()
-            left_wxyz = xyzw_to_wxyz(left_xyzw)
-            left_xyzwxyz = np.concatenate([eepose[:3], left_wxyz], axis=-1)
-            data["left.obs_ee_pose"] = torch.from_numpy(left_xyzwxyz).reshape(-1)
-            data["left.obs_gripper"] = torch.from_numpy(eepose[6:7]).reshape(-1)
-            left_gripper = torch.from_numpy(eepose[6:7]).view(1, 1).repeat(45, 1)
-            data["left.cmd_gripper"] = left_gripper
-            left_cmd_ee_pose = torch.from_numpy(left_xyzwxyz).view(1, 7).repeat(45, 1)
-            data["left.cmd_ee_pose"] = left_cmd_ee_pose
-
-        if self.arm == "both":
-            data["embodiment"] = ["eva_bimanual"]
-        elif self.arm == "right":
-            data["embodiment"] = ["eva_right_arm"]
-        elif self.arm == "left":
-            data["embodiment"] = "eva_left_arm"
-
-        if self.annotation is not None:
-            data["annotations"] = [self.annotation]
-
-        return data
-
-    def load_annotation(self, annotation_path):
-        """Load a new annotation file, building the tokenized collate only if needed.
-
-        The annotation text flows through data["annotations"] at each inference
-        step, so updating self.annotation is sufficient when the tokenized
-        collate already exists.  We only build it when the collate is still the
-        plain default_collate (i.e. no annotation was provided at init time).
-
-        Returns True on success, False if the file could not be loaded.
-        """
-        if not os.path.isfile(annotation_path):
-            print(f"[rollout] WARNING: annotation file not found: {annotation_path}")
-            return False
-        with open(annotation_path, "r") as f:
-            self.annotation = f.read().strip()
-        print(
-            f"[rollout] Loaded new annotation from {annotation_path}: '{self.annotation}'"
-        )
-        return True
+    def commit_step(self):
+        """Advance only after the current replay action was actually dispatched."""
+        self._action_index += 1
 
     def reset(self):
-        self.actions = None
-        self.debug_actions = None
-        self.policy.eval()
+        self._action_index = 0
 
 
 def debug_policy(actions, front_img, step_i):
@@ -544,7 +269,9 @@ def debug_policy(actions, front_img, step_i):
         front_img = front_img.transpose(1, 2, 0)
     front_img = front_img.astype(np.uint8)
 
-    actions = actions.squeeze()
+    if isinstance(actions, torch.Tensor):
+        actions = actions.detach().cpu().numpy()
+    actions = np.asarray(actions).squeeze()
     eva_viz_batch = {
         "observations.images.front_img_1": torch.from_numpy(front_img[None, ...]),
         "actions_cartesian": torch.from_numpy(
@@ -554,27 +281,160 @@ def debug_policy(actions, front_img, step_i):
     im_viz = Eva.viz_transformed_batch(eva_viz_batch, mode="traj+rotation")
 
     cv2.imwrite(f"debug/debug_{step_i}.png", im_viz)
-    breakpoint()
 
 
 def reset_rollout(ri, policy):
     print("Resetting rollout: going home + clearing policy state")
-    if isinstance(policy, ReplayRollout):
-        return
     ri.set_home()
     if hasattr(policy, "reset"):
         policy.reset()
-    if hasattr(policy, "actions"):
-        policy.actions = None
-    if hasattr(policy, "debug_actions"):
-        policy.debug_actions = None
+
+
+def validate_rollout_action(
+    ri,
+    actions,
+    arms,
+    arms_list,
+    cartesian,
+    *,
+    allowed_soft_translation_arms=None,
+):
+    expected_dim = 14 if arms == "both" else 7
+    actions = validate_action_vector(actions, expected_dim)
+    allowed_soft_translation_arms = frozenset(allowed_soft_translation_arms or ())
+    confirmations = []
+    for arm in arms_list:
+        offset = 7 if (arm == "right" and arms == "both") else 0
+        arm_action = actions[offset : offset + 7]
+        validator_name = (
+            "validate_pose_command" if cartesian else "validate_joints_command"
+        )
+        validator = getattr(ri, validator_name, None)
+        if validator is not None:
+            try:
+                if cartesian:
+                    validator(
+                        arm_action,
+                        arm,
+                        allow_soft_translation_jump=(
+                            arm in allowed_soft_translation_arms
+                        ),
+                    )
+                else:
+                    validator(arm_action, arm)
+            except CartesianTranslationConfirmationRequired as warning:
+                confirmations.append((arm, warning))
+    return actions, confirmations
+
+
+def authorize_rollout_action(kp, ri, actions, arms, arms_list, cartesian):
+    """Validate all arms, then optionally authorize exactly one soft jump."""
+    approved_arms = frozenset()
+    while True:
+        try:
+            actions, confirmations = validate_rollout_action(
+                ri,
+                actions,
+                arms,
+                arms_list,
+                cartesian,
+                allowed_soft_translation_arms=approved_arms,
+            )
+        except CartesianTranslationHardLimitExceeded as error:
+            _report_cartesian_hard_pause(error)
+            return None
+        if not confirmations:
+            return actions, approved_arms
+        if not _confirm_cartesian_action(kp, confirmations):
+            return None
+        approved_arms |= frozenset(arm for arm, _ in confirmations)
+
+
+def dispatch_rollout_action(
+    ri,
+    actions,
+    arms,
+    arms_list,
+    cartesian,
+    *,
+    allowed_soft_translation_arms=None,
+):
+    """Send one fully authorized rollout action to the selected arm(s)."""
+    allowed_soft_translation_arms = frozenset(allowed_soft_translation_arms or ())
+    try:
+        _, confirmations = validate_rollout_action(
+            ri,
+            actions,
+            arms,
+            arms_list,
+            cartesian,
+            allowed_soft_translation_arms=allowed_soft_translation_arms,
+        )
+    except CartesianTranslationHardLimitExceeded as error:
+        _report_cartesian_hard_pause(error)
+        return False
+    if confirmations:
+        arms_requiring_confirmation = [arm for arm, _ in confirmations]
+        raise RuntimeError(
+            "Cartesian command changed before dispatch; new confirmation is "
+            f"required for {arms_requiring_confirmation}"
+        )
+    sent_arms = []
+    for arm in arms_list:
+        arm_offset = 7 if (arm == "right" and arms == "both") else 0
+        arm_action = actions[arm_offset : arm_offset + 7]
+        try:
+            if cartesian:
+                if arm in allowed_soft_translation_arms:
+                    ri.set_pose(
+                        arm_action,
+                        arm,
+                        allow_soft_translation_jump=True,
+                    )
+                else:
+                    ri.set_pose(arm_action, arm)
+            else:
+                ri.set_joints(arm_action, arm)
+        except CartesianTranslationHardLimitExceeded as error:
+            _report_cartesian_hard_pause(error, sent_arms)
+            return False
+        sent_arms.append(arm)
+    return True
+
+
+def warmup_policy(ri, policy, arms, arms_list, cartesian):
+    """Run one observed inference and safety validation without commanding motors."""
+    print("[rollout] Running pre-motion shadow inference")
+    observation = ri.get_obs()
+    actions = policy.act(observation)
+    try:
+        _, confirmations = validate_rollout_action(
+            ri,
+            actions,
+            arms,
+            arms_list,
+            cartesian,
+        )
+    except CartesianTranslationHardLimitExceeded as error:
+        _report_cartesian_hard_pause(error)
+        policy.reset()
+        return False
+    for arm, warning in confirmations:
+        print(
+            f"[rollout] Shadow-only {arm} translation "
+            f"{warning.translation_step_m:.4f} m is in the attended "
+            "confirmation band; no command was sent"
+        )
+    policy.reset()
+    print("[rollout] Shadow inference passed; no command was sent")
+    return True
 
 
 def main(
     arms,
     frequency,
     cartesian,
-    query_frequency=None,
+    query_frequency=QUERY_FREQUENCY,
     policy_path=None,
     dataset_path=None,
     debug=False,
@@ -582,6 +442,8 @@ def main(
     offline_debug=False,
     offline_episode_path=None,
     annotation_path=None,
+    action_frame="base",
+    allow_cpu_policy=False,
 ):
     if arms == "both":
         arms_list = ["right", "left"]
@@ -603,24 +465,33 @@ def main(
         offline_episode_path=offline_episode_path,
     )
 
-    if policy_path is not None:
-        rollout_type = "policy"
-        policy = PolicyRollout(
-            arm=arms,
-            policy_path=policy_path,
-            query_frequency=query_frequency,
-            cartesian=cartesian,
-            resampled_action_len=resampled_action_len,
-            debug=debug,
-            annotation_path=annotation_path,
-        )
-    elif dataset_path is not None:
-        rollout_type = "replay"
-        policy = ReplayRollout(dataset_path=dataset_path, cartesian=cartesian)
-    else:
-        raise ValueError(
-            "Must provide either --policy-path or --dataset-path (and optionally --repo-id)."
-        )
+    try:
+        if policy_path is not None:
+            rollout_type = "policy"
+            policy = load_rollout_policy(
+                policy_path,
+                RolloutPolicyConfig(
+                    arm=arms,
+                    query_frequency=query_frequency,
+                    cartesian=cartesian,
+                    resampled_action_len=resampled_action_len,
+                    annotation_path=annotation_path,
+                    action_frame=action_frame,
+                    require_cuda=not offline_debug and not allow_cpu_policy,
+                ),
+            )
+        elif dataset_path is not None:
+            rollout_type = "replay"
+            policy = ReplayRollout(dataset_path=dataset_path, cartesian=cartesian)
+        else:
+            raise ValueError(
+                "Must provide either --policy-path or --dataset-path (and optionally --repo-id)."
+            )
+    except BaseException:
+        close = getattr(ri, "close", None)
+        if close is not None:
+            close()
+        raise
 
     print(f"Cartesian value {cartesian}")
 
@@ -635,53 +506,75 @@ def main(
             "restart"   – restart rollout
             "quit"      – exit program
         """
-        # Restore normal terminal so the user can type freely
-        termios.tcsetattr(kp.fd, termios.TCSADRAIN, kp.old)
-        print("\n--- INTERVENTION (rollout paused) ---")
-        print("  c            : continue rollout")
-        print("  a <path>     : load new annotation file")
-        print("  r            : restart rollout")
-        print("  q            : quit")
+        with _cooked_terminal(kp):
+            print("\n--- INTERVENTION (rollout paused) ---")
+            print("  c            : continue rollout")
+            print("  a <path>     : load new annotation file")
+            print("  r            : restart rollout")
+            print("  q            : quit")
 
-        while True:
-            try:
-                cmd = input("> ").strip()
-            except EOFError:
-                tty.setcbreak(kp.fd)
-                return "quit"
+            while True:
+                try:
+                    cmd = input("> ").strip()
+                except EOFError:
+                    return "quit"
 
-            if cmd == "c":
-                print("Resuming rollout.")
-                tty.setcbreak(kp.fd)
-                return "continue"
-            elif cmd == "q":
-                tty.setcbreak(kp.fd)
-                return "quit"
-            elif cmd == "r":
-                tty.setcbreak(kp.fd)
-                return "restart"
-            elif cmd.startswith("a "):
-                ann_path = cmd[2:].strip()
-                if not ann_path:
-                    print("Usage: a <annotation_path>")
-                    continue
-                if rollout_type != "policy" or not isinstance(policy, PolicyRollout):
-                    print("Annotation loading is only supported for policy rollouts.")
-                    continue
-                policy.load_annotation(ann_path)
-            else:
-                print(f"Unknown command: '{cmd}'. Use c / a <path> / r / q.")
+                if cmd == "c":
+                    print("Resuming rollout.")
+                    return "continue"
+                elif cmd == "q":
+                    return "quit"
+                elif cmd == "r":
+                    return "restart"
+                elif cmd.startswith("a "):
+                    ann_path = cmd[2:].strip()
+                    if not ann_path:
+                        print("Usage: a <annotation_path>")
+                        continue
+                    if rollout_type != "policy":
+                        print(
+                            "Annotation loading is only supported for policy rollouts."
+                        )
+                        continue
+                    policy.load_annotation(ann_path)
+                else:
+                    print(f"Unknown command: '{cmd}'. Use c / a <path> / r / q.")
+
+    def _intervene_until_continue(
+        kp,
+        policy,
+        rollout_type,
+        *,
+        ensure_reset_before_continue=False,
+    ):
+        """Remain paused across any number of restarts until continue or quit."""
+        return _run_intervention_loop(
+            lambda: _enter_intervention(kp, policy, rollout_type),
+            lambda: reset_rollout(ri, policy),
+            ensure_reset_before_continue=ensure_reset_before_continue,
+        )
 
     try:
         with _KeyPoll() as kp:
-            reset_rollout(ri, policy)
             # Enter intervention at startup so the user decides when to begin
-            result = _enter_intervention(kp, policy, rollout_type)
+            print(
+                "[robot] Controllers are initialized without homing. "
+                "Continuing authorizes homing and shadow inference."
+            )
+            result = _intervene_until_continue(
+                kp,
+                policy,
+                rollout_type,
+                ensure_reset_before_continue=True,
+            )
             if result == "quit":
                 print("Quit requested.")
                 return
-            if result == "restart":
-                reset_rollout(ri, policy)
+            if rollout_type == "policy":
+                while not warmup_policy(ri, policy, arms, arms_list, cartesian):
+                    result = _intervene_until_continue(kp, policy, rollout_type)
+                    if result == "quit":
+                        return
 
             while True:  # restartable
                 with RateLoop(frequency=frequency, verbose=True) as loop:
@@ -689,27 +582,18 @@ def main(
                         ch = kp.getch()
                         if ch is not None:
                             # Any key press triggers intervention
-                            result = _enter_intervention(kp, policy, rollout_type)
+                            result = _intervene_until_continue(kp, policy, rollout_type)
                             if result == "quit":
                                 print("Quit requested.")
                                 return
-                            elif result == "restart":
-                                print("Restart requested.")
-                                reset_rollout(ri, policy)
-                                result = _enter_intervention(kp, policy, rollout_type)
-                                if result == "quit":
-                                    return
-                                if result == "restart":
-                                    reset_rollout(ri, policy)
-                                break
-                            if hasattr(policy, "actions"):
-                                policy.actions = None
+                            if rollout_type == "policy":
+                                policy.reset()
                             break
 
                         actions = None
                         if rollout_type == "policy":
                             obs = ri.get_obs()
-                            actions = policy.rollout_step(step_i, obs)
+                            actions = policy.act(obs)
                         elif rollout_type == "replay":
                             actions = policy.rollout_step(step_i)
                         elif rollout_type == "replay_lerobot":
@@ -719,19 +603,34 @@ def main(
 
                         if actions is None:
                             print("Finish rollout.")
-                            reset_rollout(ri, policy)
-                            result = _enter_intervention(kp, policy, rollout_type)
+                            result = _intervene_until_continue(
+                                kp,
+                                policy,
+                                rollout_type,
+                                ensure_reset_before_continue=True,
+                            )
                             if result == "quit":
                                 return
-                            if result == "restart":
-                                reset_rollout(ri, policy)
                             break
 
-                        if (
-                            debug
-                            and rollout_type == "policy"
-                            and step_i % query_frequency == 0
-                        ):
+                        authorization = authorize_rollout_action(
+                            kp,
+                            ri,
+                            actions,
+                            arms,
+                            arms_list,
+                            cartesian,
+                        )
+                        if authorization is None:
+                            if rollout_type == "policy" and hasattr(policy, "reset"):
+                                policy.reset()
+                            result = _intervene_until_continue(kp, policy, rollout_type)
+                            if result == "quit":
+                                return
+                            break
+                        actions, allowed_soft_translation_arms = authorization
+
+                        if debug and rollout_type == "policy" and policy.just_queried:
                             debug_actions = policy.debug_actions
                             front_img = obs["front_img_1"]
                             debug_policy(
@@ -740,17 +639,34 @@ def main(
                                 step_i,
                             )
 
-                        for arm in arms_list:
-                            arm_offset = 7 if (arm == "right" and arms == "both") else 0
-                            arm_action = actions[arm_offset : arm_offset + 7]
-                            if cartesian:
-                                ri.set_pose(arm_action, arm)
-                            else:
-                                ri.set_joints(arm_action, arm)
+                        dispatched = dispatch_rollout_action(
+                            ri,
+                            actions,
+                            arms,
+                            arms_list,
+                            cartesian,
+                            allowed_soft_translation_arms=(
+                                allowed_soft_translation_arms
+                            ),
+                        )
+                        if not dispatched:
+                            if rollout_type == "policy" and hasattr(policy, "reset"):
+                                policy.reset()
+                            result = _intervene_until_continue(kp, policy, rollout_type)
+                            if result == "quit":
+                                return
+                            break
+                        commit_step = getattr(policy, "commit_step", None)
+                        if commit_step is not None:
+                            commit_step()
 
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected, exiting rollout.")
         return
+    finally:
+        close = getattr(ri, "close", None)
+        if close is not None:
+            close()
 
 
 def build_arg_parser(description="Rollout robot model."):
@@ -776,6 +692,14 @@ def build_arg_parser(description="Rollout robot model."):
         default=QUERY_FREQUENCY,
         help="Frames which model does inference",
     )
+    parser.add_argument(
+        "--action-frame",
+        type=str,
+        default="base",
+        choices=["base", "cam"],
+        help="Legacy-checkpoint frame convention. Pipeline Fold checkpoints "
+        "always use their canonical wrist-frame-to-base-frame codec.",
+    )
     parser.add_argument("--policy-path", type=str, help="policy checkpoint path")
     parser.add_argument("--dataset-path", type=str, help="dataset path for replay")
     parser.add_argument(
@@ -796,13 +720,19 @@ def build_arg_parser(description="Rollout robot model."):
     parser.add_argument(
         "--resampled-action-len",
         type=int,
-        default=DEFAULT_RESAMPLE_LENGTH,
-        help="Resample each predicted action chunk to this length (e.g., 100 -> 45). Euler if --cartesian.",
+        default=None,
+        help="Legacy checkpoints only: resample each predicted action chunk to "
+        "this length. Pipeline checkpoints retain their trained horizon.",
     )
     parser.add_argument(
         "--debug",
         action="store_true",
         help="enable debug visualization of actions on images",
+    )
+    parser.add_argument(
+        "--allow-cpu-policy",
+        action="store_true",
+        help="allow live policy inference without CUDA (diagnostics only)",
     )
     parser.add_argument(
         "--annotation-path",
@@ -813,7 +743,8 @@ def build_arg_parser(description="Rollout robot model."):
 
 
 def run_from_args(args):
-    print(f"Resampling actions to {args.resampled_action_len}")
+    if args.resampled_action_len is not None:
+        print(f"Resampling legacy actions to {args.resampled_action_len}")
     return main(
         arms=args.arms,
         frequency=args.frequency,
@@ -826,6 +757,8 @@ def run_from_args(args):
         offline_debug=args.offline_debug,
         offline_episode_path=args.offline_episode_path,
         annotation_path=args.annotation_path,
+        action_frame=args.action_frame,
+        allow_cpu_policy=args.allow_cpu_policy,
     )
 
 

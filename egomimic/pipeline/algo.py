@@ -11,6 +11,13 @@ import torch.nn as nn
 from egomimic.algo.algo import Algo
 from egomimic.pipeline.core import Pipeline, Stage, sum_losses
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rollout.core import RolloutPipeline
+from egomimic.rollout.eva import (
+    EvaActionCodec,
+    EvaObservationCodec,
+    EvaObservationWindow,
+)
+from egomimic.rollout.nodes import ActionDequeue, ChunkCommit, ObsCadence, PolicyStep
 
 _PACKED_META_KEYS = frozenset(
     {"cu_seqlens", "max_seq_len", "seq_lens", "batch_size", "embodiment"}
@@ -34,6 +41,18 @@ class PipelineAlgo(Algo):
     the same stage list for training and teacher-forced validation, and reduces
     every ``loss/*`` value produced by explicit loss nodes.
     """
+
+    @classmethod
+    def prepare_rollout_checkpoint(cls, checkpoint_path, checkpoint=None):
+        """Migrate the one verified pre-consolidation Fold graph, if present."""
+        from egomimic.pipeline.checkpoint_compat import (
+            prepare_legacy_fold_rollout_checkpoint,
+        )
+
+        return prepare_legacy_fold_rollout_checkpoint(
+            checkpoint_path,
+            checkpoint=checkpoint,
+        )
 
     def __init__(
         self,
@@ -65,6 +84,17 @@ class PipelineAlgo(Algo):
     def policy(self) -> Pipeline:
         return self.nets["policy"]
 
+    def create_rollout_policy(self, config):
+        from egomimic.pipeline.checkpoint_compat import (
+            configure_frozen_fold_live_sampling,
+        )
+
+        configure_frozen_fold_live_sampling(
+            self.policy.stages,
+            self.action_horizon,
+        )
+        return Policy(self, config)
+
     def _resolve_keys(self) -> None:
         self.proprio_keys = {}
         self.lang_keys = {}
@@ -95,7 +125,9 @@ class PipelineAlgo(Algo):
                 )
             self.resolved_ac_keys[emb_id] = requested
 
-    def _prepare_loader_batch(self, batch: dict, emb_id: int) -> dict:
+    def _prepare_loader_batch(
+        self, batch: dict, emb_id: int, *, normalize_raw: bool = False
+    ) -> dict:
         """Map zarr keys once, normalizing only packed/raw batches.
 
         Standard ``MultiDataset`` samples are normalized in ``__getitem__``.
@@ -114,8 +146,18 @@ class PipelineAlgo(Algo):
                 out[mapped] = value
             elif key in _VIZ_PASSTHROUGH_KEYS:
                 out[key] = value
-        if is_packed:
+        if is_packed or normalize_raw:
             out = self.norm_stats.normalize(out, emb_id)
+        return out
+
+    def _move_batch_to_device(self, batch: dict) -> dict:
+        out = dict(batch)
+        for key, value in out.items():
+            if torch.is_tensor(value):
+                value = value.to(self.device)
+                if value.is_floating_point():
+                    value = value.float()
+                out[key] = value
         return out
 
     def _build_obs(self, batch: dict, emb_id: int) -> dict:
@@ -147,14 +189,59 @@ class PipelineAlgo(Algo):
             if emb_id not in self.domain_by_id:
                 raise KeyError(f"Unexpected embodiment batch {domain!r}")
             out = self._prepare_loader_batch(loader_batch, emb_id)
-            for key, value in out.items():
-                if torch.is_tensor(value):
-                    value = value.to(self.device)
-                    if value.is_floating_point():
-                        value = value.float()
-                    out[key] = value
-            processed[emb_id] = out
+            processed[emb_id] = self._move_batch_to_device(out)
         return processed
+
+    @torch.no_grad()
+    def forward_rollout(
+        self,
+        domain: str,
+        observation: dict,
+        *,
+        rollout_t: int = 0,
+        observation_is_normalized: bool = False,
+    ) -> torch.Tensor:
+        """Sample an action chunk from an observation-only loader batch.
+
+        Live observations bypass ``MultiDataset.__getitem__`` and therefore
+        must be normalized here exactly once. Callers that deliberately pass
+        an already-normalized batch must opt out explicitly.
+        """
+
+        emb_id = get_embodiment_id(domain)
+        if emb_id not in self.domain_by_id:
+            raise KeyError(f"Unexpected rollout embodiment {domain!r}")
+        prepared = self._prepare_loader_batch(
+            observation,
+            emb_id,
+            normalize_raw=not observation_is_normalized,
+        )
+        prepared = self._move_batch_to_device(prepared)
+        seed = {
+            "embodiment": domain,
+            "rollout_t": int(rollout_t),
+            **{
+                f"obs/{key}": value
+                for key, value in self._build_obs(prepared, emb_id).items()
+            },
+        }
+        runnable, excluded = self.policy.plan(seed.keys(), mode="rollout")
+        invalid = [
+            (stage, missing)
+            for stage, missing in excluded
+            if not getattr(stage, "train_only", False)
+        ]
+        if invalid:
+            details = "; ".join(
+                f"{type(stage).__name__}: {missing}" for stage, missing in invalid
+            )
+            raise RuntimeError(f"Pipeline rollout plan is incomplete: {details}")
+        result = seed
+        for stage in runnable:
+            result = stage(result)
+        if "pred_action" not in result:
+            raise RuntimeError("Pipeline rollout produced no pred_action")
+        return result["pred_action"]
 
     def forward_training(self, batch: dict) -> OrderedDict:
         predictions = OrderedDict()
@@ -199,3 +286,60 @@ class PipelineAlgo(Algo):
         logged = OrderedDict(Loss=losses["action_loss"].item())
         logged.update((key, value.item()) for key, value in losses.items())
         return logged
+
+
+class Policy:
+    """Live EVA rollout owned by PipelineAlgo and composed from rollout nodes."""
+
+    def __init__(self, algo: PipelineAlgo, config):
+        if config.arm != "both" or not config.cartesian:
+            raise ValueError(
+                "The Fold Pipeline policy requires --arms both --cartesian"
+            )
+        if config.action_frame != "base":
+            raise ValueError("Pipeline actions use the canonical wrist-to-base codec")
+        if config.query_frequency > algo.action_horizon:
+            raise ValueError(
+                f"query_frequency={config.query_frequency} exceeds the trained "
+                f"action_horizon={algo.action_horizon}; this would hold a stale action"
+            )
+        self.algo = algo
+        self.config = config
+        self.debug_actions = None
+        self.just_queried = False
+        self.graph = RolloutPipeline(
+            [
+                EvaObservationWindow(n_obs_steps=2),
+                ObsCadence(mode="every_n", every_n=config.query_frequency),
+                EvaObservationCodec(),
+                PolicyStep(algo, "eva_bimanual"),
+                ChunkCommit(n_keep=config.query_frequency),
+                ActionDequeue(on_empty="hold"),
+                EvaActionCodec(
+                    algo.norm_stats,
+                    config.embodiment_id,
+                    ac_key=algo.ac_keys["eva_bimanual"],
+                ),
+            ]
+        )
+        self.state = self.graph.reset()
+        print("[rollout] Using PipelineAlgo observation/action codecs")
+        if config.annotation_path:
+            self.load_annotation(config.annotation_path)
+
+    def act(self, obs: dict):
+        previous_chunk_t = self.state.get("chunk_t")
+        self.state = self.graph.step(self.state, obs)
+        self.just_queried = self.state.get("chunk_t") != previous_chunk_t
+        self.debug_actions = self.state.get("chunk")
+        return self.state["command"]
+
+    def reset(self):
+        self.state = self.graph.reset()
+        self.debug_actions = None
+        self.just_queried = False
+        self.algo.nets.eval()
+
+    def load_annotation(self, annotation_path: str) -> bool:
+        print("[rollout] Pipeline policy has no language-condition input")
+        return False

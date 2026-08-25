@@ -10,6 +10,7 @@ It also saves observations (images, robot states) and actions to a demo file.
 import os
 import sys
 import time
+import uuid
 from pathlib import Path
 
 import h5py
@@ -496,32 +497,60 @@ def has_stuck_frames(obs_list: list, cam_name: str, threshold: int = 100) -> boo
     return False
 
 
-def save_demo(demo_data: dict, demo_dir, episode_id: int, camera_res: dict[str, tuple]):
-    """
+def save_demo(
+    demo_data: dict,
+    demo_dir,
+    episode_id: int | str,
+    camera_res: dict[str, tuple],
+) -> bool:
+    """Save a complete demonstration without replacing an existing episode.
+
     Args:
         demo_data: dict containing the demo data
         demo_dir: directory to save the demo
         episode_id: episode id
         camera_res: dictionary containing the camera resolution (str, tuple) example {"front_img_1": (720, 960)}
     """
-    data_dict = dict()
-    """Save demo to HDF5 file."""
+    demo_dir = Path(demo_dir)
     filename = demo_dir / f"demo_{episode_id}.hdf5"
+    max_timesteps = len(demo_data["cmd_eepose_actions"])
+
+    if max_timesteps == 0:
+        print("[save_demo] ABORT: recording has zero steps. Demo not saved.")
+        return False
+
+    if os.path.lexists(filename):
+        raise FileExistsError(f"Refusing to overwrite existing demo: {filename}")
+
+    sequence_lengths = {
+        key: len(demo_data[key])
+        for key in (
+            "obs",
+            "robot_joint_actions",
+            "cmd_joint_actions",
+            "cmd_eepose_actions",
+        )
+    }
+    if any(length != max_timesteps for length in sequence_lengths.values()):
+        print(
+            "[save_demo] ABORT: recording streams have inconsistent lengths: "
+            f"{sequence_lengths}. Demo not saved."
+        )
+        return False
 
     for cam_name in camera_res:
         if has_stuck_frames(demo_data["obs"], cam_name):
             print(
                 f"[save_demo] ABORT: camera '{cam_name}' has >100 consecutive identical frames. Demo not saved."
             )
-            return
+            return False
 
-    print(
-        f"Saving demo with {len(demo_data['cmd_eepose_actions'])} steps to {filename}"
-    )
+    print(f"Saving demo with {max_timesteps} steps to {filename}")
     robot_joint_actions = np.array(demo_data["robot_joint_actions"])
     cmd_joint_actions = np.array(demo_data["cmd_joint_actions"])
     cmd_eepose_actions = np.array(demo_data["cmd_eepose_actions"])
 
+    data_dict = dict()
     data_dict["/observations/joints"] = robot_joint_actions
     data_dict["/observations/joint_positions"] = robot_joint_actions
     # data_dict["/observations/qjointvel"] = joint_vels
@@ -560,47 +589,80 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, camera_res: dict[str, 
 
     data_dict["/observations/eepose"] = np.array(robot_ee_pose)
     t0 = time.time()
-    max_timesteps = len(demo_data["cmd_eepose_actions"])
-    with h5py.File(str(filename), "w", rdcc_nbytes=1024**2 * 2) as root:
-        root.attrs["sim"] = False
-        obs = root.create_group("observations")
-        image = obs.create_group("images")
-        for cam_name, (H, W) in camera_res.items():
-            _ = image.create_dataset(
-                cam_name,
-                (max_timesteps, H, W, 3),
-                dtype="uint8",
-                chunks=(1, H, W, 3),
-            )
-        _ = obs.create_dataset("joints", (max_timesteps, 14))
-        # _ = obs.create_dataset("qjointvel", (max_timesteps, 16))
-        _ = obs.create_dataset("eepose", (max_timesteps, 14))
-        _ = obs.create_dataset("joint_positions", (max_timesteps, 14))
-        _ = root.create_group("actions")
-        _ = root["actions"].create_dataset("eepose", (max_timesteps, 14))
-        _ = root["actions"].create_dataset("joints", (max_timesteps, 14))
-        _ = root.create_dataset("action", (max_timesteps, 14))
+    partial_path = demo_dir / (f".demo_{episode_id}.{uuid.uuid4().hex}.hdf5.partial")
+    partial_created = False
 
-        # Write images directly frame-by-frame to avoid holding all camera
-        # arrays in memory simultaneously (avoids OOM with 3 cameras x 3000 steps)
-        for cam_name, (H, W) in camera_res.items():
-            ds = root[f"observations/images/{cam_name}"]
-            idx = 0
-            for obs_step in demo_data["obs"]:
-                img = obs_step[cam_name]
-                if img is None:
-                    continue
-                ds[idx] = img[..., ::-1]
-                idx += 1
+    try:
+        with h5py.File(str(partial_path), "x", rdcc_nbytes=1024**2 * 2) as root:
+            partial_created = True
+            root.attrs["sim"] = False
+            obs = root.create_group("observations")
+            image = obs.create_group("images")
+            for cam_name, (H, W) in camera_res.items():
+                _ = image.create_dataset(
+                    cam_name,
+                    (max_timesteps, H, W, 3),
+                    dtype="uint8",
+                    chunks=(1, H, W, 3),
+                )
+            _ = obs.create_dataset("joints", (max_timesteps, 14))
+            # _ = obs.create_dataset("qjointvel", (max_timesteps, 16))
+            _ = obs.create_dataset("eepose", (max_timesteps, 14))
+            _ = obs.create_dataset("joint_positions", (max_timesteps, 14))
+            _ = root.create_group("actions")
+            _ = root["actions"].create_dataset("eepose", (max_timesteps, 14))
+            _ = root["actions"].create_dataset("joints", (max_timesteps, 14))
+            _ = root.create_dataset("action", (max_timesteps, 14))
 
-        # Free observation images from memory before writing remaining arrays
-        del demo_data["obs"]
+            # Write images directly frame-by-frame to avoid holding all camera
+            # arrays in memory simultaneously (avoids OOM with 3 cameras x 3000 steps)
+            for cam_name, (H, W) in camera_res.items():
+                ds = root[f"observations/images/{cam_name}"]
+                idx = 0
+                for obs_step in demo_data["obs"]:
+                    img = obs_step[cam_name]
+                    if img is None:
+                        continue
+                    ds[idx] = img[..., ::-1]
+                    idx += 1
 
-        for name, array in data_dict.items():
-            root[name][...] = array
+            for name, array in data_dict.items():
+                root[name][...] = array
 
-    print(f"Saving: {(time.time() - t0):.1f} secs")
-    return True
+        with partial_path.open("rb+") as saved_file:
+            os.fsync(saved_file.fileno())
+        try:
+            os.link(partial_path, filename)
+        except FileExistsError as exc:
+            raise FileExistsError(
+                f"Refusing to overwrite existing demo: {filename}"
+            ) from exc
+
+        print(f"Saving: {(time.time() - t0):.1f} secs")
+        return True
+    finally:
+        if partial_created:
+            partial_path.unlink(missing_ok=True)
+
+
+def _save_demo_and_advance_episode(
+    demo_data: dict,
+    demo_dir,
+    episode_id: int | str,
+    camera_res: dict[str, tuple],
+    auto_episode_id: int | None,
+) -> int | None:
+    if save_demo(demo_data, demo_dir, episode_id, camera_res) is not True:
+        if auto_episode_id is None:
+            print("\nDemo not saved.")
+        else:
+            print(f"\nDemo not saved. Episode ID remains {auto_episode_id}.")
+        return auto_episode_id
+
+    print("\nSaved DEMO ------------------------------")
+    if auto_episode_id is None:
+        return None
+    return auto_episode_id + 1
 
 
 # ------------------------- Main Entry Point -------------------------
@@ -651,7 +713,6 @@ def collect_demo(
     # Demo recording state
     demo_data = dict()
 
-    camera_names = robot_interface.recorders.keys()
     cmd_pos = dict()
     cmd_quat = dict()
     cmd_joints = dict()
@@ -708,11 +769,14 @@ def collect_demo(
                                 pbar.close()
                                 pbar = None
                             collecting_data = False
-                            
-                            save_demo(demo_data, demo_dir, episode_id, robot_interface.camera_res)
-                            print("\nSaving DEMO ------------------------------")
-                            if auto_episode_id is not None:
-                                auto_episode_id += 1
+
+                            auto_episode_id = _save_demo_and_advance_episode(
+                                demo_data,
+                                demo_dir,
+                                episode_id,
+                                robot_interface.camera_res,
+                                auto_episode_id,
+                            )
                             prev_vr_data = None
                             break
                         else:
@@ -831,7 +895,11 @@ def collect_demo(
                             )
 
                         # VELOCITY_LIMIT can be done in the interface
-                        robot_interface.set_joints(cmd_joints[arm], arm)
+                        robot_interface.set_joints(
+                            cmd_joints[arm],
+                            arm,
+                            allow_preview_window_jump=True,
+                        )
 
                         if collecting_data:
                             arm_offset = 0
@@ -870,27 +938,27 @@ def collect_demo(
                             if arm == "right":
                                 arm_offset = 7
                             current_joints = robot_interface.get_joints(arm)
-                            robot_joint_action[
-                                arm_offset : arm_offset + 7
-                            ] = current_joints
+                            robot_joint_action[arm_offset : arm_offset + 7] = (
+                                current_joints
+                            )
                             if prev_cmd_joint[arm] is not None:
-                                cmd_joint_action[
-                                    arm_offset : arm_offset + 7
-                                ] = prev_cmd_joint[arm]
+                                cmd_joint_action[arm_offset : arm_offset + 7] = (
+                                    prev_cmd_joint[arm]
+                                )
                             else:
-                                cmd_joint_action[
-                                    arm_offset : arm_offset + 7
-                                ] = current_joints
+                                cmd_joint_action[arm_offset : arm_offset + 7] = (
+                                    current_joints
+                                )
                             if prev_cmd_eepose[arm] is not None:
-                                cmd_eepose_action[
-                                    arm_offset : arm_offset + 7
-                                ] = prev_cmd_eepose[arm]
+                                cmd_eepose_action[arm_offset : arm_offset + 7] = (
+                                    prev_cmd_eepose[arm]
+                                )
                             else:
                                 xyz, rot = robot_interface.get_pose(arm, se3=False)
-                                cmd_eepose_action[
-                                    arm_offset : arm_offset + 6
-                                ] = np.concatenate(
-                                    [xyz, rot.as_euler("ZYX", degrees=False)]
+                                cmd_eepose_action[arm_offset : arm_offset + 6] = (
+                                    np.concatenate(
+                                        [xyz, rot.as_euler("ZYX", degrees=False)]
+                                    )
                                 )
                                 cmd_eepose_action[arm_offset + 6] = current_joints[6]
 
@@ -913,11 +981,14 @@ def collect_demo(
                             collecting_data = False
                             pbar.close()
                             pbar = None
-                            save_demo(demo_data, demo_dir, episode_id, robot_interface.camera_res)
                             print("Episode length reached, stopping recording.")
-                            print("Saving DEMO ------------------------------")
-                            if auto_episode_id is not None:
-                                auto_episode_id += 1
+                            auto_episode_id = _save_demo_and_advance_episode(
+                                demo_data,
+                                demo_dir,
+                                episode_id,
+                                robot_interface.camera_res,
+                                auto_episode_id,
+                            )
                             prev_vr_data = None
                             break_loop = True
                             break
@@ -963,7 +1034,10 @@ if __name__ == "__main__":
         "--auto-episode-start",
         type=int,
         default=None,
-        help="If set, start at this episode id and auto-increment on each recording",
+        help=(
+            "If set, start at this episode id and auto-increment after each "
+            "successfully saved recording"
+        ),
     )
     parser.add_argument(
         "--episode-length",
