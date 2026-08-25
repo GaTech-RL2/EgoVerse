@@ -146,7 +146,9 @@ python -m egomimic.robot.collect_demo \
   --calibrate
 ```
 
-- `--auto-episode-start {episode_idx}`: auto-increments episode index starting at `episode_idx`
+- `--auto-episode-start {episode_idx}`: starts at `episode_idx` and increments
+  only after a complete demo is saved. Empty recordings and camera-quality
+  rejections keep the same episode ID.
 - `--demo-dir`: custom demo output directory
 - `--arms`: choose `right`, `left`, or `both`
 - `--calibrate`: run Quest controller orientation calibration
@@ -161,6 +163,12 @@ python -m egomimic.robot.collect_demo \
 
 - Left / right triggers: engage robot motion  
 - Left / right front triggers: control gripper
+
+Demo files are published only after the complete HDF5 file is written. An
+existing `demo_<episode_id>.hdf5` is never overwritten; choose a different
+episode ID if a collision is reported. The default `./demos` path is inside the
+container unless it is explicitly bind-mounted, so copy important recordings
+to persistent host storage before recreating the container.
 
 ### 6.3. Gripper close calibration
 
