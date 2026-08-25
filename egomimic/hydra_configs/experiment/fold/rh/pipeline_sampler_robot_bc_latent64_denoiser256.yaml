@@ -5,7 +5,9 @@ defaults:
   - /experiment/fold/rh/pipeline_sampler_robot_bc_denoiser256
   - _self_
 
-name: fold_robot_dense_bc_latent64_denoiser256
+# Keep this concise: the canonical launcher derives the resumed W&B ID from
+# `${name}_$(basename hydra_dir)`, and W&B limits IDs/names to 128 characters.
+name: fold_dense_l64d256
 description: pipeline_sampler_robot_bc_latent64_denoiser256_robot_only_cartesian_h100
 
 dense_latent_dim: 64
