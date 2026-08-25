@@ -86,6 +86,7 @@ def draw_arena(
     pusher_pos: tuple[float, float],
     pusher_angle: float,
     obstacle_segments: Iterable[pymunk.Segment],
+    pusher_physics_shapes: Iterable[pymunk.Shape] | None = None,
 ) -> None:
     """Composite the full scene onto `surface` (in-place)."""
     surface.fill(BG_COLOR)
@@ -121,8 +122,67 @@ def draw_arena(
             _rect_world_verts(cx, cy, w, h, (ox, oy), otheta),
         )
 
-    # Pusher.
-    _draw_pusher(surface, pusher_shape, pusher_pos, pusher_angle)
+    # New embodiments can own several bodies (for example the parallel
+    # gripper's palm and two moving jaws).  Render their live physics shapes
+    # so the image stored in a demonstration matches what the operator sees.
+    # Legacy pushers keep the original drawing path for pixel compatibility.
+    if pusher_physics_shapes is None:
+        _draw_pusher(surface, pusher_shape, pusher_pos, pusher_angle)
+    else:
+        _draw_physics_shapes(surface, pusher_physics_shapes)
+
+
+def _draw_physics_shapes(
+    surface: pygame.Surface,
+    shapes: Iterable[pymunk.Shape],
+) -> None:
+    """Draw live Pymunk geometry in world coordinates.
+
+    Agent-owned auxiliary bodies are not represented by ``pusher_pos`` alone,
+    so this path is required for articulated embodiments such as ``gripper``.
+    """
+    for shape in shapes:
+        body = shape.body
+        if isinstance(shape, pymunk.Circle):
+            center = body.local_to_world(shape.offset)
+            pygame.draw.circle(
+                surface,
+                PUSHER_COLOR,
+                (int(round(center.x)), int(round(center.y))),
+                max(1, int(round(shape.radius))),
+            )
+        elif isinstance(shape, pymunk.Poly):
+            verts = [body.local_to_world(v) for v in shape.get_vertices()]
+            if len(verts) >= 3:
+                _draw_polygon(
+                    surface,
+                    PUSHER_COLOR,
+                    [(v.x, v.y) for v in verts],
+                )
+        elif isinstance(shape, pymunk.Segment):
+            start = body.local_to_world(shape.a)
+            end = body.local_to_world(shape.b)
+            width = max(1, int(round(2.0 * shape.radius)))
+            pygame.draw.line(
+                surface,
+                PUSHER_COLOR,
+                (int(round(start.x)), int(round(start.y))),
+                (int(round(end.x)), int(round(end.y))),
+                width,
+            )
+            radius = max(1, int(round(shape.radius)))
+            pygame.draw.circle(
+                surface,
+                PUSHER_COLOR,
+                (int(round(start.x)), int(round(start.y))),
+                radius,
+            )
+            pygame.draw.circle(
+                surface,
+                PUSHER_COLOR,
+                (int(round(end.x)), int(round(end.y))),
+                radius,
+            )
 
 
 def _draw_pusher(
