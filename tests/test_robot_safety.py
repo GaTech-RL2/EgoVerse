@@ -35,16 +35,55 @@ def test_joint_command_enforces_gripper_limits_and_maximum_delta():
         validate_joint_command(
             command, current, -np.ones(6), np.ones(6), np.ones(6) * 0.2
         )
+    validate_joint_command(
+        command,
+        current,
+        -np.ones(6),
+        np.ones(6),
+        np.ones(6) * 0.2,
+        allow_preview_window_jump=True,
+    )
+    command[0] = 1.1
+    with pytest.raises(ValueError, match="position limits"):
+        validate_joint_command(
+            command,
+            current,
+            -np.ones(6),
+            np.ones(6),
+            np.ones(6) * 0.2,
+            allow_preview_window_jump=True,
+        )
     command = current.copy()
     command[6] = 1.1
     with pytest.raises(ValueError, match="gripper"):
         validate_joint_command(
-            command, current, -np.ones(6), np.ones(6), np.ones(6) * 0.2
+            command,
+            current,
+            -np.ones(6),
+            np.ones(6),
+            np.ones(6) * 0.2,
+            allow_preview_window_jump=True,
         )
     command[6] = -1e-6
     with pytest.raises(ValueError, match="gripper"):
         validate_joint_command(
-            command, current, -np.ones(6), np.ones(6), np.ones(6) * 0.2
+            command,
+            current,
+            -np.ones(6),
+            np.ones(6),
+            np.ones(6) * 0.2,
+            allow_preview_window_jump=True,
+        )
+    command = current.copy()
+    command[0] = np.nan
+    with pytest.raises(ValueError, match="NaN"):
+        validate_joint_command(
+            command,
+            current,
+            -np.ones(6),
+            np.ones(6),
+            np.ones(6) * 0.2,
+            allow_preview_window_jump=True,
         )
 
 
@@ -229,7 +268,9 @@ def test_live_joint_command_maps_normalized_gripper_to_configured_endpoints():
     configured_open = 0.09445506587172998
     interface.gripper_width = {"left": configured_open + 0.012}
     interface.ts_offset = 0.2
-    interface.validate_joints_command = lambda command, arm: np.asarray(command)
+    interface.validate_joints_command = (
+        lambda command, arm, *, allow_preview_window_jump=False: np.asarray(command)
+    )
 
     interface.set_joints(np.zeros(7), "left")
     open_command = np.zeros(7)

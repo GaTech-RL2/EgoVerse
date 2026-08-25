@@ -60,6 +60,8 @@ def validate_joint_command(
     joint_min,
     joint_max,
     max_delta,
+    *,
+    allow_preview_window_jump: bool = False,
 ) -> np.ndarray:
     command = validate_action_vector(command, 7)
     current = validate_action_vector(current, 7)
@@ -73,7 +75,7 @@ def validate_joint_command(
     if np.any(joints < joint_min) or np.any(joints > joint_max):
         raise ValueError("Joint command exceeds the configured robot position limits")
     delta = np.abs(joints - current[:6])
-    if np.any(delta > max_delta):
+    if np.any(delta > max_delta) and not allow_preview_window_jump:
         raise ValueError(
             "Joint command exceeds the preview-window delta limit: "
             f"max requested={delta.max():.4f}, max allowed={max_delta.max():.4f} rad"

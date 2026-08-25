@@ -215,7 +215,13 @@ class ARXInterface(Robot_Interface):
                 raise ValueError("Invalid value in the config")
             self.camera_res[name] = (cam_cfg["height"], cam_cfg["width"])
 
-    def validate_joints_command(self, desired_position, arm):
+    def validate_joints_command(
+        self,
+        desired_position,
+        arm,
+        *,
+        allow_preview_window_jump=False,
+    ):
         current = self.get_joints(arm)
         max_delta = np.asarray(self.robot_config.joint_vel_max, dtype=np.float64)[
             :6
@@ -226,11 +232,22 @@ class ARXInterface(Robot_Interface):
             np.asarray(self.robot_config.joint_pos_min)[:6],
             np.asarray(self.robot_config.joint_pos_max)[:6],
             max_delta,
+            allow_preview_window_jump=allow_preview_window_jump,
         )
 
-    def set_joints(self, desired_position, arm):
+    def set_joints(
+        self,
+        desired_position,
+        arm,
+        *,
+        allow_preview_window_jump=False,
+    ):
         """Send six joint positions plus a normalized gripper command."""
-        desired_position = self.validate_joints_command(desired_position, arm)
+        desired_position = self.validate_joints_command(
+            desired_position,
+            arm,
+            allow_preview_window_jump=allow_preview_window_jump,
+        )
 
         gripper_cmd = desired_position[6]
         desired_position = desired_position[:6]

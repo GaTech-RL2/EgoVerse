@@ -831,7 +831,11 @@ def collect_demo(
                             )
 
                         # VELOCITY_LIMIT can be done in the interface
-                        robot_interface.set_joints(cmd_joints[arm], arm)
+                        robot_interface.set_joints(
+                            cmd_joints[arm],
+                            arm,
+                            allow_preview_window_jump=True,
+                        )
 
                         if collecting_data:
                             arm_offset = 0
