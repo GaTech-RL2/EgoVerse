@@ -80,7 +80,9 @@ def test_usocket_arc_tokenizer_produces_uniform_waypoints_and_timing() -> None:
     assert token.shape == (26, 4)
     assert token.dtype == np.float32
     np.testing.assert_allclose(token[:25, 0], np.linspace(0.0, 200.0, 25))
-    np.testing.assert_allclose(token[:25, 2:], np.array([1.0, 0.0]), atol=1e-6)
+    np.testing.assert_allclose(
+        token[:25, 2:], np.tile(np.array([[1.0, 0.0]]), (25, 1)), atol=1e-6
+    )
     np.testing.assert_allclose(token[25], [60.0, 0.0, 0.0, 60.0], atol=1e-5)
     np.testing.assert_allclose(decoded, actions, atol=1e-4)
 
