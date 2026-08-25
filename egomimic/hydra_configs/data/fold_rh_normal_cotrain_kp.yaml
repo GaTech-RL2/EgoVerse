@@ -35,9 +35,11 @@
 # episodes are NOT held out from training, so the val chunk-MSE is a fit metric,
 # not a generalization metric.
 #
-# skip_bounds_check: the MultiDataset bounds check RESAMPLES away any frame
-# outside [quantile_1, quantile_99] (zarr_dataset_multi.__getitem__), silently
-# dropping exactly the extreme-reach frames a fold policy needs. Keep the tails.
+# bounds_check: keep the historical training quantile guard explicit, but never
+# apply it to validation. A validation bounds violation must be measured after
+# normalization, not silently replaced by a different frame. `skip_bounds_check`
+# is not a MultiDataset argument and is absorbed by **kwargs without changing
+# the default, so use the real `bounds_check` field here.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -54,7 +56,7 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
       - 'lambda row: True'
-    skip_bounds_check: true
+    bounds_check: true
     mode: total
   human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -69,7 +71,7 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
       - 'lambda row: True'
-    skip_bounds_check: true
+    bounds_check: true
     mode: total
 
 valid_datasets:
@@ -86,7 +88,7 @@ valid_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
       - 'lambda row: True'
-    skip_bounds_check: true
+    bounds_check: false
     mode: total
   human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -101,7 +103,7 @@ valid_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
       - 'lambda row: True'
-    skip_bounds_check: true
+    bounds_check: false
     mode: total
 
 # Per-FRAME samples, so batches are ordinary DP batches (not packed spans) and

@@ -1,0 +1,40 @@
+# @package _global_
+# Three-quarter-capacity Dense cotrain variant. Architecture knobs are the only
+# model changes from the canonical human-robot Fold Pipeline recipe.
+defaults:
+  - /experiment/fold/rh/pipeline_sampler_kp
+  - _self_
+
+# The description starts with the Hydra cell name so the canonical Slurm
+# launcher finds this run's checkpoint namespace after a requeue.
+name: rh_fold_dense_s34_ct
+description: pipeline_sampler_kp_latent96_denoiser384_human28_to_100
+
+dense_latent_dim: 96
+dense_denoiser_hidden_dim: 384
+
+trainer:
+  # Keep validation on a global optimizer-step cadence across epoch boundaries.
+  check_val_every_n_epoch: null
+
+data:
+  train_dataloader_params:
+    # Two DDP ranks x 32/domain/rank = global 64 robot + 64 human.
+    eva_bimanual:
+      batch_size: 32
+    human_bimanual:
+      batch_size: 32
+
+norm_stats:
+  # Match the canonical full-width Dense cotrain campaign exactly.
+  precomputed_norm_path: /coc/flash7/paphiwetsa3/datasets/norm_stats/fold_rh_jpeg_kp_h28to100_e20_h126_collapsed_ids/norm_stats/norm_stats.json
+
+logger:
+  wandb:
+    group: fold_dense_cotrain_widths_20260825
+    tags: [fold, human_robot, cotrain, dense_pipeline, scale_3_4, latent96, denoiser384, "${oc.env:SOURCE_COMMIT_TAG,source_unset}"]
+
+callbacks:
+  model_checkpoint:
+    train_time_interval:
+      _target_: datetime.timedelta

@@ -65,7 +65,7 @@ robomimic_model:
               img_encoders: {}
   - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
     action_horizon: 100
-    latent_dim: 128
+    latent_dim: ${oc.select:dense_latent_dim,128}
   - _target_: egomimic.pipeline.stages_sampler.MultiJActionSampler
     condition_input_dim: 640
     condition_dim: 384
@@ -73,10 +73,10 @@ robomimic_model:
     schedule_anchor_domain: eva_bimanual
     action_horizon: 100
     action_dims: {eva_bimanual: 20, human_bimanual: 126}
-    latent_dim: 128
+    latent_dim: ${model.robomimic_model.stages.1.latent_dim}
     decoder_hidden_dim: 512
     decoder_extra_hidden_layers_by_domain: {human_bimanual: 2}
-    denoiser_hidden_dim: 512
+    denoiser_hidden_dim: ${oc.select:dense_denoiser_hidden_dim,512}
     num_inference_steps: 16
     sampling_schedule:
       1: {1: 0.50, 2: 0.50}
@@ -86,8 +86,8 @@ robomimic_model:
       _target_: egomimic.models.denoising_nets.CrossTransformer
       nblocks: 16
       cond_dim: 384
-      hidden_dim: 512
-      act_dim: 128
+      hidden_dim: ${model.robomimic_model.stages.2.denoiser_hidden_dim}
+      act_dim: ${model.robomimic_model.stages.1.latent_dim}
       act_seq: 100
       n_heads: 8
       dropout: 0.1
