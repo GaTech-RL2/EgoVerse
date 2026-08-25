@@ -29,10 +29,17 @@ import math
 
 import numpy as np
 import pymunk
+from shapely.geometry import Polygon as ShapelyPolygon
 
 from .shapes import (
+    CHAIN_GRIPPER_CLOSED_ANGLE,
+    CHAIN_GRIPPER_LINK_HALF_W,
+    CHAIN_GRIPPER_LINK_LEN,
+    CHAIN_GRIPPER_OPEN_ANGLE,
     FLIPPER_HALF_W,
     SPRING_FREE_LEN,
+    SPRING_HOUSING_HALF_W,
+    SPRING_HOUSING_LEN,
     SPRING_MAX_COMPRESS,
     SPRING_TIP_HALF_W,
     SPRING_TIP_LEN,
@@ -84,6 +91,33 @@ _SOLID_OBJECT_STATIC_MAX_DEPTH = 0.2
 _SOLID_PUSHER_OBJECT_MAX_DEPTH = 0.5
 _UNLATCHED_EDGE_GUARD_DISTANCE = 1.0
 _UNLATCHED_EDGE_MAX_DEPTH = 0.5
+# Maximum change in parallel-jaw separation per physics substep.  Closing the
+# full 50-unit travel in one teleport lets a kinematic finger cross a rigid
+# object before Pymunk can resolve contact; 0.25 gives the solver 200 contact
+# updates over the full stroke (10 rendered frames at 20 substeps/frame).
+_GRIPPER_JAW_GAP_DELTA = 0.25
+_GRIPPER_CONTACT_TOLERANCE = 2.0
+# Maximum change in UMI fingertip separation per physics substep.  The two
+# revolute fingers are kinematic, so applying a full open-to-close command in
+# one teleport can skip completely across a solid object before Pymunk sees a
+# contact.  Match the parallel gripper's guarded 0.25-unit articulation step.
+_UMI_JAW_GAP_DELTA = _GRIPPER_JAW_GAP_DELTA
+# Shared hinge actuator speed.  Holding SPACE/S selects the closed/open target;
+# releasing both sends the current aperture back as the target, so the chain
+# stays still while A/D rotates it.  Advancing per physics substep also prevents
+# a kinematic link from jumping through the object between solver updates.
+_CHAIN_GRIPPER_ANGLE_SPEED = math.radians(45.0)
+_CHAIN_GRIPPER_CONTACT_TOLERANCE = 2.0
+_CHAIN_GRIPPER_GRASP_THRESHOLD = 0.75
+_CHAIN_GRIPPER_RELEASE_THRESHOLD = 0.20
+# A full grip command must move the flipper through a physical arc instead of
+# teleporting its auxiliary bar to the endpoint.  At 90 deg/s the 2-radian
+# stroke takes about 1.27 s, while each 600 Hz solver update moves the tip by
+# less than 0.17 simulation units.
+_FLIPPER_SWING_SPEED = math.radians(90.0)
+# The seven chain shapes (four bars + three hinge pins) must collide with the
+# object but not with one another where adjacent rigid bodies overlap.
+_CHAIN_GRIPPER_COLLISION_GROUP = 0xC4A1
 
 
 
@@ -279,8 +313,9 @@ class Agent:
     #: True when the agent commands its own orientation (3-DOF and up), so
     #: env._drive_pusher_toward uses target_pose()'s angle verbatim.
     controls_angle = False
-    #: True when the body should auto-yaw to face its direction of travel
-    #: (the stick's behaviour). Mutually exclusive with controls_angle.
+    #: True when a future body should auto-yaw to face its direction of
+    #: travel. Mutually exclusive with controls_angle. Sim V2's stick is
+    #: deliberately fixed at one world angle instead.
     auto_orients = False
     #: physics knobs an agent contributes to episode_init, so a replay can
     #: reconstruct the exact contact model it was collected under.
@@ -313,9 +348,7 @@ class Agent:
         self.shape = shape
         self.solid_pusher = bool(solid_pusher)
         self.solid_contact_guard = bool(solid_contact_guard)
-        # Only the stick auto-yaws; this preserves _ORIENTED_PUSHERS exactly.
-        if shape == "stick":
-            self.auto_orients = True
+        self.fixed_angle = 0.0 if shape == "stick" else None
 
     def build(self, space: pymunk.Space, position):
         """Create the pusher body/shapes in ``space``."""
@@ -402,8 +435,26 @@ class Agent:
         """
         return ()
 
+    def physics_shapes(self, env) -> tuple[pymunk.Shape, ...]:
+        """All solid shapes that belong to this embodiment.
+
+        Most agents have one body, so the environment-owned pusher shapes are
+        complete.  Articulated agents override this to include shapes on
+        auxiliary bodies as well; the solid-contact and static-wall guards
+        must see the same geometry that Pymunk and the renderer see.
+        """
+        return tuple(env._pusher_shapes)
+
+    def sync_auxiliary_bodies(self, env) -> None:
+        """Realign agent-owned bodies after the master pusher is restored."""
+
     def pre_substep(self, env):
         """Capture whatever post_substep needs to compare against."""
+        if self.fixed_angle is not None:
+            body = env._pusher_body
+            body.angle = self.fixed_angle
+            body.angular_velocity = 0.0
+            env._space.reindex_shapes_for_body(body)
         if self.active_constraints():
             return None
         return self._capture_solid_contact_guard_pose(env)
@@ -453,14 +504,16 @@ class Agent:
             float,
             float,
         ] | None,
-    ) -> None:
+    ) -> bool:
         """Restore the last safe pose if a solid contact tunnels deeply.
 
         The comparison includes the previous penetration so a manually
         restored pose that starts slightly embedded can still move outward.
+        Returns whether a rollback occurred so articulated agents can restore
+        their auxiliary bodies to the same safe instant.
         """
         if previous_pose is None:
-            return
+            return False
         pusher_pose, object_pose, previous_static_depth, previous_pusher_depth = (
             previous_pose
         )
@@ -474,9 +527,11 @@ class Agent:
         ) + _LATCH_DEPTH_EPSILON
         if static_is_unsafe or pusher_is_unsafe:
             self._restore_pair_pose(env, pusher_pose, object_pose)
+            return True
+        return False
 
-    @staticmethod
     def _restore_pair_pose(
+        self,
         env,
         pusher_pose: tuple[float, float, float],
         object_pose: tuple[float, float, float],
@@ -495,7 +550,9 @@ class Agent:
         obj.position = object_pose[:2]
         obj.velocity = (0.0, 0.0)
         obj.angular_velocity = 0.0
-        env._space.reindex_shapes_for_body(pusher)
+        self.sync_auxiliary_bodies(env)
+        for shape in self.physics_shapes(env):
+            env._space.reindex_shapes_for_body(shape.body)
         env._space.reindex_shapes_for_body(obj)
 
     def episode_init(self) -> dict:
@@ -1147,13 +1204,19 @@ class GripperAgent(Agent):
                          solid_contact_guard=solid_contact_guard,
                          control_gap=control_gap)
         self._jaws: list[pymunk.Body] = []
+        self._jaw_shapes: list[pymunk.Shape] = []
         self._jaw_cmd = 1.0
+        self._jaw_gap_state = GRIPPER_JAW_MAX_GAP
         self._grasp = None
         self._held_gap = GRIPPER_JAW_MIN_GAP
+        self._grasp_local_object_pos: tuple[float, float] | None = None
+        self._grasp_angle_offset: float | None = None
 
     def build(self, space, position):
         body, shapes = super().build(space, position)
         self._jaws = []
+        self._jaw_shapes = []
+        self._jaw_gap_state = GRIPPER_JAW_MAX_GAP
         for sign in (-1.0, 1.0):
             jaw = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
             jaw.position = (position[0] + sign * GRIPPER_JAW_MAX_GAP / 2, position[1])
@@ -1166,7 +1229,17 @@ class GripperAgent(Agent):
             poly.friction = OBJECT_FRICTION
             space.add(jaw, poly)
             self._jaws.append(jaw)
+            self._jaw_shapes.append(poly)
         return body, shapes
+
+    def physics_shapes(self, env) -> tuple[pymunk.Shape, ...]:
+        """The solid gripper is its palm plus both articulated jaws."""
+        return (*env._pusher_shapes, *self._jaw_shapes)
+
+    def sync_auxiliary_bodies(self, env) -> None:
+        # Re-align with the master body's newly selected velocity without
+        # advancing the jaw actuator a second time in the same substep.
+        self._place_jaws(env, self._jaw_gap_state)
 
     def _target_pose(self, action):
         # grip 1 = closed, so jaw_cmd (0 closed .. 1 open) is its complement.
@@ -1176,6 +1249,9 @@ class GripperAgent(Agent):
 
     def on_reset(self, env) -> None:
         self._jaw_cmd, self._grasp = 1.0, None
+        self._jaw_gap_state = GRIPPER_JAW_MAX_GAP
+        self._grasp_local_object_pos = None
+        self._grasp_angle_offset = None
 
     @property
     def grasped(self) -> bool:
@@ -1191,18 +1267,11 @@ class GripperAgent(Agent):
     def _gap(self, env) -> float:
         gap = GRIPPER_JAW_MIN_GAP + self._jaw_cmd * (
             GRIPPER_JAW_MAX_GAP - GRIPPER_JAW_MIN_GAP)
-        # Floor whenever the object is in the pocket, not only once grasped.
-        # Gating on _grasp was circular -- the jaws closed to their 26-unit
-        # minimum against a 30-wide stem, so they never straddled it, so the
-        # grasp never formed, so the floor never applied. Same bug as umi's,
-        # fixed there and not carried across.
         if self._grasp is not None:
             # FROZEN at grasp time. Recomputing while held made the fingers
             # drift open and shut as the object shifted, so a holding gripper
             # visibly let go and re-gripped every few frames.
             return self._held_gap
-        if self._spans(env):
-            gap = max(gap, 2.0 * self._obj_half_width(env) + 1.0)
         return min(gap, GRIPPER_JAW_MAX_GAP)
 
     def _obj_half_width(self, env) -> float:
@@ -1226,23 +1295,75 @@ class GripperAgent(Agent):
                     best = max(best, abs(lx))
         return best if best > 0.0 else GRIPPER_JAW_MIN_GAP / 2
 
+    def _current_jaw_gap(self, env) -> float:
+        return float(self._jaw_gap_state)
+
+    def _place_jaws(self, env, gap: float) -> None:
+        """Place both jaws at one exact parallel opening."""
+        self._jaw_gap_state = float(np.clip(
+            gap,
+            GRIPPER_JAW_MIN_GAP,
+            GRIPPER_JAW_MAX_GAP,
+        ))
+        palm = env._pusher_body
+        half = self._jaw_gap_state / 2.0
+        ca, sa = math.cos(palm.angle), math.sin(palm.angle)
+        for sign, jaw in zip((-1.0, 1.0), self._jaws):
+            hx = sign * half
+            jaw.position = (palm.position.x + hx * ca, palm.position.y + hx * sa)
+            jaw.angle = palm.angle
+            jaw.velocity = palm.velocity
+            jaw.angular_velocity = palm.angular_velocity
+            env._space.reindex_shapes_for_body(jaw)
+
     def _sync(self, env):
-        """Slide the jaws along the back plate, always PARALLEL.
+        """Slide the jaws along the back plate without crossing solid objects.
 
         No hinge and no splay: the gap IS the jaw separation, so contact is a
         flat face at every opening. umi is the revolute one; keeping this
         linear is what makes the two mechanically different rather than two
         drawings of the same pincer.
         """
-        palm = env._pusher_body
-        half = self._gap(env) / 2.0
-        ca, sa = math.cos(palm.angle), math.sin(palm.angle)
-        for sign, jaw in zip((-1.0, 1.0), self._jaws):
-            hx = sign * half
-            jaw.position = (palm.position.x + hx * ca, palm.position.y + hx * sa)
-            jaw.angle = palm.angle          # parallel, always
-            jaw.velocity = palm.velocity
-            jaw.angular_velocity = palm.angular_velocity
+        desired_gap = self._gap(env)
+        current_gap = self._current_jaw_gap(env)
+        gap_delta = float(np.clip(
+            desired_gap - current_gap,
+            -_GRIPPER_JAW_GAP_DELTA,
+            _GRIPPER_JAW_GAP_DELTA,
+        ))
+        self._place_jaws(env, current_gap + gap_delta)
+
+    def _both_jaws_contact_object(self, env) -> bool:
+        """True only when each opposing finger is at the T surface.
+
+        Pymunk's shape query reports overlap, not a resting zero-gap contact,
+        so use signed point-to-shape distances in both directions and accept a
+        sub-unit solver tolerance. This still requires BOTH fingers; merely
+        having the object somewhere inside a wide-open jaw span cannot latch.
+        """
+        if len(self._jaw_shapes) != 2:
+            return False
+        for jaw_shape in self._jaw_shapes:
+            env._space.reindex_shapes_for_body(jaw_shape.body)
+            jaw_polygon = ShapelyPolygon([
+                tuple(jaw_shape.body.local_to_world(vertex))
+                for vertex in jaw_shape.get_vertices()
+            ])
+            minimum_distance = math.inf
+            for object_shape in env._object_shapes:
+                if not isinstance(object_shape, pymunk.Poly):
+                    continue
+                object_polygon = ShapelyPolygon([
+                    tuple(object_shape.body.local_to_world(vertex))
+                    for vertex in object_shape.get_vertices()
+                ])
+                minimum_distance = min(
+                    minimum_distance,
+                    float(jaw_polygon.distance(object_polygon)),
+                )
+            if minimum_distance > _GRIPPER_CONTACT_TOLERANCE:
+                return False
+        return True
 
     def _spans(self, env) -> bool:
         """Is there object MATERIAL between the jaws?
@@ -1272,6 +1393,30 @@ class GripperAgent(Agent):
         return False
 
     def pre_substep(self, env):
+        # Capture the safe state BEFORE moving the articulated jaws.  The old
+        # order called _sync first, making any penetration introduced by the
+        # jaw movement part of the baseline and therefore invisible to the
+        # solid-contact guard.
+        captured = super().pre_substep(env)
+        previous_jaw_gap = self._jaw_gap_state
+        held_pair_pose = None
+        if self.grasped:
+            palm = env._pusher_body
+            obj = env._object_body
+            held_pair_pose = (
+                (float(palm.position.x), float(palm.position.y), float(palm.angle)),
+                (float(obj.position.x), float(obj.position.y), float(obj.angle)),
+                env._object_static_penetration_depth(),
+            )
+        jaw_poses = tuple(
+            (
+                (float(jaw.position.x), float(jaw.position.y)),
+                float(jaw.angle),
+                (float(jaw.velocity.x), float(jaw.velocity.y)),
+                float(jaw.angular_velocity),
+            )
+            for jaw in self._jaws
+        )
         self._sync(env)
         # HOLD once grasped: only a command to OPEN releases it. Re-testing
         # _spans every substep would drop the object the moment it shifted in
@@ -1281,7 +1426,13 @@ class GripperAgent(Agent):
         # jaws "grasped" the T's 120-wide crossbar, floored fully open, and
         # sat there visibly not touching it.
         graspable = 2.0 * self._obj_half_width(env) <= GRIPPER_JAW_MAX_GAP * 0.95
-        if closing and self._grasp is None and graspable and self._spans(env):
+        if (
+            closing
+            and self._grasp is None
+            and graspable
+            and self._spans(env)
+            and self._both_jaws_contact_object(env)
+        ):
             palm, obj = env._pusher_body, env._object_body
             # Anchor WHERE THE JAWS ARE, not at the object's centre of mass.
             # Anchoring at obj.position pinned a point ~60 units away from the
@@ -1296,15 +1447,437 @@ class GripperAgent(Agent):
             # a grasp that visibly stopped touching the thing it held.
             env._space.add(pj)
             gj = _add_gear(env._space, palm, obj, obj.angle - palm.angle)
-            self._held_gap = max(GRIPPER_JAW_MIN_GAP,
-                                 2.0 * self._obj_half_width(env) + 1.0)
+            # This embodiment is explicitly the rigid gripper.  Default
+            # constraint bias allows visible pose drift over several frames;
+            # correct it in one solver step and keep collision geometry live.
+            pj.collide_bodies = True
+            gj.collide_bodies = True
+            pj.error_bias = 0.0
+            gj.error_bias = 0.0
+            # Freeze the collision-measured opening, not the approximate
+            # projected object width used only for the graspability test.
+            self._held_gap = self._current_jaw_gap(env)
             self._grasp = (pj, gj)
+            local_object_pos = palm.world_to_local(obj.position)
+            self._grasp_local_object_pos = (
+                float(local_object_pos.x),
+                float(local_object_pos.y),
+            )
+            self._grasp_angle_offset = float(obj.angle) - float(palm.angle)
         elif not closing and self._grasp is not None:
             for c in self._grasp:
                 if c in env._space.constraints:
                     env._space.remove(c)
             self._grasp = None
-        return super().pre_substep(env)
+            self._grasp_local_object_pos = None
+            self._grasp_angle_offset = None
+        return captured, jaw_poses, held_pair_pose, previous_jaw_gap
+
+    def _enforce_rigid_grasp(self, env) -> None:
+        """Lock the T to the exact relative pose captured at grasp time."""
+        if (
+            not self.solid_pusher
+            or not self.grasped
+            or self._grasp_local_object_pos is None
+            or self._grasp_angle_offset is None
+        ):
+            return
+        palm = env._pusher_body
+        obj = env._object_body
+        object_position = palm.local_to_world(self._grasp_local_object_pos)
+        obj.angle = float(palm.angle) + self._grasp_angle_offset
+        obj.position = object_position
+        offset = object_position - palm.position
+        omega = float(palm.angular_velocity)
+        obj.velocity = (
+            float(palm.velocity.x) - omega * float(offset.y),
+            float(palm.velocity.y) + omega * float(offset.x),
+        )
+        obj.angular_velocity = omega
+        env._space.reindex_shapes_for_body(obj)
+
+    def post_substep(self, env, captured) -> None:
+        base_capture, jaw_poses, held_pair_pose, previous_jaw_gap = captured
+        if self.active_constraints():
+            self._enforce_rigid_grasp(env)
+            if held_pair_pose is not None:
+                pusher_pose, object_pose, previous_static_depth = held_pair_pose
+                current_static_depth = env._object_static_penetration_depth()
+                if current_static_depth > max(
+                    _SOLID_OBJECT_STATIC_MAX_DEPTH,
+                    previous_static_depth,
+                ) + _LATCH_DEPTH_EPSILON:
+                    self._restore_pair_pose(env, pusher_pose, object_pose)
+                    self._enforce_rigid_grasp(env)
+            return
+        if base_capture is None:
+            return
+        if not self._guard_solid_contact_penetration(env, base_capture):
+            return
+        # _restore_pair_pose realigns the jaws to the current command.  For a
+        # rollback caused by articulated motion, restore the actual previous
+        # jaw poses as well so the crossing is rejected rather than retried
+        # from an already-penetrating configuration.
+        for jaw, (position, angle, velocity, angular_velocity) in zip(
+            self._jaws, jaw_poses
+        ):
+            jaw.position = position
+            jaw.angle = angle
+            jaw.velocity = velocity
+            jaw.angular_velocity = angular_velocity
+            env._space.reindex_shapes_for_body(jaw)
+        self._jaw_gap_state = previous_jaw_gap
+
+
+class ChainGripperAgent(Agent):
+    """One rigid four-link chain controlled by one shared hinge angle.
+
+    Topology (and the complete collision geometry)::
+
+        free end -- link 1 -- joint -- link 2 -- joint -- link 3 -- joint -- link 4 -- free end
+
+    There is no palm or hub.  The master pusher pose is an invisible control
+    frame at the middle joint.  Each link is a separate straight kinematic
+    rectangle, while ``grip`` applies the same signed relative rotation to all
+    three joints.  Closing is incremental and protected by Sim V2's solid
+    contact guard, preventing a link from stepping through the T.
+    """
+
+    action_spec = ("x", "y", "angle", "grip")
+    action_dim = 4
+    controls_angle = True
+
+    def __init__(
+        self,
+        shape: str = "chain_gripper",
+        *,
+        solid_pusher: bool = True,
+        solid_contact_guard: bool = True,
+        control_gap: "ControlGap | str | None" = None,
+    ):
+        super().__init__(
+            shape,
+            solid_pusher=solid_pusher,
+            solid_contact_guard=solid_contact_guard,
+            control_gap=control_gap,
+        )
+        self._link_bodies: list[pymunk.Body] = []
+        self._link_shapes: list[pymunk.Poly] = []
+        self._joint_shapes: list[pymunk.Circle] = []
+        self._grip_target = 0.0
+        self._joint_angle_state = CHAIN_GRIPPER_OPEN_ANGLE
+        self._held_joint_angle = CHAIN_GRIPPER_CLOSED_ANGLE
+        self._grasp = None
+        self._grasp_local_object_pos: tuple[float, float] | None = None
+        self._grasp_angle_offset: float | None = None
+
+    def build(self, space, position):
+        master, master_shapes = super().build(space, position)
+        if master_shapes:
+            raise RuntimeError("chain_gripper master must have no collision shape")
+        self._link_bodies = []
+        self._link_shapes = []
+        self._joint_shapes = []
+        chain_filter = pymunk.ShapeFilter(group=_CHAIN_GRIPPER_COLLISION_GROUP)
+        for index in range(4):
+            link = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+            poly = pymunk.Poly(
+                link,
+                _rect_verts(
+                    0.0,
+                    0.0,
+                    CHAIN_GRIPPER_LINK_LEN,
+                    2.0 * CHAIN_GRIPPER_LINK_HALF_W,
+                ),
+            )
+            poly.friction = OBJECT_FRICTION
+            poly.filter = chain_filter
+            shapes: list[pymunk.Shape] = [poly]
+            if index < 3:
+                # One physical pin at each end-to-end connection.  It is
+                # attached to the preceding rigid bar and follows that bar's
+                # endpoint exactly; there is no pin at either free end.
+                joint = pymunk.Circle(
+                    link,
+                    CHAIN_GRIPPER_LINK_HALF_W,
+                    (CHAIN_GRIPPER_LINK_LEN / 2.0, 0.0),
+                )
+                joint.friction = OBJECT_FRICTION
+                joint.filter = chain_filter
+                shapes.append(joint)
+                self._joint_shapes.append(joint)
+            space.add(link, *shapes)
+            self._link_bodies.append(link)
+            self._link_shapes.append(poly)
+        self._place_links_from_master(master, space, self._joint_angle_state)
+        return master, master_shapes
+
+    def on_reset(self, env) -> None:
+        self._grip_target = 0.0
+        self._joint_angle_state = CHAIN_GRIPPER_OPEN_ANGLE
+        self._held_joint_angle = CHAIN_GRIPPER_CLOSED_ANGLE
+        self._grasp = None
+        self._grasp_local_object_pos = None
+        self._grasp_angle_offset = None
+
+    def physics_shapes(self, env) -> tuple[pymunk.Shape, ...]:
+        return (*self._link_shapes, *self._joint_shapes)
+
+    def _target_pose(self, action):
+        self._grip_target = float(np.clip(action[3], 0.0, 1.0))
+        angle = (float(action[2]) + math.pi) % (2.0 * math.pi) - math.pi
+        return float(action[0]), float(action[1]), angle
+
+    @property
+    def grasped(self) -> bool:
+        return self._grasp is not None
+
+    @property
+    def joint_angle(self) -> float:
+        return float(self._joint_angle_state)
+
+    @property
+    def grip_fraction(self) -> float:
+        """Current opening command: 0 fully open, 1 fully closed."""
+        span = CHAIN_GRIPPER_CLOSED_ANGLE - CHAIN_GRIPPER_OPEN_ANGLE
+        return float(np.clip(
+            (self._joint_angle_state - CHAIN_GRIPPER_OPEN_ANGLE) / span,
+            0.0,
+            1.0,
+        ))
+
+    @property
+    def joint_angles(self) -> tuple[float, float, float]:
+        """The three actual relative angles; they are equal by construction."""
+        return (self.joint_angle,) * 3
+
+    def active_constraints(self) -> tuple:
+        return tuple(self._grasp) if self._grasp else ()
+
+    @staticmethod
+    def _direction(angle: float) -> pymunk.Vec2d:
+        return pymunk.Vec2d(math.cos(angle), math.sin(angle))
+
+    def _chain_points(
+        self,
+        master: pymunk.Body,
+        joint_angle: float,
+    ) -> tuple[pymunk.Vec2d, ...]:
+        """Return the five endpoints from link 1's free end to link 4's."""
+        centre_joint = pymunk.Vec2d(*master.position)
+        base = float(master.angle)
+        link_angles = (
+            base - 1.5 * joint_angle,
+            base - 0.5 * joint_angle,
+            base + 0.5 * joint_angle,
+            base + 1.5 * joint_angle,
+        )
+        directions = tuple(self._direction(angle) for angle in link_angles)
+        p2 = centre_joint
+        p1 = p2 - CHAIN_GRIPPER_LINK_LEN * directions[1]
+        p0 = p1 - CHAIN_GRIPPER_LINK_LEN * directions[0]
+        p3 = p2 + CHAIN_GRIPPER_LINK_LEN * directions[2]
+        p4 = p3 + CHAIN_GRIPPER_LINK_LEN * directions[3]
+        return p0, p1, p2, p3, p4
+
+    def _place_links_from_master(
+        self,
+        master: pymunk.Body,
+        space: pymunk.Space,
+        joint_angle: float,
+    ) -> None:
+        points = self._chain_points(master, joint_angle)
+        omega = float(master.angular_velocity)
+        for index, body in enumerate(self._link_bodies):
+            start, end = points[index], points[index + 1]
+            centre = (start + end) * 0.5
+            delta = end - start
+            body.position = centre
+            body.angle = math.atan2(delta.y, delta.x)
+            offset = centre - master.position
+            body.velocity = (
+                float(master.velocity.x) - omega * float(offset.y),
+                float(master.velocity.y) + omega * float(offset.x),
+            )
+            body.angular_velocity = omega
+            space.reindex_shapes_for_body(body)
+
+    def _place_links(self, env, joint_angle: float) -> None:
+        self._joint_angle_state = float(np.clip(
+            joint_angle,
+            CHAIN_GRIPPER_OPEN_ANGLE,
+            CHAIN_GRIPPER_CLOSED_ANGLE,
+        ))
+        self._place_links_from_master(
+            env._pusher_body,
+            env._space,
+            self._joint_angle_state,
+        )
+
+    def sync_auxiliary_bodies(self, env) -> None:
+        self._place_links(env, self._joint_angle_state)
+
+    def _desired_joint_angle(self) -> float:
+        if self.grasped and self._grip_target > _CHAIN_GRIPPER_RELEASE_THRESHOLD:
+            return float(self._held_joint_angle)
+        span = CHAIN_GRIPPER_CLOSED_ANGLE - CHAIN_GRIPPER_OPEN_ANGLE
+        return float(CHAIN_GRIPPER_OPEN_ANGLE + self._grip_target * span)
+
+    def _advance_joints(self, env) -> None:
+        desired = self._desired_joint_angle()
+        max_delta = _CHAIN_GRIPPER_ANGLE_SPEED * env.DT / env.SUBSTEPS
+        delta = float(np.clip(
+            desired - self._joint_angle_state,
+            -max_delta,
+            max_delta,
+        ))
+        self._place_links(env, self._joint_angle_state + delta)
+
+    @property
+    def endpoints(self) -> tuple[pymunk.Vec2d, pymunk.Vec2d]:
+        if len(self._link_bodies) != 4:
+            raise RuntimeError("chain_gripper has not been built")
+        first = self._link_bodies[0].local_to_world(
+            (-CHAIN_GRIPPER_LINK_LEN / 2.0, 0.0)
+        )
+        last = self._link_bodies[3].local_to_world(
+            (CHAIN_GRIPPER_LINK_LEN / 2.0, 0.0)
+        )
+        return first, last
+
+    @property
+    def mouth_gap(self) -> float:
+        first, last = self.endpoints
+        return float((last - first).length)
+
+    @staticmethod
+    def _shape_polygon(shape: pymunk.Poly) -> ShapelyPolygon:
+        return ShapelyPolygon([
+            tuple(shape.body.local_to_world(vertex))
+            for vertex in shape.get_vertices()
+        ])
+
+    def _object_in_mouth(self, env) -> bool:
+        """Whether object material lies inside the chain plus its open mouth."""
+        points = self._chain_points(env._pusher_body, self._joint_angle_state)
+        pocket = ShapelyPolygon([(float(p.x), float(p.y)) for p in points])
+        if not pocket.is_valid or pocket.area <= 1.0:
+            return False
+        return any(
+            pocket.intersection(self._shape_polygon(shape)).area > 1.0
+            for shape in env._object_shapes
+            if isinstance(shape, pymunk.Poly)
+        )
+
+    def _both_halves_contact_object(self, env) -> bool:
+        """Require physical contact on links 1/2 and independently on 3/4."""
+        object_polygons = [
+            self._shape_polygon(shape)
+            for shape in env._object_shapes
+            if isinstance(shape, pymunk.Poly)
+        ]
+        if not object_polygons:
+            return False
+        for link_indices in ((0, 1), (2, 3)):
+            distance = min(
+                self._shape_polygon(self._link_shapes[index]).distance(obj_poly)
+                for index in link_indices
+                for obj_poly in object_polygons
+            )
+            if distance > _CHAIN_GRIPPER_CONTACT_TOLERANCE:
+                return False
+        return True
+
+    def _attach(self, env) -> None:
+        master, obj = env._pusher_body, env._object_body
+        pivot = pymunk.PivotJoint(master, obj, obj.position)
+        gear = _add_gear(env._space, master, obj, obj.angle - master.angle)
+        pivot.collide_bodies = True
+        gear.collide_bodies = True
+        pivot.error_bias = 0.0
+        gear.error_bias = 0.0
+        env._space.add(pivot)
+        self._grasp = (pivot, gear)
+        self._held_joint_angle = float(self._joint_angle_state)
+        local_object_pos = master.world_to_local(obj.position)
+        self._grasp_local_object_pos = (
+            float(local_object_pos.x),
+            float(local_object_pos.y),
+        )
+        self._grasp_angle_offset = float(obj.angle) - float(master.angle)
+
+    def _detach(self, env) -> None:
+        if self._grasp:
+            for constraint in self._grasp:
+                if constraint in env._space.constraints:
+                    env._space.remove(constraint)
+        self._grasp = None
+        self._grasp_local_object_pos = None
+        self._grasp_angle_offset = None
+
+    def _enforce_rigid_grasp(self, env) -> None:
+        if (
+            not self.grasped
+            or self._grasp_local_object_pos is None
+            or self._grasp_angle_offset is None
+        ):
+            return
+        master, obj = env._pusher_body, env._object_body
+        object_position = master.local_to_world(self._grasp_local_object_pos)
+        obj.angle = float(master.angle) + self._grasp_angle_offset
+        obj.position = object_position
+        offset = object_position - master.position
+        omega = float(master.angular_velocity)
+        obj.velocity = (
+            float(master.velocity.x) - omega * float(offset.y),
+            float(master.velocity.y) + omega * float(offset.x),
+        )
+        obj.angular_velocity = omega
+        env._space.reindex_shapes_for_body(obj)
+
+    def pre_substep(self, env):
+        if self.grasped and self._grip_target <= _CHAIN_GRIPPER_RELEASE_THRESHOLD:
+            self._detach(env)
+
+        base_capture = (
+            None if self.grasped else self._capture_solid_contact_guard_pose(env)
+        )
+        held_pair_pose = None
+        if self.grasped:
+            master, obj = env._pusher_body, env._object_body
+            held_pair_pose = (
+                (float(master.position.x), float(master.position.y), float(master.angle)),
+                (float(obj.position.x), float(obj.position.y), float(obj.angle)),
+                env._object_static_penetration_depth(),
+            )
+        previous_joint_angle = float(self._joint_angle_state)
+        self._advance_joints(env)
+        return base_capture, held_pair_pose, previous_joint_angle
+
+    def post_substep(self, env, captured) -> None:
+        base_capture, held_pair_pose, previous_joint_angle = captured
+        if self.grasped:
+            self._enforce_rigid_grasp(env)
+            if held_pair_pose is not None:
+                master_pose, object_pose, previous_static_depth = held_pair_pose
+                if env._object_static_penetration_depth() > max(
+                    _SOLID_OBJECT_STATIC_MAX_DEPTH,
+                    previous_static_depth,
+                ) + _LATCH_DEPTH_EPSILON:
+                    self._restore_pair_pose(env, master_pose, object_pose)
+                    self._enforce_rigid_grasp(env)
+            return
+
+        if self._guard_solid_contact_penetration(env, base_capture):
+            self._place_links(env, previous_joint_angle)
+            return
+
+        if (
+            self._grip_target >= _CHAIN_GRIPPER_GRASP_THRESHOLD
+            and self._object_in_mouth(env)
+            and self._both_halves_contact_object(env)
+        ):
+            self._attach(env)
 
 
 
@@ -1820,7 +2393,9 @@ class UmiAgent(Agent):
                          solid_contact_guard=solid_contact_guard,
                          control_gap=control_gap)
         self._fingers: list[pymunk.Body] = []
+        self._finger_shapes: list[pymunk.Poly] = []
         self._grip = 1.0
+        self._grip_state = 1.0
         self._cs = None
         self._held_gap = UMI_MIN_GAP
         self._mode = "released"
@@ -1828,6 +2403,7 @@ class UmiAgent(Agent):
     def build(self, space, position):
         body, shapes = super().build(space, position)
         self._fingers = []
+        self._finger_shapes = []
         for sign in (-1.0, 1.0):
             f = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
             f.position = (position[0] + sign * UMI_HINGE_SPAN, position[1])
@@ -1841,6 +2417,7 @@ class UmiAgent(Agent):
             poly.friction = OBJECT_FRICTION
             space.add(f, poly)
             self._fingers.append(f)
+            self._finger_shapes.append(poly)
         return body, shapes
 
     def _target_pose(self, action):
@@ -1850,7 +2427,28 @@ class UmiAgent(Agent):
         return float(action[0]), float(action[1]), angle
 
     def on_reset(self, env) -> None:
-        self._grip, self._cs, self._mode = 1.0, None, "released"
+        self._grip = 1.0
+        self._grip_state = 1.0
+        self._cs = None
+        self._mode = "released"
+
+    def physics_shapes(self, env) -> tuple[pymunk.Shape, ...]:
+        """The wrist and both fingers are equally solid collision geometry."""
+        return (*env._pusher_shapes, *self._finger_shapes)
+
+    def sync_auxiliary_bodies(self, env) -> None:
+        """Keep both finger bodies on the restored/driven wrist pose."""
+        self._sync(env)
+
+    def _advance_grip(self) -> None:
+        """Move the physical aperture toward its command without tunnelling."""
+        travel = UMI_MAX_GAP - UMI_MIN_GAP
+        max_fraction_delta = _UMI_JAW_GAP_DELTA / travel
+        self._grip_state += float(np.clip(
+            self._grip - self._grip_state,
+            -max_fraction_delta,
+            max_fraction_delta,
+        ))
 
     @property
     def grasped(self) -> bool:
@@ -1864,7 +2462,7 @@ class UmiAgent(Agent):
         return tuple(self._cs) if self._cs else ()
 
     def _gap(self, env) -> float:
-        gap = UMI_MIN_GAP + self._grip * (UMI_MAX_GAP - UMI_MIN_GAP)
+        gap = UMI_MIN_GAP + self._grip_state * (UMI_MAX_GAP - UMI_MIN_GAP)
         # Floor at the object's width whenever it is BETWEEN the fingers, not
         # only once already grasped. Gating on _cs was circular: the fingers
         # closed straight through the limb and shoved it away, so the grasp
@@ -1930,18 +2528,62 @@ class UmiAgent(Agent):
             f.angular_velocity = wr.angular_velocity
 
     def _between(self, env) -> bool:
-        wr = env._pusher_body
-        half = UMI_MAX_GAP / 2 * 0.8
-        # Sample BOTH sides of the wrist: the fingers extend +/-26 in local Y,
-        # so an object entering from the negative side is just as grasped.
-        # Sampling only positive ly missed it entirely and the grip never
-        # formed regardless of how the operator closed the fingers.
-        for lx in (-half, -half / 2, 0.0, half / 2, half):
-            for ly in (-UMI_FINGER_HALF_H * 0.9, -UMI_FINGER_HALF_H * 0.45, 0.0,
-                       UMI_FINGER_HALF_H * 0.45, UMI_FINGER_HALF_H * 0.9):
-                if _surface_distance(env, wr.local_to_world((lx, ly))) <= 0.0:
-                    return True
+        """Whether object material intersects the live mouth between fingers.
+
+        Each finger runs from local y=0 at its hinge to y=FINGER_LEN at its
+        tip.  The previous point sampler used ``UMI_FINGER_HALF_H`` and stopped
+        about 21 px from the wrist, so a correctly centred T stem touching the
+        46 px fingertips was never considered between them and could never
+        turn the gripper green.  Use the actual four hinge/tip centre points so
+        the test follows both revolute fingers at every opening.
+        """
+        if len(self._fingers) != 2:
+            return False
+        left, right = self._fingers
+        mouth = ShapelyPolygon([
+            tuple(left.local_to_world((0.0, 0.0))),
+            tuple(left.local_to_world((0.0, UMI_FINGER_LEN))),
+            tuple(right.local_to_world((0.0, UMI_FINGER_LEN))),
+            tuple(right.local_to_world((0.0, 0.0))),
+        ])
+        if mouth.is_empty or not mouth.is_valid:
+            return False
+        for object_shape in env._object_shapes:
+            if not isinstance(object_shape, pymunk.Poly):
+                continue
+            object_polygon = ShapelyPolygon([
+                tuple(object_shape.body.local_to_world(vertex))
+                for vertex in object_shape.get_vertices()
+            ])
+            if mouth.intersects(object_polygon):
+                return True
         return False
+
+    def _both_fingers_contact_object(self, env) -> bool:
+        """Require real opposing contact; mouth containment alone is not grip."""
+        if len(self._finger_shapes) != 2:
+            return False
+        for finger_shape in self._finger_shapes:
+            env._space.reindex_shapes_for_body(finger_shape.body)
+            finger_polygon = ShapelyPolygon([
+                tuple(finger_shape.body.local_to_world(vertex))
+                for vertex in finger_shape.get_vertices()
+            ])
+            minimum_distance = math.inf
+            for object_shape in env._object_shapes:
+                if not isinstance(object_shape, pymunk.Poly):
+                    continue
+                object_polygon = ShapelyPolygon([
+                    tuple(object_shape.body.local_to_world(vertex))
+                    for vertex in object_shape.get_vertices()
+                ])
+                minimum_distance = min(
+                    minimum_distance,
+                    float(finger_polygon.distance(object_polygon)),
+                )
+            if minimum_distance > _GRIPPER_CONTACT_TOLERANCE:
+                return False
+        return True
 
     def _detach(self, env):
         if self._cs:
@@ -1951,20 +2593,63 @@ class UmiAgent(Agent):
         self._cs = None
 
     def pre_substep(self, env):
+        # Capture the complete safe pose before changing either the revolute
+        # aperture or the wrist.  UMI's fingers used to be absent from this
+        # capture, allowing the orange links to pass through the blue T while
+        # the red wrist circle remained collision-free.
+        #
+        # Do not use Agent.pre_substep here: the base implementation returns
+        # None while a constraint is active.  That is correct for its ordinary
+        # pusher/object tunnelling guard, but UMI also needs a separate guard
+        # for the *constrained pair*.  Without this capture a grasped T can be
+        # dragged through an arena edge and left outside when the fingers open.
+        was_constrained = bool(self.active_constraints())
+        captured = self._capture_solid_contact_guard_pose(env)
+        held_pair_pose = None
+        if self.solid_pusher and self.solid_contact_guard:
+            wrist = env._pusher_body
+            obj = env._object_body
+            overflow, _clearance = env._object_arena_metrics()
+            held_pair_pose = (
+                (
+                    float(wrist.position.x),
+                    float(wrist.position.y),
+                    float(wrist.angle),
+                ),
+                (float(obj.position.x), float(obj.position.y), float(obj.angle)),
+                overflow,
+                env._latched_pair_static_penetration_depth(),
+            )
+        previous_grip_state = float(self._grip_state)
+        self._advance_grip()
         self._sync(env)
-        want = ("released" if self._grip > 0.66
-                else "pinched" if self._grip > 0.33 else "clamped")
+        want = ("released" if self._grip_state > 0.66
+                else "pinched" if self._grip_state > 0.33 else "clamped")
         if want != self._mode:
             self._detach(env)
             graspable = 2.0 * self._half_width(env) <= UMI_MAX_GAP * 0.95
-            if want != "released" and graspable and self._between(env):
+            contact_is_safe = (
+                env._pusher_object_penetration_depth()
+                <= _SOLID_PUSHER_OBJECT_MAX_DEPTH + _LATCH_DEPTH_EPSILON
+            )
+            if (
+                want != "released"
+                and graspable
+                and self._between(env)
+                and self._both_fingers_contact_object(env)
+                and contact_is_safe
+            ):
                 wr, obj = env._pusher_body, env._object_body
                 # Anchor at the wrist (between the fingers), not the object's
                 # centre of mass -- see GripperAgent.
                 pj = pymunk.PivotJoint(wr, obj, wr.position)
                 env._space.add(pj)   # uncapped -- see GripperAgent
-                self._held_gap = max(UMI_MIN_GAP,
-                                     2.0 * self._half_width(env) + 1.0)
+                # Freeze the actual collision-safe opening.  Replacing it with
+                # object width + 1 snapped the finger centre-lines to 31 px;
+                # after subtracting both 4.5 px finger half-widths that left a
+                # 21 px inner gap around a 30 px T stem (4.5 px penetration on
+                # each side) immediately after the green latch appeared.
+                self._held_gap = self._gap(env)
                 cs = [pj]
                 if want == "clamped":
                     cs.append(_add_gear(env._space, wr, obj, obj.angle - wr.angle))
@@ -1972,7 +2657,45 @@ class UmiAgent(Agent):
                 self._mode = want
             else:
                 self._mode = "released" if want == "released" else self._mode
-        return super().pre_substep(env)
+        return captured, held_pair_pose, previous_grip_state, was_constrained
+
+    def post_substep(self, env, captured) -> None:
+        base_capture, held_pair_pose, previous_grip_state, was_constrained = captured
+        if self.active_constraints():
+            if held_pair_pose is None:
+                return
+            wrist_pose, object_pose, previous_overflow, previous_static_depth = (
+                held_pair_pose
+            )
+            overflow, _clearance = env._object_arena_metrics()
+            static_depth = env._latched_pair_static_penetration_depth()
+            escaped_farther = (
+                overflow > previous_overflow + _LATCH_DEPTH_EPSILON
+            )
+            penetrated_farther = static_depth > max(
+                _LATCH_STATIC_MAX_DEPTH,
+                previous_static_depth,
+            ) + _LATCH_DEPTH_EPSILON
+            if escaped_farther or penetrated_farther:
+                # Restore wrist, articulated fingers, and object together.
+                # Keep the pivot/gear constraints alive: a wall blocks motion;
+                # it must not silently make UMI drop what it is holding.
+                self._restore_pair_pose(env, wrist_pose, object_pose)
+            return
+        if was_constrained:
+            # Opening deliberately removes the pivot/gear in pre_substep.  Do
+            # not reinterpret that same release substep as fresh tunnelling:
+            # the rotating fingers necessarily sweep past their former contact
+            # points.  The next unconstrained substep is guarded normally.
+            return
+        if base_capture is None:
+            return
+        if self._guard_solid_contact_penetration(env, base_capture):
+            # _restore_pair_pose realigns auxiliaries using the new aperture;
+            # restore the last safe aperture as well so no finger remains on
+            # the far side of the object after a rejected substep.
+            self._grip_state = previous_grip_state
+            self._sync(env)
 
 
 class TriangleAgent(Agent):
@@ -2037,7 +2760,12 @@ class FlipperAgent(Agent):
                          solid_contact_guard=solid_contact_guard,
                          control_gap=control_gap)
         self._bar = None
-        self._swing = 0.0
+        self._bar_shape = None
+        self._swing_target = 0.0
+        self._swing_state = 0.0
+        self._swing_step_start = 0.0
+        self._swing_step_angular_velocity = 0.0
+        self._swing_in_substep = False
 
     def build(self, space, position):
         body, shapes = super().build(space, position)
@@ -2048,35 +2776,86 @@ class FlipperAgent(Agent):
         poly.friction = OBJECT_FRICTION
         space.add(bar, poly)
         self._bar = bar
+        self._bar_shape = poly
         return body, shapes
 
+    def physics_shapes(self, env) -> tuple[pymunk.Shape, ...]:
+        """The wrist hub and swinging bar are both solid geometry."""
+        bar = (self._bar_shape,) if self._bar_shape is not None else ()
+        return (*env._pusher_shapes, *bar)
+
     def _target_pose(self, action):
-        self._swing = min(1.0, max(0.0, float(action[3])))
+        self._swing_target = min(1.0, max(0.0, float(action[3])))
         angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
         return float(action[0]), float(action[1]), angle
 
     def on_reset(self, env) -> None:
-        self._swing = 0.0
+        self._swing_target = 0.0
+        self._swing_state = 0.0
+        self._swing_step_start = 0.0
+        self._swing_step_angular_velocity = 0.0
+        self._swing_in_substep = False
 
     @property
     def swing_deg(self) -> float:
-        return math.degrees(self._swing * FLIPPER_SWING)
+        return math.degrees(self._swing_state * FLIPPER_SWING)
 
     @property
     def mode(self) -> str:
-        return ("retracted" if self._swing < 0.2
-                else "swinging" if self._swing < 0.85 else "extended")
+        return ("retracted" if self._swing_state < 0.2
+                else "swinging" if self._swing_state < 0.85 else "extended")
+
+    def sync_auxiliary_bodies(self, env) -> None:
+        if self._bar is None:
+            return
+        wrist = env._pusher_body
+        fraction = (
+            self._swing_step_start
+            if self._swing_in_substep
+            else self._swing_state
+        )
+        self._bar.position = wrist.position
+        self._bar.angle = wrist.angle + fraction * FLIPPER_SWING
+        self._bar.velocity = wrist.velocity
+        self._bar.angular_velocity = (
+            wrist.angular_velocity
+            + (self._swing_step_angular_velocity
+               if self._swing_in_substep else 0.0)
+        )
+        env._space.reindex_shapes_for_body(self._bar)
 
     def pre_substep(self, env):
-        wr = env._pusher_body
-        if self._bar is not None:
-            self._bar.position = wr.position
-            self._bar.angle = wr.angle + self._swing * FLIPPER_SWING
-            self._bar.velocity = wr.velocity
-            # Give the bar real angular velocity so a swing transfers a
-            # tangential impulse instead of teleporting through the object.
-            self._bar.angular_velocity = wr.angular_velocity
-        return super().pre_substep(env)
+        # Capture while the bar is still at its last collision-safe angle.
+        # Previously SPACE snapped the full arc before this capture, so a bar
+        # already teleported through the T was incorrectly treated as safe.
+        captured = super().pre_substep(env)
+        previous_state = float(self._swing_state)
+        dt = env.DT / env.SUBSTEPS
+        max_angle_delta = _FLIPPER_SWING_SPEED * dt
+        angle_error = (
+            self._swing_target - self._swing_state
+        ) * FLIPPER_SWING
+        angle_delta = float(np.clip(
+            angle_error,
+            -max_angle_delta,
+            max_angle_delta,
+        ))
+        self._swing_state += angle_delta / FLIPPER_SWING
+        self._swing_step_start = previous_state
+        self._swing_step_angular_velocity = angle_delta / dt
+        self._swing_in_substep = True
+        return captured, previous_state
+
+    def post_substep(self, env, captured) -> None:
+        base_capture, previous_state = captured
+        if self._guard_solid_contact_penetration(env, base_capture):
+            self._swing_state = previous_state
+        # Snap only the tiny, solver-integrated residual so numerical hinge
+        # drift cannot accumulate.  This is at most one 600 Hz actuator step.
+        self._swing_in_substep = False
+        self._swing_step_start = self._swing_state
+        self._swing_step_angular_velocity = 0.0
+        self.sync_auxiliary_bodies(env)
 
 
 class SpringAgent(Agent):
@@ -2117,20 +2896,83 @@ class SpringAgent(Agent):
                          solid_contact_guard=solid_contact_guard,
                          control_gap=control_gap)
         self._tip = None
+        self._tip_shape = None
+        self._shaft_shape = None
         self._stiff = 0.0
         self._compress = 0.0
-        self._prev_base = None
 
     def build(self, space, position):
         body, shapes = super().build(space, position)
+        # A changing tapered shaft joins the housing to the moving tip.  The
+        # original implementation left this span physically empty, so the T
+        # could enter between the two disconnected solids and become hooked.
+        shaft = pymunk.Poly(body, self._shaft_vertices(SPRING_FREE_LEN))
+        # A plunger should transmit force along its axis, not hook on a sharp
+        # object corner through tangential friction.
+        shaft.friction = 0.0
+        space.add(shaft)
+        shapes.append(shaft)
         tip = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
         tip.position = position
-        poly = pymunk.Poly(tip, _rect_verts(
-            0.0, -SPRING_TIP_LEN / 2, 2 * SPRING_TIP_HALF_W, SPRING_TIP_LEN))
-        poly.friction = OBJECT_FRICTION
-        space.add(tip, poly)
+        # Rounded capsule with the same 14x16 envelope as the former square
+        # block. Square corners could key into either outside corner of the T
+        # and make a collision-safe pose feel permanently stuck.
+        cap_offset = SPRING_TIP_HALF_W
+        cap_travel = SPRING_TIP_LEN - 2.0 * SPRING_TIP_HALF_W
+        tip_shape = pymunk.Segment(
+            tip,
+            (0.0, -cap_offset),
+            (0.0, -(cap_offset + cap_travel)),
+            SPRING_TIP_HALF_W,
+        )
+        tip_shape.friction = 0.0
+        space.add(tip, tip_shape)
         self._tip = tip
+        self._tip_shape = tip_shape
+        self._shaft_shape = shaft
         return body, shapes
+
+    @staticmethod
+    def _shaft_vertices(standoff: float) -> list[tuple[float, float]]:
+        """Convex telescoping shaft from housing face to the tip's rear."""
+        housing_front = SPRING_HOUSING_LEN / 2.0
+        if standoff <= housing_front:
+            # The tip is already inside the housing. Keep a tiny valid polygon
+            # inside the housing because Chipmunk polygons cannot be empty.
+            tip_y = -housing_front
+            housing_y = tip_y + 0.1
+        else:
+            # Extend into the rounded tip to its rear cap centre. This overlap
+            # keeps the collision union continuous without creating a notch.
+            tip_y = -(standoff + SPRING_TIP_HALF_W)
+            housing_y = -housing_front
+        return [
+            (-SPRING_TIP_HALF_W, tip_y),
+            (SPRING_TIP_HALF_W, tip_y),
+            (SPRING_HOUSING_HALF_W, housing_y),
+            (-SPRING_HOUSING_HALF_W, housing_y),
+        ]
+
+    def physics_shapes(self, env) -> tuple[pymunk.Shape, ...]:
+        """The housing, telescoping shaft, and orange tip are all solid."""
+        tip = (self._tip_shape,) if self._tip_shape is not None else ()
+        return (*env._pusher_shapes, *tip)
+
+    def sync_auxiliary_bodies(self, env) -> None:
+        """Place the tip at the current guarded base pose and compression."""
+        if self._tip is None:
+            return
+        wr = env._pusher_body
+        ca, sa = math.cos(wr.angle), math.sin(wr.angle)
+        d = self._standoff()
+        if self._shaft_shape is not None:
+            self._shaft_shape.unsafe_set_vertices(self._shaft_vertices(d))
+            env._space.reindex_shapes_for_body(wr)
+        self._tip.position = (wr.position.x + sa * d, wr.position.y - ca * d)
+        self._tip.angle = wr.angle
+        self._tip.velocity = wr.velocity
+        self._tip.angular_velocity = wr.angular_velocity
+        env._space.reindex_shapes_for_body(self._tip)
 
     def _target_pose(self, action):
         self._stiff = min(1.0, max(0.0, float(action[3])))
@@ -2138,7 +2980,7 @@ class SpringAgent(Agent):
         return float(action[0]), float(action[1]), angle
 
     def on_reset(self, env) -> None:
-        self._stiff, self._compress, self._prev_base = 0.0, 0.0, None
+        self._stiff, self._compress = 0.0, 0.0
 
     @property
     def compression(self) -> float:
@@ -2153,15 +2995,169 @@ class SpringAgent(Agent):
     def _standoff(self) -> float:
         return SPRING_FREE_LEN - self._compress
 
+    def _planned_forward_step(self, env, sa: float, ca: float) -> float:
+        """Axial distance the base servo will attempt in this substep.
+
+        Compression must be applied before that motion. Measuring the prior
+        base displacement deadlocked at blocked contacts: the penetration
+        guard rolled the base back, so the next substep observed zero travel
+        and the spring could never retract.
+        """
+        if self._last_target is None:
+            return 0.0
+        wr = env._pusher_body
+        tx = float(np.clip(self._last_target[0], 0.0, env.WORLD_SIZE))
+        ty = float(np.clip(self._last_target[1], 0.0, env.WORLD_SIZE))
+        dx, dy = tx - float(wr.position.x), ty - float(wr.position.y)
+        distance = math.hypot(dx, dy)
+        if distance <= 1e-12:
+            return 0.0
+        travel = min(
+            env.PUSHER_SPEED * env.DT / env.SUBSTEPS,
+            distance,
+        )
+        step_x, step_y = dx / distance * travel, dy / distance * travel
+        return float(step_x * sa - step_y * ca)
+
+    def _escape_rejected_contact(self, env, attempted_delta: np.ndarray) -> bool:
+        """Move one small step toward lower penetration after a rollback.
+
+        Restoring the exact same corner-contact pose makes a position servo
+        retry the same rejected motion forever.  Search a deterministic ring
+        around that pose and accept the direction with the lowest overlap,
+        preferring the direction closest to the requested command when tied.
+        This is a contact projection: the blocked normal component is removed
+        while the collision-free tangential component keeps moving.
+        The object is never moved by this recovery and static overlap may not
+        increase.
+        """
+        wr = env._pusher_body
+        start = np.array([float(wr.position.x), float(wr.position.y)])
+        start_depth = env._pusher_object_penetration_depth()
+        start_static = env._shapes_static_penetration_depth(
+            wr,
+            list(self.physics_shapes(env)),
+        )
+        delta_norm = float(np.linalg.norm(attempted_delta))
+        if delta_norm > 1e-12:
+            preferred = attempted_delta / delta_norm
+        else:
+            preferred = np.array([-math.sin(wr.angle), math.cos(wr.angle)])
+
+        directions = [preferred]
+        for angle in np.linspace(0.0, 2.0 * math.pi, 16, endpoint=False):
+            direction = np.array([math.cos(angle), math.sin(angle)])
+            if float(np.dot(direction, preferred)) < 0.999:
+                directions.append(direction)
+
+        best_position = None
+        best_score = None
+        escape_step = env.PUSHER_SPEED * env.DT / env.SUBSTEPS
+        for direction in directions:
+            candidate = start + direction * escape_step
+            wr.position = (float(candidate[0]), float(candidate[1]))
+            self.sync_auxiliary_bodies(env)
+            static_depth = env._shapes_static_penetration_depth(
+                wr,
+                list(self.physics_shapes(env)),
+            )
+            if static_depth > start_static + 1e-6:
+                continue
+            depth = env._pusher_object_penetration_depth()
+            score = (depth, -float(np.dot(direction, preferred)))
+            if best_score is None or score < best_score:
+                best_score = score
+                best_position = candidate
+
+        wr.position = (float(start[0]), float(start[1]))
+        self.sync_auxiliary_bodies(env)
+        if best_position is None or best_score[0] > start_depth + 1e-6:
+            return False
+        wr.position = (float(best_position[0]), float(best_position[1]))
+        wr.velocity = (0.0, 0.0)
+        wr.angular_velocity = 0.0
+        self.sync_auxiliary_bodies(env)
+        return True
+
+    def _project_object_out_of_contact(self, env, captured) -> bool:
+        """Resolve small spring/T overlap without cancelling the whole push.
+
+        Chipmunk can leave roughly 0.7--1.7 px of transient overlap for this
+        multi-body plunger, just above Sim V2's 0.5 px rollback threshold.
+        Rolling both bodies back at that point erases every contact impulse and
+        pins the spring. Move only the dynamic object by the smallest sampled
+        correction that restores the guarded depth. If no correction is safe
+        against arena geometry, return False and let the normal rollback run.
+        """
+        if captured is None:
+            return False
+        previous_static = float(captured[2])
+        previous_pusher = float(captured[3])
+        allowed_static = max(_SOLID_OBJECT_STATIC_MAX_DEPTH, previous_static)
+        allowed_pusher = max(_SOLID_PUSHER_OBJECT_MAX_DEPTH, previous_pusher)
+        current_depth = env._pusher_object_penetration_depth()
+        if current_depth <= allowed_pusher + 1e-6:
+            return env._object_static_penetration_depth() <= allowed_static + 1e-6
+        # Projection is only for the small (<2.5 px) solver residue observed
+        # after a bottomed-out/stiff plunger push. Deep intersections remain a
+        # topology error and must use the normal pair rollback.
+        if current_depth > allowed_pusher + 2.0:
+            return False
+        if (
+            self._compress < SPRING_MAX_COMPRESS - 1e-6
+            and self._stiff < 0.95
+        ):
+            return False
+
+        obj = env._object_body
+        for _ in range(8):
+            current_depth = env._pusher_object_penetration_depth()
+            if current_depth <= allowed_pusher + 1e-6:
+                return True
+            step = max(0.05, current_depth - allowed_pusher + 0.05)
+            start = np.array([float(obj.position.x), float(obj.position.y)])
+            best = None
+            for angle in np.linspace(0.0, 2.0 * math.pi, 32, endpoint=False):
+                direction = np.array([math.cos(angle), math.sin(angle)])
+                candidate = start + direction * step
+                obj.position = (float(candidate[0]), float(candidate[1]))
+                env._space.reindex_shapes_for_body(obj)
+                static_depth = env._object_static_penetration_depth()
+                pusher_depth = env._pusher_object_penetration_depth()
+                if static_depth > allowed_static + 1e-6:
+                    continue
+                score = (pusher_depth, float(np.linalg.norm(candidate - start)))
+                if best is None or score < best[0]:
+                    best = (score, candidate)
+
+            obj.position = (float(start[0]), float(start[1]))
+            env._space.reindex_shapes_for_body(obj)
+            if best is None or best[0][0] >= current_depth - 1e-6:
+                return False
+            candidate = best[1]
+            obj.position = (float(candidate[0]), float(candidate[1]))
+            env._space.reindex_shapes_for_body(obj)
+
+        return (
+            env._pusher_object_penetration_depth() <= allowed_pusher + 1e-6
+            and env._object_static_penetration_depth() <= allowed_static + 1e-6
+        )
+
     def pre_substep(self, env):
+        # Capture the last collision-safe state BEFORE changing the spring
+        # compression.  Extension is articulated motion just like closing a
+        # gripper jaw, so capturing afterward would bless a tip that had
+        # already crossed into the object and let it ratchet through.
+        captured = super().pre_substep(env)
+        previous_compress = float(self._compress)
         wr = env._pusher_body
         ca, sa = math.cos(wr.angle), math.sin(wr.angle)
 
-        # Compression is driven by the BASE ADVANCING WHILE LOADED, not by
-        # geometric overlap. The tip is kinematic, so on contact it shoves the
-        # object rather than being driven into it and the overlap is always
-        # zero -- measured 0.0 compression at every stiffness, with all four
-        # settings pushing the object identically.
+        # Compression is driven by the BASE'S NEXT COMMANDED ADVANCE WHILE
+        # LOADED, not by geometric overlap or the previous base displacement.
+        # Applying it before env._drive_pusher_toward lets a soft tip remain at
+        # the contact surface while its housing advances, rather than relying
+        # on motion that the penetration guard may subsequently roll back.
         # Measure from the tip's FRONT FACE. The body origin sits at the back
         # of the tip, so it reads ~16.4 from the surface while the front is
         # actually touching at ~0.4 -- against a 9.6 threshold the spring
@@ -2172,27 +3168,39 @@ class SpringAgent(Agent):
         else:
             tip_pos = (wr.position.x, wr.position.y)
         loaded = _surface_distance(env, tip_pos) <= 3.0
-        base = np.array([wr.position.x, wr.position.y])
-        if self._prev_base is not None and loaded:
-            # Component of the base's travel along the facing direction.
-            step = base - self._prev_base
-            along = float(step[0] * sa - step[1] * ca)
+        if loaded:
+            along = self._planned_forward_step(env, sa, ca)
             if along > 0.0:
                 # A soft spring swallows the stroke; a stiff one passes it on.
                 swallow = (1.0 - self._stiff) ** 1.2
                 self._compress = min(SPRING_MAX_COMPRESS,
                                      self._compress + along * swallow)
-        elif not loaded:
+        else:
             self._compress = max(0.0, self._compress - 1.2)   # extend when free
-        self._prev_base = base
 
-        if self._tip is not None:
-            d = self._standoff()
-            self._tip.position = (wr.position.x + sa * d, wr.position.y - ca * d)
-            self._tip.angle = wr.angle
-            self._tip.velocity = wr.velocity
-            self._tip.angular_velocity = wr.angular_velocity
-        return super().pre_substep(env)
+        self.sync_auxiliary_bodies(env)
+        return captured, previous_compress
+
+    def post_substep(self, env, captured) -> None:
+        base_capture, previous_compress = captured
+        if self._project_object_out_of_contact(env, base_capture):
+            return
+        safe_position = np.array(base_capture[0][:2]) if base_capture else None
+        attempted_position = np.array([
+            float(env._pusher_body.position.x),
+            float(env._pusher_body.position.y),
+        ])
+        if self._guard_solid_contact_penetration(env, base_capture):
+            # _restore_pair_pose initially synchronises using the attempted
+            # compression. Restore the last safe spring state too, otherwise
+            # repeated extension can leave the tip embedded on the far side.
+            self._compress = previous_compress
+            self.sync_auxiliary_bodies(env)
+            if safe_position is not None:
+                self._escape_rejected_contact(
+                    env,
+                    attempted_position - safe_position,
+                )
 
 
 _SIMPLE = ("circle", "circle_small", "stick", "L")
@@ -2201,6 +3209,7 @@ _SIMPLE = ("circle", "circle_small", "stick", "L")
 _AGENT_CLASSES: dict[str, type[Agent]] = {
     "u_socket": USocketAgent,
     "gripper": GripperAgent,
+    "chain_gripper": ChainGripperAgent,
     "suction": SuctionAgent,
     "triangle": TriangleAgent,
     "umi": UmiAgent,

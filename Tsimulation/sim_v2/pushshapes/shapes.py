@@ -133,6 +133,15 @@ GRIPPER_JAW_HALF_H = 20.0
 GRIPPER_JAW_MAX_GAP = 2 * GRIPPER_RAIL_HALF - 2 * GRIPPER_JAW_HALF_W
 GRIPPER_JAW_MIN_GAP = 8.0      # jaws can close nearly flush
 
+# Four-link serial chain.  Every link is one straight rigid rectangle and the
+# only articulation is at the three end-to-end hinges.  There is deliberately
+# no palm, wrist, hub, bridge, or crossbar: the environment's controlled pose
+# is an invisible reference located at the middle hinge.
+CHAIN_GRIPPER_LINK_LEN = 38.0
+CHAIN_GRIPPER_LINK_HALF_W = 5.0
+CHAIN_GRIPPER_OPEN_ANGLE = 0.12
+CHAIN_GRIPPER_CLOSED_ANGLE = 1.45
+
 # Each end effector gets its OWN silhouette. The first version made suction,
 # two_point, tether, magnet and compliant plain circles differing only in
 # radius -- compliant was r=15.0, identical to `circle`. The reasoning was
@@ -212,12 +221,12 @@ TRI_R = 24.0
 # Spring plunger: a tip on a sprung shaft inside a housing. The tip RETRACTS
 # into the housing under load, so contact is mediated by the spring rather
 # than by the base's position.
-SPRING_HOUSING_HALF_W = 11.0
+SPRING_HOUSING_HALF_W = 7.0
 SPRING_HOUSING_LEN = 30.0
 SPRING_TIP_HALF_W = 7.0
 SPRING_TIP_LEN = 16.0
 SPRING_FREE_LEN = 34.0     # how far the tip stands off when unloaded
-SPRING_MAX_COMPRESS = 30.0 # bottoms out here
+SPRING_MAX_COMPRESS = 18.0 # bottoms out before the rounded tip enters housing
 
 # Flipper: a bar hinged at the wrist, like a pinball flipper. `grip` swings
 # it through its arc, so the tip sweeps even when the base is stationary.
@@ -282,6 +291,7 @@ _PUSHER_RADII: dict[str, float] = {
     # Spawn clearance uses the widest extent the body can reach, so the
     # gripper reports its OPEN half-span rather than its palm.
     "gripper": (GRIPPER_JAW_MAX_GAP / 2 + 2 * GRIPPER_JAW_HALF_W),
+    "chain_gripper": 2 * CHAIN_GRIPPER_LINK_LEN + CHAIN_GRIPPER_LINK_HALF_W,
     "suction": SUCTION_RADIUS,
     "two_point": TWO_POINT_RADIUS,
     "tether": TETHER_RADIUS,
@@ -347,7 +357,7 @@ def make_object(
 
 
 def make_pusher(
-    shape: Literal["circle", "circle_small", "stick", "L", "u_socket"],
+    shape: str,
     space: pymunk.Space,
     position: tuple[float, float],
 ) -> tuple[pymunk.Body, list[pymunk.Shape]]:
@@ -501,15 +511,14 @@ def make_pusher(
         return body, [w]
 
     if shape == "spring":
-        # Housing only; the sprung tip is a separate body owned by
-        # SpringAgent because its stand-off changes with load.
+        # Solid housing; SpringAgent adds a telescoping shaft and moving tip.
+        # All three pieces form one continuous collision assembly so the
+        # object cannot enter a visual gap and become hooked between them.
         hs = pymunk.Poly(body, _rect_verts(
             0.0, 0.0, 2 * SPRING_HOUSING_HALF_W, SPRING_HOUSING_LEN))
-        # SENSOR: only the sprung tip may touch the object. A solid housing
-        # stopped on contact before the tip could ever be driven in, so the
-        # spring never compressed -- measured 0.0 compression at every
-        # stiffness, and every setting pushed the object identically.
-        hs.sensor = True
+        # Low tangential friction lets the continuous plunger slide off the
+        # T's sharp corners instead of forming a geometric/frictional wedge.
+        hs.friction = 0.0
         space.add(body, hs)
         return body, [hs]
 
@@ -612,6 +621,13 @@ def make_pusher(
         palm.friction = OBJECT_FRICTION
         space.add(body, palm)
         return body, [palm]
+
+    if shape == "chain_gripper":
+        # ChainGripperAgent owns all four visible/collidable link bodies.  The
+        # master is deliberately shape-less: it is only the controlled pose
+        # of the middle hinge and must not introduce a hidden fifth part.
+        space.add(body)
+        return body, []
 
     raise ValueError(
         f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}"
