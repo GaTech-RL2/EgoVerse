@@ -55,13 +55,18 @@ def _resolve_slurm_requeue_checkpoint(
 
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
-    model_cfg = copy.deepcopy(cfg.model)
+    # Preserve the full parent tree until model-local interpolations are
+    # materialized. Detaching cfg.model first makes experiment-level selectors
+    # silently fall back to their defaults inside ModelWrapper.
+    cfg_copy = copy.deepcopy(cfg)
+    model_cfg = cfg_copy.model
     if (
         "robomimic_model" in model_cfg
         and isinstance(model_cfg.robomimic_model, DictConfig)
         and "norm_stats" in model_cfg.robomimic_model
     ):
         model_cfg.robomimic_model.norm_stats = None
+    model_cfg = OmegaConf.create(OmegaConf.to_container(model_cfg, resolve=True))
     return OmegaConf.create({"model": model_cfg})
 
 
