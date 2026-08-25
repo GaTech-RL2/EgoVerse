@@ -133,6 +133,15 @@ GRIPPER_JAW_HALF_H = 20.0
 GRIPPER_JAW_MAX_GAP = 2 * GRIPPER_RAIL_HALF - 2 * GRIPPER_JAW_HALF_W
 GRIPPER_JAW_MIN_GAP = 8.0      # jaws can close nearly flush
 
+# Four-link serial chain.  Every link is one straight rigid rectangle and the
+# only articulation is at the three end-to-end hinges.  There is deliberately
+# no palm, wrist, hub, bridge, or crossbar: the environment's controlled pose
+# is an invisible reference located at the middle hinge.
+CHAIN_GRIPPER_LINK_LEN = 38.0
+CHAIN_GRIPPER_LINK_HALF_W = 5.0
+CHAIN_GRIPPER_OPEN_ANGLE = 0.12
+CHAIN_GRIPPER_CLOSED_ANGLE = 1.45
+
 # Each end effector gets its OWN silhouette. The first version made suction,
 # two_point, tether, magnet and compliant plain circles differing only in
 # radius -- compliant was r=15.0, identical to `circle`. The reasoning was
@@ -282,6 +291,7 @@ _PUSHER_RADII: dict[str, float] = {
     # Spawn clearance uses the widest extent the body can reach, so the
     # gripper reports its OPEN half-span rather than its palm.
     "gripper": (GRIPPER_JAW_MAX_GAP / 2 + 2 * GRIPPER_JAW_HALF_W),
+    "chain_gripper": 2 * CHAIN_GRIPPER_LINK_LEN + CHAIN_GRIPPER_LINK_HALF_W,
     "suction": SUCTION_RADIUS,
     "two_point": TWO_POINT_RADIUS,
     "tether": TETHER_RADIUS,
@@ -347,7 +357,7 @@ def make_object(
 
 
 def make_pusher(
-    shape: Literal["circle", "circle_small", "stick", "L", "u_socket"],
+    shape: str,
     space: pymunk.Space,
     position: tuple[float, float],
 ) -> tuple[pymunk.Body, list[pymunk.Shape]]:
@@ -612,6 +622,13 @@ def make_pusher(
         palm.friction = OBJECT_FRICTION
         space.add(body, palm)
         return body, [palm]
+
+    if shape == "chain_gripper":
+        # ChainGripperAgent owns all four visible/collidable link bodies.  The
+        # master is deliberately shape-less: it is only the controlled pose
+        # of the middle hinge and must not introduce a hidden fifth part.
+        space.add(body)
+        return body, []
 
     raise ValueError(
         f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}"

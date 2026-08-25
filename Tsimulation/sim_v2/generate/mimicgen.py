@@ -48,6 +48,7 @@ class SourceDemo:
     object_pose: tuple             # (x, y, theta) at t=0
     goal_pose: tuple
     agent_pos: tuple
+    agent_angle: float = 0.0
     object_shape: str = "T"
     obstacle_level: int = 0
 
@@ -150,10 +151,12 @@ def replay(demo: SourceDemo, new_object: tuple, new_goal: tuple,
     # Generation never looks at the pixels, only at coverage, and rendering is
     # 3.3x of the step cost (266 -> 890 steps/sec with it off).
     env._skip_obs_render = True
-    f_obj, _ = _frame_delta(demo.object_pose, new_object)
+    f_obj, rot_obj = _frame_delta(demo.object_pose, new_object)
     start = new_agent or f_obj(*demo.agent_pos)
+    start_angle = wrap(float(demo.agent_angle) + rot_obj)
     env.set_state(object_pose=new_object, goal_pose=new_goal,
-                  agent_pos=(float(start[0]), float(start[1])))
+                  agent_pos=(float(start[0]), float(start[1])),
+                  agent_angle=start_angle)
     acts = retarget(demo, new_object, new_goal)
     best = 0.0
     played = []
@@ -198,9 +201,11 @@ def generate(sources: list, n_attempts: int, seed: int = 0) -> GenResult:
         res.attempts += 1
         ok, cov, played, start = replay(src, obj, goal)
         if ok:
+            _, rot_obj = _frame_delta(src.object_pose, obj)
             res.demos.append(SourceDemo(
                 agent=src.agent, actions=played, object_pose=obj,
                 goal_pose=goal, agent_pos=(float(start[0]), float(start[1])),
+                agent_angle=wrap(float(src.agent_angle) + rot_obj),
                 object_shape=src.object_shape,
                 obstacle_level=src.obstacle_level))
     return res

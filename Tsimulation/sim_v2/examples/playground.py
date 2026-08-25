@@ -22,6 +22,7 @@ Controls::
 
     mouse          primary contact XY
     SPACE (hold)   engage: grip / suck / hook / magnetise / strike
+    chain gripper  hold SPACE to close; hold S to open; release to hold gap
     A / D          rotate (agents that command their own angle)
     W / S          second-contact spread            (two_point)
     Q / E          second-contact orbit angle       (two_point)
@@ -65,6 +66,9 @@ WORLD = 512
 SCALE = 1.25
 WIN = int(WORLD * SCALE)
 HUD_H = 116
+# Match the canonical U-socket collector: both the socket and chain gripper
+# change their commanded orientation at 45 degrees/second under A/D.
+SOCKET_KEY_TURN_SPEED = math.radians(45.0)
 
 # The arena background is (240, 240, 240) -- near white. These must be DARK
 # to read against it; the first version used (235, 235, 235) for the pusher,
@@ -80,6 +84,7 @@ COL_DIM = (140, 140, 140)
 # What SPACE means, per agent -- shown in the HUD so the control is discoverable.
 ENGAGE_LABEL = {
     "gripper": "SPACE catch/hold; S release",
+    "chain_gripper": "SPACE curl/hold; S release",
     "suction": "SPACE suction on",
     "tether": "SPACE hook rope",
     "magnet": "SPACE magnetise",
@@ -105,6 +110,12 @@ def _agent_state(env) -> tuple[str, bool]:
     ):
         if hasattr(a, attr):
             on = bool(getattr(a, attr))
+            # The U-socket's latch is passive contact mechanics, not an
+            # operator-commanded mechanism.  Keep its body and status text in
+            # their normal colours after latching so collection does not gain
+            # an artificial green success cue unavailable to the policy.
+            if attr == "socket_latched":
+                return (name if on else name.lower()), False
             return (name if on else name.lower()), on
     return "", False
 
@@ -184,6 +195,15 @@ def main() -> int:
     ap.add_argument("--gap", default="ideal",
                     choices=list(CONTROL_GAPS) + ["random"],
                     help="'random' draws a fresh compliance every episode")
+    ap.add_argument(
+        "--gap-matrix",
+        action="store_true",
+        help=(
+            "collect every fixed control-gap preset separately; output is "
+            "<output>/<gap>/<agent>/<object> and --auto advances through "
+            "every (gap, agent) cell"
+        ),
+    )
     ap.add_argument("--output", default=None,
                     help="record episodes to <output>/<agent>/<object>/*.zarr")
     ap.add_argument("--image-size", type=int, default=96)
@@ -211,7 +231,12 @@ def main() -> int:
     big = pygame.font.SysFont("menlo,dejavusansmono,monospace", 19, bold=True)
     clock = pygame.time.Clock()
 
-    gaps = list(CONTROL_GAPS) + ["random"]
+    # ``random`` samples a new continuous gap every episode.  It is useful as
+    # augmentation, but is not one of the six named control-gap conditions in
+    # the MR and therefore is deliberately excluded from the fixed matrix.
+    gaps = list(CONTROL_GAPS) if args.gap_matrix else list(CONTROL_GAPS) + ["random"]
+    if args.gap_matrix and args.gap == "random":
+        ap.error("--gap-matrix uses the six fixed presets; --gap random is not a matrix mode")
     gi = gaps.index(args.gap)
     if args.agents == "all":
         agents = list(VALID_PUSHERS)
@@ -261,8 +286,21 @@ def main() -> int:
     # ONE writer per output dir, not per episode: the writer owns episode
     # naming and index resumption (episode_<obj>_<pusher>_obs<N>_NNNNNN.zarr).
     # Handing it a file path instead produced a directory zarr could not open.
+    def output_dir(
+        gap_index: int | None = None,
+        agent_index: int | None = None,
+        object_index: int | None = None,
+    ) -> Path:
+        """Directory for one independently-counted collection cell."""
+        assert out_root is not None
+        gap_index = gi if gap_index is None else gap_index
+        agent_index = ai if agent_index is None else agent_index
+        object_index = oi if object_index is None else object_index
+        root = out_root / gaps[gap_index] if args.gap_matrix else out_root
+        return root / agents[agent_index] / objects[object_index]
+
     def saved_here() -> int:
-        """Episodes already on disk for this (agent, object).
+        """Episodes already on disk for this (gap, agent, object).
 
         Counted from disk rather than a session counter so relaunching resumes
         where you stopped instead of collecting a second set of ten.
@@ -273,32 +311,38 @@ def main() -> int:
 
     def get_writer():
         nonlocal writer
-        key = (agents[ai], objects[oi])
+        key = (gaps[gi], agents[ai], objects[oi])
         if writer is not None and writer_key[0] == key:
             return writer
         if writer is not None:
             writer.close()
-        d = out_root / agents[ai] / objects[oi]
+        d = output_dir()
         d.mkdir(parents=True, exist_ok=True)
         writer = ZarrDemoWriter(
             path=d,
             env_args={
                 "object_shape": objects[oi], "pusher_shape": agents[ai],
                 "obstacle_level": args.obstacles,
+                "control_gap_mode": gaps[gi],
             },
             image_size=args.image_size,
         )
         writer_key[0] = key
         return writer
 
-    def advance_agent() -> bool:
-        """Move to the next embodiment that still needs episodes.
+    def advance_cell() -> bool:
+        """Move to the next collection cell that still needs episodes.
 
-        Returns False when every embodiment has met the quota.
+        Normal collection advances only across embodiments for the selected
+        gap. Matrix collection advances across embodiments first and then all
+        six fixed gaps. Returns False when every required cell met the quota.
         """
-        nonlocal ai
-        for _ in range(len(agents)):
+        nonlocal ai, gi
+        cell_count = len(agents) * (len(gaps) if args.gap_matrix else 1)
+        for _ in range(cell_count):
             ai = (ai + 1) % len(agents)
+            if ai == 0 and args.gap_matrix:
+                gi = (gi + 1) % len(gaps)
             if saved_here() < args.per_agent:
                 return True
         return False
@@ -311,24 +355,36 @@ def main() -> int:
         w = get_writer()
         # episode_init carries the sampled compliance, so a recorded demo can
         # be replayed under the exact gap it was collected with.
-        w.start_episode(init_state=env.get_episode_init())
+        episode_init = env.get_episode_init()
+        # Record the human-readable preset as well as its numeric parameters.
+        # This makes the matrix self-describing even after directories are
+        # merged for training.
+        episode_init["control_gap_mode"] = gaps[gi]
+        w.start_episode(init_state=episode_init)
         recording, steps_rec = True, 0
 
-    def stop_recording(discard=False):
+    def stop_recording(discard=False, successful=False):
         nonlocal recording, saved, steps_rec
         if writer is None or not writer.is_recording:
             recording, steps_rec = False, 0
             return
-        if discard or steps_rec < args.min_frames:
+        if discard or (steps_rec < args.min_frames and not successful):
             # Too short to be a demonstration -- a stray ENTER produced a
-            # 1-frame episode that would pollute training as surely as a
-            # runaway does.
+            # 1-frame manual episode that would pollute training as surely as
+            # a runaway does.  A real simulator success is different: once
+            # coverage reaches the fixed 0.95 threshold, save it regardless
+            # of length rather than silently throwing away a solved take.
             writer.abort_episode()
         else:
             # commit_episode, NOT close: close() calls abort_episode() and
             # silently discards the take.
-            writer.commit_episode()
+            episode_index = writer.commit_episode()
             saved += 1
+            if successful:
+                print(
+                    f"[playground] auto-saved success {episode_index:06d} "
+                    f"({steps_rec} frames, coverage >= {env.SUCCESS_THRESHOLD:.2f})"
+                )
         recording, steps_rec = False, 0
 
     all_done = False
@@ -340,13 +396,18 @@ def main() -> int:
 
     env = build()
     if args.auto and out_root is not None:
-        if saved_here() >= args.per_agent and not advance_agent():
+        if saved_here() >= args.per_agent and not advance_cell():
             all_done = True
         env = build()
         if not all_done:
             start_recording()
 
     while running:
+        # In automatic collection, being idle before the quota is a bug, not
+        # a user-visible mode.  Re-arm defensively if any previous transition
+        # left the writer inactive.
+        if args.auto and out_root is not None and not recording and not all_done:
+            start_recording()
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 running = False
@@ -363,7 +424,12 @@ def main() -> int:
                 elif ev.key == pygame.K_BACKSPACE:
                     stop_recording(discard=True)
                 elif ev.key == pygame.K_g:
-                    stop_recording(discard=True); gi = (gi + 1) % len(gaps); env = build()
+                    stop_recording(discard=True)
+                    gi = (gi + 1) % len(gaps)
+                    if args.auto and out_root is not None:
+                        if saved_here() >= args.per_agent and not advance_cell():
+                            all_done = True
+                    env = build()
                 elif ev.key == pygame.K_TAB:
                     stop_recording(discard=True); oi = (oi + 1) % len(objects); env = build()
                 elif ev.key == pygame.K_LEFTBRACKET:
@@ -378,10 +444,15 @@ def main() -> int:
                         ai = keys.index(ch); env = build()
 
         held = pygame.key.get_pressed()
+        turn_step = (
+            SOCKET_KEY_TURN_SPEED * env.DT
+            if env.pusher_shape in {"u_socket", "chain_gripper"}
+            else 0.06
+        )
         if held[pygame.K_a]:
-            angle -= 0.06
+            angle -= turn_step
         if held[pygame.K_d]:
-            angle += 0.06
+            angle += turn_step
         if held[pygame.K_w]:
             spread = min(160.0, spread + 1.5); grip = min(1.0, grip + 0.02)
         if held[pygame.K_s]:
@@ -411,7 +482,18 @@ def main() -> int:
             and bool(getattr(env.agent, "grasped", False))
             and not held[pygame.K_s]
         )
-        commanded_grip = 1.0 if engage or retain_gripper_grasp else grip
+        if env.pusher_shape == "chain_gripper":
+            if held[pygame.K_SPACE]:
+                commanded_grip = 1.0
+            elif held[pygame.K_s]:
+                commanded_grip = 0.0
+            else:
+                # Neither key means HOLD THE CURRENT OPENING.  Sending zero
+                # here used to release the grasp as soon as SPACE was let go,
+                # making A/D appear unable to rotate a caught object.
+                commanded_grip = env.agent.grip_fraction
+        else:
+            commanded_grip = 1.0 if engage or retain_gripper_grasp else grip
         chan = {
             "x": wx, "y": wy,
             "angle": angle,
@@ -422,7 +504,14 @@ def main() -> int:
         act = np.array([chan[c] for c in spec], dtype=np.float64)
         dim = len(spec)
 
-        obs, reward, terminated, _trunc, info = env.step(act)
+        obs, reward, _terminated, _trunc, info = env.step(act)
+        coverage = float(info.get("coverage", reward))
+        # Use the unrounded coverage itself as the source of truth.  This
+        # avoids depending on a stale/misrouted Gym termination flag while
+        # preserving the exact Sim V2 >= 0.95 success contract.
+        success = math.isfinite(coverage) and coverage >= float(
+            env.SUCCESS_THRESHOLD
+        )
         if recording and writer is not None:
             px, py = env.agent_pos
             ox, oy, oth = env.object_pose
@@ -438,10 +527,14 @@ def main() -> int:
             steps_rec += 1
         # Auto-stop on success so a solved demo is never lost by forgetting to
         # press ENTER, and immediately reset for the next one.
-        if recording and terminated:
-            stop_recording()
+        if recording and success:
+            print(
+                f"[playground] success detected: coverage={coverage:.9f}; saving",
+                flush=True,
+            )
+            stop_recording(successful=True)
             if args.auto and out_root is not None:
-                if saved_here() >= args.per_agent and not advance_agent():
+                if saved_here() >= args.per_agent and not advance_cell():
                     all_done = True
                 if not all_done:
                     env = build()
@@ -479,11 +572,11 @@ def main() -> int:
         name = agents[ai]
         screen.blit(big.render(
             f"[{ai + 1}] {name}   {'+'.join(spec)}   {objects[oi]}", True, COL_TEXT), (10, y))
-        cov = f"coverage {reward:5.3f}"
-        if terminated:
+        cov = f"coverage {coverage:5.3f}"
+        if success:
             cov += "   SOLVED"
         screen.blit(big.render(cov, True,
-                    COL_HUD_OK if terminated else COL_TEXT), (WIN - 240, y))
+                    COL_HUD_OK if success else COL_TEXT), (WIN - 240, y))
         y += 26
         if label:
             screen.blit(font.render(label, True,
@@ -495,11 +588,16 @@ def main() -> int:
             bits.append(f"A/D angle {math.degrees(angle):4.0f}deg")
         if "grip" in spec:
             m = getattr(env.agent, "mode", "")
-            bits.append(
-                f"SPACE/WS grip {commanded_grip:.2f}"
-                + (" [held; S releases]" if retain_gripper_grasp else "")
-                + (f" [{m}]" if m else "")
-            )
+            if name == "chain_gripper":
+                bits.append(
+                    "hold SPACE close   hold S open   release = hold gap"
+                )
+            else:
+                bits.append(
+                    f"SPACE/WS grip {commanded_grip:.2f}"
+                    + (" [held; S releases]" if retain_gripper_grasp else "")
+                    + (f" [{m}]" if m else "")
+                )
         hint = "   ".join(bits)
         screen.blit(font.render(hint, True, COL_DIM), (170, y))
         y += 20
@@ -510,13 +608,17 @@ def main() -> int:
             screen.blit(font.render(
                 f"{rec}   {here}/{args.per_agent} this agent   {saved} this run",
                 True, rcol), (WIN - 400, y - 26))
+            gap_indices = range(len(gaps)) if args.gap_matrix else (gi,)
             remaining = sum(
-                1 for a in agents
-                if len(list((out_root / a / objects[oi]).glob("*.zarr")))
-                < args.per_agent
+                1
+                for gap_index in gap_indices
+                for agent_index in range(len(agents))
+                if len(list(output_dir(
+                    gap_index, agent_index, oi
+                ).glob("*.zarr"))) < args.per_agent
             )
             screen.blit(font.render(
-                f"{remaining} embodiment(s) still short of {args.per_agent}",
+                f"{remaining} collection cell(s) still short of {args.per_agent}",
                 True, COL_DIM), (WIN - 400, y - 6))
         gname = gaps[gi]
         gcol = COL_TEXT if gname == "ideal" else COL_SENSOR
@@ -530,7 +632,8 @@ def main() -> int:
 
         if all_done:
             banner = big.render(
-                f"ALL {len(agents)} EMBODIMENTS x {args.per_agent} COLLECTED",
+                f"ALL {len(agents) * (len(gaps) if args.gap_matrix else 1)} "
+                f"CELLS x {args.per_agent} COLLECTED",
                 True, COL_HUD_OK)
             screen.blit(banner, (WIN // 2 - banner.get_width() // 2, WIN // 2))
 

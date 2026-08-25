@@ -166,18 +166,26 @@ class PushShapesEnv(gym.Env):
         # Replay/coverage checks can disable image rendering while retaining
         # the same physics and numeric observations.
         self._skip_obs_render = False
-        if self.agent.action_dim == 3:
-            self.action_space = spaces.Box(
-                low=np.array([0.0, 0.0, -math.pi], dtype=np.float64),
-                high=np.array(
-                    [self.WORLD_SIZE, self.WORLD_SIZE, math.pi], dtype=np.float64
-                ),
-                dtype=np.float64,
-            )
-        else:
-            self.action_space = spaces.Box(
-                low=0.0, high=float(self.WORLD_SIZE), shape=(2,), dtype=np.float64
-            )
+        action_bounds = {
+            "x": (0.0, self.WORLD_SIZE),
+            "y": (0.0, self.WORLD_SIZE),
+            "x2": (0.0, self.WORLD_SIZE),
+            "y2": (0.0, self.WORLD_SIZE),
+            "angle": (-math.pi, math.pi),
+            "grip": (0.0, 1.0),
+            "engage": (0.0, 1.0),
+        }
+        try:
+            bounds = [action_bounds[channel] for channel in self.agent.action_spec]
+        except KeyError as exc:
+            raise ValueError(
+                f"agent {pusher_shape!r} declares unknown action channel {exc.args[0]!r}"
+            ) from exc
+        self.action_space = spaces.Box(
+            low=np.asarray([bound[0] for bound in bounds], dtype=np.float64),
+            high=np.asarray([bound[1] for bound in bounds], dtype=np.float64),
+            dtype=np.float64,
+        )
         self.observation_space = spaces.Dict(
             {
                 "agent_pos": spaces.Box(
@@ -432,6 +440,13 @@ class PushShapesEnv(gym.Env):
         if agent_angle is not None:
             self._pusher_body.angle = float(agent_angle)
             self._pusher_body.angular_velocity = 0.0
+
+        if agent_pos is not None or agent_angle is not None:
+            # set_state moves the invisible/master pose directly.  Keep every
+            # articulated collision body at that same instant; otherwise a
+            # chain/gripper render immediately after set_state still shows
+            # auxiliary links at the old reset pose until the next step.
+            self.agent.sync_auxiliary_bodies(self)
 
         if object_pose is not None:
             # Set angle BEFORE position: pymunk's body.position is the CoG

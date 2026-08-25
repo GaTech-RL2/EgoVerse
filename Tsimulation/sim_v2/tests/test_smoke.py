@@ -31,6 +31,8 @@ from Tsimulation.collect.zarr_writer import (
 from Tsimulation.pushshapes.env import PushShapesEnv
 from Tsimulation.pushshapes.render import PUSHER_COLOR
 from Tsimulation.pushshapes.shapes import (
+    CHAIN_GRIPPER_LINK_HALF_W,
+    CHAIN_GRIPPER_LINK_LEN,
     SHAPES,
     U_SOCKET_CROSSBAR_INNER_X,
     U_SOCKET_INNER_GAP,
@@ -40,6 +42,162 @@ from Tsimulation.pushshapes.shapes import (
 SHAPES_TO_TEST = list(SHAPES.keys())
 PUSHERS = ["circle", "stick", "u_socket"]
 OBSTACLES = [0, 1, 2, 3]
+
+
+def test_chain_gripper_is_exactly_four_rigid_serial_links():
+    """Only three hinges move; none of the four bars bends or changes size."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="chain_gripper",
+        obstacle_level=0,
+        image_size=32,
+        seed=2,
+    )
+    env._skip_obs_render = True
+    try:
+        env.reset(seed=2)
+        env.set_obstacles([])
+        env.set_state(
+            agent_pos=(256.0, 256.0),
+            agent_angle=0.0,
+            object_pose=(430.0, 430.0, 0.0),
+            goal_pose=(80.0, 80.0, 0.0),
+        )
+
+        assert env._pusher_shapes == []  # no hidden palm, hub, or crossbar
+        shapes = env.agent.physics_shapes(env)
+        assert len(env.agent._link_shapes) == 4
+        assert len(env.agent._joint_shapes) == 3
+        assert len(shapes) == 7
+        assert env.action_space.shape == (4,)
+        assert env.solid_pusher is True
+        assert env.solid_contact_guard is True
+
+        open_gap = env.agent.mouth_gap
+        for _ in range(60):
+            env.step(np.array([256.0, 256.0, 0.0, 1.0], dtype=np.float64))
+
+        bodies = env.agent._link_bodies
+        assert len(bodies) == 4
+        assert env.agent.joint_angles == pytest.approx(
+            (env.agent.joint_angle,) * 3,
+            abs=1e-12,
+        )
+        for left, right in zip(bodies, bodies[1:]):
+            left_end = left.local_to_world((CHAIN_GRIPPER_LINK_LEN / 2.0, 0.0))
+            right_start = right.local_to_world((-CHAIN_GRIPPER_LINK_LEN / 2.0, 0.0))
+            assert (left_end - right_start).length <= 1e-9
+            relative_angle = (right.angle - left.angle + np.pi) % (2 * np.pi) - np.pi
+            assert relative_angle == pytest.approx(env.agent.joint_angle, abs=1e-12)
+
+        for shape in env.agent._link_shapes:
+            assert isinstance(shape, pymunk.Poly)
+            vertices = np.asarray([(v.x, v.y) for v in shape.get_vertices()])
+            assert np.ptp(vertices[:, 0]) == pytest.approx(CHAIN_GRIPPER_LINK_LEN)
+            assert np.ptp(vertices[:, 1]) == pytest.approx(
+                2.0 * CHAIN_GRIPPER_LINK_HALF_W
+            )
+        assert all(isinstance(shape, pymunk.Circle) for shape in env.agent._joint_shapes)
+        assert env.agent.mouth_gap < open_gap - 80.0
+    finally:
+        env.close()
+
+
+def test_chain_gripper_solid_guard_includes_every_link():
+    """A T teleported through a link is restored to the previous safe pose."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="chain_gripper",
+        obstacle_level=0,
+        image_size=16,
+        seed=3,
+    )
+    env._skip_obs_render = True
+    try:
+        env.reset(seed=3)
+        env.set_obstacles([])
+        safe_object_pose = (430.0, 430.0, 0.0)
+        env.set_state(
+            agent_pos=(256.0, 256.0),
+            agent_angle=0.0,
+            object_pose=safe_object_pose,
+            goal_pose=(80.0, 80.0, 0.0),
+        )
+        captured = env.agent.pre_substep(env)
+
+        link = env.agent._link_bodies[0]
+        env.set_state(object_pose=(float(link.position.x), float(link.position.y), 0.0))
+        assert env._pusher_object_penetration_depth() > 0.5
+
+        env.agent.post_substep(env, captured)
+
+        assert env.object_pose == pytest.approx(safe_object_pose)
+        assert env._pusher_object_penetration_depth() <= 0.5 + 1e-6
+    finally:
+        env.close()
+
+
+def test_chain_gripper_closes_around_and_rotates_t_without_tunnelling():
+    """The one curl command forms a guarded grasp and keeps all links solid."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="chain_gripper",
+        obstacle_level=0,
+        image_size=16,
+        seed=4,
+    )
+    env._skip_obs_render = True
+    try:
+        env.reset(seed=4)
+        env.set_obstacles([])
+        env.set_state(
+            agent_pos=(256.0, 350.0),
+            agent_angle=np.pi,
+            object_pose=(256.0, 256.0, 0.0),
+            goal_pose=(80.0, 80.0, 0.0),
+        )
+
+        max_depth = 0.0
+        for _ in range(60):
+            env.step(np.array([256.0, 350.0, np.pi, 1.0], dtype=np.float64))
+            max_depth = max(max_depth, env._pusher_object_penetration_depth())
+            if env.agent.grasped:
+                break
+        assert env.agent.grasped
+        assert max_depth <= 0.5 + 1e-6
+
+        # Releasing the close key sends the current fraction, holding the
+        # aperture while A/D continues to rotate the caught T.
+        held_grip = env.agent.grip_fraction
+        held_joint_angle = env.agent.joint_angle
+        master_before = env.pusher_angle
+        object_before = env.object_pose[2]
+        target_angle = master_before + np.pi / 2.0
+        for _ in range(30):
+            env.step(
+                np.array(
+                    [256.0, 350.0, target_angle, held_grip],
+                    dtype=np.float64,
+                )
+            )
+            max_depth = max(max_depth, env._pusher_object_penetration_depth())
+
+        master_delta = env.pusher_angle - master_before
+        object_delta = env.object_pose[2] - object_before
+        assert master_delta > 1.4
+        assert object_delta == pytest.approx(master_delta, abs=1e-8)
+        assert env.agent.joint_angle == pytest.approx(held_joint_angle, abs=1e-12)
+        assert max_depth <= 0.5 + 1e-6
+
+        closed_gap = env.agent.mouth_gap
+        for _ in range(60):
+            env.step(
+                np.array([256.0, 350.0, target_angle, 0.0], dtype=np.float64)
+            )
+        assert not env.agent.grasped
+        assert env.agent.mouth_gap > closed_gap + 60.0
+    finally:
+        env.close()
 
 
 def test_gripper_observation_renders_live_parallel_jaws():
@@ -259,6 +417,114 @@ def test_gripper_grasp_transfers_commanded_wrist_rotation_to_t(agent_x):
         assert max_local_position_error <= 1e-8
         assert max_angle_offset_error <= 1e-8
         assert max_gripper_object_depth <= 0.5 + 1e-6
+    finally:
+        env.close()
+
+
+def test_umi_solid_guard_sees_and_stops_revolute_fingers():
+    """Closing either orange UMI finger into the T must stop at contact."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="umi",
+        obstacle_level=0,
+        image_size=16,
+        seed=4,
+    )
+    env._skip_obs_render = True
+    try:
+        env.reset(seed=4)
+        env.set_obstacles([])
+        env.set_state(
+            agent_pos=(256.0, 175.0),
+            agent_angle=0.0,
+            object_pose=(256.0, 256.0, 0.0),
+            goal_pose=(80.0, 80.0, 0.0),
+        )
+
+        # Wrist circle + both articulated finger polygons. Before this fix only
+        # the wrist was returned, so a finger could be 25 px inside the T while
+        # the environment incorrectly reported zero penetration.
+        assert len(env.agent.physics_shapes(env)) == 3
+        assert env._pusher_object_penetration_depth() == pytest.approx(0.0)
+
+        max_depth = 0.0
+        for _ in range(160):
+            env.step(np.array([256.0, 175.0, 0.0, 1.0], dtype=np.float64))
+            max_depth = max(max_depth, env._pusher_object_penetration_depth())
+
+        assert max_depth <= 0.5 + 1e-6
+        # The close command remains active, but the physical aperture stalls at
+        # the last collision-safe state instead of teleporting through the T.
+        assert env.agent._grip == pytest.approx(0.0)
+        assert env.agent._grip_state > env.agent._grip
+    finally:
+        env.close()
+
+
+def test_umi_solid_guard_stops_wrist_motion_before_finger_tunnels_through_t():
+    """Translation is guarded by the fingers, not only by the wrist circle."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="umi",
+        obstacle_level=0,
+        image_size=16,
+        seed=5,
+    )
+    env._skip_obs_render = True
+    try:
+        env.reset(seed=5)
+        env.set_obstacles([])
+        env.set_state(
+            agent_pos=(256.0, 140.0),
+            agent_angle=0.0,
+            object_pose=(256.0, 256.0, 0.0),
+            goal_pose=(80.0, 80.0, 0.0),
+        )
+
+        max_depth = 0.0
+        for _ in range(120):
+            env.step(np.array([256.0, 330.0, 0.0, 1.0], dtype=np.float64))
+            max_depth = max(max_depth, env._pusher_object_penetration_depth())
+
+        assert max_depth <= 0.5 + 1e-6
+        assert env.agent_pos[1] < 200.0
+    finally:
+        env.close()
+
+
+def test_umi_centered_stem_grasp_turns_green_without_penetration():
+    """A valid two-finger stem contact must create the displayed grasp state."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="umi",
+        obstacle_level=0,
+        image_size=16,
+        seed=6,
+    )
+    env._skip_obs_render = True
+    try:
+        env.reset(seed=6)
+        env.set_obstacles([])
+        env.set_state(
+            # Fingers point upward around the distal 30-pixel T stem.
+            agent_pos=(256.0, 365.0),
+            agent_angle=np.pi,
+            object_pose=(256.0, 256.0, 0.0),
+            goal_pose=(80.0, 80.0, 0.0),
+        )
+
+        max_depth = 0.0
+        for _ in range(40):
+            env.step(np.array([256.0, 365.0, np.pi, 1.0], dtype=np.float64))
+            max_depth = max(max_depth, env._pusher_object_penetration_depth())
+            if env.agent.grasped:
+                break
+
+        assert env.agent.grasped
+        assert env.agent.mode == "clamped"
+        assert env.agent._both_fingers_contact_object(env)
+        assert max_depth <= 0.5 + 1e-6
+        assert env.agent._held_gap > 30.0
     finally:
         env.close()
 

@@ -14,7 +14,8 @@ def seeds_for(agent, n_seed, max_steps):
     return [SourceDemo(agent=agent, actions=np.array(p.actions),
                        object_pose=tuple(p.init["object_pose"]),
                        goal_pose=tuple(p.init["goal_pose"]),
-                       agent_pos=tuple(p.init["agent_pos"]))
+                       agent_pos=tuple(p.init["agent_pos"]),
+                       agent_angle=float(p.init.get("agent_angle", 0.0)))
             for p in plans]
 
 
@@ -39,7 +40,8 @@ def write(demos, out_root, agent, image_size=96):
                             obstacle_level=0, image_size=image_size)
         env.reset(seed=0)
         env.set_state(object_pose=dm.object_pose, goal_pose=dm.goal_pose,
-                      agent_pos=(float(dm.agent_pos[0]), float(dm.agent_pos[1])))
+                      agent_pos=(float(dm.agent_pos[0]), float(dm.agent_pos[1])),
+                      agent_angle=float(dm.agent_angle))
         w.start_episode(init_state=env.get_episode_init())
         ok = False
         for a in dm.actions:
