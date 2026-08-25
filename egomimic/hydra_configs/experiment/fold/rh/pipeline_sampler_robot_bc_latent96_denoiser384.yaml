@@ -1,0 +1,16 @@
+# @package _global_
+# Three-quarter capacity variant: 96-D action latent and 384-wide denoiser.
+# Depth, decoder, data, evaluator, and training settings inherit from baseline.
+defaults:
+  - /experiment/fold/rh/pipeline_sampler_robot_bc
+  - _self_
+
+name: fold_robot_dense_bc_latent96_denoiser384
+description: pipeline_sampler_robot_bc_latent96_denoiser384_robot_only_cartesian_h100
+
+dense_latent_dim: 96
+dense_denoiser_hidden_dim: 384
+
+logger:
+  wandb:
+    tags: [fold, robot_only, bc, dense_pipeline, scale_3_4, latent96, denoiser384, "${oc.env:SOURCE_COMMIT_TAG,source_unset}"]
