@@ -1,0 +1,113 @@
+# Genuine standard Diffusion Policy baseline for the Flow Transfer domains.
+# Unlike the decoder-only latent sampler, this predicts additive Gaussian
+# epsilon at random scheduler timesteps with a ConditionalUnet1D.  Each domain
+# owns a width-specific UNet; the observation encoder is shared.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 16
+  domains: [pushshapes_sim_chain_gripper, pushshapes_sim_u_socket]
+  ac_keys:
+    pushshapes_sim_chain_gripper: actions
+    pushshapes_sim_u_socket: actions
+  rollout_adapters:
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperPointRolloutAdapter
+      action_horizon: 16
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter
+  stages:
+  - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+    # Keep the same current-observation contract as the latent baseline so the
+    # comparison isolates the action generator. The head below is otherwise
+    # the repository's standard epsilon-prediction Diffusion Policy.
+    n_obs_steps: 1
+    encoder:
+      _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+      obs_specs:
+        state_agent_obj: {input_dim: 3, input_slice: [0, 3]}
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 84
+          crop_width: 84
+          crop_eval_mode: center
+          crop_sample_mode: v02
+          crop_scope: frame
+          norm_layer: group
+          pool_type: spatial_softmax
+  - _target_: egomimic.pipeline.stages_diffusion.MultiDomainDiffusionPolicyStage
+    action_horizon: 16
+    condition_input_dim: 67
+    policies:
+      pushshapes_sim_chain_gripper:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: 16
+        infer_ac_dims: {pushshapes_sim_chain_gripper: 6}
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+          input_dim: 6
+          cond_dim: 67
+          ac_latent_seq: 1
+          diffusion_step_embed_dim: 256
+          down_dims: [256, 512, 1024]
+          kernel_size: 3
+          n_groups: 8
+          cond_predict_scale: true
+        noise_scheduler:
+          _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+          num_train_timesteps: 100
+          beta_start: 0.0001
+          beta_end: 0.02
+          beta_schedule: squaredcos_cap_v2
+          clip_sample: true
+          set_alpha_to_one: true
+          steps_offset: 0
+          prediction_type: epsilon
+      pushshapes_sim_u_socket:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: 16
+        infer_ac_dims: {pushshapes_sim_u_socket: 4}
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+          input_dim: 4
+          cond_dim: 67
+          ac_latent_seq: 1
+          diffusion_step_embed_dim: 256
+          down_dims: [256, 512, 1024]
+          kernel_size: 3
+          n_groups: 8
+          cond_predict_scale: true
+        noise_scheduler:
+          _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+          num_train_timesteps: 100
+          beta_start: 0.0001
+          beta_end: 0.02
+          beta_schedule: squaredcos_cap_v2
+          clip_sample: true
+          set_alpha_to_one: true
+          steps_offset: 0
+          prediction_type: epsilon
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 3000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

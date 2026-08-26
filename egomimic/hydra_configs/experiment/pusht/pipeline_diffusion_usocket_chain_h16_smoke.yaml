@@ -1,0 +1,35 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/pipeline_diffusion_usocket_chain_h16
+  - _self_
+
+name: flow_transfer_pipeline_diffusion_h16_smoke
+description: standard_dp_epsilon_usocket_chain_optimizer_and_validation_smoke
+
+trainer:
+  max_steps: 2
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 2
+  val_check_interval: 1
+  limit_val_batches: 1
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+
+logger:
+  wandb:
+    offline: true
+
+norm_stats:
+  sample_frac: 0.002
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: null
+    every_n_train_steps: 1
+    train_time_interval: null
+    save_top_k: 1
+    save_last: true
+    save_on_train_epoch_end: false

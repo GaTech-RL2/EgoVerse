@@ -1,0 +1,38 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_pipeline_sampler_chain_gripper_points
+  - override /data: pusht/chain_gripper_pipeline_h16_points_full
+  - override /evaluator: eval_pipeline_action_mse
+  - override /logger: wandb
+
+name: chain_gripper_pipeline_points_h16_smoke
+description: chain_native4_fk_points_direct_h16_two_step_smoke
+
+trainer:
+  max_steps: 2
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 2
+  val_check_interval: 1
+  limit_val_batches: 1
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax
+  reduce_all_but_last: true
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: null
+    every_n_train_steps: 1
+    train_time_interval: null
+    save_top_k: 1
+    save_last: true
+    save_on_train_epoch_end: false

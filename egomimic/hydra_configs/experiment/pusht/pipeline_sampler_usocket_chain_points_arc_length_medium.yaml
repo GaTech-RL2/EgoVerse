@@ -1,0 +1,43 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_pipeline_sampler_usocket_chain_points_arc_length_medium
+  - override /data: pusht/flow_transfer_usocket_chain_pipeline_arc_length_D200_M25
+  - override /evaluator: eval_pipeline_action_mse
+  - override /logger: wandb
+
+# This is the verified 2,999 U-Socket + 3,000 Chain cotrain arm. Do not label it
+# the obstacle arm:
+# the planned 960 ChainGripper obstacle episodes do not exist yet.
+name: flow_transfer_usocket_chain_latent_medium
+description: usocket2999_chain3000_fk_phi_arc_D200_M25_latent96_hidden384_b16x2
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 1.0
+  val_check_interval: 10000
+  limit_val_batches: 8
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+
+logger:
+  wandb:
+    project: pushshapes-flow-transfer
+
+norm_stats:
+  norm_mode: minmax
+  reduce_all_but_last: false
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: null
+    every_n_train_steps: null
+    train_time_interval:
+      _target_: datetime.timedelta
+      hours: 6
+    save_top_k: 1
+    save_last: true
+    save_on_train_epoch_end: true

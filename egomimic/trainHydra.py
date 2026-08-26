@@ -28,6 +28,21 @@ OmegaConf.register_new_resolver("eval", eval)
 log = RankedLogger(__name__, rank_zero_only=True)
 
 
+def _resolve_mode(cfg: DictConfig) -> str:
+    """Resolve the current execution mode, including stats-only publication."""
+    if cfg.get("mode") is not None:
+        mode = str(cfg.mode)
+    elif cfg.get("train", False):
+        mode = "train"
+    elif cfg.get("eval", False):
+        mode = "eval"
+    else:
+        raise ValueError("Config must specify either `mode` or `train`/`eval` booleans")
+    if mode not in {"train", "eval", "norm_stats"}:
+        raise ValueError(f"Invalid mode: {mode}")
+    return mode
+
+
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     model_cfg = copy.deepcopy(cfg.model)
     if (
@@ -37,6 +52,16 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     ):
         model_cfg.robomimic_model.norm_stats = None
     return OmegaConf.create({"model": model_cfg})
+
+
+def _instantiate_model_wrapper(cfg: DictConfig, norm_stats: MultiDataset):
+    """Construct the Lightning wrapper with every runtime-sensitive model flag."""
+    return ModelWrapper(
+        config_tree=_build_model_config_tree(cfg),
+        norm_stats_state=norm_stats.to_state(),
+        scheduler_interval=cfg.model.get("scheduler_interval", "step"),
+        enable_grad_norm=bool(cfg.model.get("enable_grad_norm", True)),
+    )
 
 
 def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> None:
@@ -82,6 +107,18 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         raise ValueError("Seed must be provided in cfg for reproducibility!")
 
     load_env()
+    mode = _resolve_mode(cfg)
+    configured_precomputed_path = OmegaConf.select(
+        cfg, "norm_stats.precomputed_norm_path", default=None
+    )
+    configured_save_cache_dir = OmegaConf.select(
+        cfg, "norm_stats.save_cache_dir", default=None
+    )
+    if mode == "norm_stats":
+        if configured_precomputed_path is not None:
+            raise ValueError("norm_stats mode must compute rather than reload stats")
+        if not configured_save_cache_dir:
+            raise ValueError("norm_stats mode requires norm_stats.save_cache_dir")
 
     train_datasets = {}
     for dataset_name in cfg.data.train_datasets:
@@ -114,9 +151,16 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     )
     norm_stats.populate_from_datasets(datamodule.train_datasets)
 
+    sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
+    norm_num_workers = OmegaConf.select(
+        cfg, "norm_stats.num_workers", default=4
+    )
+    precomputed_norm_path = configured_precomputed_path
+    save_cache_dir = configured_save_cache_dir
+
     for dataset_name, dataset in datamodule.train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
-        norm_stats.infer_shapes_from_batch(dataset[0])
+        norm_stats.infer_shapes_from_batch(dataset[0], dataset_name)
         instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
         keymap_cfg = instantiate_copy.resolver.key_map
         km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
@@ -130,18 +174,22 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         norm_stats.infer_norm_from_dataset(
             norm_dataset,
             dataset_name,
-            sample_frac=OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0),
-            num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
-            precomputed_norm_path=OmegaConf.select(
-                cfg, "norm_stats.precomputed_norm_path", default=None
-            ),
+            sample_frac=sample_frac,
+            num_workers=norm_num_workers,
+            precomputed_norm_path=precomputed_norm_path,
         )
-        # Cache norm stats if save_cache_dir is set
-        save_cache_dir = OmegaConf.select(
-            cfg, "norm_stats.save_cache_dir", default=None
+
+    # Publish only after every configured training domain has completed. This
+    # prevents a partial first-domain cache from looking like a valid cotrain
+    # artifact and lets MultiDataset replace the file atomically.
+    if save_cache_dir:
+        norm_stats.cache_stats(save_cache_dir=save_cache_dir)
+
+    if mode == "norm_stats":
+        _log_dataset_frame_counts(
+            datamodule.train_datasets, datamodule.valid_datasets
         )
-        if save_cache_dir:
-            norm_stats.cache_stats(save_cache_dir=save_cache_dir)
+        return {}, {"cfg": cfg, "datamodule": datamodule, "norm_stats": norm_stats}
 
     # Wire each training/valid MultiDataset to the stats-only ``norm_stats``
     # by reference. Bounds-check + normalize run at the MultiDataset level in
@@ -153,26 +201,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         ds.set_norm_stats_from(norm_stats)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
-    model: LightningModule = ModelWrapper(
-        config_tree=_build_model_config_tree(cfg),
-        norm_stats_state=norm_stats.to_state(),
-        scheduler_interval=cfg.model.get("scheduler_interval", "step"),
-    )
+    model: LightningModule = _instantiate_model_wrapper(cfg, norm_stats)
 
     _log_dataset_frame_counts(datamodule.train_datasets, datamodule.valid_datasets)
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
-
-    # Resolve mode: support both new `mode` key and legacy `train`/`eval` booleans
-    if cfg.get("mode") is not None:
-        mode = cfg.mode
-    elif cfg.get("train", False):
-        mode = "train"
-    elif cfg.get("eval", False):
-        mode = "eval"
-    else:
-        raise ValueError("Config must specify either `mode` or `train`/`eval` booleans")
 
     # In eval mode, apply trainer overrides from the eval object and disable logger
     if mode == "eval":
@@ -194,12 +228,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     plugins = []
     if os.environ.get("SLURM_JOB_ID"):
-        plugins.append(
-            SLURMEnvironment(requeue_signal=[signal.SIGUSR1, signal.SIGUSR2])
-        )
+        plugins.append(SLURMEnvironment(requeue_signal=signal.SIGUSR1))
         print("SLURM REQUEUE ENABLED")
     trainer: Trainer = hydra.utils.instantiate(
-        cfg.trainer, callbacks=callbacks, logger=logger
+        cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins
     )
 
     object_dict = {
@@ -215,15 +247,16 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Logging hyperparameters!")
         log_hyperparameters(object_dict)
 
-    if (
-        os.environ.get("SLURM_JOB_ID")
-        and os.environ.get("SLURM_RESTART_COUNT", "0") != "0"
-    ):
-        last_ckpt_path = os.path.join(
-            trainer.default_root_dir, "checkpoints", "last.ckpt"
-        )
-        log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
-        cfg.ckpt_path = last_ckpt_path
+    if os.environ.get("SLURM_RESTART_COUNT", "0") != "0":
+        if cfg.get("ckpt_path"):
+            log.info(
+                "Detected SLURM requeue — using checkpoint selected by launcher"
+            )
+        else:
+            log.info(
+                "Detected SLURM requeue — Lightning will select the newest "
+                "HPC checkpoint, or restart cleanly if none exists"
+            )
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 

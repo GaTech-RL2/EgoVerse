@@ -1,0 +1,35 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_pipeline_diffusion_usocket_chain
+  - override /data: pusht/flow_transfer_usocket_chain_pipeline_dp_h16
+  - override /evaluator: eval_pipeline_action_mse
+  - override /logger: wandb
+
+name: flow_transfer_pipeline_diffusion_h16
+description: standard_dp_epsilon_usocket_rotvec4_chain_points6
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 1.0
+  val_check_interval: 10000
+  limit_val_batches: 8
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+
+logger:
+  wandb:
+    project: pushshapes-flow-transfer
+
+norm_stats:
+  norm_mode: minmax
+  reduce_all_but_last: true
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: null
+    every_n_train_steps: null
+    train_time_interval:

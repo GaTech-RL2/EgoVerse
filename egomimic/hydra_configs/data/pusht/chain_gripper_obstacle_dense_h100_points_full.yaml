@@ -1,0 +1,82 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# One ChainGripper domain containing the immutable balanced 30 x 100 obstacle
+# subset. Clean ChainGripper is intentionally excluded from this BC recipe.
+train_datasets:
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverManyWithEmbodimentOverride
+      folder_paths: &chain_roots
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_01/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_02/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_03/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_04/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_05/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_06/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_07/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_08/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_09/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_10/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_11/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_12/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_13/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_14/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_15/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_16/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_17/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_18/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_19/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_20/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_21/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_22/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_23/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_24/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_25/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_26/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_27/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_28/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_29/chain_gripper/T
+        - ${oc.env:CHAIN_OBSTACLE_ROOT}/level_30/chain_gripper/T
+      embodiment_override: pushshapes_sim_chain_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 100
+        action_zarr_key: actions
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_transform_list
+        world_size: 512.0
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverManyWithEmbodimentOverride
+      folder_paths: *chain_roots
+      embodiment_override: pushshapes_sim_chain_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 100
+        action_zarr_key: actions
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_transform_list
+        world_size: 512.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+
+train_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+valid_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true

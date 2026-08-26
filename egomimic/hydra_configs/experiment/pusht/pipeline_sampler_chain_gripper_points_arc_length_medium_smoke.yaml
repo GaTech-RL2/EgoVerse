@@ -1,0 +1,37 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/pipeline_sampler_chain_gripper_points_arc_length_medium
+  - _self_
+
+name: flow_transfer_chain_latent_medium_smoke
+description: chain_medium_exact_model_two_optimizer_steps_and_scheduled_validation
+
+trainer:
+  max_steps: 2
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 2
+  val_check_interval: 1
+  limit_val_batches: 1
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+
+logger:
+  wandb:
+    offline: true
+
+# Keep the exact dataset and transforms while limiting the smoke-only stats
+# scan. Long runs compute/cache their complete configured statistics.
+norm_stats:
+  sample_frac: 0.002
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: null
+    every_n_train_steps: 1
+    train_time_interval: null
+    save_top_k: 1
+    save_last: true
+    save_on_train_epoch_end: false

@@ -1,0 +1,72 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_pipeline_sampler_usocket_dense_medium
+  - override /data: pusht/usocket_pipeline_dense_h100_rotvec
+  - override /evaluator: eval_pipeline_action_mse
+  - override /logger: wandb
+
+name: flow_transfer_bc_usocket_latent_dense_medium
+description: decoder_only_latent96_dense100_usocket_rotvec4
+model:
+  enable_grad_norm: false
+data:
+  train_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: 64
+trainer: &trainer
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 1.0
+  val_check_interval: 10000
+  limit_val_batches: 0
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+logger:
+  wandb: {project: pushshapes-flow-transfer}
+norm_stats:
+  norm_mode: minmax
+  reduce_all_but_last: true
+callbacks:
+  model_checkpoint: &checkpoint
+    every_n_epochs: null
+    every_n_train_steps: null
+    train_time_interval: {_target_: datetime.timedelta, hours: 1}
+    save_top_k: 1
+    save_last: true
+    save_on_train_epoch_end: true
+  best_usocket_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints/best_usocket
+    filename: "best-step-{step}"
+    monitor: Valid/emb19_actions_action_mse
+    mode: min
+    verbose: true
+    every_n_epochs: 1
+    every_n_train_steps: null
+    train_time_interval: null
+    save_top_k: 1
+    save_last: false
+    save_on_train_epoch_end: false
+    save_on_exception: false
+    save_weights_only: false
+    auto_insert_metric_name: false
+    enable_version_counter: false
+  terminal_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints/final
+    filename: "step-{step}"
+    monitor: null
+    verbose: true
+    every_n_epochs: null
+    every_n_train_steps: ${trainer.max_steps}
+    train_time_interval: null
+    save_top_k: 1
+    save_last: false
+    save_on_train_epoch_end: false
+    save_on_exception: false
+    save_weights_only: false
+    auto_insert_metric_name: false
+    enable_version_counter: false

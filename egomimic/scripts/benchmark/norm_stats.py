@@ -56,7 +56,7 @@ def norm_stats(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     percent_list = [0.05, 0.1, 0.2, 0.5, 1.0]
     for dataset_name, dataset in train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
-        norm_stats_obj.infer_shapes_from_batch(dataset[0])
+        norm_stats_obj.infer_shapes_from_batch(dataset[0], dataset_name)
         # instantiate norm datasets which is same as dataset but with keymap without the image keys
         instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
         keymap_cfg = instantiate_copy.resolver.key_map
