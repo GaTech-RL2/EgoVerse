@@ -20,7 +20,7 @@ trainer:
 
 logger:
   wandb:
-    mode: disabled
+    offline: true
 
 # Keep the exact dataset and transforms while limiting the smoke-only stats
 # scan. Long runs compute/cache their complete configured statistics.

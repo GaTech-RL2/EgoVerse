@@ -20,7 +20,7 @@ trainer:
 
 logger:
   wandb:
-    mode: disabled
+    offline: true
 
 norm_stats:
   sample_frac: 0.002
