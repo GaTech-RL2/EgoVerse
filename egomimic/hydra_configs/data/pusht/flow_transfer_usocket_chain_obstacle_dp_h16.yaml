@@ -2,7 +2,7 @@ defaults:
   - pusht/flow_transfer_usocket_chain_obstacle_dense_h100@_here_
   - _self_
 
-# Keep the identical three-corpus membership while selecting the standard DP
+# Keep the identical two-corpus membership while selecting the standard DP
 # action horizon. Hydra list values inherited above are unchanged.
 train_datasets:
   pushshapes_sim_u_socket:

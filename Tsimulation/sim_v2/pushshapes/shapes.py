@@ -35,6 +35,13 @@ import pymunk
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 
+from . import chain_gripper_constants as _chain_gripper_constants
+
+CHAIN_GRIPPER_LINK_LEN = _chain_gripper_constants.CHAIN_GRIPPER_LINK_LEN
+CHAIN_GRIPPER_LINK_HALF_W = _chain_gripper_constants.CHAIN_GRIPPER_LINK_HALF_W
+CHAIN_GRIPPER_OPEN_ANGLE = _chain_gripper_constants.CHAIN_GRIPPER_OPEN_ANGLE
+CHAIN_GRIPPER_CLOSED_ANGLE = _chain_gripper_constants.CHAIN_GRIPPER_CLOSED_ANGLE
+
 SHAPES: dict[str, list[tuple[float, float, float, float]]] = {
     # gym-pusht's canonical T: 120x30 top bar + 30x90 stem below it.
     "T": [
@@ -136,11 +143,6 @@ GRIPPER_JAW_MIN_GAP = 8.0  # jaws can close nearly flush
 # only articulation is at the three end-to-end hinges.  There is deliberately
 # no palm, wrist, hub, bridge, or crossbar: the environment's controlled pose
 # is an invisible reference located at the middle hinge.
-CHAIN_GRIPPER_LINK_LEN = 38.0
-CHAIN_GRIPPER_LINK_HALF_W = 5.0
-CHAIN_GRIPPER_OPEN_ANGLE = 0.12
-CHAIN_GRIPPER_CLOSED_ANGLE = 1.45
-
 # Each end effector gets its OWN silhouette. The first version made suction,
 # two_point, tether, magnet and compliant plain circles differing only in
 # radius -- compliant was r=15.0, identical to `circle`. The reasoning was

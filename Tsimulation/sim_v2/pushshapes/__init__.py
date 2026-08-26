@@ -23,9 +23,12 @@ import importlib
 import os as _os
 import sys as _sys
 
-from gymnasium.envs.registration import register
-
-from .env import PushShapesEnv
+try:
+    from gymnasium.envs.registration import register as _gym_register
+except ModuleNotFoundError:
+    # Data-side FK/IK helpers live under this package but do not need Gymnasium.
+    # Defer the simulator dependency until a caller actually requests the env.
+    _gym_register = None
 
 CURRENT_VERSION = "v2"
 
@@ -84,12 +87,23 @@ def get_env(version=None):
     return get_module(version).PushShapesEnv
 
 
+def __getattr__(name):
+    """Load the Gymnasium environment only when the public class is requested."""
+    if name == "PushShapesEnv":
+        return importlib.import_module(f"{__name__}.env").PushShapesEnv
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def version_from_env(default=None):
     """Resolve the PUSHSHAPES_SIM env var through the same aliases."""
     return normalize_version(_os.environ.get("PUSHSHAPES_SIM", default or ""))
 
 
-register(id="PushShapes-v0", entry_point="Tsimulation.pushshapes.env:PushShapesEnv")
+if _gym_register is not None:
+    _gym_register(
+        id="PushShapes-v0",
+        entry_point="Tsimulation.pushshapes.env:PushShapesEnv",
+    )
 
 __all__ = ["PushShapesEnv", "get_env", "get_module", "package_name",
            "available_versions",

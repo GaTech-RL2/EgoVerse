@@ -871,7 +871,7 @@ class MultiDataset(torch.utils.data.Dataset):
         self.zarr_keys: dict[int, dict[str, str]] = {}
         self.shapes: dict[int, dict[str, tuple]] = {}
         self.norm_stats: dict[int, dict[str, dict[str, np.ndarray]]] = {}
-        self._norm_run_metadata: dict[str, float | int | None] | None = None
+        self._norm_run_metadata: dict[str, Any] | None = None
 
         # ---- Dataset graph fields ----
         self.datasets: dict = {}
@@ -1190,8 +1190,27 @@ class MultiDataset(torch.utils.data.Dataset):
 
     # ---- shape & norm inference ----
 
-    def infer_shapes_from_batch(self, batch: dict) -> None:
-        for emb_id, per_emb in self.zarr_keys.items():
+    def infer_shapes_from_batch(self, batch: dict, dataset_name=None) -> None:
+        """Infer key shapes for one dataset, or all embodiments for legacy callers.
+
+        Multi-domain batches commonly reuse names such as ``actions`` while
+        having different final widths. Callers that know the dataset must pass
+        its name so a 6-D Chain sample cannot overwrite U-Socket's 4-D shape.
+        """
+        if dataset_name is None:
+            embodiment_items = self.zarr_keys.items()
+        else:
+            embodiment = dataset_name
+            if isinstance(embodiment, str):
+                embodiment = get_embodiment_id(embodiment)
+            if embodiment not in self.zarr_keys:
+                raise ValueError(
+                    f"No zarr-key map for embodiment={embodiment} "
+                    f"(available: {sorted(self.zarr_keys)})"
+                )
+            embodiment_items = ((embodiment, self.zarr_keys[embodiment]),)
+
+        for emb_id, per_emb in embodiment_items:
             for key_name, zarr_key in per_emb.items():
                 if zarr_key in batch:
                     val = batch[zarr_key]
@@ -1233,32 +1252,36 @@ class MultiDataset(torch.utils.data.Dataset):
             elif os.path.isfile(precomputed_norm_path):
                 precomputed_file = precomputed_norm_path
             else:
-                logger.warning(
-                    f"[MultiDataset] precomputed_norm_path={precomputed_norm_path} is not valid"
+                raise FileNotFoundError(
+                    "[MultiDataset] configured precomputed_norm_path does not "
+                    f"exist or is not a file/directory: {precomputed_norm_path}"
                 )
-                return
-            if os.path.isfile(precomputed_file):
-                with open(precomputed_file, "r") as f:
-                    payload = json.load(f)
-                if str(embodiment) not in payload["stats"]:
-                    raise ValueError(
-                        f"norm_stats file {precomputed_file} has no entry for "
-                        f"embodiment id {embodiment} (available: "
-                        f"{sorted(payload['stats'])}). Stats are keyed by numeric "
-                        "EMBODIMENT id, and ids were renumbered by the human/eva "
-                        "embodiment collapse — recompute norm stats instead of "
-                        "reusing a pre-collapse norm_stats.json."
-                    )
-                self.norm_stats[embodiment] = self._validate_precomputed_stats(
-                    payload=payload,
-                    embodiment=embodiment,
-                    precomputed_file=precomputed_file,
+            if not os.path.isfile(precomputed_file):
+                raise FileNotFoundError(
+                    "[MultiDataset] configured normalization directory has no "
+                    f"norm_stats.json: {precomputed_file}"
                 )
-                self._norm_run_metadata = payload.get("norm_run_metadata", None)
-                logger.info(
-                    f"[MultiDataset] Loaded precomputed stats for embodiment={embodiment}"
+            with open(precomputed_file, "r") as f:
+                payload = json.load(f)
+            if str(embodiment) not in payload["stats"]:
+                raise ValueError(
+                    f"norm_stats file {precomputed_file} has no entry for "
+                    f"embodiment id {embodiment} (available: "
+                    f"{sorted(payload['stats'])}). Stats are keyed by numeric "
+                    "EMBODIMENT id, and ids were renumbered by the human/eva "
+                    "embodiment collapse — recompute norm stats instead of "
+                    "reusing a pre-collapse norm_stats.json."
                 )
-                return
+            self.norm_stats[embodiment] = self._validate_precomputed_stats(
+                payload=payload,
+                embodiment=embodiment,
+                precomputed_file=precomputed_file,
+            )
+            self._norm_run_metadata = payload.get("norm_run_metadata", None)
+            logger.info(
+                f"[MultiDataset] Loaded precomputed stats for embodiment={embodiment}"
+            )
+            return
 
         loader = torch.utils.data.DataLoader(
             dataset,
@@ -1302,11 +1325,26 @@ class MultiDataset(torch.utils.data.Dataset):
             )
         computing_time = time.time() - computing_start
 
-        self._norm_run_metadata = {
+        if not isinstance(self._norm_run_metadata, dict) or not isinstance(
+            self._norm_run_metadata.get("embodiments"), dict
+        ):
+            self._norm_run_metadata = {"embodiments": {}}
+        self._norm_run_metadata["embodiments"][str(embodiment)] = {
+            "dataset_size": N,
+            "sampled_frames": n_samples,
+            "sample_frac": float(sample_frac),
+            "seed": int(seed),
+            "max_samples": max_samples,
             "loading_time": loading_time,
             "computing_time": computing_time,
-            "frames": n_samples,
         }
+        per_embodiment = self._norm_run_metadata["embodiments"].values()
+        self._norm_run_metadata["total_dataset_frames"] = sum(
+            int(item["dataset_size"]) for item in per_embodiment
+        )
+        self._norm_run_metadata["total_sampled_frames"] = sum(
+            int(item["sampled_frames"]) for item in per_embodiment
+        )
         logger.info(
             f"[MultiDataset] Finished norm inference, loading={loading_time:.2f}s, computing={computing_time:.2f}s"
         )
@@ -1353,6 +1391,14 @@ class MultiDataset(torch.utils.data.Dataset):
         ``(D,)`` statistics, so reject an incompatible legacy cache instead of
         silently training with different normalization semantics.
         """
+        cached_mode = payload.get("norm_mode")
+        if cached_mode is not None and cached_mode != self.norm_mode:
+            raise ValueError(
+                f"norm_stats file {precomputed_file} was computed with "
+                f"norm_mode={cached_mode!r}, but this run requests "
+                f"{self.norm_mode!r}; recompute norm stats."
+            )
+
         cached_reduction = payload.get("reduce_all_but_last")
         if cached_reduction is not None:
             if not isinstance(cached_reduction, bool):
@@ -1367,9 +1413,33 @@ class MultiDataset(torch.utils.data.Dataset):
                     f"{self.reduce_all_but_last}; recompute norm stats."
                 )
 
-        loaded: dict[str, dict[str, np.ndarray]] = {}
         per_embodiment = payload["stats"][str(embodiment)]
+        required_keys = set(self.keys_of_type("proprio_keys", embodiment))
+        required_keys.update(self.keys_of_type("action_keys", embodiment))
+        missing_keys = required_keys - set(per_embodiment)
+        if missing_keys:
+            raise ValueError(
+                f"norm_stats file {precomputed_file} is missing required keys "
+                f"for embodiment={embodiment}: {sorted(missing_keys)}"
+            )
+        required_stats_by_mode = {
+            "zscore": {"mean", "std"},
+            "minmax": {"min", "max"},
+            "quantile": {"quantile_1", "quantile_99"},
+        }
+        required_stats = required_stats_by_mode.get(self.norm_mode)
+        if required_stats is None:
+            raise ValueError(f"Unsupported norm_mode={self.norm_mode!r}")
+
+        loaded: dict[str, dict[str, np.ndarray]] = {}
         for key, stats in per_embodiment.items():
+            missing_stats = required_stats - set(stats)
+            if missing_stats:
+                raise ValueError(
+                    f"norm_stats file {precomputed_file} is missing required "
+                    f"statistics for embodiment={embodiment} key={key!r}: "
+                    f"{sorted(missing_stats)}"
+                )
             sample_shape = self.shapes.get(embodiment, {}).get(key)
             if sample_shape is None and cached_reduction is None:
                 raise ValueError(
@@ -1428,21 +1498,47 @@ class MultiDataset(torch.utils.data.Dataset):
                 k: {name: np.asarray(arr).tolist() for name, arr in stat_dict.items()}
                 for k, stat_dict in keys_dict.items()
             }
+        metadata = copy.deepcopy(self._norm_run_metadata)
+        loading_time = None
+        computing_time = None
+        frames = None
+        if isinstance(metadata, dict) and isinstance(
+            metadata.get("embodiments"), dict
+        ):
+            per_embodiment = list(metadata["embodiments"].values())
+            loading_time = sum(
+                float(item["loading_time"]) for item in per_embodiment
+            )
+            computing_time = sum(
+                float(item["computing_time"]) for item in per_embodiment
+            )
+            frames = sum(int(item["sampled_frames"]) for item in per_embodiment)
+        elif isinstance(metadata, dict):
+            loading_time = metadata.get("loading_time")
+            computing_time = metadata.get("computing_time")
+            frames = metadata.get("frames")
+
         payload = {
             "stats": stats_out,
             "norm_mode": self.norm_mode,
             "reduce_all_but_last": self.reduce_all_but_last,
-            "norm_run_metadata": copy.deepcopy(self._norm_run_metadata),
-            "loading_time": None,
-            "computing_time": None,
-            "frames": None,
+            "norm_run_metadata": metadata,
+            "loading_time": loading_time,
+            "computing_time": computing_time,
+            "frames": frames,
         }
-        if self._norm_run_metadata is not None:
-            for k in ("loading_time", "computing_time", "frames"):
-                if k in self._norm_run_metadata:
-                    payload[k] = self._norm_run_metadata[k]
-        with open(out_path, "w") as f:
-            json.dump(payload, f, indent=4)
+        fd, temporary_path = tempfile.mkstemp(
+            prefix=".norm_stats.", suffix=".tmp", dir=cache_dir, text=True
+        )
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(payload, f, indent=4)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temporary_path, out_path)
+        finally:
+            if os.path.exists(temporary_path):
+                os.unlink(temporary_path)
         logger.info(f"[MultiDataset] Cached stats to {out_path}")
 
     # ---- normalize / unnormalize ----

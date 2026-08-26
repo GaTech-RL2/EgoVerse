@@ -7,6 +7,12 @@ defaults:
 
 name: flow_transfer_bc_usocket_latent_dense_medium
 description: decoder_only_latent96_dense100_usocket_rotvec4
+model:
+  enable_grad_norm: false
+data:
+  train_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: 32
 trainer: &trainer
   max_steps: 240000
   max_epochs: -1
@@ -31,3 +37,36 @@ callbacks:
     save_top_k: 1
     save_last: true
     save_on_train_epoch_end: true
+  best_usocket_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints/best_usocket
+    filename: "best-step-{step}"
+    monitor: Valid/emb19_actions_action_mse
+    mode: min
+    verbose: true
+    every_n_epochs: 1
+    every_n_train_steps: null
+    train_time_interval: null
+    save_top_k: 1
+    save_last: false
+    save_on_train_epoch_end: false
+    save_on_exception: false
+    save_weights_only: false
+    auto_insert_metric_name: false
+    enable_version_counter: false
+  terminal_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints/final
+    filename: "step-{step}"
+    monitor: null
+    verbose: true
+    every_n_epochs: null
+    every_n_train_steps: ${trainer.max_steps}
+    train_time_interval: null
+    save_top_k: 1
+    save_last: false
+    save_on_train_epoch_end: false
+    save_on_exception: false
+    save_weights_only: false
+    auto_insert_metric_name: false
+    enable_version_counter: false

@@ -43,7 +43,7 @@ def main(cfg: DictConfig) -> None:
     # --- Infer shapes and norm stats (mirrors trainHydra.py) ---
     for dataset_name, dataset in train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
-        norm_stats_obj.infer_shapes_from_batch(dataset[0])
+        norm_stats_obj.infer_shapes_from_batch(dataset[0], dataset_name)
 
         instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
         keymap_cfg = instantiate_copy.resolver.key_map

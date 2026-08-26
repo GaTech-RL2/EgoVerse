@@ -1,7 +1,7 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
-# One ChainGripper domain containing only the 30 x 128 audited obstacle
-# episodes. Clean ChainGripper is intentionally excluded from this BC recipe.
+# One ChainGripper domain containing the immutable balanced 30 x 100 obstacle
+# subset. Clean ChainGripper is intentionally excluded from this BC recipe.
 train_datasets:
   pushshapes_sim_chain_gripper:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver

@@ -1,9 +1,11 @@
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
 
+import egomimic.rldb.zarr.zarr_dataset_multi as zarr_dataset_multi
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 STAT_FUNCTIONS = {
@@ -161,3 +163,160 @@ def test_matching_reduced_precomputed_stats_load_as_float32(tmp_path):
 
     assert target.norm_stats[19]["actions"]["min"].shape == (4,)
     assert target.norm_stats[19]["actions"]["min"].dtype == np.float32
+
+
+def test_precomputed_stats_reject_missing_required_key_and_mode(tmp_path):
+    source = _action_only_norm_stats(True, (4,))
+    source.cache_stats(str(tmp_path))
+    cache_path = tmp_path / "norm_stats" / "norm_stats.json"
+    payload = json.loads(cache_path.read_text())
+
+    payload["stats"]["19"].pop("actions")
+    cache_path.write_text(json.dumps(payload))
+    target = _action_only_norm_stats(True, (4,))
+    target.norm_stats = {19: {}}
+    with pytest.raises(ValueError, match="missing required keys"):
+        target.infer_norm_from_dataset(
+            object(), 19, precomputed_norm_path=str(cache_path)
+        )
+
+    payload["stats"]["19"]["actions"] = {
+        "min": [0.0] * 4,
+        "max": [1.0] * 4,
+    }
+    payload["norm_mode"] = "zscore"
+    cache_path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="norm_mode='zscore'"):
+        target.infer_norm_from_dataset(
+            object(), 19, precomputed_norm_path=str(cache_path)
+        )
+
+
+@pytest.mark.parametrize("as_directory", [False, True])
+def test_configured_precomputed_stats_path_fails_closed(tmp_path, as_directory):
+    target = _action_only_norm_stats(True, (4,))
+    target.norm_stats = {19: {}}
+    configured = tmp_path / "missing"
+    if as_directory:
+        configured.mkdir()
+
+    with pytest.raises(FileNotFoundError, match="precomputed|norm_stats.json"):
+        target.infer_norm_from_dataset(
+            object(), 19, precomputed_norm_path=str(configured)
+        )
+
+    assert target.norm_stats == {19: {}}
+
+
+class _ActionDataset(torch.utils.data.Dataset):
+    def __init__(self, size, width):
+        self.size = size
+        self.width = width
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index):
+        return {
+            "actions": torch.full(
+                (2, self.width), float(index), dtype=torch.float32
+            )
+        }
+
+
+def _two_domain_action_stats():
+    norm_stats = MultiDataset(
+        state={}, norm_mode="minmax", reduce_all_but_last=True
+    )
+    norm_stats.embodiments = {19, 20}
+    norm_stats.key_types = {
+        19: {"actions": "action_keys"},
+        20: {"actions": "action_keys"},
+    }
+    norm_stats.zarr_keys = {
+        19: {"actions": "actions"},
+        20: {"actions": "actions"},
+    }
+    norm_stats.shapes = {
+        19: {"actions": (2, 4)},
+        20: {"actions": (2, 6)},
+    }
+    norm_stats.norm_stats = {19: {}, 20: {}}
+    return norm_stats
+
+
+def test_shape_inference_is_scoped_to_the_named_embodiment():
+    norm_stats = _two_domain_action_stats()
+    norm_stats.shapes = {19: {}, 20: {}}
+
+    norm_stats.infer_shapes_from_batch(
+        {"actions": torch.zeros(100, 4)}, "pushshapes_sim_u_socket"
+    )
+    norm_stats.infer_shapes_from_batch(
+        {"actions": torch.zeros(100, 6)}, "pushshapes_sim_chain_gripper"
+    )
+
+    assert norm_stats.shapes[19]["actions"] == (100, 4)
+    assert norm_stats.shapes[20]["actions"] == (100, 6)
+
+
+def test_two_domain_metadata_and_atomic_cache(tmp_path):
+    source = _two_domain_action_stats()
+    source.infer_norm_from_dataset(
+        _ActionDataset(5, 4), 19, sample_frac=1.0, num_workers=0, batch_size=2
+    )
+    source.infer_norm_from_dataset(
+        _ActionDataset(7, 6), 20, sample_frac=1.0, num_workers=0, batch_size=2
+    )
+    source.cache_stats(str(tmp_path))
+
+    cache_path = tmp_path / "norm_stats" / "norm_stats.json"
+    payload = json.loads(cache_path.read_text())
+    metadata = payload["norm_run_metadata"]
+
+    assert payload["frames"] == 12
+    assert metadata["total_dataset_frames"] == 12
+    assert metadata["total_sampled_frames"] == 12
+    assert set(metadata["embodiments"]) == {"19", "20"}
+    assert metadata["embodiments"]["19"]["dataset_size"] == 5
+    assert metadata["embodiments"]["19"]["sampled_frames"] == 5
+    assert metadata["embodiments"]["20"]["dataset_size"] == 7
+    assert metadata["embodiments"]["20"]["sampled_frames"] == 7
+    assert not list(cache_path.parent.glob(".norm_stats.*.tmp"))
+
+
+def test_atomic_cache_failure_preserves_previous_artifact(monkeypatch, tmp_path):
+    source = _action_only_norm_stats(True, (4,))
+    source.cache_stats(str(tmp_path))
+    cache_path = tmp_path / "norm_stats" / "norm_stats.json"
+    original = cache_path.read_bytes()
+
+    def fail_replace(source_path, destination_path):
+        assert Path(destination_path) == cache_path
+        raise OSError("injected replace failure")
+
+    monkeypatch.setattr(zarr_dataset_multi.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="injected replace failure"):
+        source.cache_stats(str(tmp_path))
+
+    assert cache_path.read_bytes() == original
+    assert not list(cache_path.parent.glob(".norm_stats.*.tmp"))
+
+
+def test_shared_precomputed_artifact_loads_each_embodiment(tmp_path):
+    source = _two_domain_action_stats()
+    source.infer_norm_from_dataset(
+        _ActionDataset(5, 4), 19, sample_frac=1.0, num_workers=0, batch_size=2
+    )
+    source.infer_norm_from_dataset(
+        _ActionDataset(7, 6), 20, sample_frac=1.0, num_workers=0, batch_size=2
+    )
+    source.cache_stats(str(tmp_path))
+
+    target = _two_domain_action_stats()
+    cache_path = tmp_path / "norm_stats" / "norm_stats.json"
+    target.infer_norm_from_dataset(object(), 19, precomputed_norm_path=cache_path)
+    target.infer_norm_from_dataset(object(), 20, precomputed_norm_path=cache_path)
+
+    assert target.norm_stats[19]["actions"]["min"].shape == (4,)
+    assert target.norm_stats[20]["actions"]["min"].shape == (6,)

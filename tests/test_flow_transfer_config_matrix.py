@@ -237,7 +237,7 @@ def test_flow_transfer_smoke_preserves_full_model_data_and_evaluator(
             {"pushshapes_sim_u_socket": 4},
         ),
         (
-            "pusht/pipeline_sampler_chain_gripper_points_dense_medium",
+            "pusht/pipeline_sampler_chain_gripper_obstacle_points_dense_medium",
             ["pushshapes_sim_chain_gripper"],
             {"pushshapes_sim_chain_gripper": 6},
         ),
@@ -286,15 +286,16 @@ def test_direct_dense_medium_uses_fold_topology_without_arc_tokens(
             4,
         ),
         (
-            "pusht/pipeline_diffusion_chain_gripper_points_h16",
+            "pusht/pipeline_diffusion_chain_gripper_obstacle_points_h16",
             ["pushshapes_sim_chain_gripper"],
             6,
         ),
     ],
 )
 def test_single_domain_dp_controls_are_genuine_action_diffusion(
-    experiment, domains, width
+    monkeypatch, experiment, domains, width
 ):
+    monkeypatch.setenv("CHAIN_OBSTACLE_ROOT", "/tmp/chain-obstacle-audited")
     cfg = _compose(experiment)
     model = cfg.model.robomimic_model
     stage = model.stages[1]
@@ -309,8 +310,89 @@ def test_single_domain_dp_controls_are_genuine_action_diffusion(
     assert "GaussianLatentNoise" not in OmegaConf.to_yaml(cfg.model)
 
 
+@pytest.mark.parametrize(
+    "experiment",
+    [
+        "pusht/pipeline_sampler_usocket_dense_medium",
+        "pusht/pipeline_sampler_chain_gripper_obstacle_points_dense_medium",
+        "pusht/pipeline_sampler_usocket_chain_obstacle_dense_medium",
+        "pusht/pipeline_diffusion_usocket_h16",
+        "pusht/pipeline_diffusion_chain_gripper_obstacle_points_h16",
+        "pusht/pipeline_diffusion_usocket_chain_obstacle_h16",
+    ],
+)
+def test_direct_dense_runtime_safety_contract(monkeypatch, experiment):
+    monkeypatch.setenv("CHAIN_OBSTACLE_ROOT", "/tmp/chain-obstacle-audited")
+    cfg = _compose(experiment)
+
+    assert cfg.model.enable_grad_norm is False
+    assert cfg.trainer.get("gradient_clip_val") is None
+    assert cfg.trainer.accumulate_grad_batches == 1
+    expected_train_batch = 16 if len(cfg.data.train_datasets) == 2 else 32
+    for domain in cfg.data.train_datasets:
+        assert (
+            cfg.data.train_dataloader_params[domain].batch_size
+            == expected_train_batch
+        )
+        assert cfg.data.valid_dataloader_params[domain].batch_size == 16
+
+    terminal = cfg.callbacks.terminal_checkpoint
+    assert terminal._target_ == "lightning.pytorch.callbacks.ModelCheckpoint"
+    assert terminal.filename == "step-{step}"
+    assert terminal.monitor is None
+    assert terminal.every_n_train_steps == cfg.trainer.max_steps
+    assert terminal.every_n_epochs is None
+    assert terminal.train_time_interval is None
+    assert terminal.save_top_k == 1
+    assert terminal.save_last is False
+    assert terminal.save_on_train_epoch_end is False
+    assert terminal.save_on_exception is False
+    assert terminal.save_weights_only is False
+    assert terminal.auto_insert_metric_name is False
+    assert terminal.enable_version_counter is False
+
+    expected_best = {}
+    if "pushshapes_sim_u_socket" in cfg.data.train_datasets:
+        expected_best["best_usocket_checkpoint"] = (
+            "best_usocket",
+            "Valid/emb19_actions_action_mse",
+        )
+    if "pushshapes_sim_chain_gripper" in cfg.data.train_datasets:
+        expected_best["best_chain_checkpoint"] = (
+            "best_chain",
+            "Valid/emb20_actions_action_mse",
+        )
+    actual_best = {
+        name for name in cfg.callbacks if name.startswith("best_")
+    }
+    assert actual_best == set(expected_best)
+    for name, (directory, monitor) in expected_best.items():
+        callback = cfg.callbacks[name]
+        assert callback._target_ == "lightning.pytorch.callbacks.ModelCheckpoint"
+        assert callback._get_node("dirpath")._value() == (
+            f"${{paths.output_dir}}/checkpoints/{directory}"
+        )
+        assert callback.filename == "best-step-{step}"
+        assert callback.monitor == monitor
+        assert callback.mode == "min"
+        assert callback.every_n_epochs == 1
+        assert callback.every_n_train_steps is None
+        assert callback.train_time_interval is None
+        assert callback.save_top_k == 1
+        assert callback.save_last is False
+        assert callback.save_on_train_epoch_end is False
+        assert callback.save_on_exception is False
+        assert callback.save_weights_only is False
+        assert callback.auto_insert_metric_name is False
+        assert callback.enable_version_counter is False
+
+    model = cfg.model.robomimic_model
+    if len(model.stages) == 3:
+        assert model.stages[2].gradient_accumulation_steps == 1
+
+
 def test_obstacle_cotrain_config_pins_all_audited_sources(monkeypatch):
-    root = "/audit/chain-obstacle-output-128"
+    root = "/audit/chain-obstacle-output-3000-balanced"
     monkeypatch.setenv("CHAIN_OBSTACLE_ROOT", root)
     cfg = _compose("pusht/pipeline_sampler_usocket_chain_obstacle_dense_medium")
     chain = cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver
@@ -337,6 +419,8 @@ def test_obstacle_cotrain_config_pins_all_audited_sources(monkeypatch):
         == 30
     )
     for cotrain in (cfg, dp):
+        assert cotrain.model.enable_grad_norm is False
+        assert cotrain.trainer.accumulate_grad_batches == 1
         scheduler = cotrain.model.scheduler
         assert scheduler.max_steps == 240_000
         assert scheduler.warmup_steps == 3_000
@@ -358,7 +442,7 @@ def test_obstacle_cotrain_config_pins_all_audited_sources(monkeypatch):
     ],
 )
 def test_chain_bc_uses_only_all_obstacle_roots(monkeypatch, experiment, horizon):
-    root = "/audit/chain-obstacle-output-128"
+    root = "/audit/chain-obstacle-output-3000-balanced"
     monkeypatch.setenv("CHAIN_OBSTACLE_ROOT", root)
     cfg = _compose(experiment)
     assert set(cfg.data.train_datasets) == {"pushshapes_sim_chain_gripper"}
@@ -402,3 +486,81 @@ def test_many_root_resolver_namespaces_colliding_episode_names(tmp_path):
     assert {dataset.embodiment for dataset in datasets.values()} == {
         "pushshapes_sim_chain_gripper"
     }
+
+
+def test_obstacle_launchers_do_not_gate_excluded_clean_chain_data() -> None:
+    repo_root = Path(__file__).parents[1]
+    matrix = (
+        repo_root / "scripts" / "train" / "flow_transfer_direct_dense_matrix.sbatch"
+    ).read_text()
+    precompute = (
+        repo_root / "scripts" / "train" / "flow_transfer_norm_precompute.sbatch"
+    ).read_text()
+
+    for launcher in (matrix, precompute):
+        assert "CHAIN_DATA=" not in launcher
+        assert "chain_clean_inventory" not in launcher
+        assert "output_3000_balanced_v1" in launcher
+        assert "EXPECTED_OBSTACLE_AUDIT_SHA=1f7f341b" in launcher
+        assert "EXPECTED_OBSTACLE_MANIFEST_SHA=b5c9385b" in launcher
+        assert "EXPECTED_OBSTACLE_INVENTORY_SHA=1c143396" in launcher
+        assert "= 3000" in launcher
+        assert "= 100" in launcher
+        assert "-xtype d -name '*.zarr'" in launcher
+
+    assert "mode=norm_stats" in precompute
+    assert "trainer.strategy=" not in precompute
+    assert "EXPECTED_U_TRAIN_FRAMES=511590" in precompute
+    assert "EXPECTED_CHAIN_TRAIN_FRAMES=1247833" in precompute
+
+
+def test_matrix_submit_helper_is_six_arm_smoke_gated_and_world2_safe() -> None:
+    helper = (
+        Path(__file__).parents[1]
+        / "scripts"
+        / "train"
+        / "submit_flow_transfer_direct_dense_matrix_when_ready.sh"
+    ).read_text()
+
+    assert (
+        "flow-transfer-direct-dense-obstacle-dp-schedulefix-20260826" in helper
+    )
+    for arm in (
+        "bc_usocket_latent",
+        "bc_usocket_dp",
+        "bc_chain_latent",
+        "bc_chain_dp",
+        "cotrain_obstacle_latent",
+        "cotrain_obstacle_dp",
+    ):
+        assert arm in helper
+    assert "LATENT_NORM_ARTIFACT=${LATENT_NORM_ARTIFACT:?" in helper
+    assert "DP_NORM_ARTIFACT=${DP_NORM_ARTIFACT:?" in helper
+    assert '--ntasks-per-node="$gpus"' in helper
+    assert "--cpus-per-task=8" in helper
+    assert "--open-mode=append" in helper
+    assert "afterok" not in helper
+    assert "smoke_identity.tsv" in helper
+    assert 'validation["status"] == "PASS"' in helper
+    assert 'validation["gradient_clipping_enabled"] is False' in helper
+    assert "full jobs are never chained automatically" in helper
+
+
+def test_matrix_requeue_selects_newest_recovery_checkpoint() -> None:
+    repo_root = Path(__file__).parents[1]
+    train_hydra = (repo_root / "egomimic" / "trainHydra.py").read_text()
+    matrix = (
+        repo_root / "scripts" / "train" / "flow_transfer_direct_dense_matrix.sbatch"
+    ).read_text()
+
+    assert "SLURMEnvironment(requeue_signal=signal.SIGUSR1)" in train_hydra
+    assert "plugins=plugins" in train_hydra
+    assert "resuming from 'last.ckpt'" not in train_hydra
+    assert 'RESUME_CANDIDATES=("$RUN_DIR"/hpc_ckpt_*.ckpt)' in matrix
+    assert 'RESUME_CANDIDATES+=("$LAST_CKPT")' in matrix
+    assert "path.stat().st_mtime_ns" in matrix
+    assert 'COMMON_OVERRIDES+=("ckpt_path=$RESUME_CKPT")' in matrix
+    assert '"++paths.root_dir=$RUN_DIR"' in matrix
+    assert '"paths.output_dir=$RUN_DIR"' in matrix
+    assert '"paths.work_dir=$REPO"' in matrix
+    assert '--cfg job --resolve > "$RESOLVED_CONFIG"' in matrix

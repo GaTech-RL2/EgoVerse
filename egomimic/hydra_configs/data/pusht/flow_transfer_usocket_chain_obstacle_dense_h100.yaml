@@ -1,7 +1,7 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 # U-Socket stays on the verified 2,999-episode clean corpus. ChainGripper uses
-# only the 30x128 audited obstacle episodes; the 3,000 clean Chain corpus is
+# only the balanced 30x100 obstacle subset; the 3,000 clean Chain corpus is
 # intentionally excluded. Source roots remain immutable and namespaced.
 train_datasets:
   pushshapes_sim_u_socket:

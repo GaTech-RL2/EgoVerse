@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .shapes import (
+from .chain_gripper_constants import (
     CHAIN_GRIPPER_CLOSED_ANGLE,
     CHAIN_GRIPPER_LINK_LEN,
     CHAIN_GRIPPER_OPEN_ANGLE,
