@@ -22,7 +22,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
-from matplotlib.patches import Patch, Rectangle  # noqa: E402
+from matplotlib.patches import Circle, Patch, Rectangle  # noqa: E402
 from matplotlib.patches import Polygon as PlotPolygon
 from shapely.geometry import LineString  # noqa: E402
 
@@ -72,10 +72,12 @@ def _figure_grid(manifest: dict):
     levels = sorted(int(level) for level in manifest["levels"])
     columns = min(6, len(levels))
     rows = math.ceil(len(levels) / columns)
+    width = max(9.2 if rows == 1 else 0.0, 3.35 * columns)
+    height = 3.25 * rows + (1.5 if rows == 1 else 0.0)
     figure, axes = plt.subplots(
         rows,
         columns,
-        figsize=(3.35 * columns, 3.25 * rows),
+        figsize=(width, height),
         squeeze=False,
     )
     return levels, figure, axes
@@ -120,16 +122,27 @@ def _finish_figure(
 ) -> Path:
     for axis in list(axes.flat)[level_count:]:
         axis.axis("off")
-    figure.suptitle(title, fontsize=16, fontweight="bold", y=0.995)
+    single_row = axes.shape[0] == 1
+    figure.suptitle(
+        title,
+        fontsize=16,
+        fontweight="bold",
+        y=0.985 if single_row else 0.995,
+    )
+    legend_columns = min(len(legend), max(1, int(figure.get_figwidth() // 3.0)))
     figure.legend(
         handles=legend,
         loc="upper center",
-        bbox_to_anchor=(0.5, 0.978),
-        ncol=len(legend),
+        bbox_to_anchor=(0.5, 0.91 if single_row else 0.978),
+        ncol=legend_columns,
         frameon=False,
         fontsize=9,
     )
-    figure.tight_layout(rect=(0.01, 0.01, 0.99, 0.95), h_pad=1.25, w_pad=0.8)
+    figure.tight_layout(
+        rect=(0.01, 0.01, 0.99, 0.68 if single_row else 0.95),
+        h_pad=1.25,
+        w_pad=0.8,
+    )
     output = Path(destination).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(output, dpi=180, facecolor="white")
@@ -250,6 +263,7 @@ def plot_silhouette_manifest(manifest: dict, destination: str | Path) -> Path:
     arena_margin = float(manifest["criteria"]["min_arena_clearance"])
     obstacle_margin = float(manifest["criteria"]["min_obstacle_clearance"])
     shape = str(manifest["object_shape"])
+    has_spawn_exclusions = False
     for axis, level in zip(axes.flat, levels, strict=False):
         entries = level_entries(manifest, level)
         for start, stop in OBSTACLE_LEVELS[level]:
@@ -260,6 +274,24 @@ def plot_silhouette_manifest(manifest: dict, destination: str | Path) -> Path:
                     closed=True,
                     facecolor="#6f6674",
                     edgecolor="none",
+                    alpha=0.08,
+                    zorder=1,
+                )
+            )
+        for exclusion in (
+            manifest.get("level_policies", {})
+            .get(str(level), {})
+            .get("spawn_exclusions", [])
+        ):
+            has_spawn_exclusions = True
+            axis.add_patch(
+                Circle(
+                    exclusion["center"],
+                    float(exclusion["radius"]),
+                    facecolor="#b54c63",
+                    edgecolor="#b54c63",
+                    linewidth=1.0,
+                    linestyle=(0, (5, 3)),
                     alpha=0.08,
                     zorder=1,
                 )
@@ -310,6 +342,17 @@ def plot_silhouette_manifest(manifest: dict, destination: str | Path) -> Path:
         ),
         Line2D([], [], linewidth=5.0, color="#22262b", label="physical obstacle"),
     ]
+    if has_spawn_exclusions:
+        legend.insert(
+            4,
+            Line2D(
+                [],
+                [],
+                color="#b54c63",
+                linestyle=(0, (5, 3)),
+                label="level-specific full-T spawn exclusion",
+            ),
+        )
     return _finish_figure(
         figure,
         axes,

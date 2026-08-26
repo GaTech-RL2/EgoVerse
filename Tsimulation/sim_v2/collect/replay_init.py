@@ -27,7 +27,7 @@ SeedKey = tuple[int, int]
 class ObstacleInitKey:
     """Identity of one committed entry from a versioned obstacle seed bank."""
 
-    manifest_sha256: str
+    level_bank_sha256: str
     sampler_revision: str
     geometry_hash: str
     obstacle_level: int
@@ -169,7 +169,7 @@ def collected_obstacle_init_keys(output_dir: Path) -> set[ObstacleInitKey]:
         try:
             keys.add(
                 ObstacleInitKey(
-                    manifest_sha256=str(provenance["manifest_sha256"]),
+                    level_bank_sha256=str(provenance["level_bank_sha256"]),
                     sampler_revision=str(provenance["sampler_revision"]),
                     geometry_hash=str(provenance["geometry_hash"]),
                     obstacle_level=int(episode_init["obstacle_level"]),

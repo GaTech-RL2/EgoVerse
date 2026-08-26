@@ -282,6 +282,7 @@ def main() -> int:
     init_manifest = None
     init_entries = None
     init_manifest_sha = None
+    init_level_bank_sha = None
     if args.seeds_file is not None:
         try:
             init_manifest = load_manifest(args.seeds_file)
@@ -289,6 +290,9 @@ def main() -> int:
         except (OSError, TypeError, ValueError) as exc:
             ap.error(f"invalid --seeds-file: {exc}")
         init_manifest_sha = hashlib.sha256(args.seeds_file.read_bytes()).hexdigest()
+        init_level_bank_sha = str(
+            init_manifest["level_bank_sha256"][str(args.obstacles)]
+        )
         required_agent = str(init_manifest["pusher_shape"])
         required_object = str(init_manifest["object_shape"])
         if args.agent not in (None, required_agent):
@@ -425,7 +429,7 @@ def main() -> int:
         if out_root is None:
             return list(target_entries)
         assert init_manifest is not None
-        assert init_manifest_sha is not None
+        assert init_level_bank_sha is not None
         completed = collected_obstacle_init_keys(
             output_dir(gap_index, agent_index, object_index)
         )
@@ -434,7 +438,7 @@ def main() -> int:
             entry
             for entry in target_entries
             if ObstacleInitKey(
-                manifest_sha256=init_manifest_sha,
+                level_bank_sha256=init_level_bank_sha,
                 sampler_revision=str(init_manifest["sampler_revision"]),
                 geometry_hash=str(entry["geometry_hash"]),
                 obstacle_level=level,
@@ -531,6 +535,7 @@ def main() -> int:
         if current_entry is not None:
             assert init_manifest is not None
             assert init_manifest_sha is not None
+            assert init_level_bank_sha is not None
             assert target_entries is not None
             entry_index = entry_index_by_seed[int(current_entry["seed"])]
             episode_init["obstacle_init"] = {
@@ -538,6 +543,7 @@ def main() -> int:
                 "sampler_revision": str(init_manifest["sampler_revision"]),
                 "manifest_path": str(args.seeds_file.expanduser().resolve()),
                 "manifest_sha256": init_manifest_sha,
+                "level_bank_sha256": init_level_bank_sha,
                 "entry_index": entry_index,
                 "entry_count": len(target_entries),
                 "geometry_hash": str(current_entry["geometry_hash"]),

@@ -9,6 +9,11 @@ level's geometry and is accepted only when:
 - the direct T-to-goal swept path intersects a physical obstacle; and
 - start/goal distance and spatial diversity thresholds are met.
 
+Levels 5 and 6 additionally keep both full rotated T silhouettes at least 200
+units from the arena corner where the diagonal obstacle emerges. The bank
+serializes this level-specific policy, and the silhouette plot renders its
+quarter-circle boundary.
+
 The playground verifies the level, geometry hash, seed, resolved poses, pusher
 angle, and ChainGripper joint angle before collection. It refuses a stale bank
 after obstacle geometry changes.
@@ -40,6 +45,8 @@ python -m Tsimulation.sim_v2.examples.playground \
 
 `R` discards and retries the current initialization. A successful committed
 episode advances to the next uncollected seed. Relaunching the same command
-resumes only from episodes whose saved manifest SHA, sampler revision, geometry
-hash, level, seed, and entry index match the active bank. Random or stale
-episodes cannot satisfy the curated collection target.
+records the full manifest SHA for provenance and resumes only from episodes
+whose sampler revision, geometry hash, level-bank SHA, level, seed, and entry
+index match the active bank. The per-level SHA lets later edits to another level
+leave approved/collected levels valid. Random or stale episodes cannot satisfy
+the curated collection target.

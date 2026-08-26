@@ -12,6 +12,64 @@
     "sweep_samples": 31
   },
   "entries_per_level": 32,
+  "level_bank_sha256": {
+    "1": "fb088d7a7a184ec285c5b436f39d2f07160b6d8fd20473b9b3b6384dcc062269",
+    "10": "ed301e272f16cc28cdf5918de3aad51b40d41320ac47027deae140f86b0590ec",
+    "11": "5b13f46bbce25dab2e73db8b00195cfccb6d913c0e924600ba65d4da011004bf",
+    "12": "233e359bc96c079405273f663551800a48be1520bcbb710da672f963c3cdcbe7",
+    "13": "ff1c2f5fc3fceccfaccfa1d873c9e9b4b5335a23a4dc679e3c48ae09c8d6ca1e",
+    "14": "df84ce1c1aa979acdb4d83e36b05aa2be27b0c7a209a9fa62acdd4595567ae35",
+    "15": "2bea929b7c2f2b152c2ccf3c76471b36c70d53c801545a3fe8c203c70c99037a",
+    "16": "fc7ef37fddd0cff820880884a797da5315e82687d8e37f117cc50fb04e8d9d32",
+    "17": "70b18f4d672c4ff3b4be221a3607bdb837bb0cab37206cbe116711d0e45010bf",
+    "18": "3ac6253e0f1a6dc7636b31eefff215879161148ae54c946282d98f4aed4d0c60",
+    "19": "224ef559c8806a3c25296e427d25318ae670dd15d7f375ede8caf132e40ef068",
+    "2": "614d313a2ad7272166b42585e18b67a6e130c3262e136f4e24fee29398ed26d9",
+    "20": "ed5b1bcfe7b534c201c7165bf3e7c63ef984ff77060775983f8e04581019eecf",
+    "21": "84af16690f43b78523411c22fb26e29a615c08c5f4ff61e70954b8e239f44695",
+    "22": "aebd64e00df896cf14698125d953d614252975affde714e9a9df0c71accbbbb6",
+    "23": "f5b26d7dc0075d0e490d9cc2726f343c16c930b9ce510a2a16d8a65115bbe803",
+    "24": "e780087d40b312248a744904a6b68c28997b600cf796881fec7555b8e79488fa",
+    "25": "4ed1bc5a80b80d8b8648b8dc0c474f0800292bfe4e8fbf4112b19614609d14b0",
+    "26": "4bd0b2a09ea3e5709a66c5f6443e61da0f57eab5b30a36c1539f200e77393221",
+    "27": "148b7f8db51aab8a96f58bf925ffbb5c7fd950fc18e530d9af024f7fa88d0b1a",
+    "28": "adb3960c495e3adda9e1da00418370e14369b761b85cc6c2e874e75b9f976c4b",
+    "29": "93e558d0454cf4f2312e51e1422ffd9bf8d255453a3aaf79fcb948de06b3b5dd",
+    "3": "00333718d0159369821777fe1e111e8d42d0a439806e2ed1770de71fe36a9787",
+    "30": "cb6383dcf8cab5e146b8a98657d05e8ce98d6f6453615bf86e75b2127237d953",
+    "4": "4590cd5b9884f345c76d28f6ebe6e50d8d32f4cd5808a26dff49ea5d54600af4",
+    "5": "e13df1fff6d19ee4e99b32ebf100778e2cafb99e0b449e6e6b93d86b951a881f",
+    "6": "0bf092a21c1cf763a5b221cd92f3d863ccf5289801f35cbc676b4ce4548d2edf",
+    "7": "578dd271e84ab3dc92a973476eacbaed68d8d4882b4ab6863c9c2f7047111e4c",
+    "8": "fd47a5f3354c10198a27b01a14dba5b5ca97fceec2edb2306b59103c603e9bbf",
+    "9": "bc7a7917fdd1097328eb5e01d71b1f45c53974fe5534877844e2f30c76497360"
+  },
+  "level_policies": {
+    "5": {
+      "spawn_exclusions": [
+        {
+          "center": [
+            0.0,
+            0.0
+          ],
+          "label": "obstacle emergence corner",
+          "radius": 200.0
+        }
+      ]
+    },
+    "6": {
+      "spawn_exclusions": [
+        {
+          "center": [
+            512.0,
+            0.0
+          ],
+          "label": "obstacle emergence corner",
+          "radius": 200.0
+        }
+      ]
+    }
+  },
   "levels": {
     "1": [
       {
@@ -43639,15 +43697,14 @@
     "5": [
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 146.2714956008563,
+        "agent_object_distance": 168.39175928063443,
         "agent_pos": [
-          373.2176384224919,
-          141.86508455650406
+          102.70590006011446,
+          268.4306686141497
         ],
-        "blocked_fraction": 0.8064516129032258,
+        "blocked_fraction": 0.7419354838709677,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.1,
           0.13333333333333333,
           0.16666666666666666,
           0.2,
@@ -43670,104 +43727,47 @@
           0.7666666666666666,
           0.8,
           0.8333333333333334,
-          0.8666666666666667,
-          0.9
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 17.82291792143585,
-        "goal_obstacle_clearance": 11.955877963854114,
-        "goal_pose": [
-          75.43203709430256,
-          179.6481623779249,
-          3.014246805598263
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          391.8097335091592,
-          286.9501782966938,
-          -3.0620055558233736
-        ],
-        "primary_hit_segment": 0,
-        "seed": 404,
-        "start_arena_clearance": 61.57273597645576,
-        "start_goal_distance": 334.07868745102985,
-        "start_obstacle_clearance": 26.482310288916608
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 158.83829873784765,
-        "agent_pos": [
-          170.37146027430768,
-          444.2754549387119
-        ],
-        "blocked_fraction": 0.41935483870967744,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667
+          0.8666666666666667
         ],
         "crossing_direction": 1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 15.051249450315254,
-        "goal_obstacle_clearance": 125.39439457392854,
+        "goal_arena_clearance": 44.138328788246525,
+        "goal_obstacle_clearance": 20.970300101614363,
         "goal_pose": [
-          437.49213902340256,
-          191.27761940734052,
-          -0.03393012267324376
+          252.06801022968537,
+          113.9871376411829,
+          1.3000779689922792
         ],
+        "goal_spawn_exclusion_clearance": 12.610732765957295,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          161.17030572242942,
-          285.7038815062515,
-          -1.3919745328227549
+          248.51586117450313,
+          352.66391521813375,
+          0.8079064184451892
         ],
         "primary_hit_segment": 0,
-        "seed": 479,
-        "start_arena_clearance": 106.21566152904875,
-        "start_goal_distance": 292.0104014119754,
-        "start_obstacle_clearance": 28.980123252487807
+        "seed": 1404,
+        "start_arena_clearance": 96.66745814945102,
+        "start_goal_distance": 238.7032088544842,
+        "start_obstacle_clearance": 23.304812491080472,
+        "start_spawn_exclusion_clearance": 167.14303221178517
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 146.65489410769328,
+        "agent_object_distance": 165.32757935036287,
         "agent_pos": [
-          385.2738292611201,
-          180.11323785861282
+          421.5772039097776,
+          168.63261400224522
         ],
-        "blocked_fraction": 0.5483870967741935,
+        "blocked_fraction": 0.45161290322580644,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
           0.36666666666666664,
           0.4,
           0.43333333333333335,
@@ -43777,46 +43777,51 @@
           0.5666666666666667,
           0.6,
           0.6333333333333333,
-          0.6666666666666666
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8
         ],
         "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 8.730747471323298,
-        "goal_obstacle_clearance": 84.78146483897945,
+        "goal_arena_clearance": 37.34563801059187,
+        "goal_obstacle_clearance": 51.70967079416391,
         "goal_pose": [
-          201.16655320958458,
-          427.36326451030413,
-          -0.07423999287967442
+          303.37133661838214,
+          414.8872385487158,
+          -1.5557249372446615
         ],
+        "goal_spawn_exclusion_clearance": 238.97079545524934,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          261.5944963130392,
-          101.30282885538233,
-          0.5090369430003635
+          290.3726528580119,
+          68.04148975584293,
+          -1.7481951051689497
         ],
         "primary_hit_segment": 0,
-        "seed": 814,
-        "start_arena_clearance": 32.76799673897165,
-        "start_goal_distance": 331.612641506912,
-        "start_obstacle_clearance": 33.09637334543241
+        "seed": 1197,
+        "start_arena_clearance": 11.630172822107603,
+        "start_goal_distance": 347.08923814372406,
+        "start_obstacle_clearance": 82.00262133944632,
+        "start_spawn_exclusion_clearance": 36.09806774272917
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 216.2345363678623,
+        "agent_object_distance": 140.35602518462926,
         "agent_pos": [
-          110.95903842055951,
-          268.20348826445337
+          400.2656689437742,
+          431.35627697508824
         ],
-        "blocked_fraction": 0.5483870967741935,
+        "blocked_fraction": 0.5161290322580645,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.23333333333333334,
           0.26666666666666666,
           0.3,
           0.3333333333333333,
@@ -43834,186 +43839,103 @@
           0.7333333333333333,
           0.7666666666666666
         ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 8.518707465528358,
-        "goal_obstacle_clearance": 49.48713066901043,
-        "goal_pose": [
-          216.24037506014224,
-          65.34800984997348,
-          -2.2109566542272505
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          276.0059556714243,
-          407.90635088441024,
-          -1.7656287812965368
-        ],
-        "primary_hit_segment": 0,
-        "seed": 251,
-        "start_arena_clearance": 36.51674459064145,
-        "start_goal_distance": 347.7328595891811,
-        "start_obstacle_clearance": 68.32678432748007
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 210.2429227321555,
-        "agent_pos": [
-          339.38375936608185,
-          432.6442607502604
-        ],
-        "blocked_fraction": 0.3225806451612903,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335
-        ],
         "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 24.772984379539537,
-        "goal_obstacle_clearance": 148.1777646944182,
+        "goal_arena_clearance": 69.99986996530578,
+        "goal_obstacle_clearance": 63.99453694297377,
         "goal_pose": [
-          106.01453757374158,
-          426.4672537932196,
-          1.587875207273772
+          119.41471365680388,
+          286.2380837152723,
+          2.7413898673606916
         ],
+        "goal_spawn_exclusion_clearance": 35.14470762739859,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          346.0213629112488,
-          222.5061424134477,
-          -2.2283247217254547
+          432.08090155923935,
+          294.65366259170446,
+          -0.8898416338319007
         ],
         "primary_hit_segment": 0,
-        "seed": 812,
-        "start_arena_clearance": 97.44831062380132,
-        "start_goal_distance": 314.9657301419639,
-        "start_obstacle_clearance": 34.789246000337585
+        "seed": 1060,
+        "start_arena_clearance": 12.203167716528355,
+        "start_goal_distance": 312.779422317496,
+        "start_obstacle_clearance": 56.740778644676915,
+        "start_spawn_exclusion_clearance": 276.20960547836023
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 193.63801467966704,
+        "agent_object_distance": 176.85456621976638,
         "agent_pos": [
-          402.12001304375974,
-          235.02993971319046
+          187.2780878816982,
+          438.3897330594332
         ],
-        "blocked_fraction": 0.25806451612903225,
+        "blocked_fraction": 0.5483870967741935,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667
         ],
         "crossing_direction": 1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 18.033344526014844,
-        "goal_obstacle_clearance": 133.5112686080434,
+        "goal_arena_clearance": 52.14247271395641,
+        "goal_obstacle_clearance": 29.81060884294964,
         "goal_pose": [
-          428.9486924161187,
-          170.15840800236484,
-          1.9762570062858285
+          383.39490197351546,
+          311.56609312023204,
+          -1.7925384422737374
         ],
+        "goal_spawn_exclusion_clearance": 219.05311752227288,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          248.3339310045748,
-          352.6969346613067,
-          2.914584551069495
+          109.19299730335266,
+          279.7068536358693,
+          -1.4184317538089084
         ],
         "primary_hit_segment": 0,
-        "seed": 1208,
-        "start_arena_clearance": 101.95377602189154,
-        "start_goal_distance": 256.79175562032003,
-        "start_obstacle_clearance": 17.33753866679864
+        "seed": 1004,
+        "start_arena_clearance": 55.60778021821698,
+        "start_goal_distance": 276.0465461933313,
+        "start_obstacle_clearance": 60.10846047404896,
+        "start_spawn_exclusion_clearance": 25.9702200973407
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 96.6706233874227,
+        "agent_object_distance": 212.92395312928463,
         "agent_pos": [
-          176.64670770418292,
-          411.4121643350491
+          232.74554681225598,
+          87.79701046286645
         ],
         "blocked_fraction": 0.3548387096774194,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 38.561065535025385,
-        "goal_obstacle_clearance": 56.638659203087855,
-        "goal_pose": [
-          279.97697652234007,
-          105.05692132373004,
-          2.427375369477816
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          82.6775173171093,
-          388.7185378264712,
-          0.35505132746809415
-        ],
-        "primary_hit_segment": 0,
-        "seed": 431,
-        "start_arena_clearance": 31.63437589502997,
-        "start_goal_distance": 345.5300121257555,
-        "start_obstacle_clearance": 146.47556864813345
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 145.21638061954613,
-        "agent_pos": [
-          292.3396375513302,
-          62.32728204921619
-        ],
-        "blocked_fraction": 0.3870967741935484,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
+          0.36666666666666664,
           0.4,
           0.43333333333333335,
           0.4666666666666667,
@@ -44023,36 +43945,36 @@
           0.6,
           0.6333333333333333,
           0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666
+          0.7
         ],
         "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 77.18729990776382,
-        "goal_obstacle_clearance": 36.91487118628027,
+        "goal_arena_clearance": 63.849900570655755,
+        "goal_obstacle_clearance": 88.84525364106173,
         "goal_pose": [
-          229.8961841067687,
-          368.16109882359905,
-          -1.7379769047814546
+          123.81679316493333,
+          360.0865940073675,
+          0.002197504105428089
         ],
+        "goal_spawn_exclusion_clearance": 121.37484639177569,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          414.56049247993633,
-          140.7483240007327,
-          -1.1273257876452947
+          437.63395439623395,
+          145.73965670812797,
+          1.7655806164559196
         ],
         "primary_hit_segment": 0,
-        "seed": 295,
-        "start_arena_clearance": 23.25825613229682,
-        "start_goal_distance": 292.9462014424766,
-        "start_obstacle_clearance": 117.99916783781099
+        "seed": 551,
+        "start_arena_clearance": 18.603726116293217,
+        "start_goal_distance": 380.03397244567,
+        "start_obstacle_clearance": 148.17612667463553,
+        "start_spawn_exclusion_clearance": 185.00675392447232
       },
       {
         "agent_angle": 0.0,
@@ -44093,6 +44015,7 @@
           126.96821661362114,
           -0.40526162033899843
         ],
+        "goal_spawn_exclusion_clearance": 21.350601936353485,
         "hit_segments": [
           0
         ],
@@ -44106,16 +44029,122 @@
         "seed": 1224,
         "start_arena_clearance": 13.830130103897432,
         "start_goal_distance": 308.0321067160906,
-        "start_obstacle_clearance": 109.91206266321869
+        "start_obstacle_clearance": 109.91206266321869,
+        "start_spawn_exclusion_clearance": 190.5083516238546
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 194.85257775330984,
+        "agent_object_distance": 183.41398879232588,
         "agent_pos": [
-          399.66354968805575,
-          72.62172187674507
+          402.2604331699337,
+          379.6914128700676
         ],
-        "blocked_fraction": 0.4838709677419355,
+        "blocked_fraction": 0.41935483870967744,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.1,
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 19.900530621704036,
+        "goal_obstacle_clearance": 198.7165657603432,
+        "goal_pose": [
+          430.33798835847136,
+          77.11617767799326,
+          1.8948243454189277
+        ],
+        "goal_spawn_exclusion_clearance": 160.82670189796295,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          218.9193499426484,
+          374.52048589735904,
+          -0.5798157518372884
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1155,
+        "start_arena_clearance": 66.51919633185867,
+        "start_goal_distance": 364.89335869133055,
+        "start_obstacle_clearance": 38.10390249716233,
+        "start_spawn_exclusion_clearance": 188.24951182734475
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 192.6438577576712,
+        "agent_pos": [
+          416.35534474486525,
+          262.4539312276557
+        ],
+        "blocked_fraction": 0.3870967741935484,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.1,
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 13.800107020144708,
+        "goal_obstacle_clearance": 169.69412650504813,
+        "goal_pose": [
+          106.94033978708936,
+          428.65345476205647,
+          0.6266445235583116
+        ],
+        "goal_spawn_exclusion_clearance": 166.9342302562177,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          263.6344111747328,
+          145.03173408748523,
+          0.13805174418347882
+        ],
+        "primary_hit_segment": 0,
+        "seed": 583,
+        "start_arena_clearance": 92.20304545998086,
+        "start_goal_distance": 324.02825871587254,
+        "start_obstacle_clearance": 10.992162297026434,
+        "start_spawn_exclusion_clearance": 29.714309398412155
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 205.18446735443473,
+        "agent_pos": [
+          180.46382535007902,
+          379.7230267299331
+        ],
+        "blocked_fraction": 0.5483870967741935,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
           0.1,
@@ -44132,34 +44161,149 @@
           0.4666666666666667,
           0.5,
           0.5333333333333333,
-          0.5666666666666667
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333
         ],
         "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 74.20905532305397,
-        "goal_obstacle_clearance": 112.84041596488389,
+        "goal_arena_clearance": 25.012737707903934,
+        "goal_obstacle_clearance": 47.855949414415115,
         "goal_pose": [
-          135.53259970175134,
-          372.3224607536688,
-          2.723951939306955
+          93.9642210139573,
+          272.86455180083476,
+          -0.23913788034248784
         ],
+        "goal_spawn_exclusion_clearance": 42.356367564653254,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          206.44158286739966,
-          97.77721024542784,
-          -2.5413511555672654
+          368.7985275108869,
+          298.2938820363845,
+          -2.0305483358955247
         ],
         "primary_hit_segment": 0,
-        "seed": 636,
-        "start_arena_clearance": 27.414641327508413,
-        "start_goal_distance": 283.5545423198489,
-        "start_obstacle_clearance": 17.560449430424136
+        "seed": 811,
+        "start_arena_clearance": 69.33339190273665,
+        "start_goal_distance": 276.00823694932893,
+        "start_obstacle_clearance": 13.413650564035978,
+        "start_spawn_exclusion_clearance": 201.33267725423605
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 121.9834642262069,
+        "agent_pos": [
+          88.15886594015589,
+          430.88750490697066
+        ],
+        "blocked_fraction": 0.41935483870967744,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 11.268324572408062,
+        "goal_obstacle_clearance": 179.67057796164863,
+        "goal_pose": [
+          442.5721336861284,
+          99.645473281871,
+          -0.10205992500256514
+        ],
+        "goal_spawn_exclusion_clearance": 183.18494448795764,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          197.7262181876061,
+          377.2688433598053,
+          -2.90701076563606
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1382,
+        "start_arena_clearance": 77.01745344244125,
+        "start_goal_distance": 370.1678780631015,
+        "start_obstacle_clearance": 51.19774492780979,
+        "start_spawn_exclusion_clearance": 161.5671288143373
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 197.05124619183772,
+        "agent_pos": [
+          269.1309517325743,
+          69.75174346072721
+        ],
+        "blocked_fraction": 0.5806451612903226,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 61.05586831187479,
+        "goal_obstacle_clearance": 56.01749503252593,
+        "goal_pose": [
+          127.81111886152176,
+          302.2472688599977,
+          2.2781080141931547
+        ],
+        "goal_spawn_exclusion_clearance": 55.15887618147457,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          373.7647757534798,
+          236.7276593783182,
+          -1.3704980641632372
+        ],
+        "primary_hit_segment": 0,
+        "seed": 234,
+        "start_arena_clearance": 61.75025376283418,
+        "start_goal_distance": 254.53098154283458,
+        "start_obstacle_clearance": 18.24046633682421,
+        "start_spawn_exclusion_clearance": 181.10919950281755
       },
       {
         "agent_angle": 0.0,
@@ -44195,6 +44339,7 @@
           295.7956046565595,
           2.747132094194817
         ],
+        "goal_spawn_exclusion_clearance": 229.7276876536152,
         "hit_segments": [
           0
         ],
@@ -44208,19 +44353,19 @@
         "seed": 1248,
         "start_arena_clearance": 62.8529252524758,
         "start_goal_distance": 284.7120917420083,
-        "start_obstacle_clearance": 66.01477218042908
+        "start_obstacle_clearance": 66.01477218042908,
+        "start_spawn_exclusion_clearance": 45.944456820447584
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 114.14885097160516,
+        "agent_object_distance": 111.92765183688476,
         "agent_pos": [
-          404.76187824331333,
-          183.00342933018945
+          345.91045089177476,
+          165.58845973307453
         ],
-        "blocked_fraction": 0.5483870967741935,
+        "blocked_fraction": 0.6129032258064516,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.26666666666666666,
           0.3,
           0.3333333333333333,
           0.36666666666666664,
@@ -44229,207 +44374,6 @@
           0.4666666666666667,
           0.5,
           0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 45.045754537590575,
-        "goal_obstacle_clearance": 32.54277593585177,
-        "goal_pose": [
-          109.69237008628065,
-          227.04387736778565,
-          0.8095741987370559
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          423.50272900517353,
-          295.60334358796945,
-          0.6140010347222576
-        ],
-        "primary_hit_segment": 0,
-        "seed": 748,
-        "start_arena_clearance": 13.52990316708167,
-        "start_goal_distance": 321.21230015863483,
-        "start_obstacle_clearance": 79.41302696496227
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 200.4269782128617,
-        "agent_pos": [
-          416.8085617573623,
-          409.5263871078799
-        ],
-        "blocked_fraction": 0.3225806451612903,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 94.07147770350275,
-        "goal_obstacle_clearance": 51.22914304574386,
-        "goal_pose": [
-          363.3008552617202,
-          206.8698441710543,
-          -2.543472777494527
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          216.53220937806472,
-          417.295317097419,
-          -1.651610500827835
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1269,
-        "start_arena_clearance": 31.267823529286204,
-        "start_goal_distance": 256.5539223453933,
-        "start_obstacle_clearance": 92.79984402262464
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 177.0230502978265,
-        "agent_pos": [
-          226.4562124462068,
-          390.44632531061177
-        ],
-        "blocked_fraction": 0.7096774193548387,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 21.398024671057957,
-        "goal_obstacle_clearance": 30.34605739983798,
-        "goal_pose": [
-          96.39802444564756,
-          252.9711494916119,
-          -2.498169075073193
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          376.17551195781,
-          295.99373566637985,
-          -0.9560270603951899
-        ],
-        "primary_hit_segment": 0,
-        "seed": 168,
-        "start_arena_clearance": 65.90494612879888,
-        "start_goal_distance": 283.06604430730215,
-        "start_obstacle_clearance": 10.918904332924093
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 148.80016293388846,
-        "agent_pos": [
-          120.58896332259499,
-          330.66481020069796
-        ],
-        "blocked_fraction": 0.2903225806451613,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 32.63185252319212,
-        "goal_obstacle_clearance": 117.42820388850457,
-        "goal_pose": [
-          386.6728701627085,
-          107.49813548178659,
-          0.8675721249381617
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          268.86500005178783,
-          343.1430080287023,
-          2.6297843108619112
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1098,
-        "start_arena_clearance": 100.23799880892511,
-        "start_goal_distance": 263.45246291831035,
-        "start_obstacle_clearance": 13.816164930551393
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 95.62160130193443,
-        "agent_pos": [
-          336.3936495896171,
-          142.33323609757173
-        ],
-        "blocked_fraction": 0.3548387096774194,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
           0.5666666666666667,
           0.6,
           0.6333333333333333,
@@ -44447,27 +44391,418 @@
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 120.27681077439223,
-        "goal_obstacle_clearance": 16.85416543961175,
+        "goal_arena_clearance": 93.91985650261898,
+        "goal_obstacle_clearance": 12.027943757378031,
         "goal_pose": [
-          178.44610351451402,
-          291.38898446562644,
-          3.039996588573259
+          166.2782087661188,
+          294.7195632689617,
+          -2.764289586310603
         ],
+        "goal_spawn_exclusion_clearance": 83.81983419062391,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          414.0433498786253,
-          86.52987884576018,
-          1.0852997132525766
+          273.0566272783895,
+          80.61717263779369,
+          2.008992657139466
         ],
         "primary_hit_segment": 0,
-        "seed": 31,
-        "start_arena_clearance": 12.464136009686325,
-        "start_goal_distance": 312.2071678384775,
-        "start_obstacle_clearance": 151.50318562635778
+        "seed": 1102,
+        "start_arena_clearance": 32.65066942495523,
+        "start_goal_distance": 239.25188470305284,
+        "start_obstacle_clearance": 80.75955138310933,
+        "start_spawn_exclusion_clearance": 8.335380381742226
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 146.10661558369046,
+        "agent_pos": [
+          107.22283427620076,
+          298.8328881276129
+        ],
+        "blocked_fraction": 0.3548387096774194,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 48.52287106988444,
+        "goal_obstacle_clearance": 128.75985059606535,
+        "goal_pose": [
+          370.2758871486238,
+          98.38822994397144,
+          -2.0835673567208324
+        ],
+        "goal_spawn_exclusion_clearance": 109.23786322081719,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          199.47579323905677,
+          412.1313200669734,
+          -0.7758902303122328
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1376,
+        "start_arena_clearance": 35.828564780292595,
+        "start_goal_distance": 357.2217780027514,
+        "start_obstacle_clearance": 85.94502653770472,
+        "start_spawn_exclusion_clearance": 198.33187635122704
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 182.17241147698684,
+        "agent_pos": [
+          422.6104565671919,
+          371.8319671269323
+        ],
+        "blocked_fraction": 0.41935483870967744,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.1,
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 41.26205971887981,
+        "goal_obstacle_clearance": 51.54942857467604,
+        "goal_pose": [
+          240.60087769390907,
+          415.8450491438772,
+          1.3370119449602755
+        ],
+        "goal_spawn_exclusion_clearance": 228.4157568690618,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          339.0995517071338,
+          209.92855063180414,
+          -2.9651090132038385
+        ],
+        "primary_hit_segment": 0,
+        "seed": 299,
+        "start_arena_clearance": 116.46595369427217,
+        "start_goal_distance": 228.26211499466154,
+        "start_obstacle_clearance": 16.106924351812953,
+        "start_spawn_exclusion_clearance": 150.44936761267746
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 203.7837300832535,
+        "agent_pos": [
+          304.96716356796327,
+          432.9419312987881
+        ],
+        "blocked_fraction": 0.45161290322580644,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 45.52876989281924,
+        "goal_obstacle_clearance": 149.18640644924614,
+        "goal_pose": [
+          400.56938795900703,
+          115.66841673530051,
+          -2.3005203067628783
+        ],
+        "goal_spawn_exclusion_clearance": 142.25406183048267,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          136.0636318987272,
+          318.9269952758982,
+          1.2388080521728444
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1509,
+        "start_arena_clearance": 60.270067159831086,
+        "start_goal_distance": 333.58259058194955,
+        "start_obstacle_clearance": 58.5687779608735,
+        "start_spawn_exclusion_clearance": 88.60066945194313
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 195.7365454460431,
+        "agent_pos": [
+          413.708781052606,
+          213.28361514359918
+        ],
+        "blocked_fraction": 0.6451612903225806,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667,
+          0.9
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 83.08567277833392,
+        "goal_obstacle_clearance": 14.382697726570676,
+        "goal_pose": [
+          291.90825602577473,
+          158.067818449065,
+          0.9054747152836669
+        ],
+        "goal_spawn_exclusion_clearance": 85.37104339472,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          292.30028072624646,
+          366.8178825618379,
+          2.309560670502671
+        ],
+        "primary_hit_segment": 0,
+        "seed": 30,
+        "start_arena_clearance": 70.52217579715409,
+        "start_goal_distance": 208.75043221620544,
+        "start_obstacle_clearance": 35.58768597693162,
+        "start_spawn_exclusion_clearance": 192.6173601595513
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 149.18313443931737,
+        "agent_pos": [
+          342.4743146740846,
+          122.12099696322801
+        ],
+        "blocked_fraction": 0.4838709677419355,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 56.68062937297559,
+        "goal_obstacle_clearance": 64.12684164222239,
+        "goal_pose": [
+          121.47696326906171,
+          288.45443288812686,
+          -1.1712336677408868
+        ],
+        "goal_spawn_exclusion_clearance": 39.164065995670086,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          412.96722819404033,
+          253.59858723855777,
+          -0.19702125955894373
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1346,
+        "start_arena_clearance": 43.12976735307058,
+        "start_goal_distance": 293.56686550423365,
+        "start_obstacle_clearance": 67.11767744340456,
+        "start_spawn_exclusion_clearance": 210.09886971102486
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 159.50419742173756,
+        "agent_pos": [
+          376.00343659256686,
+          399.75410952218647
+        ],
+        "blocked_fraction": 0.7096774193548387,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 46.93430645195958,
+        "goal_obstacle_clearance": 23.73288696498,
+        "goal_pose": [
+          259.52491237349,
+          114.36286248770425,
+          -1.3805025057448193
+        ],
+        "goal_spawn_exclusion_clearance": 31.493847957377398,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          221.30719278940944,
+          360.8868849191008,
+          -0.4941329917967087
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1105,
+        "start_arena_clearance": 77.97056943596505,
+        "start_goal_distance": 249.46881112869224,
+        "start_obstacle_clearance": 24.30247176814617,
+        "start_spawn_exclusion_clearance": 177.67671830054672
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 136.6858174931359,
+        "agent_pos": [
+          410.72821771141645,
+          83.4248488324992
+        ],
+        "blocked_fraction": 0.45161290322580644,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.1,
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 12.410180358527157,
+        "goal_obstacle_clearance": 147.5331322774405,
+        "goal_pose": [
+          85.67472528281107,
+          399.72880778907836,
+          2.059424684268012
+        ],
+        "goal_spawn_exclusion_clearance": 152.2755968442583,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          324.33498075776146,
+          189.34567451109967,
+          1.1304560051279002
+        ],
+        "primary_hit_segment": 0,
+        "seed": 6,
+        "start_arena_clearance": 115.88814463260222,
+        "start_goal_distance": 318.15056233052354,
+        "start_obstacle_clearance": 15.798895496620668,
+        "start_spawn_exclusion_clearance": 125.12448718718002
       },
       {
         "agent_angle": 0.0,
@@ -44502,6 +44837,7 @@
           279.1859796523542,
           0.1433492293956007
         ],
+        "goal_spawn_exclusion_clearance": 179.1683975023061,
         "hit_segments": [
           0
         ],
@@ -44515,18 +44851,22 @@
         "seed": 1388,
         "start_arena_clearance": 40.172900456044616,
         "start_goal_distance": 287.36620642035695,
-        "start_obstacle_clearance": 149.6293418539216
+        "start_obstacle_clearance": 149.6293418539216,
+        "start_spawn_exclusion_clearance": 127.67609256146159
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 212.92395312928463,
+        "agent_object_distance": 85.6070006706813,
         "agent_pos": [
-          232.74554681225598,
-          87.79701046286645
+          374.7730638704234,
+          99.36809865162725
         ],
         "blocked_fraction": 0.3548387096774194,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
           0.36666666666666664,
           0.4,
           0.43333333333333335,
@@ -44534,50 +44874,47 @@
           0.5,
           0.5333333333333333,
           0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7
+          0.6
         ],
         "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 63.849900570655755,
-        "goal_obstacle_clearance": 88.84525364106173,
+        "goal_arena_clearance": 26.5717176287518,
+        "goal_obstacle_clearance": 155.91023305082658,
         "goal_pose": [
-          123.81679316493333,
-          360.0865940073675,
-          0.002197504105428089
+          87.44865116474077,
+          409.36426281160027,
+          0.30239995011592574
         ],
+        "goal_spawn_exclusion_clearance": 151.25051581177377,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          437.63395439623395,
-          145.73965670812797,
-          1.7655806164559196
+          417.01099758363944,
+          173.82960225898128,
+          -1.4223669913754389
         ],
         "primary_hit_segment": 0,
-        "seed": 551,
-        "start_arena_clearance": 18.603726116293217,
-        "start_goal_distance": 380.03397244567,
-        "start_obstacle_clearance": 148.17612667463553
+        "seed": 463,
+        "start_arena_clearance": 18.595385446900536,
+        "start_goal_distance": 405.0776672426753,
+        "start_obstacle_clearance": 92.95681383775677,
+        "start_spawn_exclusion_clearance": 196.33084180022678
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 179.31872397950139,
+        "agent_object_distance": 194.05843650852,
         "agent_pos": [
-          412.46879442250093,
-          159.55087377543376
+          146.99392730381464,
+          435.5216845505373
         ],
         "blocked_fraction": 0.5161290322580645,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.3333333333333333,
-          0.36666666666666664,
           0.4,
           0.43333333333333335,
           0.4666666666666667,
@@ -44591,45 +44928,157 @@
           0.7333333333333333,
           0.7666666666666666,
           0.8,
-          0.8333333333333334
+          0.8333333333333334,
+          0.8666666666666667,
+          0.9
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 43.20424250357689,
+        "goal_obstacle_clearance": 17.22140590194529,
+        "goal_pose": [
+          242.60609815054912,
+          118.17354515193958,
+          -0.955907311447933
+        ],
+        "goal_spawn_exclusion_clearance": 21.34027394576202,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          340.6651051746861,
+          447.7753224691538,
+          3.1082663792995597
+        ],
+        "primary_hit_segment": 0,
+        "seed": 256,
+        "start_arena_clearance": 17.25045828778468,
+        "start_goal_distance": 343.87919458616017,
+        "start_obstacle_clearance": 72.892434762184,
+        "start_spawn_exclusion_clearance": 293.7682857198809
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 155.39326420065765,
+        "agent_pos": [
+          386.8002279335208,
+          237.81696999820937
+        ],
+        "blocked_fraction": 0.3870967741935484,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666
         ],
         "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 67.01649938613104,
-        "goal_obstacle_clearance": 15.319217057513802,
+        "goal_arena_clearance": 50.083550705003404,
+        "goal_obstacle_clearance": 72.70036685166332,
         "goal_pose": [
-          114.18115833845921,
-          228.50128434297363,
-          0.4670846806504528
+          111.09051668662674,
+          310.901255430021,
+          -3.1188694621912223
         ],
+        "goal_spawn_exclusion_clearance": 55.073292815298856,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          253.00501213427142,
-          77.53558917574011,
-          2.4145957034730428
+          333.0544531945293,
+          92.01416393247901,
+          -1.7859289435831796
         ],
         "primary_hit_segment": 0,
-        "seed": 450,
-        "start_arena_clearance": 11.528130493211016,
-        "start_goal_distance": 205.09193913961397,
-        "start_obstacle_clearance": 57.55134990334836
+        "seed": 708,
+        "start_arena_clearance": 36.59943325101387,
+        "start_goal_distance": 311.7363436212363,
+        "start_obstacle_clearance": 96.17079329619925,
+        "start_spawn_exclusion_clearance": 79.60992783023164
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 117.12444848821568,
+        "agent_object_distance": 110.2110659130923,
         "agent_pos": [
-          204.32541673367567,
-          353.3754806068877
+          224.7145122667472,
+          393.0506042806258
         ],
-        "blocked_fraction": 0.3870967741935484,
+        "blocked_fraction": 0.4838709677419355,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667,
+          0.9
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 47.113668223509116,
+        "goal_obstacle_clearance": 25.56708997703614,
+        "goal_pose": [
+          271.50094689593135,
+          122.04438256410869,
+          0.8843079858467021
+        ],
+        "goal_spawn_exclusion_clearance": 53.83860438100211,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          116.41932560720612,
+          413.51109293742803,
+          -0.46615627191731107
+        ],
+        "primary_hit_segment": 0,
+        "seed": 573,
+        "start_arena_clearance": 24.74938181470384,
+        "start_goal_distance": 330.156254699777,
+        "start_obstacle_clearance": 134.98407795407667,
+        "start_spawn_exclusion_clearance": 177.3494039944237
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 143.15181357020768,
+        "agent_pos": [
+          374.3452731384364,
+          128.41490392845915
+        ],
+        "blocked_fraction": 0.4838709677419355,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.2,
           0.23333333333333334,
           0.26666666666666666,
           0.3,
@@ -44641,34 +45090,38 @@
           0.5,
           0.5333333333333333,
           0.5666666666666667,
-          0.6
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666
         ],
-        "crossing_direction": 1,
+        "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 12.401035208197639,
-        "goal_obstacle_clearance": 85.00267927088741,
+        "goal_arena_clearance": 17.34567874685754,
+        "goal_obstacle_clearance": 81.5261464829136,
         "goal_pose": [
-          298.7407590429918,
-          70.28494751267215,
-          -1.685730885061913
+          91.68772136707605,
+          298.08348614205164,
+          -0.7760576782802866
         ],
+        "goal_spawn_exclusion_clearance": 46.485962940171845,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          119.34404767943016,
-          272.77583205098637,
-          2.4435514377254117
+          429.6779933843681,
+          260.4404007032297,
+          2.9923274543394056
         ],
         "primary_hit_segment": 0,
-        "seed": 201,
-        "start_arena_clearance": 59.64863677266374,
-        "start_goal_distance": 270.5286276333245,
-        "start_obstacle_clearance": 46.03013495978361
+        "seed": 4,
+        "start_arena_clearance": 16.297150110042082,
+        "start_goal_distance": 340.08002861043974,
+        "start_obstacle_clearance": 70.12345635263722,
+        "start_spawn_exclusion_clearance": 245.53440573404782
       },
       {
         "agent_angle": 0.0,
@@ -44712,6 +45165,7 @@
           222.2250862663892,
           1.1669465151963818
         ],
+        "goal_spawn_exclusion_clearance": 202.6186356309601,
         "hit_segments": [
           0
         ],
@@ -44725,322 +45179,8 @@
         "seed": 1298,
         "start_arena_clearance": 56.66395649729495,
         "start_goal_distance": 278.9657379805823,
-        "start_obstacle_clearance": 40.72457688605359
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 147.86864956326474,
-        "agent_pos": [
-          360.43504995567383,
-          64.45321133196306
-        ],
-        "blocked_fraction": 0.45161290322580644,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 12.294047426736029,
-        "goal_obstacle_clearance": 169.94000639681835,
-        "goal_pose": [
-          117.39743005065878,
-          451.8844880679001,
-          1.1288934102512995
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          366.3415898398054,
-          212.2038468983144,
-          -1.6708533089390436
-        ],
-        "primary_hit_segment": 0,
-        "seed": 517,
-        "start_arena_clearance": 69.53517283032329,
-        "start_goal_distance": 345.571996036409,
-        "start_obstacle_clearance": 32.285602161302194
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 123.47356044309343,
-        "agent_pos": [
-          423.25472406743853,
-          265.59239945102456
-        ],
-        "blocked_fraction": 0.3548387096774194,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 36.74466122675585,
-        "goal_obstacle_clearance": 171.87164285269665,
-        "goal_pose": [
-          99.43703886165352,
-          420.7469167551568,
-          -1.3236884245822576
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          380.09847458039206,
-          149.90636633247541,
-          -1.7531189887132288
-        ],
-        "primary_hit_segment": 0,
-        "seed": 107,
-        "start_arena_clearance": 55.42492098417131,
-        "start_goal_distance": 390.03262075493717,
-        "start_obstacle_clearance": 87.67793152214607
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 194.05843650852,
-        "agent_pos": [
-          146.99392730381464,
-          435.5216845505373
-        ],
-        "blocked_fraction": 0.5161290322580645,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8,
-          0.8333333333333334,
-          0.8666666666666667,
-          0.9
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 43.20424250357689,
-        "goal_obstacle_clearance": 17.22140590194529,
-        "goal_pose": [
-          242.60609815054912,
-          118.17354515193958,
-          -0.955907311447933
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          340.6651051746861,
-          447.7753224691538,
-          3.1082663792995597
-        ],
-        "primary_hit_segment": 0,
-        "seed": 256,
-        "start_arena_clearance": 17.25045828778468,
-        "start_goal_distance": 343.87919458616017,
-        "start_obstacle_clearance": 72.892434762184
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 85.88157611554196,
-        "agent_pos": [
-          168.78715641132166,
-          404.98254063588456
-        ],
-        "blocked_fraction": 0.7419354838709677,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8,
-          0.8333333333333334,
-          0.8666666666666667,
-          0.9
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 38.18271799297389,
-        "goal_obstacle_clearance": 12.985683127348594,
-        "goal_pose": [
-          198.4246563320087,
-          103.31378708509416,
-          -0.4084940960472023
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          176.25225421068504,
-          319.42602463075747,
-          0.004865610301513472
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1251,
-        "start_arena_clearance": 116.32594830074196,
-        "start_goal_distance": 217.2466677139672,
-        "start_obstacle_clearance": 23.045418171197745
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 217.74783977292748,
-        "agent_pos": [
-          427.87525237400075,
-          357.4754828838612
-        ],
-        "blocked_fraction": 0.3548387096774194,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 17.663812969175694,
-        "goal_obstacle_clearance": 163.9132378346966,
-        "goal_pose": [
-          71.9903133977823,
-          388.18067642895016,
-          0.5925101259391344
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          385.98696323929505,
-          143.7946625954137,
-          -0.25818975557000157
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1472,
-        "start_arena_clearance": 71.83177131821299,
-        "start_goal_distance": 397.89247274752387,
-        "start_obstacle_clearance": 116.80134047905808
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 105.36013996102002,
-        "agent_pos": [
-          186.91589029001656,
-          341.72491292185236
-        ],
-        "blocked_fraction": 0.3870967741935484,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 22.391863662956204,
-        "goal_obstacle_clearance": 160.90987210396062,
-        "goal_pose": [
-          398.163756293465,
-          90.94786405121658,
-          -2.4848207383775005
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          116.76360620677946,
-          263.1156505508663,
-          -0.8824996848463716
-        ],
-        "primary_hit_segment": 0,
-        "seed": 82,
-        "start_arena_clearance": 43.89544154216501,
-        "start_goal_distance": 329.8905745501046,
-        "start_obstacle_clearance": 41.22339702529432
+        "start_obstacle_clearance": 40.72457688605359,
+        "start_spawn_exclusion_clearance": 82.19750131880386
       },
       {
         "agent_angle": 0.0,
@@ -45081,6 +45221,7 @@
           409.4373474140213,
           -2.469762402575546
         ],
+        "goal_spawn_exclusion_clearance": 205.2076712304924,
         "hit_segments": [
           0
         ],
@@ -45094,73 +45235,19 @@
         "seed": 206,
         "start_arena_clearance": 53.27668005680778,
         "start_goal_distance": 289.32762131469724,
-        "start_obstacle_clearance": 52.839201045976075
+        "start_obstacle_clearance": 52.839201045976075,
+        "start_spawn_exclusion_clearance": 205.57320718211696
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 183.41398879232588,
+        "agent_object_distance": 133.00607911449345,
         "agent_pos": [
-          402.2604331699337,
-          379.6914128700676
+          180.4122021564312,
+          382.15305860210265
         ],
-        "blocked_fraction": 0.41935483870967744,
+        "blocked_fraction": 0.45161290322580644,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 19.900530621704036,
-        "goal_obstacle_clearance": 198.7165657603432,
-        "goal_pose": [
-          430.33798835847136,
-          77.11617767799326,
-          1.8948243454189277
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 5,
-        "object_pose": [
-          218.9193499426484,
-          374.52048589735904,
-          -0.5798157518372884
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1155,
-        "start_arena_clearance": 66.51919633185867,
-        "start_goal_distance": 364.89335869133055,
-        "start_obstacle_clearance": 38.10390249716233
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 205.18446735443473,
-        "agent_pos": [
-          180.46382535007902,
-          379.7230267299331
-        ],
-        "blocked_fraction": 0.5483870967741935,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
           0.23333333333333334,
           0.26666666666666666,
           0.3,
@@ -45173,45 +45260,100 @@
           0.5333333333333333,
           0.5666666666666667,
           0.6,
-          0.6333333333333333
+          0.6333333333333333,
+          0.6666666666666666
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
+        "goal_arena_clearance": 16.373187846993403,
+        "goal_obstacle_clearance": 107.27381833488623,
+        "goal_pose": [
+          440.59911360320626,
+          205.4491196380581,
+          1.7510505676438364
+        ],
+        "goal_spawn_exclusion_clearance": 209.81581600042495,
+        "hit_segments": [
+          0
+        ],
+        "level": 5,
+        "object_pose": [
+          78.94738266743096,
+          296.1559220946846,
+          -1.8793230947800896
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1406,
+        "start_arena_clearance": 17.852876683943542,
+        "start_goal_distance": 372.85345445730803,
+        "start_obstacle_clearance": 76.0719554166861,
+        "start_spawn_exclusion_clearance": 47.93130571770604
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 174.1400635542322,
+        "agent_pos": [
+          387.9752122722682,
+          200.60568257420275
+        ],
+        "blocked_fraction": 0.3225806451612903,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333
         ],
         "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 25.012737707903934,
-        "goal_obstacle_clearance": 47.855949414415115,
+        "goal_arena_clearance": 27.387492448156323,
+        "goal_obstacle_clearance": 159.1678534551682,
         "goal_pose": [
-          93.9642210139573,
-          272.86455180083476,
-          -0.23913788034248784
+          99.23279975343027,
+          410.7447532685569,
+          -0.9345708558344924
         ],
+        "goal_spawn_exclusion_clearance": 149.95002823376853,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          368.7985275108869,
-          298.2938820363845,
-          -2.0305483358955247
+          255.5775984545511,
+          87.48789621835739,
+          -2.7245616597901887
         ],
         "primary_hit_segment": 0,
-        "seed": 811,
-        "start_arena_clearance": 69.33339190273665,
-        "start_goal_distance": 276.00823694932893,
-        "start_obstacle_clearance": 13.413650564035978
+        "seed": 235,
+        "start_arena_clearance": 12.840014015772127,
+        "start_goal_distance": 359.08034158230817,
+        "start_obstacle_clearance": 51.27056604770578,
+        "start_spawn_exclusion_clearance": 9.110233379607934
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 157.99419486418975,
+        "agent_object_distance": 157.45178699268547,
         "agent_pos": [
-          148.97341142787977,
-          324.51428598017446
+          93.15776222511403,
+          444.94523625891645
         ],
-        "blocked_fraction": 0.5806451612903226,
+        "blocked_fraction": 0.7419354838709677,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
+          0.16666666666666666,
+          0.2,
           0.23333333333333334,
           0.26666666666666666,
           0.3,
@@ -45229,50 +45371,50 @@
           0.7,
           0.7333333333333333,
           0.7666666666666666,
-          0.8
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667,
+          0.9
         ],
         "crossing_direction": 1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 88.81733357025173,
-        "goal_obstacle_clearance": 60.17042006452269,
+        "goal_arena_clearance": 104.03729210419021,
+        "goal_obstacle_clearance": 23.623765691543348,
         "goal_pose": [
-          305.58199265202495,
-          143.03510917963186,
-          1.8277604746873586
+          359.85711842275754,
+          231.86938234332766,
+          -2.7069667135074003
         ],
+        "goal_spawn_exclusion_clearance": 171.43652034639342,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          280.29991471870255,
-          412.35229110431806,
-          -0.7340118073131181
+          218.01177745751198,
+          349.01536548063314,
+          0.6228520387511504
         ],
         "primary_hit_segment": 0,
-        "seed": 304,
-        "start_arena_clearance": 33.91292301582456,
-        "start_goal_distance": 270.5012531292251,
-        "start_obstacle_clearance": 35.11198726503293
+        "seed": 467,
+        "start_arena_clearance": 93.3179733598887,
+        "start_goal_distance": 183.9654372939456,
+        "start_obstacle_clearance": 38.641606093545626,
+        "start_spawn_exclusion_clearance": 139.4381840436301
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 143.15181357020768,
+        "agent_object_distance": 183.3979741740302,
         "agent_pos": [
-          374.3452731384364,
-          128.41490392845915
+          418.2713239015681,
+          291.4846058982904
         ],
-        "blocked_fraction": 0.4838709677419355,
+        "blocked_fraction": 0.2903225806451613,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
           0.36666666666666664,
           0.4,
           0.43333333333333335,
@@ -45281,44 +45423,45 @@
           0.5333333333333333,
           0.5666666666666667,
           0.6,
-          0.6333333333333333,
-          0.6666666666666666
+          0.6333333333333333
         ],
         "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "9fc4ada4b874e2836df784082dbd8811205a8e3ed0169da358bbd2a405b7d11d",
-        "goal_arena_clearance": 17.34567874685754,
-        "goal_obstacle_clearance": 81.5261464829136,
+        "goal_arena_clearance": 25.92135679290618,
+        "goal_obstacle_clearance": 155.80590793994367,
         "goal_pose": [
-          91.68772136707605,
-          298.08348614205164,
-          -0.7760576782802866
+          113.21199676454613,
+          416.2079969638767,
+          0.6163435407949434
         ],
+        "goal_spawn_exclusion_clearance": 156.42396733954558,
         "hit_segments": [
           0
         ],
         "level": 5,
         "object_pose": [
-          429.6779933843681,
-          260.4404007032297,
-          2.9923274543394056
+          444.6892686551556,
+          109.99931964583782,
+          1.5030221158001034
         ],
         "primary_hit_segment": 0,
-        "seed": 4,
-        "start_arena_clearance": 16.297150110042082,
-        "start_goal_distance": 340.08002861043974,
-        "start_obstacle_clearance": 70.12345635263722
+        "seed": 898,
+        "start_arena_clearance": 18.35070175119654,
+        "start_goal_distance": 451.26592586290394,
+        "start_obstacle_clearance": 166.2948101346508,
+        "start_spawn_exclusion_clearance": 182.19064494702263
       }
     ],
     "6": [
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 136.81310424432107,
+        "agent_object_distance": 146.6470723225511,
         "agent_pos": [
-          109.53261670720129,
-          143.92749112323264
+          99.36405897156389,
+          108.79660900794266
         ],
         "blocked_fraction": 0.8064516129032258,
         "chain_joint_angle": 0.12,
@@ -45354,1041 +45497,29 @@
           0
         ],
         "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 18.93027875049893,
-        "goal_obstacle_clearance": 22.048721435251295,
+        "goal_arena_clearance": 100.10478849320145,
+        "goal_obstacle_clearance": 21.141430893451446,
         "goal_pose": [
-          447.61621915106406,
-          191.67444532525408,
-          1.578376313660347
+          358.3972243165021,
+          259.01852873786606,
+          -2.8609476512084053
         ],
+        "goal_spawn_exclusion_clearance": 24.82102065918656,
         "hit_segments": [
           0
         ],
         "level": 6,
         "object_pose": [
-          246.0749122228654,
-          152.53138723374605,
-          -2.2133195800683563
+          158.33470885678548,
+          243.0643500066284,
+          1.6865813826138951
         ],
         "primary_hit_segment": 0,
-        "seed": 967,
-        "start_arena_clearance": 95.58128510904763,
-        "start_goal_distance": 205.30727555320962,
-        "start_obstacle_clearance": 18.928650494726234
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 140.8686451890418,
-        "agent_pos": [
-          419.529287226626,
-          345.8182793449055
-        ],
-        "blocked_fraction": 0.41935483870967744,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 32.77020856493846,
-        "goal_obstacle_clearance": 128.42258895627344,
-        "goal_pose": [
-          97.35689809778941,
-          121.23110645487422,
-          -1.1767583341336192
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          283.3195471357469,
-          381.74712432733304,
-          -0.12137117455911725
-        ],
-        "primary_hit_segment": 0,
-        "seed": 618,
-        "start_arena_clearance": 53.98850782816214,
-        "start_goal_distance": 320.0792127041958,
-        "start_obstacle_clearance": 40.79375398221936
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 149.89196240207534,
-        "agent_pos": [
-          250.71171296657505,
-          82.63460653733435
-        ],
-        "blocked_fraction": 0.25806451612903225,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 11.532472260007694,
-        "goal_obstacle_clearance": 195.1531041523707,
-        "goal_pose": [
-          425.6997099655216,
-          444.6684327880866,
-          -0.9505424755066029
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          100.82527817031739,
-          83.92187372497037,
-          0.7737276252888565
-        ],
-        "primary_hit_segment": 0,
-        "seed": 855,
-        "start_arena_clearance": 9.804499803848948,
-        "start_goal_distance": 485.4703660473368,
-        "start_obstacle_clearance": 167.5818481526638
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 150.37154100071982,
-        "agent_pos": [
-          111.1493689376203,
-          398.1390274828498
-        ],
-        "blocked_fraction": 0.4838709677419355,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8,
-          0.8333333333333334
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 15.806978558072654,
-        "goal_obstacle_clearance": 40.873130387781536,
-        "goal_pose": [
-          263.8100432761432,
-          90.79390898388161,
-          0.9459642324693277
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          255.77937398227914,
-          439.29436715722403,
-          1.5176167421360987
-        ],
-        "primary_hit_segment": 0,
-        "seed": 941,
-        "start_arena_clearance": 13.587772730781069,
-        "start_goal_distance": 348.5929732457856,
-        "start_obstacle_clearance": 92.24600767203438
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 176.85456621976638,
-        "agent_pos": [
-          187.2780878816982,
-          438.3897330594332
-        ],
-        "blocked_fraction": 0.6774193548387096,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 52.14247271395641,
-        "goal_obstacle_clearance": 50.61190460462673,
-        "goal_pose": [
-          383.39490197351546,
-          311.56609312023204,
-          -1.7925384422737374
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          109.19299730335266,
-          279.7068536358693,
-          -1.4184317538089084
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1004,
-        "start_arena_clearance": 55.60778021821698,
-        "start_goal_distance": 276.0465461933313,
-        "start_obstacle_clearance": 25.699855030935808
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 151.99686661156812,
-        "agent_pos": [
-          399.64746302158005,
-          447.426794981937
-        ],
-        "blocked_fraction": 0.6451612903225806,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 89.10642043110124,
-        "goal_obstacle_clearance": 33.531323001166065,
-        "goal_pose": [
-          235.6527724210372,
-          136.24078831869247,
-          2.0373780336474496
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          320.5389582111095,
-          317.63892218025114,
-          2.95001052718525
-        ],
-        "primary_hit_segment": 0,
-        "seed": 408,
-        "start_arena_clearance": 123.99023525984938,
-        "start_goal_distance": 200.27717669880067,
-        "start_obstacle_clearance": 14.667451399222033
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 181.11246350032144,
-        "agent_pos": [
-          104.59914956286117,
-          363.96441773024895
-        ],
-        "blocked_fraction": 0.3225806451612903,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 28.74033571808691,
-        "goal_obstacle_clearance": 134.44342932575483,
-        "goal_pose": [
-          120.42444700000799,
-          99.71194947442433,
-          -2.5621728668274777
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          275.32481909223657,
-          424.416631907248,
-          -1.3512557184726188
-        ],
-        "primary_hit_segment": 0,
-        "seed": 267,
-        "start_arena_clearance": 32.29023135292596,
-        "start_goal_distance": 359.75999787095805,
-        "start_obstacle_clearance": 60.78491179112932
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 101.8243248390085,
-        "agent_pos": [
-          77.45572964218155,
-          190.5320835040903
-        ],
-        "blocked_fraction": 0.45161290322580644,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 24.287561107098213,
-        "goal_obstacle_clearance": 105.82121908244011,
-        "goal_pose": [
-          319.8826681337471,
-          417.6053729989949,
-          -2.577508350261862
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          178.55486498154477,
-          202.66295167388927,
-          -2.962509044824979
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1219,
-        "start_arena_clearance": 111.49866846493813,
-        "start_goal_distance": 257.24267225506514,
-        "start_obstacle_clearance": 13.528819218719622
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 183.43583488022963,
-        "agent_pos": [
-          253.2497932287287,
-          440.76210840282056
-        ],
-        "blocked_fraction": 0.5483870967741935,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 25.012737707903934,
-        "goal_obstacle_clearance": 80.46289403792305,
-        "goal_pose": [
-          93.9642210139573,
-          272.86455180083476,
-          -0.23913788034248784
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          368.7985275108869,
-          298.2938820363845,
-          -2.0305483358955247
-        ],
-        "primary_hit_segment": 0,
-        "seed": 811,
-        "start_arena_clearance": 69.33339190273665,
-        "start_goal_distance": 276.00823694932893,
-        "start_obstacle_clearance": 34.42379500156369
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 133.850175386205,
-        "agent_pos": [
-          149.4906182638808,
-          157.82147673797934
-        ],
-        "blocked_fraction": 0.5483870967741935,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8,
-          0.8333333333333334,
-          0.8666666666666667,
-          0.9
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 34.70279602619064,
-        "goal_obstacle_clearance": 23.07008344225805,
-        "goal_pose": [
-          412.60308912471766,
-          208.17180283577497,
-          1.1739339026556193
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          65.9869304492289,
-          262.4302888537423,
-          0.21957396765350684
-        ],
-        "primary_hit_segment": 0,
-        "seed": 577,
-        "start_arena_clearance": 10.694718021850026,
-        "start_goal_distance": 350.8372054955311,
-        "start_obstacle_clearance": 88.84425175938284
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 121.308811893702,
-        "agent_pos": [
-          421.53465165646196,
-          260.54103811093285
-        ],
-        "blocked_fraction": 0.45161290322580644,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8,
-          0.8333333333333334,
-          0.8666666666666667
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 24.647478027690852,
-        "goal_obstacle_clearance": 58.23039110779642,
-        "goal_pose": [
-          266.09239510758664,
-          78.30981370845792,
-          2.151045845415862
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          437.0018998445866,
-          380.85974852850893,
-          -0.6155239263890634
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1214,
-        "start_arena_clearance": 19.447056472048985,
-        "start_goal_distance": 347.48600240738295,
-        "start_obstacle_clearance": 157.7810701913579
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 115.4500802804223,
-        "agent_pos": [
-          131.00737150435614,
-          174.21657038767825
-        ],
-        "blocked_fraction": 0.6451612903225806,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 54.61423044016931,
-        "goal_obstacle_clearance": 26.882791605218447,
-        "goal_pose": [
-          194.70688588379574,
-          398.89037822480225,
-          0.8974724182758133
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          241.79569188549445,
-          141.7409009737584,
-          -2.01082665279581
-        ],
-        "primary_hit_segment": 0,
-        "seed": 994,
-        "start_arena_clearance": 93.84607976350745,
-        "start_goal_distance": 261.4253417347881,
-        "start_obstacle_clearance": 35.458429326626245
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 82.63631071570838,
-        "agent_pos": [
-          424.96984300788785,
-          310.79348759480126
-        ],
-        "blocked_fraction": 0.5161290322580645,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 33.29699799312161,
-        "goal_obstacle_clearance": 71.73415667372088,
-        "goal_pose": [
-          103.69489452068356,
-          198.79392620486013,
-          -2.850226154198647
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          413.3660458146592,
-          228.97593605846208,
-          1.3365457098621614
-        ],
-        "primary_hit_segment": 0,
-        "seed": 821,
-        "start_arena_clearance": 40.93612106239965,
-        "start_goal_distance": 311.1385152348376,
-        "start_obstacle_clearance": 36.11194725629658
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 209.1391611639586,
-        "agent_pos": [
-          125.94143793420365,
-          416.380642478184
-        ],
-        "blocked_fraction": 0.5806451612903226,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 39.555773766112964,
-        "goal_obstacle_clearance": 59.584925359352326,
-        "goal_pose": [
-          414.0140231340112,
-          272.22253471191783,
-          -3.0526377674917997
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          127.92849836607432,
-          207.2509211968598,
-          1.4515138155901885
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1057,
-        "start_arena_clearance": 51.67643021886768,
-        "start_goal_distance": 293.3704791632858,
-        "start_obstacle_clearance": 46.05020882206103
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 196.60763985094806,
-        "agent_pos": [
-          126.72592892740734,
-          369.8374513304735
-        ],
-        "blocked_fraction": 0.6774193548387096,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 87.33984921000405,
-        "goal_obstacle_clearance": 58.079007321975084,
-        "goal_pose": [
-          338.600802896578,
-          355.08429144056095,
-          0.6257193332428858
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          188.58806370921607,
-          183.21580111807873,
-          -0.47438898268501156
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1415,
-        "start_arena_clearance": 114.65796938403511,
-        "start_goal_distance": 228.12847232255913,
-        "start_obstacle_clearance": 19.141452585450473
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 141.3360438300158,
-        "agent_pos": [
-          320.4632611818491,
-          342.5121812831655
-        ],
-        "blocked_fraction": 0.6451612903225806,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8,
-          0.8333333333333334,
-          0.8666666666666667,
-          0.9
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 32.85575954554353,
-        "goal_obstacle_clearance": 12.762769876517416,
-        "goal_pose": [
-          306.182960995274,
-          85.16857167867597,
-          -0.12840747390220716
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          411.13007210218416,
-          234.08982803875213,
-          -0.9987428083782207
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1480,
-        "start_arena_clearance": 29.6902021294232,
-        "start_goal_distance": 182.18517153036814,
-        "start_obstacle_clearance": 33.51713118619281
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 190.86854139635224,
-        "agent_pos": [
-          96.39802444564756,
-          252.9711494916119
-        ],
-        "blocked_fraction": 0.41935483870967744,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333,
-          0.7666666666666666,
-          0.8,
-          0.8333333333333334
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 65.90494612879888,
-        "goal_obstacle_clearance": 54.72211450208732,
-        "goal_pose": [
-          376.17551195781,
-          295.99373566637985,
-          -0.9560270603951899
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          165.92803487737893,
-          75.21744982790769,
-          1.9930220290568044
-        ],
-        "primary_hit_segment": 0,
-        "seed": 168,
-        "start_arena_clearance": 26.63357784531351,
-        "start_goal_distance": 304.8707431147127,
-        "start_obstacle_clearance": 124.14371708744106
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 101.28860391316238,
-        "agent_pos": [
-          408.7734125292795,
-          251.92691328826893
-        ],
-        "blocked_fraction": 0.3870967741935484,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 48.17981677637495,
-        "goal_obstacle_clearance": 133.07862025896495,
-        "goal_pose": [
-          110.69310455522962,
-          114.11429549547181,
-          -0.058136156099300625
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          387.1028363615214,
-          350.870166778514,
-          -2.6970329747114876
-        ],
-        "primary_hit_segment": 0,
-        "seed": 1393,
-        "start_arena_clearance": 77.18006258395303,
-        "start_goal_distance": 363.94461450091353,
-        "start_obstacle_clearance": 104.25272216203106
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 117.89348375617656,
-        "agent_pos": [
-          116.18149312176946,
-          90.28317204596284
-        ],
-        "blocked_fraction": 0.3548387096774194,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 18.07577407541396,
-        "goal_obstacle_clearance": 115.49529316546541,
-        "goal_pose": [
-          345.7992083336737,
-          426.2120300654545,
-          0.6810597107898358
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          114.72111081010107,
-          208.16761035599438,
-          1.9782911277719668
-        ],
-        "primary_hit_segment": 0,
-        "seed": 502,
-        "start_arena_clearance": 39.91771270442588,
-        "start_goal_distance": 317.7112779262784,
-        "start_obstacle_clearance": 76.70793604712703
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 214.9017446684606,
-        "agent_pos": [
-          184.31555958935584,
-          450.67551758417636
-        ],
-        "blocked_fraction": 0.3870967741935484,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 40.099763550920606,
-        "goal_obstacle_clearance": 123.7518230746965,
-        "goal_pose": [
-          102.83486005578794,
-          122.75645153280878,
-          -3.0780818672589825
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          336.0119751623846,
-          298.455422446106,
-          0.9129235007554254
-        ],
-        "primary_hit_segment": 0,
-        "seed": 114,
-        "start_arena_clearance": 103.69366470207814,
-        "start_goal_distance": 291.96180467558884,
-        "start_obstacle_clearance": 24.99244734730273
+        "seed": 797,
+        "start_arena_clearance": 82.10398133360329,
+        "start_goal_distance": 200.69764799582887,
+        "start_obstacle_clearance": 10.884167510622483,
+        "start_spawn_exclusion_clearance": 156.11731429474492
       },
       {
         "agent_angle": 0.0,
@@ -46437,6 +45568,7 @@
           303.3165837318389,
           0.608279652499772
         ],
+        "goal_spawn_exclusion_clearance": 241.9412760415433,
         "hit_segments": [
           0
         ],
@@ -46450,18 +45582,252 @@
         "seed": 1039,
         "start_arena_clearance": 39.684035138988804,
         "start_goal_distance": 292.8156572246947,
-        "start_obstacle_clearance": 19.44622219762144
+        "start_obstacle_clearance": 19.44622219762144,
+        "start_spawn_exclusion_clearance": 26.245322181400212
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 100.6861884594295,
+        "agent_object_distance": 181.11246350032144,
         "agent_pos": [
-          147.31682057916623,
-          147.94997976080606
+          104.59914956286117,
+          363.96441773024895
         ],
-        "blocked_fraction": 0.5161290322580645,
+        "blocked_fraction": 0.3225806451612903,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 28.74033571808691,
+        "goal_obstacle_clearance": 134.44342932575483,
+        "goal_pose": [
+          120.42444700000799,
+          99.71194947442433,
+          -2.5621728668274777
+        ],
+        "goal_spawn_exclusion_clearance": 140.9632393152438,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          275.32481909223657,
+          424.416631907248,
+          -1.3512557184726188
+        ],
+        "primary_hit_segment": 0,
+        "seed": 267,
+        "start_arena_clearance": 32.29023135292596,
+        "start_goal_distance": 359.75999787095805,
+        "start_obstacle_clearance": 60.78491179112932,
+        "start_spawn_exclusion_clearance": 233.85917815803083
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 203.94786565031288,
+        "agent_pos": [
+          108.0740259270295,
+          430.8946935437571
+        ],
+        "blocked_fraction": 0.6129032258064516,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 32.468966162286165,
+        "goal_obstacle_clearance": 29.869245726791984,
+        "goal_pose": [
+          404.8132373768624,
+          243.3151302287355,
+          0.7302775560023064
+        ],
+        "goal_spawn_exclusion_clearance": 8.979030273542776,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          119.30338221873302,
+          227.25620636465817,
+          -2.577439710705911
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1397,
+        "start_arena_clearance": 44.53936329450124,
+        "start_goal_distance": 285.9611274772993,
+        "start_obstacle_clearance": 53.31298065977612,
+        "start_spawn_exclusion_clearance": 180.91165474181412
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 115.4500802804223,
+        "agent_pos": [
+          131.00737150435614,
+          174.21657038767825
+        ],
+        "blocked_fraction": 0.6451612903225806,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 54.61423044016931,
+        "goal_obstacle_clearance": 26.882791605218447,
+        "goal_pose": [
+          194.70688588379574,
+          398.89037822480225,
+          0.8974724182758133
+        ],
+        "goal_spawn_exclusion_clearance": 255.0007454094394,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          241.79569188549445,
+          141.7409009737584,
+          -2.01082665279581
+        ],
+        "primary_hit_segment": 0,
+        "seed": 994,
+        "start_arena_clearance": 93.84607976350745,
+        "start_goal_distance": 261.4253417347881,
+        "start_obstacle_clearance": 35.458429326626245,
+        "start_spawn_exclusion_clearance": 29.841239350275032
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 159.0484276925309,
+        "agent_pos": [
+          423.7144610812434,
+          318.00619895071776
+        ],
+        "blocked_fraction": 0.7419354838709677,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667,
+          0.9
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 57.75529468002427,
+        "goal_obstacle_clearance": 22.29435446199296,
+        "goal_pose": [
+          250.45960271752855,
+          119.76880870547559,
+          -0.3299769296687342
+        ],
+        "goal_spawn_exclusion_clearance": 26.237878979559724,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          280.89624075136317,
+          388.00161518115397,
+          -1.8070516001893555
+        ],
+        "primary_hit_segment": 0,
+        "seed": 202,
+        "start_arena_clearance": 55.13224641205744,
+        "start_goal_distance": 269.9541209254295,
+        "start_obstacle_clearance": 37.70751849692715,
+        "start_spawn_exclusion_clearance": 190.8773862409783
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 214.8497525927042,
+        "agent_pos": [
+          94.24982162124056,
+          262.0324692313801
+        ],
+        "blocked_fraction": 0.5483870967741935,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.23333333333333334,
           0.26666666666666666,
           0.3,
           0.3333333333333333,
@@ -46479,43 +45845,147 @@
           0.7333333333333333,
           0.7666666666666666
         ],
-        "crossing_direction": 1,
+        "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 73.3664645867259,
-        "goal_obstacle_clearance": 38.19569701455083,
+        "goal_arena_clearance": 116.94710587034653,
+        "goal_obstacle_clearance": 50.794413673950366,
         "goal_pose": [
-          267.7329253845068,
-          389.6901101055944,
-          -3.074110658906043
+          171.0271614940227,
+          186.364683976849,
+          0.5390313108989105
         ],
+        "goal_spawn_exclusion_clearance": 120.68221254927067,
         "hit_segments": [
           0
         ],
         "level": 6,
         "object_pose": [
-          224.60364353654802,
-          83.41738688215226,
-          -0.4067809481975401
+          289.1990023106195,
+          352.3387986755895,
+          1.8165312495777028
         ],
         "primary_hit_segment": 0,
-        "seed": 922,
-        "start_arena_clearance": 18.35012179613564,
-        "start_goal_distance": 309.2945456089128,
-        "start_obstacle_clearance": 65.0021242259399
+        "seed": 1056,
+        "start_arena_clearance": 90.51655756876494,
+        "start_goal_distance": 203.744915794269,
+        "start_obstacle_clearance": 17.15667779105169,
+        "start_spawn_exclusion_clearance": 146.63789464360718
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 123.23822570215233,
+        "agent_object_distance": 149.89196240207534,
         "agent_pos": [
-          128.55676093267016,
-          107.94129443505898
+          250.71171296657505,
+          82.63460653733435
         ],
-        "blocked_fraction": 0.4838709677419355,
+        "blocked_fraction": 0.25806451612903225,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 11.532472260007694,
+        "goal_obstacle_clearance": 195.1531041523707,
+        "goal_pose": [
+          425.6997099655216,
+          444.6684327880866,
+          -0.9505424755066029
+        ],
+        "goal_spawn_exclusion_clearance": 180.02818669269686,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          100.82527817031739,
+          83.92187372497037,
+          0.7737276252888565
+        ],
+        "primary_hit_segment": 0,
+        "seed": 855,
+        "start_arena_clearance": 9.804499803848948,
+        "start_goal_distance": 485.4703660473368,
+        "start_obstacle_clearance": 167.5818481526638,
+        "start_spawn_exclusion_clearance": 149.59013988668005
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 117.4874657004059,
+        "agent_pos": [
+          337.40708347304417,
+          346.5884569695079
+        ],
+        "blocked_fraction": 0.3870967741935484,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667,
+          0.9
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 51.09744956251005,
+        "goal_obstacle_clearance": 23.797385061419035,
+        "goal_pose": [
+          266.2346503029534,
+          123.40502341194372,
+          2.6121554595145717
+        ],
+        "goal_spawn_exclusion_clearance": 14.443391601232918,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          420.74261038092766,
+          429.40448531963756,
+          1.0058077310160773
+        ],
+        "primary_hit_segment": 0,
+        "seed": 944,
+        "start_arena_clearance": 21.126256786405747,
+        "start_goal_distance": 342.7949538940955,
+        "start_obstacle_clearance": 179.83706465812588,
+        "start_spawn_exclusion_clearance": 164.767385849378
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 212.46009508068403,
+        "agent_pos": [
+          231.95940077490002,
+          130.41855044982498
+        ],
+        "blocked_fraction": 0.41935483870967744,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.2,
+          0.23333333333333334,
           0.26666666666666666,
           0.3,
           0.3333333333333333,
@@ -46526,38 +45996,187 @@
           0.5,
           0.5333333333333333,
           0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7,
-          0.7333333333333333
+          0.6
         ],
         "crossing_direction": 1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 33.72581915134208,
-        "goal_obstacle_clearance": 66.5360261969094,
+        "goal_arena_clearance": 8.874973084255885,
+        "goal_obstacle_clearance": 97.92209989956869,
         "goal_pose": [
-          405.9890795168101,
-          288.7533890955586,
-          -1.0404589625798397
+          443.57698597873093,
+          282.9852755039798,
+          1.2969795535829618
         ],
+        "goal_spawn_exclusion_clearance": 17.022793870554494,
         "hit_segments": [
           0
         ],
         "level": 6,
         "object_pose": [
-          85.82374166688892,
-          223.5334625895019,
-          -1.1640929014713028
+          119.39356288688312,
+          310.60796229819636,
+          -0.6802246707912374
         ],
         "primary_hit_segment": 0,
-        "seed": 933,
-        "start_arena_clearance": 20.759368339074555,
-        "start_goal_distance": 326.7406959256982,
-        "start_obstacle_clearance": 67.33151932640628
+        "seed": 1330,
+        "start_arena_clearance": 44.44413045368202,
+        "start_goal_distance": 325.35811751557605,
+        "start_obstacle_clearance": 59.667318295288055,
+        "start_spawn_exclusion_clearance": 241.06178343615147
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 130.33654798222406,
+        "agent_pos": [
+          352.0901260958737,
+          405.63057628869575
+        ],
+        "blocked_fraction": 0.3870967741935484,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 17.250209963983103,
+        "goal_obstacle_clearance": 188.03076420022975,
+        "goal_pose": [
+          62.78062847432376,
+          87.11821208039737,
+          -1.5619263988168826
+        ],
+        "goal_spawn_exclusion_clearance": 181.10405614650125,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          402.52730832943996,
+          285.44860431177807,
+          2.478776919504991
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1655,
+        "start_arena_clearance": 34.48668078879035,
+        "start_goal_distance": 393.3989717261957,
+        "start_obstacle_clearance": 44.162412898690114,
+        "start_spawn_exclusion_clearance": 60.40371671944064
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 218.60723448884198,
+        "agent_pos": [
+          119.85291992950496,
+          372.74053081554194
+        ],
+        "blocked_fraction": 0.3548387096774194,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 49.64129201185051,
+        "goal_obstacle_clearance": 108.3940226337653,
+        "goal_pose": [
+          348.2647285342201,
+          413.1863209854365,
+          -1.1641022641787664
+        ],
+        "goal_spawn_exclusion_clearance": 184.25867467666222,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          114.77072360986439,
+          154.19237993929184,
+          -0.029729852148585808
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1579,
+        "start_arena_clearance": 53.45959130336967,
+        "start_goal_distance": 348.708061039932,
+        "start_obstacle_clearance": 103.16136800774578,
+        "start_spawn_exclusion_clearance": 155.22732000439726
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 170.49794439605893,
+        "agent_pos": [
+          242.2805780465569,
+          116.47513070923179
+        ],
+        "blocked_fraction": 0.25806451612903225,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.5666666666666667,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 80.16516305361307,
+        "goal_obstacle_clearance": 34.50275002749805,
+        "goal_pose": [
+          285.89074866190896,
+          378.449775566316,
+          2.993034996918843
+        ],
+        "goal_spawn_exclusion_clearance": 175.08456581191717,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          72.05087560522587,
+          126.03533206785899,
+          -1.2946475236761041
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1729,
+        "start_arena_clearance": 12.396664540328153,
+        "start_goal_distance": 330.8179901328434,
+        "start_obstacle_clearance": 145.174438349183,
+        "start_spawn_exclusion_clearance": 186.93180452863623
       },
       {
         "agent_angle": 0.0,
@@ -46597,6 +46216,7 @@
           118.17354515193958,
           -0.955907311447933
         ],
+        "goal_spawn_exclusion_clearance": 49.094331756914244,
         "hit_segments": [
           0
         ],
@@ -46610,69 +46230,23 @@
         "seed": 256,
         "start_arena_clearance": 17.25045828778468,
         "start_goal_distance": 343.87919458616017,
-        "start_obstacle_clearance": 126.45497540766326
+        "start_obstacle_clearance": 126.45497540766326,
+        "start_spawn_exclusion_clearance": 204.7850376859784
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 195.6335862910817,
+        "agent_object_distance": 149.62994254386098,
         "agent_pos": [
-          431.2985849515366,
-          275.43077155573826
+          168.64721650147723,
+          413.969950318153
         ],
-        "blocked_fraction": 0.41935483870967744,
+        "blocked_fraction": 0.5806451612903226,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
           0.3,
           0.3333333333333333,
           0.36666666666666664,
           0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6,
-          0.6333333333333333,
-          0.6666666666666666,
-          0.7
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 20.24573833295167,
-        "goal_obstacle_clearance": 77.3287365232403,
-        "goal_pose": [
-          201.20719526047426,
-          92.45847411492407,
-          1.2007765506486023
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          286.59463644450193,
-          407.0866387686489,
-          1.3500633469472614
-        ],
-        "primary_hit_segment": 0,
-        "seed": 978,
-        "start_arena_clearance": 49.6533006382748,
-        "start_goal_distance": 326.0090445146073,
-        "start_obstacle_clearance": 81.80898762940016
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 116.11689090041969,
-        "agent_pos": [
-          210.07017868553805,
-          157.37496328793804
-        ],
-        "blocked_fraction": 0.3225806451612903,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
           0.43333333333333335,
           0.4666666666666667,
           0.5,
@@ -46682,51 +46256,51 @@
           0.6333333333333333,
           0.6666666666666666,
           0.7,
-          0.7333333333333333
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667
         ],
         "crossing_direction": 1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 37.471350906396424,
-        "goal_obstacle_clearance": 98.63190962588968,
+        "goal_arena_clearance": 98.3617357264302,
+        "goal_obstacle_clearance": 20.377341907961213,
         "goal_pose": [
-          405.6205752730166,
-          353.11918858892653,
-          2.903923387431142
+          365.65973201455853,
+          255.39406942383349,
+          -2.6609184498229705
         ],
+        "goal_spawn_exclusion_clearance": 19.118065394922667,
         "hit_segments": [
           0
         ],
         "level": 6,
         "object_pose": [
-          143.67301935203878,
-          62.11453296756903,
-          1.9840892322644743
+          88.25022083953272,
+          287.77390127456204,
+          1.4233675564123331
         ],
         "primary_hit_segment": 0,
-        "seed": 600,
-        "start_arena_clearance": 13.190744066571254,
-        "start_goal_distance": 391.53573482669333,
-        "start_obstacle_clearance": 148.78987373243524
+        "seed": 1577,
+        "start_arena_clearance": 11.860387924309066,
+        "start_goal_distance": 279.29283986713347,
+        "start_obstacle_clearance": 71.61617687880762,
+        "start_spawn_exclusion_clearance": 246.9739974511379
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 205.52052568511752,
+        "agent_object_distance": 97.01538230374854,
         "agent_pos": [
-          99.94206653659155,
-          363.7369158501636
+          291.6243132551668,
+          428.7644373411403
         ],
-        "blocked_fraction": 0.5161290322580645,
+        "blocked_fraction": 0.3548387096774194,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
           0.3,
           0.3333333333333333,
           0.36666666666666664,
@@ -46736,144 +46310,48 @@
           0.5,
           0.5333333333333333,
           0.5666666666666667,
-          0.6
+          0.6,
+          0.6333333333333333
         ],
         "crossing_direction": -1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 63.118755751822775,
-        "goal_obstacle_clearance": 111.40707246641824,
+        "goal_arena_clearance": 27.384882451495017,
+        "goal_obstacle_clearance": 104.55381257031951,
         "goal_pose": [
-          155.14978176946022,
-          121.95247556233276,
-          0.25830704910905045
+          102.48769605327722,
+          167.55767960561363,
+          1.9586114903804726
         ],
+        "goal_spawn_exclusion_clearance": 168.49321025875315,
         "hit_segments": [
           0
         ],
         "level": 6,
         "object_pose": [
-          302.5948355449843,
-          329.5237357711639,
-          -0.5293408695382485
+          373.1765029884673,
+          376.2170800979236,
+          -2.971800436580944
         ],
         "primary_hit_segment": 0,
-        "seed": 422,
-        "start_arena_clearance": 110.16628913191244,
-        "start_goal_distance": 254.6092534601786,
-        "start_obstacle_clearance": 22.438119116882657
+        "seed": 433,
+        "start_arena_clearance": 81.29137099398315,
+        "start_goal_distance": 341.7764995048765,
+        "start_obstacle_clearance": 108.30725675086103,
+        "start_spawn_exclusion_clearance": 124.53634859975779
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 200.00211492636683,
+        "agent_object_distance": 165.0539292113074,
         "agent_pos": [
-          85.68097693131529,
-          375.640811259474
-        ],
-        "blocked_fraction": 0.2903225806451613,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667,
-          0.5,
-          0.5333333333333333,
-          0.5666666666666667,
-          0.6
-        ],
-        "crossing_direction": 1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 23.285242568975377,
-        "goal_obstacle_clearance": 134.28014327253797,
-        "goal_pose": [
-          429.059869404302,
-          383.1417454887607,
-          -0.02203794590034193
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          96.11159373093204,
-          175.91087307243305,
-          -2.6872679488044615
-        ],
-        "primary_hit_segment": 0,
-        "seed": 144,
-        "start_arena_clearance": 22.44963532016847,
-        "start_goal_distance": 392.1723967291714,
-        "start_obstacle_clearance": 95.82398340533696
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 196.94216619651704,
-        "agent_pos": [
-          432.3866056437061,
-          427.55768711582084
+          79.65538766864852,
+          247.1125574612337
         ],
         "blocked_fraction": 0.3870967741935484,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
-          0.1,
-          0.13333333333333333,
-          0.16666666666666666,
-          0.2,
-          0.23333333333333334,
-          0.26666666666666666,
-          0.3,
-          0.3333333333333333,
-          0.36666666666666664,
-          0.4,
-          0.43333333333333335,
-          0.4666666666666667
-        ],
-        "crossing_direction": -1,
-        "crossing_segments": [
-          0
-        ],
-        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 16.896896350797235,
-        "goal_obstacle_clearance": 161.34044764220076,
-        "goal_pose": [
-          83.09679239857408,
-          122.51478323340677,
-          -2.0087983534532454
-        ],
-        "hit_segments": [
-          0
-        ],
-        "level": 6,
-        "object_pose": [
-          380.3053364136061,
-          237.62675698184194,
-          -2.797988392261708
-        ],
-        "primary_hit_segment": 0,
-        "seed": 691,
-        "start_arena_clearance": 80.25511218001691,
-        "start_goal_distance": 318.7219558420719,
-        "start_obstacle_clearance": 23.079561956518027
-      },
-      {
-        "agent_angle": 0.0,
-        "agent_object_distance": 133.88587566012686,
-        "agent_pos": [
-          98.59448607888237,
-          76.18903517417809
-        ],
-        "blocked_fraction": 0.45161290322580644,
-        "chain_joint_angle": 0.12,
-        "collision_alphas": [
-          0.1,
-          0.13333333333333333,
           0.16666666666666666,
           0.2,
           0.23333333333333334,
@@ -46892,38 +46370,149 @@
           0
         ],
         "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 37.572964966187044,
-        "goal_obstacle_clearance": 162.07331326635313,
+        "goal_arena_clearance": 62.184963276294866,
+        "goal_obstacle_clearance": 139.83492129991419,
         "goal_pose": [
-          423.33428343124353,
-          406.6790976656632,
-          1.4648468072732734
+          393.81468338164325,
+          388.08883870892146,
+          -2.8183933455698167
         ],
+        "goal_spawn_exclusion_clearance": 130.53108987243724,
         "hit_segments": [
           0
         ],
         "level": 6,
         "object_pose": [
-          217.09033930046024,
-          138.51206840082085,
-          -0.9573854962319017
+          203.60799084937383,
+          138.1237887150325,
+          -2.5851639838868
         ],
         "primary_hit_segment": 0,
-        "seed": 301,
-        "start_arena_clearance": 63.54601927069055,
-        "start_goal_distance": 338.3047739470321,
-        "start_obstacle_clearance": 30.12919265475705
+        "seed": 22,
+        "start_arena_clearance": 66.5154279871114,
+        "start_goal_distance": 314.10366457988465,
+        "start_obstacle_clearance": 47.74993317690202,
+        "start_spawn_exclusion_clearance": 68.96324550015333
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 124.21959606054146,
+        "agent_object_distance": 214.9017446684606,
         "agent_pos": [
-          93.22912821933075,
-          245.190761876421
+          184.31555958935584,
+          450.67551758417636
+        ],
+        "blocked_fraction": 0.3870967741935484,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 40.099763550920606,
+        "goal_obstacle_clearance": 123.7518230746965,
+        "goal_pose": [
+          102.83486005578794,
+          122.75645153280878,
+          -3.0780818672589825
+        ],
+        "goal_spawn_exclusion_clearance": 177.75482001458232,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          336.0119751623846,
+          298.455422446106,
+          0.9129235007554254
+        ],
+        "primary_hit_segment": 0,
+        "seed": 114,
+        "start_arena_clearance": 103.69366470207814,
+        "start_goal_distance": 291.96180467558884,
+        "start_obstacle_clearance": 24.99244734730273,
+        "start_spawn_exclusion_clearance": 85.11069508300415
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 117.89348375617656,
+        "agent_pos": [
+          116.18149312176946,
+          90.28317204596284
         ],
         "blocked_fraction": 0.3548387096774194,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 18.07577407541396,
+        "goal_obstacle_clearance": 115.49529316546541,
+        "goal_pose": [
+          345.7992083336737,
+          426.2120300654545,
+          0.6810597107898358
+        ],
+        "goal_spawn_exclusion_clearance": 198.72021421788628,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          114.72111081010107,
+          208.16761035599438,
+          1.9782911277719668
+        ],
+        "primary_hit_segment": 0,
+        "seed": 502,
+        "start_arena_clearance": 39.91771270442588,
+        "start_goal_distance": 317.7112779262784,
+        "start_obstacle_clearance": 76.70793604712703,
+        "start_spawn_exclusion_clearance": 173.57553605980235
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 128.92523701798444,
+        "agent_pos": [
+          381.4313217503612,
+          391.32139009694146
+        ],
+        "blocked_fraction": 0.6451612903225806,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
           0.36666666666666664,
           0.4,
           0.43333333333333335,
@@ -46934,45 +46523,602 @@
           0.6,
           0.6333333333333333,
           0.6666666666666666,
-          0.7
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 79.04453180417188,
+        "goal_obstacle_clearance": 26.76309259279861,
+        "goal_pose": [
+          153.45494073596333,
+          313.0813334619325,
+          -0.5180297122861061
+        ],
+        "goal_spawn_exclusion_clearance": 209.52906495417733,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          347.7311193572015,
+          266.8785795420382,
+          -2.9949956838469824
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1429,
+        "start_arena_clearance": 107.10353383003422,
+        "start_goal_distance": 199.69458693077675,
+        "start_obstacle_clearance": 11.79633823789347,
+        "start_spawn_exclusion_clearance": 39.062892615743266
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 190.86854139635224,
+        "agent_pos": [
+          96.39802444564756,
+          252.9711494916119
+        ],
+        "blocked_fraction": 0.41935483870967744,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334
         ],
         "crossing_direction": 1,
         "crossing_segments": [
           0
         ],
         "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 26.201622703818032,
-        "goal_obstacle_clearance": 113.09008873809806,
+        "goal_arena_clearance": 65.90494612879888,
+        "goal_obstacle_clearance": 54.72211450208732,
         "goal_pose": [
-          365.3820996508011,
-          418.1048595118832,
-          -1.7692267526739838
+          376.17551195781,
+          295.99373566637985,
+          -0.9560270603951899
         ],
+        "goal_spawn_exclusion_clearance": 60.557364615271126,
         "hit_segments": [
           0
         ],
         "level": 6,
         "object_pose": [
-          77.14022409286358,
-          122.01748876308103,
-          -0.15785897957151973
+          165.92803487737893,
+          75.21744982790769,
+          1.9930220290568044
         ],
         "primary_hit_segment": 0,
-        "seed": 1058,
-        "start_arena_clearance": 10.812069038181725,
-        "start_goal_distance": 413.2204132688706,
-        "start_obstacle_clearance": 147.701626340932
+        "seed": 168,
+        "start_arena_clearance": 26.63357784531351,
+        "start_goal_distance": 304.8707431147127,
+        "start_obstacle_clearance": 124.14371708744106,
+        "start_spawn_exclusion_clearance": 83.12525951614174
       },
       {
         "agent_angle": 0.0,
-        "agent_object_distance": 87.07048306193428,
+        "agent_object_distance": 112.84267069556832,
         "agent_pos": [
-          425.7844808462572,
-          349.9841402163314
+          400.78686576585227,
+          289.4438416021097
         ],
-        "blocked_fraction": 0.45161290322580644,
+        "blocked_fraction": 0.6129032258064516,
         "chain_joint_angle": 0.12,
         "collision_alphas": [
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 92.80064804677865,
+        "goal_obstacle_clearance": 50.53045490998393,
+        "goal_pose": [
+          151.38239470244906,
+          180.06713903725182,
+          3.0601960721118906
+        ],
+        "goal_spawn_exclusion_clearance": 154.83943336333442,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          315.91649595766523,
+          363.81109688513095,
+          -1.449445645047992
+        ],
+        "primary_hit_segment": 0,
+        "seed": 567,
+        "start_arena_clearance": 90.44593687571341,
+        "start_goal_distance": 246.64410092573652,
+        "start_obstacle_clearance": 42.18507180774112,
+        "start_spawn_exclusion_clearance": 164.6445232653566
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 100.35911051660216,
+        "agent_pos": [
+          278.1849397628856,
+          70.82514943802218
+        ],
+        "blocked_fraction": 0.6451612903225806,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 66.32246220862982,
+        "goal_obstacle_clearance": 50.52348289021981,
+        "goal_pose": [
+          390.3378695857601,
+          298.3301763682011,
+          1.7571927924858488
+        ],
+        "goal_spawn_exclusion_clearance": 56.43387339388994,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          238.33621784773646,
+          162.93394611571566,
+          2.529428022499251
+        ],
+        "primary_hit_segment": 0,
+        "seed": 221,
+        "start_arena_clearance": 92.93388694679697,
+        "start_goal_distance": 203.55992065647763,
+        "start_obstacle_clearance": 19.629250042217908,
+        "start_spawn_exclusion_clearance": 57.596515653951144
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 212.08809894420295,
+        "agent_pos": [
+          150.8546487645043,
+          398.8886501881109
+        ],
+        "blocked_fraction": 0.6451612903225806,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667,
+          0.9
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 73.32527574336477,
+        "goal_obstacle_clearance": 11.131434340021347,
+        "goal_pose": [
+          146.61325910951095,
+          237.8228740138426,
+          -0.8575771021773299
+        ],
+        "goal_spawn_exclusion_clearance": 183.7236227970737,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          357.37629481272285,
+          350.61680096622626,
+          0.6228963572792031
+        ],
+        "primary_hit_segment": 0,
+        "seed": 247,
+        "start_arena_clearance": 79.63962546594723,
+        "start_goal_distance": 239.0471233380001,
+        "start_obstacle_clearance": 68.09807038017134,
+        "start_spawn_exclusion_clearance": 130.5185283912782
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 133.31652103835918,
+        "agent_pos": [
+          137.08783158771934,
+          216.6510507177302
+        ],
+        "blocked_fraction": 0.2903225806451613,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 43.913314448026085,
+        "goal_obstacle_clearance": 116.77851600349396,
+        "goal_pose": [
+          364.03145903893545,
+          408.0607557889889,
+          1.571372765302939
+        ],
+        "goal_spawn_exclusion_clearance": 162.98726575132565,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          111.39525144842463,
+          85.83367378501077,
+          0.2917980590530978
+        ],
+        "primary_hit_segment": 0,
+        "seed": 193,
+        "start_arena_clearance": 25.47542177380771,
+        "start_goal_distance": 409.45737966547154,
+        "start_obstacle_clearance": 169.83231971913602,
+        "start_spawn_exclusion_clearance": 135.60209174623463
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 118.82379089590245,
+        "agent_pos": [
+          399.91222706058016,
+          271.96389964626434
+        ],
+        "blocked_fraction": 0.41935483870967744,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667,
+          0.9
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 125.93414843055515,
+        "goal_obstacle_clearance": 11.110219033662096,
+        "goal_pose": [
+          234.56964327172338,
+          185.284713399074,
+          0.26949798314599016
+        ],
+        "goal_spawn_exclusion_clearance": 60.82805391216931,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          440.6169815617596,
+          383.5981965440899,
+          0.07660921586394893
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1501,
+        "start_arena_clearance": 8.114957928423507,
+        "start_goal_distance": 285.97857124882125,
+        "start_obstacle_clearance": 141.92925667897242,
+        "start_spawn_exclusion_clearance": 142.93633291246795
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 123.23822570215233,
+        "agent_pos": [
+          128.55676093267016,
+          107.94129443505898
+        ],
+        "blocked_fraction": 0.4838709677419355,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 33.72581915134208,
+        "goal_obstacle_clearance": 66.5360261969094,
+        "goal_pose": [
+          405.9890795168101,
+          288.7533890955586,
+          -1.0404589625798397
+        ],
+        "goal_spawn_exclusion_clearance": 42.902275273963824,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          85.82374166688892,
+          223.5334625895019,
+          -1.1640929014713028
+        ],
+        "primary_hit_segment": 0,
+        "seed": 933,
+        "start_arena_clearance": 20.759368339074555,
+        "start_goal_distance": 326.7406959256982,
+        "start_obstacle_clearance": 67.33151932640628,
+        "start_spawn_exclusion_clearance": 225.18083925014992
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 140.8686451890418,
+        "agent_pos": [
+          419.529287226626,
+          345.8182793449055
+        ],
+        "blocked_fraction": 0.41935483870967744,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 32.77020856493846,
+        "goal_obstacle_clearance": 128.42258895627344,
+        "goal_pose": [
+          97.35689809778941,
+          121.23110645487422,
+          -1.1767583341336192
+        ],
+        "goal_spawn_exclusion_clearance": 165.9143395847995,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          283.3195471357469,
+          381.74712432733304,
+          -0.12137117455911725
+        ],
+        "primary_hit_segment": 0,
+        "seed": 618,
+        "start_arena_clearance": 53.98850782816214,
+        "start_goal_distance": 320.0792127041958,
+        "start_obstacle_clearance": 40.79375398221936,
+        "start_spawn_exclusion_clearance": 173.16464319499056
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 167.21426669307513,
+        "agent_pos": [
+          125.66689867682167,
+          370.80162222302096
+        ],
+        "blocked_fraction": 0.3225806451612903,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 17.008969425713133,
+        "goal_obstacle_clearance": 83.98540815744329,
+        "goal_pose": [
+          318.68492135900726,
+          424.89989726031445,
+          2.578105820050113
+        ],
+        "goal_spawn_exclusion_clearance": 216.72083322109575,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          138.75492257977805,
+          204.10034863454925,
+          -1.1437514175848817
+        ],
+        "primary_hit_segment": 0,
+        "seed": 945,
+        "start_arena_clearance": 72.9452328318666,
+        "start_goal_distance": 284.8284486037781,
+        "start_obstacle_clearance": 40.1067216016232,
+        "start_spawn_exclusion_clearance": 171.92660326157613
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 150.162980291501,
+        "agent_pos": [
+          368.2483685552133,
+          401.4690372776233
+        ],
+        "blocked_fraction": 0.41935483870967744,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.1,
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5
+        ],
+        "crossing_direction": -1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 43.40526803947832,
+        "goal_obstacle_clearance": 124.56887122690736,
+        "goal_pose": [
+          130.40617021835556,
+          99.49254775804313,
+          1.7607998171213517
+        ],
+        "goal_spawn_exclusion_clearance": 129.7436576711812,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          393.8857975715422,
+          253.51079018251062,
+          -0.6901339148178758
+        ],
+        "primary_hit_segment": 0,
+        "seed": 125,
+        "start_arena_clearance": 58.79875659986192,
+        "start_goal_distance": 305.19359926069245,
+        "start_obstacle_clearance": 41.23667136224011,
+        "start_spawn_exclusion_clearance": 6.685600007443725
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 212.19918645571613,
+        "agent_pos": [
+          145.4420129017712,
+          405.54096254824026
+        ],
+        "blocked_fraction": 0.6774193548387096,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
           0.43333333333333335,
           0.4666666666666667,
           0.5,
@@ -46993,27 +47139,93 @@
           0
         ],
         "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
-        "goal_arena_clearance": 84.13310822982214,
-        "goal_obstacle_clearance": 41.270779985640644,
+        "goal_arena_clearance": 73.90557231910293,
+        "goal_obstacle_clearance": 36.13115992899629,
         "goal_pose": [
-          182.205280228117,
-          159.988274164168,
-          -3.0726484251811987
+          247.80708587618977,
+          126.48971779525264,
+          2.131450655927087
         ],
+        "goal_spawn_exclusion_clearance": 18.23344898609281,
         "hit_segments": [
           0
         ],
         "level": 6,
         "object_pose": [
-          367.1254437277079,
-          414.32997446349333,
-          -2.005397421729474
+          342.9765894118643,
+          328.0258942360344,
+          -0.5342558281625408
         ],
         "primary_hit_segment": 0,
-        "seed": 1106,
-        "start_arena_clearance": 24.300553587630304,
-        "start_goal_distance": 314.4601204920383,
-        "start_obstacle_clearance": 114.72371741687536
+        "seed": 210,
+        "start_arena_clearance": 111.7875100761866,
+        "start_goal_distance": 222.87679290943836,
+        "start_obstacle_clearance": 49.93278447962379,
+        "start_spawn_exclusion_clearance": 94.3340111130882
+      },
+      {
+        "agent_angle": 0.0,
+        "agent_object_distance": 148.11644035667112,
+        "agent_pos": [
+          126.97122431300471,
+          123.82632962687529
+        ],
+        "blocked_fraction": 0.7741935483870968,
+        "chain_joint_angle": 0.12,
+        "collision_alphas": [
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666666,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667,
+          0.9
+        ],
+        "crossing_direction": 1,
+        "crossing_segments": [
+          0
+        ],
+        "geometry_hash": "134d4eb24429a459bef67d8f88197c2fcbe607ebad546d29ee49f2d5e8f720dc",
+        "goal_arena_clearance": 89.50825345288894,
+        "goal_obstacle_clearance": 21.193219500650038,
+        "goal_pose": [
+          350.7188134987728,
+          277.5547721507695,
+          0.9379148018720576
+        ],
+        "goal_spawn_exclusion_clearance": 58.4289039343567,
+        "hit_segments": [
+          0
+        ],
+        "level": 6,
+        "object_pose": [
+          272.6319817967937,
+          96.9669991590448,
+          -0.5851573448231884
+        ],
+        "primary_hit_segment": 0,
+        "seed": 1394,
+        "start_arena_clearance": 26.31403226916678,
+        "start_goal_distance": 196.7472923304509,
+        "start_obstacle_clearance": 20.207743103137464,
+        "start_spawn_exclusion_clearance": 4.190611069656512
       }
     ],
     "7": [
@@ -52338,7 +52550,7 @@
   },
   "object_shape": "T",
   "pusher_shape": "chain_gripper",
-  "sampler_revision": "chain_obstacle_seed_bank_v1",
+  "sampler_revision": "chain_obstacle_seed_bank_level_policy_v1",
   "schema_version": 1,
   "sim_version": 2
 }
