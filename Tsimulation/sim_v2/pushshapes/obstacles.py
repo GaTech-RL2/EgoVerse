@@ -9,8 +9,8 @@ Level 0 is the empty arena. Levels 1..6 are the edge-wall family, levels
 7..10 are wall-anchored L shapes, levels 11..14 are wide gates, and levels
 15..18 are four rotations of a floating L copied from the hand-drawn layout,
 and 19..22 are middle sticks—two diagonal, one horizontal, and one vertical—
-while 27..30 are four open-U rotations with generous gaps (see
-:data:`SKETCH_FAMILY_NAMES`).
+levels 23..26 are staggered wide gates, and levels 27..30 are four open-U
+rotations with generous gaps (see :data:`SKETCH_FAMILY_NAMES`).
 
 ``scripts/plot_obstacle_levels.py`` renders any range of levels into one
 contact sheet and reports, per level, how many connected components the
@@ -237,16 +237,16 @@ def _arc(
 
 
 # ---------------------------------------------------------------------- #
-# Sketch-derived family levels (1..30).
+# Active collection families (1..30).
 #
-# Five base designs, each expanded into every orientation you get by
-# flipping / rotating where the obstacle sits. 6 + 4 + 4 + 8 + 8 = 30.
-#
-#    1..6   edge_wall  — one stick in from an edge (4 axis + 2 diagonal)
-#    7..10  edge_l     — one L-shaped wall anchored to each arena edge
-#   11..14  diagonal   — two staggered diagonal walls (diagonal zig-zag)
-#   15..22  pocket     — U pocket, one flank run to the wall, 8 headings
-#   23..30  spiral     — cyclone: 2 spiral arms + open eye, 8 headings
+#    1..6   edge_wall          — one stick in from an edge
+#    7..10  edge_l             — wall-anchored L, four rotations
+#   11..14  wide_gate          — centered wide gate, four rotations
+#   15..18  floating_l         — floating L, four rotations
+#   19..20  middle_diagonal    — centered diagonal sticks
+#   21..22  middle_axis        — centered horizontal/vertical sticks
+#   23..26  wide_gate_chicane  — one stub reflected, two axes x two handednesses
+#   27..30  open_u             — open U, four rotations
 #
 # Every layout keeps at least ~150 units of clear corridor (the T's 120
 # AABB plus the 30-diameter pusher) around and through it, and no region
@@ -272,6 +272,9 @@ _SPIRAL_ARMS = 2
 _SPIRAL_ARM_SWEEP_DEG = 220.0   # how far each arm curls before the wall
 _SPIRAL_TAIL_EASE = 1.0         # 1.0 => Archimedean (radius linear in angle)
 _SPIRAL_TAIL_REACH = 420.0      # target radius; > max corner distance (362)
+
+_WIDE_GATE_LINE_OFFSET = 176.0
+_WIDE_GATE_STUB_LENGTH = 176.0
 
 
 def _edge_wall_levels() -> list[list[Segment]]:
@@ -317,11 +320,40 @@ def _quarter_turn_levels(base: list[Segment]) -> list[list[Segment]]:
     return levels
 
 
+def _wide_gate_base(*, reflected_side: str | None = None) -> list[Segment]:
+    """Build one wide gate, optionally reflecting one stub vertically."""
+    if reflected_side not in (None, "left", "right"):
+        raise ValueError(f"unknown reflected_side {reflected_side!r}")
+    near = _WIDE_GATE_LINE_OFFSET
+    far = _W - near
+    stub = _WIDE_GATE_STUB_LENGTH
+    left_y = far if reflected_side == "left" else near
+    right_y = far if reflected_side == "right" else near
+    return [
+        ((0.0, left_y), (stub, left_y)),
+        ((_W - stub, right_y), (_W, right_y)),
+    ]
+
+
 def _wide_gate_levels() -> list[list[Segment]]:
-    """Two 176-unit edge stubs leave a centered 160-unit gate."""
-    return _quarter_turn_levels(
-        [((0.0, 176.0), (176.0, 176.0)), ((336.0, 176.0), (_W, 176.0))]
+    """Two edge stubs leave a centered 160-unit gate."""
+    return _quarter_turn_levels(_wide_gate_base())
+
+
+def _wide_gate_chicane_levels() -> list[list[Segment]]:
+    """Return horizontal/vertical chicanes in both reflected handednesses."""
+    right_reflected = _quarter_turn_levels(
+        _wide_gate_base(reflected_side="right")
     )
+    left_reflected = _quarter_turn_levels(
+        _wide_gate_base(reflected_side="left")
+    )
+    return [
+        right_reflected[0],
+        left_reflected[0],
+        right_reflected[1],
+        left_reflected[1],
+    ]
 
 
 def _floating_backward_l_levels() -> list[list[Segment]]:
@@ -367,7 +399,7 @@ def _open_u_levels() -> list[list[Segment]]:
 def _diagonal_levels() -> list[list[Segment]]:
     """Diagonal chicane: two parallel diagonal walls, staggered.
 
-    The diagonal counterpart of :func:`_chicane_levels`. Each wall is
+    The diagonal counterpart of :func:`_wide_gate_chicane_levels`. Each wall is
     anchored to the arena boundary at one end and stops short at the other,
     and the two stop short at *opposite* ends — so the T has to slip round
     one free tip, run up the channel between the walls, then round the
@@ -510,25 +542,22 @@ def _spiral_levels() -> list[list[Segment]]:
 
 
 def _collection_levels() -> dict[int, list[Segment]]:
-    """Active collection levels 1..22 and 27..30, in family order."""
-    base_families = (
+    """Active collection levels 1..30, in family order."""
+    families = (
         _edge_wall_levels()
         + _edge_l_levels()
         + _wide_gate_levels()
         + _floating_backward_l_levels()
         + _middle_diagonal_levels()
         + _middle_axis_levels()
+        + _wide_gate_chicane_levels()
+        + _open_u_levels()
     )
-    u_families = _open_u_levels()
-    assert len(base_families) == 22, len(base_families)
-    assert len(u_families) == 4, len(u_families)
-    return {
-        **{1 + i: segs for i, segs in enumerate(base_families)},
-        **{27 + i: segs for i, segs in enumerate(u_families)},
-    }
+    assert len(families) == 30, len(families)
+    return {1 + i: segs for i, segs in enumerate(families)}
 
 
-# Human-readable family name per level in 1..22, for plots and logs.
+# Human-readable family name per level in 1..30, for plots and logs.
 SKETCH_FAMILY_NAMES: dict[int, str] = {
     **{1 + i: "edge_wall" for i in range(6)},
     **{7 + i: "edge_l" for i in range(4)},
@@ -536,11 +565,12 @@ SKETCH_FAMILY_NAMES: dict[int, str] = {
     **{15 + i: "floating_l" for i in range(4)},
     **{19 + i: "middle_diagonal" for i in range(2)},
     **{21 + i: "middle_axis" for i in range(2)},
+    **{23 + i: "wide_gate_chicane" for i in range(4)},
     **{27 + i: "open_u" for i in range(4)},
 }
 
 
-# Level 0 is the empty arena; 1..22 and 27..30 are active collection families.
+# Level 0 is the empty arena; 1..30 are active collection families.
 OBSTACLE_LEVELS: dict[int, list[Segment]] = {
     0: [],
     **_collection_levels(),

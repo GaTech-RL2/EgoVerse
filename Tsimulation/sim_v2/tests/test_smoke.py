@@ -33,6 +33,7 @@ from Tsimulation.pushshapes.chain_gripper_control import (
     pose_control_to_points,
 )
 from Tsimulation.pushshapes.env import PushShapesEnv
+from Tsimulation.pushshapes.obstacles import OBSTACLE_LEVELS, SKETCH_FAMILY_NAMES
 from Tsimulation.pushshapes.render import PUSHER_COLOR
 from Tsimulation.pushshapes.shapes import (
     CHAIN_GRIPPER_LINK_HALF_W,
@@ -46,6 +47,58 @@ from Tsimulation.pushshapes.shapes import (
 SHAPES_TO_TEST = list(SHAPES.keys())
 PUSHERS = ["circle", "stick", "u_socket"]
 OBSTACLES = [0, 1, 2, 3]
+
+
+def test_obstacle_catalog_includes_reflected_wide_gate_chicanes():
+    assert sorted(OBSTACLE_LEVELS) == list(range(31))
+    assert all(
+        SKETCH_FAMILY_NAMES[level] == "wide_gate_chicane"
+        for level in range(23, 27)
+    )
+
+    expected_levels = {
+        23: [
+            ((0.0, 176.0), (176.0, 176.0)),
+            ((336.0, 336.0), (512.0, 336.0)),
+        ],
+        24: [
+            ((0.0, 336.0), (176.0, 336.0)),
+            ((336.0, 176.0), (512.0, 176.0)),
+        ],
+        25: [
+            ((336.0, 0.0), (336.0, 176.0)),
+            ((176.0, 336.0), (176.0, 512.0)),
+        ],
+        26: [
+            ((176.0, 0.0), (176.0, 176.0)),
+            ((336.0, 336.0), (336.0, 512.0)),
+        ],
+    }
+    assert {
+        level: OBSTACLE_LEVELS[level] for level in range(23, 27)
+    } == expected_levels
+
+    # L23 is exactly L11 with only its right stub reflected across y=256.
+    assert OBSTACLE_LEVELS[23][0] == OBSTACLE_LEVELS[11][0]
+    (old_a, old_b), (new_a, new_b) = (
+        OBSTACLE_LEVELS[11][1],
+        OBSTACLE_LEVELS[23][1],
+    )
+    assert new_a == (old_a[0], 512.0 - old_a[1])
+    assert new_b == (old_b[0], 512.0 - old_b[1])
+
+    canonical = {
+        tuple(sorted(tuple(sorted(segment)) for segment in OBSTACLE_LEVELS[level]))
+        for level in range(23, 27)
+    }
+    assert len(canonical) == 4
+
+    for level in range(23, 27):
+        for (x1, y1), (x2, y2) in OBSTACLE_LEVELS[level]:
+            assert (x1 == x2) != (y1 == y2)
+            assert abs(x2 - x1) + abs(y2 - y1) == 176.0
+            assert all(0.0 <= value <= 512.0 for value in (x1, y1, x2, y2))
+            assert sum(value in (0.0, 512.0) for value in (x1, y1, x2, y2)) == 1
 
 
 def _fixed_chain_state(env):
@@ -1416,7 +1469,9 @@ def test_zarrdataset_end_to_end_load():
     ZarrDataset = pytest.importorskip(
         "egomimic.rldb.zarr.zarr_dataset_multi"
     ).ZarrDataset
-    get_keymap = pytest.importorskip("egomimic.rldb.embodiment.pushshapes").get_keymap
+    get_keymap_hpt = pytest.importorskip(
+        "egomimic.rldb.embodiment.pushshapes"
+    ).get_keymap_hpt
 
     with tempfile.TemporaryDirectory() as tmp:
         env_args = {"object_shape": "T", "pusher_shape": "circle", "obstacle_level": 0}
@@ -1431,16 +1486,15 @@ def test_zarrdataset_end_to_end_load():
         assert idx == 0
 
         ep_path = os.path.join(tmp, _episode_filename(env_args, 0))
-        dataset = ZarrDataset(ep_path, key_map=get_keymap())
+        dataset = ZarrDataset(ep_path, key_map=get_keymap_hpt(action_horizon=32))
         sample = dataset[0]
 
-        # The HNet keymap requests a 32-frame observation window. Images are
-        # decoded to channel-first layout within that window: (T, C, H, W).
+        # The single-observation keymap decodes the current image to
+        # channel-first layout and requests a 32-step future action chunk.
         assert "front_img_1" in sample
         assert "state_agent_obj" in sample
         assert "actions" in sample
         img = sample["front_img_1"]
-        assert img.shape == (32, 3, 8, 8)
-        assert sample["state_agent_obj"].shape == (32, 5)
-        # action_horizon=32 set in get_keymap -> loader returns (32, 2).
+        assert img.shape == (3, 8, 8)
+        assert sample["state_agent_obj"].shape == (5,)
         assert sample["actions"].shape == (32, 2)

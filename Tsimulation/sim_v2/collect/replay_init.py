@@ -8,6 +8,7 @@ event loop focused on collection rather than dataset bookkeeping.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,19 @@ REPLAY_SOURCE_KEY = "_replay_source"
 EpisodeInit = dict[str, Any]
 PoseKey = tuple[tuple[float, ...], tuple[float, ...], tuple[float, ...], int]
 SeedKey = tuple[int, int]
+
+
+@dataclass(frozen=True)
+class ObstacleInitKey:
+    """Identity of one committed entry from a versioned obstacle seed bank."""
+
+    manifest_sha256: str
+    sampler_revision: str
+    geometry_hash: str
+    obstacle_level: int
+    reset_seed: int
+    entry_index: int
+    control_gap_mode: str
 
 
 def _read_episode_init(path: Path) -> EpisodeInit | None:
@@ -134,6 +148,37 @@ def collected_seed_keys(output_dir: Path) -> set[SeedKey]:
                 )
             )
         except (TypeError, ValueError):
+            continue
+    return keys
+
+
+def collected_obstacle_init_keys(output_dir: Path) -> set[ObstacleInitKey]:
+    """Return fully versioned obstacle-bank entries already committed."""
+    keys: set[ObstacleInitKey] = set()
+    if not output_dir.exists():
+        return keys
+    for entry in sorted(output_dir.iterdir()):
+        if not entry.is_dir() or not entry.name.endswith(".zarr"):
+            continue
+        episode_init = _read_episode_init(entry)
+        if episode_init is None:
+            continue
+        provenance = episode_init.get("obstacle_init")
+        if not isinstance(provenance, dict):
+            continue
+        try:
+            keys.add(
+                ObstacleInitKey(
+                    manifest_sha256=str(provenance["manifest_sha256"]),
+                    sampler_revision=str(provenance["sampler_revision"]),
+                    geometry_hash=str(provenance["geometry_hash"]),
+                    obstacle_level=int(episode_init["obstacle_level"]),
+                    reset_seed=int(episode_init["reset_seed"]),
+                    entry_index=int(provenance["entry_index"]),
+                    control_gap_mode=str(episode_init["control_gap_mode"]),
+                )
+            )
+        except (KeyError, TypeError, ValueError):
             continue
     return keys
 

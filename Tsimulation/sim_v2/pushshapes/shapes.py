@@ -33,6 +33,8 @@ from typing import Literal
 import math
 
 import pymunk
+from shapely.geometry import Polygon
+from shapely.ops import unary_union
 
 SHAPES: dict[str, list[tuple[float, float, float, float]]] = {
     # gym-pusht's canonical T: 120x30 top bar + 30x90 stem below it.
@@ -329,6 +331,29 @@ def _rect_verts(cx: float, cy: float, w: float, h: float) -> list[tuple[float, f
         (cx + hw, cy + hh),
         (cx - hw, cy + hh),
     ]
+
+
+def object_polygon(
+    shape: str,
+    position: tuple[float, float],
+    angle: float,
+) -> Polygon:
+    """Return the exact world-space silhouette used by physics and rendering."""
+    if shape not in SHAPES:
+        raise ValueError(f"unknown object shape '{shape}', valid: {list(SHAPES)}")
+    bx, by = position
+    cosine, sine = math.cos(angle), math.sin(angle)
+    polygons = []
+    for cx, cy, width, height in SHAPES[shape]:
+        world = [
+            (
+                bx + cosine * local_x - sine * local_y,
+                by + sine * local_x + cosine * local_y,
+            )
+            for local_x, local_y in _rect_verts(cx, cy, width, height)
+        ]
+        polygons.append(Polygon(world))
+    return unary_union(polygons)
 
 
 def make_object(
