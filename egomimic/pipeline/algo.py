@@ -213,17 +213,7 @@ class PipelineAlgo(Algo):
 
     def _rollout_seed(self, emb_id: int, batch: dict, rollout_t: int) -> dict:
         seed = self._seed(emb_id, batch, include_actions=False)
-        obs_steps = {
-            int(stage.rollout_obs_steps)
-            for stage in self.policy.stages
-            if hasattr(stage, "rollout_obs_steps")
-        }
-        if len(obs_steps) != 1:
-            raise RuntimeError(
-                "Pipeline rollout requires exactly one declared observation horizon; "
-                f"found {sorted(obs_steps)}"
-            )
-        n_obs_steps = obs_steps.pop()
+        n_obs_steps = self._rollout_observation_horizon()
         for key, value in list(seed.items()):
             if not key.startswith("obs/") or not torch.is_tensor(value):
                 continue
@@ -237,6 +227,19 @@ class PipelineAlgo(Algo):
             seed[key] = value
         seed["rollout_t"] = int(rollout_t)
         return seed
+
+    def _rollout_observation_horizon(self) -> int:
+        obs_steps = {
+            int(stage.rollout_obs_steps)
+            for stage in self.policy.stages
+            if hasattr(stage, "rollout_obs_steps")
+        }
+        if len(obs_steps) != 1:
+            raise RuntimeError(
+                "Pipeline rollout requires exactly one declared observation horizon; "
+                f"found {sorted(obs_steps)}"
+            )
+        return obs_steps.pop()
 
     def _run_rollout_policy(self, seed: dict) -> dict:
         runnable, excluded = self.policy.plan(seed.keys(), mode="rollout")
@@ -278,6 +281,105 @@ class PipelineAlgo(Algo):
             predictions[f"{domain}_{action_key}_tokens"] = tokens
             predictions.setdefault(action_key, actions)
         return predictions
+
+    def _append_sim_observation(self, obs_zarr: dict) -> dict:
+        """Retain only the model's most recent rollout observation window."""
+        n_obs_steps = self._rollout_observation_horizon()
+        self._sim_obs_history.append(dict(obs_zarr))
+        self._sim_obs_history = self._sim_obs_history[-n_obs_steps:]
+        history = list(self._sim_obs_history)
+        if len(history) < n_obs_steps:
+            history = [history[0]] * (n_obs_steps - len(history)) + history
+        if n_obs_steps == 1:
+            return history[-1]
+
+        window = {}
+        for key in history[-1]:
+            values = [entry[key] for entry in history]
+            if torch.is_tensor(values[0]):
+                window[key] = torch.stack(values, dim=1)
+            else:
+                window[key] = values[-1]
+        return window
+
+    @torch.inference_mode()
+    def inference_step(
+        self,
+        obs_zarr: dict,
+        t: int,
+        emb_id: int,
+        T_max: int | None = None,
+    ):
+        """Closed-loop simulator entry point with decoded native-action queues.
+
+        ``forward_rollout`` remains the single model/decode path. This wrapper
+        only keeps the observation window and consumes a predicted native
+        action chunk. Setting ``algo.replan_every`` (the canonical evaluator's
+        ``--replan-every`` flag) limits how many actions are executed before a
+        fresh observation is queried; otherwise the complete decoded chunk is
+        consumed open loop.
+        """
+        del T_max
+        if emb_id not in self.domain_by_id:
+            raise KeyError(
+                f"Unknown rollout embodiment id {emb_id}; "
+                f"configured={sorted(self.domain_by_id)}"
+            )
+        if t == 0 or not hasattr(self, "_sim_action_queue"):
+            self._sim_action_queue = []
+            self._sim_obs_history = []
+
+        obs_window = self._append_sim_observation(obs_zarr)
+        if not self._sim_action_queue:
+            domain = self.domain_by_id[emb_id]
+            processed = self.process_batch_for_rollout({domain: obs_window})
+            action_key = self.resolved_ac_keys[emb_id]
+            actions = self.forward_rollout(processed, rollout_t=t)[
+                f"emb{emb_id}_{action_key}"
+            ]
+            if torch.is_tensor(actions):
+                if actions.ndim >= 3 and actions.shape[0] == 1:
+                    actions = actions[0]
+                if actions.ndim == 1:
+                    actions = actions.unsqueeze(0)
+                if actions.ndim != 2:
+                    raise ValueError(
+                        "Pipeline rollout must decode to (H, D) or (1, H, D), "
+                        f"got {tuple(actions.shape)}"
+                    )
+                chunk = [actions[index] for index in range(actions.shape[0])]
+            else:
+                import numpy as np
+
+                actions = np.asarray(actions)
+                if actions.ndim >= 3 and actions.shape[0] == 1:
+                    actions = actions[0]
+                if actions.ndim == 1:
+                    actions = actions[None]
+                if actions.ndim != 2:
+                    raise ValueError(
+                        "Pipeline rollout must decode to (H, D) or (1, H, D), "
+                        f"got {actions.shape}"
+                    )
+                chunk = [actions[index] for index in range(actions.shape[0])]
+
+            replan_every = getattr(self, "replan_every", None)
+            n_keep = len(chunk) if replan_every is None else int(replan_every)
+            if n_keep <= 0:
+                raise ValueError(f"replan_every must be positive, got {n_keep}")
+            self._sim_action_queue = chunk[: min(n_keep, len(chunk))]
+            if not self._sim_action_queue:
+                raise RuntimeError("Pipeline rollout decoded an empty action chunk")
+
+        action = self._sim_action_queue.pop(0)
+        if torch.is_tensor(action):
+            # NumPy has no bfloat16 dtype. The explicit FP32 boundary preserves
+            # the model's BF16 compute while keeping simulator I/O portable.
+            return action.detach().float().cpu().numpy().reshape(-1)
+
+        import numpy as np
+
+        return np.asarray(action, dtype=np.float32).reshape(-1)
 
     def forward_training(self, batch: dict) -> OrderedDict:
         predictions = OrderedDict()
