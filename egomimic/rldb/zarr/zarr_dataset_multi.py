@@ -737,6 +737,83 @@ class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
         return datasets
 
 
+class LocalEpisodeResolverManyWithEmbodimentOverride(LocalEpisodeResolver):
+    """Resolve one logical embodiment from several immutable local roots.
+
+    This is intended for additive corpora such as clean ChainGripper plus
+    independently collected obstacle levels.  Source trees remain untouched;
+    the resolver namespaces episode identifiers by source index so equal Zarr
+    directory names in different roots cannot overwrite each other.
+    """
+
+    def __init__(
+        self,
+        folder_paths: list[Path],
+        key_map: dict | None = None,
+        transform_list: list | None = None,
+        debug=False,
+        embodiment_override: str | None = None,
+    ):
+        paths = [Path(path) for path in folder_paths]
+        if not paths:
+            raise ValueError("folder_paths must contain at least one source root")
+        super().__init__(
+            folder_path=paths[0],
+            key_map=key_map,
+            transform_list=transform_list,
+            debug=debug,
+        )
+        self.folder_paths = paths
+        self.embodiment_override = embodiment_override
+
+    def resolve(
+        self,
+        sync_from_s3=False,
+        filters: DatasetFilter | None = None,
+    ) -> dict[str, "ZarrDataset"]:
+        if sync_from_s3:
+            logger.warning(
+                "%s does not sync from S3; ignoring sync_from_s3=True.",
+                self.__class__.__name__,
+            )
+        filters = _ensure_dataset_filter(filters)
+        candidates: list[tuple[int, Path, str]] = []
+        for source_index, root in enumerate(self.folder_paths):
+            for path_string, episode_name in self._get_local_filtered_paths(
+                root, filters, debug=False
+            ):
+                candidates.append((source_index, Path(path_string), episode_name))
+
+        if self.debug is not None and self.debug is not False:
+            limit = min(10 if self.debug is True else int(self.debug), len(candidates))
+            candidates = candidates[:limit]
+        if not candidates:
+            raise ValueError(
+                "No valid collection names from local filtering across folder_paths"
+            )
+
+        dataset_class = self._dataset_class or ZarrDataset
+        datasets: dict[str, ZarrDataset] = {}
+        for source_index, path, episode_name in candidates:
+            namespaced_name = f"source_{source_index:03d}/{episode_name}"
+            try:
+                dataset = dataset_class(
+                    path,
+                    key_map=self.key_map,
+                    transform_list=self.transform_list,
+                )
+            except Exception as error:
+                logger.error("Failed to load dataset at %s: %s", path, error)
+                continue
+            if self.embodiment_override is not None:
+                dataset.embodiment = self.embodiment_override
+            datasets[namespaced_name] = dataset
+
+        if not datasets:
+            raise ValueError("Every candidate episode failed to load")
+        return datasets
+
+
 class MultiDataset(torch.utils.data.Dataset):
     """
     Wraps a dict of child datasets (Zarr leaves or other MultiDatasets) and

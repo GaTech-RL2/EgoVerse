@@ -6,6 +6,7 @@ from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
+import zarr
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 
@@ -225,3 +226,139 @@ def test_flow_transfer_smoke_preserves_full_model_data_and_evaluator(
     assert smoke_cfg.callbacks.model_checkpoint.every_n_train_steps == 1
     assert smoke_cfg.callbacks.model_checkpoint.save_last is True
     assert smoke_cfg.norm_stats.sample_frac == 0.002
+
+
+@pytest.mark.parametrize(
+    ("experiment", "domains", "action_dims"),
+    [
+        (
+            "pusht/pipeline_sampler_usocket_dense_medium",
+            ["pushshapes_sim_u_socket"],
+            {"pushshapes_sim_u_socket": 4},
+        ),
+        (
+            "pusht/pipeline_sampler_chain_gripper_points_dense_medium",
+            ["pushshapes_sim_chain_gripper"],
+            {"pushshapes_sim_chain_gripper": 6},
+        ),
+        (
+            "pusht/pipeline_sampler_usocket_chain_obstacle_dense_medium",
+            ["pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"],
+            {"pushshapes_sim_u_socket": 4, "pushshapes_sim_chain_gripper": 6},
+        ),
+    ],
+)
+def test_direct_dense_medium_uses_fold_topology_without_arc_tokens(
+    monkeypatch, experiment, domains, action_dims
+):
+    monkeypatch.setenv("CHAIN_OBSTACLE_ROOT", "/tmp/chain-obstacle-audited")
+    cfg = _compose(experiment)
+    model = cfg.model.robomimic_model
+    noise = model.stages[1]
+    sampler = model.stages[2]
+
+    assert list(model.domains) == domains
+    assert model.action_horizon == 100
+    assert noise.action_horizon == 100
+    assert noise.latent_dim == 96
+    assert sampler.action_horizon == 100
+    assert sampler.latent_dim == 96
+    assert sampler.decoder_hidden_dim == 512
+    assert sampler.denoiser_hidden_dim == 384
+    assert dict(sampler.action_dims) == action_dims
+    assert sampler.denoising_module.act_seq == 100
+    assert sampler.denoising_module.act_dim == 96
+    assert sampler.denoising_module.hidden_dim == 384
+    assert sampler.denoising_module.nblocks == 16
+    assert sampler.num_inference_steps == 16
+    assert cfg.norm_stats.reduce_all_but_last is True
+    resolved = OmegaConf.to_yaml(cfg)
+    assert "arc_length" not in resolved
+    assert "velocity" not in resolved.lower()
+
+
+@pytest.mark.parametrize(
+    ("experiment", "domains", "width"),
+    [
+        (
+            "pusht/pipeline_diffusion_usocket_h16",
+            ["pushshapes_sim_u_socket"],
+            4,
+        ),
+        (
+            "pusht/pipeline_diffusion_chain_gripper_points_h16",
+            ["pushshapes_sim_chain_gripper"],
+            6,
+        ),
+    ],
+)
+def test_single_domain_dp_controls_are_genuine_action_diffusion(
+    experiment, domains, width
+):
+    cfg = _compose(experiment)
+    model = cfg.model.robomimic_model
+    stage = model.stages[1]
+    policy = stage.policies[domains[0]]
+
+    assert list(model.domains) == domains
+    assert model.action_horizon == stage.action_horizon == 16
+    assert policy.model._target_.endswith("ConditionalUnet1D")
+    assert policy.model.input_dim == width
+    assert policy.noise_scheduler.prediction_type == "epsilon"
+    assert policy.num_inference_steps == 100
+    assert "GaussianLatentNoise" not in OmegaConf.to_yaml(cfg.model)
+
+
+def test_obstacle_cotrain_config_pins_all_audited_sources(monkeypatch):
+    root = "/audit/chain-obstacle-output-128"
+    monkeypatch.setenv("CHAIN_OBSTACLE_ROOT", root)
+    cfg = _compose("pusht/pipeline_sampler_usocket_chain_obstacle_dense_medium")
+    chain = cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver
+
+    assert chain._target_.endswith(
+        "LocalEpisodeResolverManyWithEmbodimentOverride"
+    )
+    assert len(chain.folder_paths) == 31
+    assert chain.folder_paths[0].endswith("/chain_gripper_3000_v2")
+    assert chain.folder_paths[1] == f"{root}/level_01/chain_gripper/T"
+    assert chain.folder_paths[-1] == f"{root}/level_30/chain_gripper/T"
+    assert chain.key_map.action_horizon == 100
+    assert cfg.launch_params.gpus_per_node == 2
+
+    dp = _compose("pusht/pipeline_diffusion_usocket_chain_obstacle_h16")
+    assert dp.data.train_datasets.pushshapes_sim_u_socket.resolver.key_map.action_horizon == 16
+    assert (
+        dp.data.train_datasets.pushshapes_sim_chain_gripper.resolver.key_map.action_horizon
+        == 16
+    )
+    assert len(dp.data.train_datasets.pushshapes_sim_chain_gripper.resolver.folder_paths) == 31
+
+
+def test_many_root_resolver_namespaces_colliding_episode_names(tmp_path):
+    from egomimic.rldb.zarr.zarr_dataset_multi import (
+        LocalEpisodeResolverManyWithEmbodimentOverride,
+    )
+
+    roots = [tmp_path / "clean", tmp_path / "obstacle"]
+    for root in roots:
+        group = zarr.open_group(str(root / "same.zarr"), mode="w")
+        group.attrs["embodiment"] = "pushshapes_sim"
+
+    class DummyDataset:
+        def __init__(self, path, key_map=None, transform_list=None):
+            self.path = path
+            self.key_map = key_map
+            self.transform_list = transform_list
+            self.embodiment = "pushshapes_sim"
+
+    resolver = LocalEpisodeResolverManyWithEmbodimentOverride(
+        folder_paths=roots,
+        embodiment_override="pushshapes_sim_chain_gripper",
+    )
+    resolver._dataset_class = DummyDataset
+    datasets = resolver.resolve()
+
+    assert set(datasets) == {"source_000/same", "source_001/same"}
+    assert {dataset.embodiment for dataset in datasets.values()} == {
+        "pushshapes_sim_chain_gripper"
+    }

@@ -1,0 +1,24 @@
+defaults:
+  - flow_transfer_usocket_chain_obstacle_dense_h100
+  - _self_
+
+# Keep the identical three-corpus membership while selecting the standard DP
+# action horizon. Hydra list values inherited above are unchanged.
+train_datasets:
+  pushshapes_sim_u_socket:
+    resolver:
+      key_map:
+        action_horizon: 16
+  pushshapes_sim_chain_gripper:
+    resolver:
+      key_map:
+        action_horizon: 16
+valid_datasets:
+  pushshapes_sim_u_socket:
+    resolver:
+      key_map:
+        action_horizon: 16
+  pushshapes_sim_chain_gripper:
+    resolver:
+      key_map:
+        action_horizon: 16
