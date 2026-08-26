@@ -7,10 +7,10 @@ the pusher can take.
 
 Level 0 is the empty arena. Levels 1..6 are the edge-wall family, levels
 7..10 are wall-anchored L shapes, levels 11..14 are wide gates, and levels
-15..18 are four rotations of a floating L copied from the hand-drawn layout,
-and 19..22 are middle sticks—two diagonal, one horizontal, and one vertical—
-levels 23..26 are staggered wide gates, and levels 27..30 are four open-U
-rotations with generous gaps (see :data:`SKETCH_FAMILY_NAMES`).
+15..18 are four rotations of a chamfered floating L. Levels 19..22 are middle
+sticks—two diagonal, one horizontal, and one vertical. Levels 23..24 are
+diagonal gates, levels 25..26 are gates between square corner posts, and levels
+27..30 are four rotations of a centered T (see :data:`SKETCH_FAMILY_NAMES`).
 
 ``scripts/plot_obstacle_levels.py`` renders any range of levels into one
 contact sheet and reports, per level, how many connected components the
@@ -95,8 +95,10 @@ def _hexagon(cx: float, cy: float, r: float) -> list[Segment]:
     import math
 
     verts = [
-        (cx + r * math.cos(math.pi / 2 + i * math.pi / 3),
-         cy + r * math.sin(math.pi / 2 + i * math.pi / 3))
+        (
+            cx + r * math.cos(math.pi / 2 + i * math.pi / 3),
+            cy + r * math.sin(math.pi / 2 + i * math.pi / 3),
+        )
         for i in range(6)
     ]
     return [(verts[i], verts[(i + 1) % 6]) for i in range(6)]
@@ -154,9 +156,9 @@ def _u_pocket(
     mouth_t = (cx + hd, cy - hw)
     mouth_b = (cx + hd, cy + hw)
     segs = [
-        (back_t, back_b),      # closed back
-        (back_t, mouth_t),     # flank
-        (back_b, mouth_b),     # long flank when extend_flank
+        (back_t, back_b),  # closed back
+        (back_t, mouth_t),  # flank
+        (back_b, mouth_b),  # long flank when extend_flank
     ]
     if theta:
         segs = _rotate_about(segs, cx, cy, theta)
@@ -242,15 +244,16 @@ def _arc(
 #    1..6   edge_wall          — one stick in from an edge
 #    7..10  edge_l             — wall-anchored L, four rotations
 #   11..14  wide_gate          — centered wide gate, four rotations
-#   15..18  floating_l         — floating L, four rotations
+#   15..18  floating_l         — half-arm chamfered L, four rotations
 #   19..20  middle_diagonal    — centered diagonal sticks
 #   21..22  middle_axis        — centered horizontal/vertical sticks
-#   23..26  wide_gate_chicane  — one stub reflected, two axes x two handednesses
-#   27..30  open_u             — open U, four rotations
+#   23..24  diagonal_gate      — centered gate in each diagonal
+#   25..26  corner_square_gate — opposing square posts around a diagonal gate
+#   27..30  t_obstacle         — centered T, four rotations
 #
-# Every layout keeps at least ~150 units of clear corridor (the T's 120
-# AABB plus the 30-diameter pusher) around and through it, and no region
-# is fully sealed off — the pocket / ring mouths are all >= 150 wide.
+# Every usable route keeps roughly 150 units of clear corridor (the T's 120
+# AABB plus the 30-diameter pusher). L25/L26 deliberately form sealed arena
+# corners; their collection-only init policies exclude those pockets.
 # ---------------------------------------------------------------------- #
 
 # Single wall: length as a fraction of the arena, leaving a wide bypass.
@@ -269,11 +272,11 @@ _DIAG_GAP = 230.0
 # AABB); the arm count and sweep set how wide the channels between arms are.
 _SPIRAL_EYE_R = 80.0
 _SPIRAL_ARMS = 2
-_SPIRAL_ARM_SWEEP_DEG = 220.0   # how far each arm curls before the wall
-_SPIRAL_TAIL_EASE = 1.0         # 1.0 => Archimedean (radius linear in angle)
-_SPIRAL_TAIL_REACH = 420.0      # target radius; > max corner distance (362)
+_SPIRAL_ARM_SWEEP_DEG = 220.0  # how far each arm curls before the wall
+_SPIRAL_TAIL_EASE = 1.0  # 1.0 => Archimedean (radius linear in angle)
+_SPIRAL_TAIL_REACH = 420.0  # target radius; > max corner distance (362)
 
-_WIDE_GATE_LINE_OFFSET = 176.0
+_WIDE_GATE_LINE_OFFSET = 216.0
 _WIDE_GATE_STUB_LENGTH = 176.0
 
 
@@ -287,11 +290,11 @@ def _edge_wall_levels() -> list[list[Segment]]:
     d = _EDGE_WALL_DIAG_LEN
     return [
         _wall((0.0, _EDGE_WALL_MID), (_EDGE_WALL_LEN, _EDGE_WALL_MID)),  # from left
-        _wall((_W, _EDGE_WALL_MID), (far, _EDGE_WALL_MID)),              # from right
+        _wall((_W, _EDGE_WALL_MID), (far, _EDGE_WALL_MID)),  # from right
         _wall((_EDGE_WALL_MID, 0.0), (_EDGE_WALL_MID, _EDGE_WALL_LEN)),  # from top
-        _wall((_EDGE_WALL_MID, _W), (_EDGE_WALL_MID, far)),              # from bottom
-        _wall((0.0, 0.0), (d, d)),                                       # from top-left
-        _wall((_W, 0.0), (_W - d, d)),                                   # from top-right
+        _wall((_EDGE_WALL_MID, _W), (_EDGE_WALL_MID, far)),  # from bottom
+        _wall((0.0, 0.0), (d, d)),  # from top-left
+        _wall((_W, 0.0), (_W - d, d)),  # from top-right
     ]
 
 
@@ -313,25 +316,17 @@ def _quarter_turn_levels(base: list[Segment]) -> list[list[Segment]]:
     current = base
     for _ in range(4):
         levels.append(current)
-        current = [
-            ((_W - a[1], a[0]), (_W - b[1], b[0]))
-            for a, b in current
-        ]
+        current = [((_W - a[1], a[0]), (_W - b[1], b[0])) for a, b in current]
     return levels
 
 
-def _wide_gate_base(*, reflected_side: str | None = None) -> list[Segment]:
-    """Build one wide gate, optionally reflecting one stub vertically."""
-    if reflected_side not in (None, "left", "right"):
-        raise ValueError(f"unknown reflected_side {reflected_side!r}")
+def _wide_gate_base() -> list[Segment]:
+    """Build a 160-unit gate on a line moved toward the arena center."""
     near = _WIDE_GATE_LINE_OFFSET
-    far = _W - near
     stub = _WIDE_GATE_STUB_LENGTH
-    left_y = far if reflected_side == "left" else near
-    right_y = far if reflected_side == "right" else near
     return [
-        ((0.0, left_y), (stub, left_y)),
-        ((_W - stub, right_y), (_W, right_y)),
+        ((0.0, near), (stub, near)),
+        ((_W - stub, near), (_W, near)),
     ]
 
 
@@ -340,35 +335,20 @@ def _wide_gate_levels() -> list[list[Segment]]:
     return _quarter_turn_levels(_wide_gate_base())
 
 
-def _wide_gate_chicane_levels() -> list[list[Segment]]:
-    """Return horizontal/vertical chicanes in both reflected handednesses."""
-    right_reflected = _quarter_turn_levels(
-        _wide_gate_base(reflected_side="right")
-    )
-    left_reflected = _quarter_turn_levels(
-        _wide_gate_base(reflected_side="left")
-    )
-    return [
-        right_reflected[0],
-        left_reflected[0],
-        right_reflected[1],
-        left_reflected[1],
-    ]
-
-
-def _floating_backward_l_levels() -> list[list[Segment]]:
-    """Four rotations of the hand-drawn floating corner obstacle."""
+def _floating_chamfered_l_levels() -> list[list[Segment]]:
+    """Four rotations of an L whose elbow is chamfered at each arm midpoint."""
     return _quarter_turn_levels(
         [
-            ((170.0, 335.0), (340.0, 335.0)),
-            ((340.0, 335.0), (340.0, 160.0)),
+            ((170.0, 335.0), (255.0, 335.0)),
+            ((255.0, 335.0), (340.0, 247.5)),
+            ((340.0, 247.5), (340.0, 160.0)),
         ]
     )
 
 
 def _middle_diagonal_levels() -> list[list[Segment]]:
-    """Two diagonal sticks stopped 150 px from their endpoint corners."""
-    d = 150.0
+    """Two diagonal sticks stopped 155 px from their endpoint corners."""
+    d = 155.0
     return [
         [((d, _W - d), (_W - d, d))],
         [((d, d), (_W - d, _W - d))],
@@ -385,13 +365,36 @@ def _middle_axis_levels() -> list[list[Segment]]:
     ]
 
 
-def _open_u_levels() -> list[list[Segment]]:
-    """Four open-U pockets with a 212 px opening and wide outer routes."""
+def _diagonal_gate_levels() -> list[list[Segment]]:
+    """Two diagonal walls split by the same 181-unit centered gate."""
+    return [
+        [((0.0, 0.0), (192.0, 192.0)), ((320.0, 320.0), (512.0, 512.0))],
+        [((0.0, 512.0), (192.0, 320.0)), ((320.0, 192.0), (512.0, 0.0))],
+    ]
+
+
+def _corner_square_gate_levels() -> list[list[Segment]]:
+    """Two diagonal gates formed by inward sides of corner-anchored squares.
+
+    The arena boundary supplies each square's two outer sides, so those sides
+    are deliberately absent from the obstacle list.
+    """
+    side = 192.0
+    main_diagonal = [
+        ((0.0, side), (side, side)),
+        ((side, 0.0), (side, side)),
+        ((_W - side, _W), (_W - side, _W - side)),
+        ((_W, _W - side), (_W - side, _W - side)),
+    ]
+    return _quarter_turn_levels(main_diagonal)[:2]
+
+
+def _middle_t_levels() -> list[list[Segment]]:
+    """Four rotations of an open centered T obstacle."""
     return _quarter_turn_levels(
         [
-            ((150.0, 150.0), (150.0, 330.0)),
-            ((150.0, 330.0), (362.0, 330.0)),
-            ((362.0, 330.0), (362.0, 150.0)),
+            ((156.0, 196.0), (356.0, 196.0)),
+            ((256.0, 196.0), (256.0, 346.0)),
         ]
     )
 
@@ -399,14 +402,13 @@ def _open_u_levels() -> list[list[Segment]]:
 def _diagonal_levels() -> list[list[Segment]]:
     """Diagonal chicane: two parallel diagonal walls, staggered.
 
-    The diagonal counterpart of :func:`_wide_gate_chicane_levels`. Each wall is
-    anchored to the arena boundary at one end and stops short at the other,
-    and the two stop short at *opposite* ends — so the T has to slip round
-    one free tip, run up the channel between the walls, then round the
+    Each wall is anchored to the arena boundary at one end and stops short at
+    the other, and the two stop short at *opposite* ends — so the T has to slip
+    round one free tip, run up the channel between the walls, then round the
     other tip. A diagonal zig-zag rather than a single slash.
     """
     out: list[list[Segment]] = []
-    for dy in (1.0, -1.0):          # main diagonal, then anti-diagonal
+    for dy in (1.0, -1.0):  # main diagonal, then anti-diagonal
         for flip in (False, True):  # which end of each wall is anchored
             d = (_INV_SQRT2, dy * _INV_SQRT2)
             perp = (-d[1], d[0])
@@ -484,7 +486,7 @@ def _spiral_tail(
         # Target radius is a constant reach, NOT the local wall distance --
         # tracking the wall would kink the curve every time it sweeps past
         # an arena corner. Clip to the wall instead and stop there.
-        r = r0 + (_SPIRAL_TAIL_REACH - r0) * (f ** _SPIRAL_TAIL_EASE)
+        r = r0 + (_SPIRAL_TAIL_REACH - r0) * (f**_SPIRAL_TAIL_EASE)
         r_wall = _boundary_radius(cx, cy, th)
         hit = r >= r_wall
         r = min(r, r_wall)
@@ -547,11 +549,12 @@ def _collection_levels() -> dict[int, list[Segment]]:
         _edge_wall_levels()
         + _edge_l_levels()
         + _wide_gate_levels()
-        + _floating_backward_l_levels()
+        + _floating_chamfered_l_levels()
         + _middle_diagonal_levels()
         + _middle_axis_levels()
-        + _wide_gate_chicane_levels()
-        + _open_u_levels()
+        + _diagonal_gate_levels()
+        + _corner_square_gate_levels()
+        + _middle_t_levels()
     )
     assert len(families) == 30, len(families)
     return {1 + i: segs for i, segs in enumerate(families)}
@@ -565,8 +568,9 @@ SKETCH_FAMILY_NAMES: dict[int, str] = {
     **{15 + i: "floating_l" for i in range(4)},
     **{19 + i: "middle_diagonal" for i in range(2)},
     **{21 + i: "middle_axis" for i in range(2)},
-    **{23 + i: "wide_gate_chicane" for i in range(4)},
-    **{27 + i: "open_u" for i in range(4)},
+    **{23 + i: "diagonal_gate" for i in range(2)},
+    **{25 + i: "corner_square_gate" for i in range(2)},
+    **{27 + i: "t_obstacle" for i in range(4)},
 }
 
 

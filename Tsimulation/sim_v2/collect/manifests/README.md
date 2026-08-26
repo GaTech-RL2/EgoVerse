@@ -14,6 +14,15 @@ units from the arena corner where the diagonal obstacle emerges. The bank
 serializes this level-specific policy, and the silhouette plot renders its
 quarter-circle boundary.
 
+Levels 25 and 26 use two inward-facing obstacle sides at opposing arena
+corners. Because the arena walls complete sealed corner pockets, their policy
+forbids both full start and goal silhouettes from entering those pockets. The
+silhouette plot shades these rectangular exclusions. Their valid routes are
+sparse, so generation uses and records a deterministic 200,000-seed search
+budget while preserving the global acceptance criteria and balanced selection.
+The search budget is provenance, not a runtime constraint or part of the
+per-level bank identity; an explicit `--seed-limit` remains a hard override.
+
 The playground verifies the level, geometry hash, seed, resolved poses, pusher
 angle, and ChainGripper joint angle before collection. It refuses a stale bank
 after obstacle geometry changes.

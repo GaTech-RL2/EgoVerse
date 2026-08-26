@@ -278,16 +278,29 @@ def plot_silhouette_manifest(manifest: dict, destination: str | Path) -> Path:
                     zorder=1,
                 )
             )
-        for exclusion in (
-            manifest.get("level_policies", {})
-            .get(str(level), {})
-            .get("spawn_exclusions", [])
-        ):
+        level_policy = manifest.get("level_policies", {}).get(str(level), {})
+        for exclusion in level_policy.get("spawn_exclusions", []):
             has_spawn_exclusions = True
             axis.add_patch(
                 Circle(
                     exclusion["center"],
                     float(exclusion["radius"]),
+                    facecolor="#b54c63",
+                    edgecolor="#b54c63",
+                    linewidth=1.0,
+                    linestyle=(0, (5, 3)),
+                    alpha=0.08,
+                    zorder=1,
+                )
+            )
+        for exclusion in level_policy.get("box_spawn_exclusions", []):
+            has_spawn_exclusions = True
+            xmin, ymin, xmax, ymax = (float(value) for value in exclusion["bounds"])
+            axis.add_patch(
+                Rectangle(
+                    (xmin, ymin),
+                    xmax - xmin,
+                    ymax - ymin,
                     facecolor="#b54c63",
                     edgecolor="#b54c63",
                     linewidth=1.0,
@@ -376,12 +389,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--silhouette-plot", type=Path)
     parser.add_argument("--levels", type=parse_levels, default=parse_levels("1-30"))
     parser.add_argument("--per-level", type=int, default=32)
-    parser.add_argument("--seed-limit", type=int, default=10_000)
+    parser.add_argument(
+        "--seed-limit",
+        type=int,
+        help="hard seed-search cap (default: use canonical per-level budgets)",
+    )
     parser.add_argument("--pool-multiplier", type=int, default=4)
     args = parser.parse_args(argv)
     if args.per_level < 1:
         parser.error("--per-level must be positive")
-    if args.seed_limit < 1:
+    if args.seed_limit is not None and args.seed_limit < 1:
         parser.error("--seed-limit must be positive")
     if args.pool_multiplier < 1:
         parser.error("--pool-multiplier must be positive")
@@ -390,15 +407,14 @@ def main(argv: list[str] | None = None) -> int:
         manifest = load_manifest(args.from_manifest)
         print(f"loaded manifest from {args.from_manifest.resolve()}", flush=True)
     else:
-        criteria = replace(
-            DEFAULT_CRITERIA,
-            seed_limit=args.seed_limit,
-            pool_multiplier=args.pool_multiplier,
-        )
+        criteria = replace(DEFAULT_CRITERIA, pool_multiplier=args.pool_multiplier)
+        if args.seed_limit is not None:
+            criteria = replace(criteria, seed_limit=args.seed_limit)
         manifest = curate_manifest(
             levels=args.levels,
             count=args.per_level,
             criteria=criteria,
+            seed_limit=args.seed_limit,
         )
         manifest_path = write_manifest(manifest, args.output)
         print(

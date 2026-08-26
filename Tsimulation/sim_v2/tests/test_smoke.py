@@ -49,56 +49,69 @@ PUSHERS = ["circle", "stick", "u_socket"]
 OBSTACLES = [0, 1, 2, 3]
 
 
-def test_obstacle_catalog_includes_reflected_wide_gate_chicanes():
+def test_obstacle_catalog_matches_reviewed_collection_geometry():
     assert sorted(OBSTACLE_LEVELS) == list(range(31))
-    assert all(
-        SKETCH_FAMILY_NAMES[level] == "wide_gate_chicane"
-        for level in range(23, 27)
-    )
+    assert [SKETCH_FAMILY_NAMES[level] for level in range(11, 31)] == [
+        *("wide_gate" for _ in range(4)),
+        *("floating_l" for _ in range(4)),
+        *("middle_diagonal" for _ in range(2)),
+        *("middle_axis" for _ in range(2)),
+        *("diagonal_gate" for _ in range(2)),
+        *("corner_square_gate" for _ in range(2)),
+        *("t_obstacle" for _ in range(4)),
+    ]
 
-    expected_levels = {
+    assert OBSTACLE_LEVELS[11] == [
+        ((0.0, 216.0), (176.0, 216.0)),
+        ((336.0, 216.0), (512.0, 216.0)),
+    ]
+    assert OBSTACLE_LEVELS[15] == [
+        ((170.0, 335.0), (255.0, 335.0)),
+        ((255.0, 335.0), (340.0, 247.5)),
+        ((340.0, 247.5), (340.0, 160.0)),
+    ]
+    assert OBSTACLE_LEVELS[19] == [((155.0, 357.0), (357.0, 155.0))]
+    assert OBSTACLE_LEVELS[20] == [((155.0, 155.0), (357.0, 357.0))]
+    assert OBSTACLE_LEVELS[21] == [((150.0, 256.0), (362.0, 256.0))]
+    assert OBSTACLE_LEVELS[22] == [((256.0, 150.0), (256.0, 362.0))]
+
+    expected_gate_levels = {
         23: [
-            ((0.0, 176.0), (176.0, 176.0)),
-            ((336.0, 336.0), (512.0, 336.0)),
+            ((0.0, 0.0), (192.0, 192.0)),
+            ((320.0, 320.0), (512.0, 512.0)),
         ],
         24: [
-            ((0.0, 336.0), (176.0, 336.0)),
-            ((336.0, 176.0), (512.0, 176.0)),
+            ((0.0, 512.0), (192.0, 320.0)),
+            ((320.0, 192.0), (512.0, 0.0)),
         ],
         25: [
-            ((336.0, 0.0), (336.0, 176.0)),
-            ((176.0, 336.0), (176.0, 512.0)),
+            ((0.0, 192.0), (192.0, 192.0)),
+            ((192.0, 0.0), (192.0, 192.0)),
+            ((320.0, 512.0), (320.0, 320.0)),
+            ((512.0, 320.0), (320.0, 320.0)),
         ],
         26: [
-            ((176.0, 0.0), (176.0, 176.0)),
-            ((336.0, 336.0), (336.0, 512.0)),
+            ((320.0, 0.0), (320.0, 192.0)),
+            ((512.0, 192.0), (320.0, 192.0)),
+            ((0.0, 320.0), (192.0, 320.0)),
+            ((192.0, 512.0), (192.0, 320.0)),
         ],
     }
     assert {
         level: OBSTACLE_LEVELS[level] for level in range(23, 27)
-    } == expected_levels
+    } == expected_gate_levels
 
-    # L23 is exactly L11 with only its right stub reflected across y=256.
-    assert OBSTACLE_LEVELS[23][0] == OBSTACLE_LEVELS[11][0]
-    (old_a, old_b), (new_a, new_b) = (
-        OBSTACLE_LEVELS[11][1],
-        OBSTACLE_LEVELS[23][1],
-    )
-    assert new_a == (old_a[0], 512.0 - old_a[1])
-    assert new_b == (old_b[0], 512.0 - old_b[1])
-
-    canonical = {
-        tuple(sorted(tuple(sorted(segment)) for segment in OBSTACLE_LEVELS[level]))
-        for level in range(23, 27)
-    }
-    assert len(canonical) == 4
-
-    for level in range(23, 27):
+    # The arena boundary supplies the two omitted outer sides of each corner
+    # square. No obstacle segment may duplicate an arena edge.
+    for level in (25, 26):
         for (x1, y1), (x2, y2) in OBSTACLE_LEVELS[level]:
-            assert (x1 == x2) != (y1 == y2)
-            assert abs(x2 - x1) + abs(y2 - y1) == 176.0
-            assert all(0.0 <= value <= 512.0 for value in (x1, y1, x2, y2))
-            assert sum(value in (0.0, 512.0) for value in (x1, y1, x2, y2)) == 1
+            assert not (x1 == x2 and x1 in (0.0, 512.0))
+            assert not (y1 == y2 and y1 in (0.0, 512.0))
+
+    assert OBSTACLE_LEVELS[27] == [
+        ((156.0, 196.0), (356.0, 196.0)),
+        ((256.0, 196.0), (256.0, 346.0)),
+    ]
 
 
 def _fixed_chain_state(env):
@@ -256,7 +269,9 @@ def test_chain_gripper_is_exactly_four_rigid_serial_links():
             assert np.ptp(vertices[:, 1]) == pytest.approx(
                 2.0 * CHAIN_GRIPPER_LINK_HALF_W
             )
-        assert all(isinstance(shape, pymunk.Circle) for shape in env.agent._joint_shapes)
+        assert all(
+            isinstance(shape, pymunk.Circle) for shape in env.agent._joint_shapes
+        )
         assert env.agent.mouth_gap < open_gap - 80.0
     finally:
         env.close()
@@ -350,9 +365,7 @@ def test_chain_gripper_closes_around_and_rotates_t_without_tunnelling():
 
         closed_gap = env.agent.mouth_gap
         for _ in range(60):
-            env.step(
-                np.array([256.0, 350.0, target_angle, 0.0], dtype=np.float64)
-            )
+            env.step(np.array([256.0, 350.0, target_angle, 0.0], dtype=np.float64))
         assert not env.agent.grasped
         assert env.agent.mouth_gap > closed_gap + 60.0
     finally:
@@ -377,9 +390,7 @@ def test_gripper_observation_renders_live_parallel_jaws():
             goal_pose=(400.0, 400.0, 0.0),
         )
 
-        open_obs, *_ = env.step(
-            np.array([256.0, 256.0, 0.0, 0.0], dtype=np.float64)
-        )
+        open_obs, *_ = env.step(np.array([256.0, 256.0, 0.0, 0.0], dtype=np.float64))
         for _ in range(12):
             closed_obs, *_ = env.step(
                 np.array([256.0, 256.0, 0.0, 1.0], dtype=np.float64)
@@ -558,10 +569,7 @@ def test_gripper_grasp_transfers_commanded_wrist_rotation_to_t(agent_x):
             )
             max_angle_offset_error = max(
                 max_angle_offset_error,
-                abs(
-                    (env.object_pose[2] - env.pusher_angle)
-                    - captured_angle_offset
-                ),
+                abs((env.object_pose[2] - env.pusher_angle) - captured_angle_offset),
             )
             max_gripper_object_depth = max(
                 max_gripper_object_depth,
