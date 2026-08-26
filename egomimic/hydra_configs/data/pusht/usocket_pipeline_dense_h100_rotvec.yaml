@@ -13,7 +13,7 @@ train_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.pushshapes.get_rotvec_transform_list
     mode: train
-    valid_ratio: 0.02
+    valid_ratio: 0.0
     bounds_check: false
 valid_datasets:
   pushshapes_sim_u_socket:

@@ -16,7 +16,7 @@ train_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.pushshapes.get_rotvec_transform_list
     mode: train
-    valid_ratio: 0.02
+    valid_ratio: 0.0
     bounds_check: false
   pushshapes_sim_chain_gripper:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -62,7 +62,7 @@ train_datasets:
         _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_transform_list
         world_size: 512.0
     mode: train
-    valid_ratio: 0.02
+    valid_ratio: 0.0
     bounds_check: false
 
 valid_datasets:

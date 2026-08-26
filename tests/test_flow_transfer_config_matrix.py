@@ -328,11 +328,13 @@ def test_direct_dense_runtime_safety_contract(monkeypatch, experiment):
     assert cfg.model.enable_grad_norm is False
     assert cfg.trainer.get("gradient_clip_val") is None
     assert cfg.trainer.accumulate_grad_batches == 1
+    assert cfg.trainer.limit_val_batches == 0
     expected_train_batch = 32 if len(cfg.data.train_datasets) == 2 else 64
     for domain in cfg.data.train_datasets:
+        assert cfg.data.train_datasets[domain].valid_ratio == 0.0
+        assert cfg.data.valid_datasets[domain].valid_ratio == 0.02
         assert (
-            cfg.data.train_dataloader_params[domain].batch_size
-            == expected_train_batch
+            cfg.data.train_dataloader_params[domain].batch_size == expected_train_batch
         )
         assert cfg.data.valid_dataloader_params[domain].batch_size == 16
     world_size = cfg.launch_params.gpus_per_node
@@ -371,9 +373,7 @@ def test_direct_dense_runtime_safety_contract(monkeypatch, experiment):
             "best_chain",
             "Valid/emb20_actions_action_mse",
         )
-    actual_best = {
-        name for name in cfg.callbacks if name.startswith("best_")
-    }
+    actual_best = {name for name in cfg.callbacks if name.startswith("best_")}
     assert actual_best == set(expected_best)
     for name, (directory, monitor) in expected_best.items():
         callback = cfg.callbacks[name]
@@ -516,11 +516,17 @@ def test_obstacle_launchers_do_not_gate_excluded_clean_chain_data() -> None:
         assert "= 3000" in launcher
         assert "= 100" in launcher
         assert "-xtype d -name '*.zarr'" in launcher
+        assert "EXPECTED_U_TRAIN_FRAMES=521676" in launcher
+        assert "EXPECTED_CHAIN_TRAIN_FRAMES=1272946" in launcher
+        assert "float(dataset.valid_ratio) == 0.0" in launcher
+        assert "float(dataset.valid_ratio) == 0.02" in launcher
+        assert 'dataset.mode == "train"' in launcher
+        assert 'dataset.mode == "valid"' in launcher
 
     assert "mode=norm_stats" in precompute
     assert "trainer.strategy=" not in precompute
-    assert "EXPECTED_U_TRAIN_FRAMES=511590" in precompute
-    assert "EXPECTED_CHAIN_TRAIN_FRAMES=1247833" in precompute
+    assert 'if mode == "full":\n        assert not files' in matrix
+    assert 'assert mode == "smoke"\n    assert len(files) == 1' in matrix
 
 
 def test_matrix_submit_helper_is_six_arm_smoke_gated_and_world2_safe() -> None:
@@ -531,9 +537,7 @@ def test_matrix_submit_helper_is_six_arm_smoke_gated_and_world2_safe() -> None:
         / "submit_flow_transfer_direct_dense_matrix_when_ready.sh"
     ).read_text()
 
-    assert (
-        "flow-transfer-direct-dense-obstacle-dp-schedulefix-20260826" in helper
-    )
+    assert "flow-transfer-direct-dense-obstacle-dp-schedulefix-20260826" in helper
     for arm in (
         "bc_usocket_latent",
         "bc_usocket_dp",

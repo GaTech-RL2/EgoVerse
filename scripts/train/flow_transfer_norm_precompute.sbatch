@@ -22,8 +22,8 @@ EXPECTED_OBSTACLE_MANIFEST_SHA=b5c9385b3b100023552601b050a5b1e6c8bf8cf270d2936f8
 EXPECTED_OBSTACLE_INVENTORY_SHA=1c1433966f1da12ce15380daf4cd4a47213fb92c31738546a992cc4457f4cc1d
 EXPECTED_U_COUNT=2999
 EXPECTED_U_SHA=fb6e107b585d6a5fae9e9ea4186f441b625a680a36d5691469d9c4125cd9a0fa
-EXPECTED_U_TRAIN_FRAMES=511590
-EXPECTED_CHAIN_TRAIN_FRAMES=1247833
+EXPECTED_U_TRAIN_FRAMES=521676
+EXPECTED_CHAIN_TRAIN_FRAMES=1272946
 SLURM_BIN=/opt/slurm/Ubuntu-20.04/24.11.0/bin
 export PATH=$SLURM_BIN:$PATH
 
@@ -165,6 +165,23 @@ assert set(cfg.data.train_datasets) == {
     "pushshapes_sim_u_socket",
     "pushshapes_sim_chain_gripper",
 }
+assert set(cfg.data.valid_datasets) == set(cfg.data.train_datasets)
+assert all(
+    float(dataset.valid_ratio) == 0.0
+    for dataset in cfg.data.train_datasets.values()
+)
+assert all(
+    dataset.mode == "train"
+    for dataset in cfg.data.train_datasets.values()
+)
+assert all(
+    float(dataset.valid_ratio) == 0.02
+    for dataset in cfg.data.valid_datasets.values()
+)
+assert all(
+    dataset.mode == "valid"
+    for dataset in cfg.data.valid_datasets.values()
+)
 u = cfg.data.train_datasets.pushshapes_sim_u_socket.resolver
 chain = cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver
 assert u.key_map.action_horizon == horizon

@@ -27,8 +27,8 @@ EXPECTED_OBSTACLE_MANIFEST_SHA=b5c9385b3b100023552601b050a5b1e6c8bf8cf270d2936f8
 EXPECTED_OBSTACLE_INVENTORY_SHA=1c1433966f1da12ce15380daf4cd4a47213fb92c31738546a992cc4457f4cc1d
 EXPECTED_U_COUNT=2999
 EXPECTED_U_SHA=fb6e107b585d6a5fae9e9ea4186f441b625a680a36d5691469d9c4125cd9a0fa
-EXPECTED_U_TRAIN_FRAMES=511590
-EXPECTED_CHAIN_TRAIN_FRAMES=1247833
+EXPECTED_U_TRAIN_FRAMES=521676
+EXPECTED_CHAIN_TRAIN_FRAMES=1272946
 WANDB_GROUP=flow_transfer_direct_dense_obstacle3k_normfix_20260826
 SLURM_BIN=/opt/slurm/Ubuntu-20.04/24.11.0/bin
 export PATH=$SLURM_BIN:$PATH
@@ -446,6 +446,7 @@ else:
     assert cfg.trainer.max_steps == 240_000
     assert cfg.trainer.limit_train_batches == 1.0
     assert cfg.trainer.val_check_interval == 10_000
+    assert cfg.trainer.limit_val_batches == 0
 
 yaml = pathlib.Path(path).read_text()
 assert "arc_length" not in yaml.lower()
@@ -494,6 +495,23 @@ for name, (directory, monitor) in expected_best.items():
 assert len(model.domains) == len(expected_domains)
 assert set(model.domains) == set(expected_domains)
 assert set(cfg.data.train_datasets) == set(expected_domains)
+assert set(cfg.data.valid_datasets) == set(expected_domains)
+assert all(
+    float(dataset.valid_ratio) == 0.0
+    for dataset in cfg.data.train_datasets.values()
+)
+assert all(
+    dataset.mode == "train"
+    for dataset in cfg.data.train_datasets.values()
+)
+assert all(
+    float(dataset.valid_ratio) == 0.02
+    for dataset in cfg.data.valid_datasets.values()
+)
+assert all(
+    dataset.mode == "valid"
+    for dataset in cfg.data.valid_datasets.values()
+)
 for domain in expected_domains:
     expected_train_batch = 32 if cotrain else 64
     assert cfg.data.train_dataloader_params[domain].batch_size == expected_train_batch
@@ -622,6 +640,27 @@ for embodiment, expected_shape in expected_shapes.items():
 checkpoint_sha = hashlib.sha256(expected_checkpoint.read_bytes()).hexdigest()
 
 resolved_cfg = OmegaConf.load(provenance_dir / "resolved_config.yaml")
+assert all(
+    float(dataset.valid_ratio) == 0.0
+    for dataset in resolved_cfg.data.train_datasets.values()
+)
+assert all(
+    dataset.mode == "train"
+    for dataset in resolved_cfg.data.train_datasets.values()
+)
+assert all(
+    float(dataset.valid_ratio) == 0.02
+    for dataset in resolved_cfg.data.valid_datasets.values()
+)
+assert all(
+    dataset.mode == "valid"
+    for dataset in resolved_cfg.data.valid_datasets.values()
+)
+if mode == "smoke":
+    assert resolved_cfg.trainer.limit_val_batches == 1
+else:
+    assert mode == "full"
+    assert resolved_cfg.trainer.limit_val_batches == 0
 global_batch_per_domain = {
     domain: int(params.batch_size) * expected_world_size
     for domain, params in resolved_cfg.data.train_dataloader_params.items()
@@ -638,13 +677,16 @@ if 20 in expected_shapes:
 best_results = {}
 for directory, monitor in expected_best.items():
     files = sorted((run_dir / "checkpoints" / directory).glob("*.ckpt"))
+    if mode == "full":
+        assert not files, (directory, files)
+        continue
+    assert mode == "smoke"
     assert len(files) == 1, (directory, files)
     best_path = files[0]
     best_checkpoint = torch.load(best_path, map_location="cpu", weights_only=False)
     best_step = int(best_checkpoint["global_step"])
     assert 0 < best_step <= expected_step
-    if mode == "smoke":
-        assert best_step in {1_000, 2_000, 3_000}, best_step
+    assert best_step in {1_000, 2_000, 3_000}, best_step
     state_key = (
         "ModelCheckpoint{'monitor': '"
         + monitor
@@ -696,6 +738,8 @@ result = {
     "total_global_batch": total_global_batch,
     "best_checkpoints": best_results,
     "gradient_clipping_enabled": False,
+    "training_uses_all_episodes": True,
+    "validation_enabled": mode == "smoke",
 }
 
 if mode == "smoke":
