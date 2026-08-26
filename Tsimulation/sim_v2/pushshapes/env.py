@@ -21,7 +21,6 @@ import pygame
 import pymunk
 from gymnasium import spaces
 from shapely.geometry import LineString, Point, Polygon
-from shapely.ops import unary_union
 
 from .agents import NEW_AGENTS as _NEW_AGENTS
 
@@ -52,6 +51,7 @@ from .render import (
 from .shapes import (
     SHAPES,
     make_object,
+    object_polygon,
     pusher_radius,
 )
 
@@ -819,20 +819,7 @@ class PushShapesEnv(gym.Env):
     ) -> Polygon:
         """Union of the object's component rects rotated and translated into
         world coords. Used for IoU coverage and spawn collision tests."""
-        bx, by = position
-        c, s = math.cos(angle), math.sin(angle)
-        polys = []
-        for cx, cy, w, h in SHAPES[self.object_shape]:
-            hw, hh = w / 2.0, h / 2.0
-            local = [
-                (cx - hw, cy - hh),
-                (cx + hw, cy - hh),
-                (cx + hw, cy + hh),
-                (cx - hw, cy + hh),
-            ]
-            world = [(bx + c * lx - s * ly, by + s * lx + c * ly) for lx, ly in local]
-            polys.append(Polygon(world))
-        return unary_union(polys)
+        return object_polygon(self.object_shape, position, angle)
 
     def _coverage(self) -> float:
         """IoU of current object polygon against the goal polygon. 1.0 = perfect."""
