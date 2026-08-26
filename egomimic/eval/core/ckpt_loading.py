@@ -41,6 +41,22 @@ def _parse_init_seeds(value: str | None) -> list[int] | None:
     return seeds
 
 
+def _assert_completed_seed_rollouts(
+    sim_eval, embodiment_ids, expected: int
+) -> dict[int, int]:
+    """Fail if seed-mode evaluation did not consume every requested seed."""
+    coverages = getattr(sim_eval, "_last_per_ep_coverages", {})
+    counts = {int(emb_id): len(coverages.get(emb_id, [])) for emb_id in embodiment_ids}
+    mismatches = [
+        f"emb{emb_id} completed={completed} expected={expected}"
+        for emb_id, completed in counts.items()
+        if completed != expected
+    ]
+    if mismatches:
+        raise RuntimeError("seed rollout count mismatch: " + "; ".join(mismatches))
+    return counts
+
+
 def load_algo_from_ckpt(
     ckpt_path: str, config_path: str | None = None, use_ema: bool = False
 ):
@@ -374,6 +390,16 @@ def main():
     # previous bf16-autocast wrap was a band-aid for the old bf16-state hardcode,
     # which was the bug that uniquely degraded the H-Net closed-loop coverage.)
     metrics, images_dict = sim_eval.compute_metrics_and_viz(batch)
+
+    if args.init_mode == "seeds":
+        completed_counts = _assert_completed_seed_rollouts(
+            sim_eval, batch.keys(), args.n_episodes
+        )
+        for emb_id, completed in completed_counts.items():
+            print(
+                f"[sim] emb{emb_id} rollout_count: "
+                f"completed={completed} requested={args.n_episodes}"
+            )
 
     print("\n=== METRICS ===")
     for k, v in metrics.items():

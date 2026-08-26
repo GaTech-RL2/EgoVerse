@@ -6,7 +6,10 @@ import numpy as np
 import pytest
 import torch
 
-from egomimic.eval.core.ckpt_loading import _parse_init_seeds
+from egomimic.eval.core.ckpt_loading import (
+    _assert_completed_seed_rollouts,
+    _parse_init_seeds,
+)
 from egomimic.eval.core.eval_sim import SimRolloutEval
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.core import Stage
@@ -160,9 +163,10 @@ def test_pushshapes_eval_glue_preserves_oriented_state_schema():
 class _FakeEnv:
     def __init__(self):
         self.actions = []
+        self.reset_seeds = []
 
     def reset(self, seed=None):
-        del seed
+        self.reset_seeds.append(seed)
 
     def _get_obs(self):
         return _obs()
@@ -182,12 +186,21 @@ class _FakeAlgo:
 
 
 class _FakeChainEval(SimRolloutEval):
-    def __init__(self, env):
+    def __init__(
+        self,
+        env,
+        *,
+        init_mode="random",
+        init_seeds=None,
+        limit_val_batches=1,
+    ):
         super().__init__(
             embodiment_name="pushshapes_sim_chain_gripper",
-            init_mode="random",
+            init_mode=init_mode,
+            init_seeds=init_seeds,
             max_steps=1,
             rollout_timeout_s=0,
+            limit_val_batches=limit_val_batches,
         )
         self._fake_env = env
 
@@ -217,3 +230,32 @@ def test_sim_evaluator_passes_full_chain_action_to_environment():
     assert frames == []
     assert len(env.actions) == 1
     assert env.actions[0].tolist() == pytest.approx([100.0, 200.0, 0.3, 0.7])
+
+
+def test_seed_mode_rolls_every_seed_even_when_batch_reports_one_episode():
+    env = _FakeEnv()
+    seeds = [2011, 2022, 2033]
+    evaluator = _FakeChainEval(
+        env,
+        init_mode="seeds",
+        init_seeds=seeds,
+        limit_val_batches=len(seeds),
+    )
+    evaluator.model = _FakeAlgo()
+    evaluator.trainer = SimpleNamespace(
+        lightning_module=SimpleNamespace(device=torch.device("cpu"))
+    )
+
+    metrics, _ = evaluator.compute_metrics_and_viz({20: {}})
+
+    assert env.reset_seeds == seeds
+    assert len(evaluator._last_per_ep_coverages[20]) == len(seeds)
+    assert metrics["Valid/emb20_sim_coverage"].item() == pytest.approx(0.5)
+
+
+def test_completed_seed_rollout_count_assertion_is_strict():
+    evaluator = SimpleNamespace(_last_per_ep_coverages={20: [0.1, 0.2, 0.3]})
+
+    assert _assert_completed_seed_rollouts(evaluator, [20], 3) == {20: 3}
+    with pytest.raises(RuntimeError, match=r"emb20 completed=3 expected=4"):
+        _assert_completed_seed_rollouts(evaluator, [20], 4)

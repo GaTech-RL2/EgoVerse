@@ -329,7 +329,17 @@ class SimRolloutEval(EvalVideo):
         self._last_per_ep_coverages = {}
 
         for emb_id, _batch in batch.items():
-            B = self._infer_n_episodes(_batch)
+            if self.init_mode == "seeds":
+                B = len(self.init_seeds)
+                if B == 0:
+                    raise ValueError("init_mode='seeds' requires at least one seed")
+                if B != self.limit_val_batches:
+                    raise ValueError(
+                        "explicit seed count must equal requested rollout count "
+                        f"({B} != {self.limit_val_batches})"
+                    )
+            else:
+                B = self._infer_n_episodes(_batch)
             if B == 0:
                 continue
             # Seed-mode inits are indexed per (embodiment, episode): episode i
