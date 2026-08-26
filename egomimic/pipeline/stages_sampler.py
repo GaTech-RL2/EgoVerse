@@ -92,8 +92,12 @@ class FusedObsEncoder(Stage):
     metadata never leaks into the Pipeline graph.
     """
 
-    reads = ["obs/*", "embodiment"]
+    # The historical declarations remain the truthful training contract. At
+    # rollout there is no action target, so only the condition is emitted.
+    reads = ["obs/*", "embodiment", "actions"]
     writes = ["condition", "target"]
+    reads_by_mode = {"rollout": ["obs/*", "embodiment"]}
+    writes_by_mode = {"rollout": ["condition"]}
 
     def __init__(self, encoder: nn.Module, n_obs_steps: int = 2):
         super().__init__()

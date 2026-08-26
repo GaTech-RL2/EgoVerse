@@ -25,7 +25,7 @@ bug class unrepresentable.)
 
 from __future__ import annotations
 
-from typing import Iterable, List, Sequence, Tuple
+from typing import Iterable, List, Mapping, Sequence, Tuple
 
 import torch.nn as nn
 
@@ -57,10 +57,12 @@ class Stage(nn.Module):
     """Base module of the batchflow convention.
 
     Subclasses declare ``reads`` / ``writes`` (key contracts) and implement
-    ``forward(batch) -> batch``. Contracts are used by Pipeline.plan() for
-    build-time validation and mode resolution (train vs rollout) — a stage
-    whose reads cannot be satisfied is EXCLUDED at plan time with a loud
-    report, never silently skipped at runtime.
+    ``forward(batch) -> batch``. A stage whose training and rollout behavior
+    differs can override either contract through ``reads_by_mode`` and
+    ``writes_by_mode``. Contracts are used by :meth:`Pipeline.plan` for
+    build-time validation and mode resolution — a stage whose reads cannot be
+    satisfied is EXCLUDED at plan time with a loud report, never silently
+    skipped at runtime.
 
     Wildcard suffix "*" in a contract entry matches any key with that prefix
     (e.g. writes = ["loss/*"]).
@@ -68,6 +70,21 @@ class Stage(nn.Module):
 
     reads: Sequence[str] = ()
     writes: Sequence[str] = ()
+    reads_by_mode: Mapping[str, Sequence[str]] = {}
+    writes_by_mode: Mapping[str, Sequence[str]] = {}
+
+    def contract(self, mode: str = "train") -> Tuple[Sequence[str], Sequence[str]]:
+        """Return the exact read/write declaration for ``mode``.
+
+        Plain stages retain the historical ``reads`` / ``writes`` behavior.
+        Mode-aware stages override only the modes that differ, keeping this a
+        backward-compatible extension for existing configs and graph tools.
+        """
+        if mode not in {"train", "rollout"}:
+            raise ValueError(f"Stage contract mode must be train|rollout, got {mode!r}")
+        reads = self.reads_by_mode.get(mode, self.reads)
+        writes = self.writes_by_mode.get(mode, self.writes)
+        return tuple(reads or ()), tuple(writes or ())
 
     def forward(self, batch: dict) -> dict:  # pragma: no cover - interface
         raise NotImplementedError
@@ -114,28 +131,40 @@ class Pipeline(Stage):
             if mode == "rollout" and getattr(stage, "train_only", False):
                 excluded.append((stage, ["<train-only>"]))
                 continue
-            missing = [r for r in stage.reads if not _matches_any(r, have)]
+            reads, writes = stage.contract(mode)
+            missing = [r for r in reads if not _matches_any(r, have)]
             if missing:
                 excluded.append((stage, missing))
             else:
                 runnable.append(stage)
-                for w in stage.writes:
+                for w in writes:
                     have.add(w)
         return runnable, excluded
 
-    def explain(self, seed_keys: Sequence[str] = ()) -> str:
-        """Human-readable key-flow of the pipeline."""
+    def explain(self, seed_keys: Sequence[str] = (), mode: str = "train") -> str:
+        """Human-readable key-flow for an exact training or rollout graph."""
+        if mode not in {"train", "rollout"}:
+            raise ValueError(
+                f"Pipeline.explain mode must be train|rollout, got {mode!r}"
+            )
         lines = []
         have = set(seed_keys)
         for stage in self.stages:
-            missing = [r for r in stage.reads if not _matches_any(r, have)]
+            reads, writes = stage.contract(mode)
+            if mode == "rollout" and getattr(stage, "train_only", False):
+                lines.append(
+                    f"{type(stage).__name__:28s} reads={list(reads)} "
+                    f"writes={list(writes)} (EXCLUDED: train-only)"
+                )
+                continue
+            missing = [r for r in reads if not _matches_any(r, have)]
             tag = " (EXCLUDED: missing %s)" % ",".join(missing) if missing else ""
             lines.append(
-                f"{type(stage).__name__:28s} reads={list(stage.reads)} "
-                f"writes={list(stage.writes)}{tag}"
+                f"{type(stage).__name__:28s} reads={list(reads)} "
+                f"writes={list(writes)}{tag}"
             )
             if not missing:
-                have.update(stage.writes)
+                have.update(writes)
         return "\n".join(lines)
 
 

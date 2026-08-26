@@ -43,8 +43,13 @@ class MultiDomainDiffusionPolicyStage(Stage):
     paying for a full reverse chain on every optimizer step.
     """
 
-    reads = ["condition", "embodiment"]
-    writes = ["pred_action", "loss/diffusion_noise", "log/*"]
+    # Training consumes a target and emits only the epsilon objective. Rollout
+    # has no target and emits a sampled action instead. Keeping those contracts
+    # separate prevents dependency audits from inventing keys in either graph.
+    reads = ["condition", "target", "embodiment"]
+    writes = ["loss/diffusion_noise", "log/*"]
+    reads_by_mode = {"rollout": ["condition", "embodiment"]}
+    writes_by_mode = {"rollout": ["pred_action", "log/*"]}
     objective = "epsilon"
 
     def __init__(

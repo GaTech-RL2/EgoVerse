@@ -7,7 +7,9 @@ from hydra import compose, initialize_config_dir
 from egomimic.models.ddim_scheduler import DDIMScheduler
 from egomimic.models.denoising_nets import ConditionalUnet1D
 from egomimic.models.diffusion_policy import DiffusionPolicy
+from egomimic.pipeline.core import Pipeline
 from egomimic.pipeline.stages_diffusion import MultiDomainDiffusionPolicyStage
+from egomimic.pipeline.stages_sampler import FusedObsEncoder
 
 CHAIN = "pushshapes_sim_chain_gripper"
 USOCKET = "pushshapes_sim_u_socket"
@@ -105,6 +107,60 @@ def test_multidomain_diffusion_rejects_wrong_domain_target_width():
                 "target": torch.randn(2, 4, 6),
             }
         )
+
+
+def test_diffusion_pipeline_contracts_are_mode_exact():
+    encoder = FusedObsEncoder(torch.nn.Identity(), n_obs_steps=1)
+    diffusion = _tiny_stage()
+    pipeline = Pipeline([encoder, diffusion])
+
+    assert encoder.contract("train") == (
+        ("obs/*", "embodiment", "actions"),
+        ("condition", "target"),
+    )
+    assert encoder.contract("rollout") == (
+        ("obs/*", "embodiment"),
+        ("condition",),
+    )
+    assert diffusion.contract("train") == (
+        ("condition", "target", "embodiment"),
+        ("loss/diffusion_noise", "log/*"),
+    )
+    assert diffusion.contract("rollout") == (
+        ("condition", "embodiment"),
+        ("pred_action", "log/*"),
+    )
+
+    train_runnable, train_excluded = pipeline.plan(
+        ["obs/state_agent_obj", "embodiment", "actions"], mode="train"
+    )
+    rollout_runnable, rollout_excluded = pipeline.plan(
+        ["obs/state_agent_obj", "embodiment"], mode="rollout"
+    )
+    assert train_runnable == [encoder, diffusion]
+    assert train_excluded == []
+    assert rollout_runnable == [encoder, diffusion]
+    assert rollout_excluded == []
+
+    _, missing_target = pipeline.plan(
+        ["obs/state_agent_obj", "embodiment"], mode="train"
+    )
+    assert missing_target == [
+        (encoder, ["actions"]),
+        (diffusion, ["condition", "target"]),
+    ]
+
+    rollout_graph = pipeline.explain(
+        ["obs/state_agent_obj", "embodiment"], mode="rollout"
+    )
+    assert "actions" not in rollout_graph
+    assert "target" not in rollout_graph
+    assert "pred_action" in rollout_graph
+
+
+def test_stage_contract_rejects_unknown_mode():
+    with pytest.raises(ValueError, match="train\\|rollout"):
+        _tiny_stage().contract("validation")
 
 
 @pytest.mark.parametrize(
