@@ -18,7 +18,11 @@ import numpy as np
 from shapely.geometry import LineString, Point, Polygon, box
 
 from Tsimulation.sim_v2.pushshapes.env import SIM_VERSION, PushShapesEnv
-from Tsimulation.sim_v2.pushshapes.obstacles import OBSTACLE_LEVELS, WALL_RADIUS
+from Tsimulation.sim_v2.pushshapes.obstacles import (
+    COLLECTION_GATE_PORTALS,
+    OBSTACLE_LEVELS,
+    WALL_RADIUS,
+)
 
 SCHEMA_VERSION = 1
 SAMPLER_REVISION = "chain_obstacle_seed_bank_level_policy_v1"
@@ -66,6 +70,7 @@ class LevelInitPolicy:
 
     spawn_exclusions: tuple[SpawnExclusion, ...] = ()
     box_spawn_exclusions: tuple[BoxSpawnExclusion, ...] = ()
+    gate_portal: tuple[tuple[float, float], tuple[float, float]] | None = None
 
 
 LEVEL_INIT_POLICIES: dict[int, LevelInitPolicy] = {
@@ -79,23 +84,39 @@ LEVEL_INIT_POLICIES: dict[int, LevelInitPolicy] = {
             SpawnExclusion((512.0, 0.0), 200.0, "obstacle emergence corner"),
         )
     ),
+    **{
+        level: LevelInitPolicy(gate_portal=portal)
+        for level, portal in COLLECTION_GATE_PORTALS.items()
+    },
+    23: LevelInitPolicy(
+        spawn_exclusions=(
+            SpawnExclusion((0.0, 0.0), 150.0, "obstacle emergence corner"),
+            SpawnExclusion((512.0, 512.0), 150.0, "obstacle emergence corner"),
+        ),
+        gate_portal=COLLECTION_GATE_PORTALS[23],
+    ),
+    24: LevelInitPolicy(
+        spawn_exclusions=(
+            SpawnExclusion((0.0, 512.0), 150.0, "obstacle emergence corner"),
+            SpawnExclusion((512.0, 0.0), 150.0, "obstacle emergence corner"),
+        ),
+        gate_portal=COLLECTION_GATE_PORTALS[24],
+    ),
     25: LevelInitPolicy(
         box_spawn_exclusions=(
             BoxSpawnExclusion((0.0, 0.0, 192.0, 192.0), "sealed corner pocket"),
             BoxSpawnExclusion((320.0, 320.0, 512.0, 512.0), "sealed corner pocket"),
         ),
+        gate_portal=COLLECTION_GATE_PORTALS[25],
     ),
     26: LevelInitPolicy(
         box_spawn_exclusions=(
             BoxSpawnExclusion((320.0, 0.0, 512.0, 192.0), "sealed corner pocket"),
             BoxSpawnExclusion((0.0, 320.0, 192.0, 512.0), "sealed corner pocket"),
         ),
+        gate_portal=COLLECTION_GATE_PORTALS[26],
     ),
 }
-
-# These are generation defaults, not runtime constraints or bank identity.
-# Explicit ``seed_limit`` arguments remain hard overrides.
-LEVEL_SEED_SEARCH_LIMITS: dict[int, int] = {25: 200_000, 26: 200_000}
 
 
 def level_init_policy(level: int) -> LevelInitPolicy:
@@ -124,6 +145,10 @@ def serialize_level_init_policy(level: int) -> dict[str, Any]:
             }
             for exclusion in policy.box_spawn_exclusions
         ]
+    if policy.gate_portal is not None:
+        serialized["gate_portal"] = [
+            [float(value) for value in point] for point in policy.gate_portal
+        ]
     return serialized
 
 
@@ -137,7 +162,7 @@ def resolve_seed_search_limit(
     if seed_limit is not None:
         limit = int(seed_limit)
     else:
-        limit = max(criteria.seed_limit, LEVEL_SEED_SEARCH_LIMITS.get(int(level), 0))
+        limit = criteria.seed_limit
     if limit < 1:
         raise ValueError("seed_limit must be positive")
     return limit
@@ -231,6 +256,90 @@ def _crossing_direction(
     if start_side * goal_side >= 0.0:
         return 0
     return 1 if start_side > goal_side else -1
+
+
+def _gate_passage(
+    start: Sequence[float],
+    goal: Sequence[float],
+    portal: tuple[tuple[float, float], tuple[float, float]],
+) -> dict[str, Any] | None:
+    """Describe a direct center path that crosses a finite gate opening."""
+    portal_start = np.asarray(portal[0], dtype=np.float64)
+    portal_stop = np.asarray(portal[1], dtype=np.float64)
+    portal_delta = portal_stop - portal_start
+    portal_length_sq = float(np.dot(portal_delta, portal_delta))
+    if portal_length_sq <= 0.0:
+        raise ValueError("gate portal must have nonzero length")
+
+    direction = _crossing_direction(start, goal, portal)
+    if direction == 0:
+        return None
+
+    intersection = LineString([start[:2], goal[:2]]).intersection(LineString(portal))
+    if not isinstance(intersection, Point):
+        return None
+
+    point = np.asarray(intersection.coords[0], dtype=np.float64)
+    crossing_fraction = float(
+        np.dot(point - portal_start, portal_delta) / portal_length_sq
+    )
+    midpoint = 0.5 * (portal_start + portal_stop)
+
+    def tangent_lobe(pose: Sequence[float]) -> int:
+        along = float(np.dot(np.asarray(pose[:2]) - midpoint, portal_delta))
+        return int(along >= 0.0)
+
+    start_lobe = tangent_lobe(start)
+    goal_lobe = tangent_lobe(goal)
+    if direction > 0:
+        positive_side_lobe, negative_side_lobe = start_lobe, goal_lobe
+    else:
+        positive_side_lobe, negative_side_lobe = goal_lobe, start_lobe
+    route_group = 2 * positive_side_lobe + negative_side_lobe
+
+    return {
+        "gate_crossing_point": [float(value) for value in point],
+        "gate_crossing_fraction": crossing_fraction,
+        "gate_crossing_direction": int(direction),
+        "gate_route_group": int(route_group),
+        "gate_center_score": float(1.0 - abs(2.0 * crossing_fraction - 1.0)),
+    }
+
+
+def _gate_passage_matches(
+    entry: dict[str, Any],
+    portal: tuple[tuple[float, float], tuple[float, float]],
+) -> bool:
+    """Return whether stored gate diagnostics match the exact start/goal poses."""
+    expected = _gate_passage(entry["object_pose"], entry["goal_pose"], portal)
+    if expected is None or entry.get("route_type") != "gate_passage":
+        return False
+    if any(
+        int(entry.get(key, -99)) != int(expected[key])
+        for key in ("gate_crossing_direction", "gate_route_group")
+    ):
+        return False
+    crossing_point = entry.get("gate_crossing_point")
+    if (
+        not isinstance(crossing_point, (list, tuple))
+        or len(crossing_point) != 2
+        or not np.allclose(
+            crossing_point,
+            expected["gate_crossing_point"],
+            rtol=0.0,
+            atol=1e-9,
+        )
+    ):
+        return False
+    return all(
+        math.isclose(
+            float(entry.get(key, math.nan)),
+            float(expected[key]),
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        )
+        for key in ("gate_crossing_fraction", "gate_center_score")
+    )
 
 
 def _swept_collision_alphas(
@@ -410,30 +519,17 @@ def evaluate_candidate(
 
     segment_lines = _segment_lines(level)
     hit_segments = _intersected_segments(start, goal, segment_lines)
-    if not hit_segments:
-        return None
+    gate_passage = None
+    if policy.gate_portal is not None:
+        gate_passage = _gate_passage(start, goal, policy.gate_portal)
+        if gate_passage is None:
+            return None
     collision_alphas = _swept_collision_alphas(env, start, goal, criteria.sweep_samples)
     interior_hits = [
         alpha
         for alpha in collision_alphas
         if criteria.endpoint_margin <= alpha <= 1.0 - criteria.endpoint_margin
     ]
-    if len(interior_hits) < criteria.min_blocked_samples:
-        return None
-
-    crossing_segments = [
-        (segment_index, direction)
-        for segment_index in hit_segments
-        if (
-            direction := _crossing_direction(
-                start, goal, OBSTACLE_LEVELS[level][segment_index]
-            )
-        )
-        != 0
-    ]
-    if not crossing_segments:
-        return None
-    primary_segment, direction = crossing_segments[0]
     candidate = {
         "level": level,
         "seed": int(seed),
@@ -450,12 +546,36 @@ def evaluate_candidate(
         "start_obstacle_clearance": start_obstacle_clearance,
         "goal_obstacle_clearance": goal_obstacle_clearance,
         "hit_segments": hit_segments,
-        "crossing_segments": [index for index, _ in crossing_segments],
-        "primary_hit_segment": int(primary_segment),
-        "crossing_direction": int(direction),
         "collision_alphas": interior_hits,
         "blocked_fraction": float(len(interior_hits) / criteria.sweep_samples),
     }
+    if policy.gate_portal is not None:
+        candidate["route_type"] = "gate_passage"
+        assert gate_passage is not None
+        candidate.update(gate_passage)
+    else:
+        if not hit_segments or len(interior_hits) < criteria.min_blocked_samples:
+            return None
+        crossing_segments = [
+            (segment_index, direction)
+            for segment_index in hit_segments
+            if (
+                direction := _crossing_direction(
+                    start, goal, OBSTACLE_LEVELS[level][segment_index]
+                )
+            )
+            != 0
+        ]
+        if not crossing_segments:
+            return None
+        primary_segment, direction = crossing_segments[0]
+        candidate.update(
+            {
+                "crossing_segments": [index for index, _ in crossing_segments],
+                "primary_hit_segment": int(primary_segment),
+                "crossing_direction": int(direction),
+            }
+        )
     if exclusions:
         candidate.update(
             {
@@ -497,22 +617,30 @@ def _candidate_features(candidate: dict[str, Any]) -> np.ndarray:
     return np.concatenate([positions, np.asarray(angles, dtype=np.float64)])
 
 
+def _candidate_group(candidate: dict[str, Any]) -> tuple[str, int]:
+    """Return the route group used for balanced deterministic selection."""
+    if candidate.get("route_type") == "gate_passage":
+        gate_group = 2 * int(candidate["gate_route_group"])
+        gate_group += int(candidate["gate_crossing_direction"] > 0)
+        return "gate", gate_group
+    wall_group = 2 * int(candidate["primary_hit_segment"])
+    wall_group += int(candidate["crossing_direction"] > 0)
+    return "wall", wall_group
+
+
 def select_diverse_candidates(
     candidates: Sequence[dict[str, Any]], count: int
 ) -> list[dict[str, Any]]:
-    """Balance hit side/segment, then apply deterministic farthest-point sampling."""
+    """Balance route groups, then apply deterministic farthest-point sampling."""
     if count < 1:
         raise ValueError("count must be >= 1")
     if len(candidates) < count:
         raise ValueError(f"need {count} candidates, found {len(candidates)}")
 
     ordered = sorted(candidates, key=lambda item: int(item["seed"]))
-    groups: dict[tuple[int, int], list[dict[str, Any]]] = {}
+    groups: dict[tuple[str, int], list[dict[str, Any]]] = {}
     for candidate in ordered:
-        key = (
-            int(candidate["primary_hit_segment"]),
-            int(candidate["crossing_direction"]),
-        )
+        key = _candidate_group(candidate)
         groups.setdefault(key, []).append(candidate)
 
     features = {int(item["seed"]): _candidate_features(item) for item in ordered}
@@ -548,7 +676,7 @@ def select_diverse_candidates(
             )
             return (
                 min_distance,
-                float(item["blocked_fraction"]),
+                float(item.get("gate_center_score", item["blocked_fraction"])),
                 float(item["start_goal_distance"]),
                 -int(item["seed"]),
             )
@@ -557,10 +685,7 @@ def select_diverse_candidates(
             max(available_groups[key], key=diversity_score) for key in least_represented
         ]
         candidate = max(group_winners, key=diversity_score)
-        candidate_group = (
-            int(candidate["primary_hit_segment"]),
-            int(candidate["crossing_direction"]),
-        )
+        candidate_group = _candidate_group(candidate)
         selected.append(candidate)
         selected_per_group[candidate_group] += 1
         used.add(int(candidate["seed"]))
@@ -578,9 +703,7 @@ def curate_level(
     """Select ``count`` diverse, valid seeds for one obstacle level."""
     if level <= 0 or level not in OBSTACLE_LEVELS:
         raise ValueError(f"unknown nonzero obstacle level {level}")
-    limit = resolve_seed_search_limit(
-        level, criteria=criteria, seed_limit=seed_limit
-    )
+    limit = resolve_seed_search_limit(level, criteria=criteria, seed_limit=seed_limit)
     pool_target = max(count, count * criteria.pool_multiplier)
     candidates: list[dict[str, Any]] = []
     env = PushShapesEnv(
@@ -727,6 +850,11 @@ def level_entries(manifest: dict[str, Any], level: int) -> list[dict[str, Any]]:
     )
     if actual_policy != expected_policy:
         raise ValueError(f"manifest level {level} init policy is stale")
+    gate_portal = level_init_policy(level).gate_portal
+    if gate_portal is not None and any(
+        not _gate_passage_matches(entry, gate_portal) for entry in entries
+    ):
+        raise ValueError(f"manifest level {level} gate passage is stale")
     if manifest.get("level_bank_sha256", {}).get(key) != level_bank_sha256(
         manifest, level
     ):

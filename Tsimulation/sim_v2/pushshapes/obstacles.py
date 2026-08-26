@@ -278,6 +278,7 @@ _SPIRAL_TAIL_REACH = 420.0  # target radius; > max corner distance (362)
 
 _WIDE_GATE_LINE_OFFSET = 216.0
 _WIDE_GATE_STUB_LENGTH = 176.0
+_DIAGONAL_GATE_INSET = 192.0
 
 
 def _edge_wall_levels() -> list[list[Segment]]:
@@ -367,9 +368,11 @@ def _middle_axis_levels() -> list[list[Segment]]:
 
 def _diagonal_gate_levels() -> list[list[Segment]]:
     """Two diagonal walls split by the same 181-unit centered gate."""
+    near = _DIAGONAL_GATE_INSET
+    far = _W - near
     return [
-        [((0.0, 0.0), (192.0, 192.0)), ((320.0, 320.0), (512.0, 512.0))],
-        [((0.0, 512.0), (192.0, 320.0)), ((320.0, 192.0), (512.0, 0.0))],
+        [((0.0, 0.0), (near, near)), ((far, far), (_W, _W))],
+        [((0.0, _W), (near, far)), ((far, near), (_W, 0.0))],
     ]
 
 
@@ -379,7 +382,7 @@ def _corner_square_gate_levels() -> list[list[Segment]]:
     The arena boundary supplies each square's two outer sides, so those sides
     are deliberately absent from the obstacle list.
     """
-    side = 192.0
+    side = _DIAGONAL_GATE_INSET
     main_diagonal = [
         ((0.0, side), (side, side)),
         ((side, 0.0), (side, side)),
@@ -560,6 +563,29 @@ def _collection_levels() -> dict[int, list[Segment]]:
     return {1 + i: segs for i, segs in enumerate(families)}
 
 
+def _collection_gate_portals() -> dict[int, Segment]:
+    """Return the finite openings that define passage for each gate level."""
+    wide_base = [
+        (
+            (_WIDE_GATE_STUB_LENGTH, _WIDE_GATE_LINE_OFFSET),
+            (_W - _WIDE_GATE_STUB_LENGTH, _WIDE_GATE_LINE_OFFSET),
+        )
+    ]
+    wide = {
+        11 + index: rotated[0]
+        for index, rotated in enumerate(_quarter_turn_levels(wide_base))
+    }
+    near = _DIAGONAL_GATE_INSET
+    far = _W - near
+    diagonal = {
+        23: ((near, near), (far, far)),
+        24: ((near, far), (far, near)),
+        25: ((near, near), (far, far)),
+        26: ((far, near), (near, far)),
+    }
+    return {**wide, **diagonal}
+
+
 # Human-readable family name per level in 1..30, for plots and logs.
 SKETCH_FAMILY_NAMES: dict[int, str] = {
     **{1 + i: "edge_wall" for i in range(6)},
@@ -579,6 +605,10 @@ OBSTACLE_LEVELS: dict[int, list[Segment]] = {
     0: [],
     **_collection_levels(),
 }
+
+# Collection semantics for levels whose obstacle challenge is traversing the
+# opening rather than colliding with a direct object-to-goal sweep.
+COLLECTION_GATE_PORTALS: dict[int, Segment] = _collection_gate_portals()
 
 
 def build_obstacles(space: pymunk.Space, level: int) -> list[pymunk.Segment]:

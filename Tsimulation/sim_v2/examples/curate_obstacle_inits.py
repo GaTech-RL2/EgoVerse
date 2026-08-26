@@ -151,11 +151,15 @@ def _finish_figure(
 
 
 def plot_manifest(manifest: dict, destination: str | Path) -> Path:
-    """Render all selected starts, goals, agents, and blocked direct paths."""
+    """Render starts, goals, agents, and each level's route criterion."""
     levels, figure, axes = _figure_grid(manifest)
+    has_blocked_sweeps = False
+    has_gate_passages = False
 
     for axis, level in zip(axes.flat, levels, strict=False):
         entries = level_entries(manifest, level)
+        level_policy = manifest.get("level_policies", {}).get(str(level), {})
+        gate_portal = level_policy.get("gate_portal")
         for entry in entries:
             start = np.asarray(entry["object_pose"][:2], dtype=np.float64)
             goal = np.asarray(entry["goal_pose"][:2], dtype=np.float64)
@@ -168,18 +172,33 @@ def plot_manifest(manifest: dict, destination: str | Path) -> Path:
                 alpha=0.20,
                 zorder=1,
             )
-            collision_alpha = float(np.median(entry["collision_alphas"]))
-            collision = start + collision_alpha * (goal - start)
-            axis.scatter(
-                collision[0],
-                collision[1],
-                marker="x",
-                s=11,
-                linewidths=0.75,
-                color="#d64541",
-                alpha=0.65,
-                zorder=3,
-            )
+            if entry.get("route_type") == "gate_passage":
+                has_gate_passages = True
+                crossing = entry["gate_crossing_point"]
+                axis.scatter(
+                    crossing[0],
+                    crossing[1],
+                    marker="D",
+                    s=11,
+                    linewidths=0,
+                    color="#6f42c1",
+                    alpha=0.65,
+                    zorder=3,
+                )
+            else:
+                has_blocked_sweeps = True
+                collision_alpha = float(np.median(entry["collision_alphas"]))
+                collision = start + collision_alpha * (goal - start)
+                axis.scatter(
+                    collision[0],
+                    collision[1],
+                    marker="x",
+                    s=11,
+                    linewidths=0.75,
+                    color="#d64541",
+                    alpha=0.65,
+                    zorder=3,
+                )
             axis.scatter(
                 agent[0],
                 agent[1],
@@ -212,6 +231,15 @@ def plot_manifest(manifest: dict, destination: str | Path) -> Path:
             )
 
         _draw_obstacles(axis, level)
+        if gate_portal is not None:
+            axis.plot(
+                [gate_portal[0][0], gate_portal[1][0]],
+                [gate_portal[0][1], gate_portal[1][1]],
+                color="#6f42c1",
+                linewidth=1.4,
+                linestyle=(0, (4, 3)),
+                zorder=9,
+            )
         _style_axis(axis, level, len(entries))
 
     legend = [
@@ -220,16 +248,32 @@ def plot_manifest(manifest: dict, destination: str | Path) -> Path:
         ),
         Line2D([], [], marker="o", linestyle="none", color="#2878b5", label="T start"),
         Line2D([], [], marker="^", linestyle="none", color="#e68613", label="goal"),
-        Line2D(
-            [],
-            [],
-            marker="x",
-            linestyle="none",
-            color="#d64541",
-            label="blocked direct sweep",
-        ),
         Line2D([], [], linewidth=1.0, color="#77808c", label="paired direct path"),
     ]
+    if has_blocked_sweeps:
+        legend.insert(
+            3,
+            Line2D(
+                [],
+                [],
+                marker="x",
+                linestyle="none",
+                color="#d64541",
+                label="blocked direct sweep",
+            ),
+        )
+    if has_gate_passages:
+        legend.insert(
+            3,
+            Line2D(
+                [],
+                [],
+                marker="D",
+                linestyle=(0, (4, 3)),
+                color="#6f42c1",
+                label="accepted gate passage",
+            ),
+        )
     return _finish_figure(
         figure,
         axes,
@@ -264,6 +308,7 @@ def plot_silhouette_manifest(manifest: dict, destination: str | Path) -> Path:
     obstacle_margin = float(manifest["criteria"]["min_obstacle_clearance"])
     shape = str(manifest["object_shape"])
     has_spawn_exclusions = False
+    has_gate_portals = False
     for axis, level in zip(axes.flat, levels, strict=False):
         entries = level_entries(manifest, level)
         for start, stop in OBSTACLE_LEVELS[level]:
@@ -308,6 +353,17 @@ def plot_silhouette_manifest(manifest: dict, destination: str | Path) -> Path:
                     alpha=0.08,
                     zorder=1,
                 )
+            )
+        gate_portal = level_policy.get("gate_portal")
+        if gate_portal is not None:
+            has_gate_portals = True
+            axis.plot(
+                [gate_portal[0][0], gate_portal[1][0]],
+                [gate_portal[0][1], gate_portal[1][1]],
+                color="#6f42c1",
+                linewidth=1.4,
+                linestyle=(0, (4, 3)),
+                zorder=9,
             )
         for entry in entries:
             _add_silhouette(axis, shape, entry["object_pose"], "#2878b5")
@@ -364,6 +420,17 @@ def plot_silhouette_manifest(manifest: dict, destination: str | Path) -> Path:
                 color="#b54c63",
                 linestyle=(0, (5, 3)),
                 label="level-specific full-T spawn exclusion",
+            ),
+        )
+    if has_gate_portals:
+        legend.insert(
+            4,
+            Line2D(
+                [],
+                [],
+                color="#6f42c1",
+                linestyle=(0, (4, 3)),
+                label="accepted gate portal",
             ),
         )
     return _finish_figure(

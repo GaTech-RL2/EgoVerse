@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 import zarr
-from shapely.geometry import Point, box
+from shapely.geometry import LineString, Point, box
 
 from Tsimulation.sim_v2.collect.obstacle_init import (
     curate_manifest,
@@ -26,9 +26,11 @@ from Tsimulation.sim_v2.collect.replay_init import (
 )
 from Tsimulation.sim_v2.examples.curate_obstacle_inits import (
     parse_levels,
+    plot_manifest,
     plot_silhouette_manifest,
 )
 from Tsimulation.sim_v2.pushshapes.env import PushShapesEnv
+from Tsimulation.sim_v2.pushshapes.obstacles import COLLECTION_GATE_PORTALS
 from Tsimulation.sim_v2.pushshapes.shapes import object_polygon
 
 CANONICAL_MANIFEST_PATH = (
@@ -40,21 +42,29 @@ CANONICAL_MANIFEST_PATH = (
 
 
 def test_level_specific_manifest_roundtrip_and_replay(tmp_path):
-    manifest = curate_manifest(levels=[23], count=4)
+    manifest = curate_manifest(levels=[23], count=32)
     path = write_manifest(manifest, tmp_path / "obstacle_inits.json")
     loaded = load_manifest(path)
     entries = level_entries(loaded, 23)
 
-    assert len(entries) == 4
-    assert len({entry["seed"] for entry in entries}) == 4
+    assert len(entries) == 32
+    assert len({entry["seed"] for entry in entries}) == 32
     assert manifest["criteria"]["min_arena_clearance"] == 8.0
     assert all(entry["start_arena_clearance"] >= 8.0 for entry in entries)
     assert all(entry["goal_arena_clearance"] >= 8.0 for entry in entries)
     assert all(entry["start_obstacle_clearance"] >= 10.0 for entry in entries)
     assert all(entry["goal_obstacle_clearance"] >= 10.0 for entry in entries)
-    assert Counter(
-        (entry["primary_hit_segment"], entry["crossing_direction"]) for entry in entries
-    ) == Counter({(0, -1): 1, (0, 1): 1, (1, -1): 1, (1, 1): 1})
+    assert Counter(entry["gate_route_group"] for entry in entries) == Counter(
+        {0: 8, 1: 8, 2: 8, 3: 8}
+    )
+    assert all(
+        count == 4
+        for count in Counter(
+            (entry["gate_route_group"], entry["gate_crossing_direction"])
+            for entry in entries
+        ).values()
+    )
+    assert all(entry["route_type"] == "gate_passage" for entry in entries)
 
     env = PushShapesEnv(
         object_shape="T",
@@ -85,6 +95,15 @@ def test_manifest_rejects_wrong_level_and_stale_geometry(tmp_path):
     manifest["level_bank_sha256"]["23"] = level_bank_sha256(manifest, 23)
     path = write_manifest(manifest, tmp_path / "stale_geometry.json")
     with pytest.raises(ValueError, match="stale"):
+        level_entries(load_manifest(path), 23)
+
+
+def test_manifest_rejects_tampered_gate_passage_with_recomputed_hash(tmp_path):
+    manifest = curate_manifest(levels=[23], count=1)
+    manifest["levels"]["23"][0]["gate_crossing_point"][0] += 1.0
+    manifest["level_bank_sha256"]["23"] = level_bank_sha256(manifest, 23)
+    path = write_manifest(manifest, tmp_path / "tampered_gate.json")
+    with pytest.raises(ValueError, match="gate passage"):
         level_entries(load_manifest(path), 23)
 
 
@@ -136,8 +155,7 @@ def test_empty_policy_serialization_preserves_existing_bank_identity():
 
     manifest = json.loads(CANONICAL_MANIFEST_PATH.read_text())
     assert {
-        level: manifest["level_bank_sha256"][level]
-        for level in ("1", "5", "6", "21")
+        level: manifest["level_bank_sha256"][level] for level in ("1", "5", "6", "21")
     } == {
         "1": "fb088d7a7a184ec285c5b436f39d2f07160b6d8fd20473b9b3b6384dcc062269",
         "5": "e13df1fff6d19ee4e99b32ebf100778e2cafb99e0b449e6e6b93d86b951a881f",
@@ -185,7 +203,7 @@ def test_corner_gate_policy_excludes_sealed_pockets(level, bounds):
     )
     manifest = curate_manifest(levels=[level], count=4)
     assert manifest["criteria"]["seed_limit"] == 10_000
-    assert manifest["level_seed_search_limits"][str(level)] == 200_000
+    assert manifest["level_seed_search_limits"][str(level)] == 10_000
     entries = manifest["levels"][str(level)]
     forbidden = [box(*region) for region in bounds]
     for entry in entries:
@@ -200,9 +218,56 @@ def test_corner_gate_policy_excludes_sealed_pockets(level, bounds):
             )
 
 
+@pytest.mark.parametrize(
+    ("level", "corners"),
+    [
+        (23, ((0.0, 0.0), (512.0, 512.0))),
+        (24, ((0.0, 512.0), (512.0, 0.0))),
+    ],
+)
+def test_diagonal_gate_policy_uses_smaller_corner_exclusions(level, corners):
+    policy = level_init_policy(level)
+    assert tuple(exclusion.center for exclusion in policy.spawn_exclusions) == corners
+    assert all(exclusion.radius == 150.0 for exclusion in policy.spawn_exclusions)
+
+    entries = curate_manifest(levels=[level], count=4)["levels"][str(level)]
+    anchors = [Point(corner) for corner in corners]
+    for entry in entries:
+        for pose in (entry["object_pose"], entry["goal_pose"]):
+            polygon = object_polygon("T", pose[:2], pose[2])
+            assert min(polygon.distance(anchor) for anchor in anchors) >= 150.0 - 1e-8
+
+
+@pytest.mark.parametrize("level", sorted(COLLECTION_GATE_PORTALS))
+def test_gate_levels_balance_finite_portal_passages(level):
+    manifest = curate_manifest(levels=[level], count=32)
+    entries = manifest["levels"][str(level)]
+    portal = LineString(COLLECTION_GATE_PORTALS[level])
+
+    assert Counter(entry["gate_route_group"] for entry in entries) == Counter(
+        {0: 8, 1: 8, 2: 8, 3: 8}
+    )
+    assert all(
+        count == 4
+        for count in Counter(
+            (entry["gate_route_group"], entry["gate_crossing_direction"])
+            for entry in entries
+        ).values()
+    )
+    for entry in entries:
+        direct_path = LineString([entry["object_pose"][:2], entry["goal_pose"][:2]])
+        crossing = Point(entry["gate_crossing_point"])
+        assert entry["route_type"] == "gate_passage"
+        assert entry["gate_crossing_direction"] in (-1, 1)
+        assert 0.0 <= entry["gate_crossing_fraction"] <= 1.0
+        assert direct_path.intersects(portal)
+        assert crossing.distance(portal) <= 1e-9
+    assert any(not entry["hit_segments"] for entry in entries)
+
+
 def test_seed_search_limit_defaults_and_explicit_overrides():
     assert resolve_seed_search_limit(1) == 10_000
-    assert resolve_seed_search_limit(25) == 200_000
+    assert resolve_seed_search_limit(25) == 10_000
     assert resolve_seed_search_limit(25, seed_limit=5_000) == 5_000
     assert resolve_seed_search_limit(25, seed_limit=200_000) == 200_000
     assert resolve_seed_search_limit(25, seed_limit=300_000) == 300_000
@@ -245,11 +310,17 @@ def test_candidate_evaluation_preserves_render_setting():
         env.close()
 
 
-def test_silhouette_plot_is_a_separate_png(tmp_path):
+def test_gate_route_and_silhouette_plots_are_separate_pngs(tmp_path):
     manifest = curate_manifest(levels=[23], count=4)
-    destination = tmp_path / "silhouettes.png"
-    assert plot_silhouette_manifest(manifest, destination) == destination.resolve()
-    assert destination.stat().st_size > 10_000
+    route_destination = tmp_path / "routes.png"
+    silhouette_destination = tmp_path / "silhouettes.png"
+    assert plot_manifest(manifest, route_destination) == route_destination.resolve()
+    assert (
+        plot_silhouette_manifest(manifest, silhouette_destination)
+        == silhouette_destination.resolve()
+    )
+    assert route_destination.stat().st_size > 10_000
+    assert silhouette_destination.stat().st_size > 10_000
 
 
 def test_curated_resume_requires_level_bank_identity(tmp_path):
