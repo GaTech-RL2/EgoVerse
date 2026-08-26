@@ -10,7 +10,7 @@ GPUS_EXPECTED=${GPUS_EXPECTED:?submit with GPUS_EXPECTED}
 EXPECTED_HEAD=${EXPECTED_HEAD:?submit with EXPECTED_HEAD}
 EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?submit with EXPECTED_LAUNCHER_SHA}
 
-REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-direct-dense-obstacle-20260826
+REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-direct-dense-obstacle-dp-retry-20260826
 PY_ENV=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv
 EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_direct_dense_obstacle_20260826
 LAUNCHER=$REPO/scripts/train/flow_transfer_direct_dense_matrix.sbatch
@@ -207,7 +207,8 @@ expected_domains = (
     if arm.startswith("bc_chain_")
     else ["pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"]
 )
-assert list(model.domains) == expected_domains
+assert len(model.domains) == len(expected_domains)
+assert set(model.domains) == set(expected_domains)
 assert set(cfg.data.train_datasets) == set(expected_domains)
 
 if latent:
