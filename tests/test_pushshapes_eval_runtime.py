@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 import torch
 
+from egomimic.eval.core.ckpt_loading import _parse_init_seeds
 from egomimic.eval.core.eval_sim import SimRolloutEval
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pipeline.core import Stage
@@ -47,6 +48,15 @@ class _IdentityNormStats:
     def unnormalize(self, data, embodiment_id):
         del embodiment_id
         return dict(data)
+
+
+def test_explicit_protocol_seed_parser_is_strict():
+    assert _parse_init_seeds("2011, 2022,2033") == [2011, 2022, 2033]
+    assert _parse_init_seeds(None) is None
+    with pytest.raises(ValueError, match="duplicates"):
+        _parse_init_seeds("2011,2011")
+    with pytest.raises(ValueError, match="invalid"):
+        _parse_init_seeds("2011,nope")
 
 
 class _Condition(Stage):
