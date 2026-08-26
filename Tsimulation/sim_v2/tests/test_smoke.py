@@ -28,6 +28,10 @@ from Tsimulation.collect.zarr_writer import (
     STATE_KEY,
     ZarrDemoWriter,
 )
+from Tsimulation.pushshapes.chain_gripper_control import (
+    CHAIN_GRIPPER_POINT_ACTION_SPEC,
+    pose_control_to_points,
+)
 from Tsimulation.pushshapes.env import PushShapesEnv
 from Tsimulation.pushshapes.render import PUSHER_COLOR
 from Tsimulation.pushshapes.shapes import (
@@ -42,6 +46,108 @@ from Tsimulation.pushshapes.shapes import (
 SHAPES_TO_TEST = list(SHAPES.keys())
 PUSHERS = ["circle", "stick", "u_socket"]
 OBSTACLES = [0, 1, 2, 3]
+
+
+def _fixed_chain_state(env):
+    env._skip_obs_render = True
+    env.reset(seed=12)
+    env.set_obstacles([])
+    env.set_state(
+        agent_pos=(230.0, 360.0),
+        agent_angle=0.4,
+        object_pose=(260.0, 250.0, 1.2),
+        goal_pose=(150.0, 170.0, -0.3),
+    )
+
+
+def test_chain_gripper_keeps_pose_control_default_and_adds_point_mode():
+    pose_env = PushShapesEnv(pusher_shape="chain_gripper", image_size=16)
+    point_env = PushShapesEnv(
+        pusher_shape="chain_gripper",
+        image_size=16,
+        chain_gripper_control_mode="points",
+    )
+    try:
+        assert pose_env.action_space.shape == (4,)
+        assert pose_env.action_spec == ("x", "y", "angle", "grip")
+        assert point_env.action_space.shape == (6,)
+        assert point_env.action_spec == CHAIN_GRIPPER_POINT_ACTION_SPEC
+        _fixed_chain_state(pose_env)
+        _fixed_chain_state(point_env)
+        assert "chain_gripper_control_mode" not in pose_env.get_episode_init()
+        assert point_env.get_episode_init()["chain_gripper_control_mode"] == "points"
+    finally:
+        pose_env.close()
+        point_env.close()
+
+
+def test_chain_point_mode_exactly_replays_native_pose_mode():
+    pose_env = PushShapesEnv(pusher_shape="chain_gripper", image_size=16)
+    point_env = PushShapesEnv(
+        pusher_shape="chain_gripper",
+        image_size=16,
+        chain_gripper_control_mode="points",
+    )
+    controls = np.array(
+        [
+            [230.0, 350.0, 0.4, 0.0],
+            [245.0, 335.0, 0.6, 0.5],
+            [260.0, 315.0, 0.8, 1.0],
+            [275.0, 295.0, 1.0, 1.0],
+            [-5.0, 530.0, 2.0 * np.pi + 0.2, 0.3],
+        ],
+        dtype=np.float64,
+    )
+    try:
+        _fixed_chain_state(pose_env)
+        _fixed_chain_state(point_env)
+        for control in controls:
+            pose_step = pose_env.step(control)
+            point_step = point_env.step(pose_control_to_points(control))
+            pose_obs, pose_reward, pose_terminated, pose_truncated, _ = pose_step
+            point_obs, point_reward, point_terminated, point_truncated, point_info = (
+                point_step
+            )
+            for key in ("agent_pos", "agent_angle", "object_pose", "goal_pose"):
+                np.testing.assert_allclose(point_obs[key], pose_obs[key], atol=1e-10)
+            assert point_reward == pytest.approx(pose_reward, abs=1e-12)
+            assert point_terminated is pose_terminated
+            assert point_truncated is pose_truncated
+            assert point_info["point_used_exact_inverse"] is True
+            assert point_info["point_projection_rmse"] <= 1e-10
+            assert point_env.agent.joint_angle == pytest.approx(
+                pose_env.agent.joint_angle, abs=1e-12
+            )
+            assert point_env.agent.grasped is pose_env.agent.grasped
+    finally:
+        pose_env.close()
+        point_env.close()
+
+
+def test_chain_point_mode_projects_noisy_prediction_and_reports_residual():
+    env = PushShapesEnv(
+        pusher_shape="chain_gripper",
+        image_size=16,
+        chain_gripper_control_mode="points",
+    )
+    try:
+        _fixed_chain_state(env)
+        point_action = pose_control_to_points(
+            np.array([260.0, 260.0, 0.7, 0.6], dtype=np.float64)
+        )
+        point_action[[0, 3, 4]] += np.array([7.0, -5.0, 4.0])
+        _, _, _, _, info = env.step(point_action)
+        assert info["point_used_exact_inverse"] is False
+        assert info["point_projection_rmse"] > 0.0
+        assert info["point_native_control"].shape == (4,)
+        assert np.isfinite(info["point_native_control"]).all()
+    finally:
+        env.close()
+
+
+def test_point_mode_rejects_non_chain_pusher():
+    with pytest.raises(ValueError, match="requires pusher_shape='chain_gripper'"):
+        PushShapesEnv(pusher_shape="circle", chain_gripper_control_mode="points")
 
 
 def test_chain_gripper_is_exactly_four_rigid_serial_links():

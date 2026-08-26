@@ -24,7 +24,19 @@ from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import unary_union
 
 from .agents import NEW_AGENTS as _NEW_AGENTS
+
+# Single source of truth: the agent registry. Adding an agent to
+# agents.make_agent is enough to make it constructible here.
+from .agents import VALID_PUSHERS as _VALID_PUSHERS  # noqa: E402
 from .agents import make_agent
+from .chain_gripper_control import (
+    CHAIN_GRIPPER_CONTROL_MODES,
+    CHAIN_GRIPPER_POINT_ACTION_SPEC,
+    CHAIN_GRIPPER_POINT_MODE,
+    CHAIN_GRIPPER_POSE_MODE,
+    point_action_bounds,
+    project_points_to_pose_control,
+)
 from .obstacles import (
     OBSTACLE_LEVELS,
     WALL_RADIUS,
@@ -43,9 +55,6 @@ from .shapes import (
     pusher_radius,
 )
 
-# Single source of truth: the agent registry. Adding an agent to
-# agents.make_agent is enough to make it constructible here.
-from .agents import VALID_PUSHERS as _VALID_PUSHERS  # noqa: E402
 # non-symmetric pushers that re-orient toward velocity. The L stays fixed at
 # its spawn angle instead — pushing with a rigid axis-aligned tool.
 _ORIENTED_PUSHERS = ("stick",)
@@ -113,6 +122,7 @@ class PushShapesEnv(gym.Env):
         render_mode: str | None = None,
         image_size: int = 96,
         seed: int | None = None,
+        chain_gripper_control_mode: str = CHAIN_GRIPPER_POSE_MODE,
         **legacy_physics_options: Any,
     ):
         super().__init__()
@@ -134,6 +144,19 @@ class PushShapesEnv(gym.Env):
             raise ValueError(f"object_shape {object_shape!r} not in {list(SHAPES)}")
         if pusher_shape not in _VALID_PUSHERS:
             raise ValueError(f"pusher_shape {pusher_shape!r} not in {_VALID_PUSHERS}")
+        if chain_gripper_control_mode not in CHAIN_GRIPPER_CONTROL_MODES:
+            raise ValueError(
+                f"chain_gripper_control_mode {chain_gripper_control_mode!r} not in "
+                f"{CHAIN_GRIPPER_CONTROL_MODES}"
+            )
+        if (
+            pusher_shape != "chain_gripper"
+            and chain_gripper_control_mode != CHAIN_GRIPPER_POSE_MODE
+        ):
+            raise ValueError(
+                "chain_gripper_control_mode='points' requires "
+                "pusher_shape='chain_gripper'"
+            )
         if obstacle_level not in OBSTACLE_LEVELS:
             raise ValueError(
                 f"obstacle_level {obstacle_level} not in {sorted(OBSTACLE_LEVELS)}"
@@ -145,6 +168,8 @@ class PushShapesEnv(gym.Env):
 
         self.object_shape = object_shape
         self.pusher_shape = pusher_shape
+        self.chain_gripper_control_mode = chain_gripper_control_mode
+        self._last_chain_gripper_pose_control: np.ndarray | None = None
         # The agent owns its action space, body and contact model, so the env
         # never branches on pusher_shape again.
         agent_options = {
@@ -175,8 +200,14 @@ class PushShapesEnv(gym.Env):
             "grip": (0.0, 1.0),
             "engage": (0.0, 1.0),
         }
+        action_bounds.update(point_action_bounds(self.WORLD_SIZE))
+        self.action_spec = (
+            CHAIN_GRIPPER_POINT_ACTION_SPEC
+            if self.chain_gripper_control_mode == CHAIN_GRIPPER_POINT_MODE
+            else self.agent.action_spec
+        )
         try:
-            bounds = [action_bounds[channel] for channel in self.agent.action_spec]
+            bounds = [action_bounds[channel] for channel in self.action_spec]
         except KeyError as exc:
             raise ValueError(
                 f"agent {pusher_shape!r} declares unknown action channel {exc.args[0]!r}"
@@ -288,6 +319,8 @@ class PushShapesEnv(gym.Env):
             "control_gap": self.agent.control_gap.as_dict(),
             "control_gap_randomized": bool(getattr(self.agent, "randomize_gap", False)),
         }
+        if self.chain_gripper_control_mode == CHAIN_GRIPPER_POINT_MODE:
+            init["chain_gripper_control_mode"] = CHAIN_GRIPPER_POINT_MODE
         init["config_hash"] = hashlib.sha256(
             json.dumps(init, sort_keys=True).encode()
         ).hexdigest()[:16]
@@ -355,6 +388,7 @@ class PushShapesEnv(gym.Env):
         self._goal_pose = (float(goal_pos[0]), float(goal_pos[1]), float(goal_angle))
         self._goal_polygon = self._build_object_polygon(goal_pos, goal_angle)
         self._step_count = 0
+        self._last_chain_gripper_pose_control = None
 
         return self._get_obs(), {
             "coverage": float(self._coverage()),
@@ -365,17 +399,28 @@ class PushShapesEnv(gym.Env):
         self, action: np.ndarray
     ) -> tuple[dict[str, np.ndarray], float, bool, bool, dict[str, Any]]:
         action = np.asarray(action, dtype=np.float64).reshape(-1)
-        expected_shape = (self.agent.action_dim,)
+        expected_shape = self.action_space.shape
         if action.shape != expected_shape:
             raise ValueError(
                 f"action must be shape {expected_shape} for "
                 f"pusher={self.pusher_shape!r}, got {action.shape}"
             )
 
+        point_projection = None
+        native_action = action
+        if self.chain_gripper_control_mode == CHAIN_GRIPPER_POINT_MODE:
+            point_projection = project_points_to_pose_control(
+                action,
+                previous_control=self._last_chain_gripper_pose_control,
+                world_size=self.WORLD_SIZE,
+            )
+            native_action = np.asarray(point_projection.control, dtype=np.float64)
+            self._last_chain_gripper_pose_control = native_action.copy()
+
         # Action = desired pusher XY in world coords. Walk toward it at
         # PUSHER_SPEED via kinematic velocity commands; pymunk's solver still
         # resolves contact forces against the object.
-        tx, ty, target_angle = self.agent.target_pose(action)
+        tx, ty, target_angle = self.agent.target_pose(native_action)
         tx = float(np.clip(tx, 0.0, self.WORLD_SIZE))
         ty = float(np.clip(ty, 0.0, self.WORLD_SIZE))
 
@@ -400,21 +445,28 @@ class PushShapesEnv(gym.Env):
         reward = float(np.clip(coverage, 0.0, 1.0))
         terminated = coverage >= self.SUCCESS_THRESHOLD
         truncated = False  # episode cutoff disabled — caller decides when to stop
-        return (
-            self._get_obs(),
-            reward,
-            terminated,
-            truncated,
-            {
-                "coverage": coverage,
-                "socket_latched": self.socket_latched,
-                # Gap between the command and where the body actually is.
-                # 0.0 for an ideal agent; non-zero is the embodiment's
-                # execution error, which teleop should surface to the operator.
-                "tracking_error": self.agent.tracking_error(self),
-                "command_gap": self.agent.command_gap(),
-            },
-        )
+        info = {
+            "coverage": coverage,
+            "socket_latched": self.socket_latched,
+            # Gap between the command and where the body actually is.
+            # 0.0 for an ideal agent; non-zero is the embodiment's
+            # execution error, which teleop should surface to the operator.
+            "tracking_error": self.agent.tracking_error(self),
+            "command_gap": self.agent.command_gap(),
+        }
+        if point_projection is not None:
+            info.update(
+                {
+                    "point_projection_rmse": float(point_projection.point_rmse),
+                    "point_wrong_chirality": bool(point_projection.wrong_chirality),
+                    "point_degenerate": bool(point_projection.degenerate),
+                    "point_used_exact_inverse": bool(
+                        point_projection.used_exact_inverse
+                    ),
+                    "point_native_control": native_action.copy(),
+                }
+            )
+        return self._get_obs(), reward, terminated, truncated, info
 
     def set_state(
         self,
@@ -442,6 +494,7 @@ class PushShapesEnv(gym.Env):
             self._pusher_body.angular_velocity = 0.0
 
         if agent_pos is not None or agent_angle is not None:
+            self._last_chain_gripper_pose_control = None
             # set_state moves the invisible/master pose directly.  Keep every
             # articulated collision body at that same instant; otherwise a
             # chain/gripper render immediately after set_state still shows
