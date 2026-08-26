@@ -421,7 +421,6 @@ def generate_level(
     audited._skip_obs_render = True
     attempts = 0
     generated_now = 0
-    generated_required = target_total - manual_count
     try:
         replayable_sources = []
         excluded_source_seeds = []
@@ -456,9 +455,13 @@ def generate_level(
                 source.reset_seed for source in replayable_sources
             ],
             "excluded_nonreplayable_source_seeds": excluded_source_seeds,
+            "excluded_variant_generation_source_seeds": [],
             "generated_variants_are_redistributed": bool(excluded_source_seeds),
         }
-        (output_root / f"generation_source_audit_level_{level:02d}.json").write_text(
+        source_audit_path = (
+            output_root / f"generation_source_audit_level_{level:02d}.json"
+        )
+        source_audit_path.write_text(
             json.dumps(source_audit, indent=2, sort_keys=True) + "\n"
         )
         print(
@@ -466,85 +469,118 @@ def generate_level(
             f"excluded={excluded_source_seeds}",
             flush=True,
         )
-        per_source, remainder = divmod(generated_required, len(replayable_sources))
-        for source_index, source in enumerate(replayable_sources):
-            count_for_source = per_source + int(source_index < remainder)
-            for variant_index in range(count_for_source):
-                if (source.reset_seed, variant_index) in variants:
+        variant_excluded_seeds: set[int] = set()
+        source_order = {
+            source.reset_seed: index for index, source in enumerate(replayable_sources)
+        }
+        while current_total < target_total:
+            eligible = [
+                source
+                for source in replayable_sources
+                if source.reset_seed not in variant_excluded_seeds
+            ]
+            if not eligible:
+                raise RuntimeError(
+                    f"L{level:02d} exhausted every replayable generation source"
+                )
+            variant_counts = {
+                source.reset_seed: sum(
+                    seed == source.reset_seed for seed, _variant in variants
+                )
+                for source in eligible
+            }
+            source = min(
+                eligible,
+                key=lambda item: (
+                    variant_counts[item.reset_seed],
+                    source_order[item.reset_seed],
+                ),
+            )
+            variant_index = 0
+            while (source.reset_seed, variant_index) in variants:
+                variant_index += 1
+            accepted = False
+            for retry_index in range(max_retries):
+                state = jittered_state(
+                    source,
+                    level=level,
+                    variant_index=variant_index,
+                    retry_index=retry_index,
+                    generation_seed=generation_seed,
+                    jitter_xy=jitter_xy,
+                    jitter_angle_radians=jitter_angle_radians,
+                )
+                transformed = retarget(
+                    source.demo, state["object_pose"], state["goal_pose"]
+                )
+                attempts += 1
+                rollout = _rollout(
+                    headless,
+                    source,
+                    state,
+                    transformed,
+                    extra_steps=extra_steps,
+                )
+                if rollout is None:
                     continue
-                accepted = False
-                for retry_index in range(max_retries):
-                    state = jittered_state(
-                        source,
-                        level=level,
-                        variant_index=variant_index,
-                        retry_index=retry_index,
-                        generation_seed=generation_seed,
-                        jitter_xy=jitter_xy,
-                        jitter_angle_radians=jitter_angle_radians,
-                    )
-                    transformed = retarget(
-                        source.demo, state["object_pose"], state["goal_pose"]
-                    )
-                    attempts += 1
-                    rollout = _rollout(
-                        headless,
-                        source,
-                        state,
-                        transformed,
-                        extra_steps=extra_steps,
-                    )
-                    if rollout is None:
-                        continue
-                    actions, _coverage = rollout
-                    _apply_state(rendered, source, state)
-                    if not valid_jittered_state(rendered):
-                        continue
-                    init = _episode_init(
-                        rendered,
+                actions, _coverage = rollout
+                _apply_state(rendered, source, state)
+                if not valid_jittered_state(rendered):
+                    continue
+                init = _episode_init(
+                    rendered,
+                    source=source,
+                    state=state,
+                    canonical_manifest=canonical_manifest,
+                    canonical_manifest_path=canonical_manifest_path,
+                    canonical_manifest_sha=canonical_manifest_sha,
+                )
+                pair_id = str(init["generation"]["pair_id"])
+                written = _write_rendered_candidate(
+                    writer,
+                    rendered,
+                    actions,
+                    episode_init=init,
+                    level=level,
+                )
+                if written is None:
+                    continue
+                path, coverage = written
+                if validate_replay:
+                    validate_episode(
+                        path,
+                        env=audited,
                         source=source,
                         state=state,
-                        canonical_manifest=canonical_manifest,
-                        canonical_manifest_path=canonical_manifest_path,
-                        canonical_manifest_sha=canonical_manifest_sha,
+                        pair_id=pair_id,
                     )
-                    pair_id = str(init["generation"]["pair_id"])
-                    written = _write_rendered_candidate(
-                        writer,
-                        rendered,
-                        actions,
-                        episode_init=init,
-                        level=level,
-                    )
-                    if written is None:
-                        continue
-                    path, coverage = written
-                    if validate_replay:
-                        validate_episode(
-                            path,
-                            env=audited,
-                            source=source,
-                            state=state,
-                            pair_id=pair_id,
-                        )
-                    variants.add((source.reset_seed, variant_index))
-                    current_total += 1
-                    generated_now += 1
-                    accepted = True
-                    print(
-                        f"L{level:02d} total={current_total}/{target_total} "
-                        f"generated={generated_now} attempts={attempts} "
-                        f"source_seed={source.reset_seed} variant={variant_index} "
-                        f"retry={retry_index} frames={len(actions)} "
-                        f"coverage={coverage:.6f}",
-                        flush=True,
-                    )
-                    break
-                if not accepted:
-                    raise RuntimeError(
-                        f"L{level:02d} source={source.reset_seed} "
-                        f"variant={variant_index} failed {max_retries} retries"
-                    )
+                variants.add((source.reset_seed, variant_index))
+                current_total += 1
+                generated_now += 1
+                accepted = True
+                print(
+                    f"L{level:02d} total={current_total}/{target_total} "
+                    f"generated={generated_now} attempts={attempts} "
+                    f"source_seed={source.reset_seed} variant={variant_index} "
+                    f"retry={retry_index} frames={len(actions)} "
+                    f"coverage={coverage:.6f}",
+                    flush=True,
+                )
+                break
+            if not accepted:
+                variant_excluded_seeds.add(source.reset_seed)
+                source_audit["excluded_variant_generation_source_seeds"] = sorted(
+                    variant_excluded_seeds
+                )
+                source_audit["generated_variants_are_redistributed"] = True
+                source_audit_path.write_text(
+                    json.dumps(source_audit, indent=2, sort_keys=True) + "\n"
+                )
+                print(
+                    f"L{level:02d} source={source.reset_seed} variant={variant_index} "
+                    f"failed {max_retries} retries; redistributing its variants",
+                    flush=True,
+                )
     finally:
         writer.close()
         headless.close()
