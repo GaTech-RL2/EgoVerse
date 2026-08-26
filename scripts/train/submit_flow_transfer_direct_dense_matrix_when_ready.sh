@@ -38,6 +38,18 @@ while ! timeout 60 "$SLURM_BIN/sbatch" --test-only \
   sleep 60
 done
 
+for full_spec in '1 4 96G' '2 8 128G'; do
+  read -r test_gpus test_cpus test_mem <<< "$full_spec"
+  while ! timeout 60 "$SLURM_BIN/sbatch" --test-only \
+    --partition=rl2-lab --account=rl2-lab --qos=long \
+    --nodes=1 --ntasks=1 --cpus-per-task="$test_cpus" --mem="$test_mem" --time=7-00:00:00 \
+    --gres="gpu:l40s:$test_gpus" --exclude=bishop --wrap=true; do
+    printf '%s full %sxL40S test-only failed; retrying\n' \
+      "$(date --iso-8601=seconds)" "$test_gpus"
+    sleep 60
+  done
+done
+
 ARMS=(
   bc_usocket_latent
   bc_usocket_dp
