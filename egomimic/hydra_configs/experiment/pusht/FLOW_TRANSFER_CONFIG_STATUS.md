@@ -24,6 +24,9 @@ No verified 960-episode ChainGripper obstacle dataset is active. The obstacle
 domain is therefore not represented by a path, placeholder, or misleading
 experiment name.
 
+All full Chain Medium/Large, clean cotrain Medium/Large, and standard-DP
+recipes log to the dedicated `pushshapes-flow-transfer` W&B project.
+
 ## Standard action-space Diffusion Policy
 
 The genuine baseline is implemented by
@@ -53,14 +56,32 @@ U-Socket rollout converts rotvec back to native theta only at the simulator
 boundary. Exact source blobs and objective details are recorded in
 `egomimic/pipeline/DIFFUSION_POLICY_PROVENANCE.md`.
 
+## Dependency graph audit
+
+`tools/config_graph.py` instantiates each stage and uses its mode-aware
+`contract(train|rollout)`. It writes separate train and rollout graphs, derives
+per-domain ambient inputs after dataset key transforms, and fails lint on
+unresolved internal reads, duplicate concrete writers, or cycles. Nested Hydra
+components remain structured dictionaries in the JSON output.
+
+Final generated train/rollout graphs are lint-clean for Chain Medium/Large,
+clean cotrain Medium/Large, standard DP, U-Socket arc-length, Fold
+arc-length-NV, and the Fold decoder-only keypoint reference.
+
 ## Validation state
 
 - Hydra composition, dataset/action-width contracts, native transformed-loader
-  samples, BF16 rollout conversion, FK/IK replay, and relevant CPU tests pass.
+  samples, BF16 rollout conversion, FK/IK replay, and relevant CPU tests pass:
+  77 model/config tests plus 8 graph-builder tests.
 - The exact two-step BF16 optimizer + scheduled-validation smokes for Chain
   Medium, U-Socket+Chain Medium, and standard DP are submitted as Slurm job
   `3717405` against immutable commit `034c303f`.
 - No full ChainGripper or Flow Transfer cotrain job should launch until that
   smoke produces finite validation metrics and checkpoints for all three arms.
+- No policy evaluation was launched. The installed canonical evaluation
+  launcher remains unsafe for protocol claims; the hardened candidate is not
+  promoted because the current evaluator exposes no strict, no-rollout
+  checkpoint/model preflight. It fails closed, and obstacle levels remain
+  blocked.
 - Obstacle evaluation and obstacle-code consolidation remain blocked pending
   review of the separate session's fix and explicit user confirmation.
