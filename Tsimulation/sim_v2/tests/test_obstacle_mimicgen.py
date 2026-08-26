@@ -105,3 +105,18 @@ def test_local_jitter_is_deterministic_and_transforms_agent_with_object():
     assert first["agent_pos"] == pytest.approx(expected_pos)
     assert first["agent_angle"] == pytest.approx(expected_angle)
     assert np.linalg.norm(first["object_delta"]) > 0
+
+
+def test_local_jitter_anneals_after_each_retry_block():
+    source = _source(_entry(3, crossing_direction=1, x=200.0))
+    common = dict(
+        source=source,
+        level=1,
+        variant_index=2,
+        generation_seed=260826,
+        jitter_xy=1.5,
+        jitter_angle_radians=0.01,
+    )
+    assert jittered_state(retry_index=31, **common)["retry_scale"] == 1.0
+    assert jittered_state(retry_index=32, **common)["retry_scale"] == 0.5
+    assert jittered_state(retry_index=64, **common)["retry_scale"] == 0.25

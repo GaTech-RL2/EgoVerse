@@ -83,6 +83,10 @@ def jittered_state(
     jitter_xy: float,
     jitter_angle_radians: float,
 ) -> dict:
+    # Every 32 failed proposals tighten the distribution toward the exact
+    # demonstrated state.  The unmodified demonstration is known to succeed,
+    # so fragile routes can still produce conservative, nonzero variants.
+    retry_scale = 0.5 ** (retry_index // 32)
     rng = np.random.default_rng(
         np.random.SeedSequence(
             [generation_seed, level, source.reset_seed, variant_index, retry_index]
@@ -90,16 +94,16 @@ def jittered_state(
     )
     object_delta = np.asarray(
         [
-            rng.normal(0.0, jitter_xy),
-            rng.normal(0.0, jitter_xy),
-            rng.normal(0.0, jitter_angle_radians),
+            rng.normal(0.0, jitter_xy * retry_scale),
+            rng.normal(0.0, jitter_xy * retry_scale),
+            rng.normal(0.0, jitter_angle_radians * retry_scale),
         ]
     )
     goal_delta = np.asarray(
         [
-            rng.normal(0.0, jitter_xy),
-            rng.normal(0.0, jitter_xy),
-            rng.normal(0.0, jitter_angle_radians),
+            rng.normal(0.0, jitter_xy * retry_scale),
+            rng.normal(0.0, jitter_xy * retry_scale),
+            rng.normal(0.0, jitter_angle_radians * retry_scale),
         ]
     )
     object_pose = np.asarray(source.demo.object_pose, dtype=np.float64) + object_delta
@@ -118,6 +122,7 @@ def jittered_state(
         "goal_delta": goal_delta.tolist(),
         "variant_index": int(variant_index),
         "retry_index": int(retry_index),
+        "retry_scale": float(retry_scale),
     }
 
 
@@ -272,6 +277,7 @@ def _episode_init(
         "source_level_bank_sha256": str(source_provenance["level_bank_sha256"]),
         "variant_index": variant,
         "retry_index": retry,
+        "retry_scale": float(state["retry_scale"]),
         "object_delta": state["object_delta"],
         "goal_delta": state["goal_delta"],
         "target_object_pose": list(state["object_pose"]),
