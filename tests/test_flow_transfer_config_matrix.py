@@ -328,13 +328,22 @@ def test_direct_dense_runtime_safety_contract(monkeypatch, experiment):
     assert cfg.model.enable_grad_norm is False
     assert cfg.trainer.get("gradient_clip_val") is None
     assert cfg.trainer.accumulate_grad_batches == 1
-    expected_train_batch = 16 if len(cfg.data.train_datasets) == 2 else 32
+    expected_train_batch = 32 if len(cfg.data.train_datasets) == 2 else 64
     for domain in cfg.data.train_datasets:
         assert (
             cfg.data.train_dataloader_params[domain].batch_size
             == expected_train_batch
         )
         assert cfg.data.valid_dataloader_params[domain].batch_size == 16
+    world_size = cfg.launch_params.gpus_per_node
+    global_batch_per_domain = {
+        domain: cfg.data.train_dataloader_params[domain].batch_size * world_size
+        for domain in cfg.data.train_datasets
+    }
+    assert set(global_batch_per_domain.values()) == {64}
+    assert sum(global_batch_per_domain.values()) == (
+        128 if len(global_batch_per_domain) == 2 else 64
+    )
 
     terminal = cfg.callbacks.terminal_checkpoint
     assert terminal._target_ == "lightning.pytorch.callbacks.ModelCheckpoint"
@@ -538,6 +547,17 @@ def test_matrix_submit_helper_is_six_arm_smoke_gated_and_world2_safe() -> None:
     assert "DP_NORM_ARTIFACT=${DP_NORM_ARTIFACT:?" in helper
     assert '--ntasks-per-node="$gpus"' in helper
     assert "--cpus-per-task=8" in helper
+    assert "'hoffman-lab hoffman-lab a40 1 96G'" in helper
+    assert "'rl2-lab rl2-lab l40s 2 128G'" in helper
+    assert "partition=hoffman-lab" in helper
+    assert "partition=rl2-lab" in helper
+    assert "account=hoffman-lab" in helper
+    assert "account=rl2-lab" in helper
+    assert "gpu_type=a40" in helper
+    assert "gpu_type=l40s" in helper
+    assert '--partition="$partition"' in helper
+    assert '--account="$account"' in helper
+    assert '--gres="gpu:$gpu_type:$gpus"' in helper
     assert "--open-mode=append" in helper
     assert "afterok" not in helper
     assert "smoke_identity.tsv" in helper

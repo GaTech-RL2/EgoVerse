@@ -1,6 +1,7 @@
 #!/bin/bash
-# Resource requests are supplied by sbatch because BC uses one L40S and
-# obstacle cotrain uses two. This file is shared by smoke and full jobs.
+# Resource requests are supplied by sbatch: BC uses one A40 on hoffman-lab,
+# while obstacle cotrain uses two L40S on rl2-lab. This file is shared by
+# smoke and full jobs.
 
 set -Eeuo pipefail
 
@@ -38,31 +39,49 @@ case "$ARM" in
     EXPERIMENT=pusht/pipeline_sampler_usocket_dense_medium
     BASE_WANDB_ID=ft_bc_usocket_latent_dense_m96_s42_obstacle3k_normfix_20260826
     ACTION_HORIZON=100
+    EXPECTED_GPU_MODEL=A40
+    EXPECTED_PARTITION=hoffman-lab
+    EXPECTED_ACCOUNT=hoffman-lab
     ;;
   bc_usocket_dp)
     EXPERIMENT=pusht/pipeline_diffusion_usocket_h16
     BASE_WANDB_ID=ft_bc_usocket_dp_s42_obstacle3k_normfix_20260826
     ACTION_HORIZON=16
+    EXPECTED_GPU_MODEL=A40
+    EXPECTED_PARTITION=hoffman-lab
+    EXPECTED_ACCOUNT=hoffman-lab
     ;;
   bc_chain_latent)
     EXPERIMENT=pusht/pipeline_sampler_chain_gripper_obstacle_points_dense_medium
     BASE_WANDB_ID=ft_bc_chain_obstacle3k_latent_dense_m96_s42_normfix_20260826
     ACTION_HORIZON=100
+    EXPECTED_GPU_MODEL=A40
+    EXPECTED_PARTITION=hoffman-lab
+    EXPECTED_ACCOUNT=hoffman-lab
     ;;
   bc_chain_dp)
     EXPERIMENT=pusht/pipeline_diffusion_chain_gripper_obstacle_points_h16
     BASE_WANDB_ID=ft_bc_chain_obstacle3k_dp_s42_normfix_20260826
     ACTION_HORIZON=16
+    EXPECTED_GPU_MODEL=A40
+    EXPECTED_PARTITION=hoffman-lab
+    EXPECTED_ACCOUNT=hoffman-lab
     ;;
   cotrain_obstacle_latent)
     EXPERIMENT=pusht/pipeline_sampler_usocket_chain_obstacle_dense_medium
     BASE_WANDB_ID=ft_cotrain_obstacle3k_latent_dense_m96_s42_world2_normfix_20260826
     ACTION_HORIZON=100
+    EXPECTED_GPU_MODEL=L40S
+    EXPECTED_PARTITION=rl2-lab
+    EXPECTED_ACCOUNT=rl2-lab
     ;;
   cotrain_obstacle_dp)
     EXPERIMENT=pusht/pipeline_diffusion_usocket_chain_obstacle_h16
     BASE_WANDB_ID=ft_cotrain_obstacle3k_dp_s42_world2_normfix_20260826
     ACTION_HORIZON=16
+    EXPECTED_GPU_MODEL=L40S
+    EXPECTED_PARTITION=rl2-lab
+    EXPECTED_ACCOUNT=rl2-lab
     ;;
   *)
     printf 'Unknown ARM=%s\n' "$ARM" >&2
@@ -241,12 +260,14 @@ $SLURM_BIN/scontrol show job -dd "$SLURM_JOB_ID" > "$PROVENANCE_DIR/slurm_job.tx
 test "${SLURM_JOB_NUM_NODES:?}" = 1
 test "${SLURM_NTASKS:?}" = "$GPUS_EXPECTED"
 test "${SLURM_CPUS_PER_TASK:?}" -ge 8
+test "${SLURM_JOB_PARTITION:?}" = "$EXPECTED_PARTITION"
+test "${SLURM_JOB_ACCOUNT:?}" = "$EXPECTED_ACCOUNT"
 test -n "${CUDA_VISIBLE_DEVICES:-}"
 IFS=',' read -r -a visible_gpus <<< "$CUDA_VISIBLE_DEVICES"
 test "${#visible_gpus[@]}" = "$GPUS_EXPECTED"
 nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-gpu=index,name,uuid,memory.total,driver_version --format=csv,noheader > "$PROVENANCE_DIR/gpu.txt"
 test "$(wc -l < "$PROVENANCE_DIR/gpu.txt")" = "$GPUS_EXPECTED"
-test "$(grep -ci 'L40S' "$PROVENANCE_DIR/gpu.txt")" = "$GPUS_EXPECTED"
+test "$(grep -ci "$EXPECTED_GPU_MODEL" "$PROVENANCE_DIR/gpu.txt")" = "$GPUS_EXPECTED"
 
 RUNTIME_ENV=$PROVENANCE_DIR/runtime_env
 mkdir -p "$RUNTIME_ENV"
@@ -474,9 +495,15 @@ assert len(model.domains) == len(expected_domains)
 assert set(model.domains) == set(expected_domains)
 assert set(cfg.data.train_datasets) == set(expected_domains)
 for domain in expected_domains:
-    expected_train_batch = 16 if cotrain else 32
+    expected_train_batch = 32 if cotrain else 64
     assert cfg.data.train_dataloader_params[domain].batch_size == expected_train_batch
     assert cfg.data.valid_dataloader_params[domain].batch_size == 16
+global_batch_per_domain = {
+    domain: cfg.data.train_dataloader_params[domain].batch_size * expected_gpus
+    for domain in expected_domains
+}
+assert set(global_batch_per_domain.values()) == {64}
+assert sum(global_batch_per_domain.values()) == (128 if cotrain else 64)
 
 if latent:
     assert model.action_horizon == 100
@@ -551,6 +578,7 @@ import pathlib
 import sys
 
 import torch
+from omegaconf import OmegaConf
 
 run_dir = pathlib.Path(sys.argv[1])
 provenance_dir = pathlib.Path(sys.argv[2])
@@ -592,6 +620,15 @@ assert set(norm_state["shapes"]) == set(expected_shapes)
 for embodiment, expected_shape in expected_shapes.items():
     assert tuple(norm_state["shapes"][embodiment]["actions"]) == expected_shape
 checkpoint_sha = hashlib.sha256(expected_checkpoint.read_bytes()).hexdigest()
+
+resolved_cfg = OmegaConf.load(provenance_dir / "resolved_config.yaml")
+global_batch_per_domain = {
+    domain: int(params.batch_size) * expected_world_size
+    for domain, params in resolved_cfg.data.train_dataloader_params.items()
+}
+assert set(global_batch_per_domain.values()) == {64}
+total_global_batch = sum(global_batch_per_domain.values())
+assert total_global_batch == (128 if len(global_batch_per_domain) == 2 else 64)
 
 expected_best = {}
 if 19 in expected_shapes:
@@ -655,6 +692,8 @@ result = {
     "optimizer_state_count": len(checkpoint["optimizer_states"]),
     "optimizer_lrs": optimizer_lrs,
     "scheduler_last_epoch": int(scheduler_state["last_epoch"]),
+    "global_batch_per_domain": global_batch_per_domain,
+    "total_global_batch": total_global_batch,
     "best_checkpoints": best_results,
     "gradient_clipping_enabled": False,
 }

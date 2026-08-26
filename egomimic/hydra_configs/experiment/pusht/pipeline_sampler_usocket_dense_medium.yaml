@@ -12,7 +12,7 @@ model:
 data:
   train_dataloader_params:
     pushshapes_sim_u_socket:
-      batch_size: 32
+      batch_size: 64
 trainer: &trainer
   max_steps: 240000
   max_epochs: -1

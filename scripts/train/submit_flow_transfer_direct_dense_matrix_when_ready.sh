@@ -76,13 +76,16 @@ else
   test "$(identity_value environment_sha256)" = "$EXPECTED_ENV_SHA"
 fi
 
-for resource_spec in '1 96G' '2 128G'; do
-  read -r test_gpus test_memory <<< "$resource_spec"
+for resource_spec in \
+  'hoffman-lab hoffman-lab a40 1 96G' \
+  'rl2-lab rl2-lab l40s 2 128G'; do
+  read -r test_partition test_account test_gpu_type test_gpus test_memory \
+    <<< "$resource_spec"
   "$SLURM_BIN/sbatch" --test-only \
-    --partition=rl2-lab --account=rl2-lab --qos="$QOS" \
+    --partition="$test_partition" --account="$test_account" --qos="$QOS" \
     --nodes=1 --ntasks-per-node="$test_gpus" --cpus-per-task=8 \
     --mem="$test_memory" --time="$TIME_LIMIT" \
-    --gres="gpu:l40s:$test_gpus" --exclude=bishop --wrap=true
+    --gres="gpu:$test_gpu_type:$test_gpus" --exclude=bishop --wrap=true
 done
 
 ARMS=(
@@ -107,17 +110,22 @@ jobs_path = pathlib.Path(sys.argv[1])
 root = pathlib.Path(sys.argv[2])
 rows = list(csv.DictReader(jobs_path.open(), delimiter="\t"))
 expected = {
-    "bc_usocket_latent": 1,
-    "bc_usocket_dp": 1,
-    "bc_chain_latent": 1,
-    "bc_chain_dp": 1,
-    "cotrain_obstacle_latent": 2,
-    "cotrain_obstacle_dp": 2,
+    "bc_usocket_latent": (1, "hoffman-lab", "hoffman-lab", "a40", 64),
+    "bc_usocket_dp": (1, "hoffman-lab", "hoffman-lab", "a40", 64),
+    "bc_chain_latent": (1, "hoffman-lab", "hoffman-lab", "a40", 64),
+    "bc_chain_dp": (1, "hoffman-lab", "hoffman-lab", "a40", 64),
+    "cotrain_obstacle_latent": (2, "rl2-lab", "rl2-lab", "l40s", 128),
+    "cotrain_obstacle_dp": (2, "rl2-lab", "rl2-lab", "l40s", 128),
 }
 assert {row["arm"] for row in rows} == set(expected)
 for row in rows:
     arm = row["arm"]
     job = row["job_id"]
+    world_size, partition, account, gpu_type, total_global_batch = expected[arm]
+    assert int(row["gpus"]) == world_size
+    assert row["partition"] == partition
+    assert row["account"] == account
+    assert row["gpu_type"] == gpu_type
     accounting = subprocess.check_output(
         [
             "/opt/slurm/Ubuntu-20.04/24.11.0/bin/sacct",
@@ -136,21 +144,29 @@ for row in rows:
     validation = json.loads(validation_path.read_text())
     assert validation["status"] == "PASS"
     assert validation["mode"] == "smoke"
-    assert validation["expected_world_size"] == expected[arm]
+    assert validation["expected_world_size"] == world_size
     assert validation["global_step"] == 3200
     assert validation["gradient_clipping_enabled"] is False
+    assert set(validation["global_batch_per_domain"].values()) == {64}
+    assert validation["total_global_batch"] == total_global_batch
 PY
 fi
 
 : > "$OUTPUT_TSV"
-printf 'arm\tjob_id\tgpus\tnorm_artifact\tnorm_sha256\n' >> "$OUTPUT_TSV"
+printf 'arm\tjob_id\tpartition\taccount\tgpu_type\tgpus\tnorm_artifact\tnorm_sha256\n' >> "$OUTPUT_TSV"
 
 for arm in "${ARMS[@]}"; do
   gpus=1
   memory=96G
+  partition=hoffman-lab
+  account=hoffman-lab
+  gpu_type=a40
   if [[ "$arm" == cotrain_* ]]; then
     gpus=2
     memory=128G
+    partition=rl2-lab
+    account=rl2-lab
+    gpu_type=l40s
   fi
   if [[ "$arm" == *_latent ]]; then
     norm_artifact=$LATENT_NORM_ARTIFACT
@@ -167,10 +183,10 @@ for arm in "${ARMS[@]}"; do
   fi
   job_id=$(
     "$SLURM_BIN/sbatch" --parsable \
-      --partition=rl2-lab --account=rl2-lab --qos="$QOS" \
+      --partition="$partition" --account="$account" --qos="$QOS" \
       --nodes=1 --ntasks-per-node="$gpus" --cpus-per-task=8 \
       --mem="$memory" --time="$TIME_LIMIT" \
-      --gres="gpu:l40s:$gpus" --exclude=bishop --requeue --signal=USR1@300 \
+      --gres="gpu:$gpu_type:$gpus" --exclude=bishop --requeue --signal=USR1@300 \
       --open-mode=append \
       --job-name="${job_prefix}_${arm:0:16}" \
       --output="$EXP_ROOT/slurm/${PHASE}_${arm}_%j.out" \
@@ -179,8 +195,9 @@ for arm in "${ARMS[@]}"; do
       "$LAUNCHER"
   )
   job_id=${job_id%%;*}
-  printf '%s\t%s\t%s\t%s\t%s\n' \
-    "$arm" "$job_id" "$gpus" "$norm_artifact" "$norm_sha" | tee -a "$OUTPUT_TSV"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$arm" "$job_id" "$partition" "$account" "$gpu_type" "$gpus" \
+    "$norm_artifact" "$norm_sha" | tee -a "$OUTPUT_TSV"
 done
 
 date --iso-8601=seconds > "$MARKER"
