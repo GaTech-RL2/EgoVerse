@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 import numpy as np
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import LineString, Point, Polygon, box
 
 from Tsimulation.sim_v2.pushshapes.env import SIM_VERSION, PushShapesEnv
 from Tsimulation.sim_v2.pushshapes.obstacles import OBSTACLE_LEVELS, WALL_RADIUS
@@ -53,10 +53,19 @@ class SpawnExclusion:
 
 
 @dataclass(frozen=True)
+class BoxSpawnExclusion:
+    """Axis-aligned region that neither full object silhouette may enter."""
+
+    bounds: tuple[float, float, float, float]
+    label: str
+
+
+@dataclass(frozen=True)
 class LevelInitPolicy:
     """Additional collection-only constraints for one obstacle level."""
 
     spawn_exclusions: tuple[SpawnExclusion, ...] = ()
+    box_spawn_exclusions: tuple[BoxSpawnExclusion, ...] = ()
 
 
 LEVEL_INIT_POLICIES: dict[int, LevelInitPolicy] = {
@@ -70,7 +79,23 @@ LEVEL_INIT_POLICIES: dict[int, LevelInitPolicy] = {
             SpawnExclusion((512.0, 0.0), 200.0, "obstacle emergence corner"),
         )
     ),
+    25: LevelInitPolicy(
+        box_spawn_exclusions=(
+            BoxSpawnExclusion((0.0, 0.0, 192.0, 192.0), "sealed corner pocket"),
+            BoxSpawnExclusion((320.0, 320.0, 512.0, 512.0), "sealed corner pocket"),
+        ),
+    ),
+    26: LevelInitPolicy(
+        box_spawn_exclusions=(
+            BoxSpawnExclusion((320.0, 0.0, 512.0, 192.0), "sealed corner pocket"),
+            BoxSpawnExclusion((0.0, 320.0, 192.0, 512.0), "sealed corner pocket"),
+        ),
+    ),
 }
+
+# These are generation defaults, not runtime constraints or bank identity.
+# Explicit ``seed_limit`` arguments remain hard overrides.
+LEVEL_SEED_SEARCH_LIMITS: dict[int, int] = {25: 200_000, 26: 200_000}
 
 
 def level_init_policy(level: int) -> LevelInitPolicy:
@@ -80,23 +105,49 @@ def level_init_policy(level: int) -> LevelInitPolicy:
 
 def serialize_level_init_policy(level: int) -> dict[str, Any]:
     """Return a deterministic JSON-ready representation of one policy."""
-    return {
+    policy = level_init_policy(level)
+    serialized: dict[str, Any] = {
         "spawn_exclusions": [
             {
                 "center": [float(value) for value in exclusion.center],
                 "radius": float(exclusion.radius),
                 "label": exclusion.label,
             }
-            for exclusion in level_init_policy(level).spawn_exclusions
+            for exclusion in policy.spawn_exclusions
         ]
     }
+    if policy.box_spawn_exclusions:
+        serialized["box_spawn_exclusions"] = [
+            {
+                "bounds": [float(value) for value in exclusion.bounds],
+                "label": exclusion.label,
+            }
+            for exclusion in policy.box_spawn_exclusions
+        ]
+    return serialized
+
+
+def resolve_seed_search_limit(
+    level: int,
+    *,
+    criteria: ObstacleInitCriteria = DEFAULT_CRITERIA,
+    seed_limit: int | None = None,
+) -> int:
+    """Resolve a level's scan cap, honoring an explicit hard override."""
+    if seed_limit is not None:
+        limit = int(seed_limit)
+    else:
+        limit = max(criteria.seed_limit, LEVEL_SEED_SEARCH_LIMITS.get(int(level), 0))
+    if limit < 1:
+        raise ValueError("seed_limit must be positive")
+    return limit
 
 
 def _manifest_level_policies(levels: Iterable[int]) -> dict[str, dict[str, Any]]:
     return {
         str(level): serialized
         for level in (int(value) for value in levels)
-        if (serialized := serialize_level_init_policy(level))["spawn_exclusions"]
+        if any((serialized := serialize_level_init_policy(level)).values())
     }
 
 
@@ -253,6 +304,15 @@ def _spawn_exclusion_clearance(
     )
 
 
+def _box_spawn_exclusion_clearance(
+    polygon: Polygon, exclusions: Sequence[BoxSpawnExclusion]
+) -> float:
+    """Minimum clearance from collection-only rectangular exclusions."""
+    return float(
+        min(polygon.distance(box(*exclusion.bounds)) for exclusion in exclusions)
+    )
+
+
 def evaluate_candidate(
     env: PushShapesEnv,
     seed: int,
@@ -303,7 +363,8 @@ def evaluate_candidate(
     ):
         return None
 
-    exclusions = level_init_policy(level).spawn_exclusions
+    policy = level_init_policy(level)
+    exclusions = policy.spawn_exclusions
     if exclusions:
         start_spawn_exclusion_clearance = _spawn_exclusion_clearance(
             start_polygon, exclusions
@@ -316,6 +377,22 @@ def evaluate_candidate(
             < -tolerance
         ):
             return None
+
+    box_exclusions = policy.box_spawn_exclusions
+    if box_exclusions:
+        forbidden_regions = [box(*exclusion.bounds) for exclusion in box_exclusions]
+        if any(
+            polygon.intersects(region)
+            for polygon in (start_polygon, goal_polygon)
+            for region in forbidden_regions
+        ):
+            return None
+        start_box_spawn_exclusion_clearance = _box_spawn_exclusion_clearance(
+            start_polygon, box_exclusions
+        )
+        goal_box_spawn_exclusion_clearance = _box_spawn_exclusion_clearance(
+            goal_polygon, box_exclusions
+        )
 
     pusher_shapes = list(env.agent.physics_shapes(env))
     if (
@@ -384,6 +461,17 @@ def evaluate_candidate(
             {
                 "start_spawn_exclusion_clearance": start_spawn_exclusion_clearance,
                 "goal_spawn_exclusion_clearance": goal_spawn_exclusion_clearance,
+            }
+        )
+    if box_exclusions:
+        candidate.update(
+            {
+                "start_box_spawn_exclusion_clearance": (
+                    start_box_spawn_exclusion_clearance
+                ),
+                "goal_box_spawn_exclusion_clearance": (
+                    goal_box_spawn_exclusion_clearance
+                ),
             }
         )
     return candidate
@@ -490,7 +578,9 @@ def curate_level(
     """Select ``count`` diverse, valid seeds for one obstacle level."""
     if level <= 0 or level not in OBSTACLE_LEVELS:
         raise ValueError(f"unknown nonzero obstacle level {level}")
-    limit = criteria.seed_limit if seed_limit is None else int(seed_limit)
+    limit = resolve_seed_search_limit(
+        level, criteria=criteria, seed_limit=seed_limit
+    )
     pool_target = max(count, count * criteria.pool_multiplier)
     candidates: list[dict[str, Any]] = []
     env = PushShapesEnv(
@@ -539,6 +629,12 @@ def curate_manifest(
         )
         for level in resolved_levels
     }
+    level_seed_search_limits = {
+        str(level): resolve_seed_search_limit(
+            level, criteria=criteria, seed_limit=seed_limit
+        )
+        for level in resolved_levels
+    }
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "sampler_revision": SAMPLER_REVISION,
@@ -547,6 +643,7 @@ def curate_manifest(
         "pusher_shape": "chain_gripper",
         "entries_per_level": int(count),
         "criteria": asdict(criteria),
+        "level_seed_search_limits": level_seed_search_limits,
         "level_policies": _manifest_level_policies(resolved_levels),
         "levels": entries,
     }
@@ -583,6 +680,21 @@ def load_manifest(path: str | Path) -> dict[str, Any]:
     if not isinstance(manifest.get("levels"), dict):
         raise ValueError("manifest has no levels mapping")
     levels = [int(level) for level in manifest["levels"]]
+    search_limits = manifest.get("level_seed_search_limits")
+    if search_limits is not None:
+        if not isinstance(search_limits, dict) or set(search_limits) != {
+            str(level) for level in levels
+        }:
+            raise ValueError("manifest seed-search limits are invalid")
+        for level in levels:
+            key = str(level)
+            try:
+                limit = int(search_limits[key])
+                seeds = [int(entry["seed"]) for entry in manifest["levels"][key]]
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError("manifest seed-search limits are invalid") from error
+            if limit < 1 or not seeds or max(seeds) >= limit:
+                raise ValueError("manifest seed-search limits are invalid")
     if manifest.get("level_policies") != _manifest_level_policies(levels):
         raise ValueError("manifest level-init policies do not match this code")
     expected_hashes = {
