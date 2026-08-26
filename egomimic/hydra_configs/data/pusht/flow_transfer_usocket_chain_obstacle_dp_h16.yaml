@@ -1,5 +1,5 @@
 defaults:
-  - pusht/flow_transfer_usocket_chain_obstacle_dense_h100
+  - pusht/flow_transfer_usocket_chain_obstacle_dense_h100@_here_
   - _self_
 
 # Keep the identical three-corpus membership while selecting the standard DP
