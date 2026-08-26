@@ -1,0 +1,97 @@
+# @package _global_
+# COMPLETE Adapt3R on teleop: COLOUR rect image + depth (dataset rby1_teleop_colour_rgbd,
+# 63 demos / 7003 frames, row-identical to the grey rby1_teleop_slamrect_rgbd).
+# Same recipe as the grey run in every knob; only the image gained colour.
+# Baselines: grey Adapt3R 0.1157 (colour effect) / v4 RGB 0.0859 (the ceiling).
+defaults:
+  - /train
+  - override /model: experiments/wholebody_image/rby1_adapt3r_tel_colour
+  - override /data: experiments/wholebody_image/rby1_wb_img_act32
+  - _self_
+
+name: RBY1_adapt3r_tel_colour
+description: "adapt3r_tel_colour_rgb_2k"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+trainer:
+  max_epochs: 2000
+  check_val_every_n_epoch: 50
+  strategy: auto   # single GPU: drop DDP + find_unused_parameters overhead
+
+callbacks:
+  aug_image_logger:
+    _target_: egomimic.pl_utils.aug_image_logger.AugImageLogger
+    every_n_epochs: 100
+    n_images: 8
+
+logger:
+  wandb:
+    entity: null
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data:
+  train_datasets:
+    dataset1:
+      datasets:
+        rl2_lab:
+          mode: train        # OLD-method: episode holdout becomes the val split
+          valid_ratio: 0.03  # 63 demos -> int(63*0.03)=1 held-out episode; 62 train
+          cache_in_memory: true  # decode all frames once into RAM (fork-shared) -> GPU-bound
+  valid_datasets:
+    dataset1:
+      datasets:
+        eth_lab:
+          mode: valid
+          valid_ratio: 0.03  # must match train
+          cache_in_memory: true
+  # With the in-RAM cache each sample is ~8 ms, so a handful of persistent workers
+  # already saturate the GPU; keep the count low to bound copy-on-write memory.
+  train_dataloader_params:
+    dataset1:
+      num_workers: 8
+      persistent_workers: true
+      pin_memory: true
+      prefetch_factor: 4
+  valid_dataloader_params:
+    dataset1:
+      num_workers: 2
+      persistent_workers: true
+      pin_memory: true
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      # REAL depth, metres, pixel-aligned to the image by construction.
+      # metadata_keys => passed through unnormalized (the encoder needs metric units).
+      aria_depth:
+        key_type: metadata_keys
+        lerobot_key: obs.aria_depth
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1

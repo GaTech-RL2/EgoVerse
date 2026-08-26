@@ -1,0 +1,75 @@
+# @package _global_
+# TELEOP round (0724 robot manip data, 28 demos): old-method val (20% episode holdout),
+# dropout 0.5, minimal crop (10-20 px), 1000 epochs, T_max 1000
+defaults:
+  - /train
+  - override /model: experiments/wholebody_image/rby1_wb_img_proprio_act32_tel_d3conv
+  - override /data: experiments/wholebody_image/rby1_wb_img_act32
+  - _self_
+
+name: RBY1_wb_img_tel_d3conv
+description: "wb_img_pickplace_v1_2k"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+trainer:
+  max_epochs: 1000
+  check_val_every_n_epoch: 50
+
+callbacks:
+  aug_image_logger:
+    _target_: egomimic.pl_utils.aug_image_logger.AugImageLogger
+    every_n_epochs: 100
+    n_images: 8
+
+logger:
+  wandb:
+    entity: null
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data:
+  train_datasets:
+    dataset1:
+      datasets:
+        rl2_lab:
+          mode: train   # OLD-method: 20% episode holdout becomes the val split
+  valid_datasets:
+    dataset1:
+      datasets:
+        eth_lab:
+          # External teleop validation set: use ALL its episodes (no split).
+          # folder_path is overridden by the sbatch via VAL_DATASET_DIR.
+          # OLD validation method: held-out split of the TRAIN dataset (sbatch defaults VAL_DIR=FINAL_DIR)
+          mode: valid
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1

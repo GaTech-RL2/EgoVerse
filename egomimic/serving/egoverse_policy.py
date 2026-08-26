@@ -57,6 +57,12 @@ class EgoVersePolicy:
         self._cam_keys = self._model.model.camera_keys[self._embodiment_id]
         self._proprio_keys = self._model.model.proprio_keys[self._embodiment_id]
         self._data_schematic = self._model.model.data_schematic
+        # getattr default: checkpoints trained before depth support restore without
+        # this attribute (HPT is pickled whole, __init__ doesn't re-run on load).
+        self._depth_keys = list(getattr(self._model.model, "_depth_key_map", {}).values())
+        # Per-frame encoder extrinsics (eef-frame Adapt3R): flattened 4x4 per obs,
+        # computed robot-side from FK. Same restore-safety pattern as depth.
+        self._extrinsics_keys = list(getattr(self._model.model, "_extrinsics_key_map", {}).values())
 
         action_horizon = 10
         action_dim = 49
@@ -93,7 +99,13 @@ class EgoVersePolicy:
         for key in self._cam_keys:
             if key in obs:
                 img = obs[key]
-                if isinstance(img, np.ndarray):
+                if isinstance(img, np.ndarray) and img.ndim == 2 and img.shape[-1] in (3, 6) and img.dtype != np.uint8:
+                    # Point-cloud "camera" key (N,3) float metres — e.g. the DP3
+                    # policy's front_pcd_1. Must NOT go through _prepare_image:
+                    # its BGR flip would swap xyz->zyx and /255 would rescale
+                    # metric coordinates. Pass through flattened, unnormalized.
+                    data[key] = torch.from_numpy(img.reshape(-1)).float().unsqueeze(0).to(device)
+                elif isinstance(img, np.ndarray):
                     data[key] = _prepare_image(img, device, bgr_to_rgb=True)
                 elif torch.is_tensor(img):
                     data[key] = img.to(device).float()
@@ -112,6 +124,28 @@ class EgoVersePolicy:
                     val = torch.from_numpy(val).float()
                 val = val.reshape(1, 1, -1).to(device)
                 data[key] = val
+
+        # Depth keys (from HPT.depth_key_map, e.g. {front_img_1: aria_depth}) are
+        # metadata_keys in the schematic, not cam_keys/proprio_keys, so they need
+        # their own path. Expected: (H, W) metres, pixel-aligned to the paired image.
+        for key in self._extrinsics_keys:
+            if key not in obs:
+                raise ValueError(
+                    f"Model requires per-frame extrinsics '{key}' (flattened 4x4 "
+                    "T_eef_rect, robot-side FK) but it is missing from obs. Serving "
+                    "without it would silently fall back to the wrong (camera) frame."
+                )
+            val = obs[key]
+            if isinstance(val, np.ndarray):
+                val = torch.from_numpy(val).float()
+            data[key] = val.reshape(1, 16).to(device)
+
+        for key in self._depth_keys:
+            if key in obs:
+                val = obs[key]
+                if isinstance(val, np.ndarray):
+                    val = torch.from_numpy(val).float()
+                data[key] = val.reshape(1, *val.shape[-2:]).to(device)  # [1, H, W]
 
         pad_mask = torch.ones(
             batch_size, self._action_horizon, 1, device=device, dtype=torch.bool

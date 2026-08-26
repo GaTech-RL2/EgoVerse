@@ -1,0 +1,10 @@
+a3r_eef ckpt=logs/RBY1_adapt3r_human_eef/adapt3r_human_eef_2k/checkpoints/epoch_epoch=1999.ckpt
+  full-chunk MAE 0.0083 | t1 0.0089 | arms+hands 0.0094
+  pred[row0,t0,:6] [0.0010000000474974513, -0.00279999990016222, 0.0, -0.0, 0.002899999963119626, -0.008200000040233135]
+dp3_hglass ckpt=logs/RBY1_dp3_human_glass/dp3_human_glass_2k/checkpoints/epoch_epoch=1999.ckpt
+  full-chunk MAE 0.0070 | t1 0.0087 | arms+hands 0.0082
+  pred[row0,t0,:6] [0.0003000000142492354, -0.0019000000320374966, 0.0008999999845400453, -0.0, 0.0008999999845400453, -0.0015999999595806003]
+dp3_eefball ckpt=logs/RBY1_dp3_eefball/dp3_eefball_2k/checkpoints/epoch_epoch=1999.ckpt
+  full-chunk MAE 0.0072 | t1 0.0085 | arms+hands 0.0083
+  pred[row0,t0,:6] [0.002400000113993883, -0.002199999988079071, -0.0015999999595806003, -0.0, -0.0008999999845400453, 0.005100000184029341]
+DRYREF_NEW3_DONE

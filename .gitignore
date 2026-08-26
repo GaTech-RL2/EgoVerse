@@ -44,3 +44,6 @@ checkpoints/
 dataset/
 base_pose_plots/
 tmux-client-*.log
+# regenerable upstream working-tree copy + local backups
+skynet_snapshot/
+*.local.bak

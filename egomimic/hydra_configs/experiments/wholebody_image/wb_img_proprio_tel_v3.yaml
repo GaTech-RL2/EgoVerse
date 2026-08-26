@@ -1,0 +1,91 @@
+# @package _global_
+# TELEOP round v3 (0724+0726 MERGED, 72 demos / 8240 frames, SG-smoothed actions):
+# proprio dropout 0.9, crop widened to 20-40 px, 2000 epochs (T_max 2000),
+# val = 2 held-out episodes (valid_ratio 0.03 -> int(72*0.03)=2), 70 train.
+defaults:
+  - /train
+  - override /model: experiments/wholebody_image/rby1_wb_img_proprio_act32_tel_resnet_v3
+  - override /data: experiments/wholebody_image/rby1_wb_img_act32
+  - _self_
+
+name: RBY1_wb_img_tel_v3
+description: "wb_img_pickplace_v3_72demo_2k"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+trainer:
+  max_epochs: 2000
+  check_val_every_n_epoch: 50
+  strategy: auto   # single GPU: drop DDP + find_unused_parameters overhead
+
+callbacks:
+  aug_image_logger:
+    _target_: egomimic.pl_utils.aug_image_logger.AugImageLogger
+    every_n_epochs: 100
+    n_images: 8
+
+logger:
+  wandb:
+    entity: null
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data:
+  train_datasets:
+    dataset1:
+      datasets:
+        rl2_lab:
+          mode: train        # OLD-method: episode holdout becomes the val split
+          valid_ratio: 0.03  # 72 demos -> int(72*0.03)=2 held-out episodes; 70 train
+          cache_in_memory: true  # decode all frames once into RAM (fork-shared) -> GPU-bound
+  valid_datasets:
+    dataset1:
+      datasets:
+        eth_lab:
+          mode: valid
+          valid_ratio: 0.03  # must match train so the same 2 episodes are the split
+          cache_in_memory: true
+  # With the in-RAM cache each sample is ~8 ms, so a handful of persistent workers
+  # already saturate the GPU; keep the count low to bound copy-on-write memory.
+  train_dataloader_params:
+    dataset1:
+      num_workers: 8
+      persistent_workers: true
+      pin_memory: true
+      prefetch_factor: 4
+  valid_dataloader_params:
+    dataset1:
+      num_workers: 2
+      persistent_workers: true
+      pin_memory: true
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1

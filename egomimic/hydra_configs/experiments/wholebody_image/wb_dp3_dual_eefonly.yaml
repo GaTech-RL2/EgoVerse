@@ -1,0 +1,92 @@
+# @package _global_
+# DUAL-STREAM DP3: global glass cloud + local eef-frame ball + eef-pose proprio.
+# Dataset: datasets/human_dp3_dual (both streams + obs.eef_pose_glass).
+defaults:
+  - /train
+  - override /model: experiments/wholebody_image/rby1_dp3_dual_eefonly
+  - override /data: experiments/wholebody_image/rby1_wb_img_act32
+  - _self_
+
+name: RBY1_dp3_dual_eefonly
+description: "dp3_dual_eefonly_2k"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+trainer:
+  max_epochs: 2000
+  check_val_every_n_epoch: 50
+  strategy: auto   # single GPU: drop DDP + find_unused_parameters overhead
+
+# aug_image_logger callback removed: dataset has no image key to render
+
+logger:
+  wandb:
+    entity: null
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data:
+  train_datasets:
+    dataset1:
+      datasets:
+        rl2_lab:
+          mode: train        # human-corpus convention: default 0.2 episode holdout
+                             # -> SAME 27 val episodes as h_rect/a3r_human/a3r_eef
+          cache_in_memory: false # cache path hardcodes obs.aria_image; dataset has no image and is tiny anyway
+  valid_datasets:
+    dataset1:
+      datasets:
+        eth_lab:
+          mode: valid
+          cache_in_memory: false
+  # With the in-RAM cache each sample is ~8 ms, so a handful of persistent workers
+  # already saturate the GPU; keep the count low to bound copy-on-write memory.
+  train_dataloader_params:
+    dataset1:
+      num_workers: 8
+      persistent_workers: true
+      pin_memory: true
+      prefetch_factor: 4
+  valid_dataloader_params:
+    dataset1:
+      num_workers: 2
+      persistent_workers: true
+      pin_memory: true
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      # The "camera" key IS the point cloud: 2048x3 GLASS-frame xyz, flattened
+      # (6144,). camera_keys => routed to the encoder, NO normalization (metric
+      # metres must reach the encoder unchanged). Image augs are identity in the
+      # model config for the same reason.
+      front_pcd_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_pcd
+      front_pcd_2:
+        key_type: camera_keys
+        lerobot_key: obs.aria_pcd_local
+      eef_pose_glass:
+        key_type: proprio_keys
+        lerobot_key: obs.eef_pose_glass
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_pcd_1
