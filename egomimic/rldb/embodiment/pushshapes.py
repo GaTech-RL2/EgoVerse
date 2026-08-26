@@ -41,6 +41,48 @@ def get_chain_gripper_point_validation_transform_list(
     return [RequireLastDim(keys=keys or ["actions"], width=6)]
 
 
+def get_chain_gripper_point_transform_list(
+    keys: list[str] | None = None,
+    world_size: float = 512.0,
+):
+    """Derive ordered point targets from native ChainGripper controls."""
+    from egomimic.rldb.zarr.action_chunk_transforms import (
+        ChainGripperNative4ToPoints6,
+    )
+
+    return [
+        ChainGripperNative4ToPoints6(
+            keys=keys or ["actions"],
+            world_size=world_size,
+        )
+    ]
+
+
+def get_chain_gripper_point_revert_transform_list(
+    keys: list[str] | None = None,
+    world_size: float = 512.0,
+    grid_size: int = 33,
+    refinements: int = 6,
+    context_state_key: str = "state_agent_obj",
+    previous_control_key: str = "previous_control",
+):
+    """Project model point predictions back to native ChainGripper controls."""
+    from egomimic.rldb.zarr.action_chunk_transforms import (
+        ChainGripperPoints6ToNative4,
+    )
+
+    return [
+        ChainGripperPoints6ToNative4(
+            keys=keys or ["actions"],
+            world_size=world_size,
+            grid_size=grid_size,
+            refinements=refinements,
+            context_state_key=context_state_key,
+            previous_control_key=previous_control_key,
+        )
+    ]
+
+
 def get_rotvec_transform_list(keys: list[str] | None = None, angle_col: int = 2):
     """Encode U-socket ``theta`` targets as ``(cos(theta), sin(theta))``."""
     from egomimic.rldb.zarr.action_chunk_transforms import ThetaToRotVec
@@ -103,3 +145,23 @@ def get_chain_gripper_point_arc_length_transform_list(
             dt=dt,
         )
     ]
+
+
+def get_chain_gripper_native_point_arc_length_transform_list(
+    keys: list[str] | None = None,
+    min_distance_unit: float = 200.0,
+    resampled_vector_length: int = 25,
+    dt: float = 1.0 / 30.0,
+    world_size: float = 512.0,
+):
+    """Compose native4-to-points FK with point-space arc tokenization."""
+    action_keys = keys or ["actions"]
+    return get_chain_gripper_point_transform_list(
+        keys=action_keys,
+        world_size=world_size,
+    ) + get_chain_gripper_point_arc_length_transform_list(
+        keys=action_keys,
+        min_distance_unit=min_distance_unit,
+        resampled_vector_length=resampled_vector_length,
+        dt=dt,
+    )

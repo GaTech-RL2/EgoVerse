@@ -12,8 +12,17 @@ from egomimic.pipeline.pushshapes import (
 )
 from egomimic.pipeline.stages_sampler import NativeActionMSELoss
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
-from egomimic.rldb.embodiment.pushshapes import get_keymap_hpt
-from egomimic.rldb.zarr.action_chunk_transforms import RequireLastDim
+from egomimic.rldb.embodiment.pushshapes import (
+    get_chain_gripper_native_point_arc_length_transform_list,
+    get_chain_gripper_point_revert_transform_list,
+    get_chain_gripper_point_transform_list,
+    get_keymap_hpt,
+)
+from egomimic.rldb.zarr.action_chunk_transforms import (
+    ChainGripperNative4ToPoints6,
+    ChainGripperPoints6ToNative4,
+    RequireLastDim,
+)
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeChainGripperPointArcLength,
     chain_gripper_arc_embedding_to_points,
@@ -186,6 +195,57 @@ def test_chain_point_rollout_adapter_uses_context_for_first_degenerate_row() -> 
     np.testing.assert_allclose(decoded[:, 0, 2], state[:, 2], atol=1e-12)
 
 
+def test_chain_point_direct_adapter_preserves_bfloat16_boundary() -> None:
+    controls = _translation_controls(count=8).astype(np.float32)
+    points = pose_control_to_points(controls).astype(np.float32)
+    predicted = torch.from_numpy(points).unsqueeze(0).to(torch.bfloat16)
+
+    adapter = ChainGripperPointRolloutAdapter(action_horizon=8)
+    decoded = adapter.decode(predicted)
+
+    assert decoded.shape == (1, 8, 4)
+    assert decoded.device == predicted.device
+    assert decoded.dtype == torch.bfloat16
+    assert torch.isfinite(decoded).all()
+    torch.testing.assert_close(
+        decoded.float()[0, :, :2],
+        torch.from_numpy(controls[:, :2]),
+        atol=2.0,
+        rtol=0.0,
+    )
+    diagnostics = adapter.last_projection_diagnostics
+    assert diagnostics is not None
+    assert diagnostics["point_rmse"].shape == (1, 8)
+
+
+def test_chain_point_context_preserves_bfloat16_orientation_fallback() -> None:
+    centers = torch.tensor(
+        [[100.0, 120.0], [300.0, 330.0]],
+        dtype=torch.bfloat16,
+    )
+    collapsed = centers[:, None, :].repeat(1, 3, 1).reshape(2, 1, 6)
+    previous = torch.tensor(
+        [
+            [[100.0, 120.0, 0.75, 0.3]],
+            [[300.0, 330.0, -1.25, 0.6]],
+        ],
+        dtype=torch.bfloat16,
+    )
+    transform = ChainGripperPoints6ToNative4(keys=["actions"])
+
+    result = transform.transform({"actions": collapsed, "previous_control": previous})[
+        "actions"
+    ]
+
+    assert result.dtype == torch.bfloat16
+    assert result.device == collapsed.device
+    torch.testing.assert_close(result[:, 0, 2], previous[:, -1, 2])
+    diagnostics = transform.last_projection_diagnostics
+    assert diagnostics is not None
+    assert diagnostics["degenerate_count"] == 2
+    assert diagnostics["trajectory_count"] == 2
+
+
 def test_chain_point_arc_adapter_detokenizes_then_projects_to_native4() -> None:
     controls = _translation_controls()
     points = pose_control_to_points(controls)
@@ -208,6 +268,69 @@ def test_chain_point_arc_adapter_detokenizes_then_projects_to_native4() -> None:
     )
 
 
+def test_chain_point_arc_adapter_preserves_bfloat16_boundary() -> None:
+    controls = _translation_controls().astype(np.float32)
+    points = pose_control_to_points(controls).astype(np.float32)
+    tokenizer = TokenizeChainGripperPointArcLength(
+        min_distance_unit=200.0,
+        resampled_vector_length=25,
+    )
+    token = tokenizer.transform({"actions": points.copy()})["actions"]
+    predicted = torch.from_numpy(token).unsqueeze(0).to(torch.bfloat16)
+    adapter = ChainGripperPointArcLengthRolloutAdapter(
+        min_distance_unit=200.0,
+        resampled_vector_length=25,
+        action_horizon=len(points),
+    )
+
+    decoded = adapter.decode(predicted)
+
+    assert decoded.shape == (1, len(points), 4)
+    assert decoded.device == predicted.device
+    assert decoded.dtype == torch.bfloat16
+    assert torch.isfinite(decoded).all()
+    torch.testing.assert_close(
+        decoded.float()[0, 0, :2],
+        torch.from_numpy(controls[0, :2]),
+        atol=2.0,
+        rtol=0.0,
+    )
+
+
+def test_chain_native_data_transform_to_rollout_adapter_contract() -> None:
+    controls = _translation_controls(count=16).astype(np.float32)
+    keymap = get_keymap_hpt(action_horizon=16)
+    assert keymap["actions"]["zarr_key"] == "actions"
+
+    train_transforms = get_chain_gripper_point_transform_list()
+    assert len(train_transforms) == 1
+    assert isinstance(train_transforms[0], ChainGripperNative4ToPoints6)
+    train_batch = {"actions": controls.copy()}
+    for transform in train_transforms:
+        train_batch = transform.transform(train_batch)
+    assert train_batch["actions"].shape == (16, 6)
+    assert train_batch["actions"].dtype == np.float32
+
+    revert_transforms = get_chain_gripper_point_revert_transform_list()
+    assert len(revert_transforms) == 1
+    assert isinstance(revert_transforms[0], ChainGripperPoints6ToNative4)
+    rollout_batch = {"actions": train_batch["actions"][None]}
+    for transform in revert_transforms:
+        rollout_batch = transform.transform(rollout_batch)
+    np.testing.assert_allclose(rollout_batch["actions"][0], controls, atol=2e-5)
+
+    adapter_decoded = ChainGripperPointRolloutAdapter(action_horizon=16).decode(
+        train_batch["actions"][None]
+    )
+    np.testing.assert_allclose(adapter_decoded[0], controls, atol=2e-5)
+
+    arc_transforms = get_chain_gripper_native_point_arc_length_transform_list(
+        resampled_vector_length=5
+    )
+    assert isinstance(arc_transforms[0], ChainGripperNative4ToPoints6)
+    assert isinstance(arc_transforms[1], TokenizeChainGripperPointArcLength)
+
+
 def test_chain_point_keymap_uses_additive_array_and_rejects_native4() -> None:
     keymap = get_keymap_hpt(
         action_horizon=16,
@@ -218,6 +341,7 @@ def test_chain_point_keymap_uses_additive_array_and_rejects_native4() -> None:
 
     validator = RequireLastDim(keys=["actions"], width=6)
     validator.transform({"actions": np.zeros((16, 6), dtype=np.float32)})
+    validator.transform({"actions": torch.zeros((16, 6), dtype=torch.bfloat16)})
     with pytest.raises(ValueError, match="last dimension 6"):
         validator.transform({"actions": np.zeros((16, 4), dtype=np.float32)})
 

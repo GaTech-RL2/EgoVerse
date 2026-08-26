@@ -535,12 +535,8 @@ class PadGripperZeros(Transform):
             )
         pad_shape = (*arr.shape[:-1], 1)
         pad = np.zeros(pad_shape, dtype=arr.dtype)
-        padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
-        )
-        batch[self.action_key] = (
-            torch.from_numpy(padded) if is_tensor else padded
-        )
+        padded = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
+        batch[self.action_key] = torch.from_numpy(padded) if is_tensor else padded
         return batch
 
 
@@ -577,6 +573,37 @@ class NumpyToTensor(Transform):
         return batch
 
 
+def _to_float64_numpy(value) -> np.ndarray:
+    """Detach a numeric value into a NumPy compute buffer.
+
+    NumPy has no native ``bfloat16`` dtype, so crossing that boundary directly
+    raises ``TypeError``. Route BF16 tensors through CPU FP32 first, then use
+    FP64 for deterministic planar-geometry computation. Other tensor dtypes
+    keep their normal NumPy conversion before the common FP64 compute cast.
+    """
+    if torch.is_tensor(value):
+        cpu_value = value.detach().cpu()
+        if cpu_value.dtype == torch.bfloat16:
+            cpu_value = cpu_value.float()
+        value = cpu_value.numpy()
+    return np.asarray(value, dtype=np.float64)
+
+
+def _restore_numeric_type(value: np.ndarray, template):
+    """Restore a NumPy compute result to ``template``'s type/device/dtype."""
+    value = np.ascontiguousarray(value)
+    if torch.is_tensor(template):
+        dtype = template.dtype if template.is_floating_point() else torch.float32
+        return torch.from_numpy(value).to(device=template.device, dtype=dtype)
+    template_array = np.asarray(template)
+    dtype = (
+        template_array.dtype
+        if np.issubdtype(template_array.dtype, np.floating)
+        else np.float32
+    )
+    return value.astype(dtype, copy=False)
+
+
 class RequireLastDim(Transform):
     """Fail early when a present array does not have the configured width."""
 
@@ -590,7 +617,7 @@ class RequireLastDim(Transform):
         for key in self.keys:
             if key not in batch:
                 continue
-            value = np.asarray(batch[key])
+            value = _to_float64_numpy(batch[key])
             if value.ndim == 0 or value.shape[-1] != self.width:
                 raise ValueError(
                     f"RequireLastDim expects key '{key}' to have last dimension "
@@ -598,6 +625,219 @@ class RequireLastDim(Transform):
                 )
             if not np.isfinite(value).all():
                 raise ValueError(f"RequireLastDim found non-finite values in '{key}'")
+        return batch
+
+
+class ChainGripperNative4ToPoints6(Transform):
+    """Map native ``[x, y, theta, grip]`` chunks to ordered ``[L, C, R]``.
+
+    This is the ChainGripper training-boundary analogue of
+    :class:`ThetaToRotVec`: datasets stay in their native control space, while
+    the model target is derived at load time. Geometry and clipping rules are
+    delegated to the authoritative Sim V2 implementation.
+    """
+
+    def __init__(self, keys: list[str], world_size: float = 512.0):
+        self.keys = list(keys)
+        self.world_size = float(world_size)
+        if self.world_size <= 0.0:
+            raise ValueError("world_size must be positive")
+
+    def transform(self, batch: dict) -> dict:
+        from Tsimulation.sim_v2.pushshapes.chain_gripper_control import (
+            pose_control_to_points,
+        )
+
+        for key in self.keys:
+            if key not in batch:
+                continue
+            template = batch[key]
+            controls = _to_float64_numpy(template)
+            if controls.ndim == 0 or controls.shape[-1] != 4:
+                raise ValueError(
+                    "ChainGripperNative4ToPoints6 expects key "
+                    f"'{key}' to have last dimension 4, got {controls.shape}"
+                )
+            points = pose_control_to_points(controls, world_size=self.world_size)
+            batch[key] = _restore_numeric_type(points, template)
+        return batch
+
+
+class ChainGripperPoints6ToNative4(Transform):
+    """Sequentially project ordered ChainGripper points to native controls.
+
+    Arbitrary model predictions generally do not lie on the four-dimensional
+    ChainGripper kinematic manifold. Each trajectory is therefore projected
+    one timestep at a time through Sim V2's constrained IK. A prior native
+    control, or the latest ``x, y, theta`` from rollout state, seeds the first
+    timestep; subsequent timesteps use their own previous projection. When a
+    point pair is degenerate, temporal orientation is retained explicitly.
+
+    Diagnostics from the most recent call are available through
+    ``last_projection_diagnostics`` and ``projection_diagnostics_by_key``.
+    """
+
+    def __init__(
+        self,
+        keys: list[str],
+        world_size: float = 512.0,
+        grid_size: int = 33,
+        refinements: int = 6,
+        context_state_key: str = "state_agent_obj",
+        previous_control_key: str = "previous_control",
+    ):
+        self.keys = list(keys)
+        self.world_size = float(world_size)
+        self.grid_size = int(grid_size)
+        self.refinements = int(refinements)
+        self.context_state_key = str(context_state_key)
+        self.previous_control_key = str(previous_control_key)
+        self.last_projection_diagnostics: dict | None = None
+        self.projection_diagnostics_by_key: dict[str, dict] = {}
+        if self.world_size <= 0.0:
+            raise ValueError("world_size must be positive")
+        if self.grid_size < 5 or self.grid_size % 2 == 0:
+            raise ValueError("grid_size must be an odd integer >= 5")
+        if self.refinements < 1:
+            raise ValueError("refinements must be >= 1")
+
+    @staticmethod
+    def _context_rows(value, trajectory_count: int, *, key: str) -> np.ndarray:
+        array = _to_float64_numpy(value)
+        if array.ndim == 0:
+            raise ValueError(f"Rollout context {key!r} must be an array")
+        width = array.shape[-1]
+        rows = array.reshape(-1, width)
+        if rows.shape[0] % trajectory_count != 0:
+            raise ValueError(
+                f"Rollout context {key!r} shape {array.shape} cannot be aligned "
+                f"to {trajectory_count} predicted trajectories"
+            )
+        return rows.reshape(trajectory_count, -1, width)[:, -1]
+
+    def _initial_previous_controls(
+        self,
+        batch: dict,
+        trajectory_count: int,
+    ) -> np.ndarray | None:
+        if self.previous_control_key in batch:
+            rows = self._context_rows(
+                batch[self.previous_control_key],
+                trajectory_count,
+                key=self.previous_control_key,
+            )
+            if rows.shape[-1] != 4:
+                raise ValueError(
+                    f"Rollout context {self.previous_control_key!r} must have "
+                    f"last dimension 4, got {rows.shape}"
+                )
+            return rows
+        if self.context_state_key not in batch:
+            return None
+        rows = self._context_rows(
+            batch[self.context_state_key],
+            trajectory_count,
+            key=self.context_state_key,
+        )
+        if rows.shape[-1] < 3:
+            raise ValueError(
+                f"Rollout context {self.context_state_key!r} must contain x, y, "
+                f"theta, got {rows.shape}"
+            )
+        previous = np.zeros((trajectory_count, 4), dtype=np.float64)
+        previous[:, :3] = rows[:, :3]
+        return previous
+
+    def _project(
+        self,
+        points: np.ndarray,
+        batch: dict,
+    ) -> tuple[np.ndarray, dict]:
+        from Tsimulation.sim_v2.pushshapes.chain_gripper_control import (
+            pose_control_to_points,
+            project_points_to_pose_control,
+        )
+
+        if points.ndim < 2 or points.shape[-1] != 6:
+            raise ValueError(
+                "ChainGripperPoints6ToNative4 expects (..., horizon, 6), "
+                f"got {points.shape}"
+            )
+        trajectory_shape = points.shape[:-2]
+        horizon = points.shape[-2]
+        trajectory_count = int(np.prod(trajectory_shape)) if trajectory_shape else 1
+        trajectories = points.reshape(trajectory_count, horizon, 6)
+        controls = np.empty((trajectory_count, horizon, 4), dtype=np.float64)
+        point_rmse = np.empty((trajectory_count, horizon), dtype=np.float64)
+        wrong_chirality = np.empty((trajectory_count, horizon), dtype=bool)
+        degenerate = np.empty((trajectory_count, horizon), dtype=bool)
+        used_exact_inverse = np.empty((trajectory_count, horizon), dtype=bool)
+        initial_previous = self._initial_previous_controls(batch, trajectory_count)
+
+        for trajectory_index, trajectory in enumerate(trajectories):
+            previous = (
+                None if initial_previous is None else initial_previous[trajectory_index]
+            )
+            for time_index, predicted_points in enumerate(trajectory):
+                projection = project_points_to_pose_control(
+                    predicted_points,
+                    previous_control=previous,
+                    world_size=self.world_size,
+                    grid_size=self.grid_size,
+                    refinements=self.refinements,
+                )
+                control = np.asarray(projection.control, dtype=np.float64)
+                is_degenerate = bool(projection.degenerate)
+                if previous is not None and is_degenerate:
+                    control = control.copy()
+                    control[2] = previous[2]
+                    fitted_points = pose_control_to_points(
+                        control,
+                        world_size=self.world_size,
+                    )
+                    projection_rmse = float(
+                        np.sqrt(np.mean(np.square(fitted_points - predicted_points)))
+                    )
+                else:
+                    projection_rmse = float(projection.point_rmse)
+                controls[trajectory_index, time_index] = control
+                point_rmse[trajectory_index, time_index] = projection_rmse
+                wrong_chirality[trajectory_index, time_index] = bool(
+                    projection.wrong_chirality
+                )
+                degenerate[trajectory_index, time_index] = is_degenerate
+                used_exact_inverse[trajectory_index, time_index] = bool(
+                    projection.used_exact_inverse
+                )
+                previous = control
+
+        diagnostic_shape = (*trajectory_shape, horizon)
+        diagnostics = {
+            "point_rmse": point_rmse.reshape(diagnostic_shape),
+            "wrong_chirality": wrong_chirality.reshape(diagnostic_shape),
+            "degenerate": degenerate.reshape(diagnostic_shape),
+            "used_exact_inverse": used_exact_inverse.reshape(diagnostic_shape),
+            "mean_point_rmse": float(np.mean(point_rmse)),
+            "max_point_rmse": float(np.max(point_rmse)),
+            "wrong_chirality_count": int(np.count_nonzero(wrong_chirality)),
+            "degenerate_count": int(np.count_nonzero(degenerate)),
+            "trajectory_count": trajectory_count,
+            "horizon": horizon,
+        }
+        return controls.reshape(*points.shape[:-1], 4), diagnostics
+
+    def transform(self, batch: dict) -> dict:
+        self.last_projection_diagnostics = None
+        self.projection_diagnostics_by_key = {}
+        for key in self.keys:
+            if key not in batch:
+                continue
+            template = batch[key]
+            points = _to_float64_numpy(template)
+            controls, diagnostics = self._project(points, batch)
+            batch[key] = _restore_numeric_type(controls, template)
+            self.projection_diagnostics_by_key[key] = diagnostics
+            self.last_projection_diagnostics = diagnostics
         return batch
 
 
