@@ -1,0 +1,10 @@
+# @package _global_
+# Human-only BC: can the model chunk the human stream on its own?
+defaults:
+  - /experiment/rh_fold/base@_here_
+  - override /model: bf_rh/r5h8
+  - override /data: fold_clothes/annotation_span/bc_human
+  - override /logger: combined/csv_wandb
+  - _self_
+
+description: bc_human

@@ -563,21 +563,16 @@ class TestAlgoWiring:
         use_parameter_groups=False,
         weight_decay=0.0,
     ):
-        from egomimic.algo.hnet import HNetOuterStage, PackedAlgoBase as HNetAlgo
+        from egomimic.algo.hnet import PackedAlgoBase as HNetAlgo
         from egomimic.models.stems.cond_encoders import CondEncoderModule
 
-        # PackedAlgoBase takes the assembled outer stage; action_dim /
-        # action_horizon / d_model / cond_encoder / hnet live on it now.
-        outer_stage = HNetOuterStage(
+        return HNetAlgo(
             action_dim=2,
             action_horizon=64,
             d_model=32,
+            d_cond=0,
             cond_encoder=CondEncoderModule(d_cond=0),
             hnet=_build_tree(),  # fresh 3-stage tree per algo
-        )
-        return HNetAlgo(
-            outer_stage=outer_stage,
-            d_cond=0,
             norm_stats=norm_stats,
             domains=["pushshapes_sim"],
             ac_keys={"pushshapes_sim": "actions"},

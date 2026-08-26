@@ -123,7 +123,7 @@ def test_scripted_collector_runs_end_to_end():
         scripted_collect.run(args)
 
 
-def test_mouse_collector_accepts_direct_variant_options():
+def test_mouse_collector_accepts_visual_variant_options():
     from Tsimulation.collect import mouse_collect
 
     args = mouse_collect.build_parser().parse_args(
@@ -132,8 +132,6 @@ def test_mouse_collector_accepts_direct_variant_options():
             "unused",
             "--success-threshold",
             "0.97",
-            "--speed-factor",
-            "1.5",
             "--pusher-color",
             "blue",
             "--variant-name",
@@ -142,7 +140,6 @@ def test_mouse_collector_accepts_direct_variant_options():
     )
 
     assert args.success_threshold == 0.97
-    assert args.speed_factor == 1.5
     assert args.pusher_color == "blue"
     assert args.variant_name == "blue_circle"
 

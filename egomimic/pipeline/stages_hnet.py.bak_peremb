@@ -192,21 +192,7 @@ class DualChunkerLevel(Stage):
         apex_s = int(apex_s) if apex_s is not None else d_s
         self.d_a, self.d_s, self.apex_a, self.apex_s = int(d_a), d_s, int(apex_a), apex_s
         self.dual_inner = bool(dual_inner)
-        # target_compression_ratio accepts EITHER a float (all embodiments,
-        # original behaviour) OR a {embodiment: float} mapping. The RH cotrain
-        # needs the latter: eva spans are whole ~1296-frame episodes while human
-        # folds are ~157 frames, so one shared ratio cannot give both streams a
-        # comparable apex-token budget.
-        if isinstance(target_compression_ratio, (int, float)):
-            self.target_compression_ratio = float(target_compression_ratio)
-            self.target_ratio_per_emb = None
-        else:
-            _m = {str(k): float(v) for k, v in dict(target_compression_ratio).items()}
-            if not _m:
-                raise ValueError('target_compression_ratio mapping is empty')
-            self.target_ratio_per_emb = _m
-            # fallback for any embodiment absent from the map
-            self.target_compression_ratio = float(sum(_m.values()) / len(_m))
+        self.target_compression_ratio = float(target_compression_ratio)
         self.ratio_loss_weight = float(ratio_loss_weight)
         self.decisiveness_loss_weight = float(decisiveness_loss_weight)
         self.spread_loss_weight = float(spread_loss_weight)
@@ -327,33 +313,6 @@ class DualChunkerLevel(Stage):
         prev_end = torch.where(is_start.unsqueeze(-1), no_prev.to(prev_end.dtype), prev_end)
         return combine_mlp(torch.cat([chunked, prev_end], -1).float()).to(chunked.dtype)
 
-
-    def _target_ratio_for(self, emb) -> float:
-        """Per-embodiment chunk target; falls back to the scalar when unmapped.
-
-        ``emb`` is whatever ``batch["embodiment"]`` holds -- a str, or a tensor /
-        list of ids for a packed batch. A packed batch is single-embodiment by
-        construction here (the trunk picks per-emb modules off the same value),
-        so the first entry identifies the stream.
-        """
-        if self.target_ratio_per_emb is None:
-            return self.target_compression_ratio
-        key = emb
-        if not isinstance(key, str):
-            try:
-                key = key[0] if len(key) else None
-            except TypeError:
-                key = None
-            if hasattr(key, "item"):
-                key = key.item()
-            if not isinstance(key, str):
-                from egomimic.rldb.embodiment.embodiment import get_embodiment
-                try:
-                    key = get_embodiment(int(key)).lower()
-                except Exception:
-                    return self.target_compression_ratio
-        return self.target_ratio_per_emb.get(str(key), self.target_compression_ratio)
-
     def forward(self, batch: dict) -> dict:
         A, S = batch["A"], batch["S"]
         cu = batch["cu_seqlens"].to(device=A.device, dtype=torch.long)
@@ -439,7 +398,7 @@ class DualChunkerLevel(Stage):
             "selected_probs": sprob,
             "cu_seqlens": cu,            # THIS level's input token space
             "chunk_cu_seqlens": next_cu,  # chunk space
-            "target_ratio": self._target_ratio_for(emb),
+            "target_ratio": self.target_compression_ratio,
             "ratio_weight": self.ratio_loss_weight,
             "dec_weight": self.decisiveness_loss_weight,
             "spread_weight": self.spread_loss_weight,

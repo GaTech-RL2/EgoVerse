@@ -431,10 +431,6 @@ def run(args: argparse.Namespace) -> int:
     if not args.output and not args.output_dir:
         print("error: provide either --output or --output-dir", file=sys.stderr)
         return 2
-    if not math.isfinite(args.speed_factor) or args.speed_factor <= 0:
-        print("error: --speed-factor must be a finite positive number", file=sys.stderr)
-        return 2
-
     try:
         replay_inits = _load_replay_source(args)
         seed_list = _load_seed_list(args)
@@ -484,7 +480,6 @@ def run(args: argparse.Namespace) -> int:
         "mode": args.mode,
         "solid_pusher": True,
         "solid_contact_guard": True,
-        "speed_factor": float(args.speed_factor),
         "pusher_color": args.pusher_color,
         "embodiment_variant": args.variant_name,
     }
@@ -509,7 +504,7 @@ def run(args: argparse.Namespace) -> int:
     pygame.display.set_caption(
         f"PushShapes Sim V{SIM_VERSION} "
         f"[{args.object}/{args.pusher}/obs={args.obstacles}/"
-        f"{args.speed_factor:g}x/{args.pusher_color}]"
+        f"{args.pusher_color}]"
     )
     global WINDOW_SCALE, WINDOW_SIZE
     WINDOW_SCALE = float(args.window_scale)
@@ -534,8 +529,6 @@ def run(args: argparse.Namespace) -> int:
         image_size=args.image_size,
         seed=args.seed,
     )
-    env.PUSHER_SPEED = type(env).PUSHER_SPEED * float(args.speed_factor)
-    env.STICK_TURN_RATE = type(env).STICK_TURN_RATE * float(args.speed_factor)
     # A higher collection threshold can provide replay margin for physics
     # paths (notably U-socket contact) that vary slightly across processes.
     env.SUCCESS_THRESHOLD = float(args.success_threshold)
@@ -547,7 +540,6 @@ def run(args: argparse.Namespace) -> int:
         fps=args.fps,
         tag=mode.writer_tag,
         metadata_override={
-            "speed_factor": float(args.speed_factor),
             "pusher_color": args.pusher_color,
             "embodiment_variant": args.variant_name,
         },
@@ -850,12 +842,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--image-size", type=int, default=96)
     p.add_argument("--fps", type=int, default=30)
-    p.add_argument(
-        "--speed-factor",
-        type=float,
-        default=1.0,
-        help="scale physical pusher and turn speed (default: 1.0)",
-    )
     p.add_argument(
         "--pusher-color",
         choices=("red", "blue"),

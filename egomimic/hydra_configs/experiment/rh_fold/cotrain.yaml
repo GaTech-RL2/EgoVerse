@@ -1,0 +1,10 @@
+# @package _global_
+# Robot+human cotrain: the headline cell.
+defaults:
+  - /experiment/rh_fold/base@_here_
+  - override /model: bf_rh/r5h8
+  - override /data: fold_clothes/annotation_span/cotrain
+  - override /logger: combined/csv_wandb
+  - _self_
+
+description: cotrain

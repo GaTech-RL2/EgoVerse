@@ -1,0 +1,207 @@
+# r5h8 = bf_rh/sdp_dual + bigS + bigcodec + 126-dim keypoints-only human action.
+#
+# EXTENDS sdp_dual (defaults below). Inherited unchanged: _target_,
+# action_horizon, domains, ac_keys, enable_grad_norm, optimizer, scheduler,
+# and the image-encoder settings (crop_aug v02 128x128).
+#
+# `stages` MUST be restated in full: OmegaConf REPLACES lists on merge rather
+# than merging element-wise (verified: merge([{x:1},{x:3}], [{x:9}]) -> [{x:9}]),
+# so there is no way to patch stages[2].levels[0].streams_cfg[1].d_model in
+# isolation. This is the same reason sdp_nodual.yaml is a near-copy of
+# sdp_dual.yaml rather than an extension.
+#
+# DELTAS vs sdp_dual (the only things that make this r5h8):
+#   bigS      S-stream doubled everywhere:
+#               specific ObsToken d_model / d_cond   64  -> 128
+#               L0 streams_cfg[1] d_model/d_inter    64/256   -> 128/512
+#               L1 streams_cfg[1] d_model/d_inter    128/512  -> 256/1024
+#               chunker d_s / apex_s                 64/128   -> 128/256
+#               chunker L1 d_s                       128      -> 256
+#               SDPHead d_s                          64       -> 128
+#   bigcodec  SDPHead latent_dim      192    -> 768
+#             SDPHead enc_hidden      256    -> 2048 (scalar; see note at the head)
+#             SDPHead d_model_a/_s    256/192 -> 768/768
+#   d126      human action/state dim  138 -> 126  (RH_WRIST_MODE=none: the wrist
+#             pose is dropped as redundant with the keypoints)
+#   chunking  attn_window: 1 on both DualTrunkLevels
+#             ratio_loss_weight 0.001 -> 0.0005
+#             RatioLoss.target_ratio set PER LEVEL: human [2,2]=4x,
+#             eva [15,2]=30x. A SCALAR compounds across levels (3.0 -> 9x,
+#             22.0 -> 484x) and destroys the token budget; per-level lands both
+#             streams at ~38-43 apex tokens, which is what bridges the
+#             eva/human timescale gap.
+defaults:
+  # Two Hydra gotchas here:
+  #  1. nested-group defaults resolve from the GROUP ROOT (model/), so a bare
+  #     `sdp_dual` looks for model/sdp_dual and fails.
+  #  2. WITHOUT @_here_ the parent lands at package model.bf_rh instead of
+  #     merging into model, leaving robomimic_model with only `stages`.
+  - bf_rh/sdp_dual@_here_
+  - _self_
+
+robomimic_model:
+  stages:
+  # --- stride + targets as data ---
+  - _target_: egomimic.pipeline.stages_io.TargetBuilder
+    chunk_len: 4
+    stride: 4
+  # --- A (shared, image-only) + S (per-emb) obs encoders ---
+  - _target_: egomimic.pipeline.stages_io.ObsEncoders
+    agnostic:
+      _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 256
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+        d_cond: 256
+        output_key: fused_cond
+        cond_proj_widths: [256, 256]
+        obs_specs: {}
+        img_encoders:
+          front_img_1: &img
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 480
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 128
+            crop_width: 128
+            crop_eval_mode: random
+            crop_sample_mode: v02
+    specific:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 128                                    # bigS (was 64)
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          eva_bimanual:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 128                               # bigS
+            output_key: fused_cond
+            cond_proj_widths: [128, 128]              # bigS
+            obs_specs:
+              state_ee_pose: {input_dim: 14, input_slice: [0, 14], embed_dim: 128}
+            img_encoders:
+              front_img_1: *img
+          human_bimanual:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 128                               # bigS
+            output_key: fused_cond
+            cond_proj_widths: [128, 128]              # bigS
+            obs_specs:
+              # d126: keypoints only, wrist pose dropped (was 138)
+              state_keypoints: {input_dim: 126, input_slice: [0, 126], embed_dim: 128}
+              obs_head_pose:   {input_dim: 7,   input_slice: [0, 7],   embed_dim: 128}
+            img_encoders:
+              front_img_1: *img
+  # --- the pyramid ---
+  - _target_: egomimic.pipeline.stages_hnet.DualstreamTrunk
+    init_range: 0.02
+    levels:
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel    # L0 A256/S128 x4
+      mask_mode: sym
+      attn_window: 1
+      allow_agnostic_cross: true
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments: [eva_bimanual, human_bimanual]
+      streams_cfg:
+      - {d_model: 256, num_heads: 4, d_intermediate: 1024}
+      - {d_model: 128, num_heads: 2, d_intermediate: 512}       # bigS
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel   # 256->512 / 128->256
+      d_a: 256
+      d_s: 128                                                   # bigS
+      apex_a: 512
+      apex_s: 256                                                # bigS
+      dual_inner: true
+      target_compression_ratio: {human_bimanual: 2.0, eva_bimanual: 15.0}   # per-emb, L0
+      ratio_loss_weight: 0.0005
+      grab_prev_end: true
+      residual_mixer: mlp
+      residual_mixer_kwargs: {n_layers: 4}
+      embodiments: [eva_bimanual, human_bimanual]
+      router_per_emb: true
+      router_fusion: mlp
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel     # L1 A512/S256 x4
+      mask_mode: sym
+      attn_window: 1
+      allow_agnostic_cross: true
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments: [eva_bimanual, human_bimanual]
+      streams_cfg:
+      - {d_model: 512, num_heads: 8, d_intermediate: 2048}
+      - {d_model: 256, num_heads: 4, d_intermediate: 1024}       # bigS
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel   # 512->1024 SEAM (A only)
+      d_a: 512
+      d_s: 256                                                   # bigS
+      apex_a: 1024
+      dual_inner: false
+      target_compression_ratio: {human_bimanual: 2.0, eva_bimanual: 2.0}    # per-emb, L1
+      ratio_loss_weight: 0.0005
+      grab_prev_end: true
+      residual_mixer: mlp
+      residual_mixer_kwargs: {n_layers: 4}
+      embodiments: [eva_bimanual, human_bimanual]
+      router_per_emb: true
+      router_fusion: mlp
+    - _target_: egomimic.pipeline.stages_hnet.ApexLevel          # 1024 T10 agnostic-only
+      causal: true
+      main_network:
+        arch_layout: T10
+        d_model: 1024
+        d_intermediate: 1536
+        num_heads: 16
+        cond: false
+        rotary_emb_dim: 64
+        dropout: 0.0
+        resid_dropout: 0.0
+  # --- HETERO-D SDP head: dual_stream + per-emb E_e/D_e + latent core (bigcodec) ---
+  - _target_: egomimic.pipeline.stages_flow.SDPHead
+    d_a: 256
+    d_s: 128                                                     # bigS
+    action_dim: 14                    # nominal scalar; per-emb dims in action_dims
+    action_dims: {eva_bimanual: 14, human_bimanual: 126}         # d126
+    latent_dim: 768                                              # bigcodec
+    dual_stream: true
+    # bigcodec, REDUCED on this branch: the refactored SDPHead takes a SCALAR
+    # enc_hidden (default 256) and has NO enc_layers / enc_residual -- E_e/D_e
+    # are hardcoded 3-layer SiLU. The PACE arm used per-emb
+    #   enc_hidden {eva 1024, human 2048}, enc_layers {eva 5, human 8}
+    # i.e. asymmetric capacity for human's 126-dim vs eva's 14-dim actions.
+    # 2048 chosen so the human codec is not starved; eva is over-provisioned.
+    # THIS IS A REAL DIFFERENCE from the PACE r5h8, not a cosmetic one.
+    enc_hidden: 2048
+    chunk_len: 4
+    embodiments: [eva_bimanual, human_bimanual]
+    buffer_chunks: 4
+    num_train_timesteps: 100
+    num_inference_steps: 16
+    regime_weights: [0.7, 0.15, 0.15]
+    end_mode: masked
+    denoiser_arch: adaln
+    d_model_a: 768                                               # bigcodec
+    d_model_s: 768                                               # bigcodec
+    n_layers: 4
+    n_heads: 4
+    ffn_mult: 4
+    # asym (user, 2026-08-10) -- same as sdp_dual. MUST be stated explicitly:
+    # `stages` is a list, so it REPLACES the parent's wholesale and nothing
+    # inside it is inherited. Omitting this key deletes it rather than
+    # falling back to sdp_dual's value.
+    # This is the SDP HEAD mask only; DualTrunkLevel.mask_mode stays sym,
+    # which is what gives A<->S cross-attention both ways at L0/L1 enc+dec.
+    mask_mode: asym
+  # --- losses are stages ---
+  # RatioLoss takes NO args on this branch: it reads target_ratio out of each
+  # chunker's aux record. The per-level/per-emb targets therefore live on the
+  # DualChunkerLevels above -- human [2,2]=4x total, eva [15,2]=30x total,
+  # landing both streams at ~38-43 apex tokens despite eva episodes being ~8x
+  # longer than human folds. (DualChunkerLevel gained dict support for this;
+  # a float still behaves exactly as before.)
+  - _target_: egomimic.pipeline.stages_io.RatioLoss

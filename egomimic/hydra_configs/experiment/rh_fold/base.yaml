@@ -1,0 +1,35 @@
+# @package _global_
+# Shared runtime for the robot-human fold-clothes matrix (bf_rh/r5h8).
+#
+# One model serves all three cells (both domains, both heads always present);
+# only the data feed differs, so parameter count is identical and bc_eva /
+# bc_human / cotrain are directly comparable. Same convention as
+# experiment/indomain_c4, whose hnet_cotrain notes "the BC cells feed ONE
+# domain so the unfed head gets no gradient".
+
+name: rh_fold
+
+trainer:
+  max_epochs: 300
+  min_epochs: 300
+  limit_val_batches: 8
+  num_sanity_val_steps: 0
+  check_val_every_n_epoch: 75
+
+model:
+  # sdp_dual ships max_steps 2000, but 300 epochs x ~100 steps = 30k. Left at
+  # 2000 the cosine finishes in the first 7% of training and flatlines at
+  # eta_min for the rest.
+  scheduler:
+    max_steps: 30000
+    warmup_steps: 1500
+    eta_min: 1.0e-05
+  optimizer:
+    lr: 1.0e-04
+
+norm_stats:
+  norm_mode: quantile
+
+logger:
+  wandb:
+    project: human-robot-hnet
