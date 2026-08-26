@@ -67,7 +67,7 @@ _PUSHER_OBJECT_MIN_DIST = 80.0  # pusher cannot spawn on top of object
 _GOAL_OBJECT_MIN_DIST = 120.0  # goal pose must be visibly different from object
 _SPAWN_MAX_TRIES = 50  # rejection-sampling budget per spawn
 SIM_VERSION = 2  # v2 = v2 geometry + pocket-bottom-only socket friction (the FIX;
-                 # the all-faces-grip intermediate was a bug, never a release)
+# the all-faces-grip intermediate was a bug, never a release)
 # Slack on the pocket test, so solver jitter at the mouth does not flicker a
 # genuine inside contact to frictionless for a substep.
 # A contact exactly on a prong tip is at the open mouth, not inside the
@@ -253,8 +253,13 @@ class PushShapesEnv(gym.Env):
     @property
     def socket_inside_friction_only(self) -> bool:
         """Fixed Sim V2 U-socket friction behavior (read-only)."""
-        return bool(getattr(self.agent, "socket_inside_friction_only",
-                            self.SOCKET_INSIDE_FRICTION_ONLY))
+        return bool(
+            getattr(
+                self.agent,
+                "socket_inside_friction_only",
+                self.SOCKET_INSIDE_FRICTION_ONLY,
+            )
+        )
 
     @property
     def solid_contact_guard(self) -> bool:
@@ -296,8 +301,7 @@ class PushShapesEnv(gym.Env):
     def get_episode_init(self) -> dict:
         """Capture full episode init state for deterministic replay."""
         obstacles = [
-            [list(segment.a), list(segment.b)]
-            for segment in self._obstacle_segments
+            [list(segment.a), list(segment.b)] for segment in self._obstacle_segments
         ]
         init = {
             "agent_pos": list(self.agent_pos),
@@ -382,7 +386,9 @@ class PushShapesEnv(gym.Env):
             self._space.on_collision(
                 _CT_PUSHER,
                 _CT_OBJECT,
-                pre_solve=lambda a, sp, d: self.agent._socket_friction_pre_solve(self, a, sp, d),
+                pre_solve=lambda a, sp, d: self.agent._socket_friction_pre_solve(
+                    self, a, sp, d
+                ),
             )
 
         self._goal_pose = (float(goal_pos[0]), float(goal_pos[1]), float(goal_angle))

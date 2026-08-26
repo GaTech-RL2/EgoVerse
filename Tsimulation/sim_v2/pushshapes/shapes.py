@@ -28,9 +28,8 @@ and jittery integration). The trade-off:
 
 from __future__ import annotations
 
-from typing import Literal
-
 import math
+from typing import Literal
 
 import pymunk
 from shapely.geometry import Polygon
@@ -73,9 +72,7 @@ U_SOCKET_PRONG_THICK = 10.0
 U_SOCKET_PRONG_LENGTH = 30.0
 U_SOCKET_CROSSBAR_THICK = 10.0
 U_SOCKET_OUTER_WIDTH = U_SOCKET_INNER_GAP + 2 * U_SOCKET_PRONG_THICK
-U_SOCKET_CROSSBAR_INNER_X = (
-    -U_SOCKET_PRONG_LENGTH / 2 + U_SOCKET_CROSSBAR_THICK / 2
-)
+U_SOCKET_CROSSBAR_INNER_X = -U_SOCKET_PRONG_LENGTH / 2 + U_SOCKET_CROSSBAR_THICK / 2
 U_SOCKET_RECTS: list[tuple[float, float, float, float]] = [
     (
         5.0,
@@ -126,14 +123,14 @@ L_RECTS: list[tuple[float, float, float, float]] = [
 # mechanism, different silhouette, different failure mode -- parallel jaws
 # keep full contact along the whole face where a pincer only touches at the
 # tips as it opens.
-GRIPPER_FINGER_LEN = 34.0      # jaw depth (along the approach)
-GRIPPER_RAIL_HALF = 34.0       # back plate half-width; jaws slide on it
-GRIPPER_PALM_HALF_W = 22.0   # palm spans the jaw travel
+GRIPPER_FINGER_LEN = 34.0  # jaw depth (along the approach)
+GRIPPER_RAIL_HALF = 34.0  # back plate half-width; jaws slide on it
+GRIPPER_PALM_HALF_W = 22.0  # palm spans the jaw travel
 GRIPPER_PALM_HALF_H = 6.0
 GRIPPER_JAW_HALF_W = 5.0
 GRIPPER_JAW_HALF_H = 20.0
 GRIPPER_JAW_MAX_GAP = 2 * GRIPPER_RAIL_HALF - 2 * GRIPPER_JAW_HALF_W
-GRIPPER_JAW_MIN_GAP = 8.0      # jaws can close nearly flush
+GRIPPER_JAW_MIN_GAP = 8.0  # jaws can close nearly flush
 
 # Four-link serial chain.  Every link is one straight rigid rectangle and the
 # only articulation is at the three end-to-end hinges.  There is deliberately
@@ -209,8 +206,8 @@ SCOOP_SEGMENTS = 7
 # specks.
 UMI_WRIST_R = 10.0
 UMI_FINGER_HALF_W = 4.5
-UMI_FINGER_LEN = 46.0        # measured from the hinge, extending FORWARD
-UMI_HINGE_SPAN = 15.0        # hinge stand-off either side of the wrist
+UMI_FINGER_LEN = 46.0  # measured from the hinge, extending FORWARD
+UMI_HINGE_SPAN = 15.0  # hinge stand-off either side of the wrist
 UMI_MAX_GAP = 2 * UMI_HINGE_SPAN + 2 * UMI_FINGER_LEN * 0.9
 UMI_MIN_GAP = 2 * UMI_HINGE_SPAN
 UMI_HINGE_OFFSET = UMI_HINGE_SPAN
@@ -227,15 +224,15 @@ SPRING_HOUSING_HALF_W = 11.0
 SPRING_HOUSING_LEN = 30.0
 SPRING_TIP_HALF_W = 7.0
 SPRING_TIP_LEN = 16.0
-SPRING_FREE_LEN = 34.0     # how far the tip stands off when unloaded
-SPRING_MAX_COMPRESS = 30.0 # bottoms out here
+SPRING_FREE_LEN = 34.0  # how far the tip stands off when unloaded
+SPRING_MAX_COMPRESS = 30.0  # bottoms out here
 
 # Flipper: a bar hinged at the wrist, like a pinball flipper. `grip` swings
 # it through its arc, so the tip sweeps even when the base is stationary.
 FLIPPER_LEN = 62.0
 FLIPPER_HALF_W = 5.0
 FLIPPER_PIVOT_R = 7.0
-FLIPPER_SWING = 2.0        # radians from retracted to fully swung
+FLIPPER_SWING = 2.0  # radians from retracted to fully swung
 
 # Tow bar: a hitch ball. The bar itself is a PinJoint, drawn as a line.
 TOWBAR_R = 9.0
@@ -245,7 +242,7 @@ TOWBAR_LENGTH = 70.0
 # glance -- it is the only agent whose whole job is angle.
 WRENCH_R = 15.0
 WRENCH_THICK = 5.0
-WRENCH_OPENING = 1.15   # radians of missing arc (the jaw gap)
+WRENCH_OPENING = 1.15  # radians of missing arc (the jaw gap)
 
 # Soft body: a deformable pad. Unlike every other end effector this one is not
 # a rigid outline -- SOFT_NODES dynamic discs are sprung to a kinematic root,
@@ -310,7 +307,6 @@ _PUSHER_RADII: dict[str, float] = {
     "spring": SPRING_HOUSING_HALF_W,
     "triangle": TRI_R,
     "umi": UMI_MAX_GAP / 2 + 2 * UMI_FINGER_HALF_W,
-    "compliant": COMPLIANT_R,
 }
 
 
@@ -435,13 +431,22 @@ def make_pusher(
         # circle pusher with extra force, which defeats the embodiment -- its
         # whole character is that there is no surface to push against.
         # Horseshoe silhouette so it is not yet another disc on screen.
-        yoke = pymunk.Poly(body, _rect_verts(
-            -MAGNET_POLE_HALF_H, 0.0,
-            2 * MAGNET_POLE_THICK, 2 * MAGNET_HALF_W))
+        yoke = pymunk.Poly(
+            body,
+            _rect_verts(
+                -MAGNET_POLE_HALF_H, 0.0, 2 * MAGNET_POLE_THICK, 2 * MAGNET_HALF_W
+            ),
+        )
         poles = [
-            pymunk.Poly(body, _rect_verts(
-                0.0, sign * (MAGNET_HALF_W - MAGNET_POLE_THICK),
-                2 * MAGNET_POLE_HALF_H, 2 * MAGNET_POLE_THICK))
+            pymunk.Poly(
+                body,
+                _rect_verts(
+                    0.0,
+                    sign * (MAGNET_HALF_W - MAGNET_POLE_THICK),
+                    2 * MAGNET_POLE_HALF_H,
+                    2 * MAGNET_POLE_THICK,
+                ),
+            )
             for sign in (-1.0, 1.0)
         ]
         parts = [yoke, *poles]
@@ -459,14 +464,21 @@ def make_pusher(
         return body, [s]
 
     if shape == "suction":
-        pad = pymunk.Poly(body, _rect_verts(
-            0.0, 0.0, 2 * SUCTION_PAD_HALF_W, 2 * SUCTION_PAD_HALF_H))
+        pad = pymunk.Poly(
+            body, _rect_verts(0.0, 0.0, 2 * SUCTION_PAD_HALF_W, 2 * SUCTION_PAD_HALF_H)
+        )
         # Stem BEHIND the pad. In front it led on approach and held the pad
         # 21.6 units off the surface, so suction could only attach across a
         # visible gap -- it looked like it was grabbing at a distance.
-        stem = pymunk.Poly(body, _rect_verts(
-            0.0, SUCTION_PAD_HALF_H + SUCTION_STEM_HALF_H,
-            2 * SUCTION_STEM_HALF_W, 2 * SUCTION_STEM_HALF_H))
+        stem = pymunk.Poly(
+            body,
+            _rect_verts(
+                0.0,
+                SUCTION_PAD_HALF_H + SUCTION_STEM_HALF_H,
+                2 * SUCTION_STEM_HALF_W,
+                2 * SUCTION_STEM_HALF_H,
+            ),
+        )
         for x in (pad, stem):
             x.friction = OBJECT_FRICTION
         space.add(body, pad, stem)
@@ -508,20 +520,34 @@ def make_pusher(
         return body, parts
 
     if shape == "rake":
-        parts = [pymunk.Poly(body, _rect_verts(
-            0.0, 0.0, 2 * RAKE_SPINE_HALF_W, 2 * RAKE_SPINE_HALF_H))]
+        parts = [
+            pymunk.Poly(
+                body,
+                _rect_verts(0.0, 0.0, 2 * RAKE_SPINE_HALF_W, 2 * RAKE_SPINE_HALF_H),
+            )
+        ]
         for tx in RAKE_TOOTH_XS:
-            parts.append(pymunk.Poly(body, _rect_verts(
-                tx, RAKE_SPINE_HALF_H + RAKE_TOOTH_HALF_H,
-                2 * RAKE_TOOTH_HALF_W, 2 * RAKE_TOOTH_HALF_H)))
+            parts.append(
+                pymunk.Poly(
+                    body,
+                    _rect_verts(
+                        tx,
+                        RAKE_SPINE_HALF_H + RAKE_TOOTH_HALF_H,
+                        2 * RAKE_TOOTH_HALF_W,
+                        2 * RAKE_TOOTH_HALF_H,
+                    ),
+                )
+            )
         for x in parts:
             x.friction = OBJECT_FRICTION
         space.add(body, *parts)
         return body, parts
 
     if shape == "triangle":
-        verts = [(TRI_R * math.cos(a), TRI_R * math.sin(a))
-                 for a in (math.pi / 2, math.pi * 7 / 6, math.pi * 11 / 6)]
+        verts = [
+            (TRI_R * math.cos(a), TRI_R * math.sin(a))
+            for a in (math.pi / 2, math.pi * 7 / 6, math.pi * 11 / 6)
+        ]
         poly = pymunk.Poly(body, verts)
         poly.friction = OBJECT_FRICTION
         space.add(body, poly)
@@ -538,8 +564,9 @@ def make_pusher(
     if shape == "spring":
         # Housing only; the sprung tip is a separate body owned by
         # SpringAgent because its stand-off changes with load.
-        hs = pymunk.Poly(body, _rect_verts(
-            0.0, 0.0, 2 * SPRING_HOUSING_HALF_W, SPRING_HOUSING_LEN))
+        hs = pymunk.Poly(
+            body, _rect_verts(0.0, 0.0, 2 * SPRING_HOUSING_HALF_W, SPRING_HOUSING_LEN)
+        )
         # SENSOR: only the sprung tip may touch the object. A solid housing
         # stopped on contact before the tip could ever be driven in, so the
         # spring never compressed -- measured 0.0 compression at every
@@ -580,7 +607,8 @@ def make_pusher(
                 body,
                 (WRENCH_R * math.cos(a0), WRENCH_R * math.sin(a0)),
                 (WRENCH_R * math.cos(a1), WRENCH_R * math.sin(a1)),
-                WRENCH_THICK / 2)
+                WRENCH_THICK / 2,
+            )
             parts.append(seg)
         space.add(body, *parts)
         return body, parts
@@ -595,8 +623,9 @@ def make_pusher(
         return body, [root]
 
     if shape == "roller":
-        barrel = pymunk.Poly(body, _rect_verts(
-            0.0, 0.0, 2 * ROLLER_HALF_W, 2 * ROLLER_HALF_H))
+        barrel = pymunk.Poly(
+            body, _rect_verts(0.0, 0.0, 2 * ROLLER_HALF_W, 2 * ROLLER_HALF_H)
+        )
         # High friction: the roller works by gripping and rolling, so a
         # slippery barrel would just slide past the object.
         barrel.friction = 2.0
@@ -655,9 +684,7 @@ def make_pusher(
         space.add(body)
         return body, []
 
-    raise ValueError(
-        f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}"
-    )
+    raise ValueError(f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}")
 
 
 def aabb(shape: str) -> tuple[float, float, float, float]:
