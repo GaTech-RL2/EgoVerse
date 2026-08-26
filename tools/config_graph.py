@@ -207,28 +207,115 @@ def _instantiate_stages(model_config: Any) -> tuple[list[Any], list[Any]]:
     return stage_configs, stages
 
 
-def _configured_model_observations(stage_configs: Iterable[Any]) -> set[str]:
-    """Derive aliases from FusedObsEncoder's selected encoder configuration."""
-    observations: set[str] = set()
+def _configured_model_observations(
+    stage_configs: Iterable[Any], domains: Sequence[str]
+) -> dict[str, set[str]]:
+    """Derive each domain's exact observation aliases from its encoder tree.
+
+    ``SharedAdapterObsEncoder`` nests the common encoder several levels below
+    ``FusedObsEncoder`` and places domain-specific adapters under an
+    ``encoders.<domain>`` mapping.  Walking only the first ``obs_specs`` block
+    loses both branches.  This traversal narrows its domain scope only when an
+    ``encoders`` mapping is actually keyed by configured model domains.
+    """
+    domain_names = list(domains) or ["<unspecified>"]
+    observations = {domain: set() for domain in domain_names}
+
+    def collect(value: Any, scope: set[str]) -> None:
+        if isinstance(value, list):
+            for item in value:
+                collect(item, scope)
+            return
+        if not isinstance(value, Mapping):
+            return
+
+        for field in ("obs_specs", "img_encoders"):
+            field_value = value.get(field, {})
+            if isinstance(field_value, Mapping):
+                for domain in scope:
+                    observations[domain].update(f"obs/{key}" for key in field_value)
+
+        domain_encoders = value.get("encoders")
+        narrowed = False
+        if isinstance(domain_encoders, Mapping):
+            configured = set(domain_names).intersection(
+                str(key) for key in domain_encoders
+            )
+            if configured:
+                narrowed = True
+                for domain in configured:
+                    collect(domain_encoders[domain], {domain})
+
+        for key, child in value.items():
+            if key in {"obs_specs", "img_encoders"}:
+                continue
+            if key == "encoders" and narrowed:
+                continue
+            collect(child, scope)
+
     for stage_config in stage_configs:
         plain = _plain(stage_config)
         if not isinstance(plain, Mapping):
             continue
         target = str(plain.get("_target_", ""))
-        if not target.endswith("FusedObsEncoder"):
-            continue
-        encoder = plain.get("encoder", {})
-        if not isinstance(encoder, Mapping):
-            continue
-        for field in ("obs_specs", "img_encoders"):
-            mapping = encoder.get(field, {})
-            if isinstance(mapping, Mapping):
-                observations.update(f"obs/{key}" for key in mapping)
+        if target.endswith("FusedObsEncoder"):
+            collect(plain.get("encoder", {}), set(domain_names))
     return observations
 
 
-def _dataset_observations(config: Any) -> tuple[dict[str, set[str]], list[str]]:
-    """Call selected key-map factories, without constructing any dataset."""
+def _transform_key_inventory(keys: set[str], transforms: Iterable[Any]) -> set[str]:
+    """Apply transform constructors' explicit key effects to an inventory.
+
+    This is deliberately key-level static analysis: it never opens an episode
+    or invents tensor shapes.  The transform objects used by the loaders expose
+    their output and deletion names as constructor attributes, which is enough
+    to follow Fold's concat/drop pipelines and the in-place PushShapes action
+    transforms.
+    """
+    inventory = set(keys)
+    output_attributes = (
+        "new_key_name",
+        "new_key",
+        "out_key",
+        "output_action_key",
+        "transformed_key_name",
+    )
+    for transform in transforms:
+        additions: set[str] = set()
+        removals: set[str] = set()
+        for attribute in output_attributes:
+            value = getattr(transform, attribute, None)
+            if isinstance(value, str):
+                additions.add(value)
+
+        output_key_list = getattr(transform, "output_key_list", None)
+        if output_key_list is not None:
+            additions.update(str(item[0]) for item in output_key_list)
+        parts = getattr(transform, "parts", None)
+        if parts is not None:
+            additions.update(str(item[0]) for item in parts)
+
+        name = type(transform).__name__
+        if name == "ConcatKeys" and bool(getattr(transform, "delete_old_keys", False)):
+            removals.update(str(key) for key in transform.key_list)
+        elif name == "SplitConcat" and bool(
+            getattr(transform, "delete_old_key", False)
+        ):
+            removals.add(str(transform.in_key))
+        elif name == "DeleteKeys":
+            removals.update(str(key) for key in transform.keys_to_delete)
+        elif name == "DropKeys":
+            removals.update(str(key) for key in transform.keys)
+
+        inventory.difference_update(removals)
+        inventory.update(additions)
+    return inventory
+
+
+def _dataset_contracts(
+    config: Any,
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """Call selected key-map/transform factories without constructing datasets."""
     from hydra.utils import instantiate
     from omegaconf import OmegaConf
 
@@ -243,7 +330,7 @@ def _dataset_observations(config: Any) -> tuple[dict[str, set[str]], list[str]]:
     if datasets is None:
         return {}, []
 
-    by_domain: dict[str, set[str]] = {}
+    by_domain: dict[str, dict[str, Any]] = {}
     warnings: list[str] = []
     for dataset_name, dataset_config in datasets.items():
         keymap_config = OmegaConf.select(dataset_config, "resolver.key_map")
@@ -265,7 +352,7 @@ def _dataset_observations(config: Any) -> tuple[dict[str, set[str]], list[str]]:
         if not isinstance(keymap, Mapping):
             warnings.append(f"dataset {dataset_name}: key_map did not return a mapping")
             continue
-        observations = set()
+        observations: set[str] = set()
         for alias, info in keymap.items():
             if not isinstance(info, Mapping):
                 continue
@@ -274,9 +361,42 @@ def _dataset_observations(config: Any) -> tuple[dict[str, set[str]], list[str]]:
                 "proprio_keys",
                 "lang_keys",
             }:
-                observations.add(f"obs/{alias}")
+                observations.add(str(alias))
+
+        transform_config = OmegaConf.select(dataset_config, "resolver.transform_list")
+        if transform_config is None:
+            transform_config = OmegaConf.select(dataset_config, "transform_list")
+        transforms: list[Any] = []
+        if transform_config is not None:
+            try:
+                instantiated = instantiate(transform_config)
+                transforms = list(instantiated or [])
+            except Exception as exc:
+                warnings.append(
+                    f"dataset {dataset_name}: transform_list could not be called: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+
+        raw_keys = {str(key) for key in keymap}
+        final_keys = _transform_key_inventory(raw_keys, transforms)
         domain = OmegaConf.select(dataset_config, "resolver.embodiment_override")
-        by_domain.setdefault(str(domain or dataset_name), set()).update(observations)
+        domain = str(domain or dataset_name)
+        contract = {
+            "datasets": [str(dataset_name)],
+            "raw_observations": observations,
+            "final_keys": final_keys,
+            "transform_count": len(transforms),
+        }
+        if domain not in by_domain:
+            by_domain[domain] = contract
+        else:
+            # Every leaf feeding one model domain must satisfy its observation
+            # contract, so availability is an intersection, not a union.
+            existing = by_domain[domain]
+            existing["datasets"].append(str(dataset_name))
+            existing["raw_observations"].intersection_update(observations)
+            existing["final_keys"].intersection_update(final_keys)
+            existing["transform_count"] += len(transforms)
     return by_domain, warnings
 
 
@@ -299,25 +419,95 @@ def _seed_inventory(
     stage_configs: list[Any],
     stages: list[Any],
     mode: str,
-) -> tuple[list[str], dict[str, list[str]], str, list[str], list[str]]:
+) -> tuple[
+    list[str],
+    dict[str, list[str]],
+    str,
+    list[str],
+    list[str],
+    dict[str, dict[str, Any]],
+]:
     """Derive exact per-domain ambient keys from data/model configuration."""
 
     contracts = _raw_contracts(stages, mode)
     all_reads = [key for reads, _ in contracts for key in reads]
-    model_obs = _configured_model_observations(stage_configs)
-    dataset_obs, warnings = _dataset_observations(config)
     domains = [str(item) for item in _plain(model_config.get("domains", []))]
+    dataset_contracts, warnings = _dataset_contracts(config)
     if not domains:
-        domains = sorted(dataset_obs) or ["<unspecified>"]
+        domains = sorted(dataset_contracts) or ["<unspecified>"]
+    model_obs = _configured_model_observations(stage_configs, domains)
+    has_model_obs = any(model_obs.values())
+    seed_problems: list[str] = []
+    details: dict[str, dict[str, Any]] = {}
 
-    if dataset_obs:
-        source = "dataset-keymap"
-        observations_by_domain = {
-            domain: set(dataset_obs.get(domain, set())) for domain in domains
-        }
-    elif model_obs:
+    if dataset_contracts:
+        has_transforms = any(
+            contract["transform_count"] for contract in dataset_contracts.values()
+        )
+        source = (
+            "dataset-keymap+transform-contract" if has_transforms else "dataset-keymap"
+        )
+        observations_by_domain: dict[str, set[str]] = {}
+        for domain in domains:
+            expected = set(model_obs.get(domain, set()))
+            dataset_contract = dataset_contracts.get(domain)
+            if dataset_contract is None:
+                warnings.append(
+                    f"model domain {domain}: no matching selected dataset contract"
+                )
+                seed_problems.append(
+                    f"{domain}: selected config has no dataset contract for this "
+                    "model domain"
+                )
+                observations_by_domain[domain] = set()
+                details[domain] = {
+                    "model_observations": sorted(expected),
+                    "dataset_names": [],
+                    "dataset_raw_observations": [],
+                    "dataset_final_keys": [],
+                }
+                continue
+
+            final_keys = set(dataset_contract["final_keys"])
+            raw_observations = set(dataset_contract["raw_observations"])
+            if expected:
+                available = {
+                    key for key in expected if key.removeprefix("obs/") in final_keys
+                }
+                missing = sorted(expected - available)
+                if missing:
+                    seed_problems.append(
+                        f"{domain}: model observations absent after selected "
+                        f"dataset key_map and transforms: {missing}"
+                    )
+                observations_by_domain[domain] = available
+            else:
+                # Legacy model configs may not expose nested observation specs.
+                # Retain only loader-declared observations that survive every
+                # selected transform for this domain.
+                observations_by_domain[domain] = {
+                    f"obs/{key}" for key in raw_observations if key in final_keys
+                }
+            details[domain] = {
+                "model_observations": sorted(expected),
+                "dataset_names": list(dataset_contract["datasets"]),
+                "dataset_raw_observations": sorted(
+                    f"obs/{key}" for key in raw_observations
+                ),
+                "dataset_final_keys": sorted(final_keys),
+            }
+    elif has_model_obs:
         source = "model-observation-config"
-        observations_by_domain = {domain: set(model_obs) for domain in domains}
+        observations_by_domain = {
+            domain: set(model_obs.get(domain, set())) for domain in domains
+        }
+        for domain in domains:
+            details[domain] = {
+                "model_observations": sorted(model_obs.get(domain, set())),
+                "dataset_names": [],
+                "dataset_raw_observations": [],
+                "dataset_final_keys": [],
+            }
     else:
         source = "contract-fallback"
         exact_obs = {
@@ -326,16 +516,13 @@ def _seed_inventory(
         if not exact_obs and any(key == "obs/*" for key in all_reads):
             exact_obs = {"obs/*"}
         observations_by_domain = {domain: set(exact_obs) for domain in domains}
-
-    seed_problems: list[str] = []
-    if dataset_obs and model_obs:
-        for domain, observations in observations_by_domain.items():
-            missing = sorted(model_obs - observations)
-            if missing:
-                seed_problems.append(
-                    f"{domain}: model observations absent from selected dataset "
-                    f"key_map: {missing}"
-                )
+        for domain in domains:
+            details[domain] = {
+                "model_observations": [],
+                "dataset_names": [],
+                "dataset_raw_observations": [],
+                "dataset_final_keys": [],
+            }
 
     needs_embodiment = "embodiment" in all_reads or bool(domains)
     needs_actions = mode == "train" and "actions" in all_reads
@@ -352,7 +539,7 @@ def _seed_inventory(
             keys.add("rollout_t")
         by_domain[domain] = sorted(keys)
     union = sorted({key for keys in by_domain.values() for key in keys})
-    return union, by_domain, source, warnings, seed_problems
+    return union, by_domain, source, warnings, seed_problems, details
 
 
 def _stage_name(stage_config: Any, stage: Any) -> tuple[str, str]:
@@ -372,7 +559,14 @@ def _build_graph_from_loaded(
 ) -> dict[str, Any]:
     if mode not in _MODES:
         raise ValueError(f"mode must be train|rollout, got {mode!r}")
-    seeds, seeds_by_domain, seed_source, seed_warnings, seed_problems = _seed_inventory(
+    (
+        seeds,
+        seeds_by_domain,
+        seed_source,
+        seed_warnings,
+        seed_problems,
+        seed_details,
+    ) = _seed_inventory(
         config=config,
         model_config=model_config,
         stage_configs=stage_configs,
@@ -382,7 +576,9 @@ def _build_graph_from_loaded(
 
     nodes: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
-    seen_keys = list(seeds)
+    seen_by_domain = {
+        domain: list(domain_seeds) for domain, domain_seeds in seeds_by_domain.items()
+    }
     for source_index, (stage_config, stage) in enumerate(zip(stage_configs, stages)):
         name, target = _stage_name(stage_config, stage)
         if mode == "rollout" and bool(getattr(stage, "train_only", False)):
@@ -396,7 +592,17 @@ def _build_graph_from_loaded(
             )
             continue
         declared_reads, declared_writes = stage.contract(mode)
-        reads = _expand_reads((str(key) for key in declared_reads or ()), seen_keys)
+        reads_by_domain = {
+            domain: _expand_reads(
+                (str(key) for key in declared_reads or ()), domain_seen
+            )
+            for domain, domain_seen in seen_by_domain.items()
+        }
+        reads = list(
+            dict.fromkeys(
+                key for domain_reads in reads_by_domain.values() for key in domain_reads
+            )
+        )
         # Wildcard writes describe a family and must not disappear merely
         # because this static graph cannot know the concrete runtime suffixes.
         writes = list(dict.fromkeys(str(key) for key in declared_writes or ()))
@@ -416,13 +622,15 @@ def _build_graph_from_loaded(
                 "depth": max((depth_of(key) for key in writes or reads), default=0),
                 "mode": mode,
                 "in": reads,
+                "in_by_domain": reads_by_domain,
                 "out": writes,
                 "declared_in": [str(key) for key in declared_reads or ()],
                 "declared_out": [str(key) for key in declared_writes or ()],
                 "p": hyperparams(stage_config),
             }
         )
-        seen_keys.extend(key for key in writes if key not in seen_keys)
+        for domain_seen in seen_by_domain.values():
+            domain_seen.extend(key for key in writes if key not in domain_seen)
 
     edges: list[dict[str, Any]] = []
     for node in nodes:
@@ -465,6 +673,7 @@ def _build_graph_from_loaded(
         "seed_keys": seeds,
         "seed_keys_by_domain": seeds_by_domain,
         "seed_key_source": seed_source,
+        "seed_key_details": seed_details,
         "seed_warnings": seed_warnings,
         "seed_problems": seed_problems,
         "skipped_stages": skipped,
@@ -531,7 +740,9 @@ def lint(graph: Mapping[str, Any]) -> list[str]:
     for domain, seed_keys in seeds_by_domain.items():
         available = set(str(key) for key in seed_keys)
         for node in nodes:
-            for read in node.get("in", []):
+            reads_by_domain = node.get("in_by_domain", {})
+            reads = reads_by_domain.get(domain, node.get("in", []))
+            for read in reads:
                 if not _provided(str(read), available):
                     prefix = f"{domain}: " if multiple_domains else ""
                     problems.append(
