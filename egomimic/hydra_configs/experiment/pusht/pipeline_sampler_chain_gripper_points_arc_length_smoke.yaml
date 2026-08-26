@@ -1,15 +1,15 @@
 # @package _global_
 defaults:
   - override /model: bf/bf_pipeline_sampler_chain_gripper_points_arc_length
-  - override /data: pusht/chain_gripper_pipeline_arc_length_D200_M25_smoke
+  - override /data: pusht/chain_gripper_pipeline_arc_length_D200_M25_full
   - override /evaluator: eval_pipeline_action_mse
   - override /logger: wandb
 
 name: chain_gripper_pipeline_points_arc_D200_M25_smoke
-description: chain_points_anchored_phi_arc_25_waypoints_plus_mean_velocity_smoke7
+description: chain_native4_fk_phi_arc_25_waypoints_plus_mean_velocity_two_step_smoke
 
-# This experiment intentionally targets the verified seven-episode additive
-# corpus. Promote a separately verified full-data config before a long run.
+# The trainer is limited to two steps, but it composes the same canonical
+# native-source data recipe as the long-run configs.
 trainer:
   max_steps: 2
   max_epochs: -1

@@ -151,7 +151,7 @@ def test_usocket_arc_recipe_aligns_source_token_and_rollout_horizons():
     )
 
 
-def test_chain_gripper_point_arc_recipe_maps_points_and_aligns_horizons():
+def test_chain_gripper_point_arc_recipe_builds_points_from_native4_and_aligns_horizons():
     cfg = _compose("pusht/pipeline_sampler_chain_gripper_points_arc_length_smoke")
     model = cfg.model.robomimic_model
     noise = model.stages[1]
@@ -169,19 +169,19 @@ def test_chain_gripper_point_arc_recipe_maps_points_and_aligns_horizons():
     assert adapter._target_.endswith("ChainGripperPointArcLengthRolloutAdapter")
     assert adapter.resampled_vector_length == 25
     assert adapter.action_horizon == 100
-    assert train_data.resolver.key_map.action_zarr_key == "actions.points"
+    assert train_data.resolver.key_map.get("action_zarr_key", "actions") == "actions"
     assert train_data.resolver.key_map.action_horizon == 100
     assert cfg.norm_stats.reduce_all_but_last is False
     assert cfg.trainer.max_steps == 2
 
     resolver = instantiate(train_data.resolver)
     assert resolver.embodiment_override == "pushshapes_sim_chain_gripper"
-    assert resolver.key_map["actions"]["zarr_key"] == "actions.points"
+    assert resolver.key_map["actions"]["zarr_key"] == "actions"
     assert resolver.key_map["actions"]["horizon"] == 100
-    assert len(resolver.transform_list) == 1
-    assert resolver.transform_list[0].__class__.__name__ == (
-        "TokenizeChainGripperPointArcLength"
-    )
+    assert [x.__class__.__name__ for x in resolver.transform_list] == [
+        "ChainGripperNative4ToPoints6",
+        "TokenizeChainGripperPointArcLength",
+    ]
 
 
 def test_chain_gripper_direct_point_recipe_keeps_six_dimensional_h16():
@@ -195,13 +195,15 @@ def test_chain_gripper_direct_point_recipe_keeps_six_dimensional_h16():
     assert sampler.action_horizon == 16
     assert dict(sampler.action_dims) == {"pushshapes_sim_chain_gripper": 6}
     assert adapter.action_horizon == 16
-    assert train_data.resolver.key_map.action_zarr_key == "actions.points"
+    assert train_data.resolver.key_map.get("action_zarr_key", "actions") == "actions"
     assert train_data.resolver.key_map.action_horizon == 16
     assert cfg.norm_stats.reduce_all_but_last is True
 
     resolver = instantiate(train_data.resolver)
-    assert resolver.key_map["actions"]["zarr_key"] == "actions.points"
-    assert resolver.transform_list[0].__class__.__name__ == "RequireLastDim"
+    assert resolver.key_map["actions"]["zarr_key"] == "actions"
+    assert [x.__class__.__name__ for x in resolver.transform_list] == [
+        "ChainGripperNative4ToPoints6"
+    ]
 
 
 def test_pusht_dataset_schema_is_registered_and_leak_free():

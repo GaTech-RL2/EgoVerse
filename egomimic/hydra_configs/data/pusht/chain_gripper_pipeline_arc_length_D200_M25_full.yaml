@@ -1,28 +1,27 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
-# Primary ChainGripper point-token experiment. Ordered points P=[L,C,R] use the
-# anchored Euclidean embedding Phi(P)=[C,(L-C)/sqrt(2),(R-C)/sqrt(2)]. Thus
-# rigid translation retains pixel units, while translation and relative-shape
-# motion occupy separate coordinates. Raw H=100 point commands become M=25 Phi
-# waypoints plus one 6D mean-Phi-velocity row.
+# Full 3k ChainGripper latent-denoise feed. The transform factory composes
+# native4 -> ordered points6 FK -> anchored-Phi arc tokenization. A raw H=100
+# command chunk becomes 25 six-dimensional Phi waypoints plus one six-
+# dimensional mean-Phi-velocity row.
 train_datasets:
   pushshapes_sim_chain_gripper:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2_dual_control_smoke_20260826
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
       embodiment_override: pushshapes_sim_chain_gripper
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
         action_horizon: 100
-        action_zarr_key: actions.points
       transform_list:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_arc_length_transform_list
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_native_point_arc_length_transform_list
         min_distance_unit: 200.0
         resampled_vector_length: 25
         dt: 0.03333333333333333
+        world_size: 512.0
     mode: train
-    valid_ratio: 0.15
+    valid_ratio: 0.02
     bounds_check: false
 
 valid_datasets:
@@ -30,19 +29,19 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2_dual_control_smoke_20260826
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
       embodiment_override: pushshapes_sim_chain_gripper
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
         action_horizon: 100
-        action_zarr_key: actions.points
       transform_list:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_arc_length_transform_list
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_native_point_arc_length_transform_list
         min_distance_unit: 200.0
         resampled_vector_length: 25
         dt: 0.03333333333333333
+        world_size: 512.0
     mode: valid
-    valid_ratio: 0.15
+    valid_ratio: 0.02
     bounds_check: false
 
 train_dataloader_params:
