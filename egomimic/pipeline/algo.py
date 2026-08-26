@@ -5,10 +5,16 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import Iterable
 
+import numpy as np
 import torch
 import torch.nn as nn
 
 from egomimic.algo.algo import Algo
+from egomimic.eval.inference_graph import (
+    ActionCacheState,
+    InferenceGraph,
+    KeyedNode,
+)
 from egomimic.pipeline.core import Pipeline, Stage, sum_losses
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
@@ -45,6 +51,7 @@ class PipelineAlgo(Algo):
         action_horizon: int = 1,
         rollout_adapter=None,
         rollout_transform_mode: str | None = None,
+        inference_stages: dict | None = None,
         device=None,
     ):
         super().__init__()
@@ -55,6 +62,7 @@ class PipelineAlgo(Algo):
         self.action_horizon = int(action_horizon)
         self.rollout_adapter = rollout_adapter
         self.rollout_transform_mode = rollout_transform_mode
+        self.inference_stages = inference_stages
         self.device = device or torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
@@ -64,6 +72,8 @@ class PipelineAlgo(Algo):
         self._resolve_keys()
         self.nets = nn.ModuleDict({"policy": Pipeline(list(stages))})
         self.nets.to(self.device)
+        self._inference_action_cache = ActionCacheState()
+        self._inference_graph = self._build_inference_graph()
 
     @property
     def policy(self) -> Pipeline:
@@ -256,6 +266,144 @@ class PipelineAlgo(Algo):
             predictions[f"{domain}_{action_key}_tokens"] = tokens
             predictions.setdefault(action_key, actions)
         return predictions
+
+    # ------------------------------------------------------------------ #
+    # Shared deployment graph. Cache hits terminate before observation
+    # transforms and model execution; cache misses use the exact current
+    # process_batch_for_rollout -> forward_rollout path above.
+    # ------------------------------------------------------------------ #
+    def _build_inference_graph(self) -> InferenceGraph:
+        defaults = {
+            "check_cache": {
+                "in": {"obs": "obs"},
+                "out": {"action": "policy.action"},
+            },
+            "inference_preprocess": {
+                "in": {"obs": "obs"},
+                "out": {"request": "model.request"},
+            },
+            "model": {
+                "in": {"request": "model.request"},
+                "out": {"plan": "model.plan"},
+            },
+            "update_cache": {
+                "in": {"plan": "model.plan", "obs": "obs"},
+                "out": {"action": "policy.action"},
+            },
+        }
+        cfg = self.inference_stages or {}
+        nodes = cfg.get("nodes", cfg) if hasattr(cfg, "get") else {}
+
+        def ports(name: str) -> dict:
+            node = (
+                cfg.get("model", defaults[name])
+                if name == "model"
+                else nodes.get(name, defaults[name])
+            )
+            return {
+                "in": dict(node.get("in", defaults[name]["in"])),
+                "out": dict(node.get("out", defaults[name]["out"])),
+            }
+
+        return InferenceGraph(
+            check_cache=KeyedNode(
+                self._graph_check_cache, **ports("check_cache")
+            ),
+            inference_preprocess=KeyedNode(
+                self._graph_preprocess, **ports("inference_preprocess")
+            ),
+            model=KeyedNode(self._graph_model, **ports("model")),
+            update_cache=KeyedNode(
+                self._graph_update_cache, **ports("update_cache")
+            ),
+            terminal_key=str(cfg.get("terminal", "policy.action")),
+        )
+
+    def _inference_cache_value(self, key: str, default):
+        overrides = getattr(self, "inference_cache_overrides", {}) or {}
+        if key in overrides:
+            return overrides[key]
+        cfg = self.inference_stages or {}
+        cache = cfg.get("cache", {}) if hasattr(cfg, "get") else {}
+        value = cache.get(key, default) if hasattr(cache, "get") else default
+        return default if value is None else value
+
+    def reset_inference(self) -> None:
+        """Reset episode-scoped deployment state without changing the model."""
+        self._inference_action_cache.reset()
+        self._inference_started = False
+        adapter = self.rollout_adapter
+        if adapter is not None and hasattr(adapter, "reset"):
+            adapter.reset()
+
+    def _graph_check_cache(self, obs: dict):
+        del obs
+        if not self._inference_action_cache:
+            return None
+        return self._inference_action_cache.pop()
+
+    def _graph_preprocess(self, obs: dict) -> dict:
+        adapter = getattr(self, "inference_obs_adapter", None)
+        model_obs = adapter(obs) if adapter is not None else obs
+        domain = self.domain_by_id[self._inference_emb_id]
+        return self.process_batch_for_rollout({domain: model_obs})
+
+    def _graph_model(self, request: dict) -> dict:
+        predictions = self.forward_rollout(
+            request, rollout_t=self._inference_t
+        )
+        action_key = self.resolved_ac_keys[self._inference_emb_id]
+        actions = predictions[f"emb{self._inference_emb_id}_{action_key}"]
+        if torch.is_tensor(actions):
+            actions = actions.detach().cpu().numpy()
+        actions = np.asarray(actions, dtype=np.float32)
+        while actions.ndim > 2 and actions.shape[0] == 1:
+            actions = actions[0]
+        if actions.ndim == 1:
+            actions = actions[None, :]
+        if actions.ndim != 2:
+            raise ValueError(
+                "rollout prediction must be an action chunk with shape "
+                f"(T, D), got {actions.shape}"
+            )
+        configured_keep = int(self._inference_cache_value("n_keep", 1))
+        n_keep = max(1, min(configured_keep, actions.shape[0]))
+        return {"actions": [actions[index].copy() for index in range(n_keep)]}
+
+    def _graph_update_cache(self, plan: dict, obs: dict):
+        del obs
+        self._inference_action_cache.replace(plan["actions"])
+        return self._inference_action_cache.pop()
+
+    def inference_step(
+        self,
+        obs_zarr: dict,
+        t: int,
+        emb_id: int,
+        T_max=None,
+    ) -> np.ndarray:
+        """Return one committed action from the shared deployment graph.
+
+        ``t == 0`` is the episode reset signal. ``T_max`` remains in the
+        cross-model public contract but this stateless rollout path does not
+        allocate a fixed-size history buffer.
+        """
+        del T_max
+        if int(t) == 0:
+            self.reset_inference()
+            self._inference_started = True
+        elif not getattr(self, "_inference_started", False):
+            raise RuntimeError("inference_step must begin with t == 0")
+        emb_id = int(emb_id)
+        if emb_id not in self.domain_by_id:
+            raise KeyError(
+                f"checkpoint does not support embodiment id {emb_id}; "
+                f"available={sorted(self.domain_by_id)}"
+            )
+        self._inference_t = int(t)
+        self._inference_emb_id = emb_id
+        action = self._inference_graph(obs=obs_zarr)
+        return np.asarray(action, dtype=np.float32).reshape(-1)
 
     def forward_training(self, batch: dict) -> OrderedDict:
         predictions = OrderedDict()

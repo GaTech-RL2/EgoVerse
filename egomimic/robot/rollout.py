@@ -17,7 +17,13 @@ from torch.utils.data import default_collate
 from egomimic.models.denoising_policy import DenoisingPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.rldb.embodiment.eva import Eva
+from egomimic.rldb.embodiment.eva import (
+    Eva,
+    build_fold_cartesian_wristframe_revert_transform_list,
+)
+from egomimic.rldb.embodiment.fold_span_transforms import (
+    eva_rollout_obs_transforms,
+)
 from egomimic.rldb.embodiment.human import Human
 from egomimic.robot.robot_utils import RateLoop
 from egomimic.utils.pose_utils import (
@@ -154,9 +160,9 @@ RIGHT_CAM_SERIAL = ""
 LEFT_CAM_SERIAL = ""
 
 EMBODIMENT_MAP = {
-    "both": get_embodiment_id("eva_bimanual"),
-    "left": get_embodiment_id("eva_left_arm"),
-    "right": get_embodiment_id("eva_right_arm"),
+    "both": "EVA_BIMANUAL",
+    "left": "EVA_LEFT_ARM",
+    "right": "EVA_RIGHT_ARM",
 }
 
 TEMP_DIR = "/home/robot/temp_dir"
@@ -242,13 +248,14 @@ class PolicyRollout(Rollout):
         resampled_action_len=None,
         debug=False,
         annotation_path=None,
+        action_frame="base",
     ):
         super().__init__()
         self.arm = arm
         self.policy_path = policy_path
         self.query_frequency = query_frequency
         self.cartesian = cartesian
-        self.embodiment_id = EMBODIMENT_MAP[self.arm]
+        self.embodiment_id = get_embodiment_id(EMBODIMENT_MAP[self.arm])
         self.embodiment_name = get_embodiment(self.embodiment_id).lower()
         self.extrinsics = Eva.EXTRINSICS
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -264,12 +271,29 @@ class PolicyRollout(Rollout):
             query_frequency=self.query_frequency,
             requested_resampled_len=resampled_action_len,
         )
+        # "base": the policy emits ABSOLUTE base-frame poses (the fold pipeline
+        #         applies no frame transform in training).
+        # "cam" : the policy emits cam-frame poses, undone here with the
+        #         extrinsics (Eva.get_transform_list "cartesian" /
+        #         "cartesian_wristframe_ypr"). Kept for older checkpoints.
+        if action_frame not in ("base", "cam"):
+            raise ValueError(f"action_frame must be base|cam, got {action_frame!r}")
+        self.action_frame = action_frame
+        print(f"[rollout] action_frame={self.action_frame}")
         self.debug = debug
         transform_mode = (
             getattr(self.policy.model, "rollout_transform_mode", None)
             or "cartesian_wristframe_ypr"
         )
         self.transform_list = Eva.get_transform_list(mode=transform_mode)
+        # Graph deployment uses the exact fold observation/action transforms
+        # from training. Legacy and arc-length policies continue through
+        # ``transform_list`` below, preserving their existing contract.
+        self.obs_transform_list = eva_rollout_obs_transforms()
+        self.action_revert_list = (
+            build_fold_cartesian_wristframe_revert_transform_list()
+        )
+        self._query_state_ee_pose = None
         self.annotation = None
         self._tokenizer = None
         self.collate_fn = default_collate
@@ -281,6 +305,7 @@ class PolicyRollout(Rollout):
             else:
                 with open(annotation_path, "r") as f:
                     self.annotation = f.read().strip()
+        self.inference_policy = self._build_inference_policy()
 
     @staticmethod
     def _resolve_action_chunk_contract(
@@ -326,6 +351,35 @@ class PolicyRollout(Rollout):
                 )
             return decoded_horizon
         return requested_resampled_len
+
+    def _build_inference_policy(self):
+        """Bind a checkpoint to the shared graph runtime when it supports it.
+
+        Older PI, diffusion, and arc-length checkpoints retain the established
+        chunk rollout below. This makes graph deployment additive instead of
+        silently changing the action contract for existing checkpoints.
+        """
+        algo = self.policy.model
+        if not hasattr(algo, "inference_step"):
+            print(
+                f"[rollout] inference graph unavailable for "
+                f"{type(algo).__name__}; using checkpoint's legacy rollout"
+            )
+            return None
+        if not self.cartesian or self.arm != "both":
+            raise NotImplementedError(
+                "the shared inference graph currently requires "
+                "--cartesian --arms both"
+            )
+        algo.inference_obs_adapter = self._preprocess_robot_obs
+        algo.inference_cache_overrides = {
+            "n_keep": max(1, int(self.query_frequency or 1)),
+        }
+        print(
+            f"[rollout] inference graph: {type(algo).__name__} "
+            f"n_keep={algo.inference_cache_overrides['n_keep']}"
+        )
+        return algo
 
     LOCAL_WEIGHT_PATH = (
         "/home/robot/robot_ws/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
@@ -419,6 +473,21 @@ class PolicyRollout(Rollout):
         return out.astype(np.float32, copy=False)
 
     def rollout_step(self, i, obs):
+        if self.inference_policy is None:
+            return self._legacy_rollout_step(i, obs)
+
+        start_t = time.time()
+        model_action = self.inference_policy.inference_step(
+            obs, i, self.embodiment_id
+        )
+        command = self._model_action_to_robot(model_action)
+        # Debug/overlay consumes the exact command returned to hardware.
+        self.debug_actions = command[None, :].copy()
+        self.actions = self.debug_actions
+        print(f"Inference graph step: {(time.time() - start_t):.4f}s")
+        return command
+
+    def _legacy_rollout_step(self, i, obs):
         if i % self.query_frequency == 0:
             start_infer_t = time.time()
             transform_list_batch = self.process_obs_for_transform_list(obs)
@@ -453,14 +522,18 @@ class PolicyRollout(Rollout):
                     left_actions = self.actions[:, :7]
                     right_actions = self.actions[:, 7:]
 
-                    transformed_left = cam_frame_to_base_frame(
-                        left_actions[:, :6].copy(), self.extrinsics["left"]
-                    )
-                    transformed_right = cam_frame_to_base_frame(
-                        right_actions[:, :6].copy(), self.extrinsics["right"]
-                    )
-                    transformed_left = rot_ee_frame_to_ee_pose_batch(transformed_left)
-                    transformed_right = rot_ee_frame_to_ee_pose_batch(transformed_right)
+                    if self.action_frame == "cam":
+                        transformed_left = cam_frame_to_base_frame(
+                            left_actions[:, :6].copy(), self.extrinsics["left"]
+                        )
+                        transformed_right = cam_frame_to_base_frame(
+                            right_actions[:, :6].copy(), self.extrinsics["right"]
+                        )
+                        transformed_left = rot_ee_frame_to_ee_pose_batch(transformed_left)
+                        transformed_right = rot_ee_frame_to_ee_pose_batch(transformed_right)
+                    else:   # base: already absolute base-frame, nothing to undo
+                        transformed_left = left_actions[:, :6].copy()
+                        transformed_right = right_actions[:, :6].copy()
                     gripper_left = left_actions[:, 6:7]
                     gripper_right = right_actions[:, 6:7]
                     if left_actions.shape[1] == 7:
@@ -473,11 +546,14 @@ class PolicyRollout(Rollout):
                         right_actions = transformed_right
                     self.actions = np.hstack([left_actions, right_actions])
                 else:
-                    eepose = rot_ee_frame_to_ee_pose_batch(self.actions[:, :6].copy())
-                    self.actions[:, :6] = eepose
-                    transformed_6dof = cam_frame_to_base_frame(
-                        self.actions[:, :6].copy(), self.extrinsics[self.arm]
-                    )
+                    if self.action_frame == "cam":
+                        eepose = rot_ee_frame_to_ee_pose_batch(self.actions[:, :6].copy())
+                        self.actions[:, :6] = eepose
+                        transformed_6dof = cam_frame_to_base_frame(
+                            self.actions[:, :6].copy(), self.extrinsics[self.arm]
+                        )
+                    else:   # base: already absolute base-frame
+                        transformed_6dof = self.actions[:, :6].copy()
                     # Preserve gripper if present (7th value)
                     gripper = self.actions[:, 6:7]
                     if self.actions.shape[1] == 7:
@@ -495,6 +571,66 @@ class PolicyRollout(Rollout):
 
         act_i = i % self.query_frequency
         return self.actions[act_i]
+
+    def _preprocess_robot_obs(self, obs):
+        """Convert a raw robot observation to the fold graph's train schema.
+
+        The inference graph calls this only on a cache miss, so the wrist pose
+        saved here is exactly the pose associated with the generated chunk.
+        Cached actions are decoded against that same pose.
+        """
+        batch = self.process_obs_for_transform_list(obs)
+        for transform in self.obs_transform_list:
+            batch = transform.transform(batch)
+        self._query_state_ee_pose = np.asarray(
+            batch["state_ee_pose"], dtype=np.float32
+        ).reshape(1, -1).copy()
+        keep = (
+            "front_img_1",
+            "left_wrist_img",
+            "right_wrist_img",
+            "state_ee_pose",
+            "annotations",
+        )
+        out = {key: batch[key] for key in keep if key in batch}
+        for key, value in list(out.items()):
+            if not torch.is_tensor(value):
+                if key == "annotations":
+                    continue
+                value = torch.as_tensor(value)
+            if value.ndim in (1, 3):
+                value = value.unsqueeze(0)
+            out[key] = value
+        return out
+
+    def _model_action_to_robot(self, model_action):
+        if not self.cartesian or self.arm != "both":
+            raise NotImplementedError(
+                "the shared inference graph currently requires "
+                "--cartesian --arms both"
+            )
+        if self._query_state_ee_pose is None:
+            raise RuntimeError(
+                "no query-time state is available for wrist-frame action decoding"
+            )
+        batch = {
+            "actions_cartesian": np.asarray(
+                model_action, dtype=np.float32
+            ).reshape(1, -1),
+            "state_ee_pose": self._query_state_ee_pose,
+        }
+        for transform in self.action_revert_list:
+            batch = transform.transform(batch)
+        command = np.asarray(
+            batch["actions_cartesian"], dtype=np.float32
+        ).reshape(-1)
+        if command.shape != (14,):
+            raise ValueError(f"robot command must be 14-D, got {command.shape}")
+        if not np.isfinite(command).all():
+            raise FloatingPointError(
+                "non-finite robot command from inference graph"
+            )
+        return command
 
     def process_obs_for_transform_list(self, obs):
         # front camera: obs["front_img_1"] is BGR, shape [H, W, 3]
@@ -593,7 +729,12 @@ class PolicyRollout(Rollout):
     def reset(self):
         self.actions = None
         self.debug_actions = None
+        self._query_state_ee_pose = None
         self.policy.eval()
+        if self.inference_policy is not None and hasattr(
+            self.inference_policy, "reset_inference"
+        ):
+            self.inference_policy.reset_inference()
 
 
 def debug_policy(actions, front_img, step_i):
@@ -842,6 +983,15 @@ def build_arg_parser(description="Rollout robot model."):
         type=int,
         default=QUERY_FREQUENCY,
         help="Frames which model does inference",
+    )
+    parser.add_argument(
+        "--action-frame",
+        type=str,
+        default="base",
+        choices=["base", "cam"],
+        help="Frame the POLICY emits actions in. base = absolute base-frame "
+             "(fold pipeline, no frame transform in training). cam = cam-frame, "
+             "undone here with the extrinsics (older checkpoints).",
     )
     parser.add_argument("--policy-path", type=str, help="policy checkpoint path")
     parser.add_argument("--dataset-path", type=str, help="dataset path for replay")
