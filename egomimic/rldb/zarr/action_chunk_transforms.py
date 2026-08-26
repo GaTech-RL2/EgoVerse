@@ -577,6 +577,30 @@ class NumpyToTensor(Transform):
         return batch
 
 
+class RequireLastDim(Transform):
+    """Fail early when a present array does not have the configured width."""
+
+    def __init__(self, keys: list[str], width: int):
+        self.keys = list(keys)
+        self.width = int(width)
+        if self.width <= 0:
+            raise ValueError("width must be positive")
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            value = np.asarray(batch[key])
+            if value.ndim == 0 or value.shape[-1] != self.width:
+                raise ValueError(
+                    f"RequireLastDim expects key '{key}' to have last dimension "
+                    f"{self.width}, got {value.shape}"
+                )
+            if not np.isfinite(value).all():
+                raise ValueError(f"RequireLastDim found non-finite values in '{key}'")
+        return batch
+
+
 class ThetaToRotVec(Transform):
     """Replace a planar angle with its continuous ``(cos, sin)`` encoding.
 

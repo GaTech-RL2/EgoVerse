@@ -32,6 +32,9 @@ class EMBODIMENT(Enum):
     # this ID.  ID 18 belonged to HUMAN_BIMANUAL before the human-embodiment
     # collapse and must not be reused.
     PUSHSHAPES_SIM_U_SOCKET = 19
+    # Chain-gripper point targets have distinct action semantics and rollout
+    # kinematics, so they must not share the U-socket model domain.
+    PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

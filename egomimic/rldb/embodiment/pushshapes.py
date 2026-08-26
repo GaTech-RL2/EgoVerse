@@ -1,7 +1,12 @@
 """PushShapes dataset schema for single-observation Pipeline policies."""
 
 
-def get_keymap_hpt(action_horizon: int = 16, norm_mode: bool = False, **kwargs):
+def get_keymap_hpt(
+    action_horizon: int = 16,
+    norm_mode: bool = False,
+    action_zarr_key: str = "actions",
+    **kwargs,
+):
     """Map one current observation to a future action chunk.
 
     Observation keys intentionally have no horizon. Exposing future
@@ -18,13 +23,22 @@ def get_keymap_hpt(action_horizon: int = 16, norm_mode: bool = False, **kwargs):
         },
         "actions": {
             "key_type": "action_keys",
-            "zarr_key": "actions",
+            "zarr_key": str(action_zarr_key),
             "horizon": int(action_horizon),
         },
     }
     if norm_mode:
         keymap.pop("front_img_1")
     return keymap
+
+
+def get_chain_gripper_point_validation_transform_list(
+    keys: list[str] | None = None,
+):
+    """Validate direct ChainGripper point targets before normalization."""
+    from egomimic.rldb.zarr.action_chunk_transforms import RequireLastDim
+
+    return [RequireLastDim(keys=keys or ["actions"], width=6)]
 
 
 def get_rotvec_transform_list(keys: list[str] | None = None, angle_col: int = 2):
@@ -62,5 +76,30 @@ def get_arc_length_transform_list(
             resampled_vector_length=resampled_vector_length,
             dt=dt,
             rotation_radius=rotation_radius,
+        )
+    ]
+
+
+def get_chain_gripper_point_arc_length_transform_list(
+    keys: list[str] | None = None,
+    min_distance_unit: float = 200.0,
+    resampled_vector_length: int = 25,
+    dt: float = 1.0 / 30.0,
+):
+    """Create the three-point planar arc transform for ChainGripper actions."""
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        TokenizeChainGripperPointArcLength,
+    )
+
+    action_keys = keys or ["actions"]
+    if len(action_keys) != 1:
+        raise ValueError("ChainGripper point arc tokenization expects exactly one key")
+    return [
+        TokenizeChainGripperPointArcLength(
+            action_key=action_keys[0],
+            output_action_key=action_keys[0],
+            min_distance_unit=min_distance_unit,
+            resampled_vector_length=resampled_vector_length,
+            dt=dt,
         )
     ]

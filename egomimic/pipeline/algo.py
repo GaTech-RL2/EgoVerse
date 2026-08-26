@@ -44,6 +44,7 @@ class PipelineAlgo(Algo):
         auxiliary_ac_keys: dict | None = None,
         action_horizon: int = 1,
         rollout_adapter=None,
+        rollout_adapters: dict | None = None,
         rollout_transform_mode: str | None = None,
         device=None,
     ):
@@ -53,7 +54,16 @@ class PipelineAlgo(Algo):
         self.ac_keys = dict(ac_keys)
         self.auxiliary_ac_keys = dict(auxiliary_ac_keys or {})
         self.action_horizon = int(action_horizon)
+        # Keep the historical singleton as a fallback so old configs and
+        # checkpoints reconstruct unchanged. A configured domain entry wins.
         self.rollout_adapter = rollout_adapter
+        self.rollout_adapters = dict(rollout_adapters or {})
+        unknown_adapter_domains = set(self.rollout_adapters) - set(self.domains)
+        if unknown_adapter_domains:
+            raise ValueError(
+                "Rollout adapters configured for unknown domains: "
+                f"{sorted(unknown_adapter_domains)}"
+            )
         self.rollout_transform_mode = rollout_transform_mode
         self.device = device or torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
@@ -68,6 +78,21 @@ class PipelineAlgo(Algo):
     @property
     def policy(self) -> Pipeline:
         return self.nets["policy"]
+
+    def rollout_adapter_for(self, domain: str | int):
+        """Return the domain adapter, falling back to the legacy singleton."""
+        if isinstance(domain, int):
+            if domain not in self.domain_by_id:
+                raise KeyError(f"Unknown rollout embodiment id {domain}")
+            domain = self.domain_by_id[domain]
+        domain = str(domain)
+        if domain not in self.domains:
+            raise KeyError(
+                f"Unknown rollout domain {domain!r}; configured={self.domains}"
+            )
+        if domain in self.rollout_adapters:
+            return self.rollout_adapters[domain]
+        return self.rollout_adapter
 
     def _resolve_keys(self) -> None:
         self.proprio_keys = {}
@@ -245,11 +270,8 @@ class PipelineAlgo(Algo):
                 {action_key: normalized_tokens}, emb_id
             )[action_key]
             context = self.norm_stats.unnormalize(loader_batch, emb_id)
-            actions = (
-                self.rollout_adapter.decode(tokens, context)
-                if self.rollout_adapter is not None
-                else tokens
-            )
+            adapter = self.rollout_adapter_for(emb_id)
+            actions = adapter.decode(tokens, context) if adapter is not None else tokens
             domain = self.domain_by_id[emb_id]
             predictions[f"emb{emb_id}_{action_key}"] = actions
             predictions[f"{domain}_{action_key}"] = actions

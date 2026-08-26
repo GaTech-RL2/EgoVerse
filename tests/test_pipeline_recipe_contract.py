@@ -151,10 +151,64 @@ def test_usocket_arc_recipe_aligns_source_token_and_rollout_horizons():
     )
 
 
+def test_chain_gripper_point_arc_recipe_maps_points_and_aligns_horizons():
+    cfg = _compose("pusht/pipeline_sampler_chain_gripper_points_arc_length_smoke")
+    model = cfg.model.robomimic_model
+    noise = model.stages[1]
+    sampler = model.stages[2]
+    adapter = model.rollout_adapters.pushshapes_sim_chain_gripper
+    train_data = cfg.data.train_datasets.pushshapes_sim_chain_gripper
+
+    assert get_embodiment_id("pushshapes_sim_chain_gripper") == 20
+    assert list(model.domains) == ["pushshapes_sim_chain_gripper"]
+    assert model.action_horizon == 26
+    assert noise.action_horizon == 26
+    assert sampler.action_horizon == 26
+    assert sampler.denoising_module.act_seq == 26
+    assert dict(sampler.action_dims) == {"pushshapes_sim_chain_gripper": 6}
+    assert adapter._target_.endswith("ChainGripperPointArcLengthRolloutAdapter")
+    assert adapter.resampled_vector_length == 25
+    assert adapter.action_horizon == 100
+    assert train_data.resolver.key_map.action_zarr_key == "actions.points"
+    assert train_data.resolver.key_map.action_horizon == 100
+    assert cfg.norm_stats.reduce_all_but_last is False
+    assert cfg.trainer.max_steps == 2
+
+    resolver = instantiate(train_data.resolver)
+    assert resolver.embodiment_override == "pushshapes_sim_chain_gripper"
+    assert resolver.key_map["actions"]["zarr_key"] == "actions.points"
+    assert resolver.key_map["actions"]["horizon"] == 100
+    assert len(resolver.transform_list) == 1
+    assert resolver.transform_list[0].__class__.__name__ == (
+        "TokenizeChainGripperPointArcLength"
+    )
+
+
+def test_chain_gripper_direct_point_recipe_keeps_six_dimensional_h16():
+    cfg = _compose("pusht/pipeline_sampler_chain_gripper_points_h16_smoke")
+    model = cfg.model.robomimic_model
+    sampler = model.stages[2]
+    adapter = model.rollout_adapters.pushshapes_sim_chain_gripper
+    train_data = cfg.data.train_datasets.pushshapes_sim_chain_gripper
+
+    assert model.action_horizon == 16
+    assert sampler.action_horizon == 16
+    assert dict(sampler.action_dims) == {"pushshapes_sim_chain_gripper": 6}
+    assert adapter.action_horizon == 16
+    assert train_data.resolver.key_map.action_zarr_key == "actions.points"
+    assert train_data.resolver.key_map.action_horizon == 16
+    assert cfg.norm_stats.reduce_all_but_last is True
+
+    resolver = instantiate(train_data.resolver)
+    assert resolver.key_map["actions"]["zarr_key"] == "actions.points"
+    assert resolver.transform_list[0].__class__.__name__ == "RequireLastDim"
+
+
 def test_pusht_dataset_schema_is_registered_and_leak_free():
     assert get_embodiment_id("pushshapes_sim") == 15
     assert get_embodiment_id("pushshapes_sim_small_circle") == 17
     assert get_embodiment_id("pushshapes_sim_u_socket") == 19
+    assert get_embodiment_id("pushshapes_sim_chain_gripper") == 20
     keymap = get_keymap_hpt(action_horizon=16)
     assert "horizon" not in keymap["front_img_1"]
     assert "horizon" not in keymap["state_agent_obj"]

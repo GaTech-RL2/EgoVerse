@@ -292,7 +292,12 @@ class PolicyRollout(Rollout):
         query_frequency: int,
         requested_resampled_len: int | None,
     ) -> int | None:
-        adapter = getattr(model, "rollout_adapter", None)
+        adapter_for = getattr(model, "rollout_adapter_for", None)
+        adapter = (
+            adapter_for(embodiment_name)
+            if callable(adapter_for)
+            else getattr(model, "rollout_adapter", None)
+        )
         if adapter is not None:
             if getattr(adapter, "requires_bimanual", False) and arm != "both":
                 raise ValueError("Arc-length rollout requires --arms both")
@@ -436,7 +441,13 @@ class PolicyRollout(Rollout):
                 embodiment_name: transform_list_batch,
             }
             model = self.policy.model
-            if getattr(model, "rollout_adapter", None) is not None:
+            adapter_for = getattr(model, "rollout_adapter_for", None)
+            adapter = (
+                adapter_for(embodiment_name)
+                if callable(adapter_for)
+                else getattr(model, "rollout_adapter", None)
+            )
+            if adapter is not None:
                 processed_batch = model.process_batch_for_rollout(batch)
                 preds = model.forward_rollout(processed_batch, rollout_t=i)[
                     f"{embodiment_name}_actions_cartesian"

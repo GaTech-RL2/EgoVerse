@@ -1406,3 +1406,201 @@ class TokenizeUSocketArcLength:
             )
         theta_out = np.angle(np.exp(1j * theta_out))
         return np.column_stack([xy_out, theta_out])
+
+
+# ChainGripper point rows and their mean-velocity payload use the invertible
+# middle-joint-anchored embedding defined below.
+CHAIN_GRIPPER_POINT_ARC_DIM = 6
+_CHAIN_GRIPPER_RELATIVE_SCALE = np.sqrt(2.0)
+
+
+def chain_gripper_points_to_arc_embedding(points: np.ndarray) -> np.ndarray:
+    """Map ordered points to orthogonal translation and shape coordinates.
+
+    For ``P = [L, C, R]`` this returns
+    ``Phi(P) = [C, (L-C)/sqrt(2), (R-C)/sqrt(2)]``.  Center translation is
+    represented only by the first two coordinates, while the other four
+    coordinates describe shape relative to the middle joint.
+    """
+    value = np.asarray(points)
+    if value.ndim == 0 or value.shape[-1] != CHAIN_GRIPPER_POINT_ARC_DIM:
+        raise ValueError(
+            "chain_gripper_points_to_arc_embedding expects last dimension 6, "
+            f"got {value.shape}"
+        )
+    left, center, right = value[..., 0:2], value[..., 2:4], value[..., 4:6]
+    return np.concatenate(
+        (
+            center,
+            (left - center) / _CHAIN_GRIPPER_RELATIVE_SCALE,
+            (right - center) / _CHAIN_GRIPPER_RELATIVE_SCALE,
+        ),
+        axis=-1,
+    )
+
+
+def chain_gripper_arc_embedding_to_points(embedding: np.ndarray) -> np.ndarray:
+    """Invert :func:`chain_gripper_points_to_arc_embedding` exactly."""
+    value = np.asarray(embedding)
+    if value.ndim == 0 or value.shape[-1] != CHAIN_GRIPPER_POINT_ARC_DIM:
+        raise ValueError(
+            "chain_gripper_arc_embedding_to_points expects last dimension 6, "
+            f"got {value.shape}"
+        )
+    center = value[..., 0:2]
+    left = center + _CHAIN_GRIPPER_RELATIVE_SCALE * value[..., 2:4]
+    right = center + _CHAIN_GRIPPER_RELATIVE_SCALE * value[..., 4:6]
+    return np.concatenate((left, center, right), axis=-1)
+
+
+def chain_gripper_point_step_norm(delta: np.ndarray) -> np.ndarray:
+    """Euclidean step length in the middle-joint-anchored embedding.
+
+    Since ``Phi`` is linear, applying it to a point displacement gives
+    ``[dC, (dL-dC)/sqrt(2), (dR-dC)/sqrt(2)]``. Translation and relative-shape
+    motion therefore contribute in separate coordinates. A rigid translation
+    by ``d`` has length ``||d||``, while tip articulation remains visible.
+    """
+    value = np.asarray(delta, dtype=np.float64)
+    if value.ndim == 0 or value.shape[-1] != CHAIN_GRIPPER_POINT_ARC_DIM:
+        raise ValueError(
+            f"chain_gripper_point_step_norm expects last dimension 6, got {value.shape}"
+        )
+    embedding_delta = chain_gripper_points_to_arc_embedding(value)
+    return np.linalg.norm(embedding_delta, axis=-1)
+
+
+class TokenizeChainGripperPointArcLength:
+    """Tokenize ordered ChainGripper points in anchored arc coordinates.
+
+    Input rows are ``[left_tip_xy, middle_joint_xy, right_tip_xy]`` and are
+    first mapped through ``Phi(P) = [C, (L-C)/sqrt(2), (R-C)/sqrt(2)]``.
+    Segment length, interpolation, waypoint rows ``0..M-1``, and the final
+    six-dimensional mean-velocity row all use this same ``Phi`` basis.
+    Detokenization reconstructs fixed-rate ``Phi`` commands and inverts them
+    to ordered points before the rollout adapter performs kinematic projection.
+    """
+
+    def __init__(
+        self,
+        action_key: str = "actions",
+        output_action_key: str = "actions",
+        min_distance_unit: float = 200.0,
+        resampled_vector_length: int = 25,
+        dt: float = 1.0 / 30.0,
+        zero_dist_epsilon: float = 1e-6,
+    ):
+        self.action_key = str(action_key)
+        self.output_action_key = str(output_action_key)
+        self.min_distance_unit = float(min_distance_unit)
+        self.resampled_vector_length = int(resampled_vector_length)
+        self.dt = float(dt)
+        self.zero_dist_epsilon = float(zero_dist_epsilon)
+        if self.min_distance_unit <= 0:
+            raise ValueError("min_distance_unit must be positive")
+        if self.resampled_vector_length < 2:
+            raise ValueError("resampled_vector_length must be at least 2")
+        if self.dt <= 0:
+            raise ValueError("dt must be positive")
+
+    @property
+    def M(self) -> int:
+        return self.resampled_vector_length
+
+    @staticmethod
+    def _interp(values: np.ndarray, cumulative: np.ndarray, target: float):
+        return _interp_linear_at_s(values, cumulative, float(target))
+
+    @staticmethod
+    def _arc_parameter(embedding: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        step = np.linalg.norm(np.diff(embedding, axis=0), axis=-1)
+        cumulative = np.concatenate([np.zeros(1, dtype=np.float64), np.cumsum(step)])
+        return cumulative, step
+
+    def transform(self, batch: dict) -> dict:
+        input_actions = np.asarray(batch[self.action_key])
+        if input_actions.ndim != 2 or input_actions.shape[1] != 6:
+            raise ValueError(
+                "TokenizeChainGripperPointArcLength expects (T, 6) ordered "
+                f"points, got {input_actions.shape}"
+            )
+        if len(input_actions) < 2:
+            raise ValueError(
+                "TokenizeChainGripperPointArcLength needs at least two steps"
+            )
+        if not np.isfinite(input_actions).all():
+            raise ValueError(f"{self.action_key} contains non-finite values")
+
+        points = input_actions.astype(np.float64, copy=False)
+        embedding = chain_gripper_points_to_arc_embedding(points)
+        cumulative, step = self._arc_parameter(embedding)
+        total = float(cumulative[-1])
+        covered = min(total, self.min_distance_unit)
+
+        if total <= self.zero_dist_epsilon:
+            waypoints = np.repeat(embedding[:1], self.M, axis=0)
+            velocity = np.zeros(CHAIN_GRIPPER_POINT_ARC_DIM, dtype=np.float64)
+        else:
+            targets = np.linspace(0.0, covered, self.M)
+            waypoints = np.stack(
+                [self._interp(embedding, cumulative, target) for target in targets]
+            )
+            if covered < total - self.zero_dist_epsilon:
+                segment, alpha = _bracket_segment(cumulative, covered)
+                duration_steps = float(segment) + float(alpha)
+            else:
+                moving = np.flatnonzero(step > self.zero_dist_epsilon)
+                duration_steps = float(moving[-1] + 1) if moving.size else 0.0
+            duration = max(duration_steps * self.dt, self.dt)
+            velocity = (waypoints[-1] - waypoints[0]) / duration
+
+        output = np.concatenate([waypoints, velocity[None]], axis=0)
+        output_dtype = (
+            input_actions.dtype
+            if np.issubdtype(input_actions.dtype, np.floating)
+            else np.float32
+        )
+        batch[self.output_action_key] = output.astype(output_dtype, copy=False)
+        return batch
+
+    def detokenize(self, arc_actions: np.ndarray, action_horizon: int) -> np.ndarray:
+        """Decode ``(M+1, 6)`` Phi tokens to fixed-rate ``(H, 6)`` points."""
+        value = np.asarray(arc_actions, dtype=np.float64)
+        expected = (self.M + 1, CHAIN_GRIPPER_POINT_ARC_DIM)
+        if value.shape != expected:
+            raise ValueError(
+                "TokenizeChainGripperPointArcLength.detokenize expects "
+                f"{expected}, got {value.shape}"
+            )
+        horizon = int(action_horizon)
+        if horizon <= 0:
+            raise ValueError("action_horizon must be positive")
+        if not np.isfinite(value).all():
+            raise ValueError("arc_actions contains non-finite values")
+
+        waypoints = value[: self.M]
+        mean_velocity = value[self.M]
+        cumulative, _ = self._arc_parameter(waypoints)
+        total = float(cumulative[-1])
+        chord = float(np.linalg.norm(waypoints[-1] - waypoints[0]))
+        chord_speed = float(np.linalg.norm(mean_velocity))
+
+        if total <= self.zero_dist_epsilon:
+            embedding_out = np.repeat(waypoints[:1], horizon, axis=0)
+            return chain_gripper_arc_embedding_to_points(embedding_out)
+        if chord > self.zero_dist_epsilon and chord_speed > self.zero_dist_epsilon:
+            duration = chord / chord_speed
+        else:
+            # A closed loop has zero mean coordinate velocity, so its exact
+            # duration is not recoverable from one mean-velocity row. Spread it
+            # over the requested horizon instead of freezing a nonzero path.
+            duration = max((horizon - 1) * self.dt, self.dt)
+        path_speed = total / max(duration, self.dt)
+        targets = np.minimum(
+            path_speed * np.arange(horizon, dtype=np.float64) * self.dt,
+            total,
+        )
+        embedding_out = np.stack(
+            [self._interp(waypoints, cumulative, target) for target in targets]
+        )
+        return chain_gripper_arc_embedding_to_points(embedding_out)
