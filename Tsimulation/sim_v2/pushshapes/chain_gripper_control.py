@@ -18,7 +18,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .shapes import CHAIN_GRIPPER_LINK_LEN
+from .shapes import (
+    CHAIN_GRIPPER_CLOSED_ANGLE,
+    CHAIN_GRIPPER_LINK_LEN,
+    CHAIN_GRIPPER_OPEN_ANGLE,
+)
 
 CHAIN_GRIPPER_POSE_MODE = "pose"
 CHAIN_GRIPPER_POINT_MODE = "points"
@@ -26,8 +30,6 @@ CHAIN_GRIPPER_CONTROL_MODES = (
     CHAIN_GRIPPER_POSE_MODE,
     CHAIN_GRIPPER_POINT_MODE,
 )
-CHAIN_GRIPPER_OPEN_ANGLE = 0.12
-CHAIN_GRIPPER_CLOSED_ANGLE = 1.45
 CHAIN_GRIPPER_POINT_ACTION_SPEC = (
     "left_free_tip_x",
     "left_free_tip_y",
