@@ -15,13 +15,13 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 import numpy as np
-from shapely.geometry import LineString, Polygon
+from shapely.geometry import LineString, Point, Polygon
 
 from Tsimulation.sim_v2.pushshapes.env import SIM_VERSION, PushShapesEnv
 from Tsimulation.sim_v2.pushshapes.obstacles import OBSTACLE_LEVELS, WALL_RADIUS
 
 SCHEMA_VERSION = 1
-SAMPLER_REVISION = "chain_obstacle_seed_bank_v1"
+SAMPLER_REVISION = "chain_obstacle_seed_bank_level_policy_v1"
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,82 @@ class ObstacleInitCriteria:
 
 
 DEFAULT_CRITERIA = ObstacleInitCriteria()
+
+
+@dataclass(frozen=True)
+class SpawnExclusion:
+    """Circular region that neither full object silhouette may enter."""
+
+    center: tuple[float, float]
+    radius: float
+    label: str
+
+
+@dataclass(frozen=True)
+class LevelInitPolicy:
+    """Additional collection-only constraints for one obstacle level."""
+
+    spawn_exclusions: tuple[SpawnExclusion, ...] = ()
+
+
+LEVEL_INIT_POLICIES: dict[int, LevelInitPolicy] = {
+    5: LevelInitPolicy(
+        spawn_exclusions=(
+            SpawnExclusion((0.0, 0.0), 200.0, "obstacle emergence corner"),
+        )
+    ),
+    6: LevelInitPolicy(
+        spawn_exclusions=(
+            SpawnExclusion((512.0, 0.0), 200.0, "obstacle emergence corner"),
+        )
+    ),
+}
+
+
+def level_init_policy(level: int) -> LevelInitPolicy:
+    """Return the explicit collection policy for ``level``, if any."""
+    return LEVEL_INIT_POLICIES.get(int(level), LevelInitPolicy())
+
+
+def serialize_level_init_policy(level: int) -> dict[str, Any]:
+    """Return a deterministic JSON-ready representation of one policy."""
+    return {
+        "spawn_exclusions": [
+            {
+                "center": [float(value) for value in exclusion.center],
+                "radius": float(exclusion.radius),
+                "label": exclusion.label,
+            }
+            for exclusion in level_init_policy(level).spawn_exclusions
+        ]
+    }
+
+
+def _manifest_level_policies(levels: Iterable[int]) -> dict[str, dict[str, Any]]:
+    return {
+        str(level): serialized
+        for level in (int(value) for value in levels)
+        if (serialized := serialize_level_init_policy(level))["spawn_exclusions"]
+    }
+
+
+def level_bank_sha256(manifest: dict[str, Any], level: int) -> str:
+    """Hash one level's exact collection bank independently of other levels."""
+    key = str(int(level))
+    payload = {
+        "schema_version": manifest["schema_version"],
+        "sampler_revision": manifest["sampler_revision"],
+        "sim_version": manifest["sim_version"],
+        "object_shape": manifest["object_shape"],
+        "pusher_shape": manifest["pusher_shape"],
+        "level": int(level),
+        "level_policy": manifest.get("level_policies", {}).get(
+            key, {"spawn_exclusions": []}
+        ),
+        "entries": manifest["levels"][key],
+    }
+    encoded = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def obstacle_geometry_hash(level: int) -> str:
@@ -165,6 +241,18 @@ def _obstacle_clearance(polygon: Polygon, obstacles: Sequence[Polygon]) -> float
     )
 
 
+def _spawn_exclusion_clearance(
+    polygon: Polygon, exclusions: Sequence[SpawnExclusion]
+) -> float:
+    """Minimum signed clearance from all collection-only exclusion disks."""
+    return float(
+        min(
+            polygon.distance(Point(exclusion.center)) - exclusion.radius
+            for exclusion in exclusions
+        )
+    )
+
+
 def evaluate_candidate(
     env: PushShapesEnv,
     seed: int,
@@ -215,6 +303,20 @@ def evaluate_candidate(
     ):
         return None
 
+    exclusions = level_init_policy(level).spawn_exclusions
+    if exclusions:
+        start_spawn_exclusion_clearance = _spawn_exclusion_clearance(
+            start_polygon, exclusions
+        )
+        goal_spawn_exclusion_clearance = _spawn_exclusion_clearance(
+            goal_polygon, exclusions
+        )
+        if (
+            min(start_spawn_exclusion_clearance, goal_spawn_exclusion_clearance)
+            < -tolerance
+        ):
+            return None
+
     pusher_shapes = list(env.agent.physics_shapes(env))
     if (
         env._shapes_static_penetration_depth(env._pusher_body, pusher_shapes)
@@ -255,7 +357,7 @@ def evaluate_candidate(
     if not crossing_segments:
         return None
     primary_segment, direction = crossing_segments[0]
-    return {
+    candidate = {
         "level": level,
         "seed": int(seed),
         "geometry_hash": obstacle_geometry_hash(level),
@@ -277,6 +379,14 @@ def evaluate_candidate(
         "collision_alphas": interior_hits,
         "blocked_fraction": float(len(interior_hits) / criteria.sweep_samples),
     }
+    if exclusions:
+        candidate.update(
+            {
+                "start_spawn_exclusion_clearance": start_spawn_exclusion_clearance,
+                "goal_spawn_exclusion_clearance": goal_spawn_exclusion_clearance,
+            }
+        )
+    return candidate
 
 
 def _candidate_features(candidate: dict[str, Any]) -> np.ndarray:
@@ -429,7 +539,7 @@ def curate_manifest(
         )
         for level in resolved_levels
     }
-    return {
+    manifest = {
         "schema_version": SCHEMA_VERSION,
         "sampler_revision": SAMPLER_REVISION,
         "sim_version": SIM_VERSION,
@@ -437,8 +547,13 @@ def curate_manifest(
         "pusher_shape": "chain_gripper",
         "entries_per_level": int(count),
         "criteria": asdict(criteria),
+        "level_policies": _manifest_level_policies(resolved_levels),
         "levels": entries,
     }
+    manifest["level_bank_sha256"] = {
+        str(level): level_bank_sha256(manifest, level) for level in resolved_levels
+    }
+    return manifest
 
 
 def write_manifest(manifest: dict[str, Any], path: str | Path) -> Path:
@@ -467,6 +582,14 @@ def load_manifest(path: str | Path) -> dict[str, Any]:
         raise ValueError("manifest is not for T + chain_gripper")
     if not isinstance(manifest.get("levels"), dict):
         raise ValueError("manifest has no levels mapping")
+    levels = [int(level) for level in manifest["levels"]]
+    if manifest.get("level_policies") != _manifest_level_policies(levels):
+        raise ValueError("manifest level-init policies do not match this code")
+    expected_hashes = {
+        str(level): level_bank_sha256(manifest, level) for level in levels
+    }
+    if manifest.get("level_bank_sha256") != expected_hashes:
+        raise ValueError("manifest level-bank hashes do not match its entries")
     return manifest
 
 
@@ -486,6 +609,16 @@ def level_entries(manifest: dict[str, Any], level: int) -> list[dict[str, Any]]:
         raise ValueError(f"manifest level {level} geometry hash is stale")
     if any(int(entry.get("level", -1)) != int(level) for entry in entries):
         raise ValueError(f"manifest level {level} contains a mislabeled entry")
+    expected_policy = serialize_level_init_policy(level)
+    actual_policy = manifest.get("level_policies", {}).get(
+        key, {"spawn_exclusions": []}
+    )
+    if actual_policy != expected_policy:
+        raise ValueError(f"manifest level {level} init policy is stale")
+    if manifest.get("level_bank_sha256", {}).get(key) != level_bank_sha256(
+        manifest, level
+    ):
+        raise ValueError(f"manifest level {level} bank hash is stale")
     return entries
 
 
