@@ -152,6 +152,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         config_tree=_build_model_config_tree(cfg),
         norm_stats_state=norm_stats.to_state(),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
+        # Wire the config's enable_grad_norm into the ModelWrapper ctor —
+        # without this the yaml key is DEAD and the MAD grad-spike clamper
+        # runs regardless of config (vault rule 2026-06-25; same one-liner
+        # as EgoVerse-gmm-dualstream). Default True preserves old behavior
+        # for configs that don't set the key.
+        enable_grad_norm=cfg.model.get("enable_grad_norm", True),
     )
 
     _log_dataset_frame_counts(datamodule.train_datasets, datamodule.valid_datasets)

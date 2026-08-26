@@ -70,7 +70,8 @@ def _pack_to_padded(x, cu_seqlens, B, T_max):
 
 
 def _cut_windows(obs_padded, actions_padded, mask, horizon, max_windows=None,
-                 pad_mode="zero_masked", obs_stride=1, chunk_len=1):
+                 pad_mode="zero_masked", obs_stride=1, chunk_len=1,
+                 window_anchor="uniform", pad_actions=None):
     """Sample length-`horizon` windows from padded episodes.
 
     robomimic SequenceDataset serves length-`seq_length` (=rnn.horizon)
@@ -113,18 +114,39 @@ def _cut_windows(obs_padded, actions_padded, mask, horizon, max_windows=None,
     C = int(chunk_len)
     seq_lens = mask.sum(dim=1).to(torch.long)  # (B,)
 
-    # enumerate all valid (episode, start) pairs. starts are uniform over all
-    # in-episode start frames s in [0, L-1] (tails handled by padding below);
-    # this is UNCHANGED by striding/chunking -- s still indexes a real frame.
-    pairs = []
-    for b in range(B):
-        L = int(seq_lens[b].item())
-        for s in range(L):
-            pairs.append((b, s))
-    if max_windows is not None and len(pairs) > int(max_windows):
-        # uniform sample WITHOUT replacement over valid starts (robomimic-style)
-        idx = torch.randperm(len(pairs), device=actions_padded.device)[: int(max_windows)]
-        pairs = [pairs[int(i)] for i in idx]
+    # WINDOW ANCHORING (single knob; default 'uniform' is byte-identical --
+    # ported from the proven EgoVerse2 bc_rnn.py c3000v2 implementation):
+    #   'uniform' (default, pre-existing): enumerate all valid (episode, start)
+    #     pairs with start s in [0, L-1] (a uniform sample over start frames,
+    #     robomimic-style); tails handled by padding below. s indexes a real
+    #     frame and is UNCHANGED by striding/chunking.
+    #   'start' (full-history): exactly ONE window per episode, anchored at frame
+    #     0 -> pairs == [(b, 0) for each episode b]. The window then spans frames
+    #     0, sigma, 2*sigma, ... (length-H over the SUBSAMPLED obs), repeat-padded
+    #     at the tail. This makes the training context semantics match a
+    #     NEVER-RESET rollout (the buffer is never re-zeroed mid-episode), which
+    #     is the point of the full-history variant. No max_windows subsample is
+    #     applied (there are at most B windows, one per episode in the batch).
+    if window_anchor not in ("uniform", "start"):
+        raise ValueError(
+            f"window_anchor must be uniform|start, got {window_anchor!r}"
+        )
+    if window_anchor == "start":
+        # one (b, 0) per episode; no random subsample (<= B windows total).
+        pairs = [(b, 0) for b in range(B)]
+    else:
+        # enumerate all valid (episode, start) pairs. starts are uniform over all
+        # in-episode start frames s in [0, L-1] (tails handled by padding below);
+        # this is UNCHANGED by striding/chunking -- s still indexes a real frame.
+        pairs = []
+        for b in range(B):
+            L = int(seq_lens[b].item())
+            for s in range(L):
+                pairs.append((b, s))
+        if max_windows is not None and len(pairs) > int(max_windows):
+            # uniform sample WITHOUT replacement over valid starts (robomimic-style)
+            idx = torch.randperm(len(pairs), device=actions_padded.device)[: int(max_windows)]
+            pairs = [pairs[int(i)] for i in idx]
 
     # pad_mode (robomimic SequenceDataset boundary handling):
     #   "zero_masked" (default, pre-existing): window tails past the episode end
@@ -133,12 +155,28 @@ def _cut_windows(obs_padded, actions_padded, mask, horizon, max_windows=None,
     #     get_pad_mask=False train_utils.py:146 + plain mean bc.py:623): window
     #     tails are padded by REPEATING the last real frame (obs AND action),
     #     and EVERY step (incl. pad) is counted in the NLL (mask all-ones).
-    repeat = pad_mode == "repeat_unmasked"
+    #   "repeat_pusher_unmasked" (hold-position pad): identical to
+    #     repeat_unmasked for OBS (repeat last real frame) and the mask
+    #     (all-ones NLL), but the padded ACTION target is ``pad_actions[b]`` --
+    #     the episode's LAST PUSHER POSITION expressed in ACTION-normalized
+    #     space (computed by WindowedBC._pusher_pad_actions). Rationale: the
+    #     dataset's actions are CURSOR positions that sit ~5-10px off the
+    #     pusher; repeating the last cursor action teaches a persistent offset
+    #     push after the solve frame, while the pusher position is the true
+    #     "hold position" command.
+    repeat = pad_mode in ("repeat_unmasked", "repeat_pusher_unmasked")
+    pusher_pad = pad_mode == "repeat_pusher_unmasked"
+    if pusher_pad and pad_actions is None:
+        raise ValueError(
+            "pad_mode='repeat_pusher_unmasked' requires pad_actions (B, D) "
+            "(the per-episode last-pusher-position action pad)."
+        )
 
     strided = (sigma != 1) or (C != 1)
     if strided:
         return _cut_windows_strided(
-            obs_padded, actions_padded, seq_lens, pairs, H, sigma, C, repeat
+            obs_padded, actions_padded, seq_lens, pairs, H, sigma, C, repeat,
+            pusher_pad=pusher_pad, pad_actions=pad_actions,
         )
 
     # ===== pre-existing (byte-identical) path: obs_stride==1, chunk_len==1 =====
@@ -160,7 +198,11 @@ def _cut_windows(obs_padded, actions_padded, mask, horizon, max_windows=None,
         aw = actions_padded.new_zeros((H,) + actions_padded.shape[2:])
         aw[:n] = actions_padded[b, s:e]
         if repeat and n < H:
-            aw[n:] = actions_padded[b, e - 1]  # repeat last real action
+            if pusher_pad:
+                # hold-position pad: last pusher position in ACTION-norm space
+                aw[n:] = pad_actions[b]
+            else:
+                aw[n:] = actions_padded[b, e - 1]  # repeat last real action
         act_chunks.append(aw)
         # validity mask
         mw = mask.new_zeros((H,))
@@ -188,7 +230,7 @@ def _cut_windows(obs_padded, actions_padded, mask, horizon, max_windows=None,
 
 
 def _cut_windows_strided(obs_padded, actions_padded, seq_lens, pairs, H, sigma,
-                         C, repeat):
+                         C, repeat, pusher_pad=False, pad_actions=None):
     """Strided-obs + action-chunking window cut (obs_stride>1 or chunk_len>1).
 
     For window start s and each obs-step k in [0, H):
@@ -197,7 +239,9 @@ def _cut_windows_strided(obs_padded, actions_padded, seq_lens, pairs, H, sigma,
         under zero_masked zero it and mask the step out.
       * action TARGET = the ``C`` frames ``[f_k, f_k+C)``. For each target frame
         ``g``: real action if ``g < L``; else (tail) repeat action[L-1]
-        (repeat_unmasked) or zero (zero_masked).
+        (repeat_unmasked), the episode's last-pusher-position pad
+        ``pad_actions[b]`` (repeat_pusher_unmasked / ``pusher_pad=True``), or
+        zero (zero_masked).
 
     Mask (per obs-step, NOT per chunk position):
       * repeat_unmasked: all-ones (every step incl. repeat-padded tails counted,
@@ -238,6 +282,12 @@ def _cut_windows_strided(obs_padded, actions_padded, seq_lens, pairs, H, sigma,
         if not repeat:
             # zero out target frames past episode end (zero_masked semantics)
             aw = aw * g_valid[..., None].to(aw.dtype)
+        elif pusher_pad:
+            # hold-position pad: target frames past episode end get the
+            # episode's LAST PUSHER POSITION in ACTION-normalized space
+            # (instead of the clamp-gathered last cursor action).
+            aw = aw.clone()
+            aw[~g_valid] = pad_actions[b].to(aw.dtype)
         act_chunks.append(aw)
 
         # --- per-obs-step mask: (H,) ---
@@ -520,6 +570,9 @@ class WindowedBC(PackedAlgoBase):
         domains=None,
         ac_keys=None,
         device=None,
+        window_anchor="uniform",
+        pad_pusher_obs_key="state_agent_obj",
+        pad_pusher_slice=(0, 2),
         **kwargs,
     ):
         Algo.__init__(self)
@@ -572,13 +625,38 @@ class WindowedBC(PackedAlgoBase):
                 f"gmm_head.chunk_len ({getattr(gmm_head, 'chunk_len', 1)}); set "
                 "both in the config (chunk_len and gmm_head.chunk_len)."
             )
-        # pad_mode: "zero_masked" (default, pre-existing) or "repeat_unmasked"
-        # (robomimic pad_same=True + unmasked plain-mean NLL). See _cut_windows.
-        if pad_mode not in ("zero_masked", "repeat_unmasked"):
+        # pad_mode: "zero_masked" (default, pre-existing), "repeat_unmasked"
+        # (robomimic pad_same=True + unmasked plain-mean NLL), or
+        # "repeat_pusher_unmasked" (like repeat_unmasked but the padded ACTION
+        # target is the episode's last PUSHER POSITION re-expressed with the
+        # ACTION norm stats -- the "hold position" command -- instead of the
+        # last recorded cursor action). See _cut_windows.
+        if pad_mode not in (
+            "zero_masked", "repeat_unmasked", "repeat_pusher_unmasked"
+        ):
             raise ValueError(
-                f"pad_mode must be zero_masked|repeat_unmasked, got {pad_mode!r}"
+                "pad_mode must be zero_masked|repeat_unmasked|"
+                f"repeat_pusher_unmasked, got {pad_mode!r}"
             )
         self.pad_mode = str(pad_mode)
+        # window_anchor: "uniform" (default, pre-existing) or "start"
+        # (full-history: ONE window per episode anchored at frame 0). Ported
+        # from the EgoVerse2 c3000v2 implementation. See _cut_windows.
+        if window_anchor not in ("uniform", "start"):
+            raise ValueError(
+                f"window_anchor must be uniform|start, got {window_anchor!r}"
+            )
+        self.window_anchor = str(window_anchor)
+        # repeat_pusher_unmasked plumbing: which NORMALIZED obs key holds the
+        # pusher/agent position and which slice of it is the xy that maps onto
+        # the 2-dim action space. Defaults match the pushshapes keymap
+        # (state_agent_obj[:, 0:2] = agent xy; actions = cursor xy).
+        self.pad_pusher_obs_key = str(pad_pusher_obs_key)
+        self.pad_pusher_slice = tuple(int(v) for v in pad_pusher_slice)
+        if len(self.pad_pusher_slice) != 2:
+            raise ValueError(
+                f"pad_pusher_slice must be (start, end), got {pad_pusher_slice!r}"
+            )
         # core: "lstm" (default, byte-identical to the pre-existing build),
         # "transformer" (causal self-attention over the rnn_horizon window), or
         # "hnet" (the real dynamic-chunking H-Net over the rnn_horizon window).
@@ -722,6 +800,52 @@ class WindowedBC(PackedAlgoBase):
         mask = (ar[None, :] < seq_lens[:, None]).to(actions_padded.dtype)
         return obs_padded, actions_padded, mask, seq_lens
 
+    def _stats_for_key(self, key, emb_id):
+        """Norm stats dict for ``key`` (accepts keyname OR zarr key)."""
+        stats_map = self.norm_stats.norm_stats.get(emb_id, {})
+        if key in stats_map:
+            return stats_map[key]
+        zk_to_kn = {
+            v: k for k, v in self.norm_stats.zarr_keys.get(emb_id, {}).items()
+        }
+        kn = zk_to_kn.get(key)
+        if kn is not None and kn in stats_map:
+            return stats_map[kn]
+        raise KeyError(
+            f"no norm stats for key {key!r} (emb {emb_id}); available: "
+            f"{sorted(stats_map)}"
+        )
+
+    def _pusher_pad_actions(self, obs_padded, seq_lens, emb_id):
+        """Per-episode hold-position action pad: (B, action_dim).
+
+        The batch reaching forward_training is ALREADY normalized
+        (PackedAlgoBase.process_batch_for_training normalizes obs with the
+        PROPRIO stats and actions with the ACTION stats BEFORE any window
+        cutting). The correct normalization-consistent pad is therefore:
+        take the LAST REAL frame's pusher obs (proprio-normalized), unnormalize
+        it with the PROPRIO stats back to raw pixels, slice the xy, and
+        re-normalize with the ACTION stats. Under minmax both live in [-1,1]
+        but with different min/max ranges (cursor vs pusher travel), so the two
+        normalized spaces are NOT interchangeable.
+        """
+        key = self.pad_pusher_obs_key
+        if key not in obs_padded:
+            raise KeyError(
+                f"pad_mode='repeat_pusher_unmasked': obs key {key!r} not in "
+                f"batch obs {sorted(obs_padded)}; set pad_pusher_obs_key."
+            )
+        B = int(seq_lens.shape[0])
+        idx = (seq_lens.to(torch.long) - 1).clamp(min=0)  # (B,) last real frame
+        last_obs = obs_padded[key][torch.arange(B, device=idx.device), idx]
+        p_stats = self._stats_for_key(key, emb_id)
+        a_stats = self._stats_for_key(self.resolved_ac_keys[emb_id], emb_id)
+        raw = self.norm_stats._apply_unnorm_one(last_obs, p_stats)  # (B, P) px
+        lo, hi = self.pad_pusher_slice
+        raw_xy = raw[:, lo:hi]  # (B, action_dim) raw pusher position
+        pad = self.norm_stats._apply_norm_one(raw_xy, a_stats)  # action-norm
+        return pad.to(obs_padded[key].dtype)
+
     def forward_training(self, batch):
         """Length-`rnn_horizon` windowed teacher-forced NLL (robomimic recipe).
 
@@ -733,15 +857,22 @@ class WindowedBC(PackedAlgoBase):
         policy = self.nets["policy"]
         H = self.rnn_horizon
         for emb_id, _batch in batch.items():
-            obs_padded, actions_padded, mask, _ = self._unpack_obs_actions(
+            obs_padded, actions_padded, mask, seq_lens = self._unpack_obs_actions(
                 _batch, emb_id
             )
+            pad_actions = None
+            if self.pad_mode == "repeat_pusher_unmasked":
+                pad_actions = self._pusher_pad_actions(
+                    obs_padded, seq_lens, emb_id
+                )
             obs_w, act_w, mask_w = _cut_windows(
                 obs_padded, actions_padded, mask, H,
                 max_windows=self.max_windows_per_batch,
                 pad_mode=self.pad_mode,
                 obs_stride=self.obs_stride,
                 chunk_len=self.chunk_len,
+                window_anchor=self.window_anchor,
+                pad_actions=pad_actions,
             )
             raw = policy(obs_w)  # (Nw, H, M*(2D+1)); zero hidden per window
             aloss = policy.gmm_head.nll(raw, act_w, mask=mask_w)

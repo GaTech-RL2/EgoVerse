@@ -1,0 +1,118 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# BC-RNN-TRANSFORMER 200M — the WINDOW-10 CLASSIC recipe (robomimic-style
+# 10-step window / hidden-reinit, per-step GMM) SCALED to ~200M total params.
+# Completes the capacity x recipe factorial: small-windowed (bcrnnTx10, 23M),
+# small-packed, 200M-packed (indomain_c4 tx_bc_big) -> THIS = 200M-windowed.
+#
+# DIMENSIONS follow the proven 200M lineage config
+# (EgoVerse-gmm bc_rnn_pushshapes_paperexact_tx_cotrain_c4_200M.yaml):
+#   * core_net d_model 448 -> 1408 (1408/8 = 176 clean head_dim),
+#     n_layers 5 -> 8, n_heads 8, ff_mult 4 (unchanged)
+#   * gmm_head d_model 1408, num_modes 5 -> 32 (the lineage's 200M-build bump)
+#   * obs encoder UNCHANGED (paper-exact concat 66; ~11.2M — the lineage's own)
+# RECIPE deltas vs the lineage (which is a chunk4/FH cotrain build): this file
+# is SINGLE-EMBODIMENT (pushshapes_sim only), rnn_horizon=10 uniform windows,
+# obs_stride=1 / chunk_len=1 (per-step GMM), max_windows_per_batch=256 — i.e.
+# byte-identical recipe to bc_rnn_pushshapes_paperexact_tx.yaml except capacity
+# and the scheduler below.
+#
+# SCHEDULER: the 200M lineage specifies warmup->cosine (peak 1e-4), NOT the
+# small build's constant LR — followed here, with the horizon rescaled to THIS
+# run's budget (1800 epochs x 50 batches = 90,000 optimizer steps, 5% warmup),
+# exactly how bc_rnn_pushshapes_paperexact_tx_cos.yaml scales it.
+robomimic_model:
+  _target_: egomimic.algo.bc.WindowedBC
+
+  action_dim: 2
+  action_horizon: 1024
+  rnn_horizon: 10
+  max_windows_per_batch: 256
+  # actor_layer_dims = () -> empty actor MLP (identity). gmm_head.d_model then
+  # equals the core's per-step output width (d_model=1408).
+  actor_mlp_dims: []
+  # repeat-pad window tails (obs AND action) + include pad steps in the NLL with
+  # NO mask (robomimic pad_same=True, plain-mean loss). The launcher overrides
+  # this to repeat_pusher_unmasked (hold-position action pad) for the c3000pg
+  # arms, same as the sibling small-Tx launchers.
+  pad_mode: repeat_unmasked
+  # CORE SWAP: causal-attention transformer over the rnn_horizon window.
+  core: transformer
+
+  obs_encoder:
+    _target_: egomimic.models.stems.obs_encoder.ObsEncoder
+    # paper-exact mode -> embed_dim is IGNORED (becomes the concat sum 64+2=66);
+    # low-dim raw (no MLP), ReLU on image, no fusion MLP.
+    embed_dim: 66
+    paper_exact: true
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]   # agent xy out of the 5-dim state_agent_obj
+        embed_dim: 64         # ignored in paper_exact (raw 2-dim fed through)
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        # crop 86x86 (round(96*76/84)), random at TRAIN, RANDOM at EVAL too
+        # (crop_eval_mode=random), corner sampled via v0.2 off-by-one.
+        crop_aug: true
+        crop_height: 86
+        crop_width: 86
+        crop_eval_mode: random
+        crop_sample_mode: v02
+
+  # CORE: TransformerCore grown to the lineage's 200M dims.
+  core_net:
+    _target_: egomimic.models.cores.transformer_core.TransformerCore
+    input_dim: 66             # = obs_encoder concat (64 img + 2 raw)
+    d_model: 1408             # 1408 / 8 = 176 (clean integer head_dim) — 200M build
+    n_layers: 8               # 5 -> 8 (deeper) + width -> 1408 to reach ~200M
+    n_heads: 8                # 1408 / 8 = 176 dim/head
+    ff_mult: 4                # FF hidden = 4*1408 = 5632
+    dropout: 0.0              # paper-exact uses dropout 0 -> match
+    max_window: ${..rnn_horizon}  # inherits the ONE window number
+
+  gmm_head:
+    _target_: egomimic.models.heads.gmm_head.GMMActionHead
+    d_model: 1408             # = core.hidden_dim (no actor MLP)
+    action_dim: 2
+    num_modes: 32             # lineage 200M-build bump (5 -> 32 modes)
+    min_std: 1.0e-4
+    std_activation: softplus
+    low_noise_eval: true
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+# disable the MAD-based grad-spike clip (robomimic never clips). NOTE: requires
+# the trainHydra enable_grad_norm wire fix (applied 2026-07-02) to take effect.
+enable_grad_norm: false
+
+# Adam, peak lr 1e-4, no weight decay (lineage).
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+# Warmup->cosine (the 200M lineage's scheduler; horizon rescaled to THIS run's
+# budget). 1800 epochs x 50 batches = 90,000 optimizer steps, 5% warmup.
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 90000
+  warmup_steps: 4500  # 5% warmup
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6
+
+# ----- DELIBERATE TASK ADAPTATIONS (kept, identical to the small tx arm) -----
+# * MIN-MAX action normalization (norm_stats.norm_mode=minmax, set in launcher;
+#   precomputed full-data stats json passed via NORM_JSON).
+# * obs keys = agent xy (slice 0:2) + front_img_1; packed pipeline cut into
+#   10-step windows (repeat-pad; launcher sets repeat_pusher_unmasked).
