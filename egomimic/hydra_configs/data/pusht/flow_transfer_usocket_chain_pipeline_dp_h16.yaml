@@ -84,3 +84,7 @@ valid_dataloader_params:
     batch_size: 16
     num_workers: 4
     pin_memory: true
+  pushshapes_sim_u_socket:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true

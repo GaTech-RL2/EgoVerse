@@ -157,6 +157,8 @@ def test_diffusion_flow_transfer_hydra_composition(experiment_name):
         )
 
     chain_resolver = cfg.data.train_datasets[CHAIN].resolver
+    assert set(cfg.data.train_datasets) == set(cfg.data.train_dataloader_params)
+    assert set(cfg.data.valid_datasets) == set(cfg.data.valid_dataloader_params)
     assert str(chain_resolver.folder_path).endswith("/chain_gripper_3000_v2")
     assert chain_resolver.key_map.action_zarr_key == "actions"
     assert (
@@ -172,3 +174,6 @@ def test_diffusion_flow_transfer_hydra_composition(experiment_name):
         assert cfg.trainer.max_steps == 2
         assert cfg.trainer.val_check_interval == 1
         assert cfg.trainer.limit_val_batches == 1
+        assert cfg.callbacks.model_checkpoint.every_n_train_steps == 1
+        assert cfg.callbacks.model_checkpoint.save_last is True
+        assert cfg.callbacks.model_checkpoint.save_on_train_epoch_end is False
