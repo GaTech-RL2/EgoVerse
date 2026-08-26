@@ -6,7 +6,8 @@ level's geometry and is accepted only when:
 
 - the T start, goal, and open ChainGripper are physically valid;
 - the ChainGripper can approach the T without a wall between them;
-- the direct T-to-goal swept path intersects a physical obstacle; and
+- the direct T-to-goal route either crosses a physical obstacle or, on gate
+  levels 11–14 and 23–26, crosses the finite intended gate portal; and
 - start/goal distance and spatial diversity thresholds are met.
 
 Levels 5 and 6 additionally keep both full rotated T silhouettes at least 200
@@ -14,14 +15,19 @@ units from the arena corner where the diagonal obstacle emerges. The bank
 serializes this level-specific policy, and the silhouette plot renders its
 quarter-circle boundary.
 
+Levels 23 and 24 apply the same full-silhouette corner rule at both ends of
+their diagonal walls with a smaller 150-unit radius. Every gate level balances
+the four endpoint-lobe pairings around its portal at 8 samples each, split 4/4
+between passage directions. Gate acceptance does not require the direct sweep
+to collide with a wall.
+
 Levels 25 and 26 use two inward-facing obstacle sides at opposing arena
 corners. Because the arena walls complete sealed corner pockets, their policy
 forbids both full start and goal silhouettes from entering those pockets. The
-silhouette plot shades these rectangular exclusions. Their valid routes are
-sparse, so generation uses and records a deterministic 200,000-seed search
-budget while preserving the global acceptance criteria and balanced selection.
-The search budget is provenance, not a runtime constraint or part of the
-per-level bank identity; an explicit `--seed-limit` remains a hard override.
+silhouette plot shades these rectangular exclusions. Gate passages are common
+enough that all levels use the canonical 10,000-seed search budget. The search
+budget is provenance, not runtime identity; an explicit `--seed-limit` remains
+a hard override.
 
 The playground verifies the level, geometry hash, seed, resolved poses, pusher
 angle, and ChainGripper joint angle before collection. It refuses a stale bank

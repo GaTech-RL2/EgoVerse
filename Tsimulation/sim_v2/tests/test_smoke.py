@@ -33,7 +33,11 @@ from Tsimulation.pushshapes.chain_gripper_control import (
     pose_control_to_points,
 )
 from Tsimulation.pushshapes.env import PushShapesEnv
-from Tsimulation.pushshapes.obstacles import OBSTACLE_LEVELS, SKETCH_FAMILY_NAMES
+from Tsimulation.pushshapes.obstacles import (
+    COLLECTION_GATE_PORTALS,
+    OBSTACLE_LEVELS,
+    SKETCH_FAMILY_NAMES,
+)
 from Tsimulation.pushshapes.render import PUSHER_COLOR
 from Tsimulation.pushshapes.shapes import (
     CHAIN_GRIPPER_LINK_HALF_W,
@@ -112,6 +116,16 @@ def test_obstacle_catalog_matches_reviewed_collection_geometry():
         ((156.0, 196.0), (356.0, 196.0)),
         ((256.0, 196.0), (256.0, 346.0)),
     ]
+    assert COLLECTION_GATE_PORTALS == {
+        11: ((176.0, 216.0), (336.0, 216.0)),
+        12: ((296.0, 176.0), (296.0, 336.0)),
+        13: ((336.0, 296.0), (176.0, 296.0)),
+        14: ((216.0, 336.0), (216.0, 176.0)),
+        23: ((192.0, 192.0), (320.0, 320.0)),
+        24: ((192.0, 320.0), (320.0, 192.0)),
+        25: ((192.0, 192.0), (320.0, 320.0)),
+        26: ((320.0, 192.0), (192.0, 320.0)),
+    }
 
 
 def _fixed_chain_state(env):
