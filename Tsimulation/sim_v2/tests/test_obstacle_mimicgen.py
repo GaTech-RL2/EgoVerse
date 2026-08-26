@@ -117,6 +117,7 @@ def test_local_jitter_anneals_after_each_retry_block():
         jitter_xy=1.5,
         jitter_angle_radians=0.01,
     )
-    assert jittered_state(retry_index=31, **common)["retry_scale"] == 1.0
-    assert jittered_state(retry_index=32, **common)["retry_scale"] == 0.5
-    assert jittered_state(retry_index=64, **common)["retry_scale"] == 0.25
+    assert jittered_state(retry_index=15, **common)["retry_scale"] == 1.0
+    assert jittered_state(retry_index=16, **common)["retry_scale"] == 0.5
+    assert jittered_state(retry_index=32, **common)["retry_scale"] == 0.25
+    assert jittered_state(retry_index=64, **common)["retry_scale"] == 0.0625

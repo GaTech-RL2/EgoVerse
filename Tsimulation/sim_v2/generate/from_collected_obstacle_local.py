@@ -83,10 +83,10 @@ def jittered_state(
     jitter_xy: float,
     jitter_angle_radians: float,
 ) -> dict:
-    # Every 32 failed proposals tighten the distribution toward the exact
+    # Every 16 failed proposals tighten the distribution toward the exact
     # demonstrated state.  The unmodified demonstration is known to succeed,
     # so fragile routes can still produce conservative, nonzero variants.
-    retry_scale = 0.5 ** (retry_index // 32)
+    retry_scale = 0.5 ** (retry_index // 16)
     rng = np.random.default_rng(
         np.random.SeedSequence(
             [generation_seed, level, source.reset_seed, variant_index, retry_index]
@@ -187,12 +187,17 @@ def valid_jittered_state(env: PushShapesEnv) -> bool:
     if (
         env._shapes_static_penetration_depth(env._pusher_body, pusher_shapes)
         > tolerance
-        or env._pusher_object_penetration_depth() > tolerance
         or env._object_static_penetration_depth() > tolerance
         or env._object_arena_metrics()[0] > tolerance
         or _pusher_arena_overflow(env) > tolerance
     ):
         return False
+
+    # Recording can intentionally begin after the operator has closed the
+    # gripper on the object.  That pusher/object contact is part of the useful
+    # demonstrated state, not an invalid spawn.  Static-wall and arena
+    # penetrations remain forbidden above, and every candidate still has to
+    # complete successfully plus pass exact state replay before it is kept.
 
     if policy.gate_portal is not None:
         return _gate_passage(start, goal, policy.gate_portal) is not None
@@ -417,9 +422,52 @@ def generate_level(
     attempts = 0
     generated_now = 0
     generated_required = target_total - manual_count
-    per_source, remainder = divmod(generated_required, len(sources))
     try:
-        for source_index, source in enumerate(sources):
+        replayable_sources = []
+        excluded_source_seeds = []
+        for source in sources:
+            source_state = {
+                "object_pose": source.demo.object_pose,
+                "goal_pose": source.demo.goal_pose,
+                "agent_pos": source.demo.agent_pos,
+                "agent_angle": source.demo.agent_angle,
+            }
+            if (
+                _rollout(
+                    headless,
+                    source,
+                    source_state,
+                    source.demo.actions,
+                    extra_steps=extra_steps,
+                )
+                is None
+            ):
+                excluded_source_seeds.append(source.reset_seed)
+            else:
+                replayable_sources.append(source)
+        if not replayable_sources:
+            raise RuntimeError(
+                f"L{level:02d} has no deterministically replayable source"
+            )
+        source_audit = {
+            "level": level,
+            "manual_source_count": len(sources),
+            "replayable_source_seeds": [
+                source.reset_seed for source in replayable_sources
+            ],
+            "excluded_nonreplayable_source_seeds": excluded_source_seeds,
+            "generated_variants_are_redistributed": bool(excluded_source_seeds),
+        }
+        (output_root / f"generation_source_audit_level_{level:02d}.json").write_text(
+            json.dumps(source_audit, indent=2, sort_keys=True) + "\n"
+        )
+        print(
+            f"L{level:02d} source_audit replayable={len(replayable_sources)} "
+            f"excluded={excluded_source_seeds}",
+            flush=True,
+        )
+        per_source, remainder = divmod(generated_required, len(replayable_sources))
+        for source_index, source in enumerate(replayable_sources):
             count_for_source = per_source + int(source_index < remainder)
             for variant_index in range(count_for_source):
                 if (source.reset_seed, variant_index) in variants:
