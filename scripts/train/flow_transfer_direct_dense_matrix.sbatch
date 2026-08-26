@@ -80,7 +80,7 @@ test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
 test "$(sha256sum "$LAUNCHER" | awk '{print $1}')" = "$EXPECTED_LAUNCHER_SHA"
 test "$(sha256sum "$OBSTACLE_AUDIT" | awk '{print $1}')" = "$EXPECTED_OBSTACLE_AUDIT_SHA"
 
-mkdir -p "$PROVENANCE_DIR" "$EXP_ROOT/runs" "$EXP_ROOT/smokes"
+mkdir -p "$PROVENANCE_DIR" "$EXP_ROOT/runs" "$EXP_ROOT/smokes" "$(dirname "$RUN_DIR")"
 if test "$MODE" = full; then
   if test "${SLURM_RESTART_COUNT:-0}" = 0; then
     test ! -e "$RUN_DIR"
