@@ -316,9 +316,9 @@ def test_obstacle_cotrain_config_pins_all_audited_sources(monkeypatch):
     chain = cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver
 
     assert chain._target_.endswith("LocalEpisodeResolverManyWithEmbodimentOverride")
-    assert len(chain.folder_paths) == 31
-    assert chain.folder_paths[0].endswith("/chain_gripper_3000_v2")
-    assert chain.folder_paths[1] == f"{root}/level_01/chain_gripper/T"
+    assert len(chain.folder_paths) == 30
+    assert chain.folder_paths[0] == f"{root}/level_01/chain_gripper/T"
+    assert chain.folder_paths[1] == f"{root}/level_02/chain_gripper/T"
     assert chain.folder_paths[-1] == f"{root}/level_30/chain_gripper/T"
     assert chain.key_map.action_horizon == 100
     assert cfg.launch_params.gpus_per_node == 2
@@ -334,8 +334,44 @@ def test_obstacle_cotrain_config_pins_all_audited_sources(monkeypatch):
     )
     assert (
         len(dp.data.train_datasets.pushshapes_sim_chain_gripper.resolver.folder_paths)
-        == 31
+        == 30
     )
+    for cotrain in (cfg, dp):
+        scheduler = cotrain.model.scheduler
+        assert scheduler.max_steps == 240_000
+        assert scheduler.warmup_steps == 3_000
+        assert scheduler.warmup_start_factor == 0.1
+        assert scheduler.eta_min == 1.0e-5
+
+
+@pytest.mark.parametrize(
+    ("experiment", "horizon"),
+    [
+        (
+            "pusht/pipeline_sampler_chain_gripper_obstacle_points_dense_medium",
+            100,
+        ),
+        (
+            "pusht/pipeline_diffusion_chain_gripper_obstacle_points_h16",
+            16,
+        ),
+    ],
+)
+def test_chain_bc_uses_only_all_obstacle_roots(monkeypatch, experiment, horizon):
+    root = "/audit/chain-obstacle-output-128"
+    monkeypatch.setenv("CHAIN_OBSTACLE_ROOT", root)
+    cfg = _compose(experiment)
+    assert set(cfg.data.train_datasets) == {"pushshapes_sim_chain_gripper"}
+    for split in (cfg.data.train_datasets, cfg.data.valid_datasets):
+        resolver = split.pushshapes_sim_chain_gripper.resolver
+        assert resolver._target_.endswith(
+            "LocalEpisodeResolverManyWithEmbodimentOverride"
+        )
+        assert len(resolver.folder_paths) == 30
+        assert resolver.folder_paths[0] == f"{root}/level_01/chain_gripper/T"
+        assert resolver.folder_paths[1] == f"{root}/level_02/chain_gripper/T"
+        assert resolver.folder_paths[-1] == f"{root}/level_30/chain_gripper/T"
+        assert resolver.key_map.action_horizon == horizon
 
 
 def test_many_root_resolver_namespaces_colliding_episode_names(tmp_path):

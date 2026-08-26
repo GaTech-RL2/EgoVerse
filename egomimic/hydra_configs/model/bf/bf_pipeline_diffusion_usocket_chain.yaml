@@ -109,3 +109,5 @@ scheduler:
   _partial_: true
   max_steps: 240000
   warmup_steps: 3000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

@@ -10,9 +10,9 @@ GPUS_EXPECTED=${GPUS_EXPECTED:?submit with GPUS_EXPECTED}
 EXPECTED_HEAD=${EXPECTED_HEAD:?submit with EXPECTED_HEAD}
 EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?submit with EXPECTED_LAUNCHER_SHA}
 
-REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-direct-dense-obstacle-dp-retry-20260826
+REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-direct-dense-obstacle-dp-schedulefix-20260826
 PY_ENV=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv
-EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_direct_dense_obstacle_20260826
+EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_direct_dense_obstacle_cotrain_world2_fix_20260826
 LAUNCHER=$REPO/scripts/train/flow_transfer_direct_dense_matrix.sbatch
 U_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
 CHAIN_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
@@ -23,9 +23,10 @@ EXPECTED_U_COUNT=2999
 EXPECTED_U_SHA=fb6e107b585d6a5fae9e9ea4186f441b625a680a36d5691469d9c4125cd9a0fa
 EXPECTED_CHAIN_COUNT=3000
 EXPECTED_CHAIN_SHA=3ca50bf2558a3afbe11784a0b3d6424d3d3d9b1d9a564470618d1b64e2e99ede
-WANDB_GROUP=flow_transfer_direct_dense_obstacle_20260826
+WANDB_GROUP=flow_transfer_direct_dense_obstacle_cotrain_world2_fix_20260826
 SLURM_BIN=/opt/slurm/Ubuntu-20.04/24.11.0/bin
 export PATH=$SLURM_BIN:$PATH
+SRUN=$SLURM_BIN/srun
 
 case "$ARM" in
   bc_usocket_latent)
@@ -37,20 +38,20 @@ case "$ARM" in
     BASE_WANDB_ID=ft_bc_usocket_dp_s42_20260826
     ;;
   bc_chain_latent)
-    EXPERIMENT=pusht/pipeline_sampler_chain_gripper_points_dense_medium
-    BASE_WANDB_ID=ft_bc_chain_latent_dense_m96_s42_20260826
+    EXPERIMENT=pusht/pipeline_sampler_chain_gripper_obstacle_points_dense_medium
+    BASE_WANDB_ID=ft_bc_chain_obstacle_latent_dense_m96_s42_20260826
     ;;
   bc_chain_dp)
-    EXPERIMENT=pusht/pipeline_diffusion_chain_gripper_points_h16
-    BASE_WANDB_ID=ft_bc_chain_dp_s42_20260826
+    EXPERIMENT=pusht/pipeline_diffusion_chain_gripper_obstacle_points_h16
+    BASE_WANDB_ID=ft_bc_chain_obstacle_dp_s42_20260826
     ;;
   cotrain_obstacle_latent)
     EXPERIMENT=pusht/pipeline_sampler_usocket_chain_obstacle_dense_medium
-    BASE_WANDB_ID=ft_cotrain_obstacle_latent_dense_m96_s42_20260826
+    BASE_WANDB_ID=ft_cotrain_obstacle_latent_dense_m96_s42_world2_fix_20260826
     ;;
   cotrain_obstacle_dp)
     EXPERIMENT=pusht/pipeline_diffusion_usocket_chain_obstacle_h16
-    BASE_WANDB_ID=ft_cotrain_obstacle_dp_s42_20260826
+    BASE_WANDB_ID=ft_cotrain_obstacle_dp_s42_world2_fix_20260826
     ;;
   *)
     printf 'Unknown ARM=%s\n' "$ARM" >&2
@@ -60,7 +61,7 @@ esac
 
 case "$MODE" in
   smoke)
-    WANDB_ID=${BASE_WANDB_ID}_smoke
+    WANDB_ID=${BASE_WANDB_ID}_smoke_job_${SLURM_JOB_ID}
     RUN_DIR=$EXP_ROOT/smokes/$ARM/job_${SLURM_JOB_ID}
     ;;
   full)
@@ -75,6 +76,7 @@ esac
 PROVENANCE_DIR=$EXP_ROOT/provenance/$MODE/$ARM/job_${SLURM_JOB_ID}
 
 test -x "$PY_ENV/bin/python"
+test -x "$SRUN"
 test "$(git -C "$REPO" rev-parse HEAD)" = "$EXPECTED_HEAD"
 test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
 test "$(sha256sum "$LAUNCHER" | awk '{print $1}')" = "$EXPECTED_LAUNCHER_SHA"
@@ -119,6 +121,9 @@ cp "$LAUNCHER" "$PROVENANCE_DIR/launcher.sbatch"
 git -C "$REPO" log -1 --format=fuller > "$PROVENANCE_DIR/git_commit.txt"
 git -C "$REPO" status --porcelain=v1 --untracked-files=all > "$PROVENANCE_DIR/git_status.txt"
 $SLURM_BIN/scontrol show job -dd "$SLURM_JOB_ID" > "$PROVENANCE_DIR/slurm_job.txt"
+test "${SLURM_JOB_NUM_NODES:?}" = 1
+test "${SLURM_NTASKS:?}" = "$GPUS_EXPECTED"
+test "${SLURM_CPUS_PER_TASK:?}" -ge 8
 test -n "${CUDA_VISIBLE_DEVICES:-}"
 IFS=',' read -r -a visible_gpus <<< "$CUDA_VISIBLE_DEVICES"
 test "${#visible_gpus[@]}" = "$GPUS_EXPECTED"
@@ -191,6 +196,10 @@ assert cfg.logger.wandb.id == wandb_id
 assert cfg.norm_stats.reduce_all_but_last is True
 assert cfg.model.optimizer.lr == 1.0e-4
 assert cfg.model.optimizer.weight_decay == 1.0e-4
+assert cfg.model.scheduler.max_steps == 240_000
+assert cfg.model.scheduler.warmup_steps == 3_000
+assert cfg.model.scheduler.warmup_start_factor == 0.1
+assert cfg.model.scheduler.eta_min == 1.0e-5
 assert model._target_ == "egomimic.pipeline.algo.PipelineAlgo"
 
 yaml = pathlib.Path(path).read_text()
@@ -241,10 +250,11 @@ else:
         assert policy.model.input_dim == width
         assert policy.noise_scheduler.prediction_type == "epsilon"
 
-if cotrain:
+if cotrain or arm.startswith("bc_chain_"):
     chain = cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver
     assert chain._target_.endswith("LocalEpisodeResolverManyWithEmbodimentOverride")
-    assert len(chain.folder_paths) == 31
+    assert len(chain.folder_paths) == 30
+    assert str(chain.folder_paths[0]).endswith("/level_01/chain_gripper/T")
     assert str(chain.folder_paths[-1]).endswith("level_30/chain_gripper/T")
 PY
 
@@ -261,4 +271,4 @@ assert sum(item["manual"] for item in report["reports"]) == 480
 assert sum(item["generated"] for item in report["reports"]) == 3360
 PY
 
-python -m egomimic.trainHydra "${COMMON_OVERRIDES[@]}"
+"$SRUN" --kill-on-bad-exit=1 --unbuffered python -m egomimic.trainHydra "${COMMON_OVERRIDES[@]}"

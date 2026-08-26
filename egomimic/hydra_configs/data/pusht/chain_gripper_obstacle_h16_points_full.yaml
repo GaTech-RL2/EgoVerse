@@ -1,0 +1,15 @@
+defaults:
+  - pusht/chain_gripper_obstacle_dense_h100_points_full@_here_
+  - _self_
+
+# Identical clean-plus-obstacle membership with the standard DP horizon.
+train_datasets:
+  pushshapes_sim_chain_gripper:
+    resolver:
+      key_map:
+        action_horizon: 16
+valid_datasets:
+  pushshapes_sim_chain_gripper:
+    resolver:
+      key_map:
+        action_horizon: 16
