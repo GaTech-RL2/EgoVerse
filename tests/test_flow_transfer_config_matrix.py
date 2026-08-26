@@ -2,11 +2,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import zarr
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
-import zarr
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 
