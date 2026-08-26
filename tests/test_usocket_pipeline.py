@@ -134,3 +134,37 @@ def test_usocket_arc_rollout_adapter_returns_fixed_rate_xy_theta() -> None:
     assert decoded.shape == (1, 100, 3)
     assert torch.isfinite(decoded).all()
     torch.testing.assert_close(decoded[0, 0], torch.from_numpy(actions[0]))
+
+
+def test_usocket_arc_rollout_adapter_preserves_bfloat16_boundary() -> None:
+    actions = np.column_stack(
+        [
+            np.linspace(10.0, 110.0, 101),
+            np.linspace(20.0, 70.0, 101),
+            np.linspace(-0.2, 0.4, 101),
+        ]
+    ).astype(np.float32)
+    tokenizer = TokenizeUSocketArcLength(
+        min_distance_unit=200.0,
+        resampled_vector_length=25,
+    )
+    token = tokenizer.transform({"actions": actions.copy()})["actions"]
+    predicted = torch.from_numpy(token).unsqueeze(0).to(torch.bfloat16)
+    adapter = USocketArcLengthRolloutAdapter(
+        min_distance_unit=200.0,
+        resampled_vector_length=25,
+        action_horizon=100,
+    )
+
+    decoded = adapter.decode(predicted)
+
+    assert decoded.shape == (1, 100, 3)
+    assert decoded.device == predicted.device
+    assert decoded.dtype == torch.bfloat16
+    assert torch.isfinite(decoded).all()
+    torch.testing.assert_close(
+        decoded.float()[0, 0],
+        torch.from_numpy(actions[0]),
+        atol=0.25,
+        rtol=0.0,
+    )

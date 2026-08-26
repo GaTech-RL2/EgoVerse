@@ -70,13 +70,7 @@ class USocketArcLengthRolloutAdapter:
 
     def decode(self, actions, context: dict | None = None):
         del context
-        input_is_tensor = torch.is_tensor(actions)
-        if input_is_tensor:
-            device, dtype = actions.device, actions.dtype
-            value = actions.detach().cpu().numpy().astype(np.float64)
-        else:
-            value = np.asarray(actions, dtype=np.float64)
-            device = dtype = None
+        value = _to_float64_numpy(actions)
         if value.ndim == 2:
             value = value[None]
         expected = (self.resampled_vector_length + 1, USOCKET_ARC_DIM)
@@ -88,9 +82,7 @@ class USocketArcLengthRolloutAdapter:
         decoded = np.stack(
             [self.detokenizer.detokenize(token, self.action_horizon) for token in value]
         )
-        if input_is_tensor:
-            return torch.from_numpy(decoded).to(device=device, dtype=dtype)
-        return decoded.astype(np.float32)
+        return _restore_numeric_type(decoded, actions)
 
     __call__ = decode
 
