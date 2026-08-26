@@ -95,7 +95,9 @@ fi
 
 inventory() {
   local root=$1 expected_count=$2 expected_sha=$3 output=$4
-  find "$root" -mindepth 1 -maxdepth 1 -type d -name '*.zarr' -printf '%f\n' | LC_ALL=C sort > "$output"
+  # Accept physical Zarr directories and symlinks that resolve to directories.
+  # The clean U-Socket corpus is intentionally published as verified symlinks.
+  find "$root" -mindepth 1 -maxdepth 1 -xtype d -name '*.zarr' -printf '%f\n' | LC_ALL=C sort > "$output"
   test "$(wc -l < "$output")" = "$expected_count"
   test "$(sha256sum "$output" | awk '{print $1}')" = "$expected_sha"
 }
