@@ -1,10 +1,10 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/pipeline_diffusion_usocket_chain_h16
+  - /experiment/pusht/pipeline_sampler_usocket_chain_points_arc_length_medium
   - _self_
 
-name: flow_transfer_pipeline_diffusion_h16_smoke
-description: standard_dp_epsilon_usocket_chain_optimizer_and_validation_smoke
+name: flow_transfer_usocket_chain_latent_medium_smoke
+description: cotrain_medium_exact_model_two_optimizer_steps_and_scheduled_validation
 
 trainer:
   max_steps: 2

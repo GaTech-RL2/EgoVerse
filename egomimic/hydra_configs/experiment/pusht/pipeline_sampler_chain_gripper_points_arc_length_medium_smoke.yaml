@@ -1,10 +1,10 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/pipeline_diffusion_usocket_chain_h16
+  - /experiment/pusht/pipeline_sampler_chain_gripper_points_arc_length_medium
   - _self_
 
-name: flow_transfer_pipeline_diffusion_h16_smoke
-description: standard_dp_epsilon_usocket_chain_optimizer_and_validation_smoke
+name: flow_transfer_chain_latent_medium_smoke
+description: chain_medium_exact_model_two_optimizer_steps_and_scheduled_validation
 
 trainer:
   max_steps: 2
@@ -22,6 +22,8 @@ logger:
   wandb:
     mode: disabled
 
+# Keep the exact dataset and transforms while limiting the smoke-only stats
+# scan. Long runs compute/cache their complete configured statistics.
 norm_stats:
   sample_frac: 0.002
 

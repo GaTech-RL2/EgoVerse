@@ -124,9 +124,7 @@ def test_chain_direct_loader_and_revert_list_are_native_source_only() -> None:
     )
 
     revert = get_chain_gripper_point_revert_transform_list(keys=["actions"])
-    assert [x.__class__.__name__ for x in revert] == [
-        "ChainGripperPoints6ToNative4"
-    ]
+    assert [x.__class__.__name__ for x in revert] == ["ChainGripperPoints6ToNative4"]
 
 
 @pytest.mark.parametrize(
@@ -136,7 +134,9 @@ def test_chain_direct_loader_and_revert_list_are_native_source_only() -> None:
         "pusht/pipeline_sampler_usocket_chain_points_arc_length_large",
     ],
 )
-def test_cotrain_has_two_decoders_adapters_and_no_fake_obstacle(experiment: str) -> None:
+def test_cotrain_has_two_decoders_adapters_and_no_fake_obstacle(
+    experiment: str,
+) -> None:
     cfg = _compose(experiment)
     model = cfg.model.robomimic_model
     sampler = model.stages[2]
@@ -166,9 +166,7 @@ def test_cotrain_has_two_decoders_adapters_and_no_fake_obstacle(experiment: str)
     assert "960" not in OmegaConf.to_yaml(cfg.data)
     assert "obstacle" not in cfg.name.lower()
 
-    u_resolver = instantiate(
-        cfg.data.train_datasets.pushshapes_sim_u_socket.resolver
-    )
+    u_resolver = instantiate(cfg.data.train_datasets.pushshapes_sim_u_socket.resolver)
     chain_resolver = instantiate(
         cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver
     )
@@ -189,3 +187,41 @@ def test_no_active_pushshapes_recipe_reads_materialized_chain_points() -> None:
         if "actions.points" in text or "dual_control" in text:
             offenders.append(path.name)
     assert offenders == []
+
+
+@pytest.mark.parametrize(
+    ("smoke", "full"),
+    [
+        (
+            "pusht/pipeline_sampler_chain_gripper_points_arc_length_medium_smoke",
+            "pusht/pipeline_sampler_chain_gripper_points_arc_length_medium",
+        ),
+        (
+            "pusht/pipeline_sampler_usocket_chain_points_arc_length_medium_smoke",
+            "pusht/pipeline_sampler_usocket_chain_points_arc_length_medium",
+        ),
+    ],
+)
+def test_flow_transfer_smoke_preserves_full_model_data_and_evaluator(
+    smoke: str, full: str
+) -> None:
+    smoke_cfg = _compose(smoke)
+    full_cfg = _compose(full)
+
+    assert OmegaConf.to_container(
+        smoke_cfg.model, resolve=False
+    ) == OmegaConf.to_container(full_cfg.model, resolve=False)
+    assert OmegaConf.to_container(
+        smoke_cfg.data, resolve=False
+    ) == OmegaConf.to_container(full_cfg.data, resolve=False)
+    assert OmegaConf.to_container(
+        smoke_cfg.evaluator, resolve=False
+    ) == OmegaConf.to_container(full_cfg.evaluator, resolve=False)
+    assert smoke_cfg.trainer.precision == full_cfg.trainer.precision == "bf16"
+    assert smoke_cfg.launch_params == full_cfg.launch_params
+    assert smoke_cfg.trainer.max_steps == 2
+    assert smoke_cfg.trainer.val_check_interval == 1
+    assert smoke_cfg.trainer.limit_val_batches == 1
+    assert smoke_cfg.callbacks.model_checkpoint.every_n_train_steps == 1
+    assert smoke_cfg.callbacks.model_checkpoint.save_last is True
+    assert smoke_cfg.norm_stats.sample_frac == 0.002
