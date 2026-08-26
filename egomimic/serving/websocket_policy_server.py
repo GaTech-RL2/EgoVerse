@@ -47,11 +47,19 @@ class WebsocketPolicyServer:
         host: str = "0.0.0.0",
         port: int | None = None,
         metadata: dict | None = None,
+        recorder=None,
     ) -> None:
         self._policy = policy
         self._host = host
         self._port = port
         self._metadata = metadata or {}
+        # Opt-in input/output recording (serving/input_recorder.py). None =
+        # the default = a single `is not None` check per request, nothing else.
+        # NOTE: this file is overwritten by apply_skynet_snapshot.py --apply;
+        # re-apply the three `_recorder` hooks afterwards (see memory /
+        # POLICY_QUICKSTART.md).
+        self._recorder = recorder
+        self._conn_counter = 0
         logging.getLogger("websockets.server").setLevel(logging.INFO)
 
     def serve_forever(self) -> None:
@@ -72,6 +80,10 @@ class WebsocketPolicyServer:
 
     async def _handler(self, websocket: _server.ServerConnection) -> None:
         logger.info("Connection from %s opened", websocket.remote_address)
+        self._conn_counter += 1
+        conn_id = self._conn_counter
+        if self._recorder is not None:
+            self._recorder.on_connection(conn_id, "open", websocket.remote_address)
         metadata = dict(self._metadata)
         existing_methods = set(metadata.get("methods", []))
         existing_methods.update({"infer", "infer_batch"})
@@ -90,6 +102,9 @@ class WebsocketPolicyServer:
                 else:
                     action = self._policy.infer(obs)
                 infer_time = time.monotonic() - infer_time
+                if self._recorder is not None:
+                    self._recorder.record(obs, action, conn_id=conn_id,
+                                          infer_ms=infer_time * 1000)
 
                 if isinstance(action, list):
                     for a in action:
@@ -107,6 +122,8 @@ class WebsocketPolicyServer:
 
             except websockets.ConnectionClosed:
                 logger.info("Connection from %s closed", websocket.remote_address)
+                if self._recorder is not None:
+                    self._recorder.on_connection(conn_id, "close", websocket.remote_address)
                 break
             except Exception:
                 await websocket.send(traceback.format_exc())

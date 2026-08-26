@@ -47,6 +47,26 @@ def _parse_args():
         default="0.0.0.0",
         help="Host to bind to",
     )
+    # --- opt-in input/output recording (egomimic/serving/input_recorder.py) ---
+    parser.add_argument(
+        "--save-inputs-dir",
+        type=str,
+        default=None,
+        help="Record every request's obs (as received) + returned actions under "
+             "DIR/<ckpt_tag>_<port>_<ts>/. Off by default (no serving cost).",
+    )
+    parser.add_argument(
+        "--save-inputs-every",
+        type=int,
+        default=1,
+        help="Record every Nth inference (thinning).",
+    )
+    parser.add_argument(
+        "--save-inputs-max-gb",
+        type=float,
+        default=None,
+        help="Stop recording (keep serving) once the session exceeds this size.",
+    )
     return parser.parse_args()
 
 
@@ -83,13 +103,33 @@ def main() -> None:
     logging.info("Policy server: %s (%s), embodiment=%s", hostname, local_ip, metadata["embodiment"])
     logging.info("Listening on %s:%d", args.host, args.port)
 
+    recorder = None
+    if args.save_inputs_dir:
+        from egomimic.serving.input_recorder import InputRecorder, make_session_dir
+        session_dir = make_session_dir(args.save_inputs_dir, args.checkpoint, args.port)
+        recorder = InputRecorder(
+            session_dir,
+            {"checkpoint": args.checkpoint, "port": args.port, "host": args.host,
+             "server_metadata": {k: v for k, v in metadata.items()
+                                 if isinstance(v, (str, int, float, list, dict))}},
+            every_n=args.save_inputs_every,
+            max_gb=args.save_inputs_max_gb,
+        )
+        logging.info("Recording inputs -> %s (every %d, max_gb=%s)",
+                     session_dir, args.save_inputs_every, args.save_inputs_max_gb)
+
     server = WebsocketPolicyServer(
         policy=policy,
         host=args.host,
         port=args.port,
         metadata=metadata,
+        recorder=recorder,
     )
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    finally:
+        if recorder is not None:
+            recorder.close()
 
 
 if __name__ == "__main__":

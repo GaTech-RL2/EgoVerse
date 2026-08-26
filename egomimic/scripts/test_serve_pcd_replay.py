@@ -88,7 +88,7 @@ def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--dataset", required=True, help="LeRobot dataset root")
+    ap.add_argument("--dataset", default="", help="LeRobot dataset root")
     ap.add_argument("--episode", type=int, default=0)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
@@ -104,6 +104,13 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--proprio-dim", type=int, default=0,
                     help="Force robot0_joint_pos width (0 = auto from server "
                          "metadata / dataset).")
+    ap.add_argument("--from-recording", default="",
+                    help="Replay a server-side recording session dir "
+                         "(serve_policy.py --save-inputs-dir) instead of a "
+                         "dataset: re-sends the recorded obs and scores the "
+                         "returned actions against the RECORDED actions. "
+                         "Proves the recording is faithful; doubles as a "
+                         "serving regression test after code syncs.")
     ap.add_argument("--drop-depth", action="store_true",
                     help="Deliberately withhold aria_depth. NEGATIVE CONTROL: "
                          "for a depth policy the MAE must get clearly worse. "
@@ -346,8 +353,60 @@ def per_block_mae(pred: np.ndarray, gt: np.ndarray) -> dict[str, float]:
     return out
 
 
+def replay_recording(args) -> None:
+    """Re-send a recorded session's inputs; score vs the recorded outputs."""
+    import msgpack_numpy
+    import websockets.sync.client
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from egomimic.serving.input_recorder import load_session
+
+    msgpack_numpy.patch()
+    sess = load_session(args.from_recording)
+    n_total = len(sess["idx"])
+    n = n_total if args.max_steps <= 0 else min(args.max_steps, n_total)
+    obs_keys = [k for k in sess if k.startswith("obs/")]
+    print(f"[recording] {args.from_recording}: {n_total} records, "
+          f"{len(sess['connections'])} connection events, obs keys "
+          f"{[k[4:] for k in obs_keys]}")
+    uri = f"ws://{args.host}:{args.port}"
+    conn = websockets.sync.client.connect(uri, compression=None, max_size=None)
+    _ = msgpack_numpy.unpackb(conn.recv())
+    maes, t1s, rts = [], [], []
+    for i in range(0, n, max(1, args.stride)):
+        obs = {}
+        for k in obs_keys:
+            v = sess[k][i]
+            if v is None:
+                continue
+            obs[k[4:]] = np.ascontiguousarray(v)
+        t0 = time.time()
+        conn.send(msgpack_numpy.packb(obs))
+        resp = msgpack_numpy.unpackb(conn.recv())
+        rts.append((time.time() - t0) * 1e3)
+        pred = np.asarray(resp["actions"] if isinstance(resp, dict) else resp, np.float32)
+        rec = np.asarray(sess["act/actions"][i], np.float32)
+        maes.append(float(np.mean(np.abs(pred - rec))))
+        t1s.append(float(np.mean(np.abs(pred.reshape(-1, 49)[0] - rec.reshape(-1, 49)[0]))))
+    conn.close()
+    print("\n" + "=" * 70)
+    print(f"recording    : {args.from_recording}")
+    print(f"frames       : {len(maes)} of {n_total}")
+    print(f"round-trip   : median {np.median(rts):.0f} ms")
+    print(f"pred vs RECORDED actions: full-chunk MAE {np.mean(maes):.6f}  "
+          f"t1 {np.mean(t1s):.6f}")
+    print("  reference: sending the SAME obs twice gives MAE ~3.5e-3 (dp3c_dual, "
+          "measured 2026-08-26) — that is the flow-matching resample noise. A "
+          "value at that level = faithful; clearly larger = the serving path "
+          "changed or the recording is not what was sent.")
+
+
 def main() -> None:
     args = parse_args()
+    if args.from_recording:
+        replay_recording(args)
+        return
+    if not args.dataset:
+        raise SystemExit("--dataset is required unless --from-recording is given")
     import msgpack_numpy
     import websockets.sync.client
 
