@@ -179,6 +179,7 @@ def test_diffusion_flow_transfer_hydra_composition(experiment_name):
         )
 
     model = cfg.model.robomimic_model
+    assert cfg.logger.wandb.project == "pushshapes-flow-transfer"
     assert model._target_ == "egomimic.pipeline.algo.PipelineAlgo"
     assert list(model.domains) == [CHAIN, USOCKET]
     assert model.ac_keys[CHAIN] == "actions"
