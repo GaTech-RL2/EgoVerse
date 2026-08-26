@@ -22,7 +22,7 @@ trainer:
 
 logger:
   wandb:
-    project: pushshapes-indomain-c4
+    project: pushshapes-flow-transfer
 
 norm_stats:
   norm_mode: minmax
