@@ -5,9 +5,10 @@ defaults:
   - override /evaluator: eval_pipeline_action_mse
   - override /logger: wandb
 
-# Verified 3k + 3k only; no nonexistent obstacle path or placeholder is active.
+# Verified 2,999 U-Socket + 3,000 Chain only; no nonexistent obstacle path or
+# placeholder is active.
 name: flow_transfer_usocket_chain_latent_large
-description: usocket3k_chain3k_fk_phi_arc_D200_M25_latent128_hidden512_b16x2
+description: usocket2999_chain3000_fk_phi_arc_D200_M25_latent128_hidden512_b16x2
 
 trainer:
   max_steps: 240000

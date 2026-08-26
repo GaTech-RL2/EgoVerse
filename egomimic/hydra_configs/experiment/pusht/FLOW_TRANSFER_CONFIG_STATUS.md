@@ -17,43 +17,50 @@ IK revert transform before the existing native4 simulator controller. U-Socket
 uses its existing rotvec/SE(2)-arc transforms and returns native theta only at
 the simulator boundary.
 
-The cotrain recipes currently contain 3,000 U-Socket and 3,000 ChainGripper
-episodes. No verified 960-episode ChainGripper obstacle dataset exists, so the
-obstacle domain is not represented by a path, environment placeholder, or
-misleading experiment name.
+The cotrain recipes currently contain 2,999 clean U-Socket episodes and 3,000
+ChainGripper episodes. The U-Socket directory name says `3000`, but episode
+index 270 is absent, so documentation and provenance use the observed count.
+No verified 960-episode ChainGripper obstacle dataset is active. The obstacle
+domain is therefore not represented by a path, placeholder, or misleading
+experiment name.
 
-## Standard DP is not yet supported by PipelineAlgo
+## Standard action-space Diffusion Policy
 
-Do not create a fake DP baseline by setting the latent width equal to the
-action width. `MultiJActionSampler` still integrates in a latent space and then
-uses a learned decoder, so that topology is latent denoising rather than
-standard action-space Diffusion Policy.
-
-Reusable code already in this repository:
+The genuine baseline is implemented by
+`egomimic.pipeline.stages_diffusion.MultiDomainDiffusionPolicyStage` and the
+`pipeline_diffusion_usocket_chain_h16` recipe. It delegates to the tracked
+repository implementations:
 
 - `egomimic.models.diffusion_policy.DiffusionPolicy`
 - `egomimic.models.denoising_nets.ConditionalUnet1D`
+- `egomimic.models.ddim_scheduler.DDIMScheduler`
 
-Those modules implement direct action-space DDPM training/inference, but expose
-the older policy-head API rather than the flat `Stage` read/write contract.
-The old HPT wrapper can host them, but adding an HPT transformer trunk would not
-be a standard DP baseline against the DP-style observation encoder used here.
-The separately snapshotted stock-DP experiment is immutable and is not an
-importable component of this worktree.
+This is not a latent-width imitation. ChainGripper owns a direct 6D points
+policy and U-Socket owns a direct 4D rotvec policy; the observation encoder is
+shared. Each policy adds Gaussian noise to normalized action targets, predicts
+epsilon at a sampled diffusion timestep, and runs the complete DDIM reverse
+chain during inference. There is no action encoder and no latent decoder.
 
-A clean Pipeline port needs one direct-action diffusion stage (or a noise stage
-plus sampler stage) that:
+The mode-aware graph contract is explicit:
 
-1. reads `condition`, `target`, and `embodiment` during training;
-2. adds DDPM noise directly to the 4D or 6D normalized action target;
-3. owns one conventional ConditionalUnet1D action head per action width/domain
-   (no action encoder and no latent decoder);
-4. predicts epsilon with the configured scheduler and emits `pred_action` at
-   inference;
-5. preserves the existing per-domain rollout-adapter lookup;
-6. is gated by Hydra composition, a real transformed-loader batch, bf16 rollout,
-   strict target/prediction shape tests, and a short optimization+validation
-   smoke before any full launch.
+- train reads `condition`, `target`, and `embodiment`, and writes the epsilon
+  loss plus diagnostics;
+- rollout reads `condition` and `embodiment`, and writes `pred_action` plus
+  diagnostics.
 
-Until that stage exists and passes those gates, there is deliberately no
-Flow Transfer DP experiment YAML in this directory.
+Chain rollout uses the consolidated points6-to-native4 constrained IK adapter;
+U-Socket rollout converts rotvec back to native theta only at the simulator
+boundary. Exact source blobs and objective details are recorded in
+`egomimic/pipeline/DIFFUSION_POLICY_PROVENANCE.md`.
+
+## Validation state
+
+- Hydra composition, dataset/action-width contracts, native transformed-loader
+  samples, BF16 rollout conversion, FK/IK replay, and relevant CPU tests pass.
+- The exact two-step BF16 optimizer + scheduled-validation smokes for Chain
+  Medium, U-Socket+Chain Medium, and standard DP are submitted as Slurm job
+  `3717405` against immutable commit `034c303f`.
+- No full ChainGripper or Flow Transfer cotrain job should launch until that
+  smoke produces finite validation metrics and checkpoints for all three arms.
+- Obstacle evaluation and obstacle-code consolidation remain blocked pending
+  review of the separate session's fix and explicit user confirmation.

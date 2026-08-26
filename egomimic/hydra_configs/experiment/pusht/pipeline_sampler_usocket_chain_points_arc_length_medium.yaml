@@ -5,10 +5,11 @@ defaults:
   - override /evaluator: eval_pipeline_action_mse
   - override /logger: wandb
 
-# This is the verified 3k + 3k cotrain arm. Do not label it the obstacle arm:
+# This is the verified 2,999 U-Socket + 3,000 Chain cotrain arm. Do not label it
+# the obstacle arm:
 # the planned 960 ChainGripper obstacle episodes do not exist yet.
 name: flow_transfer_usocket_chain_latent_medium
-description: usocket3k_chain3k_fk_phi_arc_D200_M25_latent96_hidden384_b16x2
+description: usocket2999_chain3000_fk_phi_arc_D200_M25_latent96_hidden384_b16x2
 
 trainer:
   max_steps: 240000
