@@ -517,11 +517,12 @@ def write_provenance(
     canonical_manifest_sha: str,
     args: argparse.Namespace,
 ) -> None:
+    level_list = list(levels)
     payload = {
         "method": METHOD,
         "sim_version": SIM_VERSION,
         "source_root": str(source_root),
-        "levels": list(levels),
+        "levels": level_list,
         "manual_sources_per_level": args.manual_count,
         "target_total_per_level": args.target_total,
         "generated_per_level": args.target_total - args.manual_count,
@@ -537,7 +538,12 @@ def write_provenance(
         "source_git_head": _git_head(Path(__file__).resolve().parents[3]),
     }
     output_root.mkdir(parents=True, exist_ok=True)
-    (output_root / "generation_provenance.json").write_text(
+    provenance_name = (
+        f"generation_provenance_level_{level_list[0]:02d}.json"
+        if len(level_list) == 1
+        else "generation_provenance.json"
+    )
+    (output_root / provenance_name).write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n"
     )
 
