@@ -1,0 +1,24 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_seq_dp_replica
+  - override /data: pusht/dp_replica_c3kgen_sc3k_v2
+  - override /evaluator: pusht/gmm_eval_firstend
+  - override /logger: composite/csv_wandb
+
+name: indomain_c4
+description: dp_replica_c3kgen_sc3k_v2_aligned
+
+trainer:
+  max_epochs: 60
+  min_epochs: 60
+  precision: 32-true
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+# Both embodiment entries in this file contain the same merged replay stats.
+# This avoids the old replica's per-embodiment normalization mismatch.
+norm_stats:
+  norm_mode: minmax
+  precomputed_norm_path: ${oc.env:PROJECT_ROOT}/egomimic/hydra_configs/norm_stats/dp_c3kgen_sc3k_v2_exact.json

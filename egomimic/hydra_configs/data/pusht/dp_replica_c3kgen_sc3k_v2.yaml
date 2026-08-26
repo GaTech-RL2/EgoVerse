@@ -1,0 +1,103 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Exact DP window contract: horizon=16, two observations ending at slot 1,
+# execute slots 1..8, repeat-pad one frame before and seven after.
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrDPWindowDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/circle_3000_plus_gen_v2
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_split
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_circle_split_transform_list
+    horizon: 16
+    pad_before: 1
+    pad_after: 7
+    mode: train
+    valid_ratio: 0.02
+    split_seed: 42
+    split_offset: 0
+    split_total_episodes: 6720
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrDPWindowDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/small_circle_3000_v2sub
+      embodiment_override: pushshapes_sim_small_circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_split
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_circle_split_transform_list
+    horizon: 16
+    pad_before: 1
+    pad_after: 7
+    mode: train
+    valid_ratio: 0.02
+    split_seed: 42
+    split_offset: 3720
+    split_total_episodes: 6720
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrDPWindowDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/circle_3000_plus_gen_v2
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_split
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_circle_split_transform_list
+    horizon: 16
+    pad_before: 1
+    pad_after: 7
+    mode: valid
+    valid_ratio: 0.02
+    split_seed: 42
+    split_offset: 0
+    split_total_episodes: 6720
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrDPWindowDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/small_circle_3000_v2sub
+      embodiment_override: pushshapes_sim_small_circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_split
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_circle_split_transform_list
+    horizon: 16
+    pad_before: 1
+    pad_after: 7
+    mode: valid
+    valid_ratio: 0.02
+    split_seed: 42
+    split_offset: 3720
+    split_total_episodes: 6720
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 38
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+  pushshapes_sim_small_circle:
+    batch_size: 26
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+valid_dataloader_params:
+  pushshapes_sim: &valid_loader
+    batch_size: 32
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+  pushshapes_sim_small_circle: *valid_loader

@@ -16,7 +16,7 @@ srun --jobid=$JID --export=ALL .venv/bin/python -m egomimic.trainHydra \
   data=tsimulation_full \
   data.train_datasets.pushshapes_sim.resolver.folder_path=$DATA \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=$DATA \
-  model=dfot_pushshapes_image_spatial_policy \
+  model=dfot/image_spatial_policy \
   model.robomimic_model.inference_mode=spatial_rh \
   evaluator=eval_dfot_sim \
   evaluator.max_steps=300 evaluator.max_videos=2 \

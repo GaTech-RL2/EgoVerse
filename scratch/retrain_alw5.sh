@@ -17,7 +17,7 @@ srun --jobid=$JOB --overlap .venv/bin/python -m egomimic.trainHydra \
   data=tsimulation_full \
   data.train_datasets.pushshapes_sim.resolver.folder_path=$DATA \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=$DATA \
-  model=dfot_pushshapes_image_spatial_policy \
+  model=dfot/image_spatial_policy \
   model.robomimic_model.outer_stage.action_loss_weight=5.0 \
   model.scheduler.max_steps=19200 \
   evaluator=eval_dfot_obs_action_image \
@@ -41,7 +41,7 @@ srun --jobid=$JOB --overlap .venv/bin/python -m egomimic.trainHydra \
   data=tsimulation_full \
   data.train_datasets.pushshapes_sim.resolver.folder_path=$DATA \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=$DATA \
-  model=dfot_pushshapes_image_spatial_policy evaluator=eval_dfot_image_spatial_policy \
+  model=dfot/image_spatial_policy evaluator=eval_dfot_image_spatial_policy \
   trainer=debug trainer.limit_val_batches=1 \
   norm_stats.precomputed_norm_path=$NORM logger=csv > /tmp/o_verify_alw5.txt 2>&1
 echo "############ alw5 action MSE (vs baseline first20=0.892, step00=0.046, step01=0.0016) ############"

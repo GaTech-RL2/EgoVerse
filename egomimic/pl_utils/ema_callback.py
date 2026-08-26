@@ -23,11 +23,29 @@ from lightning.pytorch.callbacks import Callback
 
 
 class EMACallback(Callback):
-    def __init__(self, decay: float = 0.9999, start_step: int = 0):
+    def __init__(self, decay: float = 0.9999, start_step: int = 0,
+                 power: float | None = None, inv_gamma: float = 1.0,
+                 min_value: float = 0.0, max_value: float = 0.9999,
+                 update_after_step: int = 0):
         super().__init__()
         self.decay = float(decay)
         self.start_step = int(start_step)
+        self.power = None if power is None else float(power)
+        self.inv_gamma = float(inv_gamma)
+        self.min_value = float(min_value)
+        self.max_value = float(max_value)
+        self.update_after_step = int(update_after_step)
         self._shadow: dict | None = None
+
+    def _decay_at(self, global_step: int) -> float:
+        """Match Diffusion Policy's inverse-power EMA schedule."""
+        if self.power is None:
+            return self.decay
+        step = global_step - self.update_after_step - 1
+        if step <= 0:
+            return 0.0
+        value = 1.0 - (1.0 + step / self.inv_gamma) ** (-self.power)
+        return max(self.min_value, min(value, self.max_value))
 
     def _init_shadow(self, pl_module) -> None:
         self._shadow = {
@@ -44,7 +62,7 @@ class EMACallback(Callback):
             self._init_shadow(pl_module)
             return
         msd = pl_module.state_dict()
-        d = self.decay
+        d = self._decay_at(int(trainer.global_step))
         for k, s in self._shadow.items():
             v = msd[k]
             if s.device != v.device:

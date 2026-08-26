@@ -9,7 +9,7 @@ $SRUN --jobid=3283274 --overlap .venv/bin/python -m egomimic.trainHydra \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/new_circle_3_clean \
   data.train_dataloader_params.pushshapes_sim.batch_size=2 \
   data.valid_dataloader_params.pushshapes_sim.batch_size=2 \
-  model=dfot_pushshapes_pixel_regress \
+  model=dfot/pixel_regress \
   model.scheduler.max_steps=24000 \
   callbacks=checkpoints callbacks.model_checkpoint.every_n_epochs=25 ++callbacks.model_checkpoint.save_on_train_epoch_end=true \
   trainer=debug trainer.max_epochs=300 trainer.min_epochs=300 \

@@ -15,7 +15,7 @@ srun --jobid=$JID --export=ALL .venv/bin/python -m egomimic.trainHydra \
   data.train_datasets.pushshapes_sim.resolver.folder_path=$DATA \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=$DATA \
   data.valid_dataloader_params.pushshapes_sim.batch_size=1 \
-  model=dfot_pushshapes_image_spatial_policy \
+  model=dfot/image_spatial_policy \
   +model.robomimic_model.outer_stage.decouple_action_noise=true \
   model.robomimic_model.inference_mode=spatial_decoupled \
   model.robomimic_model.sampler_n_steps=25 \

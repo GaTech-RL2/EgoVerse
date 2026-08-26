@@ -752,9 +752,11 @@ class VisualEncode(Stage):
     stages at the same out_key; separate it by listing two of these."""
 
     def __init__(self, in_key: str, out_key: str, encoder,
-                 per_emb: bool = False, embodiments: Optional[List[str]] = None):
+                 per_emb: bool = False, embodiments: Optional[List[str]] = None,
+                 input_scale: float = 1.0, input_bias: float = 0.0):
         super().__init__()
         self.in_key, self.out_key = str(in_key), str(out_key)
+        self.input_scale, self.input_bias = float(input_scale), float(input_bias)
         self.reads, self.writes = [self.in_key, "embodiment"], [self.out_key]
         self.enc = per_emb_module(encoder, per_emb, embodiments)
 
@@ -763,6 +765,8 @@ class VisualEncode(Stage):
         if x is None:
             raise KeyError(f"VisualEncode: {self.in_key!r} not in batch "
                            f"(have: {sorted(k for k in batch if k.startswith('obs/'))}).")
+        if self.input_scale != 1.0 or self.input_bias != 0.0:
+            x = x * self.input_scale + self.input_bias
         batch[self.out_key] = pick(self.enc, batch["embodiment"])(x)
         return batch
 

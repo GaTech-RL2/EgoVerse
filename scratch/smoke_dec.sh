@@ -13,7 +13,7 @@ srun --jobid=$JID --export=ALL .venv/bin/python -m egomimic.trainHydra \
   data.train_datasets.pushshapes_sim.resolver.folder_path=$DATA \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=$DATA \
   data.train_dataloader_params.pushshapes_sim.batch_size=1 \
-  model=dfot_pushshapes_image_spatial_policy \
+  model=dfot/image_spatial_policy \
   +model.robomimic_model.outer_stage.decouple_action_noise=true \
   trainer=debug trainer.max_epochs=2 trainer.min_epochs=2 \
   trainer.limit_train_batches=4 trainer.limit_val_batches=1 \

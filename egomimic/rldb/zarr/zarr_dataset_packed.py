@@ -269,6 +269,186 @@ class ZarrEpisodePackedDataset(Dataset):
             return data
 
 
+class ZarrDPWindowDataset(ZarrEpisodePackedDataset):
+    """Diffusion-Policy-compatible fixed-horizon windows.
+
+    This reproduces ``SequenceSampler`` rather than turning every token of a
+    packed full episode into a separate action-window loss.  A sample has
+    exactly ``horizon`` frames, repeat-padded at episode boundaries with
+    ``pad_before`` / ``pad_after``.  For the standard DP recipe
+    (horizon=16, pad_before=1, pad_after=7), window slot 1 is the current
+    observation and action slots 1..8 are the eight executable actions.
+
+    ``mode`` performs the same deterministic episode split as DP's
+    ``get_val_mask``: at least one validation episode, at least one training
+    episode, and NumPy ``default_rng(seed).choice`` over sorted episode keys.
+    """
+
+    def __init__(
+        self,
+        datasets: dict[str, ZarrDataset],
+        horizon: int = 16,
+        pad_before: int = 1,
+        pad_after: int = 7,
+        max_resample_attempts: int | None = None,
+    ):
+        self.horizon = int(horizon)
+        if self.horizon < 1:
+            raise ValueError(f"horizon must be >= 1, got {horizon}")
+        self.pad_before = min(max(int(pad_before), 0), self.horizon - 1)
+        self.pad_after = min(max(int(pad_after), 0), self.horizon - 1)
+        super().__init__(
+            datasets=datasets,
+            max_seq_len=None,
+            min_seq_len=1,
+            chunking="none",
+            max_resample_attempts=max_resample_attempts,
+        )
+
+    @staticmethod
+    def _split_datasets(
+        datasets: dict[str, ZarrDataset],
+        mode: str,
+        valid_ratio: float,
+        split_seed: int,
+        split_offset: int = 0,
+        split_total_episodes: int | None = None,
+    ) -> dict[str, ZarrDataset]:
+        if mode not in ("train", "valid", "total"):
+            raise ValueError(f"mode must be train|valid|total, got {mode!r}")
+        if mode == "total":
+            return datasets
+        keys = sorted(datasets)
+        n = len(keys)
+        total = n if split_total_episodes is None else int(split_total_episodes)
+        offset = int(split_offset)
+        if offset < 0 or total < n or offset + n > total:
+            raise ValueError(
+                f"Invalid global split slice offset={offset}, local={n}, total={total}"
+            )
+        if total < 2 and valid_ratio > 0:
+            raise ValueError("A train/valid split requires at least two episodes")
+        global_mask = np.zeros(total, dtype=bool)
+        if valid_ratio > 0:
+            n_valid = min(
+                max(1, round(total * float(valid_ratio))), total - 1
+            )
+            rng = np.random.default_rng(seed=int(split_seed))
+            global_mask[
+                rng.choice(total, size=n_valid, replace=False)
+            ] = True
+        mask = global_mask[offset:offset + n]
+        want_valid = mode == "valid"
+        return {key: datasets[key] for i, key in enumerate(keys) if bool(mask[i]) == want_valid}
+
+    @classmethod
+    def from_resolver(
+        cls,
+        resolver: EpisodeResolver,
+        *,
+        horizon: int = 16,
+        pad_before: int = 1,
+        pad_after: int = 7,
+        mode: str = "total",
+        valid_ratio: float = 0.02,
+        split_seed: int = 42,
+        split_offset: int = 0,
+        split_total_episodes: int | None = None,
+        max_resample_attempts: int | None = None,
+        **resolve_kwargs,
+    ) -> "ZarrDPWindowDataset":
+        datasets = resolver.resolve(**resolve_kwargs)
+        datasets = cls._split_datasets(
+            datasets,
+            mode=mode,
+            valid_ratio=valid_ratio,
+            split_seed=split_seed,
+            split_offset=split_offset,
+            split_total_episodes=split_total_episodes,
+        )
+        return cls(
+            datasets=datasets,
+            horizon=horizon,
+            pad_before=pad_before,
+            pad_after=pad_after,
+            max_resample_attempts=max_resample_attempts,
+        )
+
+    def _build_index(self) -> list[tuple[str, int, int, int, int]]:
+        index = []
+        for key in self._episode_keys:
+            episode_len = int(self.datasets[key].total_frames)
+            min_start = -self.pad_before
+            max_start = episode_len - self.horizon + self.pad_after
+            for start in range(min_start, max_start + 1):
+                buffer_start = max(start, 0)
+                buffer_end = min(start + self.horizon, episode_len)
+                sample_start = buffer_start - start
+                sample_end = self.horizon - (start + self.horizon - buffer_end)
+                index.append((key, buffer_start, buffer_end, sample_start, sample_end))
+        return index
+
+    @staticmethod
+    def _repeat_pad(value, sample_start: int, sample_end: int, horizon: int):
+        if not isinstance(value, (torch.Tensor, np.ndarray)) or value.ndim < 1:
+            return value
+        expected = sample_end - sample_start
+        if value.shape[0] != expected:
+            return value
+        if sample_start == 0 and sample_end == horizon:
+            return value
+        if isinstance(value, torch.Tensor):
+            out = value.new_empty((horizon,) + tuple(value.shape[1:]))
+            out[sample_start:sample_end] = value
+            if sample_start:
+                out[:sample_start] = value[0]
+            if sample_end < horizon:
+                out[sample_end:] = value[-1]
+            return out
+        out = np.empty((horizon,) + value.shape[1:], dtype=value.dtype)
+        out[sample_start:sample_end] = value
+        if sample_start:
+            out[:sample_start] = value[0]
+        if sample_end < horizon:
+            out[sample_end:] = value[-1]
+        return out
+
+    def __getitem__(self, i: int) -> dict:
+        attempts = 0
+        max_attempts = self.max_resample_attempts or len(self.index)
+        idx = i
+        while True:
+            key, start, end, sample_start, sample_end = self.index[idx]
+            try:
+                data = self.datasets[key]._read_span(
+                    start, end, episode_idx=self._episode_idx_by_key[key]
+                )
+            except Exception as e:
+                attempts += 1
+                if attempts >= max_attempts:
+                    raise RuntimeError(
+                        "ZarrDPWindowDataset exhausted resampling after "
+                        f"{attempts} attempts; last error on {key} "
+                        f"[{start}, {end}): {type(e).__name__}: {e}"
+                    ) from e
+                idx, _ = get_fallback_idx(
+                    idx=idx,
+                    candidates=range(len(self.index)),
+                    _attempts=attempts,
+                    max_attempts=max_attempts + 1,
+                    exhausted_error="ZarrDPWindowDataset cannot find a valid index",
+                )
+                continue
+
+            for name, value in list(data.items()):
+                data[name] = self._repeat_pad(
+                    value, sample_start, sample_end, self.horizon
+                )
+            data["seq_len"] = self.horizon
+            data["chunk_offset"] = int(start - sample_start)
+            return data
+
+
 class ZarrAnnotationSpanPackedDataset(ZarrEpisodePackedDataset):
     """One packed sample per annotation span ``{text, start_idx, end_idx}``
     (span-as-episode). Reads the hardcoded ``annotations`` zarr key via each
@@ -429,6 +609,7 @@ def pack_collate(batch: list[dict]) -> dict:
 
 __all__ = [
     "ZarrEpisodePackedDataset",
+    "ZarrDPWindowDataset",
     "ZarrAnnotationSpanPackedDataset",
     "pack_collate",
 ]

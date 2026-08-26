@@ -1,0 +1,12 @@
+# EMA with Diffusion Policy's inverse-power ramp (EMAModel power=0.75).
+defaults:
+  - checkpoints
+  - _self_
+
+ema:
+  _target_: egomimic.pl_utils.ema_callback.EMACallback
+  power: 0.75
+  inv_gamma: 1.0
+  min_value: 0.0
+  max_value: 0.9999
+  update_after_step: 0

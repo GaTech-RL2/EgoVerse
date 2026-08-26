@@ -1,0 +1,78 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 2560
+  action_start: 1
+  replan_every: 8
+  loss_weight_by_samples: true
+  domains:
+    - pushshapes_sim
+    - pushshapes_sim_small_circle
+  ac_keys:
+    pushshapes_sim: actions
+    pushshapes_sim_small_circle: actions
+  stages:
+    # DP normalizes uint-range images from [0, 1] to [-1, 1] before ResNet.
+    - _target_: egomimic.pipeline.stages_seq.VisualEncode
+      in_key: obs/front_img_1
+      out_key: feat_img
+      input_scale: 2.0
+      input_bias: -1.0
+      encoder:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        norm_layer: group
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        crop_aug: true
+        crop_height: 84
+        crop_width: 84
+        crop_eval_mode: center
+        crop_sample_mode: v02
+    - _target_: egomimic.pipeline.stages_seq.Concat
+      in_keys: [feat_img, obs/pusher_pose]
+      out_key: obs_feat
+    - _target_: egomimic.pipeline.stages_seq.ObsStack
+      in_keys: [obs_feat]
+      out_keys: [a_top]
+      n_obs_steps: 2
+    # Each dataset item is already one DP SequenceSampler horizon. Build the
+    # loss from all 16 actions, then retain slot 1 as the current obs token.
+    - _target_: egomimic.pipeline.stages_io.TargetBuilder
+      chunk_len: 16
+      stride: 1
+      prewindowed: true
+      current_index: 1
+    - _target_: egomimic.pipeline.stages_flow.DPUNetHead
+      cond_keys: [a_top]
+      cond_dims: [132]
+      action_dim: 2
+      chunk_len: 16
+      num_train_timesteps: 100
+      num_inference_steps: 100
+      down_dims: [512, 1024, 2048]
+      kernel_size: 5
+      n_groups: 8
+      diffusion_step_embed_dim: 128
+      cond_predict_scale: true
+      clip_sample: true
+      sampler: ddpm
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 1.0e-6
+  betas: [0.95, 0.999]
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  # Original merged replay: ceil(1,447,020 train windows / 64) * 60 epochs.
+  max_steps: 1356600
+  warmup_steps: 500
+  warmup_start_factor: 0.0001
+  eta_min: 0.0

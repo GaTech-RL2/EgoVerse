@@ -19,7 +19,7 @@ $SRUN --jobid=$JID --overlap .venv/bin/python -m egomimic.trainHydra \
   data.valid_datasets.pushshapes_sim.min_seq_len=9 \
   data.train_dataloader_params.pushshapes_sim.batch_size=8 \
   data.valid_dataloader_params.pushshapes_sim.batch_size=8 \
-  model=dfot_pushshapes_pixel_decoupled \
+  model=dfot/pixel_decoupled \
   model.scheduler.max_steps=4 \
   norm_stats.sample_frac=0.1 \
   callbacks=checkpoints callbacks.model_checkpoint.every_n_epochs=2 \

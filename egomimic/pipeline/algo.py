@@ -45,6 +45,9 @@ class PipelineAlgo(Algo):
         train_obs_transforms: list | None = None,
         episode_level_transforms: list | None = None,
         init_ckpt: str | None = None,
+        replan_every: int | None = None,
+        action_start: int = 0,
+        loss_weight_by_samples: bool = False,
         **kwargs,
     ):
         super().__init__()
@@ -80,10 +83,23 @@ class PipelineAlgo(Algo):
         self.nets.to(self.device)
         # replan cadence for closed-loop AR = the TargetBuilder's stride
         # (introspected -> train/inference cadence can never desync).
-        self.replan_stride = 1
+        inferred_stride = 1
         for s in self.nets["policy"].stages:
             if type(s).__name__ == "TargetBuilder":
-                self.replan_stride = int(s.stride)
+                inferred_stride = int(s.stride)
+        # ``replan_every`` is the public eval override used by checkpoint
+        # loading. Keep ``replan_stride`` as a compatibility alias, but never
+        # let it silently ignore that override again.
+        self.replan_stride = inferred_stride
+        self.replan_every = int(
+            inferred_stride if replan_every is None else replan_every
+        )
+        self.action_start = int(action_start)
+        self.loss_weight_by_samples = bool(loss_weight_by_samples)
+        if self.replan_every < 1:
+            raise ValueError("replan_every must be >= 1")
+        if self.action_start < 0:
+            raise ValueError("action_start must be >= 0")
 
     # ------------------------------------------------------------------ #
     @property
@@ -161,10 +177,19 @@ class PipelineAlgo(Algo):
         losses = OrderedDict()
         embs = list(batch.keys())
         total = None
+        total_weight = 0.0
         for e in embs:
             t = predictions[f"{e}_action_loss"]
-            total = t if total is None else total + t
-        losses["action_loss"] = total / max(len(embs), 1)
+            weight = 1.0
+            if self.loss_weight_by_samples:
+                packed_batch_size = batch[e].get("batch_size")
+                if packed_batch_size is not None:
+                    weight = float(packed_batch_size)
+                elif "cu_seqlens" in batch[e]:
+                    weight = float(batch[e]["cu_seqlens"].numel() - 1)
+            total = t * weight if total is None else total + t * weight
+            total_weight += weight
+        losses["action_loss"] = total / max(total_weight, 1.0)
         for k, v in predictions.items():
             if torch.is_tensor(v) and v.dim() == 0:
                 losses[k] = v
@@ -291,6 +316,16 @@ class PipelineAlgo(Algo):
     # ------------------------------------------------------------------ #
     # Sim-eval entry (PackedSimEval calls this every env frame).
     # ------------------------------------------------------------------ #
+    def _actions_from_chunk(self, chunk: torch.Tensor) -> list[torch.Tensor]:
+        """Return the aligned executable slice from a predicted action chunk."""
+        if self.action_start >= chunk.shape[0]:
+            raise ValueError(
+                f"action_start={self.action_start} is outside predicted "
+                f"chunk length {chunk.shape[0]}"
+            )
+        end = min(self.action_start + self.replan_every, chunk.shape[0])
+        return [chunk[j] for j in range(self.action_start, end)]
+
     def inference_step(self, obs_zarr: dict, t: int, emb_id: int, T_max=None):
         import numpy as np
         from egomimic.rldb.embodiment.embodiment import get_embodiment
@@ -310,9 +345,8 @@ class PipelineAlgo(Algo):
             obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
             chunk = self.step(self._sim_state, obs_norm, t,
                               embodiment_id=self.domain_by_id.get(emb_id))
-            if chunk.dim() == 2:  # (C, D): keep replan_stride actions
-                n_keep = max(1, min(self.replan_stride, chunk.shape[0]))
-                self._sim_action_queue = [chunk[j] for j in range(n_keep)]
+            if chunk.dim() == 2:  # (C, D): execute the aligned DP action slice
+                self._sim_action_queue = self._actions_from_chunk(chunk)
             else:  # (D,)
                 self._sim_action_queue = [chunk]
             a_norm = self._sim_action_queue.pop(0)

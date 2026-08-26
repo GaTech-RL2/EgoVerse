@@ -1,0 +1,37 @@
+# @package _global_
+# H-Net sdp_noattn baseline on the v2 cotrain mix (2026-08-09).
+#
+# Direct counterpart of DP job dp_c3kgenv2_usocket3000v2 (slurm 3673618) --
+# same two folders, same u_socket v2 choice, so the two are comparable.
+#   circle   = Tsim_v2/circle_3000_plus_gen_v2  3720 eps, the ONLY obstacle
+#              source (720 eps at levels 1..30, solid_pusher=True)
+#   u_socket = Tsim_v2/u_socket_3000_v2_clean   2999 eps, ALL obs0
+#
+# Deviates from circle_3kgen_v2_usocket3000.yaml, which pinned u_socket to the
+# pre-sim_v2 collection. That call was made 2026-07-31 on the grounds that the
+# v2 fix only engages on contact with static geometry; here u_socket is on v2
+# to match the DP run it is being compared against.
+#
+# Norm stats are computed fresh from this data at startup -- no
+# precomputed_norm_path -- and cached via norm_stats.save_cache_dir. The old
+# pushshapes_norm_stats_ws512.json no longer exists, and MultiDataset rejects
+# pre-collapse stats files anyway since ids were renumbered.
+defaults:
+  - override /model: hnet/hnet_dualstream_2trunk_d16_200m
+  - override /data: pusht/circle_3kgen_v2_usocket3000_v2
+  - override /evaluator: pusht/gmm_eval_firstend
+  - override /logger: composite/csv_wandb
+
+name: indomain_c4
+description: noattn_u3v2_circle3kgen_v2
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax

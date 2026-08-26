@@ -12,7 +12,7 @@ srun --jobid=$JID .venv/bin/python -m egomimic.trainHydra \
   data=tsimulation_full \
   data.train_datasets.pushshapes_sim.resolver.folder_path=$DATA \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=$DATA \
-  model=dfot_pushshapes_image_spatial_policy evaluator=eval_dfot_controller_tf evaluator.evals.0.n_steps_eval=120 evaluator.evals.0.max_episodes=12 \
+  model=dfot/image_spatial_policy evaluator=eval_dfot_controller_tf evaluator.evals.0.n_steps_eval=120 evaluator.evals.0.max_episodes=12 \
   trainer=debug trainer.limit_val_batches=1 \
   norm_stats.precomputed_norm_path=$NORM logger=csv > /tmp/o_ctrltf.txt 2>&1
 echo "TF_DONE rc=$?"

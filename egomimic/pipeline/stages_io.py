@@ -234,13 +234,53 @@ class TargetBuilder(Stage):
     reads = ["actions", "cu_seqlens"]
     writes = ["target", "frame_idx", "cu_seqlens", "max_seq_len"]
 
-    def __init__(self, chunk_len: int = 4, stride: int = 1):
+    def __init__(self, chunk_len: int = 4, stride: int = 1,
+                 prewindowed: bool = False, current_index: int = 0):
         super().__init__()
         self.chunk_len, self.stride = int(chunk_len), int(stride)
+        self.prewindowed = bool(prewindowed)
+        self.current_index = int(current_index)
+        if self.prewindowed and self.stride != 1:
+            raise ValueError("TargetBuilder prewindowed mode requires stride=1")
+        if not 0 <= self.current_index < self.chunk_len:
+            raise ValueError(
+                f"current_index must be in [0, {self.chunk_len}), "
+                f"got {self.current_index}"
+            )
 
     def forward(self, batch: dict) -> dict:
         actions = batch["actions"]
         cu = batch["cu_seqlens"].to(device=actions.device, dtype=torch.long)
+        if self.prewindowed:
+            lens = packed.lengths(cu)
+            if not torch.all(lens == self.chunk_len):
+                raise ValueError(
+                    "TargetBuilder prewindowed mode requires every packed "
+                    f"sample to have length {self.chunk_len}; got {lens.tolist()}"
+                )
+            targets = torch.stack([
+                actions[int(cu[i]):int(cu[i + 1])]
+                for i in range(int(lens.numel()))
+            ])
+            kept = cu[:-1] + self.current_index
+            total = int(cu[-1])
+            # This stage is intentionally placed after observation history is
+            # encoded in the DP replica. Collapse every token-grid tensor to
+            # the one current token per sampled horizon window.
+            for key, value in list(batch.items()):
+                if (torch.is_tensor(value) and value.ndim >= 1
+                        and value.shape[0] == total):
+                    batch[key] = value.index_select(0, kept)
+            n_windows = int(lens.numel())
+            batch["target"] = targets
+            batch["frame_idx"] = torch.zeros(
+                n_windows, device=actions.device, dtype=torch.long
+            )
+            batch["cu_seqlens"] = torch.arange(
+                n_windows + 1, device=actions.device, dtype=torch.long
+            )
+            batch["max_seq_len"] = 1
+            return batch
         full_target = packed.chunk_targets(actions, cu, self.chunk_len)
         if self.stride == 1:
             batch["target"] = full_target

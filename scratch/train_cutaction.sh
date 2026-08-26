@@ -18,7 +18,7 @@ srun --jobid=$JID --export=ALL .venv/bin/python -m egomimic.trainHydra \
   data.train_dataloader_params.pushshapes_sim.batch_size=1 \
   data.valid_dataloader_params.pushshapes_sim.batch_size=1 \
   data.train_dataloader_params.pushshapes_sim.num_workers=12 \
-  model=dfot_pushshapes_image_spatial_policy \
+  model=dfot/image_spatial_policy \
   +model.robomimic_model.outer_stage.decouple_action_noise=true \
   model.scheduler.max_steps=19200 \
   callbacks=checkpoints callbacks.model_checkpoint.every_n_epochs=30 \

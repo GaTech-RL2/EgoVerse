@@ -26,7 +26,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from egomimic.models.diffusion.denoising_nets import SinusoidalPosEmb
+from egomimic.models.diffusion.denoising_nets import (
+    ConditionalUnet1D,
+    SinusoidalPosEmb,
+)
 from egomimic.pipeline.core import Stage
 
 
@@ -568,6 +571,135 @@ class DiffusionHead(Stage):
                     else:
                         x = x0p
                 batch["pred_action"] = x.clamp(-1.0, 1.0)
+        return batch
+
+
+# --------------------------------------------------------------------------- #
+# Stock Diffusion Policy replica
+# --------------------------------------------------------------------------- #
+
+def _dp_alphas_cumprod(N: int, max_beta: float = 0.999, s: float = 0.008):
+    """Diffusers ``squaredcos_cap_v2`` cumulative alphas."""
+    alpha_bar = lambda u: math.cos((u + s) / (1 + s) * math.pi / 2) ** 2
+    betas = [
+        min(
+            1.0 - alpha_bar((i + 1) / N) / alpha_bar(i / N),
+            max_beta,
+        )
+        for i in range(N)
+    ]
+    alphas = 1.0 - torch.tensor(betas, dtype=torch.float64)
+    return torch.cumprod(alphas, dim=0).float()
+
+
+class DPUNetHead(Stage):
+    """Stock Diffusion Policy UNet and DDPM epsilon objective.
+
+    Training performs exactly one denoiser call for the sampled noise level.
+    The 100-step ancestral sampler is inference-only; running it after every
+    training loss was both unnecessary and roughly 100x the UNet work.
+    """
+
+    writes = ["pred_action", "loss/dp", "log/dp"]
+
+    def __init__(
+        self,
+        cond_keys: List[str],
+        cond_dims: List[int],
+        action_dim: int,
+        chunk_len: int,
+        num_train_timesteps: int = 100,
+        num_inference_steps: int = 100,
+        down_dims: Optional[List[int]] = None,
+        kernel_size: int = 5,
+        n_groups: int = 8,
+        diffusion_step_embed_dim: int = 128,
+        cond_predict_scale: bool = True,
+        clip_sample: bool = True,
+        sampler: str = "ddpm",
+        embodiments: Optional[List[str]] = None,
+    ):
+        super().__init__()
+        if len(cond_keys) != len(cond_dims):
+            raise ValueError("DPUNetHead requires one cond_dim per cond_key")
+        self.cond_keys = [str(k) for k in cond_keys]
+        self.reads = list(self.cond_keys) + ["embodiment"]
+        self.C, self.D = int(chunk_len), int(action_dim)
+        self.N, self.S = int(num_train_timesteps), int(num_inference_steps)
+        self.clip_sample = bool(clip_sample)
+        if sampler not in ("ddpm", "ddim"):
+            raise ValueError(f"sampler must be ddpm|ddim, got {sampler!r}")
+        self.sampler = str(sampler)
+        self.net = ConditionalUnet1D(
+            input_dim=self.D,
+            cond_dim=int(sum(cond_dims)),
+            diffusion_step_embed_dim=int(diffusion_step_embed_dim),
+            down_dims=list(down_dims or [512, 1024, 2048]),
+            kernel_size=int(kernel_size),
+            n_groups=int(n_groups),
+            cond_predict_scale=bool(cond_predict_scale),
+            dp_exact=True,
+        )
+        self.register_buffer("abar", _dp_alphas_cumprod(self.N))
+        self.register_buffer(
+            "inf_levels", torch.linspace(self.N - 1, 0, self.S).round().long()
+        )
+
+    def _cond(self, batch: dict) -> torch.Tensor:
+        return torch.cat([batch[key] for key in self.cond_keys], dim=-1)
+
+    def forward(self, batch: dict) -> dict:
+        global_cond = self._cond(batch)
+        n, device = global_cond.shape[0], global_cond.device
+
+        if "target" in batch:
+            x0 = batch["target"]
+            timestep = torch.randint(0, self.N, (n,), device=device)
+            alpha_bar = self.abar[timestep][:, None, None]
+            noise = torch.randn_like(x0)
+            noisy = alpha_bar.sqrt() * x0 + (1 - alpha_bar).sqrt() * noise
+            pred_noise = self.net(noisy, timestep, global_cond=global_cond)
+            loss = F.mse_loss(pred_noise, noise)
+            batch["loss/dp"] = loss
+            batch["log/dp"] = loss.detach()
+            if self.training:
+                return batch
+
+        with torch.no_grad():
+            x = torch.randn(
+                n, self.C, self.D, device=device, dtype=global_cond.dtype
+            )
+            for i in range(self.S):
+                level = self.inf_levels[i]
+                timestep = torch.full(
+                    (n,), int(level), device=device, dtype=torch.long
+                )
+                pred_noise = self.net(x, timestep, global_cond=global_cond)
+                alpha_bar = self.abar[level]
+                x0_hat = (x - (1 - alpha_bar).sqrt() * pred_noise) / alpha_bar.sqrt()
+                if self.clip_sample:
+                    x0_hat = x0_hat.clamp(-1.0, 1.0)
+                if i + 1 >= self.S:
+                    x = x0_hat
+                    continue
+                alpha_bar_prev = self.abar[self.inf_levels[i + 1]]
+                if self.sampler == "ddim":
+                    x = (
+                        alpha_bar_prev.sqrt() * x0_hat
+                        + (1 - alpha_bar_prev).sqrt() * pred_noise
+                    )
+                    continue
+                beta = 1.0 - alpha_bar / alpha_bar_prev
+                coef_x0 = alpha_bar_prev.sqrt() * beta / (1.0 - alpha_bar)
+                coef_xt = (
+                    (alpha_bar / alpha_bar_prev).sqrt()
+                    * (1.0 - alpha_bar_prev)
+                    / (1.0 - alpha_bar)
+                )
+                mean = coef_x0 * x0_hat + coef_xt * x
+                variance = beta * (1.0 - alpha_bar_prev) / (1.0 - alpha_bar)
+                x = mean + variance.clamp_min(1e-20).sqrt() * torch.randn_like(x)
+            batch["pred_action"] = x
         return batch
 
 

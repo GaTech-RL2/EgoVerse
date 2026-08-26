@@ -21,7 +21,7 @@ run_eval () {
     data.train_datasets.pushshapes_sim.resolver.folder_path=$DATA \
     data.valid_datasets.pushshapes_sim.resolver.folder_path=$DATA \
     data.valid_dataloader_params.pushshapes_sim.batch_size=1 \
-    model=dfot_pushshapes_pixel_policy model.robomimic_model.inference_mode=pixel_policy \
+    model=dfot/pixel_policy model.robomimic_model.inference_mode=pixel_policy \
     model.robomimic_model.sampler_n_steps=25 \
     ++model.robomimic_model.sp_n_context=$NCTX ++model.robomimic_model.sp_commit=$COMMIT \
     evaluator=eval_dfot_sim evaluator.max_steps=300 evaluator.max_videos=2 \

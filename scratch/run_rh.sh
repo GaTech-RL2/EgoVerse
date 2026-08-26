@@ -14,7 +14,7 @@ srun --jobid=$JID .venv/bin/python -m egomimic.trainHydra \
   data=tsimulation_full \
   data.train_datasets.pushshapes_sim.resolver.folder_path=$DATA \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=$DATA \
-  model=dfot_pushshapes_image_spatial_policy evaluator=eval_dfot_image_spatial_policy_rh \
+  model=dfot/image_spatial_policy evaluator=eval_dfot_image_spatial_policy_rh \
   trainer=debug trainer.limit_val_batches=1 \
   norm_stats.precomputed_norm_path=$NORM logger=csv > /tmp/o_rh.txt 2>&1
 echo "RH_DONE rc=$?"
