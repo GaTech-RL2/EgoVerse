@@ -315,9 +315,7 @@ def test_obstacle_cotrain_config_pins_all_audited_sources(monkeypatch):
     cfg = _compose("pusht/pipeline_sampler_usocket_chain_obstacle_dense_medium")
     chain = cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver
 
-    assert chain._target_.endswith(
-        "LocalEpisodeResolverManyWithEmbodimentOverride"
-    )
+    assert chain._target_.endswith("LocalEpisodeResolverManyWithEmbodimentOverride")
     assert len(chain.folder_paths) == 31
     assert chain.folder_paths[0].endswith("/chain_gripper_3000_v2")
     assert chain.folder_paths[1] == f"{root}/level_01/chain_gripper/T"
@@ -326,12 +324,18 @@ def test_obstacle_cotrain_config_pins_all_audited_sources(monkeypatch):
     assert cfg.launch_params.gpus_per_node == 2
 
     dp = _compose("pusht/pipeline_diffusion_usocket_chain_obstacle_h16")
-    assert dp.data.train_datasets.pushshapes_sim_u_socket.resolver.key_map.action_horizon == 16
+    assert (
+        dp.data.train_datasets.pushshapes_sim_u_socket.resolver.key_map.action_horizon
+        == 16
+    )
     assert (
         dp.data.train_datasets.pushshapes_sim_chain_gripper.resolver.key_map.action_horizon
         == 16
     )
-    assert len(dp.data.train_datasets.pushshapes_sim_chain_gripper.resolver.folder_paths) == 31
+    assert (
+        len(dp.data.train_datasets.pushshapes_sim_chain_gripper.resolver.folder_paths)
+        == 31
+    )
 
 
 def test_many_root_resolver_namespaces_colliding_episode_names(tmp_path):
