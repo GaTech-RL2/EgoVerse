@@ -1,0 +1,27 @@
+# BC-RNN-TRANSFORMER-CHUNK8-FULLHIST-BIG: the bcrnnTxC8FH recipe with the
+# TransformerCore TRUNK scaled UP so the single-embodiment param total matches
+# the firstend H-Net 2-stage anchor (single-emb target ~39.32M). This is the
+# capacity-matched TransformerAR for the in-domain comparison.
+#
+# ONLY the trunk widens vs bc_rnn_pushshapes_paperexact_tx_chunk8_fullhist:
+#   * d_model: 448 -> 680   (trunk grows ~quadratically in d_model; this is the
+#       dominant knob. Also widens the GMM-head input proj 200*d_model linearly
+#       and the learned pos_emb (max_window x d_model) linearly.)
+#   * n_heads: 8  -> 10     (keeps head_dim = 680/10 = 68, in the same 56-88 band
+#       as the base 448/8 = 56; NO effect on param count, only partitions d_model.)
+#   n_layers (5) and ff_mult (4) are UNCHANGED. The obs_encoder (VisualCore +
+#   raw low-dim) and gmm_head STRUCTURE (num_modes 5, chunk_len 8, action_dim 2)
+#   are UNTOUCHED -- only trunk capacity grows, keeping the comparison clean.
+#
+# VERIFIED by instantiation (obs_encoder + core_net + gmm_head, actor_mlp=Identity):
+#   encoder 11.1971M (fixed) + trunk 28.2825M + head 0.1346M = 39.2228M single-emb
+#   = -0.25% vs the 39.32M target. Single-domain BC run -> no 2-emb cotrain variant.
+# extends bc_rnn_pushshapes_paperexact_tx_chunk8_fullhist
+defaults:
+  - bc_rnn_pushshapes_paperexact_tx_chunk8_fullhist
+  - _self_
+
+robomimic_model:
+  core_net:
+    d_model: 680   # 448 -> 680 (trunk widen; head_dim 680/10 = 68)
+    n_heads: 10    # 8 -> 10 to keep head_dim sane (no param-count effect)

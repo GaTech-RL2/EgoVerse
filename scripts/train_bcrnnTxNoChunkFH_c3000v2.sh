@@ -1,19 +1,19 @@
 #!/bin/bash
 #SBATCH --job-name=bcrnnTxNoChunkFH_c3000v2
-#SBATCH --partition=overcap
-#SBATCH --account=overcap
-#SBATCH --qos=scavenger_qos
-#SBATCH --time=48:00:00
-#SBATCH --gres=gpu:a40:1
+#SBATCH --partition=rl2-lab
+#SBATCH --account=rl2-lab
+#SBATCH --qos=short
+#SBATCH --time=03:55:00
+#SBATCH --gres=gpu:l40s:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
-#SBATCH --requeue
 #SBATCH --output=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/sbatch/bcrnn_%x_%j.out
 #SBATCH --error=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/sbatch/bcrnn_%x_%j.err
 set -uxo pipefail
 cd /coc/flash7/paphiwetsa3/projects/EgoVerse2
 source /coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/activate
 export PYTHONPATH=. MUJOCO_GL=egl HYDRA_FULL_ERROR=1
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export PACK_COLLATE_MAX_TOTAL_FRAMES=3200
 DATA=/coc/flash7/paphiwetsa3/datasets/circle_3000
 KM=egomimic.rldb.embodiment.pushshapes.get_keymap_eval
@@ -41,7 +41,7 @@ RESUME=""
 if [ "$SMOKE" != "1" ]; then
   MARK=logs/bcrnnTxNoChunkFH_c3000v2/.launched
   if [ -f "$MARK" ]; then
-    LAST=$(ls -t logs/bcrnnTxNoChunkFH_c3000v2/*/checkpoints/last.ckpt 2>/dev/null | head -1)
+    LAST=$(ls -t /coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/bcrnnTxNoChunkFH_c3000v2/*/checkpoints/last.ckpt 2>/dev/null | head -1)
     [ -n "$LAST" ] && RESUME="ckpt_path=$LAST"
   fi
   mkdir -p logs/bcrnnTxNoChunkFH_c3000v2 && touch "$MARK"

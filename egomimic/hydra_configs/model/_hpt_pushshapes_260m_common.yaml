@@ -1,0 +1,88 @@
+# Abstract base: HPT pushshapes 128-dim family (circle / circle_regression / simpleconv).
+# Holds the shared HPT trunk, 128-dim cross-attn shared stem, ResNet front encoder,
+# image augs, AdamW(1e-4) + constant LinearLR. Leaves override diffusion, the state
+# stem input, the head, and (simpleconv) the front encoder. Underscore-prefixed:
+# never referenced by scripts/.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hpt.HPT
+  # ``norm_stats`` is injected at runtime by pl_model._instantiate_model;
+  # do not set it here. Replaces the old ``data_schematic`` arg.
+
+  camera_transforms: null
+
+  diffusion: true
+  6dof: false
+
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  trunk:
+    embed_dim: 1280
+    num_blocks: 12
+    num_heads: 16
+    token_postprocessing: "action_token"
+    observation_horizon: 1
+    action_horizon: 16
+    no_trunk: false
+    use_domain_embedding: true
+    drop_path: 0.1
+    weight_init_style: "pytorch"
+
+  multitask: false
+  pretrained: false
+  pretrained_checkpoint: ""
+  reverse_kl_samples: 8
+
+  domains: ["pushshapes_sim"]
+  shared_obs_keys: ["front_img_1"]
+
+  shared_stem_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: 1280
+      output_dim: 1280
+      widths: [1280]
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 4
+          crossattn_dim_head: 32
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 1280
+
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.ResNet
+      output_dim: 1280
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1

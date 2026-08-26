@@ -1,0 +1,43 @@
+# HPT pushshapes circle: diffusion FMPolicy head over the 128-dim trunk, state stem
+# input_dim 5 (full agent+obj vector). extends _hpt_pushshapes_128_common.
+defaults:
+  - _hpt_pushshapes_260m_common
+  - _self_
+
+robomimic_model:
+  stem_specs:
+    pushshapes_sim:
+      state_agent_obj:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 5
+        output_dim: 1280
+        widths: [1280]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 4
+            crossattn_dim_head: 32
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 1280
+
+  head_specs:
+    pushshapes_sim:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 16
+      num_inference_steps: 100
+      pooling: null
+      time_dist: "beta"
+      infer_ac_dims:
+        pushshapes_sim: 2
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 1280
+        hidden_dim: 256
+        act_dim: 2
+        act_seq: 16
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4

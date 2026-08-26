@@ -601,6 +601,7 @@ class ResNet(PolicyStem):
         resnet_model: str = "resnet18",
         num_of_copy: int = 1,
         freeze_backbone: bool = False,
+        norm_layer: str = "batch",
         **kwargs,
     ) -> None:
         """ResNet Encoder for Images"""
@@ -618,6 +619,25 @@ class ResNet(PolicyStem):
                     for _ in range(num_of_copy)
                 ]
             )
+        # norm_layer="group": swap every BatchNorm2d in the backbone for
+        # GroupNorm (diffusion-policy style; pairs with the EMA callback where
+        # averaged conv weights would otherwise mismatch live BN running
+        # stats). "batch" leaves the torchvision backbone untouched.
+        if norm_layer not in ("batch", "group"):
+            raise ValueError(
+                f"ResNet norm_layer must be 'batch' or 'group', got {norm_layer!r}"
+            )
+        if norm_layer == "group":
+
+            def _swap_bn(mod: nn.Module) -> None:
+                for name, child in mod.named_children():
+                    if isinstance(child, nn.BatchNorm2d):
+                        c = child.num_features
+                        setattr(mod, name, nn.GroupNorm(max(1, c // 16), c))
+                    else:
+                        _swap_bn(child)
+
+            _swap_bn(self.net)
         self.input = input
         self.out_dim = output_dim
         self.to_tensor = transforms.ToTensor()

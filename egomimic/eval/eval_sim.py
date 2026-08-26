@@ -86,7 +86,9 @@ class SimRolloutEval(EvalVideo):
         chunk_k: int = 32,
         goal_in_obs: bool = False,
         fixed_goal: list | None = None,
+        run_full_horizon: bool = False,
     ):
+        self.run_full_horizon = run_full_horizon
         super().__init__(
             limit_val_batches=limit_val_batches,
             viz_func=viz_func,
@@ -281,7 +283,7 @@ class SimRolloutEval(EvalVideo):
             if frame is not None:
                 frames.append(np.ascontiguousarray(frame))
 
-            if terminated or last_coverage >= self.coverage_threshold:
+            if (terminated and not self.run_full_horizon) or last_coverage >= self.coverage_threshold:
                 break
 
         if actions_taken:
@@ -382,10 +384,10 @@ class SimRolloutEval(EvalVideo):
                     frames.append(np.ascontiguousarray(frame))
 
                 t += 1
-                if terminated or last_coverage >= self.coverage_threshold:
+                if (terminated and not self.run_full_horizon) or last_coverage >= self.coverage_threshold:
                     break
 
-            if terminated or last_coverage >= self.coverage_threshold:
+            if (terminated and not self.run_full_horizon) or last_coverage >= self.coverage_threshold:
                 break
 
         if actions_taken:
@@ -850,7 +852,7 @@ class HNetSimEval(SimRolloutEval):
             frame = env.render()
             if frame is not None:
                 frames.append(np.ascontiguousarray(frame))
-            if terminated or last_coverage >= self.coverage_threshold:
+            if (terminated and not self.run_full_horizon) or last_coverage >= self.coverage_threshold:
                 break
 
         if _dagger_on:
@@ -935,7 +937,7 @@ class HNetSimEval(SimRolloutEval):
             frame = env.render()
             if frame is not None:
                 frames.append(np.ascontiguousarray(frame))
-            if terminated or last_coverage >= self.coverage_threshold:
+            if (terminated and not self.run_full_horizon) or last_coverage >= self.coverage_threshold:
                 break
         # --- env-gated executed-trajectory dump (CHUNK_TRAJ_DIR); first ~4 eps ---
         # Mirrors _rollout_chunk_openloop's dump: guarded by an env var, wrapped
@@ -1055,9 +1057,9 @@ class HNetSimEval(SimRolloutEval):
                 if frame is not None:
                     frames.append(np.ascontiguousarray(frame))
                 t += 1
-                if terminated or last_coverage >= self.coverage_threshold:
+                if (terminated and not self.run_full_horizon) or last_coverage >= self.coverage_threshold:
                     break
-            if terminated or last_coverage >= self.coverage_threshold:
+            if (terminated and not self.run_full_horizon) or last_coverage >= self.coverage_threshold:
                 break
         # --- env-gated executed-trajectory dump (CHUNK_TRAJ_DIR); first ~4 eps ---
         # Mirrors the _tf_action_dump / _probe_dump pattern: guarded by an env

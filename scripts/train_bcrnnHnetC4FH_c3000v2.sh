@@ -1,13 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=bcrnnHnetC4FH_c3000v2
-#SBATCH --partition=overcap
-#SBATCH --account=overcap
-#SBATCH --qos=scavenger_qos
-#SBATCH --time=48:00:00
-#SBATCH --gres=gpu:a40:1
+#SBATCH --partition=rl2-lab
+#SBATCH --account=rl2-lab
+#SBATCH --qos=short
+#SBATCH --time=03:55:00
+#SBATCH --gres=gpu:l40s:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
-#SBATCH --requeue
 #SBATCH --output=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/sbatch/bcrnn_%x_%j.out
 #SBATCH --error=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/sbatch/bcrnn_%x_%j.err
 set -uxo pipefail
@@ -41,7 +40,7 @@ RESUME=""
 if [ "$SMOKE" != "1" ]; then
   MARK=logs/bcrnnHnetC4FH_c3000v2/.launched
   if [ -f "$MARK" ]; then
-    LAST=$(ls -t logs/bcrnnHnetC4FH_c3000v2/*/checkpoints/last.ckpt 2>/dev/null | head -1)
+    LAST=$(ls -t /coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/bcrnnHnetC4FH_c3000v2/*/checkpoints/last.ckpt 2>/dev/null | head -1)
     [ -n "$LAST" ] && RESUME="ckpt_path=$LAST"
   fi
   mkdir -p logs/bcrnnHnetC4FH_c3000v2 && touch "$MARK"

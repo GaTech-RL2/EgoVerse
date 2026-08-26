@@ -1,0 +1,48 @@
+# hptFlowComboEma: the hptFlowCombo model (hpt_pushshapes_circle — HPT trunk +
+# FMPolicy flow head) with three training upgrades, meant to pair with
+# callbacks=checkpoints_ema (EMA of the weights in every checkpoint):
+#   1. GroupNorm in the ResNet vision stem (norm_layer: group) — BN running
+#      stats don't match EMA-averaged conv weights; GroupNorm removes them.
+#   2. RandomCrop(86) at the front of train_image_augs (input images are
+#      96x96; resnet18 yields 3x3 feature maps for both 96 and 86, so the
+#      token count downstream is unchanged).
+#   3. CenterCrop(86) at the front of eval_image_augs to match.
+# Aug order: crop -> jitter -> normalize.
+#
+# NOTE: named after hpt_bc_flow_pushshapes per the port spec, but based on
+# hpt_pushshapes_circle because that is the config the original hptFlowCombo
+# run actually used; hpt_bc_flow_pushshapes.yaml is a stale old-lineage config
+# (data_schematic / ${data.action_horizon} interpolations that fail with
+# data=tsimulation_hpt and the current runtime-injected norm_stats HPT API).
+defaults:
+  - hpt_pushshapes_circle_260m
+  - _self_
+
+robomimic_model:
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.ResNet
+      output_dim: 1280
+      norm_layer: group
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.RandomCrop
+        size: 86
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.CenterCrop
+        size: 86
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
