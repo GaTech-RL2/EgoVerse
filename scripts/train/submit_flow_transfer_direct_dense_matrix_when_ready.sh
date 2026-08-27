@@ -1,19 +1,51 @@
 #!/bin/bash
-# Submit the corrected six-arm smoke matrix, or submit full jobs only after
-# every smoke has a semantic PASS. Normalization paths and SHAs are mandatory.
+# Submit either the corrected six-arm matrix or the four BC-only arms. Full
+# jobs are allowed only after every selected smoke has a semantic PASS.
+# Normalization paths and SHAs are mandatory.
 
 set -Eeuo pipefail
 
 PHASE=${PHASE:?set PHASE=smoke or PHASE=full}
+MATRIX_SCOPE=${MATRIX_SCOPE:-all}
 LATENT_NORM_ARTIFACT=${LATENT_NORM_ARTIFACT:?exact H100 norm_stats.json path}
 LATENT_NORM_SHA=${LATENT_NORM_SHA:?exact H100 norm SHA256}
 DP_NORM_ARTIFACT=${DP_NORM_ARTIFACT:?exact H16 norm_stats.json path}
 DP_NORM_SHA=${DP_NORM_SHA:?exact H16 norm SHA256}
 EXPECTED_ENV_SHA=8fd1504c955756adf8167f7bd34fc1a09cb844d268898b3ac30693e99ac60e87
 
-REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-direct-dense-obstacle-dp-schedulefix-20260826
+REPO=${FLOW_TRANSFER_REPO:-/coc/flash7/paphiwetsa3/worktrees/flow-transfer-direct-dense-obstacle-dp-schedulefix-20260826}
 LAUNCHER=$REPO/scripts/train/flow_transfer_direct_dense_matrix.sbatch
-EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_direct_dense_obstacle3k_cotrain_world2_normfix_20260826
+case "$MATRIX_SCOPE" in
+  all)
+    EXP_ROOT=${FLOW_TRANSFER_EXP_ROOT:-/coc/flash7/paphiwetsa3/experiments/flow_transfer_direct_dense_obstacle3k_cotrain_world2_normfix_20260826}
+    ARMS=(
+      bc_usocket_latent
+      bc_usocket_dp
+      bc_chain_latent
+      bc_chain_dp
+      cotrain_obstacle_latent
+      cotrain_obstacle_dp
+    )
+    RESOURCE_SPECS=(
+      'hoffman-lab hoffman-lab a40 1 96G'
+      'rl2-lab rl2-lab l40s 2 128G'
+    )
+    ;;
+  bc)
+    EXP_ROOT=${FLOW_TRANSFER_EXP_ROOT:-/coc/flash7/paphiwetsa3/experiments/flow_transfer_direct_dense_obstacle3k_bc_skynet_normfix_20260827}
+    ARMS=(
+      bc_usocket_latent
+      bc_usocket_dp
+      bc_chain_latent
+      bc_chain_dp
+    )
+    RESOURCE_SPECS=('hoffman-lab hoffman-lab a40 1 96G')
+    ;;
+  *)
+    printf 'Unknown MATRIX_SCOPE=%s; use all or bc\n' "$MATRIX_SCOPE" >&2
+    exit 64
+    ;;
+esac
 STATE_DIR=$EXP_ROOT/submission
 SLURM_BIN=/opt/slurm/Ubuntu-20.04/24.11.0/bin
 export PATH=$SLURM_BIN:$PATH
@@ -57,10 +89,10 @@ SMOKE_IDENTITY=$STATE_DIR/smoke_identity.tsv
 
 if test "$PHASE" = smoke; then
   test ! -e "$SMOKE_IDENTITY"
-  printf 'head\t%s\nlauncher_sha256\t%s\nlatent_norm_artifact\t%s\nlatent_norm_sha256\t%s\ndp_norm_artifact\t%s\ndp_norm_sha256\t%s\nenvironment_sha256\t%s\n' \
+  printf 'head\t%s\nlauncher_sha256\t%s\nlatent_norm_artifact\t%s\nlatent_norm_sha256\t%s\ndp_norm_artifact\t%s\ndp_norm_sha256\t%s\nenvironment_sha256\t%s\nmatrix_scope\t%s\n' \
     "$EXPECTED_HEAD" "$EXPECTED_LAUNCHER_SHA" \
     "$LATENT_NORM_ARTIFACT" "$LATENT_NORM_SHA" \
-    "$DP_NORM_ARTIFACT" "$DP_NORM_SHA" "$EXPECTED_ENV_SHA" \
+    "$DP_NORM_ARTIFACT" "$DP_NORM_SHA" "$EXPECTED_ENV_SHA" "$MATRIX_SCOPE" \
     > "$SMOKE_IDENTITY"
 else
   test -s "$SMOKE_IDENTITY"
@@ -74,11 +106,10 @@ else
   test "$(identity_value dp_norm_artifact)" = "$DP_NORM_ARTIFACT"
   test "$(identity_value dp_norm_sha256)" = "$DP_NORM_SHA"
   test "$(identity_value environment_sha256)" = "$EXPECTED_ENV_SHA"
+  test "$(identity_value matrix_scope)" = "$MATRIX_SCOPE"
 fi
 
-for resource_spec in \
-  'hoffman-lab hoffman-lab a40 1 96G' \
-  'rl2-lab rl2-lab l40s 2 128G'; do
+for resource_spec in "${RESOURCE_SPECS[@]}"; do
   read -r test_partition test_account test_gpu_type test_gpus test_memory \
     <<< "$resource_spec"
   "$SLURM_BIN/sbatch" --test-only \
@@ -88,18 +119,9 @@ for resource_spec in \
     --gres="gpu:$test_gpu_type:$test_gpus" --exclude=bishop --wrap=true
 done
 
-ARMS=(
-  bc_usocket_latent
-  bc_usocket_dp
-  bc_chain_latent
-  bc_chain_dp
-  cotrain_obstacle_latent
-  cotrain_obstacle_dp
-)
-
 if test "$PHASE" = full; then
   test -s "$STATE_DIR/smoke_jobs.tsv"
-  python - "$STATE_DIR/smoke_jobs.tsv" "$EXP_ROOT" <<'PY'
+  python - "$STATE_DIR/smoke_jobs.tsv" "$EXP_ROOT" "$MATRIX_SCOPE" <<'PY'
 import csv
 import json
 import pathlib
@@ -108,6 +130,7 @@ import sys
 
 jobs_path = pathlib.Path(sys.argv[1])
 root = pathlib.Path(sys.argv[2])
+matrix_scope = sys.argv[3]
 rows = list(csv.DictReader(jobs_path.open(), delimiter="\t"))
 expected = {
     "bc_usocket_latent": (1, "hoffman-lab", "hoffman-lab", "a40", 64),
@@ -117,6 +140,10 @@ expected = {
     "cotrain_obstacle_latent": (2, "rl2-lab", "rl2-lab", "l40s", 128),
     "cotrain_obstacle_dp": (2, "rl2-lab", "rl2-lab", "l40s", 128),
 }
+if matrix_scope == "bc":
+    expected = {arm: value for arm, value in expected.items() if arm.startswith("bc_")}
+else:
+    assert matrix_scope == "all"
 assert {row["arm"] for row in rows} == set(expected)
 for row in rows:
     arm = row["arm"]
@@ -191,7 +218,7 @@ for arm in "${ARMS[@]}"; do
       --job-name="${job_prefix}_${arm:0:16}" \
       --output="$EXP_ROOT/slurm/${PHASE}_${arm}_%j.out" \
       --error="$EXP_ROOT/slurm/${PHASE}_${arm}_%j.err" \
-      --export="ALL,ARM=$arm,MODE=$PHASE,GPUS_EXPECTED=$gpus,EXPECTED_HEAD=$EXPECTED_HEAD,EXPECTED_LAUNCHER_SHA=$EXPECTED_LAUNCHER_SHA,NORM_ARTIFACT=$norm_artifact,EXPECTED_NORM_SHA=$norm_sha,CLUSTER_PROFILE=skynet_world2" \
+      --export="ALL,ARM=$arm,MODE=$PHASE,GPUS_EXPECTED=$gpus,EXPECTED_HEAD=$EXPECTED_HEAD,EXPECTED_LAUNCHER_SHA=$EXPECTED_LAUNCHER_SHA,NORM_ARTIFACT=$norm_artifact,EXPECTED_NORM_SHA=$norm_sha,CLUSTER_PROFILE=skynet_world2,FLOW_TRANSFER_REPO=$REPO,FLOW_TRANSFER_EXP_ROOT=$EXP_ROOT,EXPECTED_ENV_SHA=$EXPECTED_ENV_SHA" \
       "$LAUNCHER"
   )
   job_id=${job_id%%;*}
@@ -201,4 +228,5 @@ for arm in "${ARMS[@]}"; do
 done
 
 date --iso-8601=seconds > "$MARKER"
-printf '%s matrix submitted; full jobs are never chained automatically.\n' "$PHASE"
+printf '%s %s matrix submitted; full jobs are never chained automatically.\n' \
+  "$PHASE" "$MATRIX_SCOPE"

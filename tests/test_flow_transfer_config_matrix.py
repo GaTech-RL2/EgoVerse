@@ -570,6 +570,26 @@ def test_matrix_submit_helper_is_six_arm_smoke_gated_and_world2_safe() -> None:
     assert "full jobs are never chained automatically" in helper
 
 
+def test_matrix_submit_helper_can_select_bc_only_without_cotrain_submission() -> None:
+    helper = (
+        Path(__file__).parents[1]
+        / "scripts"
+        / "train"
+        / "submit_flow_transfer_direct_dense_matrix_when_ready.sh"
+    ).read_text()
+
+    assert "MATRIX_SCOPE=${MATRIX_SCOPE:-all}" in helper
+    assert 'case "$MATRIX_SCOPE" in' in helper
+    assert "flow_transfer_direct_dense_obstacle3k_bc_skynet_normfix_20260827" in helper
+    assert "RESOURCE_SPECS=('hoffman-lab hoffman-lab a40 1 96G')" in helper
+    assert 'matrix_scope = sys.argv[3]' in helper
+    assert 'if matrix_scope == "bc":' in helper
+    assert 'if arm.startswith("bc_")' in helper
+    assert 'matrix_scope\t%s' in helper
+    assert "FLOW_TRANSFER_REPO=$REPO" in helper
+    assert "FLOW_TRANSFER_EXP_ROOT=$EXP_ROOT" in helper
+
+
 def test_pace_cotrain_helper_is_world1_batch64_per_domain_and_smoke_gated() -> None:
     repo_root = Path(__file__).parents[1]
     matrix = (
