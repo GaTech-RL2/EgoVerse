@@ -1,7 +1,8 @@
 #!/bin/bash
 # Resource requests are supplied by sbatch. The default Skynet profile uses
-# one A40 for BC and two L40S for obstacle cotrain. The PACE profile is
-# cotrain-only and uses one typed A100 or H200 while preserving global batch.
+# one A40 for BC and two L40S for obstacle cotrain. The PACE profile uses one
+# typed A100 or H200 for cotrain or ChainGripper-only BC while preserving the
+# audited global batch.
 # This file is shared by smoke and full jobs.
 
 set -Eeuo pipefail
@@ -110,6 +111,12 @@ esac
 
 if test "$CLUSTER_PROFILE" = pace_world1; then
   case "$ARM" in
+    bc_chain_latent)
+      BASE_WANDB_ID=ft_bc_chain_obstacle3k_latent_dense_m96_s42_world1_pace_normfix_20260827
+      ;;
+    bc_chain_dp)
+      BASE_WANDB_ID=ft_bc_chain_obstacle3k_dp_s42_world1_pace_normfix_20260827
+      ;;
     cotrain_obstacle_latent)
       BASE_WANDB_ID=ft_cotrain_obstacle3k_latent_dense_m96_s42_world1_pace_normfix_20260826
       ;;
@@ -117,7 +124,7 @@ if test "$CLUSTER_PROFILE" = pace_world1; then
       BASE_WANDB_ID=ft_cotrain_obstacle3k_dp_s42_world1_pace_normfix_20260826
       ;;
     *)
-      printf 'PACE profile is cotrain-only; unsupported ARM=%s\n' "$ARM" >&2
+      printf 'PACE profile supports cotrain and ChainGripper BC only; unsupported ARM=%s\n' "$ARM" >&2
       exit 64
       ;;
   esac

@@ -604,7 +604,7 @@ def test_pace_cotrain_helper_is_world1_batch64_per_domain_and_smoke_gated() -> N
     ).read_text()
 
     assert "pace_world1" in matrix
-    assert "PACE profile is cotrain-only" in matrix
+    assert "PACE profile supports cotrain and ChainGripper BC only" in matrix
     assert "64 // expected_gpus if cotrain else 64" in matrix
     assert "64 / GPUS_EXPECTED" in matrix
     assert "FLOW_TRANSFER_U_DATA" in matrix
@@ -629,6 +629,47 @@ def test_pace_cotrain_helper_is_world1_batch64_per_domain_and_smoke_gated() -> N
     assert 'validation["status"] == "PASS"' in helper
     assert "full jobs are never chained automatically" in helper
     assert "--account=rl2-dxu" not in helper
+
+
+def test_pace_chain_bc_helper_is_obstacle_only_batch64_and_credit_capped() -> None:
+    repo_root = Path(__file__).parents[1]
+    matrix = (
+        repo_root / "scripts" / "train" / "flow_transfer_direct_dense_matrix.sbatch"
+    ).read_text()
+    helper = (
+        repo_root
+        / "scripts"
+        / "train"
+        / "submit_flow_transfer_pace_chain_bc_when_ready.sh"
+    ).read_text()
+
+    assert "bc_chain_latent)" in matrix
+    assert "bc_chain_dp)" in matrix
+    assert "world1_pace_normfix_20260827" in matrix
+    assert "PACE profile supports cotrain and ChainGripper BC only" in matrix
+
+    assert "ARMS=(bc_chain_latent bc_chain_dp)" in helper
+    assert "bc_usocket" not in helper
+    assert "cotrain_obstacle" not in helper
+    assert "PARTITION=gpu-a100" in helper
+    assert "GPU_CONSTRAINT=A100-80GB" in helper
+    assert "SMOKE_HOURS=2" in helper
+    assert "FULL_HOURS=30" in helper
+    assert "A100_CREDITS_PER_GPU_HOUR=0.276884" in helper
+    assert "BC_MAX_TOTAL_CREDITS=20.0" in helper
+    assert "cost = 2 * (smoke_hours + full_hours) * rate" in helper
+    assert "assert cost <= cap" in helper
+    assert "--no-requeue" in helper
+    assert "--signal" not in helper
+    assert "--cpus-per-task=8" in helper
+    assert "--mem=96G" in helper
+    assert "trainer.max_steps=3200" in matrix
+    assert "trainer.val_check_interval=1000" in matrix
+    assert "trainer.limit_val_batches=1" in matrix
+    assert 'validation["status"] == "PASS"' in helper
+    assert 'validation["total_global_batch"] == 64' in helper
+    assert 'validation["validation_enabled"] is True' in helper
+    assert "full jobs are never chained automatically" in helper
 
 
 def test_matrix_requeue_selects_newest_recovery_checkpoint() -> None:
