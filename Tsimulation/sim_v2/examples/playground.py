@@ -137,6 +137,31 @@ def _agent_state(env) -> tuple[str, bool]:
     return "", False
 
 
+def _write_aligned_step(
+    writer: ZarrDemoWriter,
+    *,
+    pre_obs: dict[str, np.ndarray],
+    action: np.ndarray,
+    reward: float,
+) -> None:
+    """Write ``state[t]`` before ``action[t]`` and its post-step reward."""
+    act = np.asarray(action, dtype=np.float64).reshape(-1)
+    writer.add_step(
+        image=pre_obs["image"],
+        pusher_obs_pose=np.concatenate(
+            [pre_obs["agent_pos"], pre_obs["agent_angle"]]
+        ),
+        object_obs_pose=pre_obs["object_pose"],
+        pusher_cmd_pose=np.array(
+            [act[0], act[1], act[2] if act.size >= 3 else 0.0],
+            dtype=np.float64,
+        ),
+        action=act,
+        reward=reward,
+        goal_pose=pre_obs["goal_pose"],
+    )
+
+
 def _draw_space(surf, env, engaged: bool) -> None:
     """Draw every body in the space, so agent-owned extras are visible."""
     pusher_bodies = {id(env._pusher_body)}
@@ -434,6 +459,11 @@ def main() -> int:
                 "control_gap_mode": gaps[gi],
             },
             image_size=args.image_size,
+            metadata_override={
+                "transition_schema_version": 1,
+                "observation_alignment": "pre_step",
+                "reward_alignment": "post_step_result_of_action_same_index",
+            },
         )
         writer_key[0] = key
         return writer
@@ -807,13 +837,13 @@ def main() -> int:
             "grip": commanded_grip,
         }
         act = np.array([chan[c] for c in spec], dtype=np.float64)
-        dim = len(spec)
+        pre_obs = env._get_obs()
 
         if simulation_frozen:
             # Waiting is a true causal boundary: mouse input may update the
             # prospective XY command, but neither physics nor the pusher
             # advances until the same left click starts recording.
-            obs = env._get_obs()
+            obs = pre_obs
             reward = 0.0
             info = {}
             coverage = 0.0
@@ -828,18 +858,11 @@ def main() -> int:
                 env.SUCCESS_THRESHOLD
             )
         if recording and writer is not None:
-            px, py = env.agent_pos
-            ox, oy, oth = env.object_pose
-            writer.add_step(
-                image=obs["image"]
-                if "image" in obs
-                else to_image_obs(pygame.display.get_surface(), args.image_size),
-                pusher_obs_pose=np.array([px, py, env.pusher_angle]),
-                object_obs_pose=np.array([ox, oy, oth]),
-                pusher_cmd_pose=np.array([act[0], act[1], act[2] if dim >= 3 else 0.0]),
+            _write_aligned_step(
+                writer,
+                pre_obs=pre_obs,
                 action=act,
                 reward=reward,
-                goal_pose=np.array(env.goal_pose),
             )
             steps_rec += 1
         # Auto-stop on success so a solved demo is never lost by forgetting to

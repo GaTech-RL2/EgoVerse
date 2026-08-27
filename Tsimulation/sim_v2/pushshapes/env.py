@@ -871,8 +871,15 @@ class PushShapesEnv(gym.Env):
         obstacle_polys: list[Polygon],
         object_pos: tuple[float, float],
     ) -> tuple[float, float]:
-        m = self.SPAWN_MARGIN
         radius = pusher_radius(self.pusher_shape) + 5.0
+        # The old sampler used SPAWN_MARGIN for the arena boundary but the
+        # full pusher radius only for obstacles.  That is harmless for the
+        # compact U-socket (radius + pad < SPAWN_MARGIN), but allowed the open
+        # ChainGripper to begin through a wall.  Its first contact projection
+        # could then exceed the normal 200-unit/s servo limit.  Use the larger
+        # clearance for both boundaries and obstacles so frame zero is already
+        # a physically valid pose.
+        m = max(self.SPAWN_MARGIN, radius)
         for _ in range(_SPAWN_MAX_TRIES):
             x = float(self._np_random.uniform(m, self.WORLD_SIZE - m))
             y = float(self._np_random.uniform(m, self.WORLD_SIZE - m))
