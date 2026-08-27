@@ -610,6 +610,29 @@ def test_pace_cotrain_helper_is_world1_batch64_per_domain_and_smoke_gated() -> N
     assert "--account=rl2-dxu" not in helper
 
 
+def test_pace_h200_full48_promoter_preserves_smoke_source_and_hard_caps() -> None:
+    promoter = (
+        Path(__file__).parents[1]
+        / "scripts"
+        / "train"
+        / "promote_flow_transfer_pace_h200_full48.sh"
+    ).read_text()
+
+    assert "c3c6da8576212b16a31724ab6d1826b9513f51c7" in promoter
+    assert "2ab20126bb89060a9f438a4b60392390c52a7bc7a96cfb42561068a67ce96912" in promoter
+    assert "b3f35ae2477fd0028fe6e3e216d2d911f4d7b3af5fb9b762ae62a23fb4a36dcd" in promoter
+    assert "TIME_LIMIT=2-00:00:00" in promoter
+    assert promoter.count("--no-requeue") >= 2
+    assert "--signal=" not in promoter
+    assert "--requeue" not in promoter
+    assert 'validation["status"] == "PASS"' in promoter
+    assert 'validation["global_step"] == 3_200' in promoter
+    assert 'validation["gradient_clipping_enabled"] is False' in promoter
+    assert 'validation["total_global_batch"] == 128' in promoter
+    assert "cotrain_obstacle_latent cotrain_obstacle_dp" in promoter
+    assert "FULLS_SUBMITTED" in promoter
+
+
 def test_matrix_requeue_selects_newest_recovery_checkpoint() -> None:
     repo_root = Path(__file__).parents[1]
     train_hydra = (repo_root / "egomimic" / "trainHydra.py").read_text()
