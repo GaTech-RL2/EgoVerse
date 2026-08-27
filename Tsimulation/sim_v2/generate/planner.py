@@ -27,21 +27,29 @@ def wrap(a: float) -> float:
     return (a + math.pi) % (2 * math.pi) - math.pi
 
 
-def limb_tip(env, obj_shape: str = "T") -> tuple[float, float]:
-    """World point of the object's most distal limb -- the graspable feature.
-
-    The T spans 120 but its limbs are 30 wide, so anything with jaws has to
-    aim at a limb; aiming at the centroid drives them into the junction.
-    """
+def limb_points(env, obj_shape: str = "T") -> list[tuple[float, float]]:
+    """World centres of every limb -- all the candidate graspable features."""
     ox, oy, oth = env.object_pose
     ct, st = math.cos(oth), math.sin(oth)
-    best = None
-    for cx, cy, _w, _h in SHAPES[obj_shape]:
-        wx, wy = ox + cx * ct - cy * st, oy + cx * st + cy * ct
-        d = math.hypot(wx - ox, wy - oy)
-        if best is None or d > best[0]:
-            best = (d, wx, wy)
-    return best[1], best[2]
+    return [(ox + cx * ct - cy * st, oy + cx * st + cy * ct)
+            for cx, cy, _w, _h in SHAPES[obj_shape]]
+
+
+def limb_tip(env, obj_shape: str = "T", rng=None) -> tuple[float, float]:
+    """A graspable limb: the most distal one, or a RANDOM one if `rng` given.
+
+    Always choosing the most distal limb makes every seed the same manoeuvre,
+    which is the root of the redundancy this module now works against: 854
+    generated demos had an intrinsic dimensionality of 5 because they all
+    descended from one trajectory shape.
+    """
+    pts = limb_points(env, obj_shape)
+    ox, oy, _ = env.object_pose
+    if rng is not None and len(pts) > 1:
+        wx, wy = pts[int(rng.integers(len(pts)))]
+    else:
+        wx, wy = max(pts, key=lambda q: math.hypot(q[0] - ox, q[1] - oy))
+    return wx, wy
 
 
 def _step_toward(cur, tgt, speed):
@@ -64,9 +72,21 @@ class Plan:
     steps: int = 0
 
 
-def _grasp_planner(env, max_steps: int, close_at: float = 0.0) -> Plan:
-    """Reach a limb, close, carry to the goal pose, for anything that grasps."""
+def _grasp_planner(env, max_steps: int, close_at: float = 0.0, rng=None) -> Plan:
+    """Reach a limb, close, carry to the goal pose, for anything that grasps.
+
+    Every free parameter is SAMPLED when `rng` is supplied -- which limb, how
+    fast to approach, how long to stay open, how hard to servo the carry.
+    A deterministic planner emits one trajectory shape however many times it
+    is run, and every retarget inherits that shape.
+    """
     acts = []
+    r = rng
+    approach_speed = float(r.uniform(2.0, 4.5)) if r is not None else 3.0
+    open_for = int(r.integers(18, 46)) if r is not None else 30
+    carry_gain = float(r.uniform(2.0, 4.0)) if r is not None else 3.0
+    ang_gain = float(r.uniform(0.02, 0.05)) if r is not None else 0.03
+    target = None
     held = lambda: bool(getattr(env.agent, "grasped", False)
                         or getattr(env.agent, "attached", False)
                         or getattr(env.agent, "mode", "") == "clamped")
@@ -77,14 +97,17 @@ def _grasp_planner(env, max_steps: int, close_at: float = 0.0) -> Plan:
         gx, gy, gth = env.goal_pose
         px, py = env.agent_pos
         if not held():
-            lx, ly = limb_tip(env)
-            tx, ty = _step_toward((px, py), (lx, ly), 3.0)
+            if target is None:
+                target = limb_tip(env, rng=r)      # sampled limb, held fixed
+            lx, ly = target
+            tx, ty = _step_toward((px, py), (lx, ly), approach_speed)
             ang = math.atan2(ly - oy, lx - ox) + math.pi / 2
-            grip = 1.0 if t > 30 else 0.0          # open while approaching
+            grip = 1.0 if t > open_for else 0.0
         else:
-            tx = px + float(np.clip(gx - ox, -3.0, 3.0))
-            ty = py + float(np.clip(gy - oy, -3.0, 3.0))
-            ang = env.pusher_angle + float(np.clip(wrap(gth - oth), -0.03, 0.03))
+            target = None
+            tx = px + float(np.clip(gx - ox, -carry_gain, carry_gain))
+            ty = py + float(np.clip(gy - oy, -carry_gain, carry_gain))
+            ang = env.pusher_angle + float(np.clip(wrap(gth - oth), -ang_gain, ang_gain))
             grip = 1.0
         a = np.array([tx, ty, ang, grip][:n], dtype=np.float64)
         acts.append(a)
@@ -95,12 +118,17 @@ def _grasp_planner(env, max_steps: int, close_at: float = 0.0) -> Plan:
     return Plan(acts, {}, False, best, max_steps)
 
 
-def _push_planner(env, max_steps: int) -> Plan:
+def _push_planner(env, max_steps: int, rng=None) -> Plan:
     """Stage behind the object, then drive it goalward. For pure pushers."""
     acts = []
     n = len(env.agent.action_spec)
     pushing = False
     best = 0.0
+    r = rng
+    standoff = float(r.uniform(44.0, 74.0)) if r is not None else 56.0
+    stage_speed = float(r.uniform(3.5, 6.5)) if r is not None else 5.0
+    kp = float(r.uniform(0.04, 0.09)) if r is not None else 0.06
+    vmax = float(r.uniform(2.5, 4.5)) if r is not None else 3.5
     for t in range(max_steps):
         ox, oy, oth = env.object_pose
         gx, gy, gth = env.goal_pose
@@ -116,16 +144,16 @@ def _push_planner(env, max_steps: int) -> Plan:
         nx, ny = -uy, ux
         dth = wrap(gth - oth)
         lever = float(np.clip(dth * 34.0, -30.0, 30.0))
-        sx = ox - ux * 56.0 + nx * lever
-        sy = oy - uy * 56.0 + ny * lever
+        sx = ox - ux * standoff + nx * lever
+        sy = oy - uy * standoff + ny * lever
         if not pushing:
             if math.hypot(px - sx, py - sy) < 10.0:
                 pushing = True                     # latch, never re-stage
-            tx, ty = _step_toward((px, py), (sx, sy), 5.0)
+            tx, ty = _step_toward((px, py), (sx, sy), stage_speed)
         else:
             if math.hypot(px - ox, py - oy) > 130.0:
                 pushing = False
-            v = float(np.clip(d * 0.06, 0.0, 3.5))  # P-control: no overshoot
+            v = float(np.clip(d * kp, 0.0, vmax))  # P-control: no overshoot
             # Track the moving lever point rather than driving blindly along
             # u, so the contact stays off-centre by the amount the angle error
             # calls for.
@@ -150,22 +178,31 @@ def plan_for(agent: str) -> Callable:
     return _grasp_planner if agent in GRASPERS else _push_planner
 
 
-def generate(agent: str, n: int, *, object_shape: str = "T",
+def generate(agent: str, n: int, *, object_shape: str | None = "T",
              obstacle_level: int = 0, max_steps: int = 1200,
-             seed0: int = 0) -> list[Plan]:
+             seed0: int = 0, randomize: bool = True) -> list[Plan]:
     """Run the planner over `n` random layouts, returning ONLY successes.
 
-    Filtering on the env's own success check is the point: the planners are
-    scripts, not policies, and their raw attempts include plenty of failures.
+    `object_shape=None` samples T/U/Z, and `randomize` samples the planner's
+    free parameters and the initial agent pose per attempt. Both exist because
+    seed DIVERSITY multiplies through every downstream retarget -- fifteen
+    copies of one manoeuvre cannot be rescued by generating more of them.
     """
     out = []
+    shapes = [object_shape] if object_shape else list(SHAPES)
     for i in range(n):
-        env = PushShapesEnv(object_shape=object_shape, pusher_shape=agent,
+        rng = np.random.default_rng(seed0 + i) if randomize else None
+        shp = shapes[int(rng.integers(len(shapes)))] if rng is not None else shapes[0]
+        env = PushShapesEnv(object_shape=shp, pusher_shape=agent,
                             obstacle_level=obstacle_level)
         env.reset(seed=seed0 + i)
         env._skip_obs_render = True      # 3.3x faster; only coverage is read
+        if rng is not None:
+            # Vary the initial effector pose. Leaving it at the reset default
+            # gave 854 episodes with agent_angle == 0.000 in every one.
+            env.set_state(agent_angle=float(rng.uniform(-math.pi, math.pi)))
         init = env.get_episode_init()
-        p = plan_for(agent)(env, max_steps)
+        p = plan_for(agent)(env, max_steps, rng=rng)
         p.init = init
         if p.success:
             out.append(p)

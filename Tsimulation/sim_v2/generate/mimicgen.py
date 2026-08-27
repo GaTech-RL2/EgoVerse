@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from Tsimulation.sim_v2.generate.diversity import NoveltyFilter, perturb_actions
 from Tsimulation.sim_v2.pushshapes.env import PushShapesEnv
 
 
@@ -60,6 +61,10 @@ class SourceDemo:
 class GenResult:
     demos: list = field(default_factory=list)
     attempts: int = 0
+    #: successes refused for being near-duplicates of an accepted demo
+    rejected: int = 0
+    #: PCs needed for 95% of object-path variance -- the redundancy metric
+    intrinsic_dim: int = 0
 
     @property
     def rate(self) -> float:
@@ -134,7 +139,8 @@ def retarget(demo: SourceDemo, new_object: tuple, new_goal: tuple) -> np.ndarray
 
 
 def replay(demo: SourceDemo, new_object: tuple, new_goal: tuple,
-           new_agent: tuple | None = None, extra_steps: int = 120):
+           new_agent: tuple | None = None, extra_steps: int = 120,
+           rng=None, perturb: bool = False):
     """Retarget and roll out.
 
     Returns (success, coverage, actions_played, start_pos). The START POSITION
@@ -155,24 +161,32 @@ def replay(demo: SourceDemo, new_object: tuple, new_goal: tuple,
     env.set_state(object_pose=new_object, goal_pose=new_goal,
                   agent_pos=(float(start[0]), float(start[1])))
     acts = retarget(demo, new_object, new_goal)
+    if perturb and rng is not None:
+        # Bend the trajectory OFF the rigid-transform manifold. Without this a
+        # retarget is an isometry of its source, so the whole dataset inherits
+        # the source's intrinsic dimensionality no matter how many are made.
+        acts = perturb_actions(acts, rng)
     best = 0.0
     played = []
+    path = []
     for a in acts:
         played.append(a)
         _o, _r, term, _tr, info = env.step(np.asarray(a, dtype=np.float64))
+        path.append(env.object_pose[:2])
         best = max(best, info["coverage"])
         if term:
-            return True, best, np.array(played), start
+            return True, best, np.array(played), start, np.array(path)
     # Let the last command settle -- the retargeted stroke can land slightly
     # short of the threshold even when the pose is essentially right.
     hold = acts[-1]
     for _ in range(extra_steps):
         played.append(hold)
         _o, _r, term, _tr, info = env.step(np.asarray(hold, dtype=np.float64))
+        path.append(env.object_pose[:2])
         best = max(best, info["coverage"])
         if term:
-            return True, best, np.array(played), start
-    return False, best, np.array(played), start
+            return True, best, np.array(played), start, np.array(path)
+    return False, best, np.array(played), start, np.array(path)
 
 
 def sample_layout(rng, world: float = 512.0, margin: float = 110.0):
@@ -188,19 +202,37 @@ def sample_layout(rng, world: float = 512.0, margin: float = 110.0):
     return o, g
 
 
-def generate(sources: list, n_attempts: int, seed: int = 0) -> GenResult:
-    """Expand `sources` into new successful demos over random layouts."""
+def generate(sources: list, n_attempts: int, seed: int = 0, *,
+             perturb: bool = True, min_novelty: float = 60.0) -> GenResult:
+    """Expand `sources` into new successful demos over random layouts.
+
+    Two things separate this from "replay until you have N successes":
+
+      * PERTURBATION moves each attempt off its source's isometry class.
+      * The NOVELTY FILTER rejects a success that is too close, in object-path
+        shape, to one already accepted. Accepting every success is what made
+        the first dataset 854 demos spanning a 5-dimensional manifold; this
+        turns the loop into coverage-seeking, and `result.rejected` reports
+        how much redundancy was refused.
+    """
     rng = np.random.default_rng(seed)
     res = GenResult(attempts=0)
+    novel = NoveltyFilter(min_distance=min_novelty)
     for i in range(n_attempts):
         src = sources[i % len(sources)]
         obj, goal = sample_layout(rng)
         res.attempts += 1
-        ok, cov, played, start = replay(src, obj, goal)
-        if ok:
-            res.demos.append(SourceDemo(
-                agent=src.agent, actions=played, object_pose=obj,
-                goal_pose=goal, agent_pos=(float(start[0]), float(start[1])),
-                object_shape=src.object_shape,
-                obstacle_level=src.obstacle_level))
+        ok, cov, played, start, path = replay(src, obj, goal, rng=rng,
+                                              perturb=perturb)
+        if not ok:
+            continue
+        if not novel.offer(path):
+            continue
+        res.demos.append(SourceDemo(
+            agent=src.agent, actions=played, object_pose=obj,
+            goal_pose=goal, agent_pos=(float(start[0]), float(start[1])),
+            object_shape=src.object_shape,
+            obstacle_level=src.obstacle_level))
+    res.rejected = novel.rejected
+    res.intrinsic_dim = novel.intrinsic_dim()
     return res
