@@ -1,7 +1,8 @@
 #!/bin/bash
-# Resource requests are supplied by sbatch: BC uses one A40 on hoffman-lab,
-# while obstacle cotrain uses two L40S on rl2-lab. This file is shared by
-# smoke and full jobs.
+# Resource requests are supplied by sbatch. The default Skynet profile uses
+# one A40 for BC and two L40S for obstacle cotrain. The PACE profile is
+# cotrain-only and uses one typed A100 or H200 while preserving global batch.
+# This file is shared by smoke and full jobs.
 
 set -Eeuo pipefail
 
@@ -13,13 +14,32 @@ EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?submit with EXPECTED_LAUNCHER_SHA
 NORM_ARTIFACT=${NORM_ARTIFACT:?submit with an exact norm_stats.json path}
 EXPECTED_NORM_SHA=${EXPECTED_NORM_SHA:?submit with the exact norm artifact SHA256}
 
-REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-direct-dense-obstacle-dp-schedulefix-20260826
-PY_ENV=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv
-EXPECTED_ENV_SHA=8fd1504c955756adf8167f7bd34fc1a09cb844d268898b3ac30693e99ac60e87
-EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_direct_dense_obstacle3k_cotrain_world2_normfix_20260826
+CLUSTER_PROFILE=${CLUSTER_PROFILE:-skynet_world2}
+case "$CLUSTER_PROFILE" in
+  skynet_world2)
+    REPO=${FLOW_TRANSFER_REPO:-/coc/flash7/paphiwetsa3/worktrees/flow-transfer-direct-dense-obstacle-dp-schedulefix-20260826}
+    PY_ENV=${FLOW_TRANSFER_PY_ENV:-/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv}
+    EXPECTED_ENV_SHA=${EXPECTED_ENV_SHA:-8fd1504c955756adf8167f7bd34fc1a09cb844d268898b3ac30693e99ac60e87}
+    EXP_ROOT=${FLOW_TRANSFER_EXP_ROOT:-/coc/flash7/paphiwetsa3/experiments/flow_transfer_direct_dense_obstacle3k_cotrain_world2_normfix_20260826}
+    U_DATA=${FLOW_TRANSFER_U_DATA:-/coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean}
+    export CHAIN_OBSTACLE_ROOT=${CHAIN_OBSTACLE_ROOT:-/coc/flash7/paphiwetsa3/experiments/chain_gripper_obstacle_mimicgen_128_20260826/output_3000_balanced_v1}
+    SLURM_BIN=${SLURM_BIN:-/opt/slurm/Ubuntu-20.04/24.11.0/bin}
+    ;;
+  pace_world1)
+    REPO=${FLOW_TRANSFER_REPO:?PACE profile requires FLOW_TRANSFER_REPO}
+    PY_ENV=${FLOW_TRANSFER_PY_ENV:?PACE profile requires FLOW_TRANSFER_PY_ENV}
+    EXPECTED_ENV_SHA=${EXPECTED_ENV_SHA:?PACE profile requires EXPECTED_ENV_SHA}
+    EXP_ROOT=${FLOW_TRANSFER_EXP_ROOT:?PACE profile requires FLOW_TRANSFER_EXP_ROOT}
+    U_DATA=${FLOW_TRANSFER_U_DATA:?PACE profile requires FLOW_TRANSFER_U_DATA}
+    export CHAIN_OBSTACLE_ROOT=${CHAIN_OBSTACLE_ROOT:?PACE profile requires CHAIN_OBSTACLE_ROOT}
+    SLURM_BIN=${SLURM_BIN:-/opt/slurm/current/bin}
+    ;;
+  *)
+    printf 'Unknown CLUSTER_PROFILE=%s\n' "$CLUSTER_PROFILE" >&2
+    exit 64
+    ;;
+esac
 LAUNCHER=$REPO/scripts/train/flow_transfer_direct_dense_matrix.sbatch
-U_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
-export CHAIN_OBSTACLE_ROOT=/coc/flash7/paphiwetsa3/experiments/chain_gripper_obstacle_mimicgen_128_20260826/output_3000_balanced_v1
 OBSTACLE_AUDIT=$CHAIN_OBSTACLE_ROOT/audit_report.json
 OBSTACLE_MANIFEST=$CHAIN_OBSTACLE_ROOT/subset_manifest.json
 EXPECTED_OBSTACLE_AUDIT_SHA=1f7f341b2929b1f0d4e9178cc832fd0818c82c2d6086c644634bc4b56f4978dc
@@ -30,7 +50,6 @@ EXPECTED_U_SHA=fb6e107b585d6a5fae9e9ea4186f441b625a680a36d5691469d9c4125cd9a0fa
 EXPECTED_U_TRAIN_FRAMES=521676
 EXPECTED_CHAIN_TRAIN_FRAMES=1272946
 WANDB_GROUP=flow_transfer_direct_dense_obstacle3k_normfix_20260826
-SLURM_BIN=/opt/slurm/Ubuntu-20.04/24.11.0/bin
 export PATH=$SLURM_BIN:$PATH
 SRUN=$SLURM_BIN/srun
 
@@ -88,6 +107,33 @@ case "$ARM" in
     exit 64
     ;;
 esac
+
+if test "$CLUSTER_PROFILE" = pace_world1; then
+  case "$ARM" in
+    cotrain_obstacle_latent)
+      BASE_WANDB_ID=ft_cotrain_obstacle3k_latent_dense_m96_s42_world1_pace_normfix_20260826
+      ;;
+    cotrain_obstacle_dp)
+      BASE_WANDB_ID=ft_cotrain_obstacle3k_dp_s42_world1_pace_normfix_20260826
+      ;;
+    *)
+      printf 'PACE profile is cotrain-only; unsupported ARM=%s\n' "$ARM" >&2
+      exit 64
+      ;;
+  esac
+  EXPECTED_GPU_MODEL=${PACE_GPU_MODEL:?PACE profile requires PACE_GPU_MODEL=A100 or H200}
+  EXPECTED_PARTITION=${PACE_PARTITION:?PACE profile requires PACE_PARTITION=gpu-a100 or gpu-h200}
+  EXPECTED_ACCOUNT=gts-dxu345-rl2
+  test "$GPUS_EXPECTED" = 1
+  case "$EXPECTED_GPU_MODEL:$EXPECTED_PARTITION" in
+    A100:gpu-a100 | H200:gpu-h200) ;;
+    *)
+      printf 'Mismatched PACE GPU/partition: %s / %s\n' \
+        "$EXPECTED_GPU_MODEL" "$EXPECTED_PARTITION" >&2
+      exit 64
+      ;;
+  esac
+fi
 
 if test "$ACTION_HORIZON" = 100; then
   EXPECTED_NORM_ARM=cotrain_obstacle_latent
@@ -169,7 +215,10 @@ validation = json.loads(validation_path.read_text())
 assert validation["status"] == "PASS"
 assert validation["arm"] == expected_arm
 assert validation["action_horizon"] == expected_horizon
-assert pathlib.Path(validation["artifact"]) == artifact_path
+# The validated artifact may be materialized on another cluster. Its immutable
+# content hash and semantic metadata remain authoritative; retain the original
+# absolute path in the copied sidecar as provenance.
+assert pathlib.Path(validation["artifact"]).name == artifact_path.name
 assert validation["sha256"] == expected_sha
 expected_active_sha = validation["active_minmax_sha256"]
 assert len(expected_active_sha) == 64
@@ -311,6 +360,23 @@ COMMON_OVERRIDES=(
   norm_stats.save_cache_dir=null
   "norm_stats.precomputed_norm_path=$NORM_ARTIFACT"
 )
+
+# Keep the cotrain global batch at 64 examples per embodiment on either the
+# original two-rank Skynet profile or the one-rank PACE profile.
+if [[ "$ARM" == cotrain_* ]]; then
+  test $((64 % GPUS_EXPECTED)) = 0
+  LOCAL_BATCH_PER_DOMAIN=$((64 / GPUS_EXPECTED))
+  COMMON_OVERRIDES+=(
+    "data.train_dataloader_params.pushshapes_sim_u_socket.batch_size=$LOCAL_BATCH_PER_DOMAIN"
+    "data.train_dataloader_params.pushshapes_sim_chain_gripper.batch_size=$LOCAL_BATCH_PER_DOMAIN"
+  )
+fi
+if [[ "$ARM" == bc_usocket_* || "$ARM" == cotrain_* ]]; then
+  COMMON_OVERRIDES+=(
+    "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$U_DATA"
+    "data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$U_DATA"
+  )
+fi
 
 if test "$MODE" = smoke; then
   COMMON_OVERRIDES+=(
@@ -513,7 +579,8 @@ assert all(
     for dataset in cfg.data.valid_datasets.values()
 )
 for domain in expected_domains:
-    expected_train_batch = 32 if cotrain else 64
+    assert not cotrain or 64 % expected_gpus == 0
+    expected_train_batch = 64 // expected_gpus if cotrain else 64
     assert cfg.data.train_dataloader_params[domain].batch_size == expected_train_batch
     assert cfg.data.valid_dataloader_params[domain].batch_size == 16
 global_batch_per_domain = {

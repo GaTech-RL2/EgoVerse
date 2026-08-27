@@ -191,7 +191,7 @@ for arm in "${ARMS[@]}"; do
       --job-name="${job_prefix}_${arm:0:16}" \
       --output="$EXP_ROOT/slurm/${PHASE}_${arm}_%j.out" \
       --error="$EXP_ROOT/slurm/${PHASE}_${arm}_%j.err" \
-      --export="ALL,ARM=$arm,MODE=$PHASE,GPUS_EXPECTED=$gpus,EXPECTED_HEAD=$EXPECTED_HEAD,EXPECTED_LAUNCHER_SHA=$EXPECTED_LAUNCHER_SHA,NORM_ARTIFACT=$norm_artifact,EXPECTED_NORM_SHA=$norm_sha" \
+      --export="ALL,ARM=$arm,MODE=$PHASE,GPUS_EXPECTED=$gpus,EXPECTED_HEAD=$EXPECTED_HEAD,EXPECTED_LAUNCHER_SHA=$EXPECTED_LAUNCHER_SHA,NORM_ARTIFACT=$norm_artifact,EXPECTED_NORM_SHA=$norm_sha,CLUSTER_PROFILE=skynet_world2" \
       "$LAUNCHER"
   )
   job_id=${job_id%%;*}
