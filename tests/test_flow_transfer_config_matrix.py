@@ -525,8 +525,10 @@ def test_obstacle_launchers_do_not_gate_excluded_clean_chain_data() -> None:
 
     assert "mode=norm_stats" in precompute
     assert "trainer.strategy=" not in precompute
-    assert 'if mode == "full":\n        assert not files' in matrix
-    assert 'assert mode == "smoke"\n    assert len(files) == 1' in matrix
+    assert 'if mode in {"full", "resume_full"}:\n        assert not files' in matrix
+    assert (
+        'assert mode in {"smoke", "resume_smoke"}\n    assert len(files) == 1'
+    ) in matrix
 
 
 def test_matrix_submit_helper_is_six_arm_smoke_gated_and_world2_safe() -> None:
@@ -619,8 +621,12 @@ def test_pace_h200_full48_promoter_preserves_smoke_source_and_hard_caps() -> Non
     ).read_text()
 
     assert "c3c6da8576212b16a31724ab6d1826b9513f51c7" in promoter
-    assert "2ab20126bb89060a9f438a4b60392390c52a7bc7a96cfb42561068a67ce96912" in promoter
-    assert "b3f35ae2477fd0028fe6e3e216d2d911f4d7b3af5fb9b762ae62a23fb4a36dcd" in promoter
+    assert (
+        "2ab20126bb89060a9f438a4b60392390c52a7bc7a96cfb42561068a67ce96912" in promoter
+    )
+    assert (
+        "b3f35ae2477fd0028fe6e3e216d2d911f4d7b3af5fb9b762ae62a23fb4a36dcd" in promoter
+    )
     assert "TIME_LIMIT=2-00:00:00" in promoter
     assert promoter.count("--no-requeue") >= 2
     assert "--signal=" not in promoter
@@ -651,3 +657,53 @@ def test_matrix_requeue_selects_newest_recovery_checkpoint() -> None:
     assert '"paths.output_dir=$RUN_DIR"' in matrix
     assert '"paths.work_dir=$REPO"' in matrix
     assert '--cfg job --resolve > "$RESOLVED_CONFIG"' in matrix
+
+
+def test_matrix_logs_dense_train_metrics_and_preserves_epoch_aggregates() -> None:
+    repo_root = Path(__file__).parents[1]
+    matrix = (
+        repo_root / "scripts" / "train" / "flow_transfer_direct_dense_matrix.sbatch"
+    ).read_text()
+    model = (repo_root / "egomimic" / "pl_utils" / "pl_model.py").read_text()
+
+    assert "++model.train_metrics_on_step=true" in matrix
+    assert "++model.train_metrics_on_epoch=true" in matrix
+    assert "trainer.log_every_n_steps=100" in matrix
+    assert "train_metrics_on_step: bool = False" in model
+    assert "train_metrics_on_epoch: bool = True" in model
+    assert (
+        'epoch_name = f"{name}_epoch" if self.train_metrics_on_step else name' in model
+    )
+    assert 'self._log_train_metric("Train/" + k, v)' in model
+    assert 'f"Optimizer/param_group_{i}_lr"' in model
+
+
+def test_pace_step_logging_swap_is_full_state_smoke_gated_and_fail_closed() -> None:
+    repo_root = Path(__file__).parents[1]
+    matrix = (
+        repo_root / "scripts" / "train" / "flow_transfer_direct_dense_matrix.sbatch"
+    ).read_text()
+    helper = (
+        repo_root / "scripts" / "train" / "swap_flow_transfer_pace_step_logging.sh"
+    ).read_text()
+    train_hydra = (repo_root / "egomimic" / "trainHydra.py").read_text()
+
+    assert "resume_smoke)" in matrix
+    assert "resume_full)" in matrix
+    assert "WANDB_RESUME=must" in matrix
+    assert 'COMMON_OVERRIDES+=("ckpt_path=$EXPLICIT_RESUME_CKPT")' in matrix
+    assert "weights_only=False" in train_hydra
+    assert 'ckpt_path=cfg.get("ckpt_path")' in train_hydra
+    assert 'assert result["resumed_steps"] == 200' in helper
+    assert 'assert result["validation_enabled"] is True' in helper
+    assert 'assert result["scheduler_last_epoch"] == result["global_step"]' in helper
+    assert "cp --reflink=auto --preserve=timestamps" in helper
+    assert 'chmod 444 "$destination"' in helper
+    assert '--dependency="$dependency"' in helper
+    assert "dependency=afterany:$parent" in helper
+    assert helper.count("--no-requeue") >= 3
+    assert "ORIGINAL_FULL_SECONDS=172800" in helper
+    assert "FULL_SAFETY_SECONDS=300" in helper
+    assert "STEP_LOGGING_RESUME_SMOKES_SUBMITTED" in helper
+    assert "STEP_LOGGING_RESUME_FULLS_SUBMITTED" in helper
+    assert "Continuation jobs are dependency-gated" in helper

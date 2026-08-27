@@ -7,12 +7,16 @@
 set -Eeuo pipefail
 
 ARM=${ARM:?submit with ARM}
-MODE=${MODE:?submit with MODE=smoke or MODE=full}
+MODE=${MODE:?submit with MODE=smoke, full, resume_smoke, or resume_full}
 GPUS_EXPECTED=${GPUS_EXPECTED:?submit with GPUS_EXPECTED}
 EXPECTED_HEAD=${EXPECTED_HEAD:?submit with EXPECTED_HEAD}
 EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?submit with EXPECTED_LAUNCHER_SHA}
 NORM_ARTIFACT=${NORM_ARTIFACT:?submit with an exact norm_stats.json path}
 EXPECTED_NORM_SHA=${EXPECTED_NORM_SHA:?submit with the exact norm artifact SHA256}
+EXPLICIT_RESUME_CKPT=${EXPLICIT_RESUME_CKPT:-}
+EXPECTED_RESUME_CKPT_SHA=${EXPECTED_RESUME_CKPT_SHA:-}
+EXPECTED_RESUME_GLOBAL_STEP=${EXPECTED_RESUME_GLOBAL_STEP:-}
+RESUME_PARENT_JOB_ID=${RESUME_PARENT_JOB_ID:-}
 
 CLUSTER_PROFILE=${CLUSTER_PROFILE:-skynet_world2}
 case "$CLUSTER_PROFILE" in
@@ -153,11 +157,34 @@ case "$MODE" in
     RUN_DIR=$EXP_ROOT/runs/${ARM}_seed42
     EXPECTED_MAX_STEPS=240000
     ;;
+  resume_smoke)
+    WANDB_ID=${BASE_WANDB_ID}_resume_smoke_job_${SLURM_JOB_ID}
+    RUN_DIR=$EXP_ROOT/resume_smokes/$ARM/job_${SLURM_JOB_ID}
+    EXPECTED_MAX_STEPS=$((EXPECTED_RESUME_GLOBAL_STEP + 200))
+    ;;
+  resume_full)
+    WANDB_ID=$BASE_WANDB_ID
+    RUN_DIR=$EXP_ROOT/runs/${ARM}_seed42
+    EXPECTED_MAX_STEPS=240000
+    ;;
   *)
     printf 'Unknown MODE=%s\n' "$MODE" >&2
     exit 64
     ;;
 esac
+if [[ "$MODE" == resume_* ]]; then
+  test -n "$EXPLICIT_RESUME_CKPT"
+  test -n "$EXPECTED_RESUME_CKPT_SHA"
+  test -n "$EXPECTED_RESUME_GLOBAL_STEP"
+  test -n "$RESUME_PARENT_JOB_ID"
+  test "$EXPECTED_RESUME_GLOBAL_STEP" -gt 0
+  test "$EXPECTED_RESUME_GLOBAL_STEP" -lt 240000
+else
+  test -z "$EXPLICIT_RESUME_CKPT"
+  test -z "$EXPECTED_RESUME_CKPT_SHA"
+  test -z "$EXPECTED_RESUME_GLOBAL_STEP"
+  test -z "$RESUME_PARENT_JOB_ID"
+fi
 PROVENANCE_DIR=$EXP_ROOT/provenance/$MODE/$ARM/job_${SLURM_JOB_ID}
 NORM_JOB_DIR=$(dirname "$(dirname "$(dirname "$NORM_ARTIFACT")")")
 NORM_VALIDATION=$NORM_JOB_DIR/validation.json
@@ -191,6 +218,47 @@ test -s "$NORM_ARTIFACT"
 test -s "$NORM_VALIDATION"
 test "$(stat -c '%a' "$NORM_ARTIFACT")" = 444
 test "$(sha256sum "$NORM_ARTIFACT" | awk '{print $1}')" = "$EXPECTED_NORM_SHA"
+
+if [[ "$MODE" == resume_* ]]; then
+  test "$RESUME_PARENT_JOB_ID" -eq "$RESUME_PARENT_JOB_ID"
+  test -s "$EXPLICIT_RESUME_CKPT"
+  test "$(stat -c '%a' "$EXPLICIT_RESUME_CKPT")" = 444
+  test "$(sha256sum "$EXPLICIT_RESUME_CKPT" | awk '{print $1}')" = "$EXPECTED_RESUME_CKPT_SHA"
+  "$PY_ENV/bin/python" - "$EXPLICIT_RESUME_CKPT" \
+    "$EXPECTED_RESUME_GLOBAL_STEP" <<'PY'
+import pathlib
+import sys
+
+import torch
+
+path = pathlib.Path(sys.argv[1])
+expected_step = int(sys.argv[2])
+checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+assert int(checkpoint["global_step"]) == expected_step
+assert checkpoint.get("state_dict")
+assert checkpoint.get("optimizer_states")
+assert checkpoint.get("lr_schedulers")
+assert int(checkpoint["lr_schedulers"][0]["last_epoch"]) == expected_step
+PY
+  if test "$MODE" = resume_full; then
+    parent_state=$(
+      "$SLURM_BIN/sacct" -nX -j "$RESUME_PARENT_JOB_ID" -o State -P |
+        sed -n '1{s/|.*//;p;}'
+    )
+    case "$parent_state" in
+      RUNNING | PENDING | CONFIGURING | COMPLETING | SUSPENDED)
+        printf 'Resume parent %s is still active: %s\n' \
+          "$RESUME_PARENT_JOB_ID" "$parent_state" >&2
+        exit 75
+        ;;
+      '')
+        printf 'No accounting state for resume parent %s\n' \
+          "$RESUME_PARENT_JOB_ID" >&2
+        exit 75
+        ;;
+    esac
+  fi
+fi
 
 "$PY_ENV/bin/python" - "$NORM_ARTIFACT" "$NORM_VALIDATION" \
   "$EXPECTED_NORM_SHA" "$EXPECTED_U_TRAIN_FRAMES" \
@@ -256,8 +324,12 @@ active_bytes = json.dumps(active, sort_keys=True, separators=(",", ":")).encode(
 assert hashlib.sha256(active_bytes).hexdigest() == expected_active_sha
 PY
 
-mkdir -p "$PROVENANCE_DIR" "$EXP_ROOT/runs" "$EXP_ROOT/smokes" "$(dirname "$RUN_DIR")"
-if test "${SLURM_RESTART_COUNT:-0}" = 0; then
+mkdir -p "$PROVENANCE_DIR" "$EXP_ROOT/runs" "$EXP_ROOT/smokes" \
+  "$EXP_ROOT/resume_smokes" "$EXP_ROOT/resumed_runs" "$(dirname "$RUN_DIR")"
+if test "$MODE" = resume_full && test "${SLURM_RESTART_COUNT:-0}" = 0; then
+  test -d "$RUN_DIR"
+  test "$(sed -n '1p' "$RUN_DIR/.owner_job_id")" = "$RESUME_PARENT_JOB_ID"
+elif test "${SLURM_RESTART_COUNT:-0}" = 0; then
   test ! -e "$RUN_DIR"
   mkdir "$RUN_DIR"
   printf '%s\n' "$SLURM_JOB_ID" > "$RUN_DIR/.owner_job_id"
@@ -303,6 +375,12 @@ copy_once_and_verify "$NORM_VALIDATION" "$PROVENANCE_DIR/norm_validation.json"
 environment_manifest > "$PROVENANCE_DIR/python_environment.txt"
 sha256sum "$PROVENANCE_DIR/python_environment.txt" > "$PROVENANCE_DIR/python_environment.sha256"
 sha256sum "$PROVENANCE_DIR/norm_stats.json" > "$PROVENANCE_DIR/norm_stats.sha256"
+if [[ "$MODE" == resume_* ]]; then
+  printf 'parent_job_id\t%s\ncheckpoint\t%s\ncheckpoint_sha256\t%s\nglobal_step\t%s\n' \
+    "$RESUME_PARENT_JOB_ID" "$EXPLICIT_RESUME_CKPT" \
+    "$EXPECTED_RESUME_CKPT_SHA" "$EXPECTED_RESUME_GLOBAL_STEP" \
+    > "$PROVENANCE_DIR/resume_identity.tsv"
+fi
 git -C "$REPO" log -1 --format=fuller > "$PROVENANCE_DIR/git_commit.txt"
 git -C "$REPO" status --porcelain=v1 --untracked-files=all > "$PROVENANCE_DIR/git_status.txt"
 $SLURM_BIN/scontrol show job -dd "$SLURM_JOB_ID" > "$PROVENANCE_DIR/slurm_job.txt"
@@ -332,7 +410,9 @@ export PYTHONPATH=$REPO
 export HYDRA_FULL_ERROR=1
 export PYTHONUNBUFFERED=1
 export WANDB_SILENT=true
-if test "${SLURM_RESTART_COUNT:-0}" = 0; then
+if test "$MODE" = resume_full; then
+  WANDB_RESUME=must
+elif test "${SLURM_RESTART_COUNT:-0}" = 0; then
   WANDB_RESUME=never
 else
   WANDB_RESUME=allow
@@ -359,6 +439,9 @@ COMMON_OVERRIDES=(
   norm_stats.sample_frac=1.0
   norm_stats.save_cache_dir=null
   "norm_stats.precomputed_norm_path=$NORM_ARTIFACT"
+  ++model.train_metrics_on_step=true
+  ++model.train_metrics_on_epoch=true
+  trainer.log_every_n_steps=100
 )
 
 # Keep the cotrain global batch at 64 examples per embodiment on either the
@@ -393,13 +476,30 @@ if test "$MODE" = smoke; then
     ++logger.csv.version=metrics
     ++logger.csv.flush_logs_every_n_steps=1
   )
+elif test "$MODE" = resume_smoke; then
+  COMMON_OVERRIDES+=(
+    "trainer.max_steps=$EXPECTED_MAX_STEPS"
+    trainer.limit_train_batches=1.0
+    trainer.val_check_interval=100
+    trainer.limit_val_batches=1
+    "callbacks.model_checkpoint.every_n_train_steps=$EXPECTED_MAX_STEPS"
+    callbacks.model_checkpoint.train_time_interval=null
+    callbacks.model_checkpoint.save_on_train_epoch_end=false
+    ++logger.csv._target_=lightning.pytorch.loggers.CSVLogger
+    "++logger.csv.save_dir=$RUN_DIR"
+    ++logger.csv.name=csv
+    ++logger.csv.version=metrics
+    ++logger.csv.flush_logs_every_n_steps=1
+  )
 fi
 
 # Select the newest recovery checkpoint by nanosecond mtime. This prefers a
 # fresh signal-written HPC checkpoint after normal preemption, but avoids
 # rolling back to a stale HPC file when a later hard failure leaves a newer
 # hourly last.ckpt.
-if test "${SLURM_RESTART_COUNT:-0}" != 0; then
+if [[ "$MODE" == resume_* ]]; then
+  COMMON_OVERRIDES+=("ckpt_path=$EXPLICIT_RESUME_CKPT")
+elif test "${SLURM_RESTART_COUNT:-0}" != 0; then
   shopt -s nullglob
   RESUME_CANDIDATES=("$RUN_DIR"/hpc_ckpt_*.ckpt)
   shopt -u nullglob
@@ -428,7 +528,8 @@ fi
 RESOLVED_CONFIG=$PROVENANCE_DIR/resolved_config.yaml
 python -m egomimic.trainHydra "${COMMON_OVERRIDES[@]}" --cfg job --resolve > "$RESOLVED_CONFIG"
 python - "$RESOLVED_CONFIG" "$ARM" "$MODE" "$GPUS_EXPECTED" \
-  "$WANDB_ID" "$NORM_ARTIFACT" "$WANDB_RESUME" "$RUN_DIR" "$REPO" <<'PY'
+  "$WANDB_ID" "$NORM_ARTIFACT" "$WANDB_RESUME" "$RUN_DIR" "$REPO" \
+  "$EXPLICIT_RESUME_CKPT" "$EXPECTED_RESUME_GLOBAL_STEP" <<'PY'
 import pathlib
 import sys
 
@@ -444,6 +545,8 @@ from omegaconf import OmegaConf
     wandb_resume,
     run_dir,
     repo,
+    resume_ckpt,
+    resume_global_step,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(path)
 model = cfg.model.robomimic_model
@@ -461,6 +564,7 @@ assert cfg.trainer.num_nodes == 1
 assert cfg.trainer.sync_batchnorm is True
 assert cfg.trainer.get("gradient_clip_val") is None
 assert cfg.trainer.accumulate_grad_batches == 1
+assert cfg.trainer.log_every_n_steps == 100
 assert cfg.launch_params.gpus_per_node == expected_gpus
 assert cfg.launch_params.nodes == 1
 assert cfg.logger.wandb.project == "pushshapes-flow-transfer"
@@ -472,6 +576,8 @@ assert cfg.norm_stats.sample_frac == 1.0
 assert cfg.norm_stats.save_cache_dir is None
 assert str(cfg.norm_stats.precomputed_norm_path) == norm_artifact
 assert cfg.model.enable_grad_norm is False
+assert cfg.model.train_metrics_on_step is True
+assert cfg.model.train_metrics_on_epoch is True
 assert cfg.model.optimizer.lr == 1.0e-4
 assert cfg.model.optimizer.weight_decay == 1.0e-4
 assert cfg.model.scheduler.max_steps == 240_000
@@ -479,6 +585,13 @@ assert cfg.model.scheduler.warmup_steps == 3_000
 assert cfg.model.scheduler.warmup_start_factor == 0.1
 assert cfg.model.scheduler.eta_min == 1.0e-5
 assert model._target_ == "egomimic.pipeline.algo.PipelineAlgo"
+if mode.startswith("resume_"):
+    assert str(cfg.ckpt_path) == resume_ckpt
+    assert int(resume_global_step) > 0
+else:
+    assert cfg.get("ckpt_path") is None
+    assert not resume_ckpt
+    assert not resume_global_step
 terminal = cfg.callbacks.terminal_checkpoint
 assert terminal._target_ == "lightning.pytorch.callbacks.ModelCheckpoint"
 assert str(terminal.dirpath).endswith("/checkpoints/final")
@@ -507,8 +620,20 @@ if mode == "smoke":
     assert cfg.logger.csv.name == "csv"
     assert cfg.logger.csv.version == "metrics"
     assert cfg.logger.csv.flush_logs_every_n_steps == 1
+elif mode == "resume_smoke":
+    assert cfg.trainer.max_steps == int(resume_global_step) + 200
+    assert cfg.trainer.limit_train_batches == 1.0
+    assert cfg.trainer.val_check_interval == 100
+    assert cfg.trainer.limit_val_batches == 1
+    assert cfg.callbacks.model_checkpoint.every_n_train_steps == cfg.trainer.max_steps
+    assert cfg.callbacks.model_checkpoint.train_time_interval is None
+    assert cfg.callbacks.model_checkpoint.save_on_train_epoch_end is False
+    assert cfg.logger.csv._target_ == "lightning.pytorch.loggers.CSVLogger"
+    assert cfg.logger.csv.name == "csv"
+    assert cfg.logger.csv.version == "metrics"
+    assert cfg.logger.csv.flush_logs_every_n_steps == 1
 else:
-    assert mode == "full"
+    assert mode in {"full", "resume_full"}
     assert cfg.trainer.max_steps == 240_000
     assert cfg.trainer.limit_train_batches == 1.0
     assert cfg.trainer.val_check_interval == 10_000
@@ -649,12 +774,50 @@ assert manifest["total_frames"] == 1272946
 assert manifest["target_per_level"] == 100
 PY
 
+if test "$MODE" = resume_full && test "${SLURM_RESTART_COUNT:-0}" = 0; then
+  parent_state=$(
+    "$SLURM_BIN/sacct" -nX -j "$RESUME_PARENT_JOB_ID" -o State -P |
+      sed -n '1{s/|.*//;p;}'
+  )
+  case "$parent_state" in
+    RUNNING | PENDING | CONFIGURING | COMPLETING | SUSPENDED | '')
+      printf 'Unsafe takeover state for parent %s: %s\n' \
+        "$RESUME_PARENT_JOB_ID" "$parent_state" >&2
+      exit 75
+      ;;
+  esac
+  TAKEOVER_LOCK=$RUN_DIR/.takeover_lock
+  if ! mkdir "$TAKEOVER_LOCK"; then
+    printf 'Takeover lock already exists: %s\n' "$TAKEOVER_LOCK" >&2
+    exit 73
+  fi
+  trap 'rmdir "$TAKEOVER_LOCK" 2>/dev/null || true' EXIT
+  test "$(sed -n '1p' "$RUN_DIR/.owner_job_id")" = "$RESUME_PARENT_JOB_ID"
+  if test -d "$RUN_DIR/.hydra"; then
+    cp -a "$RUN_DIR/.hydra" "$PROVENANCE_DIR/predecessor_hydra"
+  fi
+  if test ! -e "$RUN_DIR/.owner_history.tsv"; then
+    printf 'timestamp\told_job_id\tnew_job_id\tcheckpoint\tcheckpoint_sha256\n' \
+      > "$RUN_DIR/.owner_history.tsv"
+  fi
+  printf '%s\t%s\t%s\t%s\t%s\n' "$(date --iso-8601=seconds)" \
+    "$RESUME_PARENT_JOB_ID" "$SLURM_JOB_ID" "$EXPLICIT_RESUME_CKPT" \
+    "$EXPECTED_RESUME_CKPT_SHA" >> "$RUN_DIR/.owner_history.tsv"
+  owner_tmp=$RUN_DIR/.owner_job_id.takeover_$SLURM_JOB_ID
+  printf '%s\n' "$SLURM_JOB_ID" > "$owner_tmp"
+  mv "$owner_tmp" "$RUN_DIR/.owner_job_id"
+  rmdir "$TAKEOVER_LOCK"
+  trap - EXIT
+fi
+
 TRAIN_LOG=$RUN_DIR/training.log
 "$SRUN" --kill-on-bad-exit=1 --unbuffered \
   python -m egomimic.trainHydra "${COMMON_OVERRIDES[@]}" 2>&1 | tee -a "$TRAIN_LOG"
 
 python - "$RUN_DIR" "$PROVENANCE_DIR" "$MODE" "$EXPECTED_MAX_STEPS" \
-  "$GPUS_EXPECTED" "$TRAIN_LOG" "$ARM" "$ACTION_HORIZON" "$WANDB_ID" <<'PY'
+  "$GPUS_EXPECTED" "$TRAIN_LOG" "$ARM" "$ACTION_HORIZON" "$WANDB_ID" \
+  "$EXPLICIT_RESUME_CKPT" "$EXPECTED_RESUME_CKPT_SHA" \
+  "$EXPECTED_RESUME_GLOBAL_STEP" "$RESUME_PARENT_JOB_ID" <<'PY'
 import csv
 import hashlib
 import json
@@ -674,6 +837,10 @@ train_log = pathlib.Path(sys.argv[6])
 arm = sys.argv[7]
 action_horizon = int(sys.argv[8])
 wandb_id = sys.argv[9]
+resume_ckpt = sys.argv[10]
+resume_ckpt_sha = sys.argv[11]
+resume_global_step = int(sys.argv[12]) if sys.argv[12] else None
+resume_parent_job_id = sys.argv[13]
 
 terminal_dir = run_dir / "checkpoints" / "final"
 expected_checkpoint = terminal_dir / f"step-{expected_step}.ckpt"
@@ -684,6 +851,8 @@ assert int(checkpoint["global_step"]) == expected_step
 assert checkpoint.get("state_dict")
 assert checkpoint.get("optimizer_states")
 assert checkpoint["hyper_parameters"]["enable_grad_norm"] is False
+assert checkpoint["hyper_parameters"]["train_metrics_on_step"] is True
+assert checkpoint["hyper_parameters"]["train_metrics_on_epoch"] is True
 assert len(checkpoint.get("lr_schedulers", [])) == 1
 scheduler_state = checkpoint["lr_schedulers"][0]
 assert int(scheduler_state["last_epoch"]) == expected_step
@@ -723,10 +892,10 @@ assert all(
     dataset.mode == "valid"
     for dataset in resolved_cfg.data.valid_datasets.values()
 )
-if mode == "smoke":
+if mode in {"smoke", "resume_smoke"}:
     assert resolved_cfg.trainer.limit_val_batches == 1
 else:
-    assert mode == "full"
+    assert mode in {"full", "resume_full"}
     assert resolved_cfg.trainer.limit_val_batches == 0
 global_batch_per_domain = {
     domain: int(params.batch_size) * expected_world_size
@@ -744,16 +913,19 @@ if 20 in expected_shapes:
 best_results = {}
 for directory, monitor in expected_best.items():
     files = sorted((run_dir / "checkpoints" / directory).glob("*.ckpt"))
-    if mode == "full":
+    if mode in {"full", "resume_full"}:
         assert not files, (directory, files)
         continue
-    assert mode == "smoke"
+    assert mode in {"smoke", "resume_smoke"}
     assert len(files) == 1, (directory, files)
     best_path = files[0]
     best_checkpoint = torch.load(best_path, map_location="cpu", weights_only=False)
     best_step = int(best_checkpoint["global_step"])
     assert 0 < best_step <= expected_step
-    assert best_step in {1_000, 2_000, 3_000}, best_step
+    if mode == "smoke":
+        assert best_step in {1_000, 2_000, 3_000}, best_step
+    else:
+        assert resume_global_step < best_step <= expected_step, best_step
     state_key = (
         "ModelCheckpoint{'monitor': '"
         + monitor
@@ -806,11 +978,28 @@ result = {
     "best_checkpoints": best_results,
     "gradient_clipping_enabled": False,
     "training_uses_all_episodes": True,
-    "validation_enabled": mode == "smoke",
+    "validation_enabled": mode in {"smoke", "resume_smoke"},
 }
 
-if mode == "smoke":
-    assert all(9.9e-5 <= value <= 1.0e-4 for value in optimizer_lrs), optimizer_lrs
+if mode.startswith("resume_"):
+    assert resume_ckpt
+    assert resume_ckpt_sha
+    assert resume_global_step is not None
+    assert resume_parent_job_id
+    assert expected_step > resume_global_step
+    result.update(
+        {
+            "resume_checkpoint": resume_ckpt,
+            "resume_checkpoint_sha256": resume_ckpt_sha,
+            "resume_global_step": resume_global_step,
+            "resume_parent_job_id": resume_parent_job_id,
+            "resumed_steps": expected_step - resume_global_step,
+        }
+    )
+
+if mode in {"smoke", "resume_smoke"}:
+    if mode == "smoke":
+        assert all(9.9e-5 <= value <= 1.0e-4 for value in optimizer_lrs), optimizer_lrs
     metrics_path = run_dir / "csv" / "metrics" / "metrics.csv"
     assert metrics_path.is_file(), metrics_path
     with metrics_path.open(newline="") as handle:
@@ -846,7 +1035,19 @@ if mode == "smoke":
     }
     assert train_losses, sorted(metric_values)
     assert validation_mse, sorted(metric_values)
-    assert validation_steps and max(validation_steps) >= 2_999, validation_steps
+    if mode == "smoke":
+        assert validation_steps and max(validation_steps) >= 2_999, validation_steps
+    else:
+        assert validation_steps and max(validation_steps) > resume_global_step, validation_steps
+        dense_losses = {
+            key: values
+            for key, values in train_losses.items()
+            if not key.endswith("_epoch")
+        }
+        assert dense_losses, sorted(train_losses)
+        assert all(len(values) >= 2 for values in dense_losses.values()), {
+            key: len(values) for key, values in dense_losses.items()
+        }
     assert not grad_norms, grad_norms
     for best in best_results.values():
         monitor = best["monitor"]
@@ -861,6 +1062,9 @@ if mode == "smoke":
     log_text = train_log.read_text(errors="replace")
     assert f"max_steps={expected_step}" in log_text
     assert "[GRAD_NORM_SPIKE]" not in log_text
+    if mode == "resume_smoke":
+        assert "Restored all states from the checkpoint" in log_text
+        assert resume_ckpt in log_text
     for rank in range(expected_world_size):
         assert f"Rank {rank} on fit start" in log_text
 
