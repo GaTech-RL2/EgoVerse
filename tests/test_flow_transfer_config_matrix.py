@@ -578,7 +578,8 @@ def test_matrix_submit_helper_can_select_bc_only_without_cotrain_submission() ->
         / "submit_flow_transfer_direct_dense_matrix_when_ready.sh"
     ).read_text()
 
-    assert "MATRIX_SCOPE=${MATRIX_SCOPE:-all}" in helper
+    assert "MATRIX_SCOPE=${MATRIX_SCOPE:-bc}" in helper
+    assert "flow-transfer-bc-skynet-20260827" in helper
     assert 'case "$MATRIX_SCOPE" in' in helper
     assert "flow_transfer_direct_dense_obstacle3k_bc_skynet_normfix_20260827" in helper
     assert "RESOURCE_SPECS=('hoffman-lab hoffman-lab a40 1 96G')" in helper

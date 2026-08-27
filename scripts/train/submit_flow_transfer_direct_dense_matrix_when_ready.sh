@@ -6,14 +6,14 @@
 set -Eeuo pipefail
 
 PHASE=${PHASE:?set PHASE=smoke or PHASE=full}
-MATRIX_SCOPE=${MATRIX_SCOPE:-all}
+MATRIX_SCOPE=${MATRIX_SCOPE:-bc}
 LATENT_NORM_ARTIFACT=${LATENT_NORM_ARTIFACT:?exact H100 norm_stats.json path}
 LATENT_NORM_SHA=${LATENT_NORM_SHA:?exact H100 norm SHA256}
 DP_NORM_ARTIFACT=${DP_NORM_ARTIFACT:?exact H16 norm_stats.json path}
 DP_NORM_SHA=${DP_NORM_SHA:?exact H16 norm SHA256}
 EXPECTED_ENV_SHA=8fd1504c955756adf8167f7bd34fc1a09cb844d268898b3ac30693e99ac60e87
 
-REPO=${FLOW_TRANSFER_REPO:-/coc/flash7/paphiwetsa3/worktrees/flow-transfer-direct-dense-obstacle-dp-schedulefix-20260826}
+REPO=${FLOW_TRANSFER_REPO:-/coc/flash7/paphiwetsa3/worktrees/flow-transfer-bc-skynet-20260827}
 LAUNCHER=$REPO/scripts/train/flow_transfer_direct_dense_matrix.sbatch
 case "$MATRIX_SCOPE" in
   all)
