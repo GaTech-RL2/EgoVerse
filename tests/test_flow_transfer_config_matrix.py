@@ -672,6 +672,51 @@ def test_pace_chain_bc_helper_is_obstacle_only_batch64_and_credit_capped() -> No
     assert "full jobs are never chained automatically" in helper
 
 
+def test_pace_chain_bc_h200_smoke_a100_full_is_source_pinned_and_memory_gated() -> None:
+    repo_root = Path(__file__).parents[1]
+    helper = (
+        repo_root
+        / "scripts"
+        / "train"
+        / "submit_flow_transfer_pace_chain_bc_h200_smoke_a100_full.sh"
+    ).read_text()
+    wrapper = (
+        repo_root
+        / "scripts"
+        / "train"
+        / "flow_transfer_chain_bc_memory_audit.sbatch"
+    ).read_text()
+
+    assert "EgoVerse-flow-transfer-chain-bc-pace-20260827" in helper
+    assert "EXPECTED_TRAIN_HEAD=82bd2923a4daffb97f8f61713196422d0a811f00" in helper
+    assert "EXPECTED_TRAIN_LAUNCHER_SHA=7ad60269" in helper
+    assert "ARMS=(bc_chain_latent bc_chain_dp)" in helper
+    assert "SMOKE_GPU_TYPE=h200" in helper
+    assert "SMOKE_PARTITION=gpu-h200" in helper
+    assert "SMOKE_HOURS=2" in helper
+    assert "FULL_GPU_TYPE=a100" in helper
+    assert "FULL_PARTITION=gpu-a100" in helper
+    assert "FULL_GPU_CONSTRAINT=A100-80GB" in helper
+    assert "FULL_HOURS=30" in helper
+    assert "cost = 2 * smoke_hours * h200_rate + 2 * full_hours * a100_rate" in helper
+    assert "BC_MAX_TOTAL_CREDITS=20.0" in helper
+    assert "A100_SAFE_PEAK_MIB=71680" in helper
+    assert 'memory["a100_headroom_mib"] >= 10_240' in helper
+    assert 'memory["source_gpu_model"] == "H200"' in helper
+    assert "--no-requeue" in helper
+    assert "--signal" not in helper
+    assert "full jobs are never chained automatically" in helper
+
+    assert '"$TRAIN_LAUNCHER" &' in wrapper
+    assert "nvidia-smi --query-gpu=memory.used" in wrapper
+    assert 'resolved.trainer.precision == "bf16"' in wrapper
+    assert "resolved.trainer.accumulate_grad_batches == 1" in wrapper
+    assert 'resolved.trainer.get("gradient_clip_val") is None' in wrapper
+    assert "pushshapes_sim_chain_gripper.batch_size == 64" in wrapper
+    assert "a100_total_mib - peak_mib >= 10_240" in wrapper
+    assert 'run_validation["status"] == "PASS"' in wrapper
+
+
 def test_matrix_requeue_selects_newest_recovery_checkpoint() -> None:
     repo_root = Path(__file__).parents[1]
     train_hydra = (repo_root / "egomimic" / "trainHydra.py").read_text()
