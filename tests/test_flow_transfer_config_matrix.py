@@ -570,6 +570,46 @@ def test_matrix_submit_helper_is_six_arm_smoke_gated_and_world2_safe() -> None:
     assert "full jobs are never chained automatically" in helper
 
 
+def test_pace_cotrain_helper_is_world1_batch64_per_domain_and_smoke_gated() -> None:
+    repo_root = Path(__file__).parents[1]
+    matrix = (
+        repo_root / "scripts" / "train" / "flow_transfer_direct_dense_matrix.sbatch"
+    ).read_text()
+    helper = (
+        repo_root
+        / "scripts"
+        / "train"
+        / "submit_flow_transfer_pace_cotrain_when_ready.sh"
+    ).read_text()
+
+    assert "pace_world1" in matrix
+    assert "PACE profile is cotrain-only" in matrix
+    assert "64 // expected_gpus if cotrain else 64" in matrix
+    assert "64 / GPUS_EXPECTED" in matrix
+    assert "FLOW_TRANSFER_U_DATA" in matrix
+    assert "data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path" in matrix
+    assert "world1_pace_normfix" in matrix
+    assert "gts-dxu345-rl2" in matrix
+    assert "A100:gpu-a100 | H200:gpu-h200" in matrix
+
+    assert "ARMS=(cotrain_obstacle_latent cotrain_obstacle_dp)" in helper
+    assert "bc_usocket" not in helper
+    assert "bc_chain" not in helper
+    assert "ACCOUNT=gts-dxu345-rl2" in helper
+    assert "--ntasks-per-node=1" in helper
+    assert '--gres="gpu:$GPU_TYPE:1"' in helper
+    assert "PARTITION=gpu-a100" in helper
+    assert "PARTITION=gpu-h200" in helper
+    assert "GPU_CONSTRAINT=A100-80GB" in helper
+    assert '--constraint="$GPU_CONSTRAINT"' in helper
+    assert 'validation["expected_world_size"] == 1' in helper
+    assert 'set(validation["global_batch_per_domain"].values()) == {64}' in helper
+    assert 'validation["total_global_batch"] == 128' in helper
+    assert 'validation["status"] == "PASS"' in helper
+    assert "full jobs are never chained automatically" in helper
+    assert "--account=rl2-dxu" not in helper
+
+
 def test_matrix_requeue_selects_newest_recovery_checkpoint() -> None:
     repo_root = Path(__file__).parents[1]
     train_hydra = (repo_root / "egomimic" / "trainHydra.py").read_text()
