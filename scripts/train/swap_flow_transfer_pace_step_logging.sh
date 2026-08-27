@@ -6,6 +6,7 @@ set -Eeuo pipefail
 PHASE=${PHASE:?set PHASE=resume_smoke or PHASE=resume_full}
 LATENT_PARENT_JOB_ID=${LATENT_PARENT_JOB_ID:?set the live latent predecessor job ID}
 DP_PARENT_JOB_ID=${DP_PARENT_JOB_ID:?set the live DP predecessor job ID}
+FULL_TARGET_ARM=${FULL_TARGET_ARM:-}
 
 REPO=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-flow-transfer-step-logging-pace-20260827
 PY_ENV=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse/.venv
@@ -21,14 +22,14 @@ OLD_FULL_JOBS=$STATE_DIR/full_jobs.tsv
 OLD_SMOKE_IDENTITY=$STATE_DIR/smoke_identity.tsv
 IDENTITY=$STATE_DIR/step_logging_resume_smoke_identity.tsv
 SMOKE_JOBS=$STATE_DIR/step_logging_resume_smoke_jobs.tsv
-FULL_JOBS=$STATE_DIR/step_logging_resume_full_jobs.tsv
 SLURM_BIN=/opt/slurm/current/bin
+SRUN=$SLURM_BIN/srun
 ACCOUNT=gts-dxu345-rl2
 PARTITION=gpu-h200
 GPU_TYPE=h200
 GPU_MODEL=H200
 QOS=inferno
-SMOKE_TIME=02:00:00
+SMOKE_TIME=00:30:00
 ORIGINAL_FULL_SECONDS=172800
 FULL_SAFETY_SECONDS=300
 
@@ -36,12 +37,32 @@ export PATH=$SLURM_BIN:$PATH
 
 case "$PHASE" in
   resume_smoke)
+    test -z "$FULL_TARGET_ARM"
+    ARMS=(cotrain_obstacle_latent cotrain_obstacle_dp)
     OUTPUT_TSV=$SMOKE_JOBS
     MARKER=$STATE_DIR/STEP_LOGGING_RESUME_SMOKES_SUBMITTED
+    LOCK_SUFFIX=resume_smoke
+    AUDIT_PARENT_JOB_ID=$LATENT_PARENT_JOB_ID
     ;;
   resume_full)
-    OUTPUT_TSV=$FULL_JOBS
-    MARKER=$STATE_DIR/STEP_LOGGING_RESUME_FULLS_SUBMITTED
+    case "$FULL_TARGET_ARM" in
+      cotrain_obstacle_latent)
+        ARM_SUFFIX=latent
+        AUDIT_PARENT_JOB_ID=$LATENT_PARENT_JOB_ID
+        ;;
+      cotrain_obstacle_dp)
+        ARM_SUFFIX=dp
+        AUDIT_PARENT_JOB_ID=$DP_PARENT_JOB_ID
+        ;;
+      *)
+        printf 'Set FULL_TARGET_ARM to one cotrain arm for credit-safe staging.\n' >&2
+        exit 64
+        ;;
+    esac
+    ARMS=("$FULL_TARGET_ARM")
+    OUTPUT_TSV=$STATE_DIR/step_logging_resume_full_${ARM_SUFFIX}_job.tsv
+    MARKER=$STATE_DIR/STEP_LOGGING_RESUME_FULL_${ARM_SUFFIX^^}_SUBMITTED
+    LOCK_SUFFIX=resume_full_$ARM_SUFFIX
     ;;
   *)
     printf 'Unknown PHASE=%s\n' "$PHASE" >&2
@@ -59,6 +80,7 @@ test -x "$SLURM_BIN/sbatch"
 test -x "$SLURM_BIN/sacct"
 test -x "$SLURM_BIN/squeue"
 test -x "$SLURM_BIN/scancel"
+test -x "$SRUN"
 test -s "$OLD_FULL_JOBS"
 test -s "$OLD_SMOKE_IDENTITY"
 test -n "$EXPECTED_ENV_SHA"
@@ -67,7 +89,7 @@ test ! -e "$MARKER"
 test ! -e "$OUTPUT_TSV"
 mkdir -p "$STATE_DIR" "$HANDOFF_ROOT" "$EXP_ROOT/slurm"
 
-LOCK_DIR=$STATE_DIR/.step_logging_${PHASE}_lock
+LOCK_DIR=$STATE_DIR/.step_logging_${LOCK_SUFFIX}_lock
 if ! mkdir "$LOCK_DIR"; then
   printf 'Submission lock already exists: %s\n' "$LOCK_DIR" >&2
   exit 73
@@ -83,6 +105,16 @@ old_row() {
     }
     $1 == arm {print $(column[field])}
   ' "$OLD_FULL_JOBS"
+}
+
+arm_selected() {
+  local sought=$1 selected
+  for selected in "${ARMS[@]}"; do
+    if test "$selected" = "$sought"; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 seconds_to_slurm() {
@@ -115,11 +147,15 @@ snapshot_checkpoint() {
   before=$(stat -c '%s:%y' "$source")
   temp=$destination_dir/.last.ckpt.copying
   test ! -e "$temp"
-  cp --reflink=auto --preserve=timestamps "$source" "$temp"
+  "$SRUN" --jobid="$parent" --overlap --nodes=1 --ntasks=1 \
+    --cpus-per-task=1 --quiet \
+    cp --reflink=auto --preserve=timestamps "$source" "$temp"
   after=$(stat -c '%s:%y' "$source")
   test "$before" = "$after"
   metadata=$(
-    "$PY_ENV/bin/python" - "$temp" <<'PY'
+    "$SRUN" --jobid="$parent" --overlap --nodes=1 --ntasks=1 \
+      --cpus-per-task=1 --quiet /usr/bin/env CUDA_VISIBLE_DEVICES= \
+      "$PY_ENV/bin/python" - "$temp" <<'PY'
 import pathlib
 import sys
 
@@ -142,10 +178,15 @@ PY
   test ! -e "$destination"
   mv "$temp" "$destination"
   chmod 444 "$destination"
-  sha=$(sha256sum "$destination" | awk '{print $1}')
+  sha=$(
+    "$SRUN" --jobid="$parent" --overlap --nodes=1 --ntasks=1 \
+      --cpus-per-task=1 --quiet sha256sum "$destination" | awk '{print $1}'
+  )
   manifest=$destination_dir/step_${step}.json
-  "$PY_ENV/bin/python" - "$manifest" "$arm" "$parent" "$destination" \
-    "$sha" "$step" "$epoch" "$scheduler_step" "$before" "$EXPECTED_HEAD" <<'PY'
+  "$SRUN" --jobid="$parent" --overlap --nodes=1 --ntasks=1 \
+    --cpus-per-task=1 --quiet /usr/bin/env CUDA_VISIBLE_DEVICES= \
+    "$PY_ENV/bin/python" - "$manifest" "$arm" "$parent" "$destination" \
+      "$sha" "$step" "$epoch" "$scheduler_step" "$before" "$EXPECTED_HEAD" <<'PY'
 import json
 import pathlib
 import sys
@@ -179,8 +220,12 @@ PY
   printf '%s\t%s\t%s\t%s\t%s\n' "$destination" "$sha" "$step" "$epoch" "$manifest"
 }
 
-assert_live_parent "$LATENT_PARENT_JOB_ID" cotrain_obstacle_latent
-assert_live_parent "$DP_PARENT_JOB_ID" cotrain_obstacle_dp
+if arm_selected cotrain_obstacle_latent; then
+  assert_live_parent "$LATENT_PARENT_JOB_ID" cotrain_obstacle_latent
+fi
+if arm_selected cotrain_obstacle_dp; then
+  assert_live_parent "$DP_PARENT_JOB_ID" cotrain_obstacle_dp
+fi
 
 if test "$PHASE" = resume_full; then
   test -s "$IDENTITY"
@@ -191,7 +236,9 @@ if test "$PHASE" = resume_full; then
   test "$(identity_value head)" = "$EXPECTED_HEAD"
   test "$(identity_value launcher_sha256)" = "$EXPECTED_LAUNCHER_SHA"
   test "$(identity_value helper_sha256)" = "$EXPECTED_HELPER_SHA"
-  "$PY_ENV/bin/python" - "$SMOKE_JOBS" "$EXP_ROOT" <<'PY'
+  "$SRUN" --jobid="$AUDIT_PARENT_JOB_ID" --overlap --nodes=1 --ntasks=1 \
+    --cpus-per-task=1 --quiet /usr/bin/env CUDA_VISIBLE_DEVICES= \
+    "$PY_ENV/bin/python" - "$SMOKE_JOBS" "$EXP_ROOT" <<'PY'
 import csv
 import json
 import pathlib
@@ -223,8 +270,9 @@ for row in rows:
     result = json.loads(validation_path.read_text())
     assert result["status"] == "PASS"
     assert result["mode"] == "resume_smoke"
-    assert result["resumed_steps"] == 200
+    assert result["resumed_steps"] == 1
     assert result["validation_enabled"] is True
+    assert result["resume_contract_match"] is True
     assert result["scheduler_last_epoch"] == result["global_step"]
     assert result["resume_checkpoint_sha256"] == row["checkpoint_sha256"]
 PY
@@ -238,22 +286,42 @@ test "$(sha256sum "$latent_norm" | awk '{print $1}')" = "$latent_norm_sha"
 test "$(sha256sum "$dp_norm" | awk '{print $1}')" = "$dp_norm_sha"
 
 snapshot_tag=${PHASE}_$(date +%Y%m%d_%H%M%S)
-IFS=$'\t' read -r latent_ckpt latent_ckpt_sha latent_step latent_epoch latent_manifest < <(
-  snapshot_checkpoint cotrain_obstacle_latent "$LATENT_PARENT_JOB_ID" "$snapshot_tag"
-)
-IFS=$'\t' read -r dp_ckpt dp_ckpt_sha dp_step dp_epoch dp_manifest < <(
-  snapshot_checkpoint cotrain_obstacle_dp "$DP_PARENT_JOB_ID" "$snapshot_tag"
-)
-
-if test "$PHASE" = resume_full; then
-  test "$latent_ckpt_sha" != "$(identity_value latent_checkpoint_sha256)"
-  test "$dp_ckpt_sha" != "$(identity_value dp_checkpoint_sha256)"
+latent_ckpt=''
+latent_ckpt_sha=''
+latent_step=''
+latent_epoch=''
+latent_manifest=''
+dp_ckpt=''
+dp_ckpt_sha=''
+dp_step=''
+dp_epoch=''
+dp_manifest=''
+if arm_selected cotrain_obstacle_latent; then
+  IFS=$'\t' read -r latent_ckpt latent_ckpt_sha latent_step latent_epoch latent_manifest < <(
+    snapshot_checkpoint cotrain_obstacle_latent "$LATENT_PARENT_JOB_ID" "$snapshot_tag"
+  )
+fi
+if arm_selected cotrain_obstacle_dp; then
+  IFS=$'\t' read -r dp_ckpt dp_ckpt_sha dp_step dp_epoch dp_manifest < <(
+    snapshot_checkpoint cotrain_obstacle_dp "$DP_PARENT_JOB_ID" "$snapshot_tag"
+  )
 fi
 
-"$SLURM_BIN/sbatch" --test-only \
-  --account="$ACCOUNT" --qos="$QOS" --partition="$PARTITION" \
-  --nodes=1 --ntasks-per-node=1 --cpus-per-task=8 --mem=64G \
-  --time="$SMOKE_TIME" --gres="gpu:$GPU_TYPE:1" --no-requeue --wrap=true
+if test "$PHASE" = resume_full; then
+  if arm_selected cotrain_obstacle_latent; then
+    test "$latent_ckpt_sha" != "$(identity_value latent_checkpoint_sha256)"
+  fi
+  if arm_selected cotrain_obstacle_dp; then
+    test "$dp_ckpt_sha" != "$(identity_value dp_checkpoint_sha256)"
+  fi
+fi
+
+if test "$PHASE" = resume_smoke; then
+  "$SLURM_BIN/sbatch" --test-only \
+    --account="$ACCOUNT" --qos="$QOS" --partition="$PARTITION" \
+    --nodes=1 --ntasks-per-node=1 --cpus-per-task=8 --mem=64G \
+    --time="$SMOKE_TIME" --gres="gpu:$GPU_TYPE:1" --no-requeue --wrap=true
+fi
 
 if test "$PHASE" = resume_smoke; then
   printf 'head\t%s\nlauncher_sha256\t%s\nhelper_sha256\t%s\nenvironment_sha256\t%s\nlatent_parent_job_id\t%s\nlatent_checkpoint\t%s\nlatent_checkpoint_sha256\t%s\nlatent_checkpoint_step\t%s\nlatent_checkpoint_epoch\t%s\nlatent_checkpoint_manifest\t%s\ndp_parent_job_id\t%s\ndp_checkpoint\t%s\ndp_checkpoint_sha256\t%s\ndp_checkpoint_step\t%s\ndp_checkpoint_epoch\t%s\ndp_checkpoint_manifest\t%s\n' \
@@ -267,7 +335,7 @@ fi
 printf 'arm\tjob_id\tparent_job_id\tcheckpoint\tcheckpoint_sha256\tcheckpoint_manifest\tresume_step\tresume_epoch\tpartition\taccount\tgpu_type\ttime_limit\tdependency\n' \
   > "$OUTPUT_TSV"
 
-for arm in cotrain_obstacle_latent cotrain_obstacle_dp; do
+for arm in "${ARMS[@]}"; do
   if test "$arm" = cotrain_obstacle_latent; then
     parent=$LATENT_PARENT_JOB_ID
     checkpoint=$latent_ckpt
@@ -328,7 +396,8 @@ done
 
 date --iso-8601=seconds > "$MARKER"
 if test "$PHASE" = resume_full; then
-  printf 'Continuation jobs are dependency-gated. Audit them before cancelling predecessors.\n'
+  printf 'One continuation is dependency-gated. Audit it before cancelling parent %s.\n' \
+    "$AUDIT_PARENT_JOB_ID"
 else
   printf 'Exact full-state resume smokes submitted; do not replace predecessors until both PASS.\n'
 fi

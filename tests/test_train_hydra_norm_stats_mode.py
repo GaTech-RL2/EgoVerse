@@ -127,7 +127,7 @@ def test_norm_stats_mode_caches_once_then_skips_model_and_trainer(
     assert norm_stats.cache_calls == [str(tmp_path / "artifact")]
 
 
-def test_model_wrapper_receives_configured_grad_norm_flag(monkeypatch):
+def test_model_wrapper_receives_configured_runtime_flags(monkeypatch):
     captured = {}
     cfg = OmegaConf.create(
         {
@@ -135,6 +135,8 @@ def test_model_wrapper_receives_configured_grad_norm_flag(monkeypatch):
                 "robomimic_model": {"_target_": "example.Policy"},
                 "scheduler_interval": "step",
                 "enable_grad_norm": False,
+                "train_metrics_on_step": True,
+                "train_metrics_on_epoch": False,
             }
         }
     )
@@ -148,6 +150,8 @@ def test_model_wrapper_receives_configured_grad_norm_flag(monkeypatch):
     train_hydra._instantiate_model_wrapper(cfg, norm_stats)
 
     assert captured["enable_grad_norm"] is False
+    assert captured["train_metrics_on_step"] is True
+    assert captured["train_metrics_on_epoch"] is False
     assert captured["norm_stats_state"] == {"stats": "sentinel"}
 
 

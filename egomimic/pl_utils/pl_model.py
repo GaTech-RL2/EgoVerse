@@ -70,6 +70,17 @@ class ModelWrapper(LightningModule):
         self.epoch_memory_stats = []  # Store memory stats per epoch
         self.evaluator = evaluator
 
+    def on_save_checkpoint(self, checkpoint):
+        """Keep runtime logging controls accurate across full-state resumes."""
+        hyper_parameters = checkpoint.setdefault("hyper_parameters", {})
+        hyper_parameters["enable_grad_norm"] = bool(self.enable_grad_norm)
+        hyper_parameters["train_metrics_on_step"] = bool(
+            self.train_metrics_on_step
+        )
+        hyper_parameters["train_metrics_on_epoch"] = bool(
+            self.train_metrics_on_epoch
+        )
+
     @staticmethod
     def _as_config(cfg):
         if cfg is None:

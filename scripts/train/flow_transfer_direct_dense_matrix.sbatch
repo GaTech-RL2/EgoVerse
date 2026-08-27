@@ -160,7 +160,7 @@ case "$MODE" in
   resume_smoke)
     WANDB_ID=${BASE_WANDB_ID}_resume_smoke_job_${SLURM_JOB_ID}
     RUN_DIR=$EXP_ROOT/resume_smokes/$ARM/job_${SLURM_JOB_ID}
-    EXPECTED_MAX_STEPS=$((EXPECTED_RESUME_GLOBAL_STEP + 200))
+    EXPECTED_MAX_STEPS=$((EXPECTED_RESUME_GLOBAL_STEP + 1))
     ;;
   resume_full)
     WANDB_ID=$BASE_WANDB_ID
@@ -480,11 +480,16 @@ elif test "$MODE" = resume_smoke; then
   COMMON_OVERRIDES+=(
     "trainer.max_steps=$EXPECTED_MAX_STEPS"
     trainer.limit_train_batches=1.0
-    trainer.val_check_interval=100
+    trainer.val_check_interval=1
     trainer.limit_val_batches=1
-    callbacks.model_checkpoint.every_n_train_steps=100
+    trainer.log_every_n_steps=1
+    callbacks.model_checkpoint.save_top_k=0
+    callbacks.model_checkpoint.save_last=false
+    callbacks.model_checkpoint.every_n_train_steps=0
     callbacks.model_checkpoint.train_time_interval=null
     callbacks.model_checkpoint.save_on_train_epoch_end=false
+    callbacks.best_usocket_checkpoint.save_top_k=0
+    callbacks.best_chain_checkpoint.save_top_k=0
     ++logger.csv._target_=lightning.pytorch.loggers.CSVLogger
     "++logger.csv.save_dir=$RUN_DIR"
     ++logger.csv.name=csv
@@ -529,7 +534,8 @@ RESOLVED_CONFIG=$PROVENANCE_DIR/resolved_config.yaml
 python -m egomimic.trainHydra "${COMMON_OVERRIDES[@]}" --cfg job --resolve > "$RESOLVED_CONFIG"
 python - "$RESOLVED_CONFIG" "$ARM" "$MODE" "$GPUS_EXPECTED" \
   "$WANDB_ID" "$NORM_ARTIFACT" "$WANDB_RESUME" "$RUN_DIR" "$REPO" \
-  "$EXPLICIT_RESUME_CKPT" "$EXPECTED_RESUME_GLOBAL_STEP" <<'PY'
+  "$EXPLICIT_RESUME_CKPT" "$EXPECTED_RESUME_GLOBAL_STEP" \
+  "$RESUME_PARENT_JOB_ID" <<'PY'
 import pathlib
 import sys
 
@@ -547,6 +553,7 @@ from omegaconf import OmegaConf
     repo,
     resume_ckpt,
     resume_global_step,
+    resume_parent_job_id,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(path)
 model = cfg.model.robomimic_model
@@ -564,7 +571,8 @@ assert cfg.trainer.num_nodes == 1
 assert cfg.trainer.sync_batchnorm is True
 assert cfg.trainer.get("gradient_clip_val") is None
 assert cfg.trainer.accumulate_grad_batches == 1
-assert cfg.trainer.log_every_n_steps == 100
+expected_log_interval = 1 if mode == "resume_smoke" else 100
+assert cfg.trainer.log_every_n_steps == expected_log_interval
 assert cfg.launch_params.gpus_per_node == expected_gpus
 assert cfg.launch_params.nodes == 1
 assert cfg.logger.wandb.project == "pushshapes-flow-transfer"
@@ -621,13 +629,18 @@ if mode == "smoke":
     assert cfg.logger.csv.version == "metrics"
     assert cfg.logger.csv.flush_logs_every_n_steps == 1
 elif mode == "resume_smoke":
-    assert cfg.trainer.max_steps == int(resume_global_step) + 200
+    assert cfg.trainer.max_steps == int(resume_global_step) + 1
     assert cfg.trainer.limit_train_batches == 1.0
-    assert cfg.trainer.val_check_interval == 100
+    assert cfg.trainer.val_check_interval == 1
     assert cfg.trainer.limit_val_batches == 1
-    assert cfg.callbacks.model_checkpoint.every_n_train_steps == 100
+    assert cfg.trainer.log_every_n_steps == 1
+    assert cfg.callbacks.model_checkpoint.save_top_k == 0
+    assert cfg.callbacks.model_checkpoint.save_last is False
+    assert cfg.callbacks.model_checkpoint.every_n_train_steps == 0
     assert cfg.callbacks.model_checkpoint.train_time_interval is None
     assert cfg.callbacks.model_checkpoint.save_on_train_epoch_end is False
+    assert cfg.callbacks.best_usocket_checkpoint.save_top_k == 0
+    assert cfg.callbacks.best_chain_checkpoint.save_top_k == 0
     assert cfg.logger.csv._target_ == "lightning.pytorch.loggers.CSVLogger"
     assert cfg.logger.csv.name == "csv"
     assert cfg.logger.csv.version == "metrics"
@@ -676,7 +689,8 @@ for name, (directory, monitor) in expected_best.items():
     assert callback.every_n_epochs == 1
     assert callback.every_n_train_steps is None
     assert callback.train_time_interval is None
-    assert callback.save_top_k == 1
+    expected_best_save_top_k = 0 if mode == "resume_smoke" else 1
+    assert callback.save_top_k == expected_best_save_top_k
     assert callback.save_last is False
     assert callback.save_on_train_epoch_end is False
     assert callback.save_on_exception is False
@@ -752,6 +766,30 @@ if cotrain or arm.startswith("bc_chain_"):
     assert len(chain.folder_paths) == 30
     assert str(chain.folder_paths[0]).endswith("/level_01/chain_gripper/T")
     assert str(chain.folder_paths[-1]).endswith("level_30/chain_gripper/T")
+
+if mode.startswith("resume_"):
+    provenance_dir = pathlib.Path(path).parent
+    experiment_root = provenance_dir.parents[3]
+    predecessor_config_path = (
+        experiment_root
+        / "provenance"
+        / "full"
+        / arm
+        / f"job_{resume_parent_job_id}"
+        / "resolved_config.yaml"
+    )
+    assert predecessor_config_path.is_file(), predecessor_config_path
+    predecessor_cfg = OmegaConf.load(predecessor_config_path)
+    for current, predecessor in (
+        (cfg.model.robomimic_model, predecessor_cfg.model.robomimic_model),
+        (cfg.model.optimizer, predecessor_cfg.model.optimizer),
+        (cfg.model.scheduler, predecessor_cfg.model.scheduler),
+        (cfg.data, predecessor_cfg.data),
+        (cfg.evaluator, predecessor_cfg.evaluator),
+    ):
+        assert OmegaConf.to_container(current, resolve=True) == OmegaConf.to_container(
+            predecessor, resolve=True
+        )
 PY
 
 python - "$OBSTACLE_AUDIT" "$OBSTACLE_MANIFEST" <<'PY'
@@ -876,6 +914,29 @@ for embodiment, expected_shape in expected_shapes.items():
 checkpoint_sha = hashlib.sha256(expected_checkpoint.read_bytes()).hexdigest()
 
 resolved_cfg = OmegaConf.load(provenance_dir / "resolved_config.yaml")
+resume_contract_match = False
+if mode.startswith("resume_"):
+    experiment_root = provenance_dir.parents[3]
+    predecessor_config_path = (
+        experiment_root
+        / "provenance"
+        / "full"
+        / arm
+        / f"job_{resume_parent_job_id}"
+        / "resolved_config.yaml"
+    )
+    predecessor_cfg = OmegaConf.load(predecessor_config_path)
+    for current, predecessor in (
+        (resolved_cfg.model.robomimic_model, predecessor_cfg.model.robomimic_model),
+        (resolved_cfg.model.optimizer, predecessor_cfg.model.optimizer),
+        (resolved_cfg.model.scheduler, predecessor_cfg.model.scheduler),
+        (resolved_cfg.data, predecessor_cfg.data),
+        (resolved_cfg.evaluator, predecessor_cfg.evaluator),
+    ):
+        assert OmegaConf.to_container(current, resolve=True) == OmegaConf.to_container(
+            predecessor, resolve=True
+        )
+    resume_contract_match = True
 assert all(
     float(dataset.valid_ratio) == 0.0
     for dataset in resolved_cfg.data.train_datasets.values()
@@ -913,10 +974,10 @@ if 20 in expected_shapes:
 best_results = {}
 for directory, monitor in expected_best.items():
     files = sorted((run_dir / "checkpoints" / directory).glob("*.ckpt"))
-    if mode in {"full", "resume_full"}:
+    if mode in {"full", "resume_full", "resume_smoke"}:
         assert not files, (directory, files)
         continue
-    assert mode in {"smoke", "resume_smoke"}
+    assert mode == "smoke"
     assert len(files) == 1, (directory, files)
     best_path = files[0]
     best_checkpoint = torch.load(best_path, map_location="cpu", weights_only=False)
@@ -924,8 +985,6 @@ for directory, monitor in expected_best.items():
     assert 0 < best_step <= expected_step
     if mode == "smoke":
         assert best_step in {1_000, 2_000, 3_000}, best_step
-    else:
-        assert resume_global_step < best_step <= expected_step, best_step
     state_key = (
         "ModelCheckpoint{'monitor': '"
         + monitor
@@ -979,6 +1038,7 @@ result = {
     "gradient_clipping_enabled": False,
     "training_uses_all_episodes": True,
     "validation_enabled": mode in {"smoke", "resume_smoke"},
+    "resume_contract_match": resume_contract_match,
 }
 
 if mode.startswith("resume_"):
@@ -1026,7 +1086,7 @@ if mode in {"smoke", "resume_smoke"}:
     validation_mse = {
         key: values
         for key, values in metric_values.items()
-        if key.startswith("Valid/") and "mse" in key.lower()
+        if key.startswith("Valid/") and key.endswith("_action_mse")
     }
     grad_norms = {
         key: values
@@ -1038,15 +1098,30 @@ if mode in {"smoke", "resume_smoke"}:
     if mode == "smoke":
         assert validation_steps and max(validation_steps) >= 2_999, validation_steps
     else:
-        assert validation_steps and max(validation_steps) > resume_global_step, validation_steps
+        assert validation_steps == {resume_global_step}, validation_steps
         dense_losses = {
             key: values
             for key, values in train_losses.items()
             if not key.endswith("_epoch")
         }
         assert dense_losses, sorted(train_losses)
-        assert all(len(values) >= 2 for values in dense_losses.values()), {
+        assert all(len(values) == 1 for values in dense_losses.values()), {
             key: len(values) for key, values in dense_losses.items()
+        }
+        assert set(validation_mse) == {
+            "Valid/emb19_actions_action_mse",
+            "Valid/emb20_actions_action_mse",
+        }, sorted(validation_mse)
+        assert all(len(values) == 1 for values in validation_mse.values()), {
+            key: len(values) for key, values in validation_mse.items()
+        }
+        step_lrs = {
+            key: values
+            for key, values in metric_values.items()
+            if key.startswith("Optimizer/") and key.endswith("_lr")
+        }
+        assert step_lrs and all(len(values) == 1 for values in step_lrs.values()), {
+            key: len(values) for key, values in step_lrs.items()
         }
     assert not grad_norms, grad_norms
     for best in best_results.values():
@@ -1065,6 +1140,8 @@ if mode in {"smoke", "resume_smoke"}:
     if mode == "resume_smoke":
         assert "Restored all states from the checkpoint" in log_text
         assert resume_ckpt in log_text
+        assert log_text.count("[VAL_STEP] rank=0, batch_idx=0") == 1
+        assert log_text.count("[ON_VALIDATION_END] rank=0") == 1
     for rank in range(expected_world_size):
         assert f"Rank {rank} on fit start" in log_text
 

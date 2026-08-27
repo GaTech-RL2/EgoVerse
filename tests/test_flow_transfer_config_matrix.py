@@ -525,10 +525,11 @@ def test_obstacle_launchers_do_not_gate_excluded_clean_chain_data() -> None:
 
     assert "mode=norm_stats" in precompute
     assert "trainer.strategy=" not in precompute
-    assert 'if mode in {"full", "resume_full"}:\n        assert not files' in matrix
     assert (
-        'assert mode in {"smoke", "resume_smoke"}\n    assert len(files) == 1'
+        'if mode in {"full", "resume_full", "resume_smoke"}:\n'
+        "        assert not files"
     ) in matrix
+    assert 'assert mode == "smoke"\n    assert len(files) == 1' in matrix
 
 
 def test_matrix_submit_helper_is_six_arm_smoke_gated_and_world2_safe() -> None:
@@ -665,6 +666,7 @@ def test_matrix_logs_dense_train_metrics_and_preserves_epoch_aggregates() -> Non
         repo_root / "scripts" / "train" / "flow_transfer_direct_dense_matrix.sbatch"
     ).read_text()
     model = (repo_root / "egomimic" / "pl_utils" / "pl_model.py").read_text()
+    train_hydra = (repo_root / "egomimic" / "trainHydra.py").read_text()
 
     assert "++model.train_metrics_on_step=true" in matrix
     assert "++model.train_metrics_on_epoch=true" in matrix
@@ -673,6 +675,17 @@ def test_matrix_logs_dense_train_metrics_and_preserves_epoch_aggregates() -> Non
     assert "train_metrics_on_epoch: bool = True" in model
     assert (
         'epoch_name = f"{name}_epoch" if self.train_metrics_on_step else name' in model
+    )
+    assert 'def on_save_checkpoint(self, checkpoint):' in model
+    assert 'hyper_parameters["train_metrics_on_step"]' in model
+    assert 'hyper_parameters["train_metrics_on_epoch"]' in model
+    assert (
+        'train_metrics_on_step=bool(cfg.model.get("train_metrics_on_step", False))'
+        in train_hydra
+    )
+    assert (
+        'train_metrics_on_epoch=bool(cfg.model.get("train_metrics_on_epoch", True))'
+        in train_hydra
     )
     assert 'self._log_train_metric("Train/" + k, v)' in model
     assert 'f"Optimizer/param_group_{i}_lr"' in model
@@ -694,10 +707,48 @@ def test_pace_step_logging_swap_is_full_state_smoke_gated_and_fail_closed() -> N
     assert 'COMMON_OVERRIDES+=("ckpt_path=$EXPLICIT_RESUME_CKPT")' in matrix
     assert "weights_only=False" in train_hydra
     assert 'ckpt_path=cfg.get("ckpt_path")' in train_hydra
-    assert 'assert result["resumed_steps"] == 200' in helper
+    assert 'EXPECTED_MAX_STEPS=$((EXPECTED_RESUME_GLOBAL_STEP + 1))' in matrix
+    assert "trainer.val_check_interval=1" in matrix
+    assert "trainer.log_every_n_steps=1" in matrix
+    assert 'expected_log_interval = 1 if mode == "resume_smoke" else 100' in matrix
+    assert "callbacks.model_checkpoint.save_top_k=0" in matrix
+    assert "callbacks.model_checkpoint.save_last=false" in matrix
+    assert "callbacks.best_usocket_checkpoint.save_top_k=0" in matrix
+    assert "callbacks.best_chain_checkpoint.save_top_k=0" in matrix
+    assert (
+        'expected_best_save_top_k = 0 if mode == "resume_smoke" else 1'
+        in matrix
+    )
+    assert "assert callback.save_top_k == expected_best_save_top_k" in matrix
+    assert 'assert validation_steps == {resume_global_step}' in matrix
+    assert 'assert result["resumed_steps"] == 1' in helper
     assert 'assert result["validation_enabled"] is True' in helper
+    assert 'assert result["resume_contract_match"] is True' in helper
+    assert "predecessor_config_path" in matrix
+    assert "resume_contract_match = True" in matrix
+    preflight_start = matrix.index('python - "$RESOLVED_CONFIG"')
+    preflight_end = matrix.index(
+        '\nPY\n\npython - "$OBSTACLE_AUDIT"', preflight_start
+    )
+    preflight_contract = matrix.index("predecessor_config_path = (", preflight_start)
+    takeover = matrix.index('if test "$MODE" = resume_full', preflight_end)
+    training = matrix.index('"$SRUN" --kill-on-bad-exit=1', takeover)
+    assert preflight_start < preflight_contract < preflight_end < takeover < training
+    assert '"$RESUME_PARENT_JOB_ID" <<\'PY\'' in matrix
+    for contract_field in (
+        "cfg.model.robomimic_model",
+        "cfg.model.optimizer",
+        "cfg.model.scheduler",
+        "cfg.data",
+        "cfg.evaluator",
+    ):
+        assert contract_field in matrix[preflight_contract:preflight_end]
     assert 'assert result["scheduler_last_epoch"] == result["global_step"]' in helper
     assert "cp --reflink=auto --preserve=timestamps" in helper
+    assert 'SRUN=$SLURM_BIN/srun' in helper
+    assert helper.count("/usr/bin/env CUDA_VISIBLE_DEVICES=") >= 3
+    assert helper.count('--jobid="$parent" --overlap') >= 4
+    assert '--jobid="$AUDIT_PARENT_JOB_ID" --overlap' in helper
     assert 'chmod 444 "$destination"' in helper
     assert '--dependency="$dependency"' in helper
     assert "dependency=afterany:$parent" in helper
@@ -705,5 +756,6 @@ def test_pace_step_logging_swap_is_full_state_smoke_gated_and_fail_closed() -> N
     assert "ORIGINAL_FULL_SECONDS=172800" in helper
     assert "FULL_SAFETY_SECONDS=300" in helper
     assert "STEP_LOGGING_RESUME_SMOKES_SUBMITTED" in helper
-    assert "STEP_LOGGING_RESUME_FULLS_SUBMITTED" in helper
-    assert "Continuation jobs are dependency-gated" in helper
+    assert "FULL_TARGET_ARM" in helper
+    assert "STEP_LOGGING_RESUME_FULL_${ARM_SUFFIX^^}_SUBMITTED" in helper
+    assert "One continuation is dependency-gated" in helper
