@@ -140,7 +140,8 @@ snapshot_checkpoint() {
   local run_dir=$EXP_ROOT/runs/${arm}_seed42
   local source=$run_dir/checkpoints/last.ckpt
   local destination_dir=$HANDOFF_ROOT/$arm/from_job_$parent/$tag
-  local before after temp metadata step epoch scheduler_step destination sha manifest
+  local before after temp metadata_output metadata step epoch scheduler_step
+  local destination sha_output sha manifest
 
   test -s "$source"
   mkdir -p "$destination_dir"
@@ -149,10 +150,10 @@ snapshot_checkpoint() {
   test ! -e "$temp"
   "$SRUN" --jobid="$parent" --overlap --nodes=1 --ntasks=1 \
     --cpus-per-task=1 --quiet \
-    cp --reflink=auto --preserve=timestamps "$source" "$temp"
+    cp --reflink=auto --preserve=timestamps "$source" "$temp" > /dev/null
   after=$(stat -c '%s:%y' "$source")
   test "$before" = "$after"
-  metadata=$(
+  metadata_output=$(
     "$SRUN" --jobid="$parent" --overlap --nodes=1 --ntasks=1 \
       --cpus-per-task=1 --quiet /usr/bin/env CUDA_VISIBLE_DEVICES= \
       "$PY_ENV/bin/python" - "$temp" <<'PY'
@@ -173,20 +174,27 @@ assert scheduler_step == step
 print(f"{step}\t{epoch}\t{scheduler_step}")
 PY
   )
+  metadata=$(printf '%s\n' "$metadata_output" | tail -n 1)
   IFS=$'\t' read -r step epoch scheduler_step <<< "$metadata"
+  [[ "$step" =~ ^[0-9]+$ ]]
+  [[ "$epoch" =~ ^[0-9]+$ ]]
+  [[ "$scheduler_step" =~ ^[0-9]+$ ]]
   destination=$destination_dir/step_${step}.ckpt
   test ! -e "$destination"
   mv "$temp" "$destination"
   chmod 444 "$destination"
-  sha=$(
+  sha_output=$(
     "$SRUN" --jobid="$parent" --overlap --nodes=1 --ntasks=1 \
-      --cpus-per-task=1 --quiet sha256sum "$destination" | awk '{print $1}'
+      --cpus-per-task=1 --quiet sha256sum "$destination"
   )
+  sha=$(printf '%s\n' "$sha_output" | tail -n 1 | awk '{print $1}')
+  [[ "$sha" =~ ^[0-9a-f]{64}$ ]]
   manifest=$destination_dir/step_${step}.json
   "$SRUN" --jobid="$parent" --overlap --nodes=1 --ntasks=1 \
     --cpus-per-task=1 --quiet /usr/bin/env CUDA_VISIBLE_DEVICES= \
     "$PY_ENV/bin/python" - "$manifest" "$arm" "$parent" "$destination" \
-      "$sha" "$step" "$epoch" "$scheduler_step" "$before" "$EXPECTED_HEAD" <<'PY'
+      "$sha" "$step" "$epoch" "$scheduler_step" "$before" "$EXPECTED_HEAD" \
+      > /dev/null <<'PY'
 import json
 import pathlib
 import sys

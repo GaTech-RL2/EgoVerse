@@ -745,10 +745,22 @@ def test_pace_step_logging_swap_is_full_state_smoke_gated_and_fail_closed() -> N
         assert contract_field in matrix[preflight_contract:preflight_end]
     assert 'assert result["scheduler_last_epoch"] == result["global_step"]' in helper
     assert "cp --reflink=auto --preserve=timestamps" in helper
+    assert (
+        'cp --reflink=auto --preserve=timestamps "$source" "$temp" > /dev/null'
+        in helper
+    )
     assert 'SRUN=$SLURM_BIN/srun' in helper
     assert helper.count("/usr/bin/env CUDA_VISIBLE_DEVICES=") >= 3
     assert helper.count('--jobid="$parent" --overlap') >= 4
     assert '--jobid="$AUDIT_PARENT_JOB_ID" --overlap' in helper
+    assert "metadata_output=$(" in helper
+    assert "metadata=$(printf '%s\\n' \"$metadata_output\" | tail -n 1)" in helper
+    assert "sha_output=$(" in helper
+    assert (
+        "sha=$(printf '%s\\n' \"$sha_output\" | tail -n 1 | awk '{print $1}')"
+        in helper
+    )
+    assert '[[ "$sha" =~ ^[0-9a-f]{64}$ ]]' in helper
     assert 'chmod 444 "$destination"' in helper
     assert '--dependency="$dependency"' in helper
     assert "dependency=afterany:$parent" in helper
