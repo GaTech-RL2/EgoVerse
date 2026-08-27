@@ -98,6 +98,14 @@ case "$ARM" in
     EXPECTED_PARTITION=rl2-lab
     EXPECTED_ACCOUNT=rl2-lab
     ;;
+  cotrain_obstacle_latent_h16)
+    EXPERIMENT=pusht/pipeline_sampler_usocket_chain_obstacle_dense_medium_h16
+    BASE_WANDB_ID=ft_cotrain_obstacle3k_latent_h16_m96_s42_world2_normfix_20260827
+    ACTION_HORIZON=16
+    EXPECTED_GPU_MODEL=L40S
+    EXPECTED_PARTITION=rl2-lab
+    EXPECTED_ACCOUNT=rl2-lab
+    ;;
   cotrain_obstacle_dp)
     EXPERIMENT=pusht/pipeline_diffusion_usocket_chain_obstacle_h16
     BASE_WANDB_ID=ft_cotrain_obstacle3k_dp_s42_world2_normfix_20260826
@@ -116,6 +124,10 @@ if test "$CLUSTER_PROFILE" = pace_world1; then
   case "$ARM" in
     cotrain_obstacle_latent)
       BASE_WANDB_ID=ft_cotrain_obstacle3k_latent_dense_m96_s42_world1_pace_normfix_20260826
+      ;;
+    cotrain_obstacle_latent_h16)
+      BASE_WANDB_ID=ft_cotrain_obstacle3k_latent_h16_m96_s42_world1_pace_normfix_20260827
+      WANDB_GROUP=flow_transfer_direct_dense_obstacle3k_h16_normfix_20260827
       ;;
     cotrain_obstacle_dp)
       BASE_WANDB_ID=ft_cotrain_obstacle3k_dp_s42_world1_pace_normfix_20260826
@@ -535,7 +547,7 @@ python -m egomimic.trainHydra "${COMMON_OVERRIDES[@]}" --cfg job --resolve > "$R
 python - "$RESOLVED_CONFIG" "$ARM" "$MODE" "$GPUS_EXPECTED" \
   "$WANDB_ID" "$NORM_ARTIFACT" "$WANDB_RESUME" "$RUN_DIR" "$REPO" \
   "$EXPLICIT_RESUME_CKPT" "$EXPECTED_RESUME_GLOBAL_STEP" \
-  "$RESUME_PARENT_JOB_ID" <<'PY'
+  "$RESUME_PARENT_JOB_ID" "$ACTION_HORIZON" <<'PY'
 import pathlib
 import sys
 
@@ -554,10 +566,12 @@ from omegaconf import OmegaConf
     resume_ckpt,
     resume_global_step,
     resume_parent_job_id,
+    expected_action_horizon,
 ) = sys.argv[1:]
 cfg = OmegaConf.load(path)
 model = cfg.model.robomimic_model
 expected_gpus = int(expected_gpus)
+expected_action_horizon = int(expected_action_horizon)
 
 assert cfg.seed == 42
 assert cfg.mode == "train"
@@ -656,7 +670,7 @@ yaml = pathlib.Path(path).read_text()
 assert "arc_length" not in yaml.lower()
 assert "actions.points" not in yaml
 
-latent = arm.endswith("latent")
+latent = "latent" in arm
 cotrain = arm.startswith("cotrain_")
 usocket_only = arm.startswith("bc_usocket_")
 expected_domains = (
@@ -722,6 +736,14 @@ for domain in expected_domains:
     expected_train_batch = 64 // expected_gpus if cotrain else 64
     assert cfg.data.train_dataloader_params[domain].batch_size == expected_train_batch
     assert cfg.data.valid_dataloader_params[domain].batch_size == 16
+    assert (
+        cfg.data.train_datasets[domain].resolver.key_map.action_horizon
+        == expected_action_horizon
+    )
+    assert (
+        cfg.data.valid_datasets[domain].resolver.key_map.action_horizon
+        == expected_action_horizon
+    )
 global_batch_per_domain = {
     domain: cfg.data.train_dataloader_params[domain].batch_size * expected_gpus
     for domain in expected_domains
@@ -730,18 +752,19 @@ assert set(global_batch_per_domain.values()) == {64}
 assert sum(global_batch_per_domain.values()) == (128 if cotrain else 64)
 
 if latent:
-    assert model.action_horizon == 100
+    assert model.action_horizon == expected_action_horizon
     assert model.stages[1]._target_.endswith("GaussianLatentNoise")
+    assert model.stages[1].action_horizon == expected_action_horizon
     assert model.stages[1].latent_dim == 96
     sampler = model.stages[2]
     assert sampler._target_.endswith("MultiJActionSampler")
-    assert sampler.action_horizon == 100
+    assert sampler.action_horizon == expected_action_horizon
     assert sampler.latent_dim == 96
     assert sampler.decoder_hidden_dim == 512
     assert sampler.denoiser_hidden_dim == 384
     assert sampler.denoising_module.hidden_dim == 384
     assert sampler.denoising_module.act_dim == 96
-    assert sampler.denoising_module.act_seq == 100
+    assert sampler.denoising_module.act_seq == expected_action_horizon
     assert sampler.denoising_module.nblocks == 16
     assert sampler.gradient_accumulation_steps == 1
     if "pushshapes_sim_u_socket" in expected_domains:

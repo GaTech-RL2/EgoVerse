@@ -79,6 +79,49 @@ def test_flow_transfer_latent_capacity_and_horizon_contract(
     assert "latentactionencoder" not in model_yaml.lower()
 
 
+def test_flow_transfer_direct_dense_h16_latent_contract() -> None:
+    cfg = _compose("pusht/pipeline_sampler_usocket_chain_obstacle_dense_medium_h16")
+    model = cfg.model.robomimic_model
+    noise = model.stages[1]
+    sampler = model.stages[2]
+
+    assert model.action_horizon == 16
+    assert noise.action_horizon == 16
+    assert noise.latent_dim == 96
+    assert sampler.action_horizon == 16
+    assert sampler.action_dims.pushshapes_sim_u_socket == 4
+    assert sampler.action_dims.pushshapes_sim_chain_gripper == 6
+    assert sampler.latent_dim == 96
+    assert sampler.decoder_hidden_dim == 512
+    assert sampler.denoiser_hidden_dim == 384
+    assert sampler.denoising_module.act_dim == 96
+    assert sampler.denoising_module.act_seq == 16
+    assert sampler.denoising_module.hidden_dim == 384
+    assert sampler.denoising_module.nblocks == 16
+    for split in (cfg.data.train_datasets, cfg.data.valid_datasets):
+        assert all(
+            dataset.resolver.key_map.action_horizon == 16
+            for dataset in split.values()
+        )
+
+
+def test_pace_matrix_exposes_isolated_h16_latent_arm() -> None:
+    repo_root = Path(__file__).parents[1]
+    matrix = (
+        repo_root / "scripts" / "train" / "flow_transfer_direct_dense_matrix.sbatch"
+    ).read_text()
+
+    assert "cotrain_obstacle_latent_h16)" in matrix
+    assert "pipeline_sampler_usocket_chain_obstacle_dense_medium_h16" in matrix
+    assert (
+        "ft_cotrain_obstacle3k_latent_h16_m96_s42_world1_pace_normfix_20260827"
+        in matrix
+    )
+    assert 'latent = "latent" in arm' in matrix
+    assert "model.action_horizon == expected_action_horizon" in matrix
+    assert "sampler.denoising_module.act_seq == expected_action_horizon" in matrix
+
+
 def test_chain_full_data_composes_native_fk_then_anchored_phi_arc() -> None:
     cfg = _compose("pusht/pipeline_sampler_chain_gripper_points_arc_length_medium")
     data = cfg.data.train_datasets.pushshapes_sim_chain_gripper
