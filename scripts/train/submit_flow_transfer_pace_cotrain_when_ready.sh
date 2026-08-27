@@ -5,21 +5,21 @@
 set -Eeuo pipefail
 
 PHASE=${PHASE:?set PHASE=smoke or PHASE=full}
-GPU_TYPE=${GPU_TYPE:-a100}
+GPU_TYPE=${GPU_TYPE:-h200}
 EXPECTED_ENV_SHA=${EXPECTED_ENV_SHA:?set the exact PACE environment manifest SHA256}
 LATENT_NORM_ARTIFACT=${LATENT_NORM_ARTIFACT:?exact horizon-100 norm_stats.json path}
 LATENT_NORM_SHA=${LATENT_NORM_SHA:?exact horizon-100 norm SHA256}
 DP_NORM_ARTIFACT=${DP_NORM_ARTIFACT:?exact horizon-16 norm_stats.json path}
 DP_NORM_SHA=${DP_NORM_SHA:?exact horizon-16 norm SHA256}
 
-REPO=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-flow-transfer-20260826
+REPO=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-flow-transfer-h200-20260826
 # This existing environment passed every trainHydra and config-target import;
 # its complete package manifest is hashed into the smoke/full identity.
 PY_ENV=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse/.venv
 DATA_ROOT=/storage/project/r-dxu345-0/paphiwetsa3/datasets/flow_transfer_20260826
 U_DATA=$DATA_ROOT/u_socket_3000_v2_clean
 CHAIN_OBSTACLE_ROOT=$DATA_ROOT/chain_gripper_obstacle_3000_balanced_v1
-EXP_ROOT=/storage/project/r-dxu345-0/paphiwetsa3/experiments/flow_transfer_direct_dense_obstacle3k_cotrain_pace_world1_normfix_20260826
+EXP_ROOT=/storage/project/r-dxu345-0/paphiwetsa3/experiments/flow_transfer_direct_dense_obstacle3k_cotrain_pace_h200_world1_normfix_20260826
 LAUNCHER=$REPO/scripts/train/flow_transfer_direct_dense_matrix.sbatch
 HELPER=$REPO/scripts/train/submit_flow_transfer_pace_cotrain_when_ready.sh
 STATE_DIR=$EXP_ROOT/submission
