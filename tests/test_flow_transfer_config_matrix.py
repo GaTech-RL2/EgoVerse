@@ -537,7 +537,7 @@ def test_matrix_submit_helper_is_six_arm_smoke_gated_and_world2_safe() -> None:
         / "submit_flow_transfer_direct_dense_matrix_when_ready.sh"
     ).read_text()
 
-    assert "flow-transfer-direct-dense-obstacle-dp-schedulefix-20260826" in helper
+    assert "flow-transfer-bc-skynet-20260827" in helper
     for arm in (
         "bc_usocket_latent",
         "bc_usocket_dp",
