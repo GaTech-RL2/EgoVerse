@@ -600,6 +600,8 @@ def test_pace_cotrain_helper_is_world1_batch64_per_domain_and_smoke_gated() -> N
     assert '--gres="gpu:$GPU_TYPE:1"' in helper
     assert "PARTITION=gpu-a100" in helper
     assert "PARTITION=gpu-h200" in helper
+    assert "GPU_CONSTRAINT=A100-80GB" in helper
+    assert '--constraint="$GPU_CONSTRAINT"' in helper
     assert 'validation["expected_world_size"] == 1' in helper
     assert 'set(validation["global_batch_per_domain"].values()) == {64}' in helper
     assert 'validation["total_global_batch"] == 128' in helper

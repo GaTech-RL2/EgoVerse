@@ -32,10 +32,12 @@ case "$GPU_TYPE" in
   a100)
     GPU_MODEL=A100
     PARTITION=gpu-a100
+    GPU_CONSTRAINT=A100-80GB
     ;;
   h200)
     GPU_MODEL=H200
     PARTITION=gpu-h200
+    GPU_CONSTRAINT=
     ;;
   *)
     printf 'Unknown GPU_TYPE=%s; use a100 or h200\n' "$GPU_TYPE" >&2
@@ -109,11 +111,11 @@ SMOKE_IDENTITY=$STATE_DIR/smoke_identity.tsv
 
 if test "$PHASE" = smoke; then
   test ! -e "$SMOKE_IDENTITY"
-  printf 'head\t%s\nlauncher_sha256\t%s\nhelper_sha256\t%s\nlatent_norm_artifact\t%s\nlatent_norm_sha256\t%s\ndp_norm_artifact\t%s\ndp_norm_sha256\t%s\nenvironment_sha256\t%s\ngpu_type\t%s\npartition\t%s\naccount\t%s\n' \
+  printf 'head\t%s\nlauncher_sha256\t%s\nhelper_sha256\t%s\nlatent_norm_artifact\t%s\nlatent_norm_sha256\t%s\ndp_norm_artifact\t%s\ndp_norm_sha256\t%s\nenvironment_sha256\t%s\ngpu_type\t%s\npartition\t%s\ngpu_constraint\t%s\naccount\t%s\n' \
     "$EXPECTED_HEAD" "$EXPECTED_LAUNCHER_SHA" "$EXPECTED_HELPER_SHA" \
     "$LATENT_NORM_ARTIFACT" "$LATENT_NORM_SHA" \
     "$DP_NORM_ARTIFACT" "$DP_NORM_SHA" "$EXPECTED_ENV_SHA" \
-    "$GPU_TYPE" "$PARTITION" "$ACCOUNT" > "$SMOKE_IDENTITY"
+    "$GPU_TYPE" "$PARTITION" "$GPU_CONSTRAINT" "$ACCOUNT" > "$SMOKE_IDENTITY"
 else
   test -s "$SMOKE_IDENTITY"
   identity_value() {
@@ -129,13 +131,19 @@ else
   test "$(identity_value environment_sha256)" = "$EXPECTED_ENV_SHA"
   test "$(identity_value gpu_type)" = "$GPU_TYPE"
   test "$(identity_value partition)" = "$PARTITION"
+  test "$(identity_value gpu_constraint)" = "$GPU_CONSTRAINT"
   test "$(identity_value account)" = "$ACCOUNT"
 fi
 
+GPU_CONSTRAINT_ARGS=()
+if test -n "$GPU_CONSTRAINT"; then
+  GPU_CONSTRAINT_ARGS+=(--constraint="$GPU_CONSTRAINT")
+fi
 "$SLURM_BIN/sbatch" --test-only \
   --account="$ACCOUNT" --qos="$QOS" --partition="$PARTITION" \
   --nodes=1 --ntasks-per-node=1 --cpus-per-task=8 --mem=64G \
-  --time="$TIME_LIMIT" --gres="gpu:$GPU_TYPE:1" --wrap=true
+  --time="$TIME_LIMIT" --gres="gpu:$GPU_TYPE:1" \
+  "${GPU_CONSTRAINT_ARGS[@]}" --wrap=true
 
 ARMS=(cotrain_obstacle_latent cotrain_obstacle_dp)
 if test "$PHASE" = full; then
@@ -208,6 +216,7 @@ for arm in "${ARMS[@]}"; do
       --account="$ACCOUNT" --qos="$QOS" --partition="$PARTITION" \
       --nodes=1 --ntasks-per-node=1 --cpus-per-task=8 --mem=64G \
       --time="$TIME_LIMIT" --gres="gpu:$GPU_TYPE:1" \
+      "${GPU_CONSTRAINT_ARGS[@]}" \
       --requeue --signal=USR1@300 --open-mode=append \
       --job-name="${job_prefix}_${arm:0:16}" \
       --output="$EXP_ROOT/slurm/${PHASE}_${arm}_%j.out" \
