@@ -215,6 +215,7 @@ class InputRecorder:
                 self._capped.set()
                 logger.warning("[recorder] max_gb reached (%.2f GB) — recording stopped, "
                                "serving continues", self.bytes_written / 1024 ** 3)
+            self._write_meta()   # live counters survive a hard kill
             if self.n_chunks % 10 == 1:
                 dt = max(1e-6, time.time() - self._t0)
                 logger.info("[recorder] %d records, %d chunks, %.1f MB (%.2f MB/s)",
