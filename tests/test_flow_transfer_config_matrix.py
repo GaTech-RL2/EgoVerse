@@ -585,7 +585,7 @@ def test_matrix_submit_helper_can_select_bc_only_without_cotrain_submission() ->
     assert "matrix_scope = sys.argv[3]" in helper
     assert 'if matrix_scope == "bc":' in helper
     assert 'if arm.startswith("bc_")' in helper
-    assert "matrix_scope\t%s" in helper
+    assert r"matrix_scope\t%s" in helper
     assert "FLOW_TRANSFER_REPO=$REPO" in helper
     assert "FLOW_TRANSFER_EXP_ROOT=$EXP_ROOT" in helper
 
