@@ -33,6 +33,8 @@ Controls::
     ENTER          start / stop recording (with --output)
                    (--auto re-arms automatically after each save and moves to
                     the next embodiment once --per-agent is reached)
+    left click     unfreeze simulation and start recording when
+                   --left-click-to-start is enabled
     BACKSPACE      discard the take in progress
     R              reset episode (new random layout, or retry current curated init)
     ESC            quit
@@ -58,6 +60,7 @@ from Tsimulation.sim_v2.collect.obstacle_init import (
 from Tsimulation.sim_v2.collect.replay_init import (
     ObstacleInitKey,
     collected_obstacle_init_keys,
+    collected_seed_keys,
 )
 from Tsimulation.sim_v2.collect.zarr_writer import ZarrDemoWriter
 from Tsimulation.sim_v2.pushshapes.agents import (
@@ -277,7 +280,29 @@ def main() -> int:
         help="re-arm recording after every save and advance to the "
         "next embodiment once --per-agent is reached",
     )
+    ap.add_argument(
+        "--left-click-to-start",
+        action="store_true",
+        help=(
+            "after every reset, freeze the simulation until a left mouse "
+            "click starts both stepping and recording; --auto still saves "
+            "successes and advances layouts"
+        ),
+    )
+    ap.add_argument(
+        "--reset-seed-bank-seed",
+        type=int,
+        default=0,
+        help=(
+            "seed for the reproducible random reset-seed stream used without "
+            "a manifest; saved and attempted reset seeds are skipped"
+        ),
+    )
     args = ap.parse_args()
+    if args.reset_seed_bank_seed < 0:
+        ap.error("--reset-seed-bank-seed must be non-negative")
+    if args.left_click_to_start and args.output is None:
+        ap.error("--left-click-to-start requires --output")
 
     init_manifest = None
     init_entries = None
@@ -360,6 +385,10 @@ def main() -> int:
     recording = False
     saved = 0
     steps_rec = 0
+    attempted_unmanifested_seeds: set[int] = set()
+    unmanifested_seed_rng = np.random.default_rng(args.reset_seed_bank_seed)
+    current_reset_seed_draw_index: int | None = None
+    unmanifested_seed_draw_count = 0
 
     # ONE writer per output dir, not per episode: the writer owns episode
     # naming and index resumption (episode_<obj>_<pusher>_obs<N>_NNNNNN.zarr).
@@ -473,7 +502,8 @@ def main() -> int:
         return completed_here(gap_index, agent_index, object_index) >= args.per_agent
 
     def build():
-        nonlocal angle, current_entry
+        nonlocal angle, current_entry, current_reset_seed_draw_index
+        nonlocal unmanifested_seed_draw_count
         e = PushShapesEnv(
             object_shape=objects[oi],
             pusher_shape=agents[ai],
@@ -487,19 +517,46 @@ def main() -> int:
             )
         apply_gap(e)
         if target_entries is None:
-            # Seed explicitly: it reproduces both the layout and any sampled
-            # compliance, and is persisted in episode_init.
-            e.reset(seed=int(np.random.randint(0, 10_000)))
+            # Draw from a reproducible 32-bit random stream, rejecting every
+            # reset seed already saved in this output cell or attempted in the
+            # current process. The exact seed remains in episode_init.
+            saved_seeds = (
+                {
+                    seed
+                    for level, seed in collected_seed_keys(output_dir())
+                    if level == int(args.obstacles)
+                }
+                if out_root is not None
+                else set()
+            )
+            while True:
+                reset_seed = int(
+                    unmanifested_seed_rng.integers(
+                        0,
+                        np.iinfo(np.uint32).max + 1,
+                        dtype=np.uint32,
+                    )
+                )
+                current_reset_seed_draw_index = unmanifested_seed_draw_count
+                unmanifested_seed_draw_count += 1
+                if (
+                    reset_seed not in saved_seeds
+                    and reset_seed not in attempted_unmanifested_seeds
+                ):
+                    break
+            attempted_unmanifested_seeds.add(reset_seed)
+            e.reset(seed=reset_seed)
             current_entry = None
         else:
             pending = pending_entries()
             # A completed cell still needs an environment for its final HUD.
             current_entry = pending[0] if pending else target_entries[-1]
             reset_to_manifest_entry(e, current_entry, verify=True)
-            # Do not let the previous take's UI angle command immediately
-            # rotate a freshly verified curated initialization.
-            angle = e.pusher_angle
         apply_gap(e)
+        # Every reset creates a fresh pusher orientation. Carrying the prior
+        # take's UI target across that boundary makes the first commanded step
+        # snap toward a stale angle, especially for unmanifested level 0.
+        angle = e.pusher_angle
         return e
 
     def advance_cell() -> bool:
@@ -532,6 +589,12 @@ def main() -> int:
         # This makes the matrix self-describing even after directories are
         # merged for training.
         episode_init["control_gap_mode"] = gaps[gi]
+        if current_entry is None:
+            episode_init["reset_seed_allocator"] = {
+                "algorithm": "numpy.PCG64.uint32",
+                "stream_seed": int(args.reset_seed_bank_seed),
+                "draw_index": current_reset_seed_draw_index,
+            }
         if current_entry is not None:
             assert init_manifest is not None
             assert init_manifest_sha is not None
@@ -590,21 +653,40 @@ def main() -> int:
 
     env = build()
     if args.auto and out_root is not None:
-        if cell_complete() and not advance_cell():
-            all_done = True
-        env = build()
-        if not all_done:
+        if cell_complete():
+            if not advance_cell():
+                all_done = True
+            else:
+                env = build()
+        if not all_done and not args.left_click_to_start:
             start_recording()
 
     while running:
         # In automatic collection, being idle before the quota is a bug, not
         # a user-visible mode.  Re-arm defensively if any previous transition
         # left the writer inactive.
-        if args.auto and out_root is not None and not recording and not all_done:
+        if (
+            args.auto
+            and out_root is not None
+            and not args.left_click_to_start
+            and not recording
+            and not all_done
+        ):
             start_recording()
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 running = False
+            elif (
+                ev.type == pygame.MOUSEBUTTONDOWN
+                and ev.button == 1
+                and args.left_click_to_start
+                and not recording
+                and not all_done
+            ):
+                # The click starts from the visible frozen pose, never from a
+                # stale command left by the preceding take.
+                angle = env.pusher_angle
+                start_recording()
             elif ev.type == pygame.KEYDOWN:
                 if ev.key == pygame.K_ESCAPE:
                     running = False
@@ -624,12 +706,11 @@ def main() -> int:
                                 # An under-length take was discarded. Replay
                                 # the same pending entry before recording again.
                                 env = build()
-                    else:
+                    elif not args.left_click_to_start:
                         start_recording()
                 elif ev.key == pygame.K_BACKSPACE:
                     stop_recording(discard=True)
-                    if target_entries is not None:
-                        env = build()
+                    env = build()
                 elif ev.key == pygame.K_g:
                     stop_recording(discard=True)
                     gi = (gi + 1) % len(gaps)
@@ -657,26 +738,33 @@ def main() -> int:
                         ai = keys.index(ch)
                         env = build()
 
+        simulation_frozen = (
+            args.left_click_to_start
+            and out_root is not None
+            and not recording
+            and not all_done
+        )
         held = pygame.key.get_pressed()
         turn_step = (
             SOCKET_KEY_TURN_SPEED * env.DT
             if env.pusher_shape in {"u_socket", "chain_gripper"}
             else 0.06
         )
-        if held[pygame.K_a]:
-            angle -= turn_step
-        if held[pygame.K_d]:
-            angle += turn_step
-        if held[pygame.K_w]:
-            spread = min(160.0, spread + 1.5)
-            grip = min(1.0, grip + 0.02)
-        if held[pygame.K_s]:
-            spread = max(12.0, spread - 1.5)
-            grip = max(0.0, grip - 0.02)
-        if held[pygame.K_q]:
-            orbit -= 0.05
-        if held[pygame.K_e]:
-            orbit += 0.05
+        if not simulation_frozen:
+            if held[pygame.K_a]:
+                angle -= turn_step
+            if held[pygame.K_d]:
+                angle += turn_step
+            if held[pygame.K_w]:
+                spread = min(160.0, spread + 1.5)
+                grip = min(1.0, grip + 0.02)
+            if held[pygame.K_s]:
+                spread = max(12.0, spread - 1.5)
+                grip = max(0.0, grip - 0.02)
+            if held[pygame.K_q]:
+                orbit -= 0.05
+            if held[pygame.K_e]:
+                orbit += 0.05
         engage = 1.0 if held[pygame.K_SPACE] else 0.0
 
         mx, my = pygame.mouse.get_pos()
@@ -721,12 +809,24 @@ def main() -> int:
         act = np.array([chan[c] for c in spec], dtype=np.float64)
         dim = len(spec)
 
-        obs, reward, _terminated, _trunc, info = env.step(act)
-        coverage = float(info.get("coverage", reward))
-        # Use the unrounded coverage itself as the source of truth.  This
-        # avoids depending on a stale/misrouted Gym termination flag while
-        # preserving the exact Sim V2 >= 0.95 success contract.
-        success = math.isfinite(coverage) and coverage >= float(env.SUCCESS_THRESHOLD)
+        if simulation_frozen:
+            # Waiting is a true causal boundary: mouse input may update the
+            # prospective XY command, but neither physics nor the pusher
+            # advances until the same left click starts recording.
+            obs = env._get_obs()
+            reward = 0.0
+            info = {}
+            coverage = 0.0
+            success = False
+        else:
+            obs, reward, _terminated, _trunc, info = env.step(act)
+            coverage = float(info.get("coverage", reward))
+            # Use the unrounded coverage itself as the source of truth.  This
+            # avoids depending on a stale/misrouted Gym termination flag while
+            # preserving the exact Sim V2 >= 0.95 success contract.
+            success = math.isfinite(coverage) and coverage >= float(
+                env.SUCCESS_THRESHOLD
+            )
         if recording and writer is not None:
             px, py = env.agent_pos
             ox, oy, oth = env.object_pose
@@ -755,14 +855,15 @@ def main() -> int:
                     all_done = True
                 if not all_done:
                     env = build()
-                    if args.auto:
+                    if args.auto and not args.left_click_to_start:
                         start_recording()
             elif args.auto and out_root is not None:
                 if cell_complete() and not advance_cell():
                     all_done = True
                 if not all_done:
                     env = build()
-                    start_recording()
+                    if not args.left_click_to_start:
+                        start_recording()
         terr = info.get("tracking_error", 0.0)
         cgap = info.get("command_gap", 0.0)
         label, engaged = _agent_state(env)
@@ -836,7 +937,12 @@ def main() -> int:
         y += 20
         if out_root is not None:
             here = completed_here()
-            rec = f"REC {steps_rec:4d}" if recording else "idle    "
+            if recording:
+                rec = f"REC {steps_rec:4d}"
+            elif args.left_click_to_start and not all_done:
+                rec = "LEFT CLICK TO START"
+            else:
+                rec = "idle    "
             rcol = (255, 110, 110) if recording else COL_DIM
             screen.blit(
                 font.render(
