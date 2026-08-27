@@ -482,7 +482,7 @@ elif test "$MODE" = resume_smoke; then
     trainer.limit_train_batches=1.0
     trainer.val_check_interval=100
     trainer.limit_val_batches=1
-    "callbacks.model_checkpoint.every_n_train_steps=$EXPECTED_MAX_STEPS"
+    callbacks.model_checkpoint.every_n_train_steps=100
     callbacks.model_checkpoint.train_time_interval=null
     callbacks.model_checkpoint.save_on_train_epoch_end=false
     ++logger.csv._target_=lightning.pytorch.loggers.CSVLogger
@@ -625,7 +625,7 @@ elif mode == "resume_smoke":
     assert cfg.trainer.limit_train_batches == 1.0
     assert cfg.trainer.val_check_interval == 100
     assert cfg.trainer.limit_val_batches == 1
-    assert cfg.callbacks.model_checkpoint.every_n_train_steps == cfg.trainer.max_steps
+    assert cfg.callbacks.model_checkpoint.every_n_train_steps == 100
     assert cfg.callbacks.model_checkpoint.train_time_interval is None
     assert cfg.callbacks.model_checkpoint.save_on_train_epoch_end is False
     assert cfg.logger.csv._target_ == "lightning.pytorch.loggers.CSVLogger"
