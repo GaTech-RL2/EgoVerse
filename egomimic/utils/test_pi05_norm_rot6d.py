@@ -639,3 +639,69 @@ def test_keypoint_gripper_transform_list_wiring():
     km = Human.get_keymap("cartesian_pi", include_grip_keypoints=True)
     assert km["left.action_grip_keypoints"]["horizon"] == Human.ACTION_HORIZON
     assert km["right.obs_grip_keypoints"]["zarr_key"] == "right.obs_keypoints"
+
+
+def test_split_mse_is_stateless_and_matches_manual():
+    from egomimic.eval.eval_pi import _paired_mse, _split_mse
+
+    rng = np.random.default_rng(21)
+    pred = torch.from_numpy(rng.normal(size=(4, 10, 18))).float()
+    gt = torch.from_numpy(rng.normal(size=(4, 10, 18))).float()
+    xyz_idx = [0, 1, 2, 9, 10, 11]
+    rot_idx = [i for i in range(18) if i not in xyz_idx]
+    xyz, rot = _split_mse(pred, gt)
+    torch.testing.assert_close(xyz, (pred[..., xyz_idx] - gt[..., xyz_idx]).pow(2).mean())
+    torch.testing.assert_close(rot, (pred[..., rot_idx] - gt[..., rot_idx]).pow(2).mean())
+    # stateless: a second, unrelated call is unaffected by the first
+    a, b = torch.zeros(2, 3, 18), torch.ones(2, 3, 18)
+    torch.testing.assert_close(_split_mse(a, b)[0], torch.tensor(1.0))
+    torch.testing.assert_close(_paired_mse(a, b), torch.tensor(1.0))
+    assert _split_mse(torch.zeros(2, 3, 7), torch.zeros(2, 3, 7)) == (None, None)
+
+
+def test_rot_geodesic_error_matches_angle_and_survives_gimbal_lock():
+    from scipy.spatial.transform import Rotation as R
+
+    from egomimic.eval.eval_pi import _rot_geodesic_error, _wrap_aware_mse
+    from egomimic.utils.pose_utils import _ypr_to_rot6d
+
+    rng = np.random.default_rng(22)
+    ypr = rng.uniform(-1.0, 1.0, size=(6, 5, 3))
+    theta = 0.3
+    # rotate every pose by theta about a random axis -> geodesic error == theta
+    axes = rng.normal(size=(6, 5, 3))
+    axes /= np.linalg.norm(axes, axis=-1, keepdims=True)
+    Rg = R.from_euler("ZYX", ypr.reshape(-1, 3))
+    Rp = R.from_rotvec(theta * axes.reshape(-1, 3)) * Rg
+    ypr_p = Rp.as_euler("ZYX").reshape(6, 5, 3)
+
+    # 12-dim ypr layout (both arms the same pose)
+    gt12 = torch.from_numpy(np.concatenate([ypr, ypr], -1)).float()
+    gt12 = torch.cat([torch.zeros(6, 5, 3), gt12[..., :3], torch.zeros(6, 5, 3), gt12[..., 3:]], -1)
+    pr12 = torch.from_numpy(np.concatenate([ypr_p, ypr_p], -1)).float()
+    pr12 = torch.cat([torch.zeros(6, 5, 3), pr12[..., :3], torch.zeros(6, 5, 3), pr12[..., 3:]], -1)
+    assert abs(_rot_geodesic_error(pr12, gt12).item() - theta) < 1e-4
+    assert _rot_geodesic_error(gt12, gt12).item() < 1e-5
+
+    # 18-dim 6D layout, same rotations -> same answer
+    def to18(y):
+        six = _ypr_to_rot6d(y)
+        arm = np.concatenate([np.zeros(y.shape[:-1] + (3,)), six], -1)
+        return torch.from_numpy(np.concatenate([arm, arm], -1)).float()
+
+    assert abs(_rot_geodesic_error(to18(ypr_p), to18(ypr)).item() - theta) < 1e-4
+    assert _rot_geodesic_error(torch.zeros(2, 3, 7), torch.zeros(2, 3, 7)) is None
+
+    # Gimbal lock: pitch ≈ π/2, pred = gt rotated 0.004 rad about local y.
+    # The ypr MSE (even wrap-aware) explodes because yaw and roll trade off;
+    # the geodesic error reports the true 0.004.
+    gt = np.array([0.3, np.pi / 2 - 0.002, 0.2])
+    Rgt = R.from_euler("ZYX", gt)
+    Rpr = Rgt * R.from_rotvec([0.0, 0.004, 0.0])
+    pr = Rpr.as_euler("ZYX")
+    v_gt = torch.tensor([[0, 0, 0, *gt, 0, 0, 0, *gt]], dtype=torch.float32)
+    v_pr = torch.tensor([[0, 0, 0, *pr, 0, 0, 0, *pr]], dtype=torch.float32)
+    wrapped, _ = _wrap_aware_mse(v_pr, v_gt)
+    geo = _rot_geodesic_error(v_pr, v_gt).item()
+    assert abs(geo - 0.004) < 1e-3, geo
+    assert wrapped.item() > 0.1, wrapped  # the Euler metric is fooled here
