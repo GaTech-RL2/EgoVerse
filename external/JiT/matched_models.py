@@ -682,13 +682,14 @@ class UnifiedLatentObjective(nn.Module):
             "unroll_steps": target_latent.new_tensor(1.0),
         }
         if not self.training:
-            centered = flat_latent - flat_latent.mean(dim=0, keepdim=True)
-            covariance = centered.T @ centered / max(centered.shape[0] - 1, 1)
-            eigenvalues = torch.linalg.eigvalsh(covariance).clamp_min(0)
-            probabilities = eigenvalues / eigenvalues.sum().clamp_min(1e-12)
-            effective_rank = torch.exp(
-                -(probabilities * probabilities.clamp_min(1e-12).log()).sum()
-            )
+            with torch.autocast(device_type=target_latent.device.type, enabled=False):
+                centered = flat_latent - flat_latent.mean(dim=0, keepdim=True)
+                covariance = centered.T @ centered / max(centered.shape[0] - 1, 1)
+                eigenvalues = torch.linalg.eigvalsh(covariance).clamp_min(0)
+                probabilities = eigenvalues / eigenvalues.sum().clamp_min(1e-12)
+                effective_rank = torch.exp(
+                    -(probabilities * probabilities.clamp_min(1e-12).log()).sum()
+                )
             metrics["latent_effective_rank"] = effective_rank.to(target_latent)
         return metrics
 

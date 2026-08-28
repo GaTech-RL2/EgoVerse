@@ -167,3 +167,13 @@ def test_unified_reconstruction_and_sampling_have_exact_image_shape():
     assert reconstruction.shape == images.shape
     assert first.shape == images.shape
     assert not torch.equal(first, second)
+
+
+def test_unified_validation_effective_rank_is_fp32_under_autocast():
+    model = tiny_unified_model().eval()
+    images = torch.randn(2, 3, 8, 8)
+    labels = torch.tensor([0, 1])
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        metrics = model(images, labels, optimizer_step=1)
+    assert torch.isfinite(metrics["latent_effective_rank"])
+    assert metrics["latent_effective_rank"] > 1
