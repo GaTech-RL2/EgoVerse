@@ -2,6 +2,8 @@
 
 The JiT path preserves the upstream clean-image prediction objective. The
 endpoint-latent path never reads the target image before terminal decoding.
+The JiT-endpoint control removes JiT's image input stem and applies the same
+target-blind iterative endpoint algorithm directly to Gaussian patch tokens.
 """
 
 from __future__ import annotations
@@ -419,11 +421,265 @@ class EndpointLatentObjective(nn.Module):
         return self.decode(latent)
 
 
+class JiTEndpointObjective(nn.Module):
+    """JiT backbone driven by the decoder-only endpoint algorithm.
+
+    The target image is never embedded or supplied to the generator.  Gaussian
+    tokens are evolved by JiT blocks, and only the terminal tokens are decoded
+    to RGB for the image-space loss.
+    """
+
+    architecture = "jit_endpoint"
+
+    def __init__(
+        self,
+        image_size: int = 256,
+        patch_size: int = 16,
+        hidden_size: int = 768,
+        depth: int = 12,
+        num_heads: int = 12,
+        mlp_ratio: float = 4.0,
+        bottleneck_dim: int = 128,
+        in_context_len: int = 32,
+        in_context_start: int = 4,
+        num_classes: int = 1000,
+        label_drop_prob: float = 0.1,
+        gradient_checkpointing: bool = True,
+    ) -> None:
+        super().__init__()
+        patch_width = patch_size * patch_size * 3
+        if hidden_size != patch_width:
+            raise ValueError(
+                "JiT endpoint state width must equal one RGB patch width; "
+                f"got hidden_size={hidden_size}, patch_width={patch_width}"
+            )
+        self.net = JiT_models["JiT-B/16"](
+            input_size=image_size,
+            in_channels=3,
+            num_classes=num_classes,
+            attn_drop=0.0,
+            proj_drop=0.0,
+        ) if (
+            patch_size == 16
+            and hidden_size == 768
+            and depth == 12
+            and num_heads == 12
+            and mlp_ratio == 4.0
+            and bottleneck_dim == 128
+            and in_context_len == 32
+            and in_context_start == 4
+        ) else self._build_test_net(
+            image_size=image_size,
+            patch_size=patch_size,
+            hidden_size=hidden_size,
+            depth=depth,
+            num_heads=num_heads,
+            mlp_ratio=mlp_ratio,
+            bottleneck_dim=bottleneck_dim,
+            in_context_len=in_context_len,
+            in_context_start=in_context_start,
+            num_classes=num_classes,
+        )
+        # Removing this module is the defining control: no RGB or target image
+        # can enter the JiT backbone before terminal decoding.
+        del self.net.x_embedder
+        self.image_size = int(image_size)
+        self.patch_size = int(patch_size)
+        self.grid_size = image_size // patch_size
+        self.num_tokens = self.grid_size * self.grid_size
+        self.latent_dim = int(hidden_size)
+        self.num_classes = int(num_classes)
+        self.label_drop_prob = float(label_drop_prob)
+        self.gradient_checkpointing = bool(gradient_checkpointing)
+        self.decoder = nn.Linear(hidden_size, patch_width)
+        nn.init.xavier_uniform_(self.decoder.weight)
+        nn.init.zeros_(self.decoder.bias)
+
+    @staticmethod
+    def _build_test_net(**kwargs):
+        # Imported lazily so the production constructor remains exactly the
+        # official JiT-B/16 factory while unit tests can use a tiny network.
+        from model_jit import JiT
+
+        return JiT(in_channels=3, attn_drop=0.0, proj_drop=0.0, **kwargs)
+
+    unroll_steps_at = staticmethod(EndpointLatentObjective.unroll_steps_at)
+    sample_step_sizes = staticmethod(EndpointLatentObjective.sample_step_sizes)
+
+    def _drop_labels(self, labels: torch.Tensor) -> torch.Tensor:
+        if not self.training or self.label_drop_prob <= 0:
+            return labels
+        mask = torch.rand(labels.shape[0], device=labels.device) < self.label_drop_prob
+        return torch.where(mask, torch.full_like(labels, self.num_classes), labels)
+
+    def _field_impl(
+        self, latent: torch.Tensor, time: torch.Tensor, labels: torch.Tensor
+    ) -> torch.Tensor:
+        t_embedding = self.net.t_embedder(time)
+        label_embedding = self.net.y_embedder(labels)
+        condition = t_embedding + label_embedding
+        hidden = latent + self.net.pos_embed.to(dtype=latent.dtype)
+        for index, block in enumerate(self.net.blocks):
+            if self.net.in_context_len > 0 and index == self.net.in_context_start:
+                class_tokens = label_embedding.unsqueeze(1).repeat(
+                    1, self.net.in_context_len, 1
+                )
+                class_tokens = class_tokens + self.net.in_context_posemb
+                hidden = torch.cat([class_tokens, hidden], dim=1)
+            rope = (
+                self.net.feat_rope
+                if index < self.net.in_context_start
+                else self.net.feat_rope_incontext
+            )
+            hidden = block(hidden, condition, rope)
+        if self.net.in_context_len > 0:
+            hidden = hidden[:, self.net.in_context_len :]
+        return self.net.final_layer(hidden, condition)
+
+    def _velocity(
+        self, latent: torch.Tensor, time: torch.Tensor, labels: torch.Tensor
+    ) -> torch.Tensor:
+        if self.gradient_checkpointing and self.training and torch.is_grad_enabled():
+            return checkpoint(
+                self._field_impl, latent, time, labels, use_reentrant=False
+            )
+        return self._field_impl(latent, time, labels)
+
+    def integrate(
+        self,
+        initial_latent: torch.Tensor,
+        labels: torch.Tensor,
+        num_steps: int,
+        step_sizes: Optional[torch.Tensor] = None,
+    ) -> IntegrationResult:
+        batch = initial_latent.shape[0]
+        if initial_latent.shape[1:] != (self.num_tokens, self.latent_dim):
+            raise ValueError(
+                "Expected latent shape "
+                f"{(batch, self.num_tokens, self.latent_dim)}, got "
+                f"{tuple(initial_latent.shape)}"
+            )
+        if step_sizes is None:
+            step_sizes = torch.full(
+                (batch, num_steps),
+                1.0 / num_steps,
+                device=initial_latent.device,
+                dtype=torch.float32,
+            )
+        if step_sizes.shape != (batch, num_steps):
+            raise ValueError(
+                f"Expected step_sizes {(batch, num_steps)}, got {tuple(step_sizes.shape)}"
+            )
+        if not bool(torch.all(step_sizes > 0)):
+            raise ValueError("All integration steps must be positive")
+        if not torch.allclose(
+            step_sizes.sum(-1),
+            torch.ones(batch, device=step_sizes.device),
+            atol=1e-6,
+            rtol=1e-6,
+        ):
+            raise ValueError("Each integration grid must sum to one")
+        latent = initial_latent
+        time = torch.zeros(batch, device=latent.device, dtype=torch.float32)
+        deltas = []
+        for index in range(num_steps):
+            velocity = self._velocity(latent, time, labels)
+            dt = step_sizes[:, index].reshape(batch, 1, 1)
+            delta = dt * velocity
+            latent = latent + delta
+            deltas.append(delta.detach().square().mean())
+            time = time + step_sizes[:, index]
+        return IntegrationResult(
+            endpoint=latent,
+            delta_rms=torch.stack(deltas).mean().sqrt(),
+            step_sizes=step_sizes,
+        )
+
+    def decode(self, latent: torch.Tensor) -> torch.Tensor:
+        patches = self.decoder(latent)
+        return self.net.unpatchify(patches, self.patch_size)
+
+    def predict(
+        self,
+        labels: torch.Tensor,
+        optimizer_step: int,
+        force_steps: Optional[int] = None,
+        noise: Optional[torch.Tensor] = None,
+        step_sizes: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, IntegrationResult]:
+        effective_labels = self._drop_labels(labels)
+        if noise is None:
+            noise = torch.randn(
+                labels.shape[0],
+                self.num_tokens,
+                self.latent_dim,
+                device=labels.device,
+            )
+        num_steps = int(force_steps or self.unroll_steps_at(optimizer_step))
+        if step_sizes is None:
+            step_sizes = self.sample_step_sizes(
+                labels.shape[0], num_steps, labels.device
+            )
+        result = self.integrate(noise, effective_labels, num_steps, step_sizes)
+        return self.decode(result.endpoint), result
+
+    def forward(
+        self,
+        images: torch.Tensor,
+        labels: torch.Tensor,
+        optimizer_step: int,
+        force_steps: Optional[int] = None,
+    ) -> Dict[str, torch.Tensor]:
+        prediction, result = self.predict(
+            labels, optimizer_step, force_steps=force_steps
+        )
+        loss = (prediction - images).square().mean()
+        return {
+            "loss": loss,
+            "prediction_rms": prediction.detach().square().mean().sqrt(),
+            "noise_rms": result.endpoint.new_tensor(1.0),
+            "endpoint_rms": result.endpoint.detach().square().mean().sqrt(),
+            "latent_delta_rms": result.delta_rms.detach(),
+            "unroll_steps": result.endpoint.new_tensor(result.step_sizes.shape[1]),
+        }
+
+    @torch.no_grad()
+    def sample(
+        self,
+        labels: torch.Tensor,
+        num_steps: int = 16,
+        cfg_scale: float = 1.0,
+        noise: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        latent = (
+            torch.randn(
+                labels.shape[0],
+                self.num_tokens,
+                self.latent_dim,
+                device=labels.device,
+            )
+            if noise is None
+            else noise.clone()
+        )
+        time = torch.zeros(labels.shape[0], device=labels.device, dtype=torch.float32)
+        null_labels = torch.full_like(labels, self.num_classes)
+        for _ in range(num_steps):
+            velocity = self._field_impl(latent, time, labels)
+            if cfg_scale != 1.0:
+                uncond_velocity = self._field_impl(latent, time, null_labels)
+                velocity = uncond_velocity + cfg_scale * (velocity - uncond_velocity)
+            latent = latent + velocity / num_steps
+            time = time + 1.0 / num_steps
+        return self.decode(latent)
+
+
 def build_model(architecture: str, image_size: int = 256, num_classes: int = 1000) -> nn.Module:
     if architecture == "jit_b16":
         return JiTObjective(image_size=image_size, num_classes=num_classes)
     if architecture == "endpoint_latent":
         return EndpointLatentObjective(image_size=image_size, num_classes=num_classes)
+    if architecture == "jit_endpoint":
+        return JiTEndpointObjective(image_size=image_size, num_classes=num_classes)
     raise ValueError(f"Unknown architecture: {architecture}")
 
 
