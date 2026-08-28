@@ -1,4 +1,4 @@
-"""Distributed matched training for JiT-B/16 and endpoint latent denoising."""
+"""Distributed matched training for JiT-B/16 and latent denoising variants."""
 
 from __future__ import annotations
 
@@ -40,7 +40,11 @@ def _request_stop(signum, _frame) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--architecture", choices=("jit_b16", "endpoint_latent"), required=True)
+    parser.add_argument(
+        "--architecture",
+        choices=("jit_b16", "endpoint_latent", "unified_latent"),
+        required=True,
+    )
     parser.add_argument("--data-path", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--image-size", type=int, default=256)
@@ -224,7 +228,7 @@ def validate(
 ) -> Dict[str, float]:
     ema.eval()
     sampler.set_epoch(optimizer_step)
-    losses = []
+    metric_values: Dict[str, list[torch.Tensor]] = {}
     first_images = first_labels = None
     with torch.random.fork_rng(devices=[device.index]):
         torch.manual_seed(args.seed + 100_000 + rank)
@@ -235,14 +239,19 @@ def validate(
             labels = labels.to(device, non_blocking=True)
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 metrics = ema(images, labels, optimizer_step)
-            losses.append(metrics["loss"].detach().float())
+            for name, value in metrics.items():
+                if isinstance(value, torch.Tensor) and value.numel() == 1:
+                    metric_values.setdefault(name, []).append(value.detach().float())
             if first_images is None:
                 first_images, first_labels = images, labels
-    if not losses:
+    if not metric_values.get("loss"):
         raise RuntimeError("Validation loader produced no batches")
-    local_loss = torch.stack(losses).mean()
-    val_loss = reduce_mean(local_loss, world_size)
-    result = {"val_loss": float(val_loss.item())}
+    result = {}
+    for name, values in metric_values.items():
+        reduced = reduce_mean(torch.stack(values).mean(), world_size)
+        result["val_loss" if name == "loss" else f"val_{name}"] = float(
+            reduced.item()
+        )
 
     if is_main(rank):
         count = min(args.sample_batch, first_labels.shape[0])
@@ -267,14 +276,36 @@ def validate(
                 "sample_saturation": float((sample_a.abs() > 1.0).float().mean().item()),
             }
         )
-        if args.architecture == "endpoint_latent":
+        if args.architecture in {"endpoint_latent", "unified_latent"}:
             same_seed_rows = []
             for steps in (1, 2, 4, 8, 16):
                 torch.manual_seed(args.seed + 400_000)
                 with torch.autocast("cuda", dtype=torch.bfloat16):
                     variant = ema.sample(labels, num_steps=steps, cfg_scale=args.cfg_scale)
                 same_seed_rows.append(variant.float())
-            grid = torch.cat([targets, *same_seed_rows, sample_b], dim=0)
+            if args.architecture == "unified_latent":
+                torch.manual_seed(args.seed + 500_000)
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    reconstruction = ema.reconstruct(targets).float()
+                result.update(
+                    {
+                        "reconstruction_mse": float(
+                            (reconstruction - targets).square().mean().item()
+                        ),
+                        "reconstruction_psnr": float(
+                            -10.0
+                            * torch.log10(
+                                ((reconstruction - targets).square().mean() / 4.0)
+                                .clamp_min(1e-12)
+                            ).item()
+                        ),
+                    }
+                )
+                grid = torch.cat(
+                    [targets, reconstruction, *same_seed_rows, sample_b], dim=0
+                )
+            else:
+                grid = torch.cat([targets, *same_seed_rows, sample_b], dim=0)
         else:
             grid = torch.cat([targets, sample_a, sample_b], dim=0)
         sample_path = output_dir / f"samples-step{optimizer_step:08d}.png"
@@ -298,7 +329,7 @@ def maybe_wandb(args: argparse.Namespace, rank: int, config: Dict):
         return None
     import wandb
 
-    return wandb.init(
+    run = wandb.init(
         project=args.wandb_project,
         name=args.wandb_name or None,
         dir=args.output_dir,
@@ -306,6 +337,10 @@ def maybe_wandb(args: argparse.Namespace, rank: int, config: Dict):
         mode=args.wandb_mode,
         resume="allow",
     )
+    run.define_metric("optimizer_step")
+    run.define_metric("train/*", step_metric="optimizer_step")
+    run.define_metric("validation/*", step_metric="optimizer_step")
+    return run
 
 
 def main() -> int:
@@ -510,7 +545,13 @@ def main() -> int:
                 print("TRAIN_METRICS " + json.dumps(reduced, sort_keys=True), flush=True)
                 append_jsonl(log_path, {"split": "train", **reduced})
                 if run is not None:
-                    run.log({f"train/{key}": value for key, value in reduced.items()}, step=optimizer_step)
+                    run.log(
+                        {
+                            "optimizer_step": optimizer_step,
+                            **{f"train/{key}": value for key, value in reduced.items()},
+                        },
+                        step=optimizer_step,
+                    )
 
             should_validate = (
                 args.val_every_steps > 0 and optimizer_step % args.val_every_steps == 0
@@ -534,14 +575,21 @@ def main() -> int:
                         {"split": "validation", "optimizer_step": optimizer_step, **validation},
                     )
                     if run is not None:
-                        run.log(
-                            {
+                        wandb_payload = {
+                            "optimizer_step": optimizer_step,
+                            **{
                                 f"validation/{key}": value
                                 for key, value in validation.items()
                                 if isinstance(value, (int, float))
                             },
-                            step=optimizer_step,
-                        )
+                        }
+                        if validation.get("sample_grid"):
+                            import wandb
+
+                            wandb_payload["validation/sample_grid"] = wandb.Image(
+                                validation["sample_grid"]
+                            )
+                        run.log(wandb_payload, step=optimizer_step)
                 model.train()
 
             if optimizer_step % args.save_every_steps == 0 or STOP_REQUESTED:
