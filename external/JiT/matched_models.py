@@ -501,6 +501,7 @@ class JiTEndpointObjective(nn.Module):
         # official JiT-B/16 factory while unit tests can use a tiny network.
         from model_jit import JiT
 
+        kwargs["input_size"] = kwargs.pop("image_size")
         return JiT(in_channels=3, attn_drop=0.0, proj_drop=0.0, **kwargs)
 
     unroll_steps_at = staticmethod(EndpointLatentObjective.unroll_steps_at)
