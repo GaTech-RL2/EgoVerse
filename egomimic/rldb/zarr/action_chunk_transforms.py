@@ -579,9 +579,24 @@ class SplitKeys(Transform):
         self.output_key_list = list(output_key_list)
 
     def transform(self, batch: dict) -> dict:
+        value = batch[self.input_key]
+        expected = sum(size for _, size in self.output_key_list)
+        width = int(value.shape[-1])
+        if width != expected:
+            # Every caller lays out the WHOLE vector, so a mismatch means the
+            # split layout and the data disagree — typically an evaluator
+            # revert list built for one transform mode (e.g. 12-dim ypr) fed a
+            # batch from another (18/20-dim 6D). Slicing silently would hand
+            # the frame math xyz + rot6d columns as "xyz + ypr".
+            raise ValueError(
+                f"SplitKeys: '{self.input_key}' has last dim {width} but the "
+                f"output layout {self.output_key_list} sums to {expected}. Check "
+                "that the evaluator transform_lists match the data config's "
+                "transform mode."
+            )
         prev_end = 0
         for key, size in self.output_key_list:
-            batch[key] = batch[self.input_key][..., prev_end : prev_end + size]
+            batch[key] = value[..., prev_end : prev_end + size]
             prev_end += size
         return batch
 
