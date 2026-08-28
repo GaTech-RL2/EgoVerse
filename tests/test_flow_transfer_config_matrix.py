@@ -588,3 +588,84 @@ def test_matrix_requeue_selects_newest_recovery_checkpoint() -> None:
     assert '"paths.output_dir=$RUN_DIR"' in matrix
     assert '"paths.work_dir=$REPO"' in matrix
     assert '--cfg job --resolve > "$RESOLVED_CONFIG"' in matrix
+
+
+@pytest.mark.parametrize(
+    ("experiment", "model_family"),
+    [
+        (
+            "pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16",
+            "latent",
+        ),
+        ("pusht/pipeline_diffusion_usocket_chain_newdata_h16", "dp"),
+    ],
+)
+def test_newdata_cotrain_configs_are_h16_world2_and_config_only(
+    experiment: str,
+    model_family: str,
+) -> None:
+    cfg = _compose(experiment)
+    expected_roots = [
+        "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2",
+        "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen",
+    ]
+
+    assert set(cfg.data.train_datasets) == {
+        "pushshapes_sim_u_socket",
+        "pushshapes_sim_chain_gripper",
+    }
+    assert set(cfg.data.valid_datasets) == set(cfg.data.train_datasets)
+    for split in ("train_datasets", "valid_datasets"):
+        datasets = cfg.data[split]
+        chain = datasets.pushshapes_sim_chain_gripper
+        usocket = datasets.pushshapes_sim_u_socket
+        assert chain.resolver._target_.endswith(
+            "LocalEpisodeResolverManyWithEmbodimentOverride"
+        )
+        assert list(chain.resolver.folder_paths) == expected_roots
+        assert chain.resolver.key_map.action_horizon == 16
+        assert usocket.resolver.key_map.action_horizon == 16
+        assert (
+            usocket.resolver.folder_path
+            == "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/"
+            "u_socket_3000_v2_clean"
+        )
+
+    assert cfg.data.train_datasets.pushshapes_sim_u_socket.valid_ratio == 0.0
+    assert cfg.data.train_datasets.pushshapes_sim_chain_gripper.valid_ratio == 0.0
+    assert cfg.data.valid_datasets.pushshapes_sim_u_socket.valid_ratio == 0.02
+    assert cfg.data.valid_datasets.pushshapes_sim_chain_gripper.valid_ratio == 0.02
+    assert cfg.launch_params.gpus_per_node == 2
+    assert cfg.launch_params.nodes == 1
+    for domain in cfg.data.train_datasets:
+        per_rank = cfg.data.train_dataloader_params[domain].batch_size
+        assert per_rank == 32
+        assert per_rank * cfg.launch_params.gpus_per_node == 64
+
+    assert cfg.trainer.max_steps == 240_000
+    assert cfg.trainer.limit_val_batches == 0
+    assert cfg.trainer.accumulate_grad_batches == 1
+    assert cfg.trainer.log_every_n_steps == 1
+    assert cfg.trainer.get("gradient_clip_val") is None
+    assert cfg.model.enable_grad_norm is False
+    assert cfg.model.optimizer.lr == 1.0e-4
+    assert cfg.model.scheduler.max_steps == 240_000
+    assert cfg.model.scheduler.warmup_steps == 3_000
+    assert cfg.logger.wandb.project == "pushshapes-flow-transfer"
+    assert not any(name.startswith("best_") for name in cfg.callbacks)
+
+    model = cfg.model.robomimic_model
+    assert model.action_horizon == 16
+    assert set(model.domains) == {
+        "pushshapes_sim_u_socket",
+        "pushshapes_sim_chain_gripper",
+    }
+    if model_family == "latent":
+        assert model.stages[1].latent_dim == 96
+        assert model.stages[2].action_horizon == 16
+        assert model.stages[2].denoising_module.act_seq == 16
+        assert model.stages[2].gradient_accumulation_steps == 1
+        assert "action_encoder" not in OmegaConf.to_yaml(cfg.model).lower()
+    else:
+        assert model.stages[1].action_horizon == 16
+        assert set(model.stages[1].policies) == set(model.domains)

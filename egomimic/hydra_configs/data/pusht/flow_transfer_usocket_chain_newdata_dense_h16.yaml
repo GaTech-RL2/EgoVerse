@@ -1,0 +1,91 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Configuration only: chain_gripper_gen is still receiving episodes. Do not
+# compute final normalization statistics or launch until both ChainGripper
+# roots are frozen, causally audited, and recorded in immutable manifests.
+#
+# Both ChainGripper roots resolve into one logical domain. MultiDataset samples
+# their combined frame/window index rather than weighting source roots 50/50.
+train_datasets:
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_rotvec_transform_list
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverManyWithEmbodimentOverride
+      folder_paths: &chain_roots
+        - /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
+        - /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen
+      embodiment_override: pushshapes_sim_chain_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+        action_zarr_key: actions
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_transform_list
+        world_size: 512.0
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_rotvec_transform_list
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverManyWithEmbodimentOverride
+      folder_paths: *chain_roots
+      embodiment_override: pushshapes_sim_chain_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+        action_zarr_key: actions
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_transform_list
+        world_size: 512.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+
+# DDP world size is two. Per-rank batch 32 produces global batch 64 for each
+# embodiment; experiment-level gradient accumulation remains one.
+train_dataloader_params:
+  pushshapes_sim_u_socket: &train_loader
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+  pushshapes_sim_chain_gripper: *train_loader
+
+valid_dataloader_params:
+  pushshapes_sim_u_socket: &valid_loader
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+  pushshapes_sim_chain_gripper: *valid_loader
