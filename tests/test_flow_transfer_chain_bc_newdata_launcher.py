@@ -91,6 +91,11 @@ def test_chain_bc_newdata_launcher_pins_training_and_logging_contract() -> None:
     assert "trainer.limit_val_batches=0" in launcher
     assert "callbacks.model_checkpoint.every_n_train_steps=null" in launcher
     assert "checkpoint.train_time_interval.hours == 1" in launcher
+    assert "callbacks.terminal_checkpoint.every_n_train_steps=1" in launcher
+    assert (
+        "instantiate(checkpoint).state_key != instantiate(terminal).state_key"
+        in launcher
+    )
     assert "terminal.every_n_train_steps == cfg.trainer.max_steps" in launcher
     assert "cfg.model.optimizer.lr == 3.0e-5" in launcher
     assert "cfg.model.scheduler.warmup_steps == 3_000" in launcher
@@ -110,6 +115,7 @@ def test_chain_bc_newdata_launcher_smoke_and_full_are_fail_closed() -> None:
     assert "trainer.val_check_interval=1" in launcher
     assert "trainer.limit_val_batches=1" in launcher
     assert "trainer.num_sanity_val_steps=0" in launcher
+    assert "assert terminal.every_n_train_steps == 1" in launcher
     assert "--required-embodiments 20" in launcher
     assert '--expected-world-size "$EXPECTED_WORLD_SIZE"' in launcher
     assert "--dry-run" in launcher

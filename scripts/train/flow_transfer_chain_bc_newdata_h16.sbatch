@@ -504,6 +504,7 @@ if test "$MODE" = smoke; then
     trainer.limit_val_batches=1
     callbacks.model_checkpoint.every_n_train_steps=2
     callbacks.model_checkpoint.train_time_interval=null
+    callbacks.terminal_checkpoint.every_n_train_steps=1
     logger.wandb.offline=true
   )
 else
@@ -553,6 +554,7 @@ python - \
 import pathlib
 import sys
 
+from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 (
@@ -638,9 +640,9 @@ terminal = cfg.callbacks.terminal_checkpoint
 assert checkpoint.save_last is True
 assert checkpoint.save_top_k == 1
 assert checkpoint.save_on_train_epoch_end is False
-assert terminal.every_n_train_steps == cfg.trainer.max_steps
 assert terminal.save_top_k == 1
 assert terminal.save_last is False
+assert instantiate(checkpoint).state_key != instantiate(terminal).state_key
 
 if mode == "smoke":
     assert cfg.trainer.max_steps == 2
@@ -649,6 +651,7 @@ if mode == "smoke":
     assert cfg.trainer.limit_val_batches == 1
     assert checkpoint.every_n_train_steps == 2
     assert checkpoint.train_time_interval is None
+    assert terminal.every_n_train_steps == 1
     assert cfg.logger.wandb.offline is True
 else:
     assert mode == "full"
@@ -659,6 +662,7 @@ else:
     assert checkpoint.every_n_train_steps is None
     assert checkpoint.train_time_interval._target_ == "datetime.timedelta"
     assert checkpoint.train_time_interval.hours == 1
+    assert terminal.every_n_train_steps == cfg.trainer.max_steps
     assert cfg.logger.wandb.offline is False
 
 resolved = pathlib.Path(path).read_text().lower()

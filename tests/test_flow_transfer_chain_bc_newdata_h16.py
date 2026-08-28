@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
+from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
@@ -20,14 +21,58 @@ BC_EXPERIMENTS = [
 ]
 
 
-def _compose(experiment: str):
+def _compose(experiment: str, extra_overrides: list[str] | None = None):
     if GlobalHydra.instance().is_initialized():
         GlobalHydra.instance().clear()
     with initialize_config_dir(config_dir=str(CONFIG_DIR), version_base="1.3"):
         return compose(
             config_name="train_zarr_cartesian",
-            overrides=[f"+experiment={experiment}"],
+            overrides=[f"+experiment={experiment}", *(extra_overrides or [])],
         )
+
+
+@pytest.mark.parametrize("experiment", BC_EXPERIMENTS)
+@pytest.mark.parametrize(
+    ("mode", "overrides"),
+    [
+        (
+            "smoke",
+            [
+                "trainer.max_steps=2",
+                "callbacks.model_checkpoint.every_n_train_steps=2",
+                "callbacks.model_checkpoint.train_time_interval=null",
+                "callbacks.model_checkpoint.save_on_train_epoch_end=false",
+                "callbacks.terminal_checkpoint.every_n_train_steps=1",
+            ],
+        ),
+        (
+            "full",
+            [
+                "trainer.max_steps=240000",
+                "callbacks.model_checkpoint.every_n_train_steps=null",
+                "callbacks.model_checkpoint.save_on_train_epoch_end=false",
+            ],
+        ),
+    ],
+)
+def test_chain_bc_checkpoint_state_keys_are_unique(
+    experiment: str, mode: str, overrides: list[str]
+) -> None:
+    cfg = _compose(experiment, overrides)
+    cfg.paths.output_dir = "/tmp/flow_transfer_chain_bc_callback_state_keys"
+    checkpoint = cfg.callbacks.model_checkpoint
+    terminal = cfg.callbacks.terminal_checkpoint
+
+    assert instantiate(checkpoint).state_key != instantiate(terminal).state_key
+    if mode == "smoke":
+        assert checkpoint.every_n_train_steps == 2
+        assert checkpoint.train_time_interval is None
+        assert terminal.every_n_train_steps == 1
+    else:
+        assert mode == "full"
+        assert checkpoint.every_n_train_steps is None
+        assert checkpoint.train_time_interval.hours == 1
+        assert terminal.every_n_train_steps == cfg.trainer.max_steps == 240_000
 
 
 @pytest.mark.parametrize("experiment", BC_EXPERIMENTS)
