@@ -16,7 +16,7 @@ set -euo pipefail
 ARCHITECTURE=${1:?usage: image_generation_matched.sbatch ARCHITECTURE smoke|full}
 MODE=${2:?usage: image_generation_matched.sbatch ARCHITECTURE smoke|full}
 case "$ARCHITECTURE" in
-  jit_b16|endpoint_latent) ;;
+  jit_b16|endpoint_latent|jit_endpoint) ;;
   *) echo "unsupported architecture: $ARCHITECTURE" >&2; exit 2 ;;
 esac
 case "$MODE" in
@@ -76,9 +76,37 @@ COMMON_ARGS=(
 if [[ "$ARCHITECTURE" == jit_b16 ]]; then
   FULL_BATCH_SIZE=64
   FULL_GRAD_ACCUM=4
+elif [[ "$ARCHITECTURE" == jit_endpoint ]]; then
+  FULL_BATCH_SIZE=8
+  FULL_GRAD_ACCUM=32
 else
   FULL_BATCH_SIZE=32
   FULL_GRAD_ACCUM=8
+fi
+
+REAL_OPT_ARGS=(
+  --base-lr 5e-5
+  --warmup-epochs 5
+  --weight-decay 0
+  --adam-beta1 0.9
+  --adam-beta2 0.95
+)
+FULL_LIMIT_ARGS=()
+if [[ "$ARCHITECTURE" == jit_endpoint ]]; then
+  # Exact action-model optimization recipe.  In particular, do not apply the
+  # image harness's effective-batch LR scaling to the iterative field.
+  REAL_OPT_ARGS=(
+    --base-lr 3e-5
+    --lr-schedule action_warmup_cosine
+    --min-lr 3e-6
+    --warmup-steps 3000
+    --warmup-start-factor 0.1
+    --lr-total-steps 240000
+    --weight-decay 1e-4
+    --adam-beta1 0.9
+    --adam-beta2 0.999
+  )
+  FULL_LIMIT_ARGS=(--max-optimizer-steps 240000)
 fi
 
 if [[ "$MODE" == smoke ]]; then
@@ -86,6 +114,10 @@ if [[ "$MODE" == smoke ]]; then
   OVERFIT_DIR="$SMOKE_ROOT/overfit"
   REAL_DIR="$SMOKE_ROOT/real"
   mkdir -p "$OVERFIT_DIR" "$REAL_DIR"
+
+  TORCHDYNAMO_DISABLE=1 "$PY_ENV/bin/python" -m pytest -q \
+    "$JIT_ROOT/test_matched_models.py" \
+    2>&1 | tee "$SMOKE_ROOT/unit-tests.log"
 
   "$PY_ENV/bin/torchrun" --standalone --nproc_per_node=4 train_matched.py \
     "${COMMON_ARGS[@]}" \
@@ -110,8 +142,7 @@ if [[ "$MODE" == smoke ]]; then
     --epochs 1 \
     --batch-size "$FULL_BATCH_SIZE" \
     --grad-accum "$FULL_GRAD_ACCUM" \
-    --base-lr 5e-5 \
-    --warmup-epochs 5 \
+    "${REAL_OPT_ARGS[@]}" \
     --max-optimizer-steps 2 \
     --save-every-steps 2 \
     --val-every-steps 1 \
@@ -125,10 +156,57 @@ if [[ "$MODE" == smoke ]]; then
     --wandb-mode offline \
     2>&1 | tee "$SMOKE_ROOT/real.log"
 
-  "$PY_ENV/bin/python" "$SOURCE_ROOT/scripts/train/verify_image_generation_smoke.py" \
-    --overfit-log "$SMOKE_ROOT/overfit.log" \
-    --smoke-log "$SMOKE_ROOT/real.log" \
+  "$PY_ENV/bin/torchrun" --standalone --nproc_per_node=4 train_matched.py \
+    "${COMMON_ARGS[@]}" \
+    --output-dir "$REAL_DIR" \
+    --epochs 1 \
+    --batch-size "$FULL_BATCH_SIZE" \
+    --grad-accum "$FULL_GRAD_ACCUM" \
+    "${REAL_OPT_ARGS[@]}" \
+    --max-optimizer-steps 3 \
+    --save-every-steps 3 \
+    --val-every-steps 3 \
+    --val-batches 1 \
+    --sample-batch 1 \
+    --sample-steps 16 \
+    --log-every-steps 1 \
+    --smoke-require-validation \
+    --resume \
+    --wandb-mode disabled \
+    2>&1 | tee "$SMOKE_ROOT/resume.log"
+
+  if [[ "$ARCHITECTURE" == jit_endpoint ]]; then
+    STRESS_DIR="$SMOKE_ROOT/j8-memory"
+    mkdir -p "$STRESS_DIR"
+    "$PY_ENV/bin/torchrun" --standalone --nproc_per_node=4 train_matched.py \
+      "${COMMON_ARGS[@]}" \
+      --output-dir "$STRESS_DIR" \
+      --epochs 1 \
+      --batch-size "$FULL_BATCH_SIZE" \
+      --grad-accum 1 \
+      "${REAL_OPT_ARGS[@]}" \
+      --max-optimizer-steps 1 \
+      --train-force-steps 8 \
+      --save-every-steps 1 \
+      --val-every-steps 0 \
+      --log-every-steps 1 \
+      --wandb-mode disabled \
+      2>&1 | tee "$SMOKE_ROOT/j8-memory.log"
+    echo "JIT_ENDPOINT_J8_MEMORY_PASSED"
+  fi
+
+  VERIFY_ARGS=(
+    --overfit-log "$SMOKE_ROOT/overfit.log"
+    --smoke-log "$SMOKE_ROOT/real.log"
     --smoke-dir "$REAL_DIR"
+    --expected-architecture "$ARCHITECTURE"
+    --resume-log "$SMOKE_ROOT/resume.log"
+  )
+  if [[ "$ARCHITECTURE" == jit_endpoint ]]; then
+    VERIFY_ARGS+=(--stress-log "$SMOKE_ROOT/j8-memory.log")
+  fi
+  "$PY_ENV/bin/python" "$SOURCE_ROOT/scripts/train/verify_image_generation_smoke.py" \
+    "${VERIFY_ARGS[@]}"
   echo "MATCHED_SMOKE_COMPLETE architecture=$ARCHITECTURE job=$SLURM_JOB_ID"
   exit 0
 fi
@@ -144,9 +222,8 @@ FULL_ARGS=(
   --epochs 600
   --batch-size "$FULL_BATCH_SIZE"
   --grad-accum "$FULL_GRAD_ACCUM"
-  --base-lr 5e-5
-  --warmup-epochs 5
-  --weight-decay 0
+  "${REAL_OPT_ARGS[@]}"
+  "${FULL_LIMIT_ARGS[@]}"
   --ema-decay 0.9999
   --save-every-steps 1000
   --val-every-steps 5000

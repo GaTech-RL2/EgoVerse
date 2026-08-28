@@ -1,4 +1,4 @@
-"""Distributed matched training for JiT-B/16 and endpoint latent denoising."""
+"""Distributed matched training for JiT-B/16 and endpoint controls."""
 
 from __future__ import annotations
 
@@ -40,7 +40,11 @@ def _request_stop(signum, _frame) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--architecture", choices=("jit_b16", "endpoint_latent"), required=True)
+    parser.add_argument(
+        "--architecture",
+        choices=("jit_b16", "endpoint_latent", "jit_endpoint"),
+        required=True,
+    )
     parser.add_argument("--data-path", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--image-size", type=int, default=256)
@@ -50,7 +54,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--grad-accum", type=int, default=1)
     parser.add_argument("--base-lr", type=float, default=5e-5)
     parser.add_argument("--warmup-epochs", type=float, default=5.0)
+    parser.add_argument(
+        "--lr-schedule",
+        choices=("batch_scaled_warmup_constant", "action_warmup_cosine"),
+        default="batch_scaled_warmup_constant",
+    )
+    parser.add_argument("--min-lr", type=float, default=0.0)
+    parser.add_argument("--warmup-steps", type=int, default=0)
+    parser.add_argument("--warmup-start-factor", type=float, default=0.1)
+    parser.add_argument("--lr-total-steps", type=int, default=0)
     parser.add_argument("--weight-decay", type=float, default=0.0)
+    parser.add_argument("--adam-beta1", type=float, default=0.9)
+    parser.add_argument("--adam-beta2", type=float, default=0.95)
     parser.add_argument("--ema-decay", type=float, default=0.9999)
     parser.add_argument("--max-optimizer-steps", type=int, default=0)
     parser.add_argument("--save-every-steps", type=int, default=1000)
@@ -65,6 +80,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--overfit-one-batch", action="store_true")
     parser.add_argument("--overfit-force-steps", type=int, default=2)
+    parser.add_argument("--train-force-steps", type=int, default=0)
     parser.add_argument("--smoke-require-validation", action="store_true")
     parser.add_argument("--wandb-project", default="")
     parser.add_argument("--wandb-name", default="")
@@ -199,7 +215,32 @@ def current_lr(
     optimizer_step: int,
     updates_per_epoch: int,
     warmup_epochs: float,
+    schedule: str = "batch_scaled_warmup_constant",
+    min_lr: float = 0.0,
+    warmup_steps: int = 0,
+    warmup_start_factor: float = 0.1,
+    total_steps: int = 0,
 ) -> float:
+    if schedule == "action_warmup_cosine":
+        if not 0.0 < warmup_start_factor <= 1.0:
+            raise ValueError("warmup_start_factor must be in (0, 1]")
+        if not 0 <= min_lr <= base_lr:
+            raise ValueError("min_lr must be between zero and base_lr")
+        if warmup_steps <= 0 or total_steps <= warmup_steps:
+            raise ValueError("action schedule requires 0 < warmup_steps < total_steps")
+        if optimizer_step < warmup_steps:
+            fraction = optimizer_step / warmup_steps
+            factor = warmup_start_factor + (1.0 - warmup_start_factor) * fraction
+            return base_lr * factor
+        fraction = min(
+            max((optimizer_step - warmup_steps) / (total_steps - warmup_steps), 0.0),
+            1.0,
+        )
+        return min_lr + 0.5 * (base_lr - min_lr) * (
+            1.0 + math.cos(math.pi * fraction)
+        )
+    if schedule != "batch_scaled_warmup_constant":
+        raise ValueError(f"Unknown LR schedule: {schedule}")
     absolute = base_lr * effective_batch / 256.0
     warmup_updates = max(int(warmup_epochs * updates_per_epoch), 1)
     return absolute * min((optimizer_step + 1) / warmup_updates, 1.0)
@@ -267,16 +308,54 @@ def validate(
                 "sample_saturation": float((sample_a.abs() > 1.0).float().mean().item()),
             }
         )
-        if args.architecture == "endpoint_latent":
+        diagnostic_labels = torch.linspace(
+            0,
+            args.num_classes - 1,
+            steps=count + 1,
+            device=device,
+            dtype=torch.float32,
+        )[:-1].long()
+        alternate_labels = (
+            diagnostic_labels + max(args.num_classes // 2, 1)
+        ) % args.num_classes
+        torch.manual_seed(args.seed + 350_000)
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            class_sample_a = ema.sample(
+                diagnostic_labels,
+                num_steps=args.sample_steps,
+                cfg_scale=args.cfg_scale,
+            ).float()
+        torch.manual_seed(args.seed + 350_000)
+        with torch.autocast("cuda", dtype=torch.bfloat16):
+            class_sample_b = ema.sample(
+                alternate_labels,
+                num_steps=args.sample_steps,
+                cfg_scale=args.cfg_scale,
+            ).float()
+        result["sample_class_effect_mse"] = float(
+            (class_sample_a - class_sample_b).square().mean().item()
+        )
+        if args.architecture in {"endpoint_latent", "jit_endpoint"}:
             same_seed_rows = []
             for steps in (1, 2, 4, 8, 16):
                 torch.manual_seed(args.seed + 400_000)
                 with torch.autocast("cuda", dtype=torch.bfloat16):
                     variant = ema.sample(labels, num_steps=steps, cfg_scale=args.cfg_scale)
                 same_seed_rows.append(variant.float())
-            grid = torch.cat([targets, *same_seed_rows, sample_b], dim=0)
+            grid = torch.cat(
+                [
+                    targets,
+                    *same_seed_rows,
+                    class_sample_a,
+                    class_sample_b,
+                    sample_b,
+                ],
+                dim=0,
+            )
         else:
-            grid = torch.cat([targets, sample_a, sample_b], dim=0)
+            grid = torch.cat(
+                [targets, class_sample_a, class_sample_b, sample_a, sample_b], dim=0
+            )
         sample_path = output_dir / f"samples-step{optimizer_step:08d}.png"
         save_image(((grid.clamp(-1, 1) + 1) / 2).cpu(), sample_path, nrow=count)
         result["sample_grid"] = str(sample_path)
@@ -298,7 +377,7 @@ def maybe_wandb(args: argparse.Namespace, rank: int, config: Dict):
         return None
     import wandb
 
-    return wandb.init(
+    run = wandb.init(
         project=args.wandb_project,
         name=args.wandb_name or None,
         dir=args.output_dir,
@@ -306,12 +385,23 @@ def maybe_wandb(args: argparse.Namespace, rank: int, config: Dict):
         mode=args.wandb_mode,
         resume="allow",
     )
+    run.define_metric("optimizer_step")
+    run.define_metric("train/*", step_metric="optimizer_step")
+    run.define_metric("validation/*", step_metric="optimizer_step")
+    return run
 
 
 def main() -> int:
     args = parse_args()
     if args.batch_size <= 0 or args.grad_accum <= 0:
         raise ValueError("batch-size and grad-accum must be positive")
+    if args.lr_schedule == "action_warmup_cosine":
+        if args.lr_total_steps <= args.warmup_steps or args.warmup_steps <= 0:
+            raise ValueError(
+                "action_warmup_cosine requires 0 < warmup_steps < lr-total-steps"
+            )
+        if args.max_optimizer_steps and args.max_optimizer_steps > args.lr_total_steps:
+            raise ValueError("max-optimizer-steps exceeds the LR schedule horizon")
     rank, world_size, local_rank, device = init_distributed()
     signal.signal(signal.SIGUSR1, _request_stop)
     output_dir = Path(args.output_dir)
@@ -376,25 +466,43 @@ def main() -> int:
     distributed_model = DistributedDataParallel(
         model, device_ids=[local_rank], broadcast_buffers=False, find_unused_parameters=False
     )
-    parameter_groups = [
-        {
-            "params": [
-                parameter
-                for name, parameter in model.named_parameters()
-                if parameter.requires_grad and parameter.ndim > 1 and not name.endswith("bias")
-            ],
-            "weight_decay": args.weight_decay,
-        },
-        {
-            "params": [
-                parameter
-                for name, parameter in model.named_parameters()
-                if parameter.requires_grad and (parameter.ndim <= 1 or name.endswith("bias"))
-            ],
-            "weight_decay": 0.0,
-        },
-    ]
-    optimizer = torch.optim.AdamW(parameter_groups, lr=0.0, betas=(0.9, 0.95))
+    if args.lr_schedule == "action_warmup_cosine":
+        # The action reference passes all model parameters directly to AdamW.
+        parameter_groups = [
+            {
+                "params": [
+                    parameter for parameter in model.parameters() if parameter.requires_grad
+                ],
+                "weight_decay": args.weight_decay,
+            }
+        ]
+    else:
+        parameter_groups = [
+            {
+                "params": [
+                    parameter
+                    for name, parameter in model.named_parameters()
+                    if parameter.requires_grad
+                    and parameter.ndim > 1
+                    and not name.endswith("bias")
+                ],
+                "weight_decay": args.weight_decay,
+            },
+            {
+                "params": [
+                    parameter
+                    for name, parameter in model.named_parameters()
+                    if parameter.requires_grad
+                    and (parameter.ndim <= 1 or name.endswith("bias"))
+                ],
+                "weight_decay": 0.0,
+            },
+        ]
+    optimizer = torch.optim.AdamW(
+        parameter_groups,
+        lr=0.0,
+        betas=(args.adam_beta1, args.adam_beta2),
+    )
 
     effective_batch = args.batch_size * world_size * args.grad_accum
     updates_per_epoch = len(train_loader) // args.grad_accum
@@ -455,7 +563,11 @@ def main() -> int:
             micro_in_update += 1
             sync_now = micro_in_update == args.grad_accum
             context = contextlib.nullcontext() if sync_now else distributed_model.no_sync()
-            force_steps = args.overfit_force_steps if args.overfit_one_batch else None
+            force_steps = (
+                args.overfit_force_steps
+                if args.overfit_one_batch
+                else (args.train_force_steps or None)
+            )
             rng_context = (
                 torch.random.fork_rng(devices=[device.index])
                 if args.overfit_one_batch else contextlib.nullcontext()
@@ -478,6 +590,11 @@ def main() -> int:
                 optimizer_step,
                 updates_per_epoch,
                 0.0 if args.overfit_one_batch else args.warmup_epochs,
+                schedule=args.lr_schedule,
+                min_lr=args.min_lr,
+                warmup_steps=args.warmup_steps,
+                warmup_start_factor=args.warmup_start_factor,
+                total_steps=args.lr_total_steps,
             )
             set_lr(optimizer, lr)
             optimizer.step()
@@ -510,7 +627,13 @@ def main() -> int:
                 print("TRAIN_METRICS " + json.dumps(reduced, sort_keys=True), flush=True)
                 append_jsonl(log_path, {"split": "train", **reduced})
                 if run is not None:
-                    run.log({f"train/{key}": value for key, value in reduced.items()}, step=optimizer_step)
+                    run.log(
+                        {
+                            "optimizer_step": optimizer_step,
+                            **{f"train/{key}": value for key, value in reduced.items()},
+                        },
+                        step=optimizer_step,
+                    )
 
             should_validate = (
                 args.val_every_steps > 0 and optimizer_step % args.val_every_steps == 0
@@ -534,14 +657,21 @@ def main() -> int:
                         {"split": "validation", "optimizer_step": optimizer_step, **validation},
                     )
                     if run is not None:
-                        run.log(
-                            {
+                        wandb_payload = {
+                            "optimizer_step": optimizer_step,
+                            **{
                                 f"validation/{key}": value
                                 for key, value in validation.items()
                                 if isinstance(value, (int, float))
                             },
-                            step=optimizer_step,
-                        )
+                        }
+                        if validation.get("sample_grid"):
+                            import wandb
+
+                            wandb_payload["validation/sample_grid"] = wandb.Image(
+                                validation["sample_grid"]
+                            )
+                        run.log(wandb_payload, step=optimizer_step)
                 model.train()
 
             if optimizer_step % args.save_every_steps == 0 or STOP_REQUESTED:
