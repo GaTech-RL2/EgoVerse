@@ -5,8 +5,8 @@ defaults:
   - override /evaluator: eval_pipeline_action_mse
   - override /logger: wandb
 
-# Configuration only. The later Slurm launcher must request two L40S GPUs and
-# must pin frozen dataset inventories plus fresh train-only normalization stats.
+# Configuration only. The canonical Skynet DP launcher requests two A40 GPUs
+# and pins frozen dataset inventories plus fresh train-only normalization stats.
 name: flow_transfer_cotrain_chain_newdata_dp
 description: standard_dp_epsilon_h16_usocket_clean_chain_3000v2_plus_gen
 model:
