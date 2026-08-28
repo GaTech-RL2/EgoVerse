@@ -688,6 +688,51 @@ def test_newdata_cotrain_configs_are_h16_world2_and_config_only(
             assert policy.action_horizon == 16
 
 
+def test_temporal_compression_config_denoises_h8_l8_and_outputs_native_h16() -> None:
+    cfg = _compose(
+        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32"
+    )
+    model = cfg.model.robomimic_model
+    noise = model.stages[1]
+    sampler = model.stages[2]
+    denoiser = sampler.denoising_module
+
+    assert model.action_horizon == 16
+    assert noise.action_horizon == 8
+    assert noise.latent_dim == 8
+    assert sampler.action_horizon == 16
+    assert sampler.latent_horizon == 8
+    assert sampler.decoder_type == "temporal_conv"
+    assert sampler.latent_dim == 8
+    assert sampler.decoder_hidden_dim == 32
+    assert sampler.condition_dim == 256
+    assert sampler.denoiser_hidden_dim == 256
+    assert dict(sampler.action_dims) == {
+        "pushshapes_sim_u_socket": 4,
+        "pushshapes_sim_chain_gripper": 6,
+    }
+    assert denoiser.act_seq == 8
+    assert denoiser.act_dim == 8
+    assert denoiser.hidden_dim == 256
+    assert denoiser.nblocks == 12
+    assert model.rollout_adapters.pushshapes_sim_chain_gripper.action_horizon == 16
+    for split in ("train_datasets", "valid_datasets"):
+        datasets = cfg.data[split]
+        assert datasets.pushshapes_sim_u_socket.resolver.key_map.action_horizon == 16
+        assert (
+            datasets.pushshapes_sim_chain_gripper.resolver.key_map.action_horizon == 16
+        )
+
+    assert cfg.trainer.max_steps == 240_000
+    assert cfg.trainer.accumulate_grad_batches == 1
+    assert cfg.trainer.log_every_n_steps == 1
+    assert cfg.trainer.limit_val_batches == 0
+    assert cfg.trainer.get("gradient_clip_val") is None
+    assert cfg.model.optimizer.lr == pytest.approx(3.0e-5)
+    assert cfg.model.scheduler.eta_min == pytest.approx(3.0e-6)
+    assert cfg.logger.wandb.project == "pushshapes-flow-transfer"
+
+
 def test_newdata_world2_launcher_is_smoke_only_and_fail_closed() -> None:
     repo_root = Path(__file__).parents[1]
     launcher = (
@@ -701,6 +746,9 @@ def test_newdata_world2_launcher_is_smoke_only_and_fail_closed() -> None:
         "ARM=${ARM:?",
         "EXPECTED_HEAD=${EXPECTED_HEAD:?",
         "EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?",
+        "EXPECTED_SLURM_PARTITION=${EXPECTED_SLURM_PARTITION:?",
+        "EXPECTED_SLURM_ACCOUNT=${EXPECTED_SLURM_ACCOUNT:?",
+        "EXPECTED_GPU_MODEL=${EXPECTED_GPU_MODEL:?",
         "NORM_ARTIFACT=${NORM_ARTIFACT:?",
         "EXPECTED_NORM_SHA=${EXPECTED_NORM_SHA:?",
         "U_INVENTORY=${U_INVENTORY:?",
@@ -719,8 +767,18 @@ def test_newdata_world2_launcher_is_smoke_only_and_fail_closed() -> None:
         "EXPECTED_CHAIN_TRAIN_FRAMES=${EXPECTED_CHAIN_TRAIN_FRAMES:?",
     ):
         assert value in launcher
+    assert "trap report_error ERR" in launcher
+    assert "[smoke] FAIL line=%s status=%s command=%q" in launcher
+    assert "[smoke] SOURCE_DATA_PASS" in launcher
+    assert "[smoke] ALLOCATION_ENV_PASS" in launcher
     assert "pusht/pipeline_diffusion_usocket_chain_newdata_h16" in launcher
     assert "pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16" in launcher
+    assert (
+        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32"
+        in launcher
+    )
+    assert "temporal_h8_l8)" in launcher
+    assert 'sampler.decoder_type == "temporal_conv"' in launcher
     assert 'test -z "$(git -C "$REPO" status --porcelain=v1' in launcher
     assert launcher.count("validate_all_inventories") >= 3
     assert 'episode / "zarr.json"' in launcher
@@ -743,14 +801,18 @@ def test_newdata_world2_launcher_is_smoke_only_and_fail_closed() -> None:
     )
     assert "EXPECTED_WORLD_SIZE=2" in launcher
     assert 'test "${SLURM_NTASKS:?}" = "$EXPECTED_WORLD_SIZE"' in launcher
-    assert 'test "${SLURM_JOB_PARTITION:?}" = rl2-lab' in launcher
-    assert 'test "${SLURM_JOB_ACCOUNT:?}" = rl2-lab' in launcher
+    assert 'test "${SLURM_JOB_PARTITION:?}" = "$EXPECTED_SLURM_PARTITION"' in launcher
+    assert 'test "${SLURM_JOB_ACCOUNT:?}" = "$EXPECTED_SLURM_ACCOUNT"' in launcher
+    assert 'grep -Fci "$EXPECTED_GPU_MODEL"' in launcher
+    assert "allocation_contract.tsv" in launcher
     assert "trainer.max_steps=2" in launcher
     assert "trainer.limit_train_batches=2" in launcher
     assert "trainer.val_check_interval=1" in launcher
     assert "trainer.limit_val_batches=1" in launcher
     assert "trainer.num_sanity_val_steps=0" in launcher
     assert "trainer.log_every_n_steps=1" in launcher
+    assert '"~callbacks.terminal_checkpoint"' in launcher
+    assert 'assert "terminal_checkpoint" not in cfg.callbacks' in launcher
     assert '--expected-world-size "$EXPECTED_WORLD_SIZE"' in launcher
     assert launcher.count("--required-embodiments 19,20") == 2
     assert launcher.count("--dry-run") == 1

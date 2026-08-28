@@ -210,6 +210,96 @@ class GaussianLatentNoise(Stage):
         return batch
 
 
+class TemporalConvActionDecoder(nn.Module):
+    """Decode a short latent sequence into a 2x-longer action sequence.
+
+    The channel MLP first lifts each latent token into the decoder width. A
+    transposed 1-D convolution then learns the temporal interpolation while
+    projecting decoder channels into the embodiment's transformed training
+    action channels.
+    """
+
+    def __init__(
+        self,
+        latent_dim: int,
+        hidden_dim: int,
+        action_dim: int,
+        latent_horizon: int,
+        action_horizon: int,
+        extra_hidden_layers: int = 0,
+    ):
+        super().__init__()
+        self.latent_dim = int(latent_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.action_dim = int(action_dim)
+        self.latent_horizon = int(latent_horizon)
+        self.action_horizon = int(action_horizon)
+        self.extra_hidden_layers = int(extra_hidden_layers)
+        if (
+            min(
+                self.latent_dim,
+                self.hidden_dim,
+                self.action_dim,
+                self.latent_horizon,
+                self.action_horizon,
+            )
+            <= 0
+        ):
+            raise ValueError(
+                "Temporal decoder dimensions and horizons must be positive"
+            )
+        if self.extra_hidden_layers < 0:
+            raise ValueError("extra_hidden_layers must be non-negative")
+        if self.action_horizon != 2 * self.latent_horizon:
+            raise ValueError(
+                "TemporalConvActionDecoder currently requires action_horizon == "
+                f"2 * latent_horizon, got {self.action_horizon} and "
+                f"{self.latent_horizon}"
+            )
+
+        projection_layers: List[nn.Module] = [
+            nn.Linear(self.latent_dim, self.hidden_dim),
+            nn.SiLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.SiLU(),
+        ]
+        for _ in range(self.extra_hidden_layers):
+            projection_layers.extend(
+                [nn.Linear(self.hidden_dim, self.hidden_dim), nn.SiLU()]
+            )
+        self.channel_projection = nn.Sequential(*projection_layers)
+        # (T - 1) * stride - 2 * padding + kernel_size = 2T.
+        self.temporal_upsampler = nn.ConvTranspose1d(
+            self.hidden_dim,
+            self.action_dim,
+            kernel_size=4,
+            stride=2,
+            padding=1,
+        )
+
+    def forward(self, latent: torch.Tensor) -> torch.Tensor:
+        expected = (self.latent_horizon, self.latent_dim)
+        if latent.ndim != 3 or tuple(latent.shape[1:]) != expected:
+            raise ValueError(
+                "TemporalConvActionDecoder expected latent shape "
+                f"(B, {self.latent_horizon}, {self.latent_dim}), got "
+                f"{tuple(latent.shape)}"
+            )
+        hidden = self.channel_projection(latent).transpose(1, 2)
+        action = self.temporal_upsampler(hidden).transpose(1, 2)
+        expected_output = (
+            int(latent.shape[0]),
+            self.action_horizon,
+            self.action_dim,
+        )
+        if tuple(action.shape) != expected_output:
+            raise RuntimeError(
+                "TemporalConvActionDecoder produced shape "
+                f"{tuple(action.shape)}, expected {expected_output}"
+            )
+        return action
+
+
 class MultiJActionSampler(Stage):
     """Pipeline sampler node with an explicitly injected denoising module."""
 
@@ -232,11 +322,20 @@ class MultiJActionSampler(Stage):
         gradient_checkpointing: bool = True,
         gradient_accumulation_steps: int = 1,
         schedule_anchor_domain: str = "eva_bimanual",
+        latent_horizon: int = None,
+        decoder_type: str = "token_mlp",
     ):
         super().__init__()
         self.denoising_module = denoising_module
         self.condition_input_dim = int(condition_input_dim)
         self.action_horizon = int(action_horizon)
+        # Historically the latent and output horizons were identical. Keep
+        # action_horizon as the produced policy horizon and make only the
+        # compressed vector-field/noise length independently configurable.
+        self.latent_horizon = int(
+            self.action_horizon if latent_horizon is None else latent_horizon
+        )
+        self.decoder_type = str(decoder_type)
         self.action_dims = {str(k): int(v) for k, v in dict(action_dims).items()}
         self.latent_dim = int(latent_dim)
         self.condition_dim = int(condition_dim)
@@ -259,8 +358,10 @@ class MultiJActionSampler(Stage):
         }
         if any(v < 0 for v in self.decoder_extra_hidden_layers_by_domain.values()):
             raise ValueError("Decoder extra hidden-layer counts must be non-negative")
-        if self.action_horizon <= 0 or self.latent_dim <= 0:
-            raise ValueError("action_horizon and latent_dim must be positive")
+        if self.action_horizon <= 0 or self.latent_horizon <= 0 or self.latent_dim <= 0:
+            raise ValueError(
+                "action_horizon, latent_horizon, and latent_dim must be positive"
+            )
         if self.decoder_hidden_dim <= 0 or self.num_inference_steps <= 0:
             raise ValueError(
                 "decoder_hidden_dim and num_inference_steps must be positive"
@@ -274,23 +375,49 @@ class MultiJActionSampler(Stage):
             sampling_schedule
         )
 
+        if self.decoder_type not in {"token_mlp", "temporal_conv"}:
+            raise ValueError(
+                "decoder_type must be one of {'token_mlp', 'temporal_conv'}, got "
+                f"{self.decoder_type!r}"
+            )
+        if (
+            self.decoder_type == "token_mlp"
+            and self.latent_horizon != self.action_horizon
+        ):
+            raise ValueError(
+                "token_mlp preserves sequence length, so latent_horizon must "
+                "equal action_horizon"
+            )
+
         decoders = {}
         for domain, action_dim in self.action_dims.items():
-            layers: List[nn.Module] = [
-                nn.Linear(self.latent_dim, self.decoder_hidden_dim),
-                nn.SiLU(),
-                nn.Linear(self.decoder_hidden_dim, self.decoder_hidden_dim),
-                nn.SiLU(),
-            ]
-            for _ in range(self.decoder_extra_hidden_layers_by_domain[domain]):
-                layers.extend(
-                    [
-                        nn.Linear(self.decoder_hidden_dim, self.decoder_hidden_dim),
-                        nn.SiLU(),
-                    ]
+            if self.decoder_type == "temporal_conv":
+                decoders[domain] = TemporalConvActionDecoder(
+                    latent_dim=self.latent_dim,
+                    hidden_dim=self.decoder_hidden_dim,
+                    action_dim=action_dim,
+                    latent_horizon=self.latent_horizon,
+                    action_horizon=self.action_horizon,
+                    extra_hidden_layers=self.decoder_extra_hidden_layers_by_domain[
+                        domain
+                    ],
                 )
-            layers.append(nn.Linear(self.decoder_hidden_dim, action_dim))
-            decoders[domain] = nn.Sequential(*layers)
+            else:
+                layers: List[nn.Module] = [
+                    nn.Linear(self.latent_dim, self.decoder_hidden_dim),
+                    nn.SiLU(),
+                    nn.Linear(self.decoder_hidden_dim, self.decoder_hidden_dim),
+                    nn.SiLU(),
+                ]
+                for _ in range(self.decoder_extra_hidden_layers_by_domain[domain]):
+                    layers.extend(
+                        [
+                            nn.Linear(self.decoder_hidden_dim, self.decoder_hidden_dim),
+                            nn.SiLU(),
+                        ]
+                    )
+                layers.append(nn.Linear(self.decoder_hidden_dim, action_dim))
+                decoders[domain] = nn.Sequential(*layers)
         self.decoders = nn.ModuleDict(decoders)
         self.domain_embeddings = nn.ParameterDict(
             {
@@ -342,6 +469,15 @@ class MultiJActionSampler(Stage):
                 f"Denoiser proj_d input is {proj_d.in_features}, expected "
                 f"{self.denoiser_hidden_dim}"
             )
+        pos_emb = getattr(self.denoising_module, "pos_emb", None)
+        if pos_emb is not None and (
+            pos_emb.ndim < 2 or int(pos_emb.shape[-2]) != self.latent_horizon
+        ):
+            raise ValueError(
+                "Denoiser positional horizon is "
+                f"{tuple(pos_emb.shape)}, expected sequence length "
+                f"{self.latent_horizon}"
+            )
 
     def condition_for_domain(
         self, condition: torch.Tensor, embodiment: str
@@ -373,7 +509,7 @@ class MultiJActionSampler(Stage):
         batch_step = max(int(self.training_batches_seen.item()), 1)
         return (batch_step - 1) // self.gradient_accumulation_steps + 1
 
-    def decoder(self, embodiment: str) -> nn.Sequential:
+    def decoder(self, embodiment: str) -> nn.Module:
         if embodiment not in self.decoders:
             raise KeyError(f"Unknown embodiment {embodiment!r}")
         return self.decoders[embodiment]
@@ -515,6 +651,16 @@ class MultiJActionSampler(Stage):
     def forward(self, batch: dict) -> dict:
         embodiment = str(batch["embodiment"])
         noise = batch["sampler/noise"]
+        expected_noise_shape = (
+            int(batch["condition"].shape[0]),
+            self.latent_horizon,
+            self.latent_dim,
+        )
+        if tuple(noise.shape) != expected_noise_shape:
+            raise ValueError(
+                f"Sampler noise has shape {tuple(noise.shape)}, expected "
+                f"{expected_noise_shape}"
+            )
         condition = self._condition_from_batch(batch, embodiment)
         if self.training:
             optimizer_step = self._optimizer_step(embodiment)
@@ -528,6 +674,16 @@ class MultiJActionSampler(Stage):
             noise, condition, num_steps=num_steps, step_sizes=step_sizes
         )
         prediction = self.decoder(embodiment)(endpoint)
+        expected_prediction_shape = (
+            int(noise.shape[0]),
+            self.action_horizon,
+            self.action_dims[embodiment],
+        )
+        if tuple(prediction.shape) != expected_prediction_shape:
+            raise RuntimeError(
+                f"Decoder produced shape {tuple(prediction.shape)}, expected "
+                f"{expected_prediction_shape}"
+            )
         batch["pred_action"] = prediction
         batch["log/sampler_unroll_steps"] = float(num_steps)
         batch["log/sampler_noise_rms"] = noise.detach().square().mean().sqrt()

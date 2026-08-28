@@ -9,6 +9,7 @@ from egomimic.pipeline.stages_sampler import (
     GaussianLatentNoise,
     MultiJActionSampler,
     NativeActionMSELoss,
+    TemporalConvActionDecoder,
 )
 
 
@@ -117,6 +118,47 @@ def _batch(embodiment="eva_bimanual", target=True):
     return out
 
 
+def _temporal_nodes():
+    field = CrossTransformer(
+        nblocks=2,
+        cond_dim=12,
+        hidden_dim=32,
+        act_dim=8,
+        act_seq=8,
+        n_heads=4,
+        dropout=0.0,
+        mlp_layers=2,
+        mlp_ratio=2,
+        time_conditioning="additive",
+    )
+    return (
+        GaussianLatentNoise(action_horizon=8, latent_dim=8),
+        MultiJActionSampler(
+            denoising_module=field,
+            condition_input_dim=14,
+            condition_dim=12,
+            action_horizon=16,
+            latent_horizon=8,
+            action_dims={"eva_bimanual": 4, "human_bimanual": 6},
+            latent_dim=8,
+            decoder_hidden_dim=16,
+            denoiser_hidden_dim=32,
+            num_inference_steps=2,
+            sampling_schedule={1: {1: 1.0}},
+            decoder_type="temporal_conv",
+        ),
+        NativeActionMSELoss(),
+    )
+
+
+def _temporal_batch(embodiment="eva_bimanual", target=True):
+    out = {"condition": torch.randn(3, 14), "embodiment": embodiment}
+    if target:
+        dim = 4 if embodiment == "eva_bimanual" else 6
+        out["target"] = torch.randn(3, 16, dim)
+    return out
+
+
 def test_separate_noise_sampler_and_loss_nodes_backpropagate_end_to_end():
     noise, sampler, loss = _nodes()
     pipe = Pipeline([noise, sampler, loss]).train()
@@ -131,6 +173,86 @@ def test_separate_noise_sampler_and_loss_nodes_backpropagate_end_to_end():
     out["loss/native_action"].backward()
     assert sampler.denoising_module.proj_u.weight.grad is not None
     assert sampler.decoders["eva_bimanual"][-1].weight.grad is not None
+
+
+def test_temporal_decoder_maps_h8_l8_to_h16_actions_and_backpropagates():
+    noise, sampler, loss = _temporal_nodes()
+    pipe = Pipeline([noise, sampler, loss]).train()
+    out = pipe(_temporal_batch())
+
+    assert out["sampler/noise"].shape == (3, 8, 8)
+    assert out["pred_action"].shape == (3, 16, 4)
+    decoder = sampler.decoder("eva_bimanual")
+    assert isinstance(decoder, TemporalConvActionDecoder)
+
+    out["loss/native_action"].backward()
+    assert sampler.denoising_module.proj_u.weight.grad is not None
+    assert decoder.channel_projection[0].weight.grad is not None
+    assert decoder.temporal_upsampler.weight.grad is not None
+
+
+def test_temporal_decoder_rollout_preserves_per_domain_action_dims():
+    noise, sampler, _ = _temporal_nodes()
+    sampler.eval()
+    out = sampler(noise(_temporal_batch("human_bimanual", target=False)))
+    assert out["pred_action"].shape == (3, 16, 6)
+
+
+def test_default_token_mlp_decoder_remains_horizon_preserving():
+    noise, sampler, _ = _nodes()
+    sampler.eval()
+    out = sampler(noise(_batch(target=False)))
+    assert sampler.decoder_type == "token_mlp"
+    assert sampler.latent_horizon == sampler.action_horizon == 7
+    assert out["pred_action"].shape == (3, 7, 4)
+
+
+def test_temporal_decoder_rejects_non_doubling_horizon():
+    try:
+        TemporalConvActionDecoder(
+            latent_dim=8,
+            hidden_dim=16,
+            action_dim=4,
+            latent_horizon=8,
+            action_horizon=15,
+        )
+    except ValueError as exc:
+        assert "2 * latent_horizon" in str(exc)
+    else:
+        raise AssertionError("non-doubling temporal horizon was not rejected")
+
+
+def test_sampler_rejects_denoiser_positional_horizon_mismatch():
+    field = CrossTransformer(
+        nblocks=1,
+        cond_dim=12,
+        hidden_dim=32,
+        act_dim=8,
+        act_seq=7,
+        n_heads=4,
+        dropout=0.0,
+        mlp_layers=1,
+        mlp_ratio=2,
+        time_conditioning="additive",
+    )
+    try:
+        MultiJActionSampler(
+            denoising_module=field,
+            condition_input_dim=14,
+            condition_dim=12,
+            action_horizon=16,
+            latent_horizon=8,
+            action_dims={"eva_bimanual": 4},
+            latent_dim=8,
+            decoder_hidden_dim=16,
+            denoiser_hidden_dim=32,
+            decoder_type="temporal_conv",
+            schedule_anchor_domain="eva_bimanual",
+        )
+    except ValueError as exc:
+        assert "positional horizon" in str(exc)
+    else:
+        raise AssertionError("denoiser positional horizon mismatch was not rejected")
 
 
 def test_gaussian_noise_depends_only_on_condition_shape():

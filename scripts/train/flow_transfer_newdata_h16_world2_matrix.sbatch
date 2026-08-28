@@ -1,14 +1,27 @@
 #!/bin/bash
-# Smoke-only launcher for the new-data Flow Transfer H16 cotrain pair.
-# The submit command must request one node with two L40S tasks. This launcher
+# Smoke-only launcher for the new-data Flow Transfer H16 cotrain models.
+# The submit command must request one node with two tasks on the explicitly
+# pinned GPU/account/partition contract. This launcher
 # verifies that allocation, exact source/data/norm identities, two optimizer
 # steps, and scheduled real validation before reporting PASS.
 
 set -Eeuo pipefail
 
-ARM=${ARM:?set ARM=dp or ARM=latent_h16}
+report_error() {
+  local status=$?
+  local line=${BASH_LINENO[0]:-$LINENO}
+  printf '[smoke] FAIL line=%s status=%s command=%q\n' \
+    "$line" "$status" "$BASH_COMMAND" >&2
+  exit "$status"
+}
+trap report_error ERR
+
+ARM=${ARM:?set ARM=dp, latent_h16, or temporal_h8_l8}
 EXPECTED_HEAD=${EXPECTED_HEAD:?set the exact clean 40-character commit SHA}
 EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?set the exact launcher SHA256}
+EXPECTED_SLURM_PARTITION=${EXPECTED_SLURM_PARTITION:?set the exact partition}
+EXPECTED_SLURM_ACCOUNT=${EXPECTED_SLURM_ACCOUNT:?set the exact account}
+EXPECTED_GPU_MODEL=${EXPECTED_GPU_MODEL:?set the exact nvidia-smi GPU model substring}
 NORM_ARTIFACT=${NORM_ARTIFACT:?set the exact norm_stats.json path}
 EXPECTED_NORM_SHA=${EXPECTED_NORM_SHA:?set the exact norm artifact SHA256}
 
@@ -32,10 +45,10 @@ EXPECTED_CHAIN_GEN_EPISODE_METADATA_SHA=${EXPECTED_CHAIN_GEN_EPISODE_METADATA_SH
 EXPECTED_CHAIN_GEN_COUNT=${EXPECTED_CHAIN_GEN_COUNT:?set its exact episode count}
 EXPECTED_CHAIN_TRAIN_FRAMES=${EXPECTED_CHAIN_TRAIN_FRAMES:?set the combined Chain frame count}
 
-REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-cotrain-chain-combined-config-20260828
+REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-temporal-compression-20260829
 PY_ENV=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv
 EXPECTED_ENV_SHA=8fd1504c955756adf8167f7bd34fc1a09cb844d268898b3ac30693e99ac60e87
-EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_newdata_h16_world2_smokes_20260828
+EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_temporal_h8_l8_world2_smokes_20260829
 LAUNCHER=$REPO/scripts/train/flow_transfer_newdata_h16_world2_matrix.sbatch
 VERIFIER=$REPO/egomimic/scripts/verify_training_smoke.py
 U_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
@@ -56,11 +69,16 @@ case "$ARM" in
   latent_h16)
     EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16
     ;;
+  temporal_h8_l8)
+    EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32
+    ;;
   *)
-    printf 'Unknown ARM=%s; expected dp or latent_h16\n' "$ARM" >&2
+    printf 'Unknown ARM=%s; expected dp, latent_h16, or temporal_h8_l8\n' "$ARM" >&2
     exit 64
     ;;
 esac
+
+printf '[smoke] START arm=%s expected_head=%s\n' "$ARM" "$EXPECTED_HEAD"
 
 is_sha256() {
   [[ "$1" =~ ^[0-9a-f]{64}$ ]]
@@ -236,6 +254,7 @@ test -s "$NORM_ARTIFACT"
 test "$(stat -c '%a' "$NORM_ARTIFACT")" = 444
 test "$(sha256sum "$NORM_ARTIFACT" | awk '{print $1}')" = "$EXPECTED_NORM_SHA"
 validate_all_inventories
+printf '[smoke] SOURCE_DATA_PASS head=%s arm=%s\n' "$EXPECTED_HEAD" "$ARM"
 
 "$PY_ENV/bin/python" - \
   "$NORM_ARTIFACT" "$EXPECTED_NORM_SHA" \
@@ -280,16 +299,18 @@ test "${SLURM_RESTART_COUNT:-0}" = 0
 test "${SLURM_JOB_NUM_NODES:?}" = 1
 test "${SLURM_NTASKS:?}" = "$EXPECTED_WORLD_SIZE"
 test "${SLURM_CPUS_PER_TASK:?}" -ge 8
-test "${SLURM_JOB_PARTITION:?}" = rl2-lab
-test "${SLURM_JOB_ACCOUNT:?}" = rl2-lab
+test "${SLURM_JOB_PARTITION:?}" = "$EXPECTED_SLURM_PARTITION"
+test "${SLURM_JOB_ACCOUNT:?}" = "$EXPECTED_SLURM_ACCOUNT"
 test -n "${CUDA_VISIBLE_DEVICES:-}"
 IFS=',' read -r -a visible_gpus <<< "$CUDA_VISIBLE_DEVICES"
 test "${#visible_gpus[@]}" = "$EXPECTED_WORLD_SIZE"
+printf '[smoke] ALLOCATION_ENV_PASS partition=%s account=%s visible_gpus=%s\n' \
+  "$SLURM_JOB_PARTITION" "$SLURM_JOB_ACCOUNT" "${#visible_gpus[@]}"
 
 RUN_DIR=$EXP_ROOT/smokes/$ARM/job_${SLURM_JOB_ID:?}
 PROVENANCE_DIR=$EXP_ROOT/provenance/$ARM/job_${SLURM_JOB_ID}
 TRAIN_LOG=$RUN_DIR/training.log
-WANDB_ID=ft_newdata_h16_${ARM}_smoke_job_${SLURM_JOB_ID}
+WANDB_ID=ft_temporal_h8_l8_${ARM}_smoke_job_${SLURM_JOB_ID}
 test ! -e "$RUN_DIR"
 test ! -e "$PROVENANCE_DIR"
 mkdir -p "$RUN_DIR" "$PROVENANCE_DIR"
@@ -298,7 +319,12 @@ nvidia-smi -i "$CUDA_VISIBLE_DEVICES" \
   --query-gpu=index,name,uuid,memory.total,driver_version \
   --format=csv,noheader > "$PROVENANCE_DIR/gpu.txt"
 test "$(wc -l < "$PROVENANCE_DIR/gpu.txt")" = "$EXPECTED_WORLD_SIZE"
-test "$(grep -ci L40S "$PROVENANCE_DIR/gpu.txt")" = "$EXPECTED_WORLD_SIZE"
+test "$(grep -Fci "$EXPECTED_GPU_MODEL" "$PROVENANCE_DIR/gpu.txt")" = "$EXPECTED_WORLD_SIZE"
+
+printf 'partition\t%s\naccount\t%s\ngpu_model\t%s\nworld_size\t%s\n' \
+  "$EXPECTED_SLURM_PARTITION" "$EXPECTED_SLURM_ACCOUNT" \
+  "$EXPECTED_GPU_MODEL" "$EXPECTED_WORLD_SIZE" \
+  > "$PROVENANCE_DIR/allocation_contract.tsv"
 
 environment_manifest > "$PROVENANCE_DIR/python_environment.txt"
 sha256sum "$PROVENANCE_DIR/python_environment.txt" \
@@ -322,6 +348,7 @@ git -C "$REPO" status --porcelain=v1 --untracked-files=all \
 sha256sum \
   "$PROVENANCE_DIR/launcher.sbatch" \
   "$PROVENANCE_DIR/verify_training_smoke.py" \
+  "$PROVENANCE_DIR/allocation_contract.tsv" \
   "$PROVENANCE_DIR/norm_stats.json" \
   "$PROVENANCE_DIR/usocket_inventory.txt" \
   "$PROVENANCE_DIR/usocket_episode_metadata.tsv" \
@@ -358,10 +385,11 @@ COMMON_OVERRIDES=(
   callbacks.model_checkpoint.every_n_train_steps=2
   callbacks.model_checkpoint.train_time_interval=null
   callbacks.model_checkpoint.save_on_train_epoch_end=false
+  "~callbacks.terminal_checkpoint"
   logger.wandb.offline=true
   logger.wandb.project=pushshapes-flow-transfer
   logger.wandb.entity=rl2-group
-  logger.wandb.group=flow_transfer_newdata_h16_world2_smoke
+  logger.wandb.group=flow_transfer_temporal_h8_l8_world2_smoke
   "logger.wandb.id=$WANDB_ID"
   "++logger.wandb.name=$WANDB_ID"
   ++logger.wandb.resume=never
@@ -426,7 +454,7 @@ assert str(cfg.norm_stats.precomputed_norm_path) == norm_artifact
 assert cfg.callbacks.model_checkpoint.every_n_train_steps == 2
 assert cfg.callbacks.model_checkpoint.train_time_interval is None
 assert cfg.callbacks.model_checkpoint.save_last is True
-assert cfg.callbacks.terminal_checkpoint.every_n_train_steps == 2
+assert "terminal_checkpoint" not in cfg.callbacks
 assert model.action_horizon == 16
 assert set(model.domains) == {
     "pushshapes_sim_u_socket",
@@ -466,6 +494,23 @@ if arm == "latent_h16":
     assert sampler.action_dims.pushshapes_sim_u_socket == 4
     assert sampler.action_dims.pushshapes_sim_chain_gripper == 6
     assert sampler.denoising_module.act_seq == 16
+elif arm == "temporal_h8_l8":
+    assert model.stages[1].action_horizon == 8
+    assert model.stages[1].latent_dim == 8
+    sampler = model.stages[2]
+    assert sampler.action_horizon == 16
+    assert sampler.latent_horizon == 8
+    assert sampler.decoder_type == "temporal_conv"
+    assert sampler.latent_dim == 8
+    assert sampler.decoder_hidden_dim == 32
+    assert sampler.condition_dim == 256
+    assert sampler.denoiser_hidden_dim == 256
+    assert sampler.action_dims.pushshapes_sim_u_socket == 4
+    assert sampler.action_dims.pushshapes_sim_chain_gripper == 6
+    assert sampler.denoising_module.act_seq == 8
+    assert sampler.denoising_module.act_dim == 8
+    assert sampler.denoising_module.hidden_dim == 256
+    assert sampler.denoising_module.nblocks == 12
 else:
     assert arm == "dp"
     stage = model.stages[1]

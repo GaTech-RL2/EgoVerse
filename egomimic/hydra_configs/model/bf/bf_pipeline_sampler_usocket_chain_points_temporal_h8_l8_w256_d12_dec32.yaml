@@ -1,0 +1,94 @@
+# Flow Transfer cotrain with temporal compression. The shared vector field
+# operates on 8 time tokens x 8 latent channels. Each embodiment decoder first
+# projects channels to width 32, then a transposed 1-D convolution learns the
+# 8 -> 16 temporal expansion and emits its transformed training representation.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  # Dataset targets and rollout action chunks remain 16 steps long.
+  action_horizon: 16
+  domains: [pushshapes_sim_u_socket, pushshapes_sim_chain_gripper]
+  ac_keys:
+    pushshapes_sim_u_socket: actions
+    pushshapes_sim_chain_gripper: actions
+  rollout_adapters:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperPointRolloutAdapter
+      action_horizon: 16
+  stages:
+  - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+    n_obs_steps: 1
+    encoder:
+      _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+      obs_specs:
+        state_agent_obj: {input_dim: 3, input_slice: [0, 3]}
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 84
+          crop_width: 84
+          crop_eval_mode: center
+          crop_sample_mode: v02
+          crop_scope: frame
+          norm_layer: group
+          pool_type: spatial_softmax
+  - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+    # This is the latent/integration horizon, not the output action horizon.
+    action_horizon: 8
+    latent_dim: 8
+  - _target_: egomimic.pipeline.stages_sampler.MultiJActionSampler
+    condition_input_dim: 67
+    condition_dim: 256
+    gradient_accumulation_steps: 1
+    schedule_anchor_domain: pushshapes_sim_u_socket
+    # Integrate [B, 8, 8], then decode to [B, 16, action_dim].
+    action_horizon: 16
+    latent_horizon: 8
+    decoder_type: temporal_conv
+    action_dims:
+      pushshapes_sim_u_socket: 4
+      pushshapes_sim_chain_gripper: 6
+    latent_dim: 8
+    decoder_hidden_dim: 32
+    denoiser_hidden_dim: 256
+    num_inference_steps: 16
+    sampling_schedule:
+      1: {1: 0.50, 2: 0.50}
+      2001: {2: 0.80, 4: 0.15, 8: 0.05}
+    gradient_checkpointing: true
+    denoising_module:
+      _target_: egomimic.models.denoising_nets.CrossTransformer
+      nblocks: 12
+      cond_dim: 256
+      hidden_dim: 256
+      act_dim: 8
+      act_seq: 8
+      n_heads: 8
+      dropout: 0.1
+      mlp_layers: 4
+      mlp_ratio: 4
+      time_conditioning: additive
+  - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 3000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5
