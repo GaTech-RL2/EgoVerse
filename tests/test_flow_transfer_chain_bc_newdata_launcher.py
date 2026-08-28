@@ -2,12 +2,32 @@ from pathlib import Path
 from re import DOTALL, findall
 from subprocess import run
 
+from omegaconf import OmegaConf
+
+from egomimic.scripts.verify_training_smoke import _load_training_config
+
 LAUNCHER = (
     Path(__file__).parents[1]
     / "scripts"
     / "train"
     / "flow_transfer_chain_bc_newdata_h16.sbatch"
 )
+
+
+def test_smoke_verifier_resolves_trainhydra_eval_interpolation(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+trainer:
+  devices: ${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}
+""".lstrip()
+    )
+    OmegaConf.clear_resolver("eval")
+    config = _load_training_config(config_path)
+    assert int(config.trainer.devices) == 1
 
 
 def test_chain_bc_newdata_launcher_has_valid_bash_syntax() -> None:
