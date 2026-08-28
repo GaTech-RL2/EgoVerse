@@ -11,6 +11,13 @@ name: flow_transfer_cotrain_chain_newdata_latent_dense_medium_h16
 description: decoder_only_latent96_dense16_usocket_clean_chain_3000v2_plus_gen
 model:
   enable_grad_norm: false
+  # Scale the complete original 1e-4 -> 1e-5 schedule by 0.3.
+  optimizer:
+    lr: 3.0e-5
+  scheduler:
+    eta_min: 3.0e-6
+  train_metrics_on_step: true
+  train_metrics_on_epoch: true
 launch_params:
   gpus_per_node: 2
   nodes: 1

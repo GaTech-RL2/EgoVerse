@@ -429,6 +429,7 @@ def test_obstacle_cotrain_config_pins_all_audited_sources(monkeypatch):
     )
     for cotrain in (cfg, dp):
         assert cotrain.model.enable_grad_norm is False
+        assert cotrain.model.optimizer.lr == pytest.approx(1.0e-4)
         assert cotrain.trainer.accumulate_grad_batches == 1
         scheduler = cotrain.model.scheduler
         assert scheduler.max_steps == 240_000
@@ -648,9 +649,23 @@ def test_newdata_cotrain_configs_are_h16_world2_and_config_only(
     assert cfg.trainer.log_every_n_steps == 1
     assert cfg.trainer.get("gradient_clip_val") is None
     assert cfg.model.enable_grad_norm is False
-    assert cfg.model.optimizer.lr == 1.0e-4
+    assert cfg.model.optimizer.lr == pytest.approx(3.0e-5)
     assert cfg.model.scheduler.max_steps == 240_000
     assert cfg.model.scheduler.warmup_steps == 3_000
+    assert cfg.model.scheduler.warmup_start_factor == pytest.approx(0.1)
+    assert cfg.model.scheduler.eta_min == pytest.approx(3.0e-6)
+    assert (
+        cfg.model.scheduler._target_
+        == "egomimic.utils.schedulers.warmup_cosine_scheduler"
+    )
+    assert cfg.model.get("scheduler_interval", "step") == "step"
+    assert cfg.model.get("scheduler_frequency", 1) == 1
+    assert (
+        cfg.model.optimizer.lr * cfg.model.scheduler.warmup_start_factor
+        == pytest.approx(cfg.model.scheduler.eta_min)
+    )
+    assert cfg.model.train_metrics_on_step is True
+    assert cfg.model.train_metrics_on_epoch is True
     assert cfg.logger.wandb.project == "pushshapes-flow-transfer"
     assert not any(name.startswith("best_") for name in cfg.callbacks)
 
@@ -661,6 +676,7 @@ def test_newdata_cotrain_configs_are_h16_world2_and_config_only(
         "pushshapes_sim_chain_gripper",
     }
     if model_family == "latent":
+        assert model.stages[1].action_horizon == 16
         assert model.stages[1].latent_dim == 96
         assert model.stages[2].action_horizon == 16
         assert model.stages[2].denoising_module.act_seq == 16
@@ -669,3 +685,5 @@ def test_newdata_cotrain_configs_are_h16_world2_and_config_only(
     else:
         assert model.stages[1].action_horizon == 16
         assert set(model.stages[1].policies) == set(model.domains)
+        for policy in model.stages[1].policies.values():
+            assert policy.action_horizon == 16
