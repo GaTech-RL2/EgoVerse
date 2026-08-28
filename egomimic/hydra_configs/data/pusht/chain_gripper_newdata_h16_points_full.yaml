@@ -1,0 +1,61 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# The source root stays physically complete at 720 generated episodes. This
+# recipe selects 719 by excluding the audited 3,118-frame idle-heavy episode.
+train_datasets:
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverManyWithEmbodimentOverride
+      folder_paths: &chain_roots
+        - /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
+        - /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen
+      embodiment_override: pushshapes_sim_chain_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+        action_zarr_key: actions
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_transform_list
+        world_size: 512.0
+    filters: &chain_episode_filter
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('episode_hash') != 'episode_T_chain_gripper_obs7_000050'"
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverManyWithEmbodimentOverride
+      folder_paths: *chain_roots
+      embodiment_override: pushshapes_sim_chain_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+        action_zarr_key: actions
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_transform_list
+        world_size: 512.0
+    filters: *chain_episode_filter
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+
+# One A40 per BC run; batch 64 is the global batch for embodiment 20.
+train_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 64
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+
+valid_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
