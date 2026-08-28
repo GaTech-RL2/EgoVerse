@@ -877,6 +877,19 @@ class MultiDataset(torch.utils.data.Dataset):
                 q_low = torch.broadcast_to(q_low, arr.shape)
                 q_high = torch.broadcast_to(q_high, arr.shape)
             except RuntimeError:
+                # Stats were computed for a different layout than this sample
+                # (e.g. a stale precomputed norm_stats.json). Say so once
+                # instead of silently disabling the bounds check for the key;
+                # normalize() will raise on the same mismatch anyway.
+                warn_key = f"bounds-shape:{zarr_key}"
+                if warn_key not in self._warned_violations:
+                    self._warned_violations.add(warn_key)
+                    logger.warning(
+                        f"[MultiDataset] bounds check skipped for {zarr_key}: "
+                        f"stats shape {tuple(q_low.shape)} does not broadcast to "
+                        f"sample shape {tuple(arr.shape)} (norm stats computed "
+                        "for a different layout?)"
+                    )
                 continue
 
             if torch.any(torch.isnan(arr)) or torch.any(torch.isinf(arr)):
@@ -907,8 +920,15 @@ class MultiDataset(torch.utils.data.Dataset):
             else:
                 arr_q = arr
 
-            below = arr_q < q_low
-            above = arr_q > q_high
+            # Absolute slack on the quantile bounds. Wrist-frame action chunks
+            # are the identity pose at t=0 (the reference IS the obs pose), so
+            # those cells' bounds collapse to [0, 0] and a strict compare would
+            # reject every frame on any roundoff (today the cells are exactly
+            # 0.0, so this only guards against a different BLAS/dtype path).
+            # 1e-6 (m / normalized grip) is far below any real outlier.
+            tol = 1e-6
+            below = arr_q < q_low - tol
+            above = arr_q > q_high + tol
             if torch.any(below) or torch.any(above):
                 prefix = f"Bounds violation in {zarr_key} ep={episode_name} frame={idx}"
                 warn_key = f"bounds:{episode_name}:{zarr_key}"
@@ -1137,19 +1157,7 @@ class MultiDataset(torch.utils.data.Dataset):
                 )
                 return
             if os.path.isfile(precomputed_file):
-                with open(precomputed_file, "r") as f:
-                    payload = json.load(f)
-                if str(embodiment) not in payload["stats"]:
-                    raise ValueError(
-                        f"norm_stats file {precomputed_file} has no entry for "
-                        f"embodiment id {embodiment} (available: "
-                        f"{sorted(payload['stats'])}). Stats are keyed by numeric "
-                        "EMBODIMENT id, and ids were renumbered by the human/eva "
-                        "embodiment collapse — recompute norm stats instead of "
-                        "reusing a pre-collapse norm_stats.json."
-                    )
-                self.norm_stats[embodiment] = payload["stats"][str(embodiment)]
-                self._norm_run_metadata = payload.get("norm_run_metadata", None)
+                self._load_precomputed_stats(precomputed_file, embodiment, norm_keys)
                 logger.info(
                     f"[MultiDataset] Loaded precomputed stats for embodiment={embodiment}"
                 )
@@ -1205,6 +1213,55 @@ class MultiDataset(torch.utils.data.Dataset):
         logger.info(
             f"[MultiDataset] Finished norm inference, loading={loading_time:.2f}s, computing={computing_time:.2f}s"
         )
+
+    def _load_precomputed_stats(
+        self, precomputed_file: str, embodiment: int, norm_keys: list[str]
+    ) -> None:
+        """Load ``norm_stats.json`` for one embodiment, refusing a file whose
+        provenance does not match this dataset.
+
+        The stats are only meaningful for the exact (norm_mode, key set)
+        they were computed under; the payload's ``provenance`` block (written
+        by :meth:`cache_stats`) carries both. Files written before provenance
+        existed load as before, with a warning.
+        """
+        with open(precomputed_file, "r") as f:
+            payload = json.load(f)
+        if str(embodiment) not in payload["stats"]:
+            raise ValueError(
+                f"norm_stats file {precomputed_file} has no entry for "
+                f"embodiment id {embodiment} (available: "
+                f"{sorted(payload['stats'])}). Stats are keyed by numeric "
+                "EMBODIMENT id, and ids were renumbered by the human/eva "
+                "embodiment collapse — recompute norm stats instead of "
+                "reusing a pre-collapse norm_stats.json."
+            )
+        provenance = payload.get("provenance")
+        if provenance is None:
+            logger.warning(
+                f"[MultiDataset] {precomputed_file} carries no provenance block "
+                "(written by an older cache_stats); cannot verify it matches "
+                f"norm_mode={self.norm_mode!r} and this dataset's keys."
+            )
+        else:
+            file_mode = provenance.get("norm_mode")
+            if file_mode != self.norm_mode:
+                raise ValueError(
+                    f"norm_stats file {precomputed_file} was computed with "
+                    f"norm_mode={file_mode!r} but this dataset uses "
+                    f"norm_mode={self.norm_mode!r}; recompute the stats."
+                )
+        file_keys = set(payload["stats"][str(embodiment)])
+        want_keys = set(norm_keys)
+        if norm_keys and file_keys != want_keys:
+            raise ValueError(
+                f"norm_stats file {precomputed_file} keys for embodiment "
+                f"{embodiment} are {sorted(file_keys)} but this dataset "
+                f"normalizes {sorted(want_keys)}; the file was computed for a "
+                "different keymap/transform mode — recompute the stats."
+            )
+        self.norm_stats[embodiment] = payload["stats"][str(embodiment)]
+        self._norm_run_metadata = payload.get("norm_run_metadata", None)
 
     def _collect_norm_samples(
         self, loader, norm_keys, embodiment, n_samples, batch_size, num_workers
@@ -1268,6 +1325,19 @@ class MultiDataset(torch.utils.data.Dataset):
             }
         payload = {
             "stats": stats_out,
+            # What the stats are valid for — checked by _load_precomputed_stats
+            # so a cached file from another norm_mode / keymap / transform mode
+            # (same dims, different meaning) is refused instead of applied.
+            "provenance": {
+                "norm_mode": self.norm_mode,
+                "stat_shapes": {
+                    str(emb): {
+                        k: list(np.asarray(next(iter(sd.values()))).shape)
+                        for k, sd in keys_dict.items()
+                    }
+                    for emb, keys_dict in self.norm_stats.items()
+                },
+            },
             "loading_time": None,
             "computing_time": None,
             "frames": None,
