@@ -36,6 +36,8 @@ class ModelWrapper(LightningModule):
         scheduler_frequency: int = 1,
         evaluator=None,
         enable_grad_norm: bool = True,
+        train_metrics_on_step: bool = False,
+        train_metrics_on_epoch: bool = True,
     ):
         """
         Args:
@@ -62,9 +64,22 @@ class ModelWrapper(LightningModule):
             pass
         self.enable_grad_norm = enable_grad_norm
         self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
+        self.train_metrics_on_step = train_metrics_on_step
+        self.train_metrics_on_epoch = train_metrics_on_epoch
 
         self.epoch_memory_stats = []  # Store memory stats per epoch
         self.evaluator = evaluator
+
+    def on_save_checkpoint(self, checkpoint):
+        """Keep runtime logging controls accurate across full-state resumes."""
+        hyper_parameters = checkpoint.setdefault("hyper_parameters", {})
+        hyper_parameters["enable_grad_norm"] = bool(self.enable_grad_norm)
+        hyper_parameters["train_metrics_on_step"] = bool(
+            self.train_metrics_on_step
+        )
+        hyper_parameters["train_metrics_on_epoch"] = bool(
+            self.train_metrics_on_epoch
+        )
 
     @staticmethod
     def _as_config(cfg):
@@ -82,6 +97,28 @@ class ModelWrapper(LightningModule):
             norm_stats=norm_stats,
         )
 
+    def _log_train_metric(self, name, value, *, sync_dist=True):
+        """Log dense step metrics while retaining a separate epoch aggregate."""
+        if not self.train_metrics_on_step and not self.train_metrics_on_epoch:
+            return
+        if self.train_metrics_on_step:
+            self.log(
+                name,
+                value,
+                on_step=True,
+                on_epoch=False,
+                sync_dist=sync_dist,
+            )
+        if self.train_metrics_on_epoch:
+            epoch_name = f"{name}_epoch" if self.train_metrics_on_step else name
+            self.log(
+                epoch_name,
+                value,
+                on_step=False,
+                on_epoch=True,
+                sync_dist=sync_dist,
+            )
+
     # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
         self.train()
@@ -96,27 +133,9 @@ class ModelWrapper(LightningModule):
         t3 = time.time()
         loss_dicts.append(losses)
 
-        self.log(
-            "Timing/Process_Batch_Sec",
-            t1 - t0,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
-        self.log(
-            "Timing/Forward_Pass_Sec",
-            t2 - t1,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
-        self.log(
-            "Timing/Compute_Losses_Sec",
-            t3 - t2,
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
+        self._log_train_metric("Timing/Process_Batch_Sec", t1 - t0)
+        self._log_train_metric("Timing/Forward_Pass_Sec", t2 - t1)
+        self._log_train_metric("Timing/Compute_Losses_Sec", t3 - t2)
 
         # Average over both the hand and robot batch if applicable
         losses = OrderedDict()
@@ -140,7 +159,7 @@ class ModelWrapper(LightningModule):
         info = {}
         info["losses"] = TensorUtils.detach(losses)
         for k, v in self.model.log_info(info).items():
-            self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
+            self._log_train_metric("Train/" + k, v)
 
         return losses["action_loss"]
 
@@ -179,21 +198,24 @@ class ModelWrapper(LightningModule):
         if not grad_norm_flagged:
             self.grad_norm_history.append(grad_norm_val)
         for k, v in info.items():
-            self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
+            self._log_train_metric("Train/" + k, v)
 
     def on_before_optimizer_step(self, optimizer):
+        if self.train_metrics_on_step:
+            for i, param_group in enumerate(optimizer.param_groups):
+                self.log(
+                    f"Optimizer/param_group_{i}_lr",
+                    param_group["lr"],
+                    on_step=True,
+                    on_epoch=False,
+                    sync_dist=True,
+                )
         if not self.enable_grad_norm:
             return
         grad_norm = torch.nn.utils.clip_grad_norm_(
             self.parameters(), max_norm=float("inf")
         )
-        self.log(
-            "Train/policy_grad_norms_clipped",
-            float(grad_norm),
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
+        self._log_train_metric("Train/policy_grad_norms_clipped", float(grad_norm))
 
     def on_validation_start(self):
         if self.evaluator is None:
@@ -289,9 +311,13 @@ class ModelWrapper(LightningModule):
         )
 
     def on_train_epoch_start(self):
+        if not self.train_metrics_on_epoch:
+            return super().on_train_epoch_start()
         for i, param_group in enumerate(self.optimizers().param_groups):
             self.log(
-                f"Optimizer/param_group_{i}_lr",
+                f"Optimizer/param_group_{i}_lr_epoch"
+                if self.train_metrics_on_step
+                else f"Optimizer/param_group_{i}_lr",
                 param_group["lr"],
                 on_step=False,
                 on_epoch=True,

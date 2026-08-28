@@ -1,0 +1,90 @@
+from pathlib import Path
+from re import DOTALL, findall
+from subprocess import run
+
+LAUNCHER = (
+    Path(__file__).parents[1]
+    / "scripts"
+    / "train"
+    / "flow_transfer_newdata_h16_norm_precompute.sbatch"
+)
+
+
+def test_newdata_h16_norm_launcher_has_valid_bash_syntax() -> None:
+    run(["bash", "-n", str(LAUNCHER)], check=True)
+
+
+def test_newdata_h16_norm_launcher_embedded_python_compiles() -> None:
+    blocks = findall(r"<<'PY'\n(.*?)\nPY", LAUNCHER.read_text(), flags=DOTALL)
+    assert len(blocks) >= 6
+    for index, block in enumerate(blocks):
+        compile(block, f"{LAUNCHER.name}:heredoc-{index}", "exec")
+
+
+def test_newdata_h16_norm_launcher_is_shared_and_fail_closed() -> None:
+    launcher = LAUNCHER.read_text()
+
+    for contract in (
+        "EXPECTED_HEAD=${EXPECTED_HEAD:?",
+        "EXPECTED_SCRIPT_SHA=${EXPECTED_SCRIPT_SHA:?",
+        "EXPECTED_U_COUNT=${EXPECTED_U_COUNT:?",
+        "EXPECTED_U_INVENTORY_SHA=${EXPECTED_U_INVENTORY_SHA:?",
+        "EXPECTED_U_TRAIN_FRAMES=${EXPECTED_U_TRAIN_FRAMES:?",
+        "EXPECTED_CHAIN_BASE_COUNT=${EXPECTED_CHAIN_BASE_COUNT:?",
+        "EXPECTED_CHAIN_BASE_INVENTORY_SHA=${EXPECTED_CHAIN_BASE_INVENTORY_SHA:?",
+        "EXPECTED_CHAIN_BASE_TRAIN_FRAMES=${EXPECTED_CHAIN_BASE_TRAIN_FRAMES:?",
+        "EXPECTED_CHAIN_GEN_COUNT=${EXPECTED_CHAIN_GEN_COUNT:?",
+        "EXPECTED_CHAIN_GEN_INVENTORY_SHA=${EXPECTED_CHAIN_GEN_INVENTORY_SHA:?",
+        "EXPECTED_CHAIN_GEN_SOURCE_FRAMES=${EXPECTED_CHAIN_GEN_SOURCE_FRAMES:?",
+        "EXPECTED_CHAIN_GEN_TRAIN_FRAMES=${EXPECTED_CHAIN_GEN_TRAIN_FRAMES:?",
+    ):
+        assert contract in launcher
+
+    assert "EXPECTED_ACTION_HORIZON=16" in launcher
+    assert "EXCLUDED_CHAIN_GEN_EPISODE=episode_T_chain_gripper_obs7_000050" in launcher
+    assert 'test "$EXPECTED_CHAIN_GEN_COUNT" = 720' in launcher
+    assert 'test "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES" = 309709' in launcher
+    assert 'test "$EXPECTED_CHAIN_GEN_TRAIN_FRAMES" = 306591' in launcher
+    assert "verify_effective_chain_gen" in launcher
+    assert "chain_gen_effective_inventory.txt" in launcher
+    assert '"effective_chain_train_episode_count"' in launcher
+    assert '"chain_effective_train_episodes"' in launcher
+    assert "pusht/pipeline_diffusion_usocket_chain_newdata_h16" in launcher
+    assert "pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16" in launcher
+    assert "ARM=${ARM:?" not in launcher
+    assert 'test -z "$(git -C "$REPO" status --porcelain=v1' in launcher
+    assert (
+        'test "$(sha256sum "$SCRIPT" | awk \'{print $1}\')" '
+        '= "$EXPECTED_SCRIPT_SHA"' in launcher
+    )
+    assert "scan_all before" in launcher
+    assert "scan_all after" in launcher
+    assert launcher.count("cmp -s") >= 2
+    assert "mode=norm_stats" in launcher
+    assert '"++paths.root_dir=$OUT"' in launcher
+    assert '"paths.output_dir=$OUT/hydra_run"' in launcher
+    assert '"paths.work_dir=$REPO"' in launcher
+    assert "norm_stats.norm_mode=minmax" in launcher
+    assert "norm_stats.reduce_all_but_last=true" in launcher
+    assert "norm_stats.sample_frac=1.0" in launcher
+    assert "norm_stats.precomputed_norm_path=null" in launcher
+    assert "OmegaConf.to_container(dp.data, resolve=True)" in launcher
+    assert 'filters._target_ == "egomimic.rldb.filters.DatasetFilter"' in launcher
+    assert "row.get('episode_hash')" in launcher
+    assert "'episode_T_chain_gripper_obs7_000050'" in launcher
+    assert (
+        'expected_frames = {"19": u_frames, "20": base_frames + gen_train_frames}'
+        in launcher
+    )
+    assert '"19": {"state_agent_obj": 6, "actions": 4}' in launcher
+    assert '"20": {"state_agent_obj": 6, "actions": 6}' in launcher
+    assert "chmod 0444 \\" in launcher
+    assert '  "$ART" \\' in launcher
+    for inventory in (
+        "usocket_inventory.txt",
+        "chain_base_inventory.txt",
+        "chain_gen_inventory.txt",
+        "chain_gen_effective_inventory.txt",
+    ):
+        assert f'"$OUT/provenance/inventories/before/{inventory}"' in launcher
+    assert "\nsbatch " not in launcher

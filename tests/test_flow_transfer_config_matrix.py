@@ -429,6 +429,7 @@ def test_obstacle_cotrain_config_pins_all_audited_sources(monkeypatch):
     )
     for cotrain in (cfg, dp):
         assert cotrain.model.enable_grad_norm is False
+        assert cotrain.model.optimizer.lr == pytest.approx(1.0e-4)
         assert cotrain.trainer.accumulate_grad_batches == 1
         scheduler = cotrain.model.scheduler
         assert scheduler.max_steps == 240_000
@@ -588,3 +589,198 @@ def test_matrix_requeue_selects_newest_recovery_checkpoint() -> None:
     assert '"paths.output_dir=$RUN_DIR"' in matrix
     assert '"paths.work_dir=$REPO"' in matrix
     assert '--cfg job --resolve > "$RESOLVED_CONFIG"' in matrix
+
+
+@pytest.mark.parametrize(
+    ("experiment", "model_family"),
+    [
+        (
+            "pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16",
+            "latent",
+        ),
+        ("pusht/pipeline_diffusion_usocket_chain_newdata_h16", "dp"),
+    ],
+)
+def test_newdata_cotrain_configs_are_h16_world2_and_config_only(
+    experiment: str,
+    model_family: str,
+) -> None:
+    cfg = _compose(experiment)
+    expected_roots = [
+        "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2",
+        "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen",
+    ]
+
+    assert set(cfg.data.train_datasets) == {
+        "pushshapes_sim_u_socket",
+        "pushshapes_sim_chain_gripper",
+    }
+    assert set(cfg.data.valid_datasets) == set(cfg.data.train_datasets)
+    for split in ("train_datasets", "valid_datasets"):
+        datasets = cfg.data[split]
+        chain = datasets.pushshapes_sim_chain_gripper
+        usocket = datasets.pushshapes_sim_u_socket
+        assert chain.resolver._target_.endswith(
+            "LocalEpisodeResolverManyWithEmbodimentOverride"
+        )
+        assert list(chain.resolver.folder_paths) == expected_roots
+        assert chain.resolver.key_map.action_horizon == 16
+        assert usocket.resolver.key_map.action_horizon == 16
+        assert (
+            usocket.resolver.folder_path == "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/"
+            "u_socket_3000_v2_clean"
+        )
+
+    assert cfg.data.train_datasets.pushshapes_sim_u_socket.valid_ratio == 0.0
+    assert cfg.data.train_datasets.pushshapes_sim_chain_gripper.valid_ratio == 0.0
+    assert cfg.data.valid_datasets.pushshapes_sim_u_socket.valid_ratio == 0.02
+    assert cfg.data.valid_datasets.pushshapes_sim_chain_gripper.valid_ratio == 0.02
+    assert cfg.launch_params.gpus_per_node == 2
+    assert cfg.launch_params.nodes == 1
+    for domain in cfg.data.train_datasets:
+        per_rank = cfg.data.train_dataloader_params[domain].batch_size
+        assert per_rank == 32
+        assert per_rank * cfg.launch_params.gpus_per_node == 64
+
+    assert cfg.trainer.max_steps == 240_000
+    assert cfg.trainer.limit_val_batches == 0
+    assert cfg.trainer.accumulate_grad_batches == 1
+    assert cfg.trainer.log_every_n_steps == 1
+    assert cfg.trainer.get("gradient_clip_val") is None
+    assert cfg.model.enable_grad_norm is False
+    assert cfg.model.optimizer.lr == pytest.approx(3.0e-5)
+    assert cfg.model.scheduler.max_steps == 240_000
+    assert cfg.model.scheduler.warmup_steps == 3_000
+    assert cfg.model.scheduler.warmup_start_factor == pytest.approx(0.1)
+    assert cfg.model.scheduler.eta_min == pytest.approx(3.0e-6)
+    assert (
+        cfg.model.scheduler._target_
+        == "egomimic.utils.schedulers.warmup_cosine_scheduler"
+    )
+    assert cfg.model.get("scheduler_interval", "step") == "step"
+    assert cfg.model.get("scheduler_frequency", 1) == 1
+    assert (
+        cfg.model.optimizer.lr * cfg.model.scheduler.warmup_start_factor
+        == pytest.approx(cfg.model.scheduler.eta_min)
+    )
+    assert cfg.model.train_metrics_on_step is True
+    assert cfg.model.train_metrics_on_epoch is True
+    assert cfg.logger.wandb.project == "pushshapes-flow-transfer"
+    assert not any(name.startswith("best_") for name in cfg.callbacks)
+
+    model = cfg.model.robomimic_model
+    assert model.action_horizon == 16
+    assert set(model.domains) == {
+        "pushshapes_sim_u_socket",
+        "pushshapes_sim_chain_gripper",
+    }
+    if model_family == "latent":
+        assert model.stages[1].action_horizon == 16
+        assert model.stages[1].latent_dim == 96
+        assert model.stages[2].action_horizon == 16
+        assert model.stages[2].denoising_module.act_seq == 16
+        assert model.stages[2].gradient_accumulation_steps == 1
+        assert "action_encoder" not in OmegaConf.to_yaml(cfg.model).lower()
+    else:
+        assert model.stages[1].action_horizon == 16
+        assert set(model.stages[1].policies) == set(model.domains)
+        for policy in model.stages[1].policies.values():
+            assert policy.action_horizon == 16
+
+
+def test_newdata_world2_launcher_is_smoke_only_and_fail_closed() -> None:
+    repo_root = Path(__file__).parents[1]
+    launcher = (
+        repo_root
+        / "scripts"
+        / "train"
+        / "flow_transfer_newdata_h16_world2_matrix.sbatch"
+    ).read_text()
+
+    for value in (
+        "ARM=${ARM:?",
+        "EXPECTED_HEAD=${EXPECTED_HEAD:?",
+        "EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?",
+        "NORM_ARTIFACT=${NORM_ARTIFACT:?",
+        "EXPECTED_NORM_SHA=${EXPECTED_NORM_SHA:?",
+        "U_INVENTORY=${U_INVENTORY:?",
+        "U_EPISODE_METADATA=${U_EPISODE_METADATA:?",
+        "CHAIN_BASE_INVENTORY=${CHAIN_BASE_INVENTORY:?",
+        "CHAIN_BASE_EPISODE_METADATA=${CHAIN_BASE_EPISODE_METADATA:?",
+        "CHAIN_GEN_INVENTORY=${CHAIN_GEN_INVENTORY:?",
+        "CHAIN_GEN_EPISODE_METADATA=${CHAIN_GEN_EPISODE_METADATA:?",
+        "EXPECTED_U_INVENTORY_SHA=${EXPECTED_U_INVENTORY_SHA:?",
+        "EXPECTED_U_EPISODE_METADATA_SHA=${EXPECTED_U_EPISODE_METADATA_SHA:?",
+        "EXPECTED_U_TRAIN_FRAMES=${EXPECTED_U_TRAIN_FRAMES:?",
+        "EXPECTED_CHAIN_BASE_INVENTORY_SHA=${EXPECTED_CHAIN_BASE_INVENTORY_SHA:?",
+        "EXPECTED_CHAIN_BASE_EPISODE_METADATA_SHA=${EXPECTED_CHAIN_BASE_EPISODE_METADATA_SHA:?",
+        "EXPECTED_CHAIN_GEN_INVENTORY_SHA=${EXPECTED_CHAIN_GEN_INVENTORY_SHA:?",
+        "EXPECTED_CHAIN_GEN_EPISODE_METADATA_SHA=${EXPECTED_CHAIN_GEN_EPISODE_METADATA_SHA:?",
+        "EXPECTED_CHAIN_TRAIN_FRAMES=${EXPECTED_CHAIN_TRAIN_FRAMES:?",
+    ):
+        assert value in launcher
+    assert "pusht/pipeline_diffusion_usocket_chain_newdata_h16" in launcher
+    assert "pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16" in launcher
+    assert 'test -z "$(git -C "$REPO" status --porcelain=v1' in launcher
+    assert launcher.count("validate_all_inventories") >= 3
+    assert 'episode / "zarr.json"' in launcher
+    assert "hashlib.sha256(raw).hexdigest()" in launcher
+    assert "metadata_path.read_bytes() == metadata_bytes" in launcher
+    assert "live episode metadata differs from pinned artifact" in launcher
+    assert "effective_chain_frames" in launcher
+    assert "EXCLUDED_CHAIN_EPISODE=episode_T_chain_gripper_obs7_000050" in launcher
+    assert "EXCLUDED_CHAIN_FRAMES=3118" in launcher
+    assert "lambda row: row.get('episode_hash') != " in launcher
+    assert 'for split in ("train_datasets", "valid_datasets")' in launcher
+    assert 'filters._target_ == "egomimic.rldb.filters.DatasetFilter"' in launcher
+    assert "list(filters.filter_lambdas) == [expected_chain_filter]" in launcher
+    assert (
+        'expected_frames = {"19": int(sys.argv[3]), "20": int(sys.argv[4])}' in launcher
+    )
+    assert 'payload["frames"] == sum(expected_frames.values())' in launcher
+    assert (
+        'metadata["total_dataset_frames"] == sum(expected_frames.values())' in launcher
+    )
+    assert "EXPECTED_WORLD_SIZE=2" in launcher
+    assert 'test "${SLURM_NTASKS:?}" = "$EXPECTED_WORLD_SIZE"' in launcher
+    assert 'test "${SLURM_JOB_PARTITION:?}" = rl2-lab' in launcher
+    assert 'test "${SLURM_JOB_ACCOUNT:?}" = rl2-lab' in launcher
+    assert "trainer.max_steps=2" in launcher
+    assert "trainer.limit_train_batches=2" in launcher
+    assert "trainer.val_check_interval=1" in launcher
+    assert "trainer.limit_val_batches=1" in launcher
+    assert "trainer.num_sanity_val_steps=0" in launcher
+    assert "trainer.log_every_n_steps=1" in launcher
+    assert '--expected-world-size "$EXPECTED_WORLD_SIZE"' in launcher
+    assert launcher.count("--required-embodiments 19,20") == 2
+    assert launcher.count("--dry-run") == 1
+    dry_run_index = launcher.index("--dry-run")
+    postflight_index = launcher.index("# A live append or artifact mutation")
+    durable_result_index = launcher.index("# Persist PASS only after")
+    assert dry_run_index < postflight_index < durable_result_index
+    assert "MODE=${MODE:?" not in launcher
+    assert '"$SLURM_BIN/sbatch"' not in launcher
+
+
+def test_training_smoke_verifier_checks_world2_and_dense_step_history() -> None:
+    verifier = (
+        Path(__file__).parents[1] / "egomimic" / "scripts" / "verify_training_smoke.py"
+    ).read_text()
+
+    assert 'parser.add_argument("--expected-world-size"' in verifier
+    assert "config.trainer.limit_train_batches" in verifier
+    assert "config.model.train_metrics_on_step is True" in verifier
+    assert 'checkpoint.get("optimizer_states", [])' in verifier
+    assert 'checkpoint.get("lr_schedulers", [])' in verifier
+    assert "scheduler_last_epoch == global_step" in verifier
+    assert 'key.startswith("Timing/")' in verifier
+    assert 'not key.endswith("_epoch")' in verifier
+    assert '"Train/Loss"' in verifier
+    assert '"Timing/Process_Batch_Sec"' in verifier
+    assert '"Timing/Forward_Pass_Sec"' in verifier
+    assert '"Timing/Compute_Losses_Sec"' in verifier
+    assert '"Optimizer/param_group_0_lr"' in verifier
+    assert "dense_training_history" in verifier
+    assert "training_steps == [0, 1]" in verifier
+    assert "all(math.isfinite(value) for value in values)" in verifier
+    assert "scheduled_history" in verifier

@@ -127,7 +127,7 @@ def test_norm_stats_mode_caches_once_then_skips_model_and_trainer(
     assert norm_stats.cache_calls == [str(tmp_path / "artifact")]
 
 
-def test_model_wrapper_receives_configured_grad_norm_flag(monkeypatch):
+def test_model_wrapper_receives_configured_runtime_flags(monkeypatch):
     captured = {}
     cfg = OmegaConf.create(
         {
@@ -135,6 +135,8 @@ def test_model_wrapper_receives_configured_grad_norm_flag(monkeypatch):
                 "robomimic_model": {"_target_": "example.Policy"},
                 "scheduler_interval": "step",
                 "enable_grad_norm": False,
+                "train_metrics_on_step": True,
+                "train_metrics_on_epoch": False,
             }
         }
     )
@@ -148,7 +150,55 @@ def test_model_wrapper_receives_configured_grad_norm_flag(monkeypatch):
     train_hydra._instantiate_model_wrapper(cfg, norm_stats)
 
     assert captured["enable_grad_norm"] is False
+    assert captured["train_metrics_on_step"] is True
+    assert captured["train_metrics_on_epoch"] is False
     assert captured["norm_stats_state"] == {"stats": "sentinel"}
+
+
+def test_model_wrapper_emits_step_metrics_and_separate_epoch_aggregates():
+    calls = []
+    wrapper = SimpleNamespace(
+        train_metrics_on_step=True,
+        train_metrics_on_epoch=True,
+        log=lambda name, value, **kwargs: calls.append((name, value, kwargs)),
+    )
+
+    train_hydra.ModelWrapper._log_train_metric(
+        wrapper, "Train/action_loss", 1.25
+    )
+
+    assert calls == [
+        (
+            "Train/action_loss",
+            1.25,
+            {"on_step": True, "on_epoch": False, "sync_dist": True},
+        ),
+        (
+            "Train/action_loss_epoch",
+            1.25,
+            {"on_step": False, "on_epoch": True, "sync_dist": True},
+        ),
+    ]
+
+
+def test_model_wrapper_emits_lr_each_optimizer_step_with_grad_norm_disabled():
+    calls = []
+    wrapper = SimpleNamespace(
+        train_metrics_on_step=True,
+        enable_grad_norm=False,
+        log=lambda name, value, **kwargs: calls.append((name, value, kwargs)),
+    )
+    optimizer = SimpleNamespace(param_groups=[{"lr": 3.0e-5}])
+
+    train_hydra.ModelWrapper.on_before_optimizer_step(wrapper, optimizer)
+
+    assert calls == [
+        (
+            "Optimizer/param_group_0_lr",
+            3.0e-5,
+            {"on_step": True, "on_epoch": False, "sync_dist": True},
+        )
+    ]
 
 
 def test_norm_stats_mode_rejects_precomputed_input_before_instantiation(

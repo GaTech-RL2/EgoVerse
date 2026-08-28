@@ -1,0 +1,63 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_pipeline_sampler_usocket_chain_points_dense_medium_h16
+  - override /data: pusht/flow_transfer_usocket_chain_newdata_dense_h16
+  - override /evaluator: eval_pipeline_action_mse
+  - override /logger: wandb
+
+# Configuration only. A later gated launcher must request two L40S GPUs and
+# pin frozen inventories plus fresh train-only normalization statistics.
+name: flow_transfer_cotrain_chain_newdata_latent_dense_medium_h16
+description: decoder_only_latent96_dense16_usocket_clean_chain_3000v2_plus_gen
+model:
+  enable_grad_norm: false
+  # Scale the complete original 1e-4 -> 1e-5 schedule by 0.3.
+  optimizer:
+    lr: 3.0e-5
+  scheduler:
+    eta_min: 3.0e-6
+  train_metrics_on_step: true
+  train_metrics_on_epoch: true
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 1.0
+  val_check_interval: 10000
+  limit_val_batches: 0
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+logger:
+  wandb: {project: pushshapes-flow-transfer}
+norm_stats:
+  norm_mode: minmax
+  reduce_all_but_last: true
+callbacks:
+  model_checkpoint:
+    every_n_epochs: null
+    every_n_train_steps: null
+    train_time_interval: {_target_: datetime.timedelta, hours: 1}
+    save_top_k: 1
+    save_last: true
+    save_on_train_epoch_end: true
+  terminal_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints/final
+    filename: "step-{step}"
+    monitor: null
+    verbose: true
+    every_n_epochs: null
+    every_n_train_steps: ${trainer.max_steps}
+    train_time_interval: null
+    save_top_k: 1
+    save_last: false
+    save_on_train_epoch_end: false
+    save_on_exception: false
+    save_weights_only: false
+    auto_insert_metric_name: false
+    enable_version_counter: false
