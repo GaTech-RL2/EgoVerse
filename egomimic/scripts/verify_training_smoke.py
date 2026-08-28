@@ -19,6 +19,16 @@ from omegaconf import OmegaConf
 from wandb.proto import wandb_internal_pb2
 from wandb.sdk.internal.datastore import DataStore
 
+import egomimic.utils.hydra_resolvers  # noqa: F401
+
+
+def _load_training_config(path: Path) -> Any:
+    """Load a persisted Hydra config with the training process resolvers."""
+
+    if not OmegaConf.has_resolver("eval"):
+        OmegaConf.register_new_resolver("eval", eval)
+    return OmegaConf.load(path)
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -47,6 +57,29 @@ def _history_row(record: Any) -> dict[str, Any]:
         except (json.JSONDecodeError, TypeError):
             continue
     return row
+
+
+def read_successful_wandb_exit_code(stream_path: Path) -> int:
+    """Return a W&B stream's terminal success code without loading history."""
+
+    store = DataStore()
+    store.open_for_scan(str(stream_path))
+    exit_codes: list[int] = []
+    try:
+        while True:
+            payload = store.scan_data()
+            if payload is None:
+                break
+            record = wandb_internal_pb2.Record()
+            record.ParseFromString(payload)
+            if record.WhichOneof("record_type") == "exit":
+                exit_codes.append(int(record.exit.exit_code))
+    finally:
+        store.close()
+
+    assert exit_codes, f"No terminal W&B exit record in {stream_path}"
+    assert exit_codes[-1] == 0, (stream_path, exit_codes)
+    return exit_codes[-1]
 
 
 def read_wandb_history(
@@ -166,7 +199,7 @@ def verify_training_smoke(
     output_dir = output_dir.resolve()
     config_path = output_dir / ".hydra" / "config.yaml"
     assert config_path.is_file(), config_path
-    config = OmegaConf.load(config_path)
+    config = _load_training_config(config_path)
 
     assert int(config.trainer.max_steps) == 2
     assert int(config.trainer.limit_train_batches) == 2
