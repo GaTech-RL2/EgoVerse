@@ -12,6 +12,8 @@ CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 NEWDATA_H16_EXPERIMENTS = [
     "pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16",
     "pusht/pipeline_diffusion_usocket_chain_newdata_h16",
+    "pusht/pipeline_sampler_chain_gripper_newdata_points_dense_medium_h16",
+    "pusht/pipeline_diffusion_chain_gripper_newdata_points_h16",
 ]
 
 OLD_OBSTACLE_EXPERIMENTS = [
