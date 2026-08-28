@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 
+from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.eval.human_robot_overlay_eval import HumanRobotOverlayEval
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.human import (
@@ -44,6 +45,54 @@ def test_metrics_score_the_full_unnormalized_denoised_chunk():
     assert metrics[f"{prefix}_squared_error_max"].item() == 4.0
     assert metrics[f"Valid/emb{emb_id}_{action_key}_copybaseline_mse"] == 0.0
     assert images == {}
+
+
+def test_metrics_include_per_domain_and_cotrain_mse_aliases():
+    emb_ids = [
+        get_embodiment_id("eva_bimanual"),
+        get_embodiment_id("human_bimanual"),
+    ]
+    action_key = "actions_cartesian"
+    targets = {
+        emb_ids[0]: torch.zeros(2, 4, 3),
+        emb_ids[1]: torch.zeros(2, 4, 3),
+    }
+    predictions = {
+        f"emb{emb_ids[0]}_{action_key}": torch.ones(2, 4, 3),
+        f"emb{emb_ids[1]}_{action_key}": torch.full((2, 4, 3), 2.0),
+    }
+    evaluator = HumanRobotOverlayEval(viz_func=None)
+    evaluator.model = SimpleNamespace(
+        resolved_ac_keys={emb_id: action_key for emb_id in emb_ids},
+        norm_stats=IdentityNorm(),
+        forward_eval=lambda _batch: predictions,
+    )
+
+    metrics, _ = evaluator.compute_metrics_and_viz(
+        {emb_id: {action_key: targets[emb_id]} for emb_id in emb_ids}
+    )
+
+    assert metrics["Valid/MSE/eva_bimanual"].item() == 1.0
+    assert metrics["Valid/MSE/human_bimanual"].item() == 4.0
+    assert metrics["Valid/MSE"].item() == 2.5
+    assert metrics["Valid/Native_MSE"].item() == 2.5
+
+
+def test_training_log_info_includes_per_domain_and_cotrain_mse_aliases():
+    algo = SimpleNamespace(domain_by_id={3: "u_socket", 7: "chain_grabber"})
+    info = {
+        "losses": {
+            "action_loss": torch.tensor(2.5),
+            "3_loss_native_action": torch.tensor(1.0),
+            "7_loss_native_action": torch.tensor(4.0),
+        }
+    }
+
+    logged = PipelineAlgo.log_info(algo, info)
+
+    assert logged["MSE/u_socket"] == 1.0
+    assert logged["MSE/chain_grabber"] == 4.0
+    assert logged["MSE"] == 2.5
 
 
 def test_prediction_unnormalize_preserves_slotwise_arc_token_stats():

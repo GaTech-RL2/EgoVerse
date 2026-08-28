@@ -423,4 +423,18 @@ class PipelineAlgo(Algo):
         losses = info["losses"]
         logged = OrderedDict(Loss=losses["action_loss"].item())
         logged.update((key, value.item()) for key, value in losses.items())
+
+        # Stable W&B aliases for normalized native-action MSE. The loss keys
+        # retain their historical embodiment-id names, while these aliases are
+        # readable and consistent across single-domain and cotrain runs.
+        per_domain_mse = []
+        for emb_id, domain in self.domain_by_id.items():
+            key = f"{emb_id}_loss_native_action"
+            if key not in losses:
+                continue
+            value = losses[key].item()
+            logged[f"MSE/{domain}"] = value
+            per_domain_mse.append(value)
+        if per_domain_mse:
+            logged["MSE"] = sum(per_domain_mse) / len(per_domain_mse)
         return logged
