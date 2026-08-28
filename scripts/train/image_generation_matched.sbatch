@@ -16,7 +16,7 @@ set -euo pipefail
 ARCHITECTURE=${1:?usage: image_generation_matched.sbatch ARCHITECTURE smoke|full}
 MODE=${2:?usage: image_generation_matched.sbatch ARCHITECTURE smoke|full}
 case "$ARCHITECTURE" in
-  jit_b16|endpoint_latent) ;;
+  jit_b16|endpoint_latent|unified_latent) ;;
   *) echo "unsupported architecture: $ARCHITECTURE" >&2; exit 2 ;;
 esac
 case "$MODE" in
@@ -76,6 +76,9 @@ COMMON_ARGS=(
 if [[ "$ARCHITECTURE" == jit_b16 ]]; then
   FULL_BATCH_SIZE=64
   FULL_GRAD_ACCUM=4
+elif [[ "$ARCHITECTURE" == unified_latent ]]; then
+  FULL_BATCH_SIZE=8
+  FULL_GRAD_ACCUM=32
 else
   FULL_BATCH_SIZE=32
   FULL_GRAD_ACCUM=8
