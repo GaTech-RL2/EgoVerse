@@ -49,14 +49,14 @@ def _history_row(record: Any) -> dict[str, Any]:
     return row
 
 
-def read_wandb_validation(
+def read_wandb_history(
     stream_path: Path,
-) -> tuple[list[dict[str, Any]], int]:
-    """Return validation history rows and the terminal W&B exit code."""
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
+    """Return aggregated train/validation rows and the terminal W&B exit code."""
 
     store = DataStore()
     store.open_for_scan(str(stream_path))
-    rows: list[dict[str, Any]] = []
+    history_by_step: dict[int, dict[str, float]] = {}
     exit_codes: list[int] = []
     try:
         while True:
@@ -76,24 +76,75 @@ def read_wandb_validation(
             step = row.get("trainer/global_step")
             if step is None:
                 continue
-            metrics = {
-                key: float(value)
-                for key, value in row.items()
-                if key.startswith("Valid/emb") and key.endswith("_action_mse")
-            }
-            if metrics:
-                rows.append(
-                    {
-                        "trainer_global_step": int(step),
-                        "validation_metrics": metrics,
-                    }
-                )
+            step = int(step)
+            metrics = history_by_step.setdefault(step, {})
+            for key, value in row.items():
+                if not (
+                    key.startswith("Train/")
+                    or key.startswith("Timing/")
+                    or key.startswith("Optimizer/")
+                    or (key.startswith("Valid/emb") and key.endswith("_action_mse"))
+                ):
+                    continue
+                try:
+                    metrics[key] = float(value)
+                except (TypeError, ValueError):
+                    continue
     finally:
         store.close()
 
     assert exit_codes, f"No terminal W&B exit record in {stream_path}"
     assert exit_codes[-1] == 0, (stream_path, exit_codes)
-    return rows, exit_codes[-1]
+
+    training_rows: list[dict[str, Any]] = []
+    validation_rows: list[dict[str, Any]] = []
+    for step, metrics in sorted(history_by_step.items()):
+        train_metrics = {
+            key: value
+            for key, value in metrics.items()
+            if key.startswith("Train/") and not key.endswith("_epoch")
+        }
+        timing_metrics = {
+            key: value
+            for key, value in metrics.items()
+            if key.startswith("Timing/") and not key.endswith("_epoch")
+        }
+        optimizer_metrics = {
+            key: value
+            for key, value in metrics.items()
+            if key.startswith("Optimizer/") and not key.endswith("_epoch")
+        }
+        if train_metrics or timing_metrics or optimizer_metrics:
+            training_rows.append(
+                {
+                    "trainer_global_step": step,
+                    "train_metrics": train_metrics,
+                    "timing_metrics": timing_metrics,
+                    "optimizer_metrics": optimizer_metrics,
+                }
+            )
+        validation_metrics = {
+            key: value
+            for key, value in metrics.items()
+            if key.startswith("Valid/emb") and key.endswith("_action_mse")
+        }
+        if validation_metrics:
+            validation_rows.append(
+                {
+                    "trainer_global_step": step,
+                    "validation_metrics": validation_metrics,
+                }
+            )
+    return training_rows, validation_rows, exit_codes[-1]
+
+
+def read_wandb_validation(
+    stream_path: Path,
+) -> tuple[list[dict[str, Any]], int]:
+    """Backward-compatible validation-only view of the W&B history."""
+
+    _, validation_rows, exit_code = read_wandb_history(stream_path)
+    return validation_rows, exit_code
 
 
 def _has_required_metrics(
@@ -110,6 +161,7 @@ def verify_training_smoke(
     output_dir: Path,
     required_embodiments: list[int],
     expected_head: str,
+    expected_world_size: int = 1,
 ) -> dict[str, Any]:
     output_dir = output_dir.resolve()
     config_path = output_dir / ".hydra" / "config.yaml"
@@ -117,12 +169,18 @@ def verify_training_smoke(
     config = OmegaConf.load(config_path)
 
     assert int(config.trainer.max_steps) == 2
+    assert int(config.trainer.limit_train_batches) == 2
     assert int(config.trainer.val_check_interval) == 1
     assert int(config.trainer.limit_val_batches) == 1
     assert int(config.trainer.num_sanity_val_steps) == 0
+    assert int(config.trainer.log_every_n_steps) == 1
     assert str(config.trainer.precision) == "bf16"
-    assert int(config.launch_params.gpus_per_node) == 1
+    assert str(config.trainer.strategy) == "ddp"
+    assert int(config.launch_params.gpus_per_node) == expected_world_size
     assert int(config.launch_params.nodes) == 1
+    assert int(config.trainer.devices) == expected_world_size
+    assert int(config.trainer.num_nodes) == 1
+    assert config.model.train_metrics_on_step is True
     assert (
         config.evaluator._target_
         == "egomimic.eval.human_robot_overlay_eval.HumanRobotOverlayEval"
@@ -133,12 +191,56 @@ def verify_training_smoke(
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     global_step = int(checkpoint["global_step"])
     epoch = int(checkpoint["epoch"])
-    del checkpoint
     assert global_step == 2, global_step
+    optimizer_states = checkpoint.get("optimizer_states", [])
+    assert optimizer_states, "Smoke checkpoint has no optimizer state"
+    optimizer_lrs = [
+        float(group["lr"])
+        for state in optimizer_states
+        for group in state.get("param_groups", [])
+    ]
+    assert optimizer_lrs and all(math.isfinite(value) for value in optimizer_lrs)
+    scheduler_states = checkpoint.get("lr_schedulers", [])
+    assert len(scheduler_states) == 1, scheduler_states
+    scheduler_last_epoch = int(scheduler_states[0]["last_epoch"])
+    assert scheduler_last_epoch == global_step, scheduler_states[0]
+    hyper_parameters = checkpoint.get("hyper_parameters", {})
+    assert hyper_parameters.get("train_metrics_on_step") is True
+    del checkpoint
 
     streams = list(output_dir.glob("wandb/offline-run-*/run-*.wandb"))
     assert len(streams) == 1, streams
-    validation_history, wandb_exit_code = read_wandb_validation(streams[0])
+    training_history, validation_history, wandb_exit_code = read_wandb_history(
+        streams[0]
+    )
+
+    required_step_metrics = {
+        "train_metrics": {"Train/Loss"},
+        "timing_metrics": {
+            "Timing/Process_Batch_Sec",
+            "Timing/Forward_Pass_Sec",
+            "Timing/Compute_Losses_Sec",
+        },
+        "optimizer_metrics": {"Optimizer/param_group_0_lr"},
+    }
+    dense_training_history = [
+        row
+        for row in training_history
+        if all(
+            required.issubset(row[category])
+            for category, required in required_step_metrics.items()
+        )
+    ]
+    assert len(dense_training_history) == 2, training_history
+    training_steps = [row["trainer_global_step"] for row in dense_training_history]
+    assert training_steps == [0, 1], training_steps
+    for row in dense_training_history:
+        values = [
+            value
+            for category in required_step_metrics
+            for value in row[category].values()
+        ]
+        assert values and all(math.isfinite(value) for value in values), row
 
     # num_sanity_val_steps=0 plus a persisted trainer step >= 1 proves this
     # metric came from scheduled validation after optimization had begun.
@@ -174,15 +276,18 @@ def verify_training_smoke(
         "global_step": global_step,
         "epoch": epoch,
         "precision": str(config.trainer.precision),
-        "world_size": int(
-            config.launch_params.gpus_per_node * config.launch_params.nodes
-        ),
+        "world_size": expected_world_size,
+        "optimizer_state_count": len(optimizer_states),
+        "optimizer_lrs": optimizer_lrs,
+        "scheduler_last_epoch": scheduler_last_epoch,
         "required_embodiments": required_embodiments,
         "wandb_stream": str(streams[0]),
         "wandb_stream_sha256": _sha256(streams[0]),
         "wandb_exit_code": wandb_exit_code,
         "validation_trainer_global_step": selected["trainer_global_step"],
         "validation_metrics": metrics,
+        "training_history": training_history,
+        "dense_training_steps": training_steps,
         "validation_history": validation_history,
     }
 
@@ -192,19 +297,19 @@ def main() -> None:
     parser.add_argument("output_dir", type=Path)
     parser.add_argument("--required-embodiments", required=True)
     parser.add_argument("--expected-head", required=True)
+    parser.add_argument("--expected-world-size", type=int, default=1)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     required_embodiments = [
-        int(piece)
-        for piece in args.required_embodiments.split(",")
-        if piece.strip()
+        int(piece) for piece in args.required_embodiments.split(",") if piece.strip()
     ]
     assert required_embodiments
     record = verify_training_smoke(
         args.output_dir,
         required_embodiments,
         args.expected_head,
+        args.expected_world_size,
     )
     if not args.dry_run:
         result_path = args.output_dir.resolve() / "SMOKE_RESULT.json"
