@@ -42,6 +42,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+import math
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
@@ -1606,7 +1607,86 @@ class TokenizeChainGripperPointArcLength:
         return chain_gripper_arc_embedding_to_points(embedding_out)
 
 
-PLANAR_ARC_DIM = 5  # [x, y, cos(theta), sin(theta), grip]
+# --------------------------------------------------------------------------
+# Planar (PushShapes) arc tokenization
+#
+# Mirrors groot/core/utils/state_action/arc_length_distance.py and
+# groot/core/data/state_action/arc_length_action_transform.py on
+# rpunamiya/arc-length-tokenizer, reduced to SE(2):
+#   * a token is emitted for EVERY timestep (tokenize_at(t)), not for a
+#     partition of the episode;
+#   * the step distance is additive, ||dp|| + lambda * mu(dtheta), so it is a
+#     metric on SE(2) and its cumulative sum is a genuine arc length;
+#   * lambda is expressed through a radius, lambda = 2*sqrt(2)*r, so the knob
+#     is "how far from the pivot do I care about" rather than a bare weight;
+#   * gripper rides the SAME waypoints as the pose and is repeated when the
+#     token carries no motion.
+# --------------------------------------------------------------------------
+
+PLANAR_POSE_DIM = 4   # [x, y, cos, sin]
+PLANAR_ARC_DIM = 5    # [x, y, cos, sin, grip]
+
+
+def lambda_for_radius(radius: float) -> float:
+    """Weight making the rotation term equal the arc swept at ``radius``.
+
+    ``mu`` is dimensionless. For small angles mu ~= theta / (2*sqrt(2)), and a
+    point at distance r from the pivot sweeps r*theta, so equating the two
+    gives lambda = 2*sqrt(2)*r. The parameter to reason about is therefore the
+    radius at which rotation should "cost" as much as translation -- for a
+    PushShapes effector whose contact face sits ~30 units from its axis, that
+    is ``lambda_for_radius(30)``.
+    """
+    return 2.0 * math.sqrt(2.0) * float(radius)
+
+
+def rotation_step_metric_planar(theta: np.ndarray) -> np.ndarray:
+    """Per-step mu for a planar angle sequence -> (N-1,).
+
+    mu(R_a, R_b) = sqrt(2) * sin(dtheta / 4), the scaled chordal metric on
+    SO(3) restricted to rotations about one axis. Using it rather than raw
+    |dtheta| keeps the planar tokenizer on the same metric as the 3D one, so a
+    radius tuned in one transfers to the other.
+    """
+    d = np.abs(np.diff(np.asarray(theta, dtype=np.float64)))
+    return math.sqrt(2.0) * np.sin(d / 4.0)
+
+
+def planar_step_distance(xy: np.ndarray, theta: np.ndarray | None = None,
+                         lambda_rot: float = 0.0) -> np.ndarray:
+    """Per-step SE(2) distance ||dp|| + lambda * mu(dtheta) -> (N-1,).
+
+    ``lambda_rot = 0`` gives pure translational arc length, which is the
+    behaviour to use when rotation should ride along the path rather than
+    consume its budget.
+    """
+    xy = np.asarray(xy, dtype=np.float64)
+    if xy.ndim != 2 or xy.shape[1] != 2:
+        raise ValueError(f"xy must be (N, 2), got {xy.shape}")
+    if len(xy) < 2:
+        return np.zeros((0,), dtype=np.float64)
+    step = np.linalg.norm(np.diff(xy, axis=0), axis=-1)
+    if lambda_rot > 0.0:
+        if theta is None:
+            raise ValueError("lambda_rot > 0 requires theta")
+        if len(theta) != len(xy):
+            raise ValueError(f"length mismatch: xy {len(xy)} vs theta {len(theta)}")
+        step = step + float(lambda_rot) * rotation_step_metric_planar(theta)
+    return step
+
+
+def planar_common_horizon(distances, velocities, velocity_epsilon: float = 1e-6) -> float:
+    """H_valid = min_s (D_s / v_s) over streams that actually move.
+
+    A stream with v ~= 0 imposes no limit and simply holds its first waypoint;
+    including it would contribute D/0. If every stream is degenerate this
+    returns 0.0, which callers treat as "hold".
+    """
+    if len(distances) != len(velocities):
+        raise ValueError("distances and velocities must have equal length")
+    live = [float(d) / float(v) for d, v in zip(distances, velocities)
+            if float(v) > velocity_epsilon]
+    return float(min(live)) if live else 0.0
 
 
 class PadPlanarAction:
@@ -1615,13 +1695,8 @@ class PadPlanarAction:
     The 13 effectors do not agree on action width -- 4 emit ``[x, y]``, 3 emit
     ``[x, y, theta]``, 6 emit ``[x, y, theta, grip]`` -- so a co-trained policy
     has no single action head until they are padded to one layout. Absent
-    channels get the identity value for that channel: theta 0 (encoded
-    cos=1, sin=0) and grip 0 (open), which is what those effectors physically
-    do rather than merely a convenient zero.
-
-    Lives in this module, beside the tokenizer it pairs with, because this file
-    is the torch/projectaria-free one -- the dense baseline and the arc
-    variants must both be constructible wherever either is.
+    channels get the identity value for that channel: theta 0 (cos=1, sin=0)
+    and grip 0 (open), which is what those effectors physically do.
     """
 
     def __init__(self, keys: list[str] | None = None):
@@ -1646,156 +1721,162 @@ class PadPlanarAction:
         return batch
 
 
-class TokenizePlanarArcLength(TokenizeUSocketArcLength):
-    """Embodiment-agnostic planar SE(2)+grip arc-length tokenizer.
+class TokenizePlanarArcLength:
+    """Per-timestep planar arc tokenizer for PushShapes actions.
 
-    ``TokenizeUSocketArcLength`` fixes the input at ``(T, 3)``, which covers
-    only 3 of the 13 PushShapes effectors. This accepts 2, 3, or 4 channels and
-    pads to ``[x, y, theta, grip]`` so one action head serves all of them.
+    Accepts ``(T, 2|3|4)`` = ``[x, y[, theta[, grip]]]`` and emits one token
+    anchored at timestep ``t``: M waypoints uniform in arc length over
+    ``[s(t), s(t) + D]`` plus a velocity payload.
 
-    Grip is resampled along the arc parameter but deliberately EXCLUDED from
-    the metric. Including it would let a gripper closing in place manufacture
-    arc length out of a stationary effector, splitting a chunk where nothing
-    moved; and grip is effectively categorical (1 = holding), so blending it
-    into a euclidean distance is not meaningful. This mirrors the retargeting
-    rule that the grip channel is carried, never transformed.
+    rotation_radius
+        0 (default) measures arc by translation alone and lets theta ride the
+        path. >0 adds ``lambda_for_radius(r) * mu(dtheta)`` to the step, so a
+        rotate-in-place manoeuvre advances the clock instead of measuring zero.
 
-    Output is ``(M+1, 5)``: M waypoints ``[x, y, cos, sin, grip]`` then one
-    velocity row ``[vx, vy, omega, arc_speed, 0]``.
+    hybrid_rotation_unit
+        If set, theta gets its OWN budget and the token spans the common
+        horizon min(D/v_trans, D_rot/v_rot); waypoints are still placed by xy
+        distance, so the rotation stream only truncates the window.
+
+    velocity_mode
+        ``mean_scalar`` stores one mean speed; ``per_step_scalar`` stores a
+        speed per waypoint.
+    velocity_layout
+        ``append`` adds the velocity as an extra row -> (M+1, 5).
+        ``concat`` appends it to every waypoint -> (M, 5+V).
+
+    Waypoint 0 is taken EXPLICITLY from index ``t`` rather than by arc lookup.
+    In a stationary cluster many timesteps share one cumulative arc value, so
+    the lookup returns the first of them and silently drops a grip transition
+    that happens while the effector is not moving -- measured as exactly one
+    row per episode, and it was the grasp trigger, which took a stride-1
+    replay from 100% to 0%.
     """
+
+    def __init__(
+        self,
+        action_key: str = "actions",
+        output_action_key: str = "actions",
+        min_distance_unit: float = 50.0,
+        resampled_vector_length: int = 50,
+        dt: float = 1.0 / 30.0,
+        rotation_radius: float = 0.0,
+        hybrid_rotation_unit: float | None = None,
+        velocity_mode: str = "mean_scalar",
+        velocity_layout: str = "append",
+        zero_dist_epsilon: float = 1e-9,
+    ):
+        if min_distance_unit <= 0:
+            raise ValueError("min_distance_unit must be positive")
+        if resampled_vector_length < 2:
+            raise ValueError("resampled_vector_length must be at least 2")
+        if dt <= 0:
+            raise ValueError("dt must be positive")
+        if rotation_radius < 0:
+            raise ValueError("rotation_radius must be non-negative")
+        if velocity_mode not in ("mean_scalar", "per_step_scalar"):
+            raise ValueError(f"unknown velocity_mode {velocity_mode!r}")
+        if velocity_layout not in ("append", "concat"):
+            raise ValueError(f"unknown velocity_layout {velocity_layout!r}")
+        self.action_key = str(action_key)
+        self.output_action_key = str(output_action_key)
+        self.min_distance_unit = float(min_distance_unit)
+        self.M = int(resampled_vector_length)
+        self.dt = float(dt)
+        self.rotation_radius = float(rotation_radius)
+        self.hybrid_rotation_unit = (None if hybrid_rotation_unit is None
+                                     else float(hybrid_rotation_unit))
+        self.velocity_mode = str(velocity_mode)
+        self.velocity_layout = str(velocity_layout)
+        self.zero_dist_epsilon = float(zero_dist_epsilon)
+
+    # -- helpers ---------------------------------------------------------
+
+    @staticmethod
+    def _split(actions: np.ndarray):
+        n, C = actions.shape
+        xy = actions[:, :2]
+        theta = np.unwrap(actions[:, 2]) if C >= 3 else np.zeros(n)
+        grip = actions[:, 3] if C >= 4 else np.zeros(n)
+        return xy, theta, grip, C
+
+    def _cumulative(self, xy, theta):
+        lam = lambda_for_radius(self.rotation_radius) if self.rotation_radius > 0 else 0.0
+        step = planar_step_distance(xy, theta, lam)
+        return np.concatenate([np.zeros(1), np.cumsum(step)])
+
+    def _window_end(self, cum, xy, theta, t):
+        """Arc coordinate where this token stops."""
+        end = cum[t] + self.min_distance_unit
+        if self.hybrid_rotation_unit is not None:
+            # Rotation gets its own budget; the token spans the common horizon.
+            rot = np.concatenate([np.zeros(1),
+                                  np.cumsum(rotation_step_metric_planar(theta))])
+            span_t = float(cum[-1] - cum[t])
+            span_r = float(rot[-1] - rot[t])
+            if span_r > self.zero_dist_epsilon and span_t > self.zero_dist_epsilon:
+                frac = min(1.0, self.hybrid_rotation_unit / span_r)
+                end = min(end, cum[t] + frac * span_t)
+        return min(end, float(cum[-1]))
+
+    def tokenize_at(self, actions: np.ndarray, t: int) -> np.ndarray:
+        actions = np.asarray(actions, dtype=np.float64)
+        n, C = actions.shape
+        xy, theta, grip, C = self._split(actions)
+        cum = self._cumulative(xy, theta)
+        end = self._window_end(cum, xy, theta, t)
+        covered = max(0.0, end - cum[t])
+
+        if covered <= self.zero_dist_epsilon:
+            # No motion in this token: hold the pose and REPEAT the gripper,
+            # matching the reference's zero-motion collapse.
+            xy_w = np.repeat(xy[t:t + 1], self.M, axis=0)
+            th_w = np.repeat(theta[t], self.M)
+            gr_w = np.repeat(grip[t], self.M)
+            speed = np.zeros(self.M if self.velocity_mode == "per_step_scalar" else 1)
+        else:
+            targets = np.linspace(cum[t], end, self.M)
+            xy_w = np.stack([_interp_linear_at_s(xy, cum, s) for s in targets])
+            th_w = np.array([_interp_linear_at_s(theta[:, None], cum, s)[0] for s in targets])
+            gr_w = np.array([_interp_linear_at_s(grip[:, None], cum, s)[0] for s in targets])
+            seg = int(np.searchsorted(cum, end, side="left"))
+            steps = max(1, seg - t)
+            duration = max(steps * self.dt, self.dt)
+            if self.velocity_mode == "mean_scalar":
+                speed = np.array([covered / duration])
+            else:
+                per = np.diff(targets) / max(duration / max(self.M - 1, 1), self.dt)
+                speed = np.concatenate([per[:1], per])
+
+        # Anchor: waypoint 0 is the action AT t, never an arc lookup.
+        xy_w[0] = xy[t]; th_w[0] = theta[t]; gr_w[0] = grip[t]
+
+        way = np.column_stack([xy_w, np.cos(th_w), np.sin(th_w), gr_w])
+        if self.velocity_layout == "append":
+            vrow = np.zeros((1, PLANAR_ARC_DIM))
+            vrow[0, 0] = float(np.mean(speed))
+            return np.concatenate([way, vrow], axis=0)
+        return np.concatenate(
+            [way, np.repeat(speed[:, None], 1, axis=1) if len(speed) == self.M
+             else np.repeat(np.asarray(speed).reshape(1, 1), self.M, axis=0)], axis=1)
 
     def transform(self, batch: dict) -> dict:
         raw = np.asarray(batch[self.action_key])
         if raw.ndim != 2 or raw.shape[1] not in (2, 3, 4):
             raise ValueError(
-                "TokenizePlanarArcLength expects (T, 2|3|4) "
-                f"[x, y[, theta[, grip]]], got {raw.shape}"
-            )
+                f"TokenizePlanarArcLength expects (T, 2|3|4), got {raw.shape}")
         if len(raw) < 2:
-            raise ValueError("TokenizePlanarArcLength needs at least two steps")
+            raise ValueError("needs at least two steps")
         if not np.isfinite(raw).all():
             raise ValueError(f"{self.action_key} contains non-finite values")
-
-        actions = raw.astype(np.float64, copy=False)
-        n, width = actions.shape
-        xy = actions[:, :2]
-        theta = np.unwrap(actions[:, 2]) if width >= 3 else np.zeros(n)
-        grip = actions[:, 3] if width >= 4 else np.zeros(n)
-
-        # The planar problem is the 2D case of the 3D tokenizer, so delegate to
-        # it rather than re-deriving chunking, resampling and gripper handling.
-        # Rotation is CARRIED, not measured: the arc metric stays purely
-        # translational and theta is resampled along that arc exactly as the
-        # grip channel is. Folding rotation into the metric (pos_z =
-        # rotation_radius * theta) was measured to be strictly worse -- it makes
-        # rotation consume translation budget, so on a rotation-dominant
-        # trajectory the chunk ended after 6 timesteps instead of 64 at the same
-        # rotation error, and on a balanced one it was worse on BOTH position
-        # (3.78 vs 1.25) and rotation (0.035 vs 0.010). It also needed an
-        # arbitrary rotation_radius coupling constant; carrying needs none.
-        #
-        # Folding looked necessary because a rotate-in-place chunk has zero
-        # translational arc, so the core would emit nothing for it. That is
-        # handled below the same way grip is: when the arc is zero, resample in
-        # TIME.
-        pos = np.column_stack([xy[:, 0], xy[:, 1], np.zeros(n)])
-        ypr = np.column_stack([theta, np.zeros(n), np.zeros(n)])
-        core = ArcLengthTokenizer(
-            min_distance_unit=self.min_distance_unit,
-            resampled_vector_length=self.M,
-            dt=self.dt,
-            zero_dist_epsilon=self.zero_dist_epsilon,
-        )
-        chunk = core.tokenize_at(pos, ypr, grip[:, None], t=0)
-
-        xy_w = chunk.pos[:, :2]
-        theta_w = chunk.ypr[:, 0]
-        grip_w = chunk.gripper[:, 0]
-
-        if chunk.kind == "zero":
-            # Stationary chunk: pose has nothing to say, but grip does -- an
-            # effector that closes before it moves actuates entirely inside a
-            # zero-arc chunk, so carry the channel across it (resampled in
-            # time, there being no arc to resample against).
-            idx = np.linspace(0.0, n - 1, self.M)
-            base = np.arange(n, dtype=np.float64)
-            grip_w = np.interp(idx, base, grip)
-            theta_w = np.interp(idx, base, theta)
-            velocity = np.zeros(PLANAR_ARC_DIM, dtype=np.float64)
-        else:
-            duration = max(float(chunk.num_original_steps) * self.dt, self.dt)
-            d_xy = xy_w[-1] - xy_w[0]
-            velocity = np.array(
-                [d_xy[0] / duration, d_xy[1] / duration,
-                 (theta_w[-1] - theta_w[0]) / duration,
-                 float(chunk.chunk_distance) / duration, 0.0],
-                dtype=np.float64,
-            )
-
-        waypoints = np.column_stack(
-            [xy_w, np.cos(theta_w), np.sin(theta_w), grip_w]
-        )
-        output = np.concatenate([waypoints, velocity[None]], axis=0)
+        out = self.tokenize_at(raw.astype(np.float64, copy=False), 0)
         dtype = raw.dtype if np.issubdtype(raw.dtype, np.floating) else np.float32
-        batch[self.output_action_key] = output.astype(dtype, copy=False)
+        batch[self.output_action_key] = out.astype(dtype, copy=False)
         return batch
 
-    def detokenize(self, arc_actions: np.ndarray, action_horizon: int) -> np.ndarray:
-        """Decode ``(M+1, 5)`` tokens to fixed-rate ``(H, 4)`` actions."""
-        value = np.asarray(arc_actions, dtype=np.float64)
-        expected = (self.M + 1, PLANAR_ARC_DIM)
-        if value.shape != expected:
-            raise ValueError(
-                f"TokenizePlanarArcLength.detokenize expects {expected}, "
-                f"got {value.shape}"
-            )
-        horizon = int(action_horizon)
-        if horizon <= 0:
-            raise ValueError("action_horizon must be positive")
-        if not np.isfinite(value).all():
-            raise ValueError("arc_actions contains non-finite values")
-
-        waypoints = value[: self.M]
-        kinematics = value[self.M]
-        xy = waypoints[:, :2]
-        grip = waypoints[:, 4]
-        rotvec = waypoints[:, 2:4]
-        rot_norm = np.linalg.norm(rotvec, axis=-1, keepdims=True)
-        safe = np.divide(
-            rotvec, rot_norm,
-            out=np.tile(np.array([[1.0, 0.0]]), (self.M, 1)),
-            where=rot_norm > self.zero_dist_epsilon,
-        )
-        theta = np.unwrap(np.arctan2(safe[:, 1], safe[:, 0]))
-        cumulative, _ = self._arc_parameter(xy, theta)
-        total = float(cumulative[-1])
-        path_speed = abs(float(kinematics[3]))
-
-        if total <= self.zero_dist_epsilon or path_speed <= self.zero_dist_epsilon:
-            # Mirror of the stationary branch in transform(): hold the pose but
-            # play the grip waypoints back across the horizon, so a chunk whose
-            # only content is a grip actuation reconstructs it.
-            # Zero-arc chunk: pose does not translate, but rotation and grip
-            # still carry content -- a rotate-in-place or close-then-move
-            # manoeuvre lives entirely inside such a chunk. Play both channels
-            # back across the horizon; repeating element 0 silently discarded
-            # them (measured: full pi/2 of rotation lost).
-            idx = np.linspace(0.0, self.M - 1, horizon)
-            base = np.arange(self.M, dtype=np.float64)
-            xy_out = np.repeat(xy[:1], horizon, axis=0)
-            theta_out = np.interp(idx, base, theta)
-            grip_out = np.interp(idx, base, grip)
-        else:
-            targets = np.minimum(
-                path_speed * np.arange(horizon, dtype=np.float64) * self.dt, total
-            )
-            xy_out = np.stack([self._interp(xy, cumulative, t) for t in targets])
-            theta_out = np.array(
-                [self._interp(theta[:, None], cumulative, t)[0] for t in targets],
-                dtype=np.float64,
-            )
-            grip_out = np.array(
-                [self._interp(grip[:, None], cumulative, t)[0] for t in targets],
-                dtype=np.float64,
-            )
-        return np.column_stack([xy_out, theta_out, grip_out])
+    def decode_first_action(self, token: np.ndarray, width: int) -> np.ndarray:
+        """The action to execute now: waypoint 0, narrowed to native width."""
+        w = np.asarray(token, dtype=np.float64)[0]
+        theta = math.atan2(float(w[3]), float(w[2]))
+        full = np.array([w[0], w[1], theta, w[4]], dtype=np.float64)
+        return full[:width]
