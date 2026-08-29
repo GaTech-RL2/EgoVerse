@@ -3,10 +3,13 @@
 # ZarrWamDataset + S3WamEpisodeResolver, head-frame transform), differing ONLY
 # in the DB filter (aria_bimanual / rl2 / fold_clothes -> 572 processed eps).
 # Dataset key stays `human_bimanual` so the model/eval configs are unchanged.
-# Alignment (k=4 predicted latent frames, Wan VAE 4x temporal):
-#   cam_horizon=17 pixel frames -> 5 latent frames (1 cond + 4 predicted)
-#   action_horizon=16  (num_action_per_block=4 x 4 blocks)
-#   state_horizon=4    (1 state obs per predicted frame)
+# Alignment (production values — Wan 2.2 5B, K=2 latents/block, 4 predicted blocks):
+#   cam_horizon=33 strided pixel frames  -> 9 latents (1 anchor + 4 blocks x K=2)
+#     video_stride=6 (native 30Hz -> strided 5Hz): raw 33*6=198 native frames read
+#   action_horizon=192 native frames    -> num_action_per_block=48 x 4 blocks
+#   state_horizon=4  proprio anchors    -> num_state_per_block=1 x 4 blocks
+#     state_stride=48 (= action_horizon/state_horizon): state[k] = proprio at
+#     block k's action-start (paper-aligned per-block state alignment)
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -17,11 +20,13 @@ train_datasets:
       folder_path: /storage/project/r-dxu345-0/shared/aria_fold
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_keymap
-        cam_horizon: 17
-        action_horizon: 16
+        cam_horizon: 33
+        action_horizon: 192
         state_horizon: 4
+        state_stride: 48     # action_horizon / state_horizon: state[k] aligns with block k's action-start
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_transform_list
+        state_stride: 48
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

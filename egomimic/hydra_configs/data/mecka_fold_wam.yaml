@@ -14,11 +14,13 @@ train_datasets:
       folder_path: /storage/project/r-dxu345-0/shared/arc_tests
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_keymap
-        cam_horizon: 17
-        action_horizon: 16
+        cam_horizon: 33
+        action_horizon: 192
         state_horizon: 4
+        state_stride: 48     # action_horizon / state_horizon: state[k] aligns with block k's action-start
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_transform_list
+        state_stride: 48
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

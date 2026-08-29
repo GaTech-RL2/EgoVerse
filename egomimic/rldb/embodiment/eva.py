@@ -68,6 +68,7 @@ class Eva(Embodiment):
         action_horizon: int = 16,
         state_horizon: int = 4,
         video_stride: int = 1,
+        state_stride: int = 1,
         norm_mode: bool = False,
         annotation_key=None,
     ):
@@ -75,8 +76,13 @@ class Eva(Embodiment):
         gripper action + state chunks. Same shape as ``Mecka.get_wam_keymap``,
         but reads eva's ``cmd_*``/``obs_*`` fields and includes gripper reads
         so the transform can drop them later (see ``get_wam_transform_list``).
+
+        state_stride: per-block state alignment — see ``Human.get_wam_keymap``
+        (identical semantics: state_stride = action_horizon / state_horizon so
+        state[k] carries proprio at block k's action-start).
         """
         raw_cam_horizon = cam_horizon * max(1, int(video_stride))
+        raw_state_horizon = state_horizon * max(1, int(state_stride))
         key_map = {
             cls.VIZ_IMAGE_KEY: {
                 "key_type": "camera_keys",
@@ -106,22 +112,22 @@ class Eva(Embodiment):
             "right.obs_ee_pose": {
                 "key_type": "proprio_keys",
                 "zarr_key": "right.obs_ee_pose",
-                "horizon": state_horizon,
+                "horizon": raw_state_horizon,
             },
             "left.obs_ee_pose": {
                 "key_type": "proprio_keys",
                 "zarr_key": "left.obs_ee_pose",
-                "horizon": state_horizon,
+                "horizon": raw_state_horizon,
             },
             "right.obs_gripper": {
                 "key_type": "proprio_keys",
                 "zarr_key": "right.obs_gripper",
-                "horizon": state_horizon,
+                "horizon": raw_state_horizon,
             },
             "left.obs_gripper": {
                 "key_type": "proprio_keys",
                 "zarr_key": "left.obs_gripper",
-                "horizon": state_horizon,
+                "horizon": raw_state_horizon,
             },
         }
         if norm_mode:
@@ -133,7 +139,7 @@ class Eva(Embodiment):
         return key_map
 
     @classmethod
-    def get_wam_transform_list(cls, video_stride: int = 1):
+    def get_wam_transform_list(cls, video_stride: int = 1, state_stride: int = 1):
         """WAM transform for eva: subsample the camera clip if needed, transform
         per-arm ``cmd_ee_pose`` action chunks AND ``obs_ee_pose`` state chunks
         into camera frame via fixed extrinsics, convert quat->ypr, concat
@@ -147,6 +153,11 @@ class Eva(Embodiment):
         state key, which chokes on the (T, 7) chunk WAM's state_horizon reads
         produce. Instead we use ``ActionChunkCoordinateFrameTransform`` for
         both action and state — matching the Mecka WAM pattern.
+
+        state_stride: per-block state alignment — see ``Human.get_wam_transform_list``.
+        Slices {left,right}.obs_ee_pose and {left,right}.obs_gripper at
+        ``[::state_stride]`` before the coord-frame transform so state[k] lands
+        at native offset ``k*state_stride`` = block k's action-start.
         """
         extrinsics = cls.EXTRINSICS
         left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
@@ -156,6 +167,18 @@ class Eva(Embodiment):
         if video_stride > 1:
             transforms.append(
                 SubsampleKeys(keys=[cls.VIZ_IMAGE_KEY], stride=int(video_stride))
+            )
+        if state_stride > 1:
+            transforms.append(
+                SubsampleKeys(
+                    keys=[
+                        "left.obs_ee_pose",
+                        "right.obs_ee_pose",
+                        "left.obs_gripper",
+                        "right.obs_gripper",
+                    ],
+                    stride=int(state_stride),
+                )
             )
         transforms += [
             # Command poses (chunks): base frame -> camera frame

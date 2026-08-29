@@ -1200,6 +1200,7 @@ class Mecka(Human):
         action_horizon: int = 16,
         state_horizon: int = 4,
         video_stride: int = 1,
+        state_stride: int = 1,
         norm_mode: bool = False,
         annotation_key=None,
     ):
@@ -1207,7 +1208,17 @@ class Mecka(Human):
         # DROID regime). We read cam_horizon*video_stride raw frames from the
         # zarr, then SubsampleKeys in the transform_list slices every
         # video_stride-th frame back to cam_horizon frames.
+        #
+        # state_stride: per-block temporal alignment of the state register.
+        # WAM's DiT partitions state tokens across the predicted blocks
+        # (num_state_per_block per block, num_pred_blocks blocks). Each state
+        # slot for block k must carry proprio at native timestep k*state_stride
+        # so the state signal is time-aligned with that block's action span
+        # (paper's action-start convention: state_stride = action_horizon /
+        # state_horizon = 192 / 4 = 48). We read state_horizon*state_stride
+        # raw frames and SubsampleKeys slices every state_stride-th value.
         raw_cam_horizon = cam_horizon * max(1, int(video_stride))
+        raw_state_horizon = state_horizon * max(1, int(state_stride))
         key_map = {
             cls.VIZ_IMAGE_KEY: {
                 "key_type": "camera_keys",
@@ -1227,12 +1238,12 @@ class Mecka(Human):
             "right.state_ee_pose": {
                 "key_type": "proprio_keys",
                 "zarr_key": "right.obs_ee_pose",
-                "horizon": state_horizon,
+                "horizon": raw_state_horizon,
             },
             "left.state_ee_pose": {
                 "key_type": "proprio_keys",
                 "zarr_key": "left.obs_ee_pose",
-                "horizon": state_horizon,
+                "horizon": raw_state_horizon,
             },
             "obs_head_pose": {
                 "key_type": "proprio_keys",
@@ -1261,7 +1272,7 @@ class Mecka(Human):
         return key_map
 
     @classmethod
-    def get_wam_transform_list(cls, video_stride: int = 1):
+    def get_wam_transform_list(cls, video_stride: int = 1, state_stride: int = 1):
         transforms = []
         if video_stride > 1:
             # Prepended: slice the raw camera clip [::video_stride] to the
@@ -1275,6 +1286,17 @@ class Mecka(Human):
                 SubsampleKeys(
                     keys=[cls.VIZ_IMAGE_KEY, "obs_head_pose_chunk"],
                     stride=int(video_stride),
+                )
+            )
+        if state_stride > 1:
+            # Slice the raw state clip [::state_stride] so state[k] lands at
+            # native timestep k*state_stride — the start of block k's action
+            # span. Must run BEFORE ActionChunkCoordinateFrameTransform, which
+            # consumes {left,right}.state_ee_pose as a (state_horizon, 7) chunk.
+            transforms.append(
+                SubsampleKeys(
+                    keys=["left.state_ee_pose", "right.state_ee_pose"],
+                    stride=int(state_stride),
                 )
             )
         transforms += [
