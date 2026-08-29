@@ -45,6 +45,7 @@ class PipelineAlgo(Algo):
         action_horizon: int = 1,
         rollout_adapter=None,
         rollout_adapters: dict | None = None,
+        rollout_observation_adapters: dict | None = None,
         rollout_transform_mode: str | None = None,
         device=None,
     ):
@@ -63,6 +64,17 @@ class PipelineAlgo(Algo):
             raise ValueError(
                 "Rollout adapters configured for unknown domains: "
                 f"{sorted(unknown_adapter_domains)}"
+            )
+        self.rollout_observation_adapters = dict(
+            rollout_observation_adapters or {}
+        )
+        unknown_observation_adapter_domains = (
+            set(self.rollout_observation_adapters) - set(self.domains)
+        )
+        if unknown_observation_adapter_domains:
+            raise ValueError(
+                "Rollout observation adapters configured for unknown domains: "
+                f"{sorted(unknown_observation_adapter_domains)}"
             )
         self.rollout_transform_mode = rollout_transform_mode
         self.device = device or torch.device(
@@ -93,6 +105,19 @@ class PipelineAlgo(Algo):
         if domain in self.rollout_adapters:
             return self.rollout_adapters[domain]
         return self.rollout_adapter
+
+    def rollout_observation_adapter_for(self, domain: str | int):
+        """Return the optional pre-normalization observation adapter."""
+        if isinstance(domain, int):
+            if domain not in self.domain_by_id:
+                raise KeyError(f"Unknown rollout embodiment id {domain}")
+            domain = self.domain_by_id[domain]
+        domain = str(domain)
+        if domain not in self.domains:
+            raise KeyError(
+                f"Unknown rollout domain {domain!r}; configured={self.domains}"
+            )
+        return self.rollout_observation_adapters.get(domain)
 
     def _resolve_keys(self) -> None:
         self.proprio_keys = {}
@@ -201,6 +226,9 @@ class PipelineAlgo(Algo):
             if emb_id not in self.domain_by_id:
                 raise KeyError(f"Unexpected embodiment batch {domain!r}")
             rollout_input = dict(loader_batch)
+            observation_adapter = self.rollout_observation_adapter_for(domain)
+            if observation_adapter is not None:
+                rollout_input = observation_adapter.encode(rollout_input)
             for action_key in self.norm_stats.keys_of_type("action_keys", emb_id):
                 rollout_input.pop(action_key, None)
                 zarr_key = self.norm_stats.keyname_to_zarr_key(action_key, emb_id)

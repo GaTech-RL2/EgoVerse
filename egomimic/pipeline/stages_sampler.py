@@ -50,6 +50,61 @@ class DPStyleObsEncoder(nn.Module):
         return torch.cat(features, dim=-1)
 
 
+class EmbodimentProprioProjection(Stage):
+    """Project U4 and Chain6 proprio through separate MLP branches."""
+
+    reads = ["obs/state_agent_model", "embodiment"]
+    writes = ["obs/proprio_condition"]
+
+    def __init__(
+        self,
+        projections: Dict[str, dict],
+        output_dim: int = 64,
+    ):
+        super().__init__()
+        self.output_dim = int(output_dim)
+        if self.output_dim <= 0:
+            raise ValueError("output_dim must be positive")
+        if not projections:
+            raise ValueError("projections must configure at least one embodiment")
+
+        self.projection_specs = {}
+        branches = {}
+        for domain, raw_spec in projections.items():
+            spec = dict(raw_spec)
+            source_dim = int(spec["source_dim"])
+            hidden_dim = int(spec.get("hidden_dim", self.output_dim))
+            if source_dim <= 0 or hidden_dim <= 0:
+                raise ValueError("source_dim and hidden_dim must be positive")
+            self.projection_specs[str(domain)] = {
+                "source_dim": source_dim,
+                "semantic": str(spec.get("semantic", "")),
+            }
+            branches[str(domain)] = nn.Sequential(
+                nn.Linear(source_dim, hidden_dim),
+                nn.SiLU(),
+                nn.Linear(hidden_dim, self.output_dim),
+            )
+        self.projections = nn.ModuleDict(branches)
+
+    def forward(self, batch: dict) -> dict:
+        domain = str(batch["embodiment"])
+        if domain not in self.projections:
+            raise KeyError(
+                f"No proprio projection for {domain!r}; "
+                f"configured={list(self.projections)}"
+            )
+        value = batch["obs/state_agent_model"]
+        spec = self.projection_specs[domain]
+        if value.shape[-1] != spec["source_dim"]:
+            raise ValueError(
+                f"{domain} state_agent_model width is {value.shape[-1]}, "
+                f"expected {spec['source_dim']} ({spec['semantic']})"
+            )
+        batch["obs/proprio_condition"] = self.projections[domain](value)
+        return batch
+
+
 class SharedAdapterObsEncoder(nn.Module):
     """One shared observation representation plus one embodiment adapter.
 
@@ -99,13 +154,29 @@ class FusedObsEncoder(Stage):
     reads_by_mode = {"rollout": ["obs/*", "embodiment"]}
     writes_by_mode = {"rollout": ["condition"]}
 
-    def __init__(self, encoder: nn.Module, n_obs_steps: int = 2):
+    def __init__(
+        self,
+        encoder: nn.Module,
+        n_obs_steps: int = 2,
+        required_obs_keys: List[str] | None = None,
+    ):
         super().__init__()
         self.encoder = encoder
         self.n_obs_steps = int(n_obs_steps)
         self.rollout_obs_steps = self.n_obs_steps
         if self.n_obs_steps <= 0:
             raise ValueError("n_obs_steps must be positive")
+        if required_obs_keys is not None:
+            required = tuple(
+                key if str(key).startswith("obs/") else f"obs/{key}"
+                for key in required_obs_keys
+            )
+            if not required:
+                raise ValueError("required_obs_keys cannot be empty")
+            self.reads = [*required, "embodiment", "actions"]
+            self.reads_by_mode = {
+                "rollout": [*required, "embodiment"],
+            }
 
     def forward(self, batch: dict) -> dict:
         obs_packed = {

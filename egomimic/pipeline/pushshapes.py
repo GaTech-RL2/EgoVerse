@@ -7,6 +7,7 @@ import torch
 
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ChainGripperPoints6ToNative4,
+    PlanarAgentStateToRotVec4,
     _restore_numeric_type,
     _to_float64_numpy,
 )
@@ -16,6 +17,45 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeChainGripperPointArcLength,
     TokenizeUSocketArcLength,
 )
+
+
+class USocketModelStateObservationAdapter:
+    """Add U-Socket rotvec4 model proprio while preserving native state."""
+
+    def __init__(
+        self,
+        raw_state_key: str = "state_agent_obj",
+        model_state_key: str = "state_agent_model",
+    ):
+        self.raw_state_key = str(raw_state_key)
+        self.model_state_key = str(model_state_key)
+        self.transform = PlanarAgentStateToRotVec4(keys=[self.model_state_key])
+
+    def encode(self, batch: dict) -> dict:
+        out = dict(batch)
+        if self.raw_state_key not in out:
+            raise KeyError(f"Missing raw U-Socket state {self.raw_state_key!r}")
+        out[self.model_state_key] = out[self.raw_state_key]
+        return self.transform.transform(out)
+
+
+class ChainModelStateObservationAdapter:
+    """Add Chain raw6 model proprio while preserving native IK context."""
+
+    def __init__(
+        self,
+        raw_state_key: str = "state_agent_obj",
+        model_state_key: str = "state_agent_model",
+    ):
+        self.raw_state_key = str(raw_state_key)
+        self.model_state_key = str(model_state_key)
+
+    def encode(self, batch: dict) -> dict:
+        out = dict(batch)
+        if self.raw_state_key not in out:
+            raise KeyError(f"Missing raw Chain state {self.raw_state_key!r}")
+        out[self.model_state_key] = out[self.raw_state_key]
+        return out
 
 
 class USocketRotVecRolloutAdapter:

@@ -860,7 +860,26 @@ class ThetaToRotVec(Transform):
         for key in self.keys:
             if key not in batch:
                 continue
-            value = np.asarray(batch[key])
+            value = batch[key]
+            if torch.is_tensor(value):
+                if value.ndim == 0 or value.shape[-1] <= self.angle_col:
+                    raise ValueError(
+                        f"ThetaToRotVec needs angle_col={self.angle_col} in key "
+                        f"'{key}', got shape {tuple(value.shape)}"
+                    )
+                theta = value[..., self.angle_col]
+                batch[key] = torch.cat(
+                    [
+                        value[..., : self.angle_col],
+                        torch.cos(theta).unsqueeze(-1),
+                        torch.sin(theta).unsqueeze(-1),
+                        value[..., self.angle_col + 1 :],
+                    ],
+                    dim=-1,
+                )
+                continue
+
+            value = np.asarray(value)
             if value.ndim == 0 or value.shape[-1] <= self.angle_col:
                 raise ValueError(
                     f"ThetaToRotVec needs angle_col={self.angle_col} in key "
@@ -873,6 +892,68 @@ class ThetaToRotVec(Transform):
                     np.cos(theta)[..., None].astype(value.dtype, copy=False),
                     np.sin(theta)[..., None].astype(value.dtype, copy=False),
                     value[..., self.angle_col + 1 :],
+                ],
+                axis=-1,
+            )
+        return batch
+
+
+class PlanarAgentStateToRotVec4(Transform):
+    """Encode an observed ``[agent x,y,theta,...]`` pose as rotvec4.
+
+    Unlike :class:`ThetaToRotVec`, this deliberately drops trailing object
+    state. It is the exact U-Socket proprio contract, not an action transform.
+    """
+
+    def __init__(
+        self,
+        keys: list[str],
+        angle_col: int = 2,
+        source_dim: int = 6,
+    ):
+        self.keys = list(keys)
+        self.angle_col = int(angle_col)
+        self.source_dim = int(source_dim)
+        if self.angle_col != 2:
+            raise ValueError("PlanarAgentStateToRotVec4 requires angle_col=2")
+        if self.source_dim < 3:
+            raise ValueError("PlanarAgentStateToRotVec4 source_dim must be >= 3")
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            value = batch[key]
+            if torch.is_tensor(value):
+                if value.ndim == 0 or value.shape[-1] != self.source_dim:
+                    raise ValueError(
+                        f"PlanarAgentStateToRotVec4 needs exact source width "
+                        f"{self.source_dim} in key '{key}', got shape "
+                        f"{tuple(value.shape)}"
+                    )
+                theta = value[..., 2]
+                batch[key] = torch.cat(
+                    [
+                        value[..., :2],
+                        torch.cos(theta).unsqueeze(-1),
+                        torch.sin(theta).unsqueeze(-1),
+                    ],
+                    dim=-1,
+                )
+                continue
+
+            value = np.asarray(value)
+            if value.ndim == 0 or value.shape[-1] != self.source_dim:
+                raise ValueError(
+                    f"PlanarAgentStateToRotVec4 needs exact source width "
+                    f"{self.source_dim} in key '{key}', got shape {value.shape}"
+                )
+            theta = value[..., 2]
+            batch[key] = np.concatenate(
+                [
+                    value[..., :2],
+                    np.cos(theta)[..., None].astype(value.dtype, copy=False),
+                    np.sin(theta)[..., None].astype(value.dtype, copy=False),
                 ],
                 axis=-1,
             )
@@ -897,7 +978,28 @@ class RotVecToTheta(Transform):
         for key in self.keys:
             if key not in batch:
                 continue
-            value = np.asarray(batch[key])
+            value = batch[key]
+            if torch.is_tensor(value):
+                if value.ndim == 0 or value.shape[-1] <= self.angle_col + 1:
+                    raise ValueError(
+                        f"RotVecToTheta needs cos/sin at columns "
+                        f"{self.angle_col}:{self.angle_col + 2} in key '{key}', "
+                        f"got shape {tuple(value.shape)}"
+                    )
+                theta = torch.atan2(
+                    value[..., self.angle_col + 1], value[..., self.angle_col]
+                )
+                batch[key] = torch.cat(
+                    [
+                        value[..., : self.angle_col],
+                        theta.unsqueeze(-1),
+                        value[..., self.angle_col + 2 :],
+                    ],
+                    dim=-1,
+                )
+                continue
+
+            value = np.asarray(value)
             if value.ndim == 0 or value.shape[-1] <= self.angle_col + 1:
                 raise ValueError(
                     f"RotVecToTheta needs cos/sin at columns "

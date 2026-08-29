@@ -32,6 +32,27 @@ def get_keymap_hpt(
     return keymap
 
 
+def get_keymap_hpt_per_emb_proprio(
+    action_horizon: int = 16,
+    norm_mode: bool = False,
+    action_zarr_key: str = "actions",
+    **kwargs,
+):
+    """Expose raw simulator state as metadata and a separate model proprio."""
+    keymap = get_keymap_hpt(
+        action_horizon=action_horizon,
+        norm_mode=norm_mode,
+        action_zarr_key=action_zarr_key,
+        **kwargs,
+    )
+    keymap["state_agent_obj"]["key_type"] = "metadata_keys"
+    keymap["state_agent_model"] = {
+        "key_type": "proprio_keys",
+        "zarr_key": "observations.state",
+    }
+    return keymap
+
+
 def get_chain_gripper_point_validation_transform_list(
     keys: list[str] | None = None,
 ):
@@ -88,6 +109,22 @@ def get_rotvec_transform_list(keys: list[str] | None = None, angle_col: int = 2)
     from egomimic.rldb.zarr.action_chunk_transforms import ThetaToRotVec
 
     return [ThetaToRotVec(keys=keys or ["actions"], angle_col=angle_col)]
+
+
+def get_usocket_rotvec_action_state_transform_list(
+    action_key: str = "actions",
+    state_key: str = "state_agent_model",
+):
+    """Encode U-Socket actions and observed agent pose without scalar theta."""
+    from egomimic.rldb.zarr.action_chunk_transforms import (
+        PlanarAgentStateToRotVec4,
+        ThetaToRotVec,
+    )
+
+    return [
+        ThetaToRotVec(keys=[action_key], angle_col=2),
+        PlanarAgentStateToRotVec4(keys=[state_key], angle_col=2),
+    ]
 
 
 def get_rotvec_revert_transform_list(keys: list[str] | None = None, angle_col: int = 2):

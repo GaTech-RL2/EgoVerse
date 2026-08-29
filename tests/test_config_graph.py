@@ -113,6 +113,92 @@ name: graph-test
     assert graph["component_sources"]["data"] == str(data)
 
 
+def test_derived_proprio_is_written_by_projection_not_seeded_from_dataset(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "hydra_configs"
+    model = root / "model" / "selected.yaml"
+    data = root / "data" / "selected.yaml"
+    experiment = root / "experiment" / "selected.yaml"
+    model.parent.mkdir(parents=True, exist_ok=True)
+    model.write_text(
+        """
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  domains: [pushshapes_sim_u_socket]
+  stages:
+  - _target_: egomimic.pipeline.stages_sampler.EmbodimentProprioProjection
+    output_dim: 64
+    projections:
+      pushshapes_sim_u_socket: {source_dim: 4, hidden_dim: 64}
+  - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+    n_obs_steps: 1
+    required_obs_keys: [front_img_1, proprio_condition]
+    encoder:
+      _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+      obs_specs:
+        proprio_condition: {input_dim: 64, input_slice: [0, 64]}
+      img_encoders:
+        front_img_1: {_target_: torch.nn.Identity}
+""".lstrip()
+    )
+    data.parent.mkdir(parents=True, exist_ok=True)
+    data.write_text(
+        """
+train_datasets:
+  pushshapes_sim_u_socket:
+    resolver:
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt_per_emb_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_usocket_rotvec_action_state_transform_list
+""".lstrip()
+    )
+    experiment.parent.mkdir(parents=True, exist_ok=True)
+    experiment.write_text(
+        """
+defaults:
+  - override /model: selected
+  - override /data: selected
+""".lstrip()
+    )
+
+    graph = config_graph.build_graph(experiment, mode="train")
+    rollout = config_graph.build_graph(experiment, mode="rollout")
+
+    assert graph["lint"] == []
+    assert rollout["lint"] == []
+    assert graph["seed_keys"] == [
+        "actions",
+        "embodiment",
+        "obs/front_img_1",
+        "obs/state_agent_model",
+    ]
+    assert "obs/proprio_condition" not in graph["seed_keys"]
+    assert rollout["seed_keys"] == [
+        "embodiment",
+        "obs/front_img_1",
+        "obs/state_agent_model",
+        "rollout_t",
+    ]
+    assert "obs/proprio_condition" not in rollout["seed_keys"]
+    assert graph["nodes"][0]["in"] == [
+        "obs/state_agent_model",
+        "embodiment",
+    ]
+    assert graph["nodes"][1]["in"] == [
+        "obs/front_img_1",
+        "obs/proprio_condition",
+        "embodiment",
+        "actions",
+    ]
+    assert {tuple((edge["a"], edge["b"], edge["k"])) for edge in graph["edges"]} == {
+        (0, 1, "obs/proprio_condition")
+    }
+
+
 def test_fold_keymaps_and_transforms_seed_domain_specific_model_inputs(
     tmp_path: Path,
 ) -> None:

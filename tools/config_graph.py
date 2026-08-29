@@ -263,6 +263,50 @@ def _configured_model_observations(
     return observations
 
 
+def _external_model_observations(
+    stage_configs: Iterable[Any],
+    stages: Iterable[Any],
+    domains: Sequence[str],
+    mode: str,
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """Separate dataset observations from observations written by prior stages.
+
+    Encoder configuration describes everything consumed by the encoder, but a
+    Pipeline can synthesize some of those inputs in an earlier node.  Seeding
+    those derived values from the dataset would hide the dependency edge and
+    incorrectly reject the actual source key.  Walk the ordered contracts so
+    only observation reads without an earlier writer become external seeds.
+    """
+
+    configured = _configured_model_observations(stage_configs, domains)
+    external = {domain: set() for domain in domains}
+    for domain in domains:
+        produced: set[str] = set()
+        for stage in stages:
+            if mode == "rollout" and bool(getattr(stage, "train_only", False)):
+                continue
+            reads, writes = stage.contract(mode)
+            for raw_read in reads or ():
+                read = str(raw_read)
+                if not read.startswith("obs/"):
+                    continue
+                if read.endswith("*"):
+                    candidates = {
+                        key
+                        for key in configured.get(domain, set())
+                        if _matches(read, key)
+                    }
+                    if not candidates:
+                        candidates = {read}
+                else:
+                    candidates = {read}
+                external[domain].update(
+                    key for key in candidates if not _provided(key, produced)
+                )
+            produced.update(str(key) for key in writes or ())
+    return configured, external
+
+
 def _transform_key_inventory(keys: set[str], transforms: Iterable[Any]) -> set[str]:
     """Apply transform constructors' explicit key effects to an inventory.
 
@@ -435,8 +479,10 @@ def _seed_inventory(
     dataset_contracts, warnings = _dataset_contracts(config)
     if not domains:
         domains = sorted(dataset_contracts) or ["<unspecified>"]
-    model_obs = _configured_model_observations(stage_configs, domains)
-    has_model_obs = any(model_obs.values())
+    model_obs, external_model_obs = _external_model_observations(
+        stage_configs, stages, domains, mode
+    )
+    has_model_obs = any(external_model_obs.values())
     seed_problems: list[str] = []
     details: dict[str, dict[str, Any]] = {}
 
@@ -449,7 +495,7 @@ def _seed_inventory(
         )
         observations_by_domain: dict[str, set[str]] = {}
         for domain in domains:
-            expected = set(model_obs.get(domain, set()))
+            expected = set(external_model_obs.get(domain, set()))
             dataset_contract = dataset_contracts.get(domain)
             if dataset_contract is None:
                 warnings.append(
@@ -461,7 +507,8 @@ def _seed_inventory(
                 )
                 observations_by_domain[domain] = set()
                 details[domain] = {
-                    "model_observations": sorted(expected),
+                    "model_observations": sorted(model_obs.get(domain, set())),
+                    "external_model_observations": sorted(expected),
                     "dataset_names": [],
                     "dataset_raw_observations": [],
                     "dataset_final_keys": [],
@@ -489,7 +536,8 @@ def _seed_inventory(
                     f"obs/{key}" for key in raw_observations if key in final_keys
                 }
             details[domain] = {
-                "model_observations": sorted(expected),
+                "model_observations": sorted(model_obs.get(domain, set())),
+                "external_model_observations": sorted(expected),
                 "dataset_names": list(dataset_contract["datasets"]),
                 "dataset_raw_observations": sorted(
                     f"obs/{key}" for key in raw_observations
@@ -499,11 +547,14 @@ def _seed_inventory(
     elif has_model_obs:
         source = "model-observation-config"
         observations_by_domain = {
-            domain: set(model_obs.get(domain, set())) for domain in domains
+            domain: set(external_model_obs.get(domain, set())) for domain in domains
         }
         for domain in domains:
             details[domain] = {
                 "model_observations": sorted(model_obs.get(domain, set())),
+                "external_model_observations": sorted(
+                    external_model_obs.get(domain, set())
+                ),
                 "dataset_names": [],
                 "dataset_raw_observations": [],
                 "dataset_final_keys": [],
@@ -519,6 +570,7 @@ def _seed_inventory(
         for domain in domains:
             details[domain] = {
                 "model_observations": [],
+                "external_model_observations": [],
                 "dataset_names": [],
                 "dataset_raw_observations": [],
                 "dataset_final_keys": [],
