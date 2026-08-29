@@ -1687,9 +1687,18 @@ class TokenizePlanarArcLength(TokenizeUSocketArcLength):
         covered = min(total, self.min_distance_unit)
 
         if total <= self.zero_dist_epsilon:
+            # Stationary chunk. Pose has nothing to say, but grip does: an
+            # effector that closes before it moves actuates entirely inside a
+            # zero-arc chunk. Repeating grip[0] would drop that actuation, so
+            # the grip channel is carried across the chunk, resampled in TIME
+            # since there is no arc to resample against.
             xy_w = np.repeat(xy[:1], self.M, axis=0)
             theta_w = np.repeat(theta[:1], self.M)
-            grip_w = np.repeat(grip[:1], self.M)
+            grip_w = np.interp(
+                np.linspace(0.0, len(grip) - 1, self.M),
+                np.arange(len(grip), dtype=np.float64),
+                grip,
+            )
             velocity = np.zeros(PLANAR_ARC_DIM, dtype=np.float64)
         else:
             targets = np.linspace(0.0, covered, self.M)
@@ -1757,9 +1766,16 @@ class TokenizePlanarArcLength(TokenizeUSocketArcLength):
         path_speed = abs(float(kinematics[3]))
 
         if total <= self.zero_dist_epsilon or path_speed <= self.zero_dist_epsilon:
+            # Mirror of the stationary branch in transform(): hold the pose but
+            # play the grip waypoints back across the horizon, so a chunk whose
+            # only content is a grip actuation reconstructs it.
             xy_out = np.repeat(xy[:1], horizon, axis=0)
             theta_out = np.repeat(theta[:1], horizon)
-            grip_out = np.repeat(grip[:1], horizon)
+            grip_out = np.interp(
+                np.linspace(0.0, self.M - 1, horizon),
+                np.arange(self.M, dtype=np.float64),
+                grip,
+            )
         else:
             targets = np.minimum(
                 path_speed * np.arange(horizon, dtype=np.float64) * self.dt, total
