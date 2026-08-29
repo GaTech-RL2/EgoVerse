@@ -286,9 +286,10 @@ for embodiment, frames in expected_frames.items():
     assert item["max_samples"] is None
 assert set(payload["stats"]) == {"19", "20"}
 for embodiment, widths in {
-    "19": {"state_agent_obj": 6, "actions": 4},
-    "20": {"state_agent_obj": 6, "actions": 6},
+    "19": {"state_agent_model": 4, "actions": 4},
+    "20": {"state_agent_model": 6, "actions": 6},
 }.items():
+    assert set(payload["stats"][embodiment]) == set(widths)
     for key, width in widths.items():
         for values in payload["stats"][embodiment][key].values():
             assert len(values) == width

@@ -21,7 +21,7 @@ def test_newdata_h16_norm_launcher_embedded_python_compiles() -> None:
         compile(block, f"{LAUNCHER.name}:heredoc-{index}", "exec")
 
 
-def test_newdata_h16_norm_launcher_is_shared_and_fail_closed() -> None:
+def test_temporal_per_emb_proprio_norm_launcher_is_exact_and_fail_closed() -> None:
     launcher = LAUNCHER.read_text()
 
     for contract in (
@@ -49,8 +49,27 @@ def test_newdata_h16_norm_launcher_is_shared_and_fail_closed() -> None:
     assert "chain_gen_effective_inventory.txt" in launcher
     assert '"effective_chain_train_episode_count"' in launcher
     assert '"chain_effective_train_episodes"' in launcher
-    assert "pusht/pipeline_diffusion_usocket_chain_newdata_h16" in launcher
-    assert "pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16" in launcher
+    assert (
+        "COTRAIN12_EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_"
+        "cotrain12_per_emb_proprio_h16"
+    ) in launcher
+    assert (
+        "TEMPORAL_EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_"
+        "temporal_h8_l8_w256_d12_dec64_per_emb_proprio"
+    ) in launcher
+    assert (
+        "REPO=/coc/flash7/paphiwetsa3/worktrees/"
+        "flow-transfer-temporal-compression-20260829"
+    ) in launcher
+    assert (
+        "EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/"
+        "flow_transfer_temporal_h8_l8_world2_smokes_20260829"
+    ) in launcher
+    assert "norm_artifacts/per_emb_proprio_h16" in launcher
+    assert "pipeline_diffusion_usocket_chain_newdata_h16" not in launcher
+    assert "pipeline_sampler_usocket_chain_newdata_dense_medium_h16" not in launcher
+    assert "DP_EXPERIMENT" not in launcher
+    assert "LATENT_EXPERIMENT" not in launcher
     assert "ARM=${ARM:?" not in launcher
     assert 'test -z "$(git -C "$REPO" status --porcelain=v1' in launcher
     assert (
@@ -68,7 +87,12 @@ def test_newdata_h16_norm_launcher_is_shared_and_fail_closed() -> None:
     assert "norm_stats.reduce_all_but_last=true" in launcher
     assert "norm_stats.sample_frac=1.0" in launcher
     assert "norm_stats.precomputed_norm_path=null" in launcher
-    assert "OmegaConf.to_container(dp.data, resolve=True)" in launcher
+    assert "resolved_cotrain12_per_emb_proprio_config.yaml" in launcher
+    assert "resolved_temporal_h8_l8_per_emb_proprio_config.yaml" in launcher
+    assert "resolved_dp_config.yaml" not in launcher
+    assert "resolved_latent_h16_config.yaml" not in launcher
+    assert "get_keymap_hpt_per_emb_proprio" in launcher
+    assert "get_usocket_rotvec_action_state_transform_list" in launcher
     assert 'filters._target_ == "egomimic.rldb.filters.DatasetFilter"' in launcher
     assert "row.get('episode_hash')" in launcher
     assert "'episode_T_chain_gripper_obs7_000050'" in launcher
@@ -76,8 +100,9 @@ def test_newdata_h16_norm_launcher_is_shared_and_fail_closed() -> None:
         'expected_frames = {"19": u_frames, "20": base_frames + gen_train_frames}'
         in launcher
     )
-    assert '"19": {"state_agent_obj": 6, "actions": 4}' in launcher
-    assert '"20": {"state_agent_obj": 6, "actions": 6}' in launcher
+    assert '"19": {"state_agent_model": 4, "actions": 4}' in launcher
+    assert '"20": {"state_agent_model": 6, "actions": 6}' in launcher
+    assert "state_agent_obj" not in launcher
     assert "chmod 0444 \\" in launcher
     assert '  "$ART" \\' in launcher
     for inventory in (

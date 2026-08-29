@@ -1,6 +1,6 @@
 #!/bin/bash
-# Precompute the single immutable full-train min/max artifact shared by the
-# new-data Flow Transfer DP H16 and decoder-only latent H16 cotrain arms.
+# Precompute the immutable full-train min/max artifact shared by the corrected
+# regular and temporal Flow Transfer cotrain arms with per-embodiment proprio.
 # Submit this file as a one-node, one-task CPU job only after freezing all
 # three dataset roots and recording the exact contract values required below.
 
@@ -22,16 +22,16 @@ EXPECTED_CHAIN_GEN_INVENTORY_SHA=${EXPECTED_CHAIN_GEN_INVENTORY_SHA:?set the sor
 EXPECTED_CHAIN_GEN_SOURCE_FRAMES=${EXPECTED_CHAIN_GEN_SOURCE_FRAMES:?set the exact physical generated-Chain frame count}
 EXPECTED_CHAIN_GEN_TRAIN_FRAMES=${EXPECTED_CHAIN_GEN_TRAIN_FRAMES:?set the effective generated-Chain train-frame count after filtering}
 
-REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-cotrain-chain-combined-config-20260828
+REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-temporal-compression-20260829
 PY_ENV=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv
 EXPECTED_ENV_SHA=8fd1504c955756adf8167f7bd34fc1a09cb844d268898b3ac30693e99ac60e87
-EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_newdata_h16_world2_smokes_20260828
+EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_temporal_h8_l8_world2_smokes_20260829
 SCRIPT=$REPO/scripts/train/flow_transfer_newdata_h16_norm_precompute.sbatch
 U_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
 CHAIN_BASE_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
 CHAIN_GEN_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen
-DP_EXPERIMENT=pusht/pipeline_diffusion_usocket_chain_newdata_h16
-LATENT_EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16
+COTRAIN12_EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_cotrain12_per_emb_proprio_h16
+TEMPORAL_EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec64_per_emb_proprio
 EXPECTED_ACTION_HORIZON=16
 EXCLUDED_CHAIN_GEN_EPISODE=episode_T_chain_gripper_obs7_000050
 EXCLUDED_CHAIN_GEN_FOLDER=${EXCLUDED_CHAIN_GEN_EPISODE}.zarr
@@ -256,7 +256,7 @@ test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
 test "$(sha256sum "$SCRIPT" | awk '{print $1}')" = "$EXPECTED_SCRIPT_SHA"
 test "$(environment_manifest | sha256sum | awk '{print $1}')" = "$EXPECTED_ENV_SHA"
 
-OUT=$EXP_ROOT/norm_artifacts/shared_h16/job_${SLURM_JOB_ID:?}
+OUT=$EXP_ROOT/norm_artifacts/per_emb_proprio_h16/job_${SLURM_JOB_ID:?}
 ART=$OUT/artifact/norm_stats/norm_stats.json
 test ! -e "$OUT"
 mkdir -p "$OUT/provenance"
@@ -313,6 +313,16 @@ payload = {
     "reduce_all_but_last": True,
     "sample_frac": 1.0,
     "split": "train_only",
+    "experiments": [
+        "pusht/pipeline_sampler_usocket_chain_newdata_"
+        "cotrain12_per_emb_proprio_h16",
+        "pusht/pipeline_sampler_usocket_chain_newdata_"
+        "temporal_h8_l8_w256_d12_dec64_per_emb_proprio",
+    ],
+    "normalized_schema": {
+        "19": {"state_agent_model": 4, "actions": 4},
+        "20": {"state_agent_model": 6, "actions": 6},
+    },
     "effective_chain_train_episode_count": int(base_count) + int(gen_count) - 1,
     "datasets": {
         "usocket": {
@@ -361,28 +371,32 @@ NORM_OVERRIDES=(
   norm_stats.precomputed_norm_path=null
 )
 
-DP_CONFIG=$OUT/provenance/resolved_dp_config.yaml
-LATENT_CONFIG=$OUT/provenance/resolved_latent_h16_config.yaml
+COTRAIN12_CONFIG=$OUT/provenance/resolved_cotrain12_per_emb_proprio_config.yaml
+TEMPORAL_CONFIG=$OUT/provenance/resolved_temporal_h8_l8_per_emb_proprio_config.yaml
 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
-  "+experiment=$DP_EXPERIMENT" "${NORM_OVERRIDES[@]}" \
-  --cfg job --resolve > "$DP_CONFIG"
+  "+experiment=$COTRAIN12_EXPERIMENT" "${NORM_OVERRIDES[@]}" \
+  --cfg job --resolve > "$COTRAIN12_CONFIG"
 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
-  "+experiment=$LATENT_EXPERIMENT" "${NORM_OVERRIDES[@]}" \
-  --cfg job --resolve > "$LATENT_CONFIG"
+  "+experiment=$TEMPORAL_EXPERIMENT" "${NORM_OVERRIDES[@]}" \
+  --cfg job --resolve > "$TEMPORAL_CONFIG"
 
-python - "$DP_CONFIG" "$LATENT_CONFIG" "$EXPECTED_ACTION_HORIZON" <<'PY'
+python - "$COTRAIN12_CONFIG" "$TEMPORAL_CONFIG" "$EXPECTED_ACTION_HORIZON" <<'PY'
 import pathlib
 import sys
 
 from omegaconf import OmegaConf
 
-dp_path = pathlib.Path(sys.argv[1])
-latent_path = pathlib.Path(sys.argv[2])
+cotrain12_path = pathlib.Path(sys.argv[1])
+temporal_path = pathlib.Path(sys.argv[2])
 horizon = int(sys.argv[3])
-dp = OmegaConf.load(dp_path)
-latent = OmegaConf.load(latent_path)
+cotrain12 = OmegaConf.load(cotrain12_path)
+temporal = OmegaConf.load(temporal_path)
+assert OmegaConf.to_container(cotrain12.data, resolve=True) == OmegaConf.to_container(
+    temporal.data, resolve=True
+)
+cfg = temporal
 
 expected_domains = {
     "pushshapes_sim_u_socket",
@@ -397,80 +411,80 @@ expected_exclusion = (
     "'episode_T_chain_gripper_obs7_000050'"
 )
 
-for cfg in (dp, latent):
-    assert cfg.seed == 42
-    assert cfg.mode == "norm_stats"
-    assert cfg.norm_stats.norm_mode == "minmax"
-    assert cfg.norm_stats.reduce_all_but_last is True
-    assert cfg.norm_stats.sample_frac == 1.0
-    assert cfg.norm_stats.precomputed_norm_path is None
-    assert cfg.model.robomimic_model.action_horizon == horizon
-    assert set(cfg.model.robomimic_model.domains) == expected_domains
-    assert set(cfg.data.train_datasets) == expected_domains
-    assert set(cfg.data.valid_datasets) == expected_domains
-    assert all(
-        dataset.mode == "train" and float(dataset.valid_ratio) == 0.0
-        for dataset in cfg.data.train_datasets.values()
+assert cfg.seed == 42
+assert cfg.mode == "norm_stats"
+assert cfg.norm_stats.norm_mode == "minmax"
+assert cfg.norm_stats.reduce_all_but_last is True
+assert cfg.norm_stats.sample_frac == 1.0
+assert cfg.norm_stats.precomputed_norm_path is None
+model = cfg.model.robomimic_model
+assert model.action_horizon == horizon
+assert set(model.domains) == expected_domains
+assert set(cfg.data.train_datasets) == expected_domains
+assert set(cfg.data.valid_datasets) == expected_domains
+assert all(
+    dataset.mode == "train" and float(dataset.valid_ratio) == 0.0
+    for dataset in cfg.data.train_datasets.values()
+)
+for split_name in ("train_datasets", "valid_datasets"):
+    split = cfg.data[split_name]
+    chain_dataset = split.pushshapes_sim_chain_gripper
+    filters = chain_dataset.filters
+    assert filters._target_ == "egomimic.rldb.filters.DatasetFilter"
+    assert list(filters.filter_lambdas) == [expected_exclusion]
+
+    for dataset in split.values():
+        assert dataset.resolver.key_map.action_horizon == horizon
+        assert dataset.resolver.key_map._target_.endswith(
+            "get_keymap_hpt_per_emb_proprio"
+        )
+    u = split.pushshapes_sim_u_socket.resolver
+    chain = split.pushshapes_sim_chain_gripper.resolver
+    assert str(u.folder_path).endswith("/u_socket_3000_v2_clean")
+    assert u.transform_list._target_.endswith(
+        "get_usocket_rotvec_action_state_transform_list"
     )
-    for split_name in ("train_datasets", "valid_datasets"):
-        chain_dataset = cfg.data[split_name].pushshapes_sim_chain_gripper
-        filters = chain_dataset.filters
-        assert filters._target_ == "egomimic.rldb.filters.DatasetFilter"
-        assert list(filters.filter_lambdas) == [expected_exclusion]
-    for split_name in ("train_datasets", "valid_datasets"):
-        split = cfg.data[split_name]
-        for dataset in split.values():
-            assert dataset.resolver.key_map.action_horizon == horizon
-        u = split.pushshapes_sim_u_socket.resolver
-        chain = split.pushshapes_sim_chain_gripper.resolver
-        assert str(u.folder_path).endswith("/u_socket_3000_v2_clean")
-        assert u.transform_list._target_.endswith("get_rotvec_transform_list")
-        assert list(chain.folder_paths) == expected_roots
-        assert chain._target_.endswith(
-            "LocalEpisodeResolverManyWithEmbodimentOverride"
-        )
-        assert chain.transform_list._target_.endswith(
-            "get_chain_gripper_point_transform_list"
-        )
-        assert float(chain.transform_list.world_size) == 512.0
+    assert list(chain.folder_paths) == expected_roots
+    assert chain._target_.endswith(
+        "LocalEpisodeResolverManyWithEmbodimentOverride"
+    )
+    assert chain.transform_list._target_.endswith(
+        "get_chain_gripper_point_transform_list"
+    )
+    assert float(chain.transform_list.world_size) == 512.0
 
-# The data and transform tree is byte-for-byte equivalent after resolution, so
-# the two model families must consume the same shared normalization artifact.
-assert OmegaConf.to_container(dp.data, resolve=True) == OmegaConf.to_container(
-    latent.data, resolve=True
-)
+projection = model.stages[0]
+assert projection._target_.endswith("EmbodimentProprioProjection")
+assert projection.projections.pushshapes_sim_u_socket.source_dim == 4
+assert projection.projections.pushshapes_sim_chain_gripper.source_dim == 6
+noise = model.stages[2]
+assert noise.num_tokens == 8
+assert noise.latent_dim == 8
+sampler = model.stages[3]
+assert sampler._target_.endswith("LatentFlowSampler")
+assert sampler.denoising_module.act_seq == 8
+decoder = model.stages[4]
+assert decoder._target_.endswith("PerEmbodimentActionDecoder")
+assert decoder.decoders.pushshapes_sim_u_socket.action_dim == 4
+assert decoder.decoders.pushshapes_sim_chain_gripper.action_dim == 6
+assert "action_encoder" not in OmegaConf.to_yaml(cfg.model).lower()
+assert "arc_length" not in temporal_path.read_text().lower()
 
-dp_stage = dp.model.robomimic_model.stages[1]
-assert dp_stage.action_horizon == horizon
-assert all(policy.action_horizon == horizon for policy in dp_stage.policies.values())
-assert (
-    dp_stage.policies.pushshapes_sim_u_socket.infer_ac_dims
-    .pushshapes_sim_u_socket
-    == 4
+cotrain12_model = cotrain12.model.robomimic_model
+assert cotrain12_model.stages[0]._target_.endswith("EmbodimentProprioProjection")
+assert cotrain12_model.stages[2].num_tokens == 16
+assert cotrain12_model.stages[3]._target_.endswith("LatentFlowSampler")
+assert cotrain12_model.stages[4]._target_.endswith(
+    "PerEmbodimentActionDecoder"
 )
-assert (
-    dp_stage.policies.pushshapes_sim_chain_gripper.infer_ac_dims
-    .pushshapes_sim_chain_gripper
-    == 6
-)
-
-latent_model = latent.model.robomimic_model
-assert latent_model.stages[1].action_horizon == horizon
-latent_sampler = latent_model.stages[2]
-assert latent_sampler.action_horizon == horizon
-assert latent_sampler.denoising_module.act_seq == horizon
-assert latent_sampler.action_dims.pushshapes_sim_u_socket == 4
-assert latent_sampler.action_dims.pushshapes_sim_chain_gripper == 6
-assert "action_encoder" not in OmegaConf.to_yaml(latent.model).lower()
-assert "arc_length" not in dp_path.read_text().lower()
-assert "arc_length" not in latent_path.read_text().lower()
+assert "arc_length" not in cotrain12_path.read_text().lower()
 PY
 
 # Norm mode uses only datamodule.train_datasets and returns before constructing
-# either policy, so the canonical DP composition computes this shared artifact.
+# the policy. Compose the exact temporal recipe so transformed U proprio is 4-D.
 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
-  "+experiment=$DP_EXPERIMENT" "${NORM_OVERRIDES[@]}"
+  "+experiment=$TEMPORAL_EXPERIMENT" "${NORM_OVERRIDES[@]}"
 test -s "$ART"
 
 python - \
@@ -530,8 +544,8 @@ stat_names = {
     "quantile_99_99",
 }
 for embodiment, widths in {
-    "19": {"state_agent_obj": 6, "actions": 4},
-    "20": {"state_agent_obj": 6, "actions": 6},
+    "19": {"state_agent_model": 4, "actions": 4},
+    "20": {"state_agent_model": 6, "actions": 6},
 }.items():
     assert set(payload["stats"][embodiment]) == set(widths)
     for key, width in widths.items():
@@ -561,7 +575,10 @@ output.write_text(
     json.dumps(
         {
             "status": "PASS",
-            "shared_by": ["dp_h16", "latent_dense_h16"],
+            "shared_by": [
+                "cotrain12_per_emb_proprio_h16",
+                "temporal_h8_l8_dec64_per_emb_proprio",
+            ],
             "action_horizon": action_horizon,
             "artifact": str(artifact),
             "sha256": artifact_sha,
@@ -614,8 +631,8 @@ test "$(sha256sum "$SCRIPT" | awk '{print $1}')" = "$EXPECTED_SCRIPT_SHA"
 sha256sum "$ART" > "$OUT/norm_stats.sha256"
 sha256sum \
   "$OUT/provenance/input_contract.json" \
-  "$OUT/provenance/resolved_dp_config.yaml" \
-  "$OUT/provenance/resolved_latent_h16_config.yaml" \
+  "$OUT/provenance/resolved_cotrain12_per_emb_proprio_config.yaml" \
+  "$OUT/provenance/resolved_temporal_h8_l8_per_emb_proprio_config.yaml" \
   "$OUT/provenance/inventories/before/"* \
   "$OUT/provenance/inventories/after/"* \
   > "$OUT/provenance/artifacts.sha256"
@@ -624,8 +641,8 @@ chmod 0444 \
   "$OUT/norm_stats.sha256" \
   "$OUT/validation.json" \
   "$OUT/provenance/input_contract.json" \
-  "$OUT/provenance/resolved_dp_config.yaml" \
-  "$OUT/provenance/resolved_latent_h16_config.yaml" \
+  "$OUT/provenance/resolved_cotrain12_per_emb_proprio_config.yaml" \
+  "$OUT/provenance/resolved_temporal_h8_l8_per_emb_proprio_config.yaml" \
   "$OUT/provenance/artifacts.sha256" \
   "$OUT/provenance/inventories/before/usocket_inventory.txt" \
   "$OUT/provenance/inventories/before/chain_base_inventory.txt" \

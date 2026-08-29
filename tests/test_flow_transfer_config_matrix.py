@@ -842,6 +842,9 @@ def test_newdata_world2_launcher_is_smoke_only_and_fail_closed() -> None:
     assert (
         'metadata["total_dataset_frames"] == sum(expected_frames.values())' in launcher
     )
+    assert '"19": {"state_agent_model": 4, "actions": 4}' in launcher
+    assert '"20": {"state_agent_model": 6, "actions": 6}' in launcher
+    assert "state_agent_obj" not in launcher
     assert "EXPECTED_WORLD_SIZE=2" in launcher
     assert 'test "${SLURM_NTASKS:?}" = "$EXPECTED_WORLD_SIZE"' in launcher
     assert 'test "${SLURM_JOB_PARTITION:?}" = "$EXPECTED_SLURM_PARTITION"' in launcher
