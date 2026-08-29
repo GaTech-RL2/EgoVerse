@@ -690,7 +690,7 @@ def test_newdata_cotrain_configs_are_h16_world2_and_config_only(
 
 def test_temporal_compression_config_denoises_h8_l8_and_outputs_native_h16() -> None:
     cfg = _compose(
-        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32_per_emb_proprio"
+        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec64_per_emb_proprio"
     )
     model = cfg.model.robomimic_model
     projection = model.stages[0]
@@ -728,7 +728,7 @@ def test_temporal_compression_config_denoises_h8_l8_and_outputs_native_h16() -> 
     for leaf, action_dim in ((u_decoder, 4), (chain_decoder, 6)):
         assert leaf._target_.endswith("TemporalConvActionDecoder")
         assert leaf.latent_dim == 8
-        assert leaf.hidden_dim == 32
+        assert leaf.hidden_dim == 64
         assert leaf.action_dim == action_dim
         assert leaf.num_layers == 4
         assert leaf.project_to_action_before_temporal is True
@@ -763,7 +763,10 @@ def test_temporal_compression_config_denoises_h8_l8_and_outputs_native_h16() -> 
     assert cfg.trainer.max_steps == 240_000
     assert cfg.trainer.accumulate_grad_batches == 1
     assert cfg.trainer.log_every_n_steps == 1
-    assert cfg.trainer.limit_val_batches == 0
+    assert cfg.trainer.val_check_interval == 20_000
+    assert cfg.trainer.limit_val_batches == 8
+    assert cfg.evaluator.limit_val_batches == 8
+    assert cfg.evaluator._target_.endswith("HumanRobotOverlayEval")
     assert cfg.trainer.get("gradient_clip_val") is None
     assert cfg.model.optimizer.lr == pytest.approx(3.0e-5)
     assert cfg.model.scheduler.eta_min == pytest.approx(3.0e-6)
@@ -811,7 +814,7 @@ def test_newdata_world2_launcher_is_smoke_only_and_fail_closed() -> None:
     assert "pusht/pipeline_diffusion_usocket_chain_newdata_h16" in launcher
     assert "pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16" in launcher
     assert (
-        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32_per_emb_proprio"
+        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec64_per_emb_proprio"
         in launcher
     )
     assert "temporal_h8_l8)" in launcher

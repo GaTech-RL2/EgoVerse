@@ -357,6 +357,12 @@ def test_cotrain_config_has_explicit_projection_node_and_no_hidden384() -> None:
     assert decoder.decoders[CHAIN_DOMAIN].num_layers == 3
     assert "extra_hidden_layers" not in decoder.decoders[U_DOMAIN]
     assert "extra_hidden_layers" not in decoder.decoders[CHAIN_DOMAIN]
+    assert cfg.trainer.log_every_n_steps == 1
+    assert cfg.model.train_metrics_on_step is True
+    assert cfg.trainer.val_check_interval == 10_000
+    assert cfg.trainer.limit_val_batches == 8
+    assert cfg.evaluator.limit_val_batches == 8
+    assert cfg.evaluator._target_.endswith("HumanRobotOverlayEval")
 
     assert set(model.rollout_observation_adapters) == {U_DOMAIN, CHAIN_DOMAIN}
     for split_name in ("train_datasets", "valid_datasets"):

@@ -1,6 +1,6 @@
 # Flow Transfer cotrain with temporal compression. The shared vector field
 # operates on 8 time tokens x 8 latent channels. Each embodiment decoder uses
-# three tokenwise linear layers (8 -> 32 -> 32 -> action_dim), then an
+# three tokenwise linear layers (8 -> 64 -> 64 -> action_dim), then an
 # action-space transposed 1-D convolution learns the 8 -> 16 expansion. Thus
 # num_layers=4 counts all learned decoder layers, including the temporal conv.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
@@ -94,14 +94,14 @@ robomimic_model:
       pushshapes_sim_u_socket:
         _target_: egomimic.pipeline.stages_sampler.TemporalConvActionDecoder
         latent_dim: 8
-        hidden_dim: 32
+        hidden_dim: 64
         action_dim: 4
         num_layers: 4
         project_to_action_before_temporal: true
       pushshapes_sim_chain_gripper:
         _target_: egomimic.pipeline.stages_sampler.TemporalConvActionDecoder
         latent_dim: 8
-        hidden_dim: 32
+        hidden_dim: 64
         action_dim: 6
         num_layers: 4
         project_to_action_before_temporal: true

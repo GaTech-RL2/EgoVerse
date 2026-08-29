@@ -70,7 +70,7 @@ case "$ARM" in
     EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16
     ;;
   temporal_h8_l8)
-    EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32_per_emb_proprio
+    EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec64_per_emb_proprio
     ;;
   *)
     printf 'Unknown ARM=%s; expected dp, latent_h16, or temporal_h8_l8\n' "$ARM" >&2
@@ -517,7 +517,7 @@ elif arm == "temporal_h8_l8":
     assert u_decoder._target_.endswith("TemporalConvActionDecoder")
     assert chain_decoder._target_.endswith("TemporalConvActionDecoder")
     assert u_decoder.latent_dim == chain_decoder.latent_dim == 8
-    assert u_decoder.hidden_dim == chain_decoder.hidden_dim == 32
+    assert u_decoder.hidden_dim == chain_decoder.hidden_dim == 64
     assert u_decoder.num_layers == chain_decoder.num_layers == 4
     assert u_decoder.project_to_action_before_temporal is True
     assert chain_decoder.project_to_action_before_temporal is True
