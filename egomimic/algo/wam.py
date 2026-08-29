@@ -187,7 +187,20 @@ class WAMModel(nn.Module):
         action_loss = (act * w_act).mean()
 
         loss = self.world_loss_weight * world_loss + action_loss
-        return loss, {"action_loss": action_loss, "world_loss": world_loss}
+        # Training-time video-quality proxy: PSNR-form of the flow-matching
+        # world_loss (latent-space MSE). Not the same units as val's pixel-
+        # space PSNR, but tracks video-prediction improvement per step so
+        # trainers can see it evolve alongside train/action_loss without
+        # paying the VAE-decode cost every step. Val loop reports real
+        # pixel-space PSNR/SSIM per block on rolling predictions.
+        world_psnr_proxy = 10.0 * torch.log10(
+            torch.tensor(1.0, device=device) / (world_loss.detach() + 1e-8)
+        )
+        return loss, {
+            "action_loss": action_loss,
+            "world_loss": world_loss,
+            "world_psnr_proxy": world_psnr_proxy,
+        }
 
     # --- inference: rolling-window video prediction -------------------------
     @torch.no_grad()
@@ -582,7 +595,7 @@ class WAM(Algo):
         for eid in batch:
             name = get_embodiment(eid).lower()
             total = total + predictions[f"{name}_loss"]
-            for suffix in ("loss", "action_loss", "world_loss"):
+            for suffix in ("loss", "action_loss", "world_loss", "world_psnr_proxy"):
                 k = f"{name}_{suffix}"
                 if k in predictions:
                     loss_dict[k] = predictions[k]

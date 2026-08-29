@@ -5,6 +5,10 @@ import torch
 import torch.nn.functional as F
 import torchvision.io as tvio
 from torchmetrics import MeanSquaredError
+from torchmetrics.image import (
+    PeakSignalNoiseRatio,
+    StructuralSimilarityIndexMeasure,
+)
 
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment
@@ -88,15 +92,124 @@ class WAMEvalVideo(EvalVideo):
 
             pred_key = f"{name}_{ac_key}"
             if pred_key in preds:
-                # MSE aligns pred to gt's shorter length — pred can now be
-                # longer (full rolling output, e.g. 576 for eva longeva) while
-                # gt stays at dataset action_horizon (192). The paired MSE is a
-                # per-timestep metric so we compare only where both exist.
+                # MSE aligns pred + gt to their common shorter length. Both
+                # can now be longer than 192: gt via bumped dataset
+                # action_horizon (for extended val overlay), pred via more
+                # rolling steps. Compare only where BOTH exist so shapes match.
                 gt_actions = _batch[ac_key]
-                T_gt = gt_actions.shape[1]
+                pred_full = preds[pred_key]
+                T_common = min(gt_actions.shape[1], pred_full.shape[1])
+                T_gt = T_common
+                pred_actions_cpu = pred_full[:, :T_common].cpu()
+                gt_actions_cpu = gt_actions[:, :T_common].cpu()
                 metrics[f"Valid/{pred_key}_paired_mse_avg"] = mse(
-                    preds[pred_key][:, :T_gt].cpu(), gt_actions.cpu()
+                    pred_actions_cpu, gt_actions_cpu
                 )
+                # Per-block paired action MSE (DreamZero convention: report
+                # per-block degradation across the horizon so compound error
+                # is visible). Blocks sized by DiT's num_action_per_block; the
+                # count is action_horizon / num_action_per_block. Skips
+                # cleanly when the attr is missing or T_gt not divisible.
+                nab = getattr(algo.nets["policy"].dit, "num_action_per_block", None)
+                if nab and T_gt >= nab:
+                    block_mses = []
+                    for k in range(T_gt // nab):
+                        b0, b1 = k * nab, (k + 1) * nab
+                        # ``.contiguous()`` because MeanSquaredError does an
+                        # internal ``view(-1)`` and slicing a (B, T, D) tensor
+                        # on the T axis breaks stride-contiguity.
+                        block_mse = MeanSquaredError()(
+                            pred_actions_cpu[:, b0:b1].contiguous(),
+                            gt_actions_cpu[:, b0:b1].contiguous(),
+                        )
+                        metrics[f"Valid/{pred_key}_paired_mse_block_{k}"] = block_mse
+                        block_mses.append(block_mse)
+                    # Mean-of-per-block MSE (equivalent to flat _avg for equal-
+                    # size blocks, but reported explicitly for clarity + parity
+                    # with the PSNR/SSIM _blocks_mean below where it differs).
+                    metrics[f"Valid/{pred_key}_paired_mse_blocks_mean"] = torch.stack(
+                        [
+                            m if torch.is_tensor(m) else torch.tensor(m)
+                            for m in block_mses
+                        ]
+                    ).mean()
+
+            # Per-block video quality metrics (PSNR + SSIM) between the model's
+            # decoded future frames and the GT clip — DreamZero convention.
+            # ``algo._eval_frames[eid]`` is the pred video: (B, C, T_pred, H, W)
+            # in [-1, 1] after the anchor drop. GT clip is (B, T_gt_pix, C, H, W)
+            # in [0, 1]. Block k of size (K*4) raw frames (K=num_frame_per_block,
+            # VAE compresses 4x temporally); we compare pred[k*K*4:(k+1)*K*4] to
+            # gt[1+k*K*4 : 1+(k+1)*K*4] (+1 to skip the GT anchor). Skips
+            # gracefully when shapes don't line up or the pred cache is empty.
+            pred_video = getattr(algo, "_eval_frames", {}).get(embodiment_id)
+            if pred_video is not None and clip_by_cam:
+                gt_clip = next(iter(clip_by_cam.values()))  # (B, T_gt_pix, C, H, W)
+                # Normalize both to [0, 1] for PSNR/SSIM
+                pred_01 = ((pred_video.detach().cpu() + 1.0) / 2.0).clamp(0.0, 1.0)
+                gt_01 = gt_clip.detach().cpu().clamp(0.0, 1.0)
+                # Reorder pred to (B, T, C, H, W) to match GT axis order
+                pred_01 = pred_01.permute(0, 2, 1, 3, 4).contiguous()
+                # Resize pred to GT spatial size if VAE decode dims differ (e.g. Wan
+                # 5B decodes to 480x832; dataset serves 480x640 aria).
+                B_p, T_p, C_p, H_p, W_p = pred_01.shape
+                B_g, T_g, C_g, H_g, W_g = gt_01.shape
+                if (H_p, W_p) != (H_g, W_g):
+                    pred_01 = F.interpolate(
+                        pred_01.reshape(B_p * T_p, C_p, H_p, W_p),
+                        size=(H_g, W_g),
+                        mode="bilinear",
+                        align_corners=False,
+                    ).reshape(B_p, T_p, C_p, H_g, W_g)
+                dit = algo.nets["policy"].dit
+                K_lat = getattr(dit, "num_frame_per_block", 1)
+                block_pix = K_lat * 4  # VAE 4x temporal compression
+                # Align: pred already dropped anchor; GT still has it at idx 0.
+                gt_future = gt_01[:, 1 : 1 + pred_01.shape[1]]
+                T_common = min(pred_01.shape[1], gt_future.shape[1])
+                if T_common >= block_pix:
+                    num_blocks_pix = T_common // block_pix
+                    block_psnrs = []
+                    block_ssims = []
+                    for k in range(num_blocks_pix):
+                        p0, p1 = k * block_pix, (k + 1) * block_pix
+                        p = pred_01[:, p0:p1].reshape(-1, C_g, H_g, W_g)
+                        g = gt_future[:, p0:p1].reshape(-1, C_g, H_g, W_g)
+                        # data_range=1.0 since normalized to [0, 1]
+                        psnr_k = PeakSignalNoiseRatio(data_range=1.0)(p, g)
+                        ssim_k = StructuralSimilarityIndexMeasure(data_range=1.0)(p, g)
+                        metrics[f"Valid/{name}_video_psnr_block_{k}"] = psnr_k
+                        metrics[f"Valid/{name}_video_ssim_block_{k}"] = ssim_k
+                        block_psnrs.append(psnr_k)
+                        block_ssims.append(ssim_k)
+                    # Flat aggregate (metric computed on all frames concatenated)
+                    p_all = pred_01[:, : num_blocks_pix * block_pix].reshape(
+                        -1, C_g, H_g, W_g
+                    )
+                    g_all = gt_future[:, : num_blocks_pix * block_pix].reshape(
+                        -1, C_g, H_g, W_g
+                    )
+                    metrics[f"Valid/{name}_video_psnr_avg"] = PeakSignalNoiseRatio(
+                        data_range=1.0
+                    )(p_all, g_all)
+                    metrics[f"Valid/{name}_video_ssim_avg"] = (
+                        StructuralSimilarityIndexMeasure(data_range=1.0)(p_all, g_all)
+                    )
+                    # Mean-of-per-block PSNR/SSIM (paper convention: mean of
+                    # per-block scores. Differs from flat _avg above because
+                    # PSNR/SSIM are non-linear — mean-of-log ≠ log-of-mean.)
+                    metrics[f"Valid/{name}_video_psnr_blocks_mean"] = torch.stack(
+                        [
+                            m if torch.is_tensor(m) else torch.tensor(m)
+                            for m in block_psnrs
+                        ]
+                    ).mean()
+                    metrics[f"Valid/{name}_video_ssim_blocks_mean"] = torch.stack(
+                        [
+                            m if torch.is_tensor(m) else torch.tensor(m)
+                            for m in block_ssims
+                        ]
+                    ).mean()
 
             # Video 1: per-output-frame action-overlay animation.
             # Container fps=30, 192 output frames per sample = M*H (M=4 chunks,
