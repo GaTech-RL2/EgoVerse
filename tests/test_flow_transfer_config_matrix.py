@@ -763,7 +763,7 @@ def test_temporal_compression_config_denoises_h8_l8_and_outputs_native_h16() -> 
     assert cfg.trainer.max_steps == 240_000
     assert cfg.trainer.accumulate_grad_batches == 1
     assert cfg.trainer.log_every_n_steps == 1
-    assert cfg.trainer.val_check_interval == 20_000
+    assert cfg.trainer.val_check_interval == 10_000
     assert cfg.trainer.limit_val_batches == 8
     assert cfg.evaluator.limit_val_batches == 8
     assert cfg.evaluator._target_.endswith("HumanRobotOverlayEval")
