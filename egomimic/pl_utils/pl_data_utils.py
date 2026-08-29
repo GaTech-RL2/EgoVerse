@@ -27,6 +27,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_datasets: dict,
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
+        valid_combined_mode: str = "max_size_cycle",
     ):
         """
         Args:
@@ -50,6 +51,12 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.valid_datasets = {k: v for k, v in valid_datasets.items() if v is not None}
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
+        if valid_combined_mode not in {"min_size", "max_size_cycle", "max_size"}:
+            raise ValueError(
+                "valid_combined_mode must be min_size, max_size_cycle, or "
+                f"max_size; got {valid_combined_mode!r}"
+            )
+        self.valid_combined_mode = valid_combined_mode
         self.collate_fn = annotation_collate
 
     def train_dataloader(self):
@@ -86,7 +93,12 @@ class MultiDataModuleWrapper(LightningDataModule):
                 **dataset_params,
             )
 
-        return CombinedLoader(iterables, "max_size_cycle")
+        # ``max_size`` is useful for immutable validation corpora whose
+        # embodiments contain different numbers of windows: it visits every
+        # window once and yields ``None`` for an exhausted domain instead of
+        # silently cycling and double-counting its first batches. Training
+        # intentionally keeps the historical ``max_size_cycle`` behavior.
+        return CombinedLoader(iterables, self.valid_combined_mode)
 
 
 
@@ -112,5 +124,3 @@ def annotation_collate(batch):
     collated = default_collate(batch)
     collated.update(extracted)
     return collated
-
-

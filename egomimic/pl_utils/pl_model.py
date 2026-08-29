@@ -230,6 +230,14 @@ class ModelWrapper(LightningModule):
         """
         if self.evaluator is None:
             return
+        # CombinedLoader(mode="max_size") emits ``None`` for a domain after
+        # that domain is exhausted. This lets a fixed multi-embodiment
+        # validation pass consume every window exactly once even when the
+        # domains have different lengths.
+        if isinstance(batch, dict):
+            batch = {name: value for name, value in batch.items() if value is not None}
+        if not batch:
+            return
         batch = self.model.process_batch_for_training(batch)
         print(
             f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}",

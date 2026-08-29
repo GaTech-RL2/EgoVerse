@@ -5,6 +5,7 @@ import torch
 
 from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.eval.human_robot_overlay_eval import HumanRobotOverlayEval
+from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.human import (
     build_fold_keypoint_wristframe_revert_transform_list,
@@ -198,3 +199,62 @@ def test_canonical_126d_overlay_reverts_keypoints_to_head_frame():
     assert seen == {"target": (2, 3, 126), "prediction": (2, 3, 126)}
     assert f"Valid/human_bimanual_{action_key}_camera_action_mse" in metrics
     assert images[emb_id].shape == (2, 8, 8, 3)
+
+
+def test_deterministic_validation_noise_is_repeatable_and_rng_isolated(monkeypatch):
+    seen = []
+
+    def fake_step(_self, _batch, _batch_idx, _dataloader_idx=0):
+        seen.append(torch.randn(4))
+
+    monkeypatch.setattr(EvalVideo, "on_validation_step", fake_step)
+    evaluator = HumanRobotOverlayEval(deterministic_seed=42)
+    evaluator.trainer = SimpleNamespace(
+        global_rank=0,
+        lightning_module=SimpleNamespace(device=torch.device("cpu")),
+    )
+
+    torch.manual_seed(123)
+    expected_next = torch.randn(4)
+    torch.manual_seed(123)
+    evaluator.on_validation_step({}, 7)
+    actual_next = torch.randn(4)
+    evaluator.on_validation_step({}, 7)
+
+    assert torch.equal(seen[0], seen[1])
+    assert torch.equal(actual_next, expected_next)
+
+
+def test_exact_epoch_metrics_weight_every_action_element_once():
+    emb_ids = [
+        get_embodiment_id("eva_bimanual"),
+        get_embodiment_id("human_bimanual"),
+    ]
+    logged = {}
+
+    def log_dict(metrics, **kwargs):
+        logged.update(metrics)
+
+    evaluator = HumanRobotOverlayEval(exact_epoch_metrics=True)
+    evaluator.trainer = SimpleNamespace(
+        lightning_module=SimpleNamespace(
+            device=torch.device("cpu"), log_dict=log_dict
+        )
+    )
+    evaluator._accumulate_exact(
+        emb_ids[0], torch.tensor([1.0, 3.0]), torch.tensor([2.0, 4.0])
+    )
+    evaluator._accumulate_exact(
+        emb_ids[0], torch.tensor([5.0]), torch.tensor([6.0])
+    )
+    evaluator._accumulate_exact(
+        emb_ids[1], torch.tensor([4.0, 4.0]), torch.tensor([8.0, 8.0])
+    )
+
+    evaluator.on_validation_end()
+
+    assert logged["Valid/MSE/eva_bimanual"].item() == 3.0
+    assert logged["Valid/MSE/human_bimanual"].item() == 4.0
+    assert logged["Valid/MSE"].item() == 3.5
+    assert logged["Valid/Native_MSE/eva_bimanual"].item() == 4.0
+    assert logged["Valid/Native_MSE/human_bimanual"].item() == 8.0

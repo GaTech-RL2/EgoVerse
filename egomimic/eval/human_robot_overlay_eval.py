@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import torch.distributed as dist
 
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.pipeline import packed
@@ -27,6 +28,8 @@ class HumanRobotOverlayEval(EvalVideo):
         frame_stride: int = 10,
         max_frames: int | None = 120,
         max_frames_by_embodiment: dict[str, int] | None = None,
+        deterministic_seed: int | None = None,
+        exact_epoch_metrics: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -38,11 +41,97 @@ class HumanRobotOverlayEval(EvalVideo):
             str(name).lower(): int(limit)
             for name, limit in (max_frames_by_embodiment or {}).items()
         }
+        self.deterministic_seed = (
+            None if deterministic_seed is None else int(deterministic_seed)
+        )
+        self.exact_epoch_metrics = bool(exact_epoch_metrics)
         self._rendered_frames: dict[int, int] = {}
+        self._exact_sums: dict[int, dict[str, torch.Tensor | int]] = {}
 
     def on_validation_start(self):
         self._rendered_frames.clear()
+        self._exact_sums.clear()
         super().on_validation_start()
+
+    def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
+        if self.deterministic_seed is None:
+            return super().on_validation_step(batch, batch_idx, dataloader_idx)
+
+        device = self.trainer.lightning_module.device
+        devices = []
+        if device.type == "cuda":
+            devices = [device.index if device.index is not None else torch.cuda.current_device()]
+        rank = int(getattr(self.trainer, "global_rank", 0))
+        seed = self.deterministic_seed + int(batch_idx) + rank * 1_000_003
+        # Validation must neither inherit moving training RNG state nor change
+        # the next training sample/noise. The same batch on the same rank gets
+        # the same latent noise at every checkpoint and every validation pass.
+        with torch.random.fork_rng(devices=devices):
+            torch.random.default_generator.manual_seed(seed)
+            if device.type == "cuda":
+                torch.cuda.manual_seed(seed)
+            return super().on_validation_step(batch, batch_idx, dataloader_idx)
+
+    def _accumulate_exact(
+        self,
+        emb_id: int,
+        normalized_squared_error: torch.Tensor,
+        native_squared_error: torch.Tensor,
+    ) -> None:
+        item = self._exact_sums.setdefault(
+            int(emb_id),
+            {
+                "normalized_sum": torch.zeros(
+                    (), device=normalized_squared_error.device, dtype=torch.float64
+                ),
+                "normalized_count": 0,
+                "native_sum": torch.zeros(
+                    (), device=native_squared_error.device, dtype=torch.float64
+                ),
+                "native_count": 0,
+            },
+        )
+        item["normalized_sum"] += normalized_squared_error.double().sum().detach()
+        item["normalized_count"] += normalized_squared_error.numel()
+        item["native_sum"] += native_squared_error.double().sum().detach()
+        item["native_count"] += native_squared_error.numel()
+
+    def on_validation_end(self):
+        if self.exact_epoch_metrics:
+            metrics = {}
+            normalized_mses = []
+            native_mses = []
+            device = self.trainer.lightning_module.device
+            for emb_id in sorted(self._exact_sums):
+                item = self._exact_sums[emb_id]
+                totals = torch.tensor(
+                    [
+                        float(item["normalized_sum"].item()),
+                        float(item["normalized_count"]),
+                        float(item["native_sum"].item()),
+                        float(item["native_count"]),
+                    ],
+                    dtype=torch.float64,
+                    device=device,
+                )
+                if dist.is_available() and dist.is_initialized():
+                    dist.all_reduce(totals, op=dist.ReduceOp.SUM)
+                normalized_mse = totals[0] / totals[1]
+                native_mse = totals[2] / totals[3]
+                embodiment_name = get_embodiment(emb_id).lower()
+                metrics[f"Valid/MSE/{embodiment_name}"] = normalized_mse.float()
+                metrics[f"Valid/Native_MSE/{embodiment_name}"] = native_mse.float()
+                metrics[f"Valid/Element_Count/{embodiment_name}"] = totals[1]
+                normalized_mses.append(normalized_mse)
+                native_mses.append(native_mse)
+            if normalized_mses:
+                metrics["Valid/MSE"] = torch.stack(normalized_mses).mean().float()
+            if native_mses:
+                metrics["Valid/Native_MSE"] = torch.stack(native_mses).mean().float()
+            self.trainer.lightning_module.log_dict(
+                metrics, on_step=False, on_epoch=True, sync_dist=False
+            )
+        super().on_validation_end()
 
     @staticmethod
     def _error_metrics(prefix: str, prediction, target) -> dict:
@@ -134,9 +223,13 @@ class HumanRobotOverlayEval(EvalVideo):
                     f"{tuple(normalized_prediction.shape)} vs "
                     f"{tuple(normalized_target.shape)}"
                 )
-            normalized_mse = (normalized_prediction - normalized_target).square().mean()
+            normalized_squared_error = (
+                normalized_prediction - normalized_target
+            ).square()
+            normalized_mse = normalized_squared_error.mean()
             normalized_mses.append(normalized_mse.detach())
-            metrics[f"Valid/MSE/{embodiment_name}"] = normalized_mse.detach()
+            if not self.exact_epoch_metrics:
+                metrics[f"Valid/MSE/{embodiment_name}"] = normalized_mse.detach()
             target = target[:count]
             prediction = prediction[:count]
             if target.shape != prediction.shape:
@@ -147,9 +240,15 @@ class HumanRobotOverlayEval(EvalVideo):
 
             metric_prefix = f"Valid/emb{emb_id}_{action_key}_action"
             metrics.update(self._error_metrics(metric_prefix, prediction, target))
-            native_mse = (prediction - target).square().mean()
+            native_squared_error = (prediction - target).square()
+            native_mse = native_squared_error.mean()
             native_mses.append(native_mse.detach())
-            metrics[f"Valid/Native_MSE/{embodiment_name}"] = native_mse.detach()
+            if self.exact_epoch_metrics:
+                self._accumulate_exact(
+                    emb_id, normalized_squared_error, native_squared_error
+                )
+            else:
+                metrics[f"Valid/Native_MSE/{embodiment_name}"] = native_mse.detach()
             metrics[f"Valid/emb{emb_id}_{action_key}_copybaseline_mse"] = (
                 target[:, :1] - target
             ).square().mean().detach()
@@ -221,9 +320,9 @@ class HumanRobotOverlayEval(EvalVideo):
                     flush=True,
                 )
 
-        if normalized_mses:
+        if normalized_mses and not self.exact_epoch_metrics:
             metrics["Valid/MSE"] = torch.stack(normalized_mses).mean()
-        if native_mses:
+        if native_mses and not self.exact_epoch_metrics:
             metrics["Valid/Native_MSE"] = torch.stack(native_mses).mean()
 
         return metrics, images
