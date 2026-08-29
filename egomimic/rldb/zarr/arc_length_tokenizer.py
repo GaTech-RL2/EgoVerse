@@ -1677,52 +1677,50 @@ class TokenizePlanarArcLength(TokenizeUSocketArcLength):
             raise ValueError(f"{self.action_key} contains non-finite values")
 
         actions = raw.astype(np.float64, copy=False)
-        width = actions.shape[1]
+        n, width = actions.shape
         xy = actions[:, :2]
-        theta = np.unwrap(actions[:, 2]) if width >= 3 else np.zeros(len(actions))
-        grip = actions[:, 3] if width >= 4 else np.zeros(len(actions))
+        theta = np.unwrap(actions[:, 2]) if width >= 3 else np.zeros(n)
+        grip = actions[:, 3] if width >= 4 else np.zeros(n)
 
-        cumulative, step = self._arc_parameter(xy, theta)
-        total = float(cumulative[-1])
-        covered = min(total, self.min_distance_unit)
+        # The planar problem is the 2D case of the 3D tokenizer, so delegate to
+        # it rather than re-deriving chunking, resampling and gripper handling.
+        # Rotation is folded into the MEASURED position as a third axis scaled
+        # by rotation_radius, which makes the core's translation-only metric
+        # exactly the SE(2) metric sqrt(dx^2 + dy^2 + (r*dtheta)^2). Without
+        # that, a rotate-in-place manoeuvre measures zero arc length and the
+        # core emits no token for it at all.
+        pos = np.column_stack([xy[:, 0], xy[:, 1], self.rotation_radius * theta])
+        ypr = np.column_stack([theta, np.zeros(n), np.zeros(n)])
+        core = ArcLengthTokenizer(
+            min_distance_unit=self.min_distance_unit,
+            resampled_vector_length=self.M,
+            dt=self.dt,
+            zero_dist_epsilon=self.zero_dist_epsilon,
+        )
+        chunk = core.tokenize_at(pos, ypr, grip[:, None], t=0)
 
-        if total <= self.zero_dist_epsilon:
-            # Stationary chunk. Pose has nothing to say, but grip does: an
+        xy_w = chunk.pos[:, :2]
+        theta_w = chunk.ypr[:, 0]
+        grip_w = chunk.gripper[:, 0]
+
+        if chunk.kind == "zero":
+            # Stationary chunk: pose has nothing to say, but grip does -- an
             # effector that closes before it moves actuates entirely inside a
-            # zero-arc chunk. Repeating grip[0] would drop that actuation, so
-            # the grip channel is carried across the chunk, resampled in TIME
-            # since there is no arc to resample against.
-            xy_w = np.repeat(xy[:1], self.M, axis=0)
-            theta_w = np.repeat(theta[:1], self.M)
+            # zero-arc chunk, so carry the channel across it (resampled in
+            # time, there being no arc to resample against).
             grip_w = np.interp(
-                np.linspace(0.0, len(grip) - 1, self.M),
-                np.arange(len(grip), dtype=np.float64),
+                np.linspace(0.0, n - 1, self.M),
+                np.arange(n, dtype=np.float64),
                 grip,
             )
             velocity = np.zeros(PLANAR_ARC_DIM, dtype=np.float64)
         else:
-            targets = np.linspace(0.0, covered, self.M)
-            xy_w = np.stack([self._interp(xy, cumulative, t) for t in targets])
-            theta_w = np.array(
-                [self._interp(theta[:, None], cumulative, t)[0] for t in targets],
-                dtype=np.float64,
-            )
-            grip_w = np.array(
-                [self._interp(grip[:, None], cumulative, t)[0] for t in targets],
-                dtype=np.float64,
-            )
-            if covered < total - self.zero_dist_epsilon:
-                segment, alpha = _bracket_segment(cumulative, covered)
-                duration_steps = float(segment) + float(alpha)
-            else:
-                moving = np.flatnonzero(step > self.zero_dist_epsilon)
-                duration_steps = float(moving[-1] + 1) if moving.size else 0.0
-            duration = max(duration_steps * self.dt, self.dt)
+            duration = max(float(chunk.num_original_steps) * self.dt, self.dt)
             d_xy = xy_w[-1] - xy_w[0]
-            d_theta = theta_w[-1] - theta_w[0]
             velocity = np.array(
-                [d_xy[0] / duration, d_xy[1] / duration, d_theta / duration,
-                 covered / duration, 0.0],
+                [d_xy[0] / duration, d_xy[1] / duration,
+                 (theta_w[-1] - theta_w[0]) / duration,
+                 float(chunk.chunk_distance) / duration, 0.0],
                 dtype=np.float64,
             )
 
