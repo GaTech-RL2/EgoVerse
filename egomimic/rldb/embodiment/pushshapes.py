@@ -165,3 +165,41 @@ def get_chain_gripper_native_point_arc_length_transform_list(
         resampled_vector_length=resampled_vector_length,
         dt=dt,
     )
+
+
+def get_planar_dense_transform_list(keys: list[str] | None = None):
+    """h16-style dense baseline, widened to the shared 5-channel layout.
+
+    Pairs with the arc configs: identical action representation, the only
+    difference being time-indexed dense chunks vs arc-length tokens. Without
+    the shared layout the comparison would confound tokenization with a
+    change of action space.
+    """
+    from egomimic.rldb.zarr.arc_length_tokenizer import PadPlanarAction
+
+    return [PadPlanarAction(keys=keys or ["actions"])]
+
+
+def get_planar_arc_length_transform_list(
+    keys: list[str] | None = None,
+    min_distance_unit: float = 100.0,
+    resampled_vector_length: int = 100,
+    dt: float = 1.0 / 30.0,
+    rotation_radius: float = 40.0,
+):
+    """Embodiment-agnostic planar SE(2)+grip arc tokenization."""
+    from egomimic.rldb.zarr.arc_length_tokenizer import TokenizePlanarArcLength
+
+    action_keys = keys or ["actions"]
+    if len(action_keys) != 1:
+        raise ValueError("planar arc tokenization expects exactly one action key")
+    return [
+        TokenizePlanarArcLength(
+            action_key=action_keys[0],
+            output_action_key=action_keys[0],
+            min_distance_unit=min_distance_unit,
+            resampled_vector_length=resampled_vector_length,
+            dt=dt,
+            rotation_radius=rotation_radius,
+        )
+    ]

@@ -1604,3 +1604,173 @@ class TokenizeChainGripperPointArcLength:
             [self._interp(waypoints, cumulative, target) for target in targets]
         )
         return chain_gripper_arc_embedding_to_points(embedding_out)
+
+
+PLANAR_ARC_DIM = 5  # [x, y, cos(theta), sin(theta), grip]
+
+
+class PadPlanarAction:
+    """Widen any PushShapes action to a common ``[x, y, cos, sin, grip]``.
+
+    The 13 effectors do not agree on action width -- 4 emit ``[x, y]``, 3 emit
+    ``[x, y, theta]``, 6 emit ``[x, y, theta, grip]`` -- so a co-trained policy
+    has no single action head until they are padded to one layout. Absent
+    channels get the identity value for that channel: theta 0 (encoded
+    cos=1, sin=0) and grip 0 (open), which is what those effectors physically
+    do rather than merely a convenient zero.
+
+    Lives in this module, beside the tokenizer it pairs with, because this file
+    is the torch/projectaria-free one -- the dense baseline and the arc
+    variants must both be constructible wherever either is.
+    """
+
+    def __init__(self, keys: list[str] | None = None):
+        self.keys = list(keys or ["actions"])
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            v = np.asarray(batch[key])
+            if v.ndim != 2 or v.shape[-1] not in (2, 3, 4):
+                raise ValueError(
+                    f"PadPlanarAction expects (T, 2|3|4) for '{key}', got {v.shape}"
+                )
+            f = v.astype(np.float64, copy=False)
+            T, C = f.shape
+            theta = f[:, 2] if C >= 3 else np.zeros(T)
+            grip = f[:, 3] if C >= 4 else np.zeros(T)
+            out = np.column_stack([f[:, 0], f[:, 1], np.cos(theta), np.sin(theta), grip])
+            dtype = v.dtype if np.issubdtype(v.dtype, np.floating) else np.float32
+            batch[key] = out.astype(dtype, copy=False)
+        return batch
+
+
+class TokenizePlanarArcLength(TokenizeUSocketArcLength):
+    """Embodiment-agnostic planar SE(2)+grip arc-length tokenizer.
+
+    ``TokenizeUSocketArcLength`` fixes the input at ``(T, 3)``, which covers
+    only 3 of the 13 PushShapes effectors. This accepts 2, 3, or 4 channels and
+    pads to ``[x, y, theta, grip]`` so one action head serves all of them.
+
+    Grip is resampled along the arc parameter but deliberately EXCLUDED from
+    the metric. Including it would let a gripper closing in place manufacture
+    arc length out of a stationary effector, splitting a chunk where nothing
+    moved; and grip is effectively categorical (1 = holding), so blending it
+    into a euclidean distance is not meaningful. This mirrors the retargeting
+    rule that the grip channel is carried, never transformed.
+
+    Output is ``(M+1, 5)``: M waypoints ``[x, y, cos, sin, grip]`` then one
+    velocity row ``[vx, vy, omega, arc_speed, 0]``.
+    """
+
+    def transform(self, batch: dict) -> dict:
+        raw = np.asarray(batch[self.action_key])
+        if raw.ndim != 2 or raw.shape[1] not in (2, 3, 4):
+            raise ValueError(
+                "TokenizePlanarArcLength expects (T, 2|3|4) "
+                f"[x, y[, theta[, grip]]], got {raw.shape}"
+            )
+        if len(raw) < 2:
+            raise ValueError("TokenizePlanarArcLength needs at least two steps")
+        if not np.isfinite(raw).all():
+            raise ValueError(f"{self.action_key} contains non-finite values")
+
+        actions = raw.astype(np.float64, copy=False)
+        width = actions.shape[1]
+        xy = actions[:, :2]
+        theta = np.unwrap(actions[:, 2]) if width >= 3 else np.zeros(len(actions))
+        grip = actions[:, 3] if width >= 4 else np.zeros(len(actions))
+
+        cumulative, step = self._arc_parameter(xy, theta)
+        total = float(cumulative[-1])
+        covered = min(total, self.min_distance_unit)
+
+        if total <= self.zero_dist_epsilon:
+            xy_w = np.repeat(xy[:1], self.M, axis=0)
+            theta_w = np.repeat(theta[:1], self.M)
+            grip_w = np.repeat(grip[:1], self.M)
+            velocity = np.zeros(PLANAR_ARC_DIM, dtype=np.float64)
+        else:
+            targets = np.linspace(0.0, covered, self.M)
+            xy_w = np.stack([self._interp(xy, cumulative, t) for t in targets])
+            theta_w = np.array(
+                [self._interp(theta[:, None], cumulative, t)[0] for t in targets],
+                dtype=np.float64,
+            )
+            grip_w = np.array(
+                [self._interp(grip[:, None], cumulative, t)[0] for t in targets],
+                dtype=np.float64,
+            )
+            if covered < total - self.zero_dist_epsilon:
+                segment, alpha = _bracket_segment(cumulative, covered)
+                duration_steps = float(segment) + float(alpha)
+            else:
+                moving = np.flatnonzero(step > self.zero_dist_epsilon)
+                duration_steps = float(moving[-1] + 1) if moving.size else 0.0
+            duration = max(duration_steps * self.dt, self.dt)
+            d_xy = xy_w[-1] - xy_w[0]
+            d_theta = theta_w[-1] - theta_w[0]
+            velocity = np.array(
+                [d_xy[0] / duration, d_xy[1] / duration, d_theta / duration,
+                 covered / duration, 0.0],
+                dtype=np.float64,
+            )
+
+        waypoints = np.column_stack(
+            [xy_w, np.cos(theta_w), np.sin(theta_w), grip_w]
+        )
+        output = np.concatenate([waypoints, velocity[None]], axis=0)
+        dtype = raw.dtype if np.issubdtype(raw.dtype, np.floating) else np.float32
+        batch[self.output_action_key] = output.astype(dtype, copy=False)
+        return batch
+
+    def detokenize(self, arc_actions: np.ndarray, action_horizon: int) -> np.ndarray:
+        """Decode ``(M+1, 5)`` tokens to fixed-rate ``(H, 4)`` actions."""
+        value = np.asarray(arc_actions, dtype=np.float64)
+        expected = (self.M + 1, PLANAR_ARC_DIM)
+        if value.shape != expected:
+            raise ValueError(
+                f"TokenizePlanarArcLength.detokenize expects {expected}, "
+                f"got {value.shape}"
+            )
+        horizon = int(action_horizon)
+        if horizon <= 0:
+            raise ValueError("action_horizon must be positive")
+        if not np.isfinite(value).all():
+            raise ValueError("arc_actions contains non-finite values")
+
+        waypoints = value[: self.M]
+        kinematics = value[self.M]
+        xy = waypoints[:, :2]
+        grip = waypoints[:, 4]
+        rotvec = waypoints[:, 2:4]
+        rot_norm = np.linalg.norm(rotvec, axis=-1, keepdims=True)
+        safe = np.divide(
+            rotvec, rot_norm,
+            out=np.tile(np.array([[1.0, 0.0]]), (self.M, 1)),
+            where=rot_norm > self.zero_dist_epsilon,
+        )
+        theta = np.unwrap(np.arctan2(safe[:, 1], safe[:, 0]))
+        cumulative, _ = self._arc_parameter(xy, theta)
+        total = float(cumulative[-1])
+        path_speed = abs(float(kinematics[3]))
+
+        if total <= self.zero_dist_epsilon or path_speed <= self.zero_dist_epsilon:
+            xy_out = np.repeat(xy[:1], horizon, axis=0)
+            theta_out = np.repeat(theta[:1], horizon)
+            grip_out = np.repeat(grip[:1], horizon)
+        else:
+            targets = np.minimum(
+                path_speed * np.arange(horizon, dtype=np.float64) * self.dt, total
+            )
+            xy_out = np.stack([self._interp(xy, cumulative, t) for t in targets])
+            theta_out = np.array(
+                [self._interp(theta[:, None], cumulative, t)[0] for t in targets],
+                dtype=np.float64,
+            )
+            grip_out = np.array(
+                [self._interp(grip[:, None], cumulative, t)[0] for t in targets],
+                dtype=np.float64,
+            )
+        return np.column_stack([xy_out, theta_out, grip_out])
