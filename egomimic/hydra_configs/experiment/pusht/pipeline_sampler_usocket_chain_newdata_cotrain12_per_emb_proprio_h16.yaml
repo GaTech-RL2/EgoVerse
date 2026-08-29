@@ -38,13 +38,7 @@ norm_stats:
   norm_mode: minmax
   reduce_all_but_last: true
 callbacks:
-  model_checkpoint:
-    every_n_epochs: null
-    every_n_train_steps: null
-    train_time_interval: {_target_: datetime.timedelta, hours: 1}
-    save_top_k: 1
-    save_last: true
-    save_on_train_epoch_end: true
+  # The primary checkpoint inherits the repository-wide 20k-step cadence.
   terminal_checkpoint:
     _target_: lightning.pytorch.callbacks.ModelCheckpoint
     dirpath: ${paths.output_dir}/checkpoints/final
