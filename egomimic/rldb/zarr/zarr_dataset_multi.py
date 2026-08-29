@@ -1287,6 +1287,8 @@ class MultiDataset(torch.utils.data.Dataset):
             std = torch.as_tensor(
                 stats["std"], device=tensor.device, dtype=torch.float32
             )
+            mean = self._tile_stats_time(mean, tensor)
+            std = self._tile_stats_time(std, tensor)
             return (tensor - mean) / (std + 1e-6)
         if self.norm_mode == "minmax":
             mn = torch.as_tensor(
@@ -1295,6 +1297,8 @@ class MultiDataset(torch.utils.data.Dataset):
             mx = torch.as_tensor(
                 stats["max"], device=tensor.device, dtype=torch.float32
             )
+            mn = self._tile_stats_time(mn, tensor)
+            mx = self._tile_stats_time(mx, tensor)
             return 2.0 * ((tensor - mn) / (mx - mn + 1e-6)) - 1.0
         if self.norm_mode == "quantile":
             q1 = torch.as_tensor(
@@ -1303,8 +1307,32 @@ class MultiDataset(torch.utils.data.Dataset):
             q99 = torch.as_tensor(
                 stats["quantile_99"], device=tensor.device, dtype=torch.float32
             )
+            q1 = self._tile_stats_time(q1, tensor)
+            q99 = self._tile_stats_time(q99, tensor)
             return 2.0 * ((tensor - q1) / (q99 - q1 + 1e-6)) - 1.0
         raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
+
+    def _tile_stats_time(
+        self, stat_t: torch.Tensor, tensor: torch.Tensor
+    ) -> torch.Tensor:
+        """Block-cyclic tile stats along the time axis to match ``tensor``.
+
+        Rolling val produces pred_actions longer than the training-time
+        action_horizon (e.g. cam_horizon=97 → 12 rolling steps × 48 actions
+        = 576, vs. training horizon 192). Norm stats are baked to training
+        horizon and per-timestep, but the rolling assumption is that each
+        block position repeats — so tiling stats block-cyclically matches
+        the paper's per-block stationarity assumption. Noop when shapes
+        already match or ``stat_t`` is not time-indexed.
+        """
+        if stat_t.dim() < 2 or tensor.dim() < 2:
+            return stat_t
+        T_stat = stat_t.shape[0]
+        T_tensor = tensor.shape[-2]
+        if T_tensor <= T_stat:
+            return stat_t
+        n_tiles = (T_tensor + T_stat - 1) // T_stat
+        return stat_t.repeat(n_tiles, *([1] * (stat_t.dim() - 1)))[:T_tensor]
 
     def _apply_unnorm_one(self, tensor, stats):
         if self.norm_mode == "zscore":
@@ -1314,6 +1342,8 @@ class MultiDataset(torch.utils.data.Dataset):
             std = torch.as_tensor(
                 stats["std"], device=tensor.device, dtype=torch.float32
             )
+            mean = self._tile_stats_time(mean, tensor)
+            std = self._tile_stats_time(std, tensor)
             return tensor * (std + 1e-6) + mean
         if self.norm_mode == "minmax":
             mn = torch.as_tensor(
@@ -1322,6 +1352,8 @@ class MultiDataset(torch.utils.data.Dataset):
             mx = torch.as_tensor(
                 stats["max"], device=tensor.device, dtype=torch.float32
             )
+            mn = self._tile_stats_time(mn, tensor)
+            mx = self._tile_stats_time(mx, tensor)
             return (tensor + 1) * 0.5 * (mx - mn + 1e-6) + mn
         if self.norm_mode == "quantile":
             q1 = torch.as_tensor(
@@ -1330,6 +1362,8 @@ class MultiDataset(torch.utils.data.Dataset):
             q99 = torch.as_tensor(
                 stats["quantile_99"], device=tensor.device, dtype=torch.float32
             )
+            q1 = self._tile_stats_time(q1, tensor)
+            q99 = self._tile_stats_time(q99, tensor)
             return (tensor + 1) * 0.5 * (q99 - q1 + 1e-6) + q1
         raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
 
