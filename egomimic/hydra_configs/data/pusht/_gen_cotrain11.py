@@ -70,7 +70,7 @@ for D in (50, 100, 200):
         made.append(emit(f"cotrain11_arc_D{D}_M{M}", 200,
             "get_planar_arc_length_transform_list",
             {"min_distance_unit": f"{float(D)}", "resampled_vector_length": M,
-             "dt": 0.03333333333333333, "rotation_radius": 40.0},
+             "dt": 0.03333333333333333},
             f"ARC: planar SE(2)+grip tokens, D={D} M={M} -> ({M}+1, 5) per chunk."))
 print("\n".join(made))
 print(f"\ntrain ({len(TRAIN)}): {', '.join(TRAIN)}")

@@ -1684,12 +1684,21 @@ class TokenizePlanarArcLength(TokenizeUSocketArcLength):
 
         # The planar problem is the 2D case of the 3D tokenizer, so delegate to
         # it rather than re-deriving chunking, resampling and gripper handling.
-        # Rotation is folded into the MEASURED position as a third axis scaled
-        # by rotation_radius, which makes the core's translation-only metric
-        # exactly the SE(2) metric sqrt(dx^2 + dy^2 + (r*dtheta)^2). Without
-        # that, a rotate-in-place manoeuvre measures zero arc length and the
-        # core emits no token for it at all.
-        pos = np.column_stack([xy[:, 0], xy[:, 1], self.rotation_radius * theta])
+        # Rotation is CARRIED, not measured: the arc metric stays purely
+        # translational and theta is resampled along that arc exactly as the
+        # grip channel is. Folding rotation into the metric (pos_z =
+        # rotation_radius * theta) was measured to be strictly worse -- it makes
+        # rotation consume translation budget, so on a rotation-dominant
+        # trajectory the chunk ended after 6 timesteps instead of 64 at the same
+        # rotation error, and on a balanced one it was worse on BOTH position
+        # (3.78 vs 1.25) and rotation (0.035 vs 0.010). It also needed an
+        # arbitrary rotation_radius coupling constant; carrying needs none.
+        #
+        # Folding looked necessary because a rotate-in-place chunk has zero
+        # translational arc, so the core would emit nothing for it. That is
+        # handled below the same way grip is: when the arc is zero, resample in
+        # TIME.
+        pos = np.column_stack([xy[:, 0], xy[:, 1], np.zeros(n)])
         ypr = np.column_stack([theta, np.zeros(n), np.zeros(n)])
         core = ArcLengthTokenizer(
             min_distance_unit=self.min_distance_unit,
@@ -1708,11 +1717,10 @@ class TokenizePlanarArcLength(TokenizeUSocketArcLength):
             # effector that closes before it moves actuates entirely inside a
             # zero-arc chunk, so carry the channel across it (resampled in
             # time, there being no arc to resample against).
-            grip_w = np.interp(
-                np.linspace(0.0, n - 1, self.M),
-                np.arange(n, dtype=np.float64),
-                grip,
-            )
+            idx = np.linspace(0.0, n - 1, self.M)
+            base = np.arange(n, dtype=np.float64)
+            grip_w = np.interp(idx, base, grip)
+            theta_w = np.interp(idx, base, theta)
             velocity = np.zeros(PLANAR_ARC_DIM, dtype=np.float64)
         else:
             duration = max(float(chunk.num_original_steps) * self.dt, self.dt)
@@ -1767,13 +1775,16 @@ class TokenizePlanarArcLength(TokenizeUSocketArcLength):
             # Mirror of the stationary branch in transform(): hold the pose but
             # play the grip waypoints back across the horizon, so a chunk whose
             # only content is a grip actuation reconstructs it.
+            # Zero-arc chunk: pose does not translate, but rotation and grip
+            # still carry content -- a rotate-in-place or close-then-move
+            # manoeuvre lives entirely inside such a chunk. Play both channels
+            # back across the horizon; repeating element 0 silently discarded
+            # them (measured: full pi/2 of rotation lost).
+            idx = np.linspace(0.0, self.M - 1, horizon)
+            base = np.arange(self.M, dtype=np.float64)
             xy_out = np.repeat(xy[:1], horizon, axis=0)
-            theta_out = np.repeat(theta[:1], horizon)
-            grip_out = np.interp(
-                np.linspace(0.0, self.M - 1, horizon),
-                np.arange(self.M, dtype=np.float64),
-                grip,
-            )
+            theta_out = np.interp(idx, base, theta)
+            grip_out = np.interp(idx, base, grip)
         else:
             targets = np.minimum(
                 path_speed * np.arange(horizon, dtype=np.float64) * self.dt, total
