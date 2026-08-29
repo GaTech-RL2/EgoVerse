@@ -1,0 +1,10 @@
+# Train-viz wrapper whose base is the keypoint-gripper wristframe evaluator.
+# See train_viz_pi_wristframe_6d.yaml for the mechanism.
+
+defaults:
+  - /evaluator@base: eval_pi_wristframe_6d_grip
+  - _self_
+
+_target_: egomimic.eval.eval_train_viz.TrainVizEvalVideo
+
+limit_val_batches: 50

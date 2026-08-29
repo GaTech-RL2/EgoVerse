@@ -95,12 +95,26 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.data.valid_datasets[dataset_name]
         )
 
+    train_viz_datasets = {}
+    if cfg.data.get("train_viz_datasets") is not None:
+        for dataset_name in cfg.data.train_viz_datasets:
+            cfg_entry = cfg.data.train_viz_datasets[dataset_name]
+            if cfg_entry is None:
+                train_viz_datasets[dataset_name] = None
+                continue
+            train_viz_datasets[dataset_name] = hydra.utils.instantiate(cfg_entry)
+
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     assert (
         "MultiDataModuleWrapper" in cfg.data._target_
     ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    datamodule_kwargs = dict(
+        train_datasets=train_datasets, valid_datasets=valid_datasets
+    )
+    if train_viz_datasets:
+        datamodule_kwargs["train_viz_datasets"] = train_viz_datasets
     datamodule: LightningDataModule = hydra.utils.instantiate(
-        cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
+        cfg.data, **datamodule_kwargs
     )
 
     # Stats-only MultiDataset (no graph of its own; explicitly populated from
@@ -147,6 +161,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for ds in datamodule.train_datasets.values():
         ds.set_norm_stats_from(norm_stats)
     for ds in datamodule.valid_datasets.values():
+        ds.set_norm_stats_from(norm_stats)
+    for ds in getattr(datamodule, "train_viz_datasets", {}).values():
         ds.set_norm_stats_from(norm_stats)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
@@ -212,10 +228,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Logging hyperparameters!")
         log_hyperparameters(object_dict)
 
-    if (
+    is_requeue = bool(
         os.environ.get("SLURM_JOB_ID")
         and os.environ.get("SLURM_RESTART_COUNT", "0") != "0"
-    ):
+    )
+    if is_requeue:
         last_ckpt_path = os.path.join(
             trainer.default_root_dir, "checkpoints", "last.ckpt"
         )
@@ -225,11 +242,51 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
     if mode == "train":
+        # Finetune initialization: load WEIGHTS ONLY from a Lightning ckpt
+        # (fresh optimizer/scheduler/epoch counters — unlike ckpt_path, which
+        # restores full training state). Shape-mismatched entries are skipped
+        # so a checkpoint from a different embodiment mix still initializes
+        # the shared trunk.
+        init_ckpt = cfg.get("init_weights_ckpt")
+        if init_ckpt:
+            ckpt_sd = torch.load(init_ckpt, map_location="cpu", weights_only=False)[
+                "state_dict"
+            ]
+            own_sd = model.state_dict()
+            filtered = {
+                k: v
+                for k, v in ckpt_sd.items()
+                if k in own_sd and own_sd[k].shape == v.shape
+            }
+            skipped = sorted(set(ckpt_sd) - set(filtered))
+            model.load_state_dict(filtered, strict=False)
+            log.info(
+                f"init_weights_ckpt: loaded {len(filtered)} tensors from "
+                f"{init_ckpt}; skipped {len(skipped)} (missing/shape-mismatch)"
+                + (f": {skipped[:5]}..." if skipped else "")
+            )
         if cfg.get("evaluator") is not None:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             eval_obj.trainer = trainer
             eval_obj.model = model.model
             model.evaluator = eval_obj
+        if cfg.get("train_viz_evaluator") is not None:
+            train_viz_eval_obj: Eval = hydra.utils.instantiate(cfg.train_viz_evaluator)
+            train_viz_eval_obj.trainer = trainer
+            train_viz_eval_obj.model = model.model
+            model.train_viz_evaluator = train_viz_eval_obj
+        # Pre-fit baseline val. Skipped on requeues AND checkpoint resumes:
+        # trainer.validate here runs BEFORE fit restores ckpt_path weights, so
+        # on a resume it would score the un-resumed base model.
+        if (
+            cfg.get("val_at_start", False)
+            and not is_requeue
+            and not cfg.get("ckpt_path")
+        ):
+            log.info(
+                "val_at_start: running validation + viz at epoch 0 (pre-fit baseline)"
+            )
+            trainer.validate(model=model, datamodule=datamodule)
         log.info("Starting training!")
         trainer.fit(
             model=model,

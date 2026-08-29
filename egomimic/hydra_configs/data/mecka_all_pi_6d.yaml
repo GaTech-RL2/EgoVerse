@@ -61,12 +61,33 @@ valid_datasets:
     mode: valid
     valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
 
+# Train-set spot check: a second val-style loader over the TRAIN split,
+# consumed by the TrainVizEvalVideo wrapper on every validation epoch
+# (metrics prefixed `train_viz/`, videos under `videos_train_viz/`). No
+# shuffle -> the same leading slice every val, so the curves are comparable
+# across time. Activate together with
+# `+evaluator@train_viz_evaluator=train_viz_pi_wristframe_6d`.
+train_viz_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: train
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+
+train_viz_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 2
+    shuffle: false
+
 train_dataloader_params:
   human_bimanual:
     batch_size: 64
-    num_workers: 6
+    num_workers: 8
 
 valid_dataloader_params:
   human_bimanual:
     batch_size: 64
-    num_workers: 6
+    num_workers: 8
+    shuffle: false

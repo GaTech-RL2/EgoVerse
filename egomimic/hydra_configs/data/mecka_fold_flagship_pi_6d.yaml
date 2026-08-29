@@ -1,0 +1,72 @@
+# MECKA_FOLD_FLAGSHIP_PI_6D — the mecka flagship fold-clothes subset
+# (task='fold_clothes' == the flagship collection exactly; 1,607 episodes,
+# verified against the SQL table — the freeform fold data carries the
+# distinct task label 'folding_clothes' and is excluded).
+#
+# Same wristframe-6D pipeline as mecka_all_pi_6d (left-wrist fix, padded
+# 20-dim proprio, stride 1); pairs with model=pi0.5_bc_mecka_6d and
+# evaluator=eval_pi_wristframe_6d (+ the train_viz second head).
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      # Shared PACE mirror; the fold subset is already present (subset of the
+      # 41,613 mecka episodes synced for the full run).
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_wristframe_6d
+        stride: 1
+        fix_mecka_left_wrist: true
+        pad_proprio_gripper: true
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')) == 'fold_clothes'"
+        - "lambda row: '/flagship/' in str(row.get('zarr_processed_path', ''))"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+
+# Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
+# videos_train_viz/). No shuffle -> same leading slice every val.
+train_viz_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: train
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+
+train_viz_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 2
+    shuffle: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+    shuffle: false

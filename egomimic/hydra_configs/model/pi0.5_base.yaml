@@ -4,6 +4,11 @@ robomimic_model:
   config:
     pytorch_training_precision: bfloat16
     pytorch_weight_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
+    # Stochastic samples per eval batch for the reverse-KL / best-of-M val
+    # metrics (>1 enables them; each sample is a full flow-matching rollout,
+    # so M multiplies eval sampling cost). 1 disables. Applies to the
+    # canonical valid loader only — the train_viz evaluator forces 1.
+    reverse_kl_samples: 1
     model:
       pi05: true
       action_dim: 32

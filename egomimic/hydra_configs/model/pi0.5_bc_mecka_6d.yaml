@@ -11,6 +11,12 @@ defaults:
 # Pairs with data=mecka_all_pi_6d and evaluator=eval_pi_wristframe_6d.
 robomimic_model:
   camera_transforms: {}
+  config:
+    # Enable the M-sample val metrics (reverse KL, best/mean/worst-of-M,
+    # sample diversity) with a moderate M: 4 extra flow rollouts per valid
+    # batch (~+50% val sampling time). Set to 1 to disable, 8 for the full
+    # version at ~2x the cost. Train-viz pass always runs with 1.
+    reverse_kl_samples: 4
   ac_keys:
     human_bimanual: "actions_cartesian"
   domains: ["human_bimanual"]

@@ -1,0 +1,75 @@
+# ABC_EVA_PI_6D — the abc EVA robot collection (embodiment='eva_bimanual',
+# zarr paths under processed_v3/abc/; 18,456 episodes in the SQL table —
+# lab-internal rl2 eva episodes are excluded).
+#
+# WRIST-frame cartesian actions with the continuous 6D rotation
+# representation (20D = xyz+6D+gripper per arm); the head/cam-frame proprio
+# ee_pose is 6D-encoded too. Eva's default stride applies. Pairs with
+# model=pi0.5_ft_abc_eva_6d and evaluator=eval_pi_wristframe_6d.
+#
+# LEGACY EXTRINSICS NOTE: this config predates the extrinsics_key plumbing
+# and bakes the default x5Dec13_2 (rl2 lab rig) cam frame into the proprio —
+# NOT the abc camera's frame. Kept as-is for consistency with the finetune
+# checkpoints trained on it (pi05_abc_eva_ft) and their norm stats
+# (norm_stats/abc_eva_6d). New abc runs should use the abc_fold_viz variants
+# (see abc_eva_pi_6d_foldviz.yaml / mecka_abc_pi_6d.yaml).
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      # Shared PACE mirror; the abc episodes are synced here by
+      # egomimic/scripts/sync_abc_eva.py before training.
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian_wristframe_6d
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('embodiment', '')) == 'eva_bimanual'"
+        - "lambda row: '/abc/' in str(row.get('zarr_processed_path', ''))"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+
+# Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
+# videos_train_viz/). No shuffle -> same leading slice every val.
+train_viz_datasets:
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: train
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+
+train_viz_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 2
+    shuffle: false
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 64
+    num_workers: 8
+
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 64
+    num_workers: 8
+    shuffle: false

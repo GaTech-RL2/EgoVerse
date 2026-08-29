@@ -20,7 +20,7 @@ class HPTEvalVideo(EvalVideo):
     and the viz video.
     """
 
-    def compute_metrics_and_viz(self, batch):
+    def compute_metrics_and_viz(self, batch, do_viz=True):
         algo = self.model
         preds = algo.forward_eval(batch)
 
@@ -188,8 +188,9 @@ class HPTEvalVideo(EvalVideo):
                 preds_for_viz = dict(preds)
                 preds_for_viz[main_pred_key] = pred_batch_viz[ac_key]
 
-            ims = self._visualize_preds(preds_for_viz, gt_batch_viz)
-            images_dict[embodiment_id] = ims
+            if do_viz:
+                ims = self._visualize_preds(preds_for_viz, gt_batch_viz)
+                images_dict[embodiment_id] = ims
 
         if total_loss is not None and n_loss_embodiments > 0:
             metrics["Valid/action_loss"] = total_loss / n_loss_embodiments

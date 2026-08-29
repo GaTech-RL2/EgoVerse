@@ -1,0 +1,29 @@
+defaults:
+  - pi0.5_base
+  - _self_
+
+# pi0.5 finetune on aria fold_clothes WITH the keypoint pseudo-gripper: human
+# actions/proprio are 20D (grips at robot slots 9/19 via KeypointsToGripper +
+# InsertGripperChannels), so the ROBOT converter packs them — the gripper
+# channels get real supervision instead of zeros. Initialize from the mecka
+# human-base checkpoint via `init_weights_ckpt` (weights only). Pairs with
+# data=aria_fold_pi_6d_grip and evaluator=eval_pi_wristframe_6d_grip.
+robomimic_model:
+  camera_transforms: {}
+  config:
+    reverse_kl_samples: 4
+  ac_keys:
+    human_bimanual: "actions_cartesian"
+  domains: ["human_bimanual"]
+
+  action_encoding: "cartesian_normalized_rot6d"
+  embodiment_label: false
+
+  action_converters:
+    rules:
+      # Robot converter on purpose: human data carries real grip channels in
+      # the 20D robot layout here (the Human converter would zero them).
+      HUMAN_BIMANUAL:
+        _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter

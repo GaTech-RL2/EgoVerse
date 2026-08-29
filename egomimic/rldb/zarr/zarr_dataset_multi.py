@@ -982,19 +982,33 @@ class MultiDataset(torch.utils.data.Dataset):
                 data = self.normalize(data, data["embodiment"])
             return data
 
+    # Retries stay within the failing episode this many times, then widen to
+    # the full index space — a single wholly-bad episode must not exhaust the
+    # sampler and take the run down (NCCL-timeouts the other ranks).
+    GLOBAL_FALLBACK_ATTEMPTS = 25
+    # Hard cap so a systemic failure (bad norm stats, corrupt store) still
+    # fails loudly instead of resampling forever.
+    MAX_FALLBACK_ATTEMPTS = 1000
+
     def _next_after_failure(
         self, idx: int, dataset_name: str, attempts: int | None, *, reason: str
     ) -> tuple[int, int]:
-        global_candidates = self._global_indices_by_dataset[dataset_name]
-        next_idx, attempts = get_fallback_idx(
-            idx=idx,
-            candidates=global_candidates,
-            _attempts=attempts,
-            max_attempts=len(global_candidates),
-            exhausted_error=(
-                f"Entire dataset bad (no valid indices): dataset={dataset_name}"
-            ),
-        )
+        attempts = (attempts or 0) + 1
+        if attempts >= self.MAX_FALLBACK_ATTEMPTS:
+            raise RuntimeError(
+                f"{self.MAX_FALLBACK_ATTEMPTS} consecutive bad samples "
+                f"(systemic data/norm-stats problem?); last: {reason}"
+            )
+        if attempts <= self.GLOBAL_FALLBACK_ATTEMPTS:
+            candidates = [
+                c for c in self._global_indices_by_dataset[dataset_name] if c != idx
+            ]
+        else:
+            candidates = None
+        if candidates:
+            next_idx = random.choice(candidates)
+        else:
+            next_idx = random.randrange(len(self.index_map))
         next_dataset_name, next_local_idx = self.index_map[next_idx]
         logger.warning(
             f"{reason} | attempt {attempts}, "

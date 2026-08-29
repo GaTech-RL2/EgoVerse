@@ -1,0 +1,68 @@
+# ABC_EVA_PI_6D_FOLDVIZ — abc_eva_pi_6d with the CORRECT abc top-camera
+# extrinsics (extrinsics_key=abc_fold_viz) baked into the base->cam proprio
+# conversion, matching the remote wristframe-6d runs. The legacy
+# abc_eva_pi_6d.yaml keeps x5Dec13_2 for compatibility with the existing
+# finetune checkpoints. Wrist-relative action targets are invariant to the
+# extrinsics; only the proprio/State frame (and the eval-viz revert frame)
+# changes — so this config requires ITS OWN norm stats
+# (norm_stats/abc_eva_6d_foldviz, via norm_abc_eva_foldviz.sbatch).
+#
+# Primary consumer: the eva half of the combined pretrain (the eva blocks in
+# mecka_abc_pi_6d.yaml mirror this config) and its norm precompute.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian_wristframe_6d
+        extrinsics_key: abc_fold_viz
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('embodiment', '')) == 'eva_bimanual'"
+        - "lambda row: '/abc/' in str(row.get('zarr_processed_path', ''))"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+
+train_viz_datasets:
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: train
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+
+train_viz_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 2
+    shuffle: false
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 64
+    num_workers: 8
+
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 64
+    num_workers: 8
+    shuffle: false
