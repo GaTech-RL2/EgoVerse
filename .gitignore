@@ -41,6 +41,8 @@ external/scale/scripts/scale_data/
 *.zarr
 **/*.zarr
 .codex
+wandb/
+.claude/
 annotations/**
 annotations_test/**
 log_conversion/**
