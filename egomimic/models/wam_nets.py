@@ -21,6 +21,12 @@ FlowUniPCMultistepScheduler, WanVideoVAE, WanTextEncoder.
 import torch
 
 # --- WAN backbone (dreamzero) ----------------------------------------------
+# Explicit `as` re-export tells ruff to keep FlowMatchScheduler even though
+# nothing in this module uses it directly — egomimic.algo.wam and
+# egomimic.eval.eval_dreamzero import it via this path.
+from egomimic.models.wan.flow_match_scheduler import (
+    FlowMatchScheduler as FlowMatchScheduler,
+)
 from egomimic.models.wan.wan_video_dit import WanModel  # legacy (build_wan21_1_3b)
 from egomimic.models.wan.wan_video_dit_action_casual_chunk import CausalWanModel
 from egomimic.models.wan.wan_video_vae import WanVideoVAE, WanVideoVAE38
