@@ -42,6 +42,15 @@ class PIEvalVideo(EvalVideo):
                 total_loss = total_loss + loss_val
                 n_loss_embodiments += 1
 
+            # Subtask-prediction (hierarchical) val signals — CE loss + teacher-
+            # forced token accuracy. Computed by forward_eval; surfaced here.
+            sub_loss_key = f"{embodiment_name}_subtask_loss"
+            if sub_loss_key in preds:
+                metrics[f"Valid/{sub_loss_key}"] = preds[sub_loss_key]
+            sub_acc_key = f"{embodiment_name}_subtask_acc"
+            if sub_acc_key in preds:
+                metrics[f"Valid/{sub_acc_key}"] = preds[sub_acc_key]
+
             if pred_key in preds:
                 metrics[f"Valid/{pred_key}_paired_mse_avg"] = mse(
                     preds[pred_key].cpu(), _batch[ac_key].cpu()

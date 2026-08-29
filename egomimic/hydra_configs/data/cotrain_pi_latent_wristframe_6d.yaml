@@ -1,0 +1,43 @@
+defaults:
+  - cotrain_pi_latent
+  - _self_
+
+# Wrist-frame 6D-rotation latent eval. Same latent sampling (random/pairs/custom)
+# as cotrain_pi_latent, but the cartesian action chunk + proprio are expressed in
+# each wrist's local frame via the `cartesian_wristframe_6d` transform mode (the
+# continuous 6D rotation representation), matching how the wristframe6d_nonorm
+# checkpoints were trained. Pair with model=pi0.5_cotrain_eva_aria_6d and run with
+# `norm_stats.norm_mode=none` so the 6D rotation is NOT normalized (the
+# normalized-rot6d encoding defers all numeric normalization to the data pipeline,
+# which is governed entirely by norm_mode — training used none).
+#
+# This is the wristframe sibling of cotrain_pi_latent_6d (which uses cartesian_6d,
+# i.e. the cam/object-gen frame). Everything else (SafeS3EpisodeResolver,
+# cartesian_pi keymap, bad-eva-hash exclusions) is identical.
+_bad_eva_hashes: &bad_eva_hashes
+  - "2026-04-22-02-30-32-296000"
+
+train_datasets:
+  eva_bimanual:
+    exclude_hashes: *bad_eva_hashes
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.SafeS3EpisodeResolver
+      key_map: {keymap_mode: cartesian_pi}
+      transform_list: {mode: cartesian_wristframe_6d}
+  aria_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.SafeS3EpisodeResolver
+      key_map: {keymap_mode: cartesian_pi}
+      transform_list: {mode: cartesian_wristframe_6d}
+valid_datasets:
+  eva_bimanual:
+    exclude_hashes: *bad_eva_hashes
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.SafeS3EpisodeResolver
+      key_map: {keymap_mode: cartesian_pi}
+      transform_list: {mode: cartesian_wristframe_6d}
+  aria_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.SafeS3EpisodeResolver
+      key_map: {keymap_mode: cartesian_pi}
+      transform_list: {mode: cartesian_wristframe_6d}

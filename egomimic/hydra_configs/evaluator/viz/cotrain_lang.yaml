@@ -8,6 +8,22 @@ eva_bimanual:
 human_bimanual:
   _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
   _partial_: true
+  # cotrain_pi_lang uses keymap_mode=cartesian_pi, which names the front image
+  # `base_0_rgb` (not the `cartesian`-style observations.images.front_img_1).
+  image_key: base_0_rgb
+  action_key: actions_cartesian
+  mode: traj
+  annotation_key: annotations
+scale_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Scale.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_cartesian
+  mode: traj
+  annotation_key: annotations
+mecka_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Mecka.viz_gt_preds
+  _partial_: true
   image_key: observations.images.front_img_1
   action_key: actions_cartesian
   mode: traj
