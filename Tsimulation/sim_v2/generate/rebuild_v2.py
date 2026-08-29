@@ -151,64 +151,114 @@ def _open_writer(out_root: Path, agent: str, shape: str, image_size: int):
                           image_size=image_size)
 
 
+def _rollout(dm: SourceDemo, agent: str, image_size: int, render: bool):
+    """Replay one demo. Returns (reached_goal, object_path, pusher_path, frames).
+
+    ``frames`` is None when render=False. A headless rollout is bit-identical
+    to a rendered one -- both reset(seed=0) and reseed the control gap the same
+    way -- so a cheap headless pass can decide admission and only survivors pay
+    for rendering. Verified on ideal and jittery umi: signature delta 0.
+    """
+    env = PushShapesEnv(object_shape=dm.object_shape, pusher_shape=agent,
+                        obstacle_level=0, image_size=image_size)
+    env.reset(seed=0)
+    apply_source_control_gap(env, dm)
+    if not render:
+        env._skip_obs_render = True
+    env.set_state(object_pose=dm.object_pose, goal_pose=dm.goal_pose,
+                  agent_pos=(float(dm.agent_pos[0]), float(dm.agent_pos[1])),
+                  agent_angle=float(dm.agent_angle))
+    O, P, F = [], [], ([] if render else None)
+    ok = False
+    for a in dm.actions:
+        a = np.asarray(a, dtype=np.float64)
+        obs, r, term, _t, _i = env.step(a)
+        px, py = env.agent_pos
+        ox, oy, oth = env.object_pose
+        O.append((ox, oy)); P.append((px, py))
+        if render:
+            F.append((obs["image"], np.array([px, py, env.pusher_angle]),
+                      np.array([ox, oy, oth]),
+                      np.array([a[0], a[1], a[2] if len(a) > 2 else 0.0]),
+                      a, r, np.array(env.goal_pose)))
+        if term:
+            ok = True
+            break
+    return ok, np.asarray(O), np.asarray(P), F
+
+
+def _init_for(dm: SourceDemo, agent: str, image_size: int) -> dict:
+    env = PushShapesEnv(object_shape=dm.object_shape, pusher_shape=agent,
+                        obstacle_level=0, image_size=image_size)
+    env.reset(seed=0)
+    apply_source_control_gap(env, dm)
+    env.set_state(object_pose=dm.object_pose, goal_pose=dm.goal_pose,
+                  agent_pos=(float(dm.agent_pos[0]), float(dm.agent_pos[1])),
+                  agent_angle=float(dm.agent_angle))
+    init_state = env.get_episode_init()
+    if dm.control_gap_mode is not None:
+        init_state["control_gap_mode"] = dm.control_gap_mode
+    return init_state
+
+
 def render_admit(w, nf: NoveltyFilter, demos: list[SourceDemo], agent: str,
-                 image_size: int, stop_at: int | None = None) -> dict:
-    """Render, re-validate, and admit only behaviourally-new episodes.
+                 image_size: int, stop_at: int | None = None,
+                 prescreen: bool = True) -> dict:
+    """Admit only episodes that re-validate AND are behaviourally new.
 
-    Novelty is judged on the OBJECT path produced by THIS replay, not on the
-    commanded action path: two different command sequences that shove the
-    object along the same arc are the same demonstration as far as a policy
-    is concerned. Judging it here means sources and generated demos are held
-    to one criterion, on trajectories already known to re-validate.
+    Most GENERATED candidates are duplicates -- on ideal/L, 1946 of 2467 --
+    so admission is decided on a cheap headless rollout (~0.4s) and only
+    survivors pay to be rendered (~1.7s). Rendering first cost ~55 minutes of
+    pure waste on that cell alone. SOURCES skip the screen (prescreen=False):
+    they were already deduped at this radius, so nearly all are admitted and
+    screening them is pure overhead -- measured 372s for 120 source episodes.
 
-    Re-validation is not a formality for the noisy gaps. ``noise_std > 0``
+    Novelty is judged on the object path AND the effector path. The object
+    path alone is the task OUTCOME, and many different approaches produce the
+    same push: it reports PC95=3 where object+pusher reports 5.
+
+    Re-validation is not a formality for the noisy gaps: ``noise_std > 0``
     controllers were never seeded reproducibly in the collected data, so a
-    replay draws a FRESH noise sequence; roughly a third of those episodes
-    still reach the goal. Keeping only those is the honest option -- the
-    alternative is shipping episodes whose stored images do not match their
-    own actions.
+    replay draws a fresh noise sequence. Measured at scale this still keeps
+    99.8% of sources, but the ones it drops would otherwise ship with stored
+    images that do not match their own actions.
     """
     st = {"offered": len(demos), "failed_replay": 0, "rejected_dup": 0,
           "written": 0}
     for dm in demos:
         if stop_at is not None and len(nf) >= stop_at:
             break
-        env = PushShapesEnv(object_shape=dm.object_shape, pusher_shape=agent,
-                            obstacle_level=0, image_size=image_size)
-        env.reset(seed=0)
-        apply_source_control_gap(env, dm)
-        env.set_state(object_pose=dm.object_pose, goal_pose=dm.goal_pose,
-                      agent_pos=(float(dm.agent_pos[0]), float(dm.agent_pos[1])),
-                      agent_angle=float(dm.agent_angle))
-        init_state = env.get_episode_init()
-        if dm.control_gap_mode is not None:
-            init_state["control_gap_mode"] = dm.control_gap_mode
-        w.start_episode(init_state=init_state)
-        ok = False
-        path = []
-        ppath = []
-        for a in dm.actions:
-            a = np.asarray(a, dtype=np.float64)
-            obs, r, term, _t, _i = env.step(a)
-            px, py = env.agent_pos
-            ox, oy, oth = env.object_pose
-            path.append((ox, oy))
-            ppath.append((px, py))
-            w.add_step(image=obs["image"],
-                       pusher_obs_pose=np.array([px, py, env.pusher_angle]),
-                       object_obs_pose=np.array([ox, oy, oth]),
-                       pusher_cmd_pose=np.array([a[0], a[1],
-                                                 a[2] if len(a) > 2 else 0.0]),
-                       action=a, reward=r,
-                       goal_pose=np.array(env.goal_pose))
-            if term:
-                ok = True
-                break
-        if not (ok and w.steps_in_episode > 0):
-            w.abort_episode(); st["failed_replay"] += 1; continue
-        if not nf.offer_signature(behaviour_signature(path, ppath)):
-            w.abort_episode(); st["rejected_dup"] += 1; continue
-        w.commit_episode(); st["written"] += 1
+        if prescreen:
+            ok, O, P, _ = _rollout(dm, agent, image_size, render=False)
+            if not ok or len(O) == 0:
+                st["failed_replay"] += 1
+                continue
+            if not nf.offer_signature(behaviour_signature(O, P)):
+                st["rejected_dup"] += 1
+                continue
+            ok2, _O2, _P2, frames = _rollout(dm, agent, image_size, render=True)
+            if not ok2 or not frames:
+                # Cannot happen given headless/rendered determinism; guard
+                # rather than write a half-episode if that ever breaks.
+                st["failed_replay"] += 1
+                continue
+        else:
+            ok2, O, P, frames = _rollout(dm, agent, image_size, render=True)
+            if not ok2 or not frames:
+                st["failed_replay"] += 1
+                continue
+            if not nf.offer_signature(behaviour_signature(O, P)):
+                st["rejected_dup"] += 1
+                continue
+        w.start_episode(init_state=_init_for(dm, agent, image_size))
+        for img, pobs, oobs, cmd, act, rew, goal in frames:
+            w.add_step(image=img, pusher_obs_pose=pobs, object_obs_pose=oobs,
+                       pusher_cmd_pose=cmd, action=act, reward=rew,
+                       goal_pose=goal)
+        if w.steps_in_episode > 0:
+            w.commit_episode(); st["written"] += 1
+        else:
+            w.abort_episode(); st["failed_replay"] += 1
     return st
 
 
@@ -288,7 +338,8 @@ def process_cell(cell: Path, src_root: Path, out_root: Path, *,
 
     w = _open_writer(Path(out_root) / gap_dir, agent, shape, image_size)
     nf = NoveltyFilter(min_distance=novelty)
-    st = render_admit(w, nf, sources, agent, image_size, stop_at=target)
+    st = render_admit(w, nf, sources, agent, image_size, stop_at=target,
+                      prescreen=False)
     st["from_source"] = st["written"]
 
     # Adaptive exploration schedule.
