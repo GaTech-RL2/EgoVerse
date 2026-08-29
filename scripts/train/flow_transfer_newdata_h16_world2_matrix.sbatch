@@ -53,7 +53,10 @@ LAUNCHER=$REPO/scripts/train/flow_transfer_newdata_h16_world2_matrix.sbatch
 VERIFIER=$REPO/egomimic/scripts/verify_training_smoke.py
 U_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
 CHAIN_BASE_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
-CHAIN_GEN_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen
+CHAIN_GEN_LIVE_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen
+# The current temporal arm consumes the immutable 719-episode view directly.
+# Historical DP/latent arms retain their original live-root + filter contract.
+CHAIN_GEN_FROZEN_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen_flow_transfer_frozen719_20260829
 EXCLUDED_CHAIN_EPISODE=episode_T_chain_gripper_obs7_000050
 EXCLUDED_CHAIN_FOLDER=${EXCLUDED_CHAIN_EPISODE}.zarr
 EXCLUDED_CHAIN_FRAMES=3118
@@ -65,12 +68,21 @@ SRUN=$SLURM_BIN/srun
 case "$ARM" in
   dp)
     EXPERIMENT=pusht/pipeline_diffusion_usocket_chain_newdata_h16
+    CHAIN_GEN_DATA=$CHAIN_GEN_LIVE_DATA
+    CHAIN_EXCLUDED_FOLDER=$EXCLUDED_CHAIN_FOLDER
+    CHAIN_EXCLUDED_FRAMES=$EXCLUDED_CHAIN_FRAMES
     ;;
   latent_h16)
     EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16
+    CHAIN_GEN_DATA=$CHAIN_GEN_LIVE_DATA
+    CHAIN_EXCLUDED_FOLDER=$EXCLUDED_CHAIN_FOLDER
+    CHAIN_EXCLUDED_FRAMES=$EXCLUDED_CHAIN_FRAMES
     ;;
   temporal_h8_l8)
     EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec64_per_emb_proprio
+    CHAIN_GEN_DATA=$CHAIN_GEN_FROZEN_DATA
+    CHAIN_EXCLUDED_FOLDER=
+    CHAIN_EXCLUDED_FRAMES=0
     ;;
   *)
     printf 'Unknown ARM=%s; expected dp, latent_h16, or temporal_h8_l8\n' "$ARM" >&2
@@ -187,8 +199,8 @@ validate_all_inventories() {
     "$EXPECTED_CHAIN_GEN_COUNT"
   "$PY_ENV/bin/python" - \
     "$U_EPISODE_METADATA" "$CHAIN_BASE_EPISODE_METADATA" \
-    "$CHAIN_GEN_EPISODE_METADATA" "$EXCLUDED_CHAIN_FOLDER" \
-    "$EXCLUDED_CHAIN_FRAMES" "$EXPECTED_U_TRAIN_FRAMES" \
+    "$CHAIN_GEN_EPISODE_METADATA" "$CHAIN_EXCLUDED_FOLDER" \
+    "$CHAIN_EXCLUDED_FRAMES" "$EXPECTED_U_TRAIN_FRAMES" \
     "$EXPECTED_CHAIN_TRAIN_FRAMES" <<'PY'
 import pathlib
 import sys
@@ -220,7 +232,10 @@ gen_frames = frames_by_episode(chain_gen_metadata_arg)
 excluded_frames = int(excluded_frames_arg)
 assert sum(u_frames.values()) == int(expected_u_frames_arg)
 assert excluded_folder not in base_frames
-assert gen_frames.get(excluded_folder) == excluded_frames
+if excluded_folder:
+    assert gen_frames.get(excluded_folder) == excluded_frames
+else:
+    assert excluded_frames == 0
 effective_chain_frames = sum(base_frames.values()) + sum(gen_frames.values()) - excluded_frames
 assert effective_chain_frames == int(expected_chain_frames_arg), (
     effective_chain_frames,
@@ -406,13 +421,20 @@ python -m egomimic.trainHydra "${COMMON_OVERRIDES[@]}" \
   --cfg job --resolve > "$RESOLVED_CONFIG"
 python - \
   "$RESOLVED_CONFIG" "$ARM" "$NORM_ARTIFACT" "$RUN_DIR" \
-  "$EXCLUDED_CHAIN_EPISODE" <<'PY'
+  "$EXCLUDED_CHAIN_EPISODE" "$CHAIN_GEN_DATA" <<'PY'
 import pathlib
 import sys
 
 from omegaconf import OmegaConf
 
-path, arm, norm_artifact, run_dir, excluded_chain_episode = sys.argv[1:]
+(
+    path,
+    arm,
+    norm_artifact,
+    run_dir,
+    excluded_chain_episode,
+    expected_chain_gen_root,
+) = sys.argv[1:]
 cfg = OmegaConf.load(path)
 model = cfg.model.robomimic_model
 expected_chain_filter = (
@@ -473,16 +495,19 @@ assert all(
 )
 for split in ("train_datasets", "valid_datasets"):
     chain_dataset = cfg.data[split].pushshapes_sim_chain_gripper
-    filters = chain_dataset.filters
-    assert filters._target_ == "egomimic.rldb.filters.DatasetFilter"
-    assert list(filters.filter_lambdas) == [expected_chain_filter]
+    if arm == "temporal_h8_l8":
+        assert "filters" not in chain_dataset
+    else:
+        filters = chain_dataset.filters
+        assert filters._target_ == "egomimic.rldb.filters.DatasetFilter"
+        assert list(filters.filter_lambdas) == [expected_chain_filter]
 for domain in model.domains:
     assert cfg.data.train_dataloader_params[domain].batch_size == 32
     assert cfg.data.valid_dataloader_params[domain].batch_size == 16
 chain = cfg.data.train_datasets.pushshapes_sim_chain_gripper.resolver
 assert list(chain.folder_paths) == [
     "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2",
-    "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen",
+    expected_chain_gen_root,
 ]
 assert cfg.evaluator._target_.endswith("HumanRobotOverlayEval")
 assert "arc_length" not in pathlib.Path(path).read_text().lower()

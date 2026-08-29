@@ -688,6 +688,28 @@ def test_newdata_cotrain_configs_are_h16_world2_and_config_only(
             assert policy.action_horizon == 16
 
 
+@pytest.mark.parametrize(
+    "experiment",
+    [
+        "pusht/pipeline_sampler_usocket_chain_newdata_cotrain12_per_emb_proprio_h16",
+        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec64_per_emb_proprio",
+    ],
+)
+def test_current_flow_transfer_configs_use_frozen719_without_filter(
+    experiment: str,
+) -> None:
+    cfg = _compose(experiment)
+    expected_roots = [
+        "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2",
+        "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/"
+        "chain_gripper_gen_flow_transfer_frozen719_20260829",
+    ]
+    for split in ("train_datasets", "valid_datasets"):
+        chain = cfg.data[split].pushshapes_sim_chain_gripper
+        assert list(chain.resolver.folder_paths) == expected_roots
+        assert "filters" not in chain
+
+
 def test_temporal_compression_config_denoises_h8_l8_and_outputs_native_h16() -> None:
     cfg = _compose(
         "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec64_per_emb_proprio"
@@ -750,6 +772,12 @@ def test_temporal_compression_config_denoises_h8_l8_and_outputs_native_h16() -> 
         assert (
             datasets.pushshapes_sim_chain_gripper.resolver.key_map.action_horizon == 16
         )
+        assert list(datasets.pushshapes_sim_chain_gripper.resolver.folder_paths) == [
+            "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2",
+            "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/"
+            "chain_gripper_gen_flow_transfer_frozen719_20260829",
+        ]
+        assert "filters" not in datasets.pushshapes_sim_chain_gripper
         assert datasets.pushshapes_sim_u_socket.resolver.key_map._target_.endswith(
             "get_keymap_hpt_per_emb_proprio"
         )
@@ -822,6 +850,15 @@ def test_newdata_world2_launcher_is_smoke_only_and_fail_closed() -> None:
     assert 'u_decoder._target_.endswith("TemporalConvActionDecoder")' in launcher
     assert "u_decoder.num_layers == chain_decoder.num_layers == 4" in launcher
     assert "sampler.decoder_type" not in launcher
+    assert (
+        "CHAIN_GEN_FROZEN_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/"
+        "chain_gripper_gen_flow_transfer_frozen719_20260829"
+    ) in launcher
+    assert "CHAIN_GEN_DATA=$CHAIN_GEN_FROZEN_DATA" in launcher
+    assert "CHAIN_EXCLUDED_FRAMES=0" in launcher
+    assert 'if arm == "temporal_h8_l8":' in launcher
+    assert 'assert "filters" not in chain_dataset' in launcher
+    assert '"$EXCLUDED_CHAIN_EPISODE" "$CHAIN_GEN_DATA"' in launcher
     assert 'test -z "$(git -C "$REPO" status --porcelain=v1' in launcher
     assert launcher.count("validate_all_inventories") >= 3
     assert 'episode / "zarr.json"' in launcher

@@ -1,9 +1,8 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
-# Frozen launch-candidate contract: chain_gripper_gen physically contains 720
-# episodes, while this training recipe intentionally selects 719 after the
-# audited idle-heavy episode exclusion below. Final normalization statistics
-# and launch inventories must be computed against that same filtered corpus.
+# Frozen launch contract: the generated-Chain snapshot view contains exactly
+# 719 audited episodes and is isolated from later additions to the live root.
+# Normalization and launch inventories must use this exact unfiltered view.
 #
 # Both ChainGripper roots resolve into one logical domain. MultiDataset samples
 # their combined frame/window index rather than weighting source roots 50/50.
@@ -28,7 +27,7 @@ train_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverManyWithEmbodimentOverride
       folder_paths: &chain_roots
         - /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
-        - /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen
+        - /coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen_flow_transfer_frozen719_20260829
       embodiment_override: pushshapes_sim_chain_gripper
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt_per_emb_proprio
@@ -37,13 +36,6 @@ train_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_transform_list
         world_size: 512.0
-    # Keep the immutable source dataset intact while excluding the audited
-    # idle-heavy obstacle episode from this training recipe. Local resolvers
-    # normalize directory names to episode_hash without the `.zarr` suffix.
-    filters: &chain_episode_filter
-      _target_: egomimic.rldb.filters.DatasetFilter
-      filter_lambdas:
-        - "lambda row: row.get('episode_hash') != 'episode_T_chain_gripper_obs7_000050'"
     mode: train
     valid_ratio: 0.0
     bounds_check: false
@@ -76,7 +68,6 @@ valid_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.pushshapes.get_chain_gripper_point_transform_list
         world_size: 512.0
-    filters: *chain_episode_filter
     mode: valid
     valid_ratio: 0.02
     bounds_check: false

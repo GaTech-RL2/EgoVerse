@@ -16,7 +16,7 @@ def test_newdata_h16_norm_launcher_has_valid_bash_syntax() -> None:
 
 def test_newdata_h16_norm_launcher_embedded_python_compiles() -> None:
     blocks = findall(r"<<'PY'\n(.*?)\nPY", LAUNCHER.read_text(), flags=DOTALL)
-    assert len(blocks) >= 6
+    assert len(blocks) >= 5
     for index, block in enumerate(blocks):
         compile(block, f"{LAUNCHER.name}:heredoc-{index}", "exec")
 
@@ -36,19 +36,22 @@ def test_temporal_per_emb_proprio_norm_launcher_is_exact_and_fail_closed() -> No
         "EXPECTED_CHAIN_GEN_COUNT=${EXPECTED_CHAIN_GEN_COUNT:?",
         "EXPECTED_CHAIN_GEN_INVENTORY_SHA=${EXPECTED_CHAIN_GEN_INVENTORY_SHA:?",
         "EXPECTED_CHAIN_GEN_SOURCE_FRAMES=${EXPECTED_CHAIN_GEN_SOURCE_FRAMES:?",
-        "EXPECTED_CHAIN_GEN_TRAIN_FRAMES=${EXPECTED_CHAIN_GEN_TRAIN_FRAMES:?",
     ):
         assert contract in launcher
 
     assert "EXPECTED_ACTION_HORIZON=16" in launcher
-    assert "EXCLUDED_CHAIN_GEN_EPISODE=episode_T_chain_gripper_obs7_000050" in launcher
-    assert 'test "$EXPECTED_CHAIN_GEN_COUNT" = 720' in launcher
-    assert 'test "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES" = 309709' in launcher
-    assert 'test "$EXPECTED_CHAIN_GEN_TRAIN_FRAMES" = 306591' in launcher
-    assert "verify_effective_chain_gen" in launcher
-    assert "chain_gen_effective_inventory.txt" in launcher
-    assert '"effective_chain_train_episode_count"' in launcher
-    assert '"chain_effective_train_episodes"' in launcher
+    assert 'test "$EXPECTED_CHAIN_GEN_COUNT" = 719' in launcher
+    assert 'test "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES" = 306591' in launcher
+    assert (
+        "CHAIN_GEN_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/"
+        "chain_gripper_gen_flow_transfer_frozen719_20260829"
+    ) in launcher
+    assert "EXPECTED_CHAIN_GEN_TRAIN_FRAMES" not in launcher
+    assert "EXCLUDED_CHAIN_GEN" not in launcher
+    assert "verify_effective_chain_gen" not in launcher
+    assert "chain_gen_effective_inventory.txt" not in launcher
+    assert '"chain_train_episode_count"' in launcher
+    assert '"chain_train_episodes"' in launcher
     assert (
         "COTRAIN12_EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_"
         "cotrain12_per_emb_proprio_h16"
@@ -93,11 +96,11 @@ def test_temporal_per_emb_proprio_norm_launcher_is_exact_and_fail_closed() -> No
     assert "resolved_latent_h16_config.yaml" not in launcher
     assert "get_keymap_hpt_per_emb_proprio" in launcher
     assert "get_usocket_rotvec_action_state_transform_list" in launcher
-    assert 'filters._target_ == "egomimic.rldb.filters.DatasetFilter"' in launcher
-    assert "row.get('episode_hash')" in launcher
-    assert "'episode_T_chain_gripper_obs7_000050'" in launcher
+    assert 'assert "filters" not in chain_dataset' in launcher
+    assert "DatasetFilter" not in launcher
+    assert "episode_T_chain_gripper_obs7_000050" not in launcher
     assert (
-        'expected_frames = {"19": u_frames, "20": base_frames + gen_train_frames}'
+        'expected_frames = {"19": u_frames, "20": base_frames + gen_source_frames}'
         in launcher
     )
     assert '"19": {"state_agent_model": 4, "actions": 4}' in launcher
@@ -109,7 +112,6 @@ def test_temporal_per_emb_proprio_norm_launcher_is_exact_and_fail_closed() -> No
         "usocket_inventory.txt",
         "chain_base_inventory.txt",
         "chain_gen_inventory.txt",
-        "chain_gen_effective_inventory.txt",
     ):
         assert f'"$OUT/provenance/inventories/before/{inventory}"' in launcher
     assert "\nsbatch " not in launcher

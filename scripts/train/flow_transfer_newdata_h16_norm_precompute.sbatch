@@ -20,7 +20,6 @@ EXPECTED_CHAIN_BASE_TRAIN_FRAMES=${EXPECTED_CHAIN_BASE_TRAIN_FRAMES:?set the exa
 EXPECTED_CHAIN_GEN_COUNT=${EXPECTED_CHAIN_GEN_COUNT:?set the exact generated-Chain episode count}
 EXPECTED_CHAIN_GEN_INVENTORY_SHA=${EXPECTED_CHAIN_GEN_INVENTORY_SHA:?set the sorted generated-Chain inventory SHA256}
 EXPECTED_CHAIN_GEN_SOURCE_FRAMES=${EXPECTED_CHAIN_GEN_SOURCE_FRAMES:?set the exact physical generated-Chain frame count}
-EXPECTED_CHAIN_GEN_TRAIN_FRAMES=${EXPECTED_CHAIN_GEN_TRAIN_FRAMES:?set the effective generated-Chain train-frame count after filtering}
 
 REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-temporal-compression-20260829
 PY_ENV=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv
@@ -29,13 +28,10 @@ EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_temporal_h8_l8_world2
 SCRIPT=$REPO/scripts/train/flow_transfer_newdata_h16_norm_precompute.sbatch
 U_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
 CHAIN_BASE_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2
-CHAIN_GEN_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen
+CHAIN_GEN_DATA=/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen_flow_transfer_frozen719_20260829
 COTRAIN12_EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_cotrain12_per_emb_proprio_h16
 TEMPORAL_EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec64_per_emb_proprio
 EXPECTED_ACTION_HORIZON=16
-EXCLUDED_CHAIN_GEN_EPISODE=episode_T_chain_gripper_obs7_000050
-EXCLUDED_CHAIN_GEN_FOLDER=${EXCLUDED_CHAIN_GEN_EPISODE}.zarr
-EXCLUDED_CHAIN_GEN_FRAMES=3118
 SLURM_BIN=/opt/slurm/Ubuntu-20.04/24.11.0/bin
 export PATH=$SLURM_BIN:$PATH
 
@@ -146,60 +142,6 @@ print(
 PY
 }
 
-verify_effective_chain_gen() {
-  local inventory=$1
-  local metadata=$2
-  local effective_inventory=$3
-
-  "$PY_ENV/bin/python" - \
-    "$inventory" "$metadata" "$effective_inventory" \
-    "$EXCLUDED_CHAIN_GEN_FOLDER" "$EXCLUDED_CHAIN_GEN_FRAMES" \
-    "$EXPECTED_CHAIN_GEN_COUNT" "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES" \
-    "$EXPECTED_CHAIN_GEN_TRAIN_FRAMES" <<'PY'
-import pathlib
-import sys
-
-(
-    inventory_arg,
-    metadata_arg,
-    effective_inventory_arg,
-    excluded_folder,
-    excluded_frames_arg,
-    expected_source_count_arg,
-    expected_source_frames_arg,
-    expected_train_frames_arg,
-) = sys.argv[1:]
-inventory = pathlib.Path(inventory_arg).read_text().splitlines()
-metadata_rows = pathlib.Path(metadata_arg).read_text().splitlines()
-excluded_frames = int(excluded_frames_arg)
-expected_source_count = int(expected_source_count_arg)
-expected_source_frames = int(expected_source_frames_arg)
-expected_train_frames = int(expected_train_frames_arg)
-
-assert len(inventory) == expected_source_count
-assert inventory.count(excluded_folder) == 1
-frames_by_episode = {}
-for row in metadata_rows:
-    episode, frames, _metadata_sha = row.split("\t")
-    frames_by_episode[episode] = int(frames)
-assert set(frames_by_episode) == set(inventory)
-assert sum(frames_by_episode.values()) == expected_source_frames
-assert frames_by_episode[excluded_folder] == excluded_frames
-
-effective = [name for name in inventory if name != excluded_folder]
-assert len(effective) == expected_source_count - 1
-assert sum(frames_by_episode[name] for name in effective) == expected_train_frames
-assert expected_source_frames - expected_train_frames == excluded_frames
-pathlib.Path(effective_inventory_arg).write_text(
-    "".join(f"{name}\n" for name in effective)
-)
-print(
-    f"[inventory] chain_gen_effective episodes={len(effective)} "
-    f"frames={expected_train_frames} excluded={excluded_folder}"
-)
-PY
-}
-
 scan_all() {
   local phase=$1
   local destination=$OUT/provenance/inventories/$phase
@@ -222,10 +164,6 @@ scan_all() {
     "$destination/chain_gen_episode_metadata.tsv" \
     "$EXPECTED_CHAIN_GEN_COUNT" "$EXPECTED_CHAIN_GEN_INVENTORY_SHA" \
     "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES"
-  verify_effective_chain_gen \
-    "$destination/chain_gen_inventory.txt" \
-    "$destination/chain_gen_episode_metadata.tsv" \
-    "$destination/chain_gen_effective_inventory.txt"
 }
 
 test -x "$PY_ENV/bin/python"
@@ -241,12 +179,8 @@ is_positive_integer "$EXPECTED_CHAIN_GEN_COUNT"
 is_positive_integer "$EXPECTED_U_TRAIN_FRAMES"
 is_positive_integer "$EXPECTED_CHAIN_BASE_TRAIN_FRAMES"
 is_positive_integer "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES"
-is_positive_integer "$EXPECTED_CHAIN_GEN_TRAIN_FRAMES"
-test "$EXPECTED_CHAIN_GEN_COUNT" = 720
-test "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES" = 309709
-test "$EXPECTED_CHAIN_GEN_TRAIN_FRAMES" = 306591
-test "$((EXPECTED_CHAIN_GEN_SOURCE_FRAMES - EXPECTED_CHAIN_GEN_TRAIN_FRAMES))" \
-  = "$EXCLUDED_CHAIN_GEN_FRAMES"
+test "$EXPECTED_CHAIN_GEN_COUNT" = 719
+test "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES" = 306591
 test "${SLURM_RESTART_COUNT:-0}" = 0
 test "${SLURM_JOB_NUM_NODES:?}" = 1
 test "${SLURM_NTASKS:?}" = 1
@@ -281,9 +215,7 @@ scan_all before
   "$EXPECTED_CHAIN_BASE_COUNT" "$EXPECTED_CHAIN_BASE_INVENTORY_SHA" \
   "$EXPECTED_CHAIN_BASE_TRAIN_FRAMES" \
   "$EXPECTED_CHAIN_GEN_COUNT" "$EXPECTED_CHAIN_GEN_INVENTORY_SHA" \
-  "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES" \
-  "$EXPECTED_CHAIN_GEN_TRAIN_FRAMES" \
-  "$EXCLUDED_CHAIN_GEN_EPISODE" "$EXCLUDED_CHAIN_GEN_FRAMES" <<'PY'
+  "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES" <<'PY'
 import json
 import pathlib
 import sys
@@ -301,9 +233,6 @@ import sys
     gen_count,
     gen_sha,
     gen_source_frames,
-    gen_train_frames,
-    excluded_gen_episode,
-    excluded_gen_frames,
 ) = sys.argv[1:]
 payload = {
     "expected_head": head,
@@ -323,7 +252,7 @@ payload = {
         "19": {"state_agent_model": 4, "actions": 4},
         "20": {"state_agent_model": 6, "actions": 6},
     },
-    "effective_chain_train_episode_count": int(base_count) + int(gen_count) - 1,
+    "chain_train_episode_count": int(base_count) + int(gen_count),
     "datasets": {
         "usocket": {
             "count": int(u_count),
@@ -336,13 +265,9 @@ payload = {
             "frames": int(base_frames),
         },
         "chain_gen": {
-            "source_count": int(gen_count),
-            "effective_train_count": int(gen_count) - 1,
+            "count": int(gen_count),
             "inventory_sha256": gen_sha,
-            "source_frames": int(gen_source_frames),
-            "effective_train_frames": int(gen_train_frames),
-            "excluded_episode": excluded_gen_episode,
-            "excluded_episode_frames": int(excluded_gen_frames),
+            "frames": int(gen_source_frames),
         },
     },
 }
@@ -404,12 +329,8 @@ expected_domains = {
 }
 expected_roots = [
     "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_3000_v2",
-    "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen",
+    "/coc/flash7/paphiwetsa3/datasets/Tsim_v2/chain_gripper_gen_flow_transfer_frozen719_20260829",
 ]
-expected_exclusion = (
-    "lambda row: row.get('episode_hash') != "
-    "'episode_T_chain_gripper_obs7_000050'"
-)
 
 assert cfg.seed == 42
 assert cfg.mode == "norm_stats"
@@ -429,9 +350,7 @@ assert all(
 for split_name in ("train_datasets", "valid_datasets"):
     split = cfg.data[split_name]
     chain_dataset = split.pushshapes_sim_chain_gripper
-    filters = chain_dataset.filters
-    assert filters._target_ == "egomimic.rldb.filters.DatasetFilter"
-    assert list(filters.filter_lambdas) == [expected_exclusion]
+    assert "filters" not in chain_dataset
 
     for dataset in split.values():
         assert dataset.resolver.key_map.action_horizon == horizon
@@ -492,9 +411,7 @@ python - \
   "$EXPECTED_U_TRAIN_FRAMES" \
   "$EXPECTED_CHAIN_BASE_TRAIN_FRAMES" \
   "$EXPECTED_CHAIN_GEN_SOURCE_FRAMES" \
-  "$EXPECTED_CHAIN_GEN_TRAIN_FRAMES" \
-  "$EXPECTED_CHAIN_BASE_COUNT" "$EXPECTED_CHAIN_GEN_COUNT" \
-  "$EXCLUDED_CHAIN_GEN_EPISODE" <<'PY'
+  "$EXPECTED_CHAIN_BASE_COUNT" "$EXPECTED_CHAIN_GEN_COUNT" <<'PY'
 import hashlib
 import json
 import math
@@ -507,11 +424,9 @@ action_horizon = int(sys.argv[3])
 u_frames = int(sys.argv[4])
 base_frames = int(sys.argv[5])
 gen_source_frames = int(sys.argv[6])
-gen_train_frames = int(sys.argv[7])
-base_source_count = int(sys.argv[8])
-gen_source_count = int(sys.argv[9])
-excluded_gen_episode = sys.argv[10]
-expected_frames = {"19": u_frames, "20": base_frames + gen_train_frames}
+base_source_count = int(sys.argv[7])
+gen_source_count = int(sys.argv[8])
+expected_frames = {"19": u_frames, "20": base_frames + gen_source_frames}
 
 raw = artifact.read_bytes()
 payload = json.loads(raw)
@@ -586,15 +501,12 @@ output.write_text(
             "per_source_train_frames": {
                 "usocket": u_frames,
                 "chain_base": base_frames,
-                "chain_gen": gen_train_frames,
+                "chain_gen": gen_source_frames,
             },
             "chain_gen_source_frames": gen_source_frames,
             "chain_gen_source_episodes": gen_source_count,
-            "chain_gen_effective_train_episodes": gen_source_count - 1,
-            "chain_effective_train_episodes": (
-                base_source_count + gen_source_count - 1
-            ),
-            "excluded_chain_gen_episode": excluded_gen_episode,
+            "chain_gen_train_episodes": gen_source_count,
+            "chain_train_episodes": base_source_count + gen_source_count,
             "per_embodiment_train_frames": expected_frames,
             "total_train_frames": payload["frames"],
             "sample_frac": 1.0,
@@ -620,9 +532,6 @@ for label in usocket chain_base chain_gen; do
     "$OUT/provenance/inventories/before/${label}_episode_metadata.tsv" \
     "$OUT/provenance/inventories/after/${label}_episode_metadata.tsv"
 done
-cmp -s \
-  "$OUT/provenance/inventories/before/chain_gen_effective_inventory.txt" \
-  "$OUT/provenance/inventories/after/chain_gen_effective_inventory.txt"
 
 test "$(git -C "$REPO" rev-parse HEAD)" = "$EXPECTED_HEAD"
 test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
@@ -647,7 +556,6 @@ chmod 0444 \
   "$OUT/provenance/inventories/before/usocket_inventory.txt" \
   "$OUT/provenance/inventories/before/chain_base_inventory.txt" \
   "$OUT/provenance/inventories/before/chain_gen_inventory.txt" \
-  "$OUT/provenance/inventories/before/chain_gen_effective_inventory.txt" \
   "$OUT/provenance/inventories/before/"*_episode_metadata.tsv \
   "$OUT/provenance/inventories/after/"*
 
