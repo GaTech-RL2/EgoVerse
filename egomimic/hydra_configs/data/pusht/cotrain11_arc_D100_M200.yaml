@@ -1,0 +1,448 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# ARC: planar SE(2)+grip tokens, D=100 M=200 -> (200+1, 5) per chunk.
+#
+# 11-embodiment PushShapes co-train. HELD OUT: circle_small, suction.
+#   circle_small is mechanically near-identical to circle (2-D pusher, similar
+#   path length) -> interpolation probe, expected to transfer.
+#   suction is the one non-pushing mechanism (grip latch, ~1067-frame
+#   episodes) -> extrapolation probe, expected not to.
+# Effectors emit 2, 3 or 4 native action channels; every recipe here widens
+# them to a shared [x, y, cos, sin, grip] so one action head serves all 11 and
+# the dense/arc comparison is not confounded by a change of action space.
+
+train_datasets:
+  pushshapes_sim_L:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/L/T
+      embodiment_override: pushshapes_sim_L
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/chain_gripper/T
+      embodiment_override: pushshapes_sim_chain_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/circle/T
+      embodiment_override: pushshapes_sim_circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_flipper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/flipper/T
+      embodiment_override: pushshapes_sim_flipper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/gripper/T
+      embodiment_override: pushshapes_sim_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_scoop:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/scoop/T
+      embodiment_override: pushshapes_sim_scoop
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_spring:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/spring/T
+      embodiment_override: pushshapes_sim_spring
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_stick:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/stick/T
+      embodiment_override: pushshapes_sim_stick
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_triangle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/triangle/T
+      embodiment_override: pushshapes_sim_triangle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/u_socket/T
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_umi:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/umi/T
+      embodiment_override: pushshapes_sim_umi
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_L:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/L/T
+      embodiment_override: pushshapes_sim_L
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/chain_gripper/T
+      embodiment_override: pushshapes_sim_chain_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/circle/T
+      embodiment_override: pushshapes_sim_circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_flipper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/flipper/T
+      embodiment_override: pushshapes_sim_flipper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/gripper/T
+      embodiment_override: pushshapes_sim_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_scoop:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/scoop/T
+      embodiment_override: pushshapes_sim_scoop
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_spring:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/spring/T
+      embodiment_override: pushshapes_sim_spring
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_stick:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/stick/T
+      embodiment_override: pushshapes_sim_stick
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_triangle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/triangle/T
+      embodiment_override: pushshapes_sim_triangle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/u_socket/T
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+  pushshapes_sim_umi:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/umi/T
+      embodiment_override: pushshapes_sim_umi
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 100.0
+        resampled_vector_length: 200
+        dt: 0.03333333333333333
+        rotation_radius: 40.0
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+
+train_dataloader_params:
+  pushshapes_sim_L: &train_loader
+    batch_size: 16
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+  pushshapes_sim_chain_gripper: *train_loader
+  pushshapes_sim_circle: *train_loader
+  pushshapes_sim_flipper: *train_loader
+  pushshapes_sim_gripper: *train_loader
+  pushshapes_sim_scoop: *train_loader
+  pushshapes_sim_spring: *train_loader
+  pushshapes_sim_stick: *train_loader
+  pushshapes_sim_triangle: *train_loader
+  pushshapes_sim_u_socket: *train_loader
+  pushshapes_sim_umi: *train_loader
+
+valid_dataloader_params:
+  pushshapes_sim_L: &valid_loader
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+  pushshapes_sim_chain_gripper: *valid_loader
+  pushshapes_sim_circle: *valid_loader
+  pushshapes_sim_flipper: *valid_loader
+  pushshapes_sim_gripper: *valid_loader
+  pushshapes_sim_scoop: *valid_loader
+  pushshapes_sim_spring: *valid_loader
+  pushshapes_sim_stick: *valid_loader
+  pushshapes_sim_triangle: *valid_loader
+  pushshapes_sim_u_socket: *valid_loader
+  pushshapes_sim_umi: *valid_loader
