@@ -29,6 +29,7 @@ Rules:
 - Keep each variant grammatical, concise (under 25 words), and natural.
 - Every string must be a valid standalone instruction a robot could follow.
 - Variants that drop information must still fully describe the core action and object.
+- NEVER drop or generalize the object's descriptors. Keep its color, material, size, and every modifier exactly as in the original (e.g. keep "the blue stuffed animal" as "the blue stuffed animal"; never shorten it to "the stuffed animal" or drop "blue"). Only arm, placement/orientation, and grabbing-method information may be omitted — per the variant types above; the object's identity and descriptors are never omittable.
 - Do not include the original instruction in the output; the caller will add it back.
 - Return only the JSON array, e.g. ["variant one", "variant two"].
 - Ensure there are exactly 12 variants total, each from the types listed above. Only 3 variants should include full information. 

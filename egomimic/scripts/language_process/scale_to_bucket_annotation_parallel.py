@@ -72,10 +72,13 @@ def _make_converter(
     annotation_dir: str,
     prompt_filepath: str,
     augment_prompt_filepath: str | None = None,
+    sort_prompt_filepath: str | None = None,
+    sort_augment_prompt_filepath: str | None = None,
 ):
     from egomimic.scripts.language_process.converter import (
         HardCodedConverter,
         PickPlaceLLMConverter,
+        SortConverter,
     )
 
     if conversion_mode == "pick_place_llm":
@@ -83,6 +86,16 @@ def _make_converter(
             annotation_dir,
             prompt_filepath,
             augment_prompt_filepath=augment_prompt_filepath,
+        )
+    elif conversion_mode == "sort_llm":
+        # High-level sort text is read from the annotation's "Sorting" track;
+        # sort_prompt_filepath is only an optional LLM-generation fallback.
+        return SortConverter(
+            annotation_dir,
+            prompt_filepath,
+            sort_prompt_filepath,
+            augment_prompt_filepath=augment_prompt_filepath,
+            sort_augment_prompt_filepath=sort_augment_prompt_filepath,
         )
     elif conversion_mode == "hardcoded":
         return HardCodedConverter(annotation_dir)
@@ -102,6 +115,8 @@ def process_episode(
     annotation_key: str = "annotations",
     overwrite: bool = False,
     augment_prompt_filepath: str | None = None,
+    sort_prompt_filepath: str | None = None,
+    sort_augment_prompt_filepath: str | None = None,
 ) -> str:
     """Self-contained Ray task: download, convert, and upload one episode's annotations."""
     from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client
@@ -121,6 +136,8 @@ def process_episode(
         scale_annotation_dir,
         prompt_filepath,
         augment_prompt_filepath=augment_prompt_filepath,
+        sort_prompt_filepath=sort_prompt_filepath,
+        sort_augment_prompt_filepath=sort_augment_prompt_filepath,
     )
     annotations = converter.convert(tid)
 
@@ -162,13 +179,25 @@ if __name__ == "__main__":
         "--conversion-mode",
         type=str,
         required=True,
-        choices=["pick_place_llm", "hardcoded"],
+        choices=["pick_place_llm", "sort_llm", "hardcoded"],
     )
     parser.add_argument(
         "-s", "--scale-api-key", default=os.environ.get("SCALE_API_KEY", "")
     )
     parser.add_argument("--prompt-filepath", type=str, required=True)
     parser.add_argument("--augment-prompt-filepath", type=str, default=None)
+    parser.add_argument(
+        "--sort-prompt-filepath",
+        type=str,
+        default=None,
+        help="High-level sort instruction prompt (required for --conversion-mode sort_llm).",
+    )
+    parser.add_argument(
+        "--sort-augment-prompt-filepath",
+        type=str,
+        default=None,
+        help="High-level sort augmentation prompt (optional, used by sort_llm).",
+    )
     parser.add_argument("--annotation-key", type=str, default="annotations")
     parser.add_argument(
         "--bucket",
@@ -284,6 +313,8 @@ if __name__ == "__main__":
             annotation_key=args.annotation_key,
             overwrite=args.overwrite,
             augment_prompt_filepath=args.augment_prompt_filepath,
+            sort_prompt_filepath=args.sort_prompt_filepath,
+            sort_augment_prompt_filepath=args.sort_augment_prompt_filepath,
         )
         pending[ref] = ep_hash
 
