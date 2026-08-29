@@ -690,37 +690,74 @@ def test_newdata_cotrain_configs_are_h16_world2_and_config_only(
 
 def test_temporal_compression_config_denoises_h8_l8_and_outputs_native_h16() -> None:
     cfg = _compose(
-        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32"
+        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32_per_emb_proprio"
     )
     model = cfg.model.robomimic_model
-    noise = model.stages[1]
-    sampler = model.stages[2]
+    projection = model.stages[0]
+    fused = model.stages[1]
+    noise = model.stages[2]
+    sampler = model.stages[3]
+    decoder = model.stages[4]
     denoiser = sampler.denoising_module
 
     assert model.action_horizon == 16
-    assert noise.action_horizon == 8
+    assert projection._target_.endswith("EmbodimentProprioProjection")
+    assert projection.output_dim == 64
+    assert projection.projections.pushshapes_sim_u_socket.source_dim == 4
+    assert projection.projections.pushshapes_sim_chain_gripper.source_dim == 6
+    assert fused.required_obs_keys == ["front_img_1", "proprio_condition"]
+    assert fused.encoder.obs_specs.proprio_condition.input_dim == 64
+    assert noise.num_tokens == 8
     assert noise.latent_dim == 8
-    assert sampler.action_horizon == 16
-    assert sampler.latent_horizon == 8
-    assert sampler.decoder_type == "temporal_conv"
+    assert sampler._target_.endswith("LatentFlowSampler")
     assert sampler.latent_dim == 8
-    assert sampler.decoder_hidden_dim == 32
+    assert sampler.condition_input_dim == 128
     assert sampler.condition_dim == 256
     assert sampler.denoiser_hidden_dim == 256
-    assert dict(sampler.action_dims) == {
-        "pushshapes_sim_u_socket": 4,
-        "pushshapes_sim_chain_gripper": 6,
-    }
+    for decoder_field in (
+        "action_horizon",
+        "action_dims",
+        "decoder_type",
+        "decoder_hidden_dim",
+        "latent_horizon",
+    ):
+        assert decoder_field not in sampler
+    assert decoder._target_.endswith("PerEmbodimentActionDecoder")
+    u_decoder = decoder.decoders.pushshapes_sim_u_socket
+    chain_decoder = decoder.decoders.pushshapes_sim_chain_gripper
+    for leaf, action_dim in ((u_decoder, 4), (chain_decoder, 6)):
+        assert leaf._target_.endswith("TemporalConvActionDecoder")
+        assert leaf.latent_dim == 8
+        assert leaf.hidden_dim == 32
+        assert leaf.action_dim == action_dim
+        assert leaf.num_layers == 4
+        assert leaf.project_to_action_before_temporal is True
+        assert "extra_hidden_layers" not in leaf
+        assert "latent_horizon" not in leaf
+        assert "action_horizon" not in leaf
     assert denoiser.act_seq == 8
     assert denoiser.act_dim == 8
     assert denoiser.hidden_dim == 256
     assert denoiser.nblocks == 12
+    assert set(model.rollout_observation_adapters) == {
+        "pushshapes_sim_u_socket",
+        "pushshapes_sim_chain_gripper",
+    }
     assert model.rollout_adapters.pushshapes_sim_chain_gripper.action_horizon == 16
     for split in ("train_datasets", "valid_datasets"):
         datasets = cfg.data[split]
         assert datasets.pushshapes_sim_u_socket.resolver.key_map.action_horizon == 16
         assert (
             datasets.pushshapes_sim_chain_gripper.resolver.key_map.action_horizon == 16
+        )
+        assert datasets.pushshapes_sim_u_socket.resolver.key_map._target_.endswith(
+            "get_keymap_hpt_per_emb_proprio"
+        )
+        assert datasets.pushshapes_sim_u_socket.resolver.transform_list._target_.endswith(
+            "get_usocket_rotvec_action_state_transform_list"
+        )
+        assert datasets.pushshapes_sim_chain_gripper.resolver.key_map._target_.endswith(
+            "get_keymap_hpt_per_emb_proprio"
         )
 
     assert cfg.trainer.max_steps == 240_000
@@ -774,11 +811,14 @@ def test_newdata_world2_launcher_is_smoke_only_and_fail_closed() -> None:
     assert "pusht/pipeline_diffusion_usocket_chain_newdata_h16" in launcher
     assert "pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16" in launcher
     assert (
-        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32"
+        "pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32_per_emb_proprio"
         in launcher
     )
     assert "temporal_h8_l8)" in launcher
-    assert 'sampler.decoder_type == "temporal_conv"' in launcher
+    assert 'decoder._target_.endswith("PerEmbodimentActionDecoder")' in launcher
+    assert 'u_decoder._target_.endswith("TemporalConvActionDecoder")' in launcher
+    assert "u_decoder.num_layers == chain_decoder.num_layers == 4" in launcher
+    assert "sampler.decoder_type" not in launcher
     assert 'test -z "$(git -C "$REPO" status --porcelain=v1' in launcher
     assert launcher.count("validate_all_inventories") >= 3
     assert 'episode / "zarr.json"' in launcher

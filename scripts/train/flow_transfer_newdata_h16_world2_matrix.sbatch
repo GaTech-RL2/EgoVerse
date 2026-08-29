@@ -70,7 +70,7 @@ case "$ARM" in
     EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_dense_medium_h16
     ;;
   temporal_h8_l8)
-    EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32
+    EXPERIMENT=pusht/pipeline_sampler_usocket_chain_newdata_temporal_h8_l8_w256_d12_dec32_per_emb_proprio
     ;;
   *)
     printf 'Unknown ARM=%s; expected dp, latent_h16, or temporal_h8_l8\n' "$ARM" >&2
@@ -495,22 +495,34 @@ if arm == "latent_h16":
     assert sampler.action_dims.pushshapes_sim_chain_gripper == 6
     assert sampler.denoising_module.act_seq == 16
 elif arm == "temporal_h8_l8":
-    assert model.stages[1].action_horizon == 8
-    assert model.stages[1].latent_dim == 8
-    sampler = model.stages[2]
-    assert sampler.action_horizon == 16
-    assert sampler.latent_horizon == 8
-    assert sampler.decoder_type == "temporal_conv"
+    projection = model.stages[0]
+    assert projection._target_.endswith("EmbodimentProprioProjection")
+    assert projection.projections.pushshapes_sim_u_socket.source_dim == 4
+    assert projection.projections.pushshapes_sim_chain_gripper.source_dim == 6
+    noise = model.stages[2]
+    assert noise.num_tokens == 8
+    assert noise.latent_dim == 8
+    sampler = model.stages[3]
     assert sampler.latent_dim == 8
-    assert sampler.decoder_hidden_dim == 32
     assert sampler.condition_dim == 256
     assert sampler.denoiser_hidden_dim == 256
-    assert sampler.action_dims.pushshapes_sim_u_socket == 4
-    assert sampler.action_dims.pushshapes_sim_chain_gripper == 6
     assert sampler.denoising_module.act_seq == 8
     assert sampler.denoising_module.act_dim == 8
     assert sampler.denoising_module.hidden_dim == 256
     assert sampler.denoising_module.nblocks == 12
+    decoder = model.stages[4]
+    assert decoder._target_.endswith("PerEmbodimentActionDecoder")
+    u_decoder = decoder.decoders.pushshapes_sim_u_socket
+    chain_decoder = decoder.decoders.pushshapes_sim_chain_gripper
+    assert u_decoder._target_.endswith("TemporalConvActionDecoder")
+    assert chain_decoder._target_.endswith("TemporalConvActionDecoder")
+    assert u_decoder.latent_dim == chain_decoder.latent_dim == 8
+    assert u_decoder.hidden_dim == chain_decoder.hidden_dim == 32
+    assert u_decoder.num_layers == chain_decoder.num_layers == 4
+    assert u_decoder.project_to_action_before_temporal is True
+    assert chain_decoder.project_to_action_before_temporal is True
+    assert u_decoder.action_dim == 4
+    assert chain_decoder.action_dim == 6
 else:
     assert arm == "dp"
     stage = model.stages[1]

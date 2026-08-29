@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 
@@ -7,9 +9,12 @@ from egomimic.pipeline.stages_sampler import (
     DPStyleObsEncoder,
     FusedObsEncoder,
     GaussianLatentNoise,
+    LatentFlowSampler,
     MultiJActionSampler,
     NativeActionMSELoss,
+    PerEmbodimentActionDecoder,
     TemporalConvActionDecoder,
+    TokenwiseMLPActionDecoder,
 )
 
 
@@ -91,7 +96,7 @@ def _nodes():
         time_conditioning="additive",
     )
     return (
-        GaussianLatentNoise(action_horizon=7, latent_dim=8),
+        GaussianLatentNoise(num_tokens=7, latent_dim=8),
         MultiJActionSampler(
             denoising_module=field,
             condition_input_dim=14,
@@ -132,20 +137,22 @@ def _temporal_nodes():
         time_conditioning="additive",
     )
     return (
-        GaussianLatentNoise(action_horizon=8, latent_dim=8),
-        MultiJActionSampler(
+        GaussianLatentNoise(num_tokens=8, latent_dim=8),
+        LatentFlowSampler(
             denoising_module=field,
             condition_input_dim=14,
             condition_dim=12,
-            action_horizon=16,
-            latent_horizon=8,
-            action_dims={"eva_bimanual": 4, "human_bimanual": 6},
+            domains=["eva_bimanual", "human_bimanual"],
             latent_dim=8,
-            decoder_hidden_dim=16,
             denoiser_hidden_dim=32,
             num_inference_steps=2,
             sampling_schedule={1: {1: 1.0}},
-            decoder_type="temporal_conv",
+        ),
+        PerEmbodimentActionDecoder(
+            decoders={
+                "eva_bimanual": TemporalConvActionDecoder(8, 16, 4),
+                "human_bimanual": TemporalConvActionDecoder(8, 16, 6),
+            }
         ),
         NativeActionMSELoss(),
     )
@@ -176,14 +183,18 @@ def test_separate_noise_sampler_and_loss_nodes_backpropagate_end_to_end():
 
 
 def test_temporal_decoder_maps_h8_l8_to_h16_actions_and_backpropagates():
-    noise, sampler, loss = _temporal_nodes()
-    pipe = Pipeline([noise, sampler, loss]).train()
+    noise, sampler, decoder_stage, loss = _temporal_nodes()
+    pipe = Pipeline([noise, sampler, decoder_stage, loss]).train()
     out = pipe(_temporal_batch())
 
     assert out["sampler/noise"].shape == (3, 8, 8)
+    assert out["sampler/endpoint"].shape == (3, 8, 8)
     assert out["pred_action"].shape == (3, 16, 4)
-    decoder = sampler.decoder("eva_bimanual")
+    decoder = decoder_stage.decoder_for("eva_bimanual")
     assert isinstance(decoder, TemporalConvActionDecoder)
+    assert decoder.num_layers == 3
+    assert decoder.channel_projection[-1].out_features == 4
+    assert decoder.temporal_upsampler.in_channels == 4
 
     out["loss/native_action"].backward()
     assert sampler.denoising_module.proj_u.weight.grad is not None
@@ -192,9 +203,10 @@ def test_temporal_decoder_maps_h8_l8_to_h16_actions_and_backpropagates():
 
 
 def test_temporal_decoder_rollout_preserves_per_domain_action_dims():
-    noise, sampler, _ = _temporal_nodes()
+    noise, sampler, decoder, _ = _temporal_nodes()
     sampler.eval()
-    out = sampler(noise(_temporal_batch("human_bimanual", target=False)))
+    decoder.eval()
+    out = decoder(sampler(noise(_temporal_batch("human_bimanual", target=False))))
     assert out["pred_action"].shape == (3, 16, 6)
 
 
@@ -207,19 +219,171 @@ def test_default_token_mlp_decoder_remains_horizon_preserving():
     assert out["pred_action"].shape == (3, 7, 4)
 
 
-def test_temporal_decoder_rejects_non_doubling_horizon():
+def test_legacy_composite_preserves_optimizer_parameter_order():
+    _, sampler, _ = _nodes()
+    assert list(sampler._modules)[:4] == [
+        "denoising_module",
+        "decoders",
+        "domain_embeddings",
+        "condition_projection",
+    ]
+
+
+def test_split_tokenwise_decoder_routes_domains_and_backpropagates():
+    decoder = PerEmbodimentActionDecoder(
+        decoders={
+            "eva_bimanual": TokenwiseMLPActionDecoder(8, 16, 4),
+            "human_bimanual": TokenwiseMLPActionDecoder(8, 16, 6),
+        }
+    )
+    endpoint = torch.randn(3, 7, 8, requires_grad=True)
+    out = decoder(
+        {
+            "sampler/endpoint": endpoint,
+            "embodiment": "human_bimanual",
+        }
+    )
+    assert decoder.domains == ("eva_bimanual", "human_bimanual")
+    assert decoder.latent_dim == 8
+    assert decoder.temporal_factor == 1
+    assert decoder.action_dims == {"eva_bimanual": 4, "human_bimanual": 6}
+    assert decoder.output_num_tokens(7) == 7
+    assert out["pred_action"].shape == (3, 7, 6)
+    out["pred_action"].square().mean().backward()
+    assert endpoint.grad is not None
+    assert decoder.decoder_for("human_bimanual")[-1].weight.grad is not None
+
+
+def test_per_embodiment_decoder_rejects_mixed_temporal_mappings():
     try:
-        TemporalConvActionDecoder(
-            latent_dim=8,
-            hidden_dim=16,
-            action_dim=4,
-            latent_horizon=8,
-            action_horizon=15,
+        PerEmbodimentActionDecoder(
+            decoders={
+                "eva_bimanual": TokenwiseMLPActionDecoder(8, 16, 4),
+                "human_bimanual": TemporalConvActionDecoder(8, 16, 6),
+            }
         )
     except ValueError as exc:
-        assert "2 * latent_horizon" in str(exc)
+        assert "temporal_factor" in str(exc)
     else:
-        raise AssertionError("non-doubling temporal horizon was not rejected")
+        raise AssertionError("mixed temporal mappings were not rejected")
+
+
+def test_per_embodiment_decoder_rejects_unknown_domain_and_malformed_endpoint():
+    decoder = PerEmbodimentActionDecoder(
+        decoders={"eva_bimanual": TokenwiseMLPActionDecoder(8, 16, 4)}
+    )
+    try:
+        decoder(
+            {
+                "sampler/endpoint": torch.randn(2, 7, 8),
+                "embodiment": "human_bimanual",
+            }
+        )
+    except KeyError as exc:
+        assert "Unknown embodiment" in str(exc)
+    else:
+        raise AssertionError("unknown embodiment was not rejected")
+
+    for malformed in (torch.randn(2, 8), torch.randn(2, 7, 9)):
+        try:
+            decoder(
+                {
+                    "sampler/endpoint": malformed,
+                    "embodiment": "eva_bimanual",
+                }
+            )
+        except ValueError as exc:
+            assert "sampler/endpoint shape" in str(exc)
+        else:
+            raise AssertionError("malformed latent endpoint was not rejected")
+
+
+class _MalformedOutputDecoder(nn.Module):
+    latent_dim = 8
+    action_dim = 4
+    temporal_factor = 1
+
+    @staticmethod
+    def output_num_tokens(input_num_tokens):
+        return int(input_num_tokens)
+
+    @staticmethod
+    def forward(latent):
+        return latent[..., :3]
+
+
+def test_per_embodiment_decoder_rejects_malformed_branch_output():
+    decoder = PerEmbodimentActionDecoder(
+        decoders={"eva_bimanual": _MalformedOutputDecoder()}
+    )
+    try:
+        decoder(
+            {
+                "sampler/endpoint": torch.randn(2, 7, 8),
+                "embodiment": "eva_bimanual",
+            }
+        )
+    except RuntimeError as exc:
+        assert "produced" in str(exc)
+    else:
+        raise AssertionError("malformed decoder output was not rejected")
+
+
+def test_legacy_composite_matches_split_nodes_numerically():
+    noise_stage, legacy, _ = _nodes()
+    legacy.eval()
+    split_sampler = LatentFlowSampler(
+        denoising_module=copy.deepcopy(legacy.denoising_module),
+        condition_input_dim=legacy.condition_input_dim,
+        domains=list(legacy.action_dims),
+        latent_dim=legacy.latent_dim,
+        condition_dim=legacy.condition_dim,
+        denoiser_hidden_dim=legacy.denoiser_hidden_dim,
+        num_inference_steps=legacy.num_inference_steps,
+        sampling_schedule=legacy.sampling_schedule,
+        gradient_checkpointing=legacy.gradient_checkpointing,
+        gradient_accumulation_steps=legacy.gradient_accumulation_steps,
+        schedule_anchor_domain=legacy.schedule_anchor_domain,
+    ).eval()
+    split_state = split_sampler.state_dict()
+    legacy_state = legacy.state_dict()
+    split_sampler.load_state_dict({key: legacy_state[key] for key in split_state})
+    split_decoder = PerEmbodimentActionDecoder(
+        decoders={
+            domain: copy.deepcopy(legacy.decoder(domain))
+            for domain in legacy.action_dims
+        }
+    ).eval()
+
+    seeded = noise_stage(_batch(target=False))
+    legacy_batch = {
+        key: value.clone() if torch.is_tensor(value) else value
+        for key, value in seeded.items()
+    }
+    split_batch = {
+        key: value.clone() if torch.is_tensor(value) else value
+        for key, value in seeded.items()
+    }
+    legacy_out = legacy(legacy_batch)
+    split_out = split_decoder(split_sampler(split_batch))
+    assert torch.equal(
+        legacy_out["sampler/endpoint"], split_out["sampler/endpoint"]
+    )
+    assert torch.equal(legacy_out["pred_action"], split_out["pred_action"])
+    for key in (
+        "log/sampler_noise_rms",
+        "log/sampler_endpoint_rms",
+        "log/sampler_prediction_rms",
+    ):
+        assert torch.equal(legacy_out[key], split_out[key])
+
+
+def test_temporal_decoder_is_horizon_free_and_always_doubles_tokens():
+    decoder = TemporalConvActionDecoder(latent_dim=8, hidden_dim=16, action_dim=4)
+    for input_tokens in (3, 8, 11):
+        latent = torch.randn(2, input_tokens, 8)
+        assert decoder(latent).shape == (2, 2 * input_tokens, 4)
+        assert decoder.output_num_tokens(input_tokens) == 2 * input_tokens
 
 
 def test_sampler_rejects_denoiser_positional_horizon_mismatch():
@@ -236,18 +400,21 @@ def test_sampler_rejects_denoiser_positional_horizon_mismatch():
         time_conditioning="additive",
     )
     try:
-        MultiJActionSampler(
+        sampler = LatentFlowSampler(
             denoising_module=field,
             condition_input_dim=14,
             condition_dim=12,
-            action_horizon=16,
-            latent_horizon=8,
-            action_dims={"eva_bimanual": 4},
+            domains=["eva_bimanual"],
             latent_dim=8,
-            decoder_hidden_dim=16,
             denoiser_hidden_dim=32,
-            decoder_type="temporal_conv",
             schedule_anchor_domain="eva_bimanual",
+        )
+        sampler(
+            {
+                "condition": torch.randn(2, 14),
+                "sampler/noise": torch.randn(2, 8, 8),
+                "embodiment": "eva_bimanual",
+            }
         )
     except ValueError as exc:
         assert "positional horizon" in str(exc)
@@ -259,6 +426,23 @@ def test_gaussian_noise_depends_only_on_condition_shape():
     noise, _, _ = _nodes()
     out = noise({"condition": torch.randn(4, 14)})
     assert out["sampler/noise"].shape == (4, 7, 8)
+
+
+def test_gaussian_noise_legacy_horizon_alias_is_read_only_and_unambiguous():
+    legacy = GaussianLatentNoise(action_horizon=5, latent_dim=3)
+    assert legacy.num_tokens == legacy.action_horizon == 5
+    try:
+        legacy.action_horizon = 6
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("legacy action_horizon alias must be read-only")
+    try:
+        GaussianLatentNoise(num_tokens=5, action_horizon=5, latent_dim=3)
+    except ValueError as exc:
+        assert "not both" in str(exc)
+    else:
+        raise AssertionError("dual token-count arguments were not rejected")
 
 
 def test_sampler_node_counts_optimizer_steps_not_domain_forwards():

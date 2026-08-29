@@ -57,19 +57,15 @@ robomimic_model:
           norm_layer: group
           pool_type: spatial_softmax
   - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
-    action_horizon: 16
+    num_tokens: 16
     latent_dim: 8
-  - _target_: egomimic.pipeline.stages_sampler.MultiJActionSampler
+  - _target_: egomimic.pipeline.stages_sampler.LatentFlowSampler
     condition_input_dim: 128
     condition_dim: 384
+    domains: [pushshapes_sim_u_socket, pushshapes_sim_chain_gripper]
     gradient_accumulation_steps: 1
     schedule_anchor_domain: pushshapes_sim_u_socket
-    action_horizon: 16
-    action_dims:
-      pushshapes_sim_u_socket: 4
-      pushshapes_sim_chain_gripper: 6
     latent_dim: 8
-    decoder_hidden_dim: 32
     denoiser_hidden_dim: 256
     num_inference_steps: 16
     sampling_schedule:
@@ -88,6 +84,20 @@ robomimic_model:
       mlp_layers: 4
       mlp_ratio: 4
       time_conditioning: additive
+  - _target_: egomimic.pipeline.stages_sampler.PerEmbodimentActionDecoder
+    decoders:
+      pushshapes_sim_u_socket:
+        _target_: egomimic.pipeline.stages_sampler.TokenwiseMLPActionDecoder
+        latent_dim: 8
+        hidden_dim: 32
+        action_dim: 4
+        num_layers: 3
+      pushshapes_sim_chain_gripper:
+        _target_: egomimic.pipeline.stages_sampler.TokenwiseMLPActionDecoder
+        latent_dim: 8
+        hidden_dim: 32
+        action_dim: 6
+        num_layers: 3
   - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
 
 enable_grad_norm: false

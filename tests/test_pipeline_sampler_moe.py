@@ -45,6 +45,8 @@ def test_moe_sampler_emits_finite_aux_and_router_gradients():
             "embodiment": "eva_bimanual",
         }
     )
+    assert "sampler/endpoint" in sampler.writes
+    assert output["sampler/endpoint"].shape == (3, 5, 8)
     assert output["pred_action"].shape == (3, 5, 3)
     assert output["loss/moe_lb"].ndim == 0
     assert torch.isfinite(output["loss/moe_lb"])

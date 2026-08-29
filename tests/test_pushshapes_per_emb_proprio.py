@@ -320,7 +320,7 @@ def test_projection_rejects_missing_usocket_rotvec_transform() -> None:
 def test_cotrain_config_has_explicit_projection_node_and_no_hidden384() -> None:
     cfg = _compose()
     model = cfg.model.robomimic_model
-    projection, fused, noise, sampler, _loss = model.stages
+    projection, fused, noise, sampler, decoder, _loss = model.stages
 
     assert projection._target_.endswith("EmbodimentProprioProjection")
     assert projection.output_dim == 64
@@ -328,10 +328,35 @@ def test_cotrain_config_has_explicit_projection_node_and_no_hidden384() -> None:
     assert projection.projections[CHAIN_DOMAIN].source_dim == 6
     assert fused.required_obs_keys == ["front_img_1", "proprio_condition"]
     assert fused.encoder.obs_specs.proprio_condition.input_dim == 64
+    assert noise.num_tokens == 16
     assert sampler.condition_input_dim == 128
     assert sampler.denoising_module.hidden_dim == 256
     assert sampler.denoising_module.nblocks == 12
     assert noise.latent_dim == sampler.latent_dim == 8
+    assert sampler._target_.endswith("LatentFlowSampler")
+    for decoder_field in (
+        "action_horizon",
+        "action_dims",
+        "decoder_type",
+        "decoder_hidden_dim",
+        "latent_horizon",
+    ):
+        assert decoder_field not in sampler
+    assert decoder._target_.endswith("PerEmbodimentActionDecoder")
+    assert decoder.decoders[U_DOMAIN]._target_.endswith(
+        "TokenwiseMLPActionDecoder"
+    )
+    assert decoder.decoders[CHAIN_DOMAIN]._target_.endswith(
+        "TokenwiseMLPActionDecoder"
+    )
+    assert decoder.decoders[U_DOMAIN].action_dim == 4
+    assert decoder.decoders[CHAIN_DOMAIN].action_dim == 6
+    assert decoder.decoders[U_DOMAIN].hidden_dim == 32
+    assert decoder.decoders[CHAIN_DOMAIN].hidden_dim == 32
+    assert decoder.decoders[U_DOMAIN].num_layers == 3
+    assert decoder.decoders[CHAIN_DOMAIN].num_layers == 3
+    assert "extra_hidden_layers" not in decoder.decoders[U_DOMAIN]
+    assert "extra_hidden_layers" not in decoder.decoders[CHAIN_DOMAIN]
 
     assert set(model.rollout_observation_adapters) == {U_DOMAIN, CHAIN_DOMAIN}
     for split_name in ("train_datasets", "valid_datasets"):
@@ -354,7 +379,8 @@ def test_cotrain_config_has_explicit_projection_node_and_no_hidden384() -> None:
         "EmbodimentProprioProjection",
         "FusedObsEncoder",
         "GaussianLatentNoise",
-        "MultiJActionSampler",
+        "LatentFlowSampler",
+        "PerEmbodimentActionDecoder",
         "NativeActionMSELoss",
     ]
     assert train_excluded == []

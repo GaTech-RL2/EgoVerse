@@ -1,12 +1,12 @@
 # @package _global_
 defaults:
-  - override /model: bf/bf_pipeline_sampler_usocket_chain_points_temporal_h8_l8_w256_d12_dec32
-  - override /data: pusht/flow_transfer_usocket_chain_newdata_dense_h16
+  - override /model: bf/bf_pipeline_sampler_usocket_chain_points_temporal_h8_l8_w256_d12_dec32_per_emb_proprio
+  - override /data: pusht/flow_transfer_usocket_chain_newdata_dense_h16_per_emb_proprio
   - override /evaluator: eval_pipeline_action_mse
   - override /logger: wandb
 
-name: flow_transfer_cotrain_chain_newdata_temporal_h8_l8_w256_d12_dec32
-description: decoder_only_temporal_h8_l8_w256_d12_dec32_to_transformed_h16
+name: flow_transfer_cotrain_chain_newdata_temporal_h8_l8_w256_d12_dec32_per_emb_proprio
+description: decoder_only_temporal_h8_l8_per_emb_proprio64_to_transformed_h16
 model:
   enable_grad_norm: false
   # Scale the complete original 1e-4 -> 1e-5 schedule by 0.3.

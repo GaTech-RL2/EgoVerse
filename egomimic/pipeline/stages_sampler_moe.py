@@ -9,7 +9,7 @@ from egomimic.pipeline.stages_sampler import MultiJActionSampler
 class MoEMultiJActionSampler(MultiJActionSampler):
     """Collect router loss and diagnostics without changing sampler behavior."""
 
-    writes = ["pred_action", "loss/moe_lb", "log/*"]
+    writes = ["sampler/endpoint", "pred_action", "loss/moe_lb", "log/*"]
 
     def _velocity(self, latent, time, condition):
         velocity = super()._velocity(latent, time, condition)
