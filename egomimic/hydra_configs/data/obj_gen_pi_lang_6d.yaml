@@ -1,0 +1,25 @@
+defaults:
+  - obj_gen_pi_lang
+  - _self_
+
+# 6D-rotation variant of the motion-generalization cotrain (obj_gen_pi_lang):
+#   - cartesian action chunk expressed with the continuous 6D rotation
+#     representation (xyz+6D per arm, +gripper for eva) via the `cartesian_6d`
+#     transform mode. Pairs with model=pi0.5_cotrain_eva_aria_6d
+#     (action_encoding=cartesian_normalized_rot6d) and evaluator=eval_pi_camframe_6d.
+#   - dataset switched from the plain Scale-annotation resolver to the
+#     AnnotationCutoff resolver, which clamps each action chunk at the end of the
+#     enclosing language-annotation span (ZarrAnnotationCutoffDataset).
+# Valid datasets inherit the train resolver via `${...}` interpolation in
+# cotrain_pi_base, so overriding the train resolver is sufficient.
+train_datasets:
+  eva_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      transform_list:
+        mode: cartesian_6d
+  aria_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      transform_list:
+        mode: cartesian_6d

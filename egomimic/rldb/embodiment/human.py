@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import Literal
 
 import numpy as np
@@ -9,6 +8,8 @@ from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
+    CartesianRot6DToYPR,
+    CartesianYPRToRot6D,
     ConcatKeys,
     DeleteKeys,
     InterpolatePose,
@@ -16,8 +17,10 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     PoseCoordinateFrameTransform,
     QuaternionPoseToYPR,
     Reshape,
+    RotateLocalFrame,
     SplitKeys,
     Transform,
+    UnpadGripperZeros,
     XYZWXYZ_to_XYZYPR,
 )
 from egomimic.utils.viz_utils import (
@@ -25,7 +28,6 @@ from egomimic.utils.viz_utils import (
     _viz_gaze,
     _viz_keypoints,
 )
-
 
 ARIA_INTRINSICS = np.array(
     [
@@ -80,14 +82,32 @@ ARIA_T_RGB_CPF = np.array(
 # Aria's raw 21-keypoint layout (0-4 fingertips, 5 palm root) — NOT MANO. Used
 # only for the opt-in raw-Aria-keypoint viz; the canonical keypoints are MANO.
 ARIA_FINGER_EDGES = [
-    (5, 6), (6, 7), (7, 0),                # thumb
-    (5, 8), (8, 9), (9, 10), (10, 1),      # index
-    (5, 11), (11, 12), (12, 13), (13, 2),  # middle
-    (5, 14), (14, 15), (15, 16), (16, 3),  # ring
-    (5, 17), (17, 18), (18, 19), (19, 4),  # pinky
+    (5, 6),
+    (6, 7),
+    (7, 0),  # thumb
+    (5, 8),
+    (8, 9),
+    (9, 10),
+    (10, 1),  # index
+    (5, 11),
+    (11, 12),
+    (12, 13),
+    (13, 2),  # middle
+    (5, 14),
+    (14, 15),
+    (15, 16),
+    (16, 3),  # ring
+    (5, 17),
+    (17, 18),
+    (18, 19),
+    (19, 4),  # pinky
 ]
 ARIA_FINGER_EDGE_RANGES = [
-    ("thumb", 0, 3), ("index", 3, 7), ("middle", 7, 11), ("ring", 11, 15), ("pinky", 15, 19),
+    ("thumb", 0, 3),
+    ("index", 3, 7),
+    ("middle", 7, 11),
+    ("ring", 11, 15),
+    ("pinky", 15, 19),
 ]
 
 
@@ -103,6 +123,7 @@ class Human(Embodiment):
     zarr.json); ``cls.INTRINSICS`` is only a fallback for legacy episodes that
     lack them. The canonical keypoints are MANO for every vendor.
     """
+
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
     # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
@@ -111,11 +132,26 @@ class Human(Embodiment):
     T_RGB_CPF = ARIA_T_RGB_CPF  # for the opt-in aria gaze viz
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
-        (0, 5), (5, 6), (6, 7), (7, 8),         # index
-        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
-        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
-        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),  # thumb
+        (0, 5),
+        (5, 6),
+        (6, 7),
+        (7, 8),  # index
+        (0, 9),
+        (9, 10),
+        (10, 11),
+        (11, 12),  # middle
+        (0, 13),
+        (13, 14),
+        (14, 15),
+        (15, 16),  # ring
+        (0, 17),
+        (17, 18),
+        (18, 19),
+        (19, 20),  # pinky
     ]
     FINGER_COLORS = {
         "thumb": (255, 100, 100),
@@ -191,10 +227,13 @@ class Human(Embodiment):
         include_aria_keypoints: bool = False,
         norm_mode: bool = False,
         annotation_key: str = None,
+        high_annotation_key=None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
-        (Aria=True). ``norm_mode``/``annotation_key`` behave as in the base.
+        (Aria=True). ``norm_mode``/``annotation_key``/``high_annotation_key``
+        behave as in the base (subtask mode splits the single annotation array
+        into a ``level == "low"`` target and a ``level == "high"`` prompt).
         """
         key_map = cls._get_keymap(
             keymap_mode,
@@ -206,6 +245,15 @@ class Human(Embodiment):
                 "key_type": "annotation_keys",
                 "zarr_key": annotation_key,
             }
+            if high_annotation_key is not None:
+                # Subtask mode: split the single annotation array into a
+                # low-level (target) and high-level (prompt) view.
+                key_map[annotation_key]["level"] = "low"
+                key_map[high_annotation_key] = {
+                    "key_type": "annotation_keys",
+                    "zarr_key": annotation_key,
+                    "level": "high",
+                }
         if norm_mode:
             to_delete = [
                 k
@@ -327,26 +375,98 @@ class Human(Embodiment):
         cls,
         mode: Literal[
             "cartesian",
+            "cartesian_6d",
             "cartesian_padded",
             "cartesian_wristframe_ypr",
+            "cartesian_wristframe_6d",
             "keypoints_headframe_ypr",
             "keypoints_headframe_quat",
             "keypoints_wristframe_ypr",
             "keypoints_wristframe_quat",
         ],
         stride: int = 3,
+        fix_mecka_left_wrist: bool = False,
+        pad_proprio_gripper: bool = False,
     ) -> list[Transform]:
         """Transform pipeline. ``stride`` is the per-vendor action stride
         (Aria/LightWheel=3, Scale/Mecka=1), supplied by the data config.
+
+        ``fix_mecka_left_wrist`` retroactively corrects the LEFT wrist-frame
+        convention of mecka zarrs converted before the ``rot_left`` fix in
+        ``mecka_to_zarr.compute_hand_pose_xyzquat`` (which double-mirrored the
+        left hand onto the right hand's spatial convention): the raw left pose
+        keys are right-multiplied by Rz(180°) before any frame math, exactly
+        equivalent to reconverting. Set it from mecka data configs only —
+        do NOT enable for aria/scale (different converters) or for mecka data
+        reconverted after the fix (it would double-flip).
         """
+        prefix: list[Transform] = []
+        if fix_mecka_left_wrist:
+            if mode.startswith("keypoints"):
+                raise ValueError(
+                    "fix_mecka_left_wrist only applies to cartesian modes "
+                    "(keypoints modes never read the constructed wrist pose)"
+                )
+            prefix = [
+                RotateLocalFrame(keys=["left.action_ee_pose", "left.obs_ee_pose"])
+            ]
         if mode == "cartesian":
-            return _build_human_cartesian_bimanual_transform_list(stride=stride)
-        if mode == "cartesian_padded":
-            return _build_human_cartesian_bimanual_transform_list(
+            return prefix + _build_human_cartesian_bimanual_transform_list(
                 stride=stride
-            ) + [PadGripperZeros(action_key="actions_cartesian")]
+            )
+        if mode == "cartesian_6d":
+            # Head/camera-frame cartesian (12D xyz+ypr per arm) with rotation
+            # re-expressed as the continuous 6D representation (18D xyz+6d per
+            # arm) for pi0.5 normalized-rot6d encoding. The proprio ee_pose is
+            # 6D-encoded too: normalized YPR saturates yaw/roll at ±π
+            # (wraparound), so per-dim normalization needs the continuous rep.
+            return (
+                prefix
+                + _build_human_cartesian_bimanual_transform_list(stride=stride)
+                + [
+                    CartesianYPRToRot6D(action_key="actions_cartesian"),
+                    CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
+                ]
+                # 18 -> 20: zero grip slots at 9/19 so the proprio State: bins
+                # align positionally with the robot 20-dim layout in the prompt.
+                + (
+                    [PadGripperZeros(action_key="observations.state.ee_pose")]
+                    if pad_proprio_gripper
+                    else []
+                )
+            )
+        if mode == "cartesian_padded":
+            return (
+                prefix
+                + _build_human_cartesian_bimanual_transform_list(stride=stride)
+                + [PadGripperZeros(action_key="actions_cartesian")]
+            )
         if mode == "cartesian_wristframe_ypr":
-            return _build_human_cartesian_eef_frame_transform_list(stride=stride)
+            return prefix + _build_human_cartesian_eef_frame_transform_list(
+                stride=stride
+            )
+        if mode == "cartesian_wristframe_6d":
+            # Wrist-frame cartesian (12D xyz+ypr per arm) with rotation
+            # re-expressed as the continuous 6D representation (18D) for pi0.5
+            # normalized-rot6d encoding. The headframe proprio ee_pose is
+            # 6D-encoded too (see cartesian_6d) — extra important here since
+            # the proprio is the only head-frame signal the model sees with
+            # wrist-relative action targets.
+            return (
+                prefix
+                + _build_human_cartesian_eef_frame_transform_list(stride=stride)
+                + [
+                    CartesianYPRToRot6D(action_key="actions_cartesian"),
+                    CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
+                ]
+                # 18 -> 20: zero grip slots at 9/19 so the proprio State: bins
+                # align positionally with the robot 20-dim layout in the prompt.
+                + (
+                    [PadGripperZeros(action_key="observations.state.ee_pose")]
+                    if pad_proprio_gripper
+                    else []
+                )
+            )
         if mode == "keypoints_headframe_ypr":
             return _build_human_keypoints_bimanual_transform_list(
                 stride=stride, is_quat=False
@@ -921,6 +1041,52 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
         ),
     ]
     return transform_list
+
+
+def _build_human_cartesian_revert_6d_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert head/camera-frame 6D-rotation cartesian actions back to ypr.
+
+    Used by the cam-frame 6D evaluator: the action chunk is already in
+    head/camera frame (produced by the ``cartesian_6d`` transform mode), so no
+    coordinate-frame change is needed — only the rotation representation is
+    converted from xyz+6D (9/arm) back to xyz+ypr (6/arm) so cam-frame MSE and
+    the viz video see the same ypr layout as the plain ``cartesian`` mode. The
+    proprio ee_pose (also 6D-encoded by ``cartesian_6d``) is reverted the same
+    way.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+        UnpadGripperZeros(action_key=obs_key),
+    ]
+
+
+def _build_human_cartesian_revert_6d_wristframe_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert wrist-frame 6D-rotation ARIA actions back to head/camera-frame ypr.
+
+    (1) ``CartesianRot6DToYPR`` converts the action rotation xyz+6D -> xyz+ypr
+    (Gram-Schmidt re-orthonormalizes the possibly non-orthonormal model
+    prediction); (2) the proprio ``observations.state.ee_pose`` (6D-encoded by
+    the ``cartesian_wristframe_6d`` mode) is reverted to ypr the same way;
+    (3) the standard eef-frame revert projects wrist-frame ypr actions back
+    into head frame using that ypr proprio to define the frame.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+        # padded proprio arrives 20-dim -> 14 after 6D->ypr; the eef revert's
+        # SplitKeys expects the gripperless 12-dim layout (no-op if unpadded).
+        UnpadGripperZeros(action_key=obs_key),
+        *_build_human_cartesian_revert_eef_frame_transform_list(is_quat=False),
+    ]
 
 
 def _build_human_cartesian_eef_frame_transform_list(

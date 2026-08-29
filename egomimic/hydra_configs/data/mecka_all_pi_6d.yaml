@@ -1,0 +1,72 @@
+# MECKA_ALL_PI_6D — pi0.5 on ALL mecka episodes in the SQL table (filters
+# lab=mecka with no task filter), stored under the human_bimanual embodiment.
+#
+# WRIST-frame cartesian actions with the continuous 6D rotation
+# representation (18D = xyz+6D per arm, no gripper): each arm's action chunk
+# is expressed relative to that wrist's current pose, so both the arbitrary
+# world frame AND the moving head frame cancel out of the action targets. The
+# proprio ee_pose stays in the head/cam frame (it defines where the wrists
+# are for the model and for the eval revert) and is 6D-encoded. stride=1:
+# mecka actions are recorded at the target rate (Aria uses 3). Language
+# prompts are sampled from the `annotations` track; prompt assembly
+# (proprio-in-prompt on, embodiment label off) lives in
+# model=pi0.5_bc_mecka_6d, which this config pairs with, alongside
+# evaluator=eval_pi_wristframe_6d (reverts wrist -> head frame via the
+# proprio, then 6D -> ypr, for cam-frame MSE + viz).
+#
+# Validation/checkpoint cadence stays the epoch-based trainer default — no
+# step-based val_check_interval / every_n_train_steps overrides here.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      # Shared PACE mirror of processed_v3 (55k episodes; 41,613/41,617 SQL
+      # mecka episodes already present). The resolver s5cmd-syncs only the
+      # SQL-matched episodes missing here (a handful), not the full set.
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        # "_pi" suffix -> PaliGemma-style camera names (base_0_rgb); PI's
+        # _fill_missing_images duplicates base into the absent wrist slots.
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_wristframe_6d
+        stride: 1
+        # processed_v3 mecka zarrs predate the mecka_to_zarr rot_left fix:
+        # the LEFT wrist frame was double-mirrored onto the right hand's
+        # spatial convention. Rz(180°)-corrects the raw left pose keys before
+        # any frame math (exactly equivalent to reconverting).
+        fix_mecka_left_wrist: true
+        # 18 -> 20-dim proprio (zero grip slots at 9/19): State: prompt bins
+        # align positionally with the robot 20-dim layout.
+        pad_proprio_gripper: true
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 6

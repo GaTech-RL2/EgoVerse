@@ -48,6 +48,7 @@ from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_table_to_df,
 )
+from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
 if TYPE_CHECKING:
     # Annotation-only import — avoids a runtime circular import with
@@ -876,6 +877,19 @@ class MultiDataset(torch.utils.data.Dataset):
                 q_low = torch.broadcast_to(q_low, arr.shape)
                 q_high = torch.broadcast_to(q_high, arr.shape)
             except RuntimeError:
+                # Stats were computed for a different layout than this sample
+                # (e.g. a stale precomputed norm_stats.json). Say so once
+                # instead of silently disabling the bounds check for the key;
+                # normalize() will raise on the same mismatch anyway.
+                warn_key = f"bounds-shape:{zarr_key}"
+                if warn_key not in self._warned_violations:
+                    self._warned_violations.add(warn_key)
+                    logger.warning(
+                        f"[MultiDataset] bounds check skipped for {zarr_key}: "
+                        f"stats shape {tuple(q_low.shape)} does not broadcast to "
+                        f"sample shape {tuple(arr.shape)} (norm stats computed "
+                        "for a different layout?)"
+                    )
                 continue
 
             if torch.any(torch.isnan(arr)) or torch.any(torch.isinf(arr)):
@@ -886,8 +900,35 @@ class MultiDataset(torch.utils.data.Dataset):
                     logger.warning(prefix)
                 return prefix
 
-            below = arr < q_low
-            above = arr > q_high
+            # The bimanual cartesian action chunk and the ee_pose proprio share
+            # a [L | R] layout whose rotation channels are either Euler ypr
+            # (wraps at ±π) or continuous 6D columns. In both cases quantile
+            # bounds on the rotation channels are meaningless and reject
+            # otherwise-valid frames, so only the translation (and gripper)
+            # channels are bounds-checked. Unrecognized widths fall through to
+            # a full-vector check; NaN/Inf above still covers the full vector.
+            cartesian_layout = None
+            if zarr_key in ("actions_cartesian", "observations.state.ee_pose"):
+                cartesian_layout = bimanual_cartesian_layout(arr.shape[-1])
+            if cartesian_layout is not None:
+                check_idx = list(cartesian_layout["xyz"]) + list(
+                    cartesian_layout["grip"]
+                )
+                arr_q = arr[..., check_idx]
+                q_low = q_low[..., check_idx]
+                q_high = q_high[..., check_idx]
+            else:
+                arr_q = arr
+
+            # Absolute slack on the quantile bounds. Wrist-frame action chunks
+            # are the identity pose at t=0 (the reference IS the obs pose), so
+            # those cells' bounds collapse to [0, 0] and a strict compare would
+            # reject every frame on any roundoff (today the cells are exactly
+            # 0.0, so this only guards against a different BLAS/dtype path).
+            # 1e-6 (m / normalized grip) is far below any real outlier.
+            tol = 1e-6
+            below = arr_q < q_low - tol
+            above = arr_q > q_high + tol
             if torch.any(below) or torch.any(above):
                 prefix = f"Bounds violation in {zarr_key} ep={episode_name} frame={idx}"
                 warn_key = f"bounds:{episode_name}:{zarr_key}"
@@ -897,7 +938,7 @@ class MultiDataset(torch.utils.data.Dataset):
                     n_above = int(above.sum().item())
                     logger.warning(
                         f"{prefix} | n_below={n_below} n_above={n_above} "
-                        f"arr_range=[{arr.min().item():.4f}, {arr.max().item():.4f}]"
+                        f"arr_range=[{arr_q.min().item():.4f}, {arr_q.max().item():.4f}]"
                     )
                 return prefix
         return None
@@ -1116,19 +1157,7 @@ class MultiDataset(torch.utils.data.Dataset):
                 )
                 return
             if os.path.isfile(precomputed_file):
-                with open(precomputed_file, "r") as f:
-                    payload = json.load(f)
-                if str(embodiment) not in payload["stats"]:
-                    raise ValueError(
-                        f"norm_stats file {precomputed_file} has no entry for "
-                        f"embodiment id {embodiment} (available: "
-                        f"{sorted(payload['stats'])}). Stats are keyed by numeric "
-                        "EMBODIMENT id, and ids were renumbered by the human/eva "
-                        "embodiment collapse — recompute norm stats instead of "
-                        "reusing a pre-collapse norm_stats.json."
-                    )
-                self.norm_stats[embodiment] = payload["stats"][str(embodiment)]
-                self._norm_run_metadata = payload.get("norm_run_metadata", None)
+                self._load_precomputed_stats(precomputed_file, embodiment, norm_keys)
                 logger.info(
                     f"[MultiDataset] Loaded precomputed stats for embodiment={embodiment}"
                 )
@@ -1185,6 +1214,55 @@ class MultiDataset(torch.utils.data.Dataset):
             f"[MultiDataset] Finished norm inference, loading={loading_time:.2f}s, computing={computing_time:.2f}s"
         )
 
+    def _load_precomputed_stats(
+        self, precomputed_file: str, embodiment: int, norm_keys: list[str]
+    ) -> None:
+        """Load ``norm_stats.json`` for one embodiment, refusing a file whose
+        provenance does not match this dataset.
+
+        The stats are only meaningful for the exact (norm_mode, key set)
+        they were computed under; the payload's ``provenance`` block (written
+        by :meth:`cache_stats`) carries both. Files written before provenance
+        existed load as before, with a warning.
+        """
+        with open(precomputed_file, "r") as f:
+            payload = json.load(f)
+        if str(embodiment) not in payload["stats"]:
+            raise ValueError(
+                f"norm_stats file {precomputed_file} has no entry for "
+                f"embodiment id {embodiment} (available: "
+                f"{sorted(payload['stats'])}). Stats are keyed by numeric "
+                "EMBODIMENT id, and ids were renumbered by the human/eva "
+                "embodiment collapse — recompute norm stats instead of "
+                "reusing a pre-collapse norm_stats.json."
+            )
+        provenance = payload.get("provenance")
+        if provenance is None:
+            logger.warning(
+                f"[MultiDataset] {precomputed_file} carries no provenance block "
+                "(written by an older cache_stats); cannot verify it matches "
+                f"norm_mode={self.norm_mode!r} and this dataset's keys."
+            )
+        else:
+            file_mode = provenance.get("norm_mode")
+            if file_mode != self.norm_mode:
+                raise ValueError(
+                    f"norm_stats file {precomputed_file} was computed with "
+                    f"norm_mode={file_mode!r} but this dataset uses "
+                    f"norm_mode={self.norm_mode!r}; recompute the stats."
+                )
+        file_keys = set(payload["stats"][str(embodiment)])
+        want_keys = set(norm_keys)
+        if norm_keys and file_keys != want_keys:
+            raise ValueError(
+                f"norm_stats file {precomputed_file} keys for embodiment "
+                f"{embodiment} are {sorted(file_keys)} but this dataset "
+                f"normalizes {sorted(want_keys)}; the file was computed for a "
+                "different keymap/transform mode — recompute the stats."
+            )
+        self.norm_stats[embodiment] = payload["stats"][str(embodiment)]
+        self._norm_run_metadata = payload.get("norm_run_metadata", None)
+
     def _collect_norm_samples(
         self, loader, norm_keys, embodiment, n_samples, batch_size, num_workers
     ):
@@ -1212,7 +1290,10 @@ class MultiDataset(torch.utils.data.Dataset):
                     x = batch[zarr_key][:take]
                     if hasattr(x, "detach"):
                         x = x.detach().cpu().numpy()
-                    collected[k].append(x)
+                    # float32: stats are consumed as float32 anyway, and the
+                    # float64 poses double the stacked-sample footprint (an
+                    # (N, 100, 18) action stack at large N is tens of GB).
+                    collected[k].append(np.asarray(x, dtype=np.float32))
                 cur += take
                 pbar.update(take)
         return collected
@@ -1244,6 +1325,19 @@ class MultiDataset(torch.utils.data.Dataset):
             }
         payload = {
             "stats": stats_out,
+            # What the stats are valid for — checked by _load_precomputed_stats
+            # so a cached file from another norm_mode / keymap / transform mode
+            # (same dims, different meaning) is refused instead of applied.
+            "provenance": {
+                "norm_mode": self.norm_mode,
+                "stat_shapes": {
+                    str(emb): {
+                        k: list(np.asarray(next(iter(sd.values()))).shape)
+                        for k, sd in keys_dict.items()
+                    }
+                    for emb, keys_dict in self.norm_stats.items()
+                },
+            },
             "loading_time": None,
             "computing_time": None,
             "frames": None,
@@ -1259,6 +1353,8 @@ class MultiDataset(torch.utils.data.Dataset):
     # ---- normalize / unnormalize ----
 
     def _apply_norm_one(self, tensor, stats):
+        if self.norm_mode == "none":
+            return tensor
         if self.norm_mode == "zscore":
             mean = torch.as_tensor(
                 stats["mean"], device=tensor.device, dtype=torch.float32
@@ -1286,6 +1382,8 @@ class MultiDataset(torch.utils.data.Dataset):
         raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
 
     def _apply_unnorm_one(self, tensor, stats):
+        if self.norm_mode == "none":
+            return tensor
         if self.norm_mode == "zscore":
             mean = torch.as_tensor(
                 stats["mean"], device=tensor.device, dtype=torch.float32
@@ -1753,13 +1851,18 @@ class ZarrDataset(torch.utils.data.Dataset):
                     # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
                     # some contributors store 3x3 (e.g. microagi).
                     K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
+                if K.shape != (
+                    3,
+                    4,
+                ):  # unexpected -> sentinel (viz falls back to const)
                     K = np.full((3, 4), np.nan, dtype=np.float32)
             else:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             _ = origin  # preserved for symmetry with prior API
             return data
 
@@ -1785,13 +1888,26 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
         annotation span. Annotations use half-open ``[start_idx, end_idx)``.
         """
         mapping: dict[int, int] = {}
+        n_spans = 0
         for ann in self._load_annotations():
             start_idx = int(ann.get("start_idx", -1))
             end_idx = int(ann.get("end_idx", -1))
             if start_idx < 0 or end_idx <= start_idx:
                 continue
+            n_spans += 1
             for idx in range(start_idx, end_idx):
                 mapping[idx] = end_idx
+        # One-time per-episode visibility into annotation-cutoff usage: if
+        # spans/frames_covered are 0 the cutoff is a no-op (episode has no usable
+        # annotations); >0 confirms action chunks are being clamped at EOS.
+        ep = Path(self.episode_path).name
+        logger.info(
+            "[AnnotationCutoff] ep=%s spans=%d frames_covered=%d/%d",
+            ep,
+            n_spans,
+            len(mapping),
+            self.total_frames,
+        )
         return mapping
 
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
@@ -1806,10 +1922,66 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
         return min(end_idx, ann_end)
 
 
+def _episode_has_annotation_spans(ds: "ZarrDataset") -> bool:
+    """True if the episode has at least one usable ``[start_idx, end_idx)`` span.
+
+    Many Scale-"completed" episodes have an empty (or span-less) zarr
+    ``annotations`` array because the annotation-injection step lagged; the
+    AnnotationCutoff is a no-op for those, so they should be dropped when the
+    point of the run is to clamp chunks at annotation boundaries.
+    """
+    try:
+        anns = ds._load_annotations()
+    except Exception:
+        return False
+    return any(
+        isinstance(a, dict)
+        and 0 <= int(a.get("start_idx", -1)) < int(a.get("end_idx", -1))
+        for a in anns
+    )
+
+
 class S3AnnotationCutoffEpisodeResolver(S3EpisodeResolver):
-    """S3EpisodeResolver that loads ZarrAnnotationCutoffDataset instances."""
+    """S3EpisodeResolver that loads ZarrAnnotationCutoffDataset instances.
+
+    When ``require_annotations`` is set (default), episodes whose zarr
+    ``annotations`` array has no usable span are dropped — otherwise the
+    annotation cutoff would silently no-op on them.
+    """
 
     _dataset_class = ZarrAnnotationCutoffDataset
+
+    def __init__(self, *args, require_annotations: bool = True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.require_annotations = require_annotations
+
+    def resolve(self, filters=None):
+        datasets = super().resolve(filters=filters)
+        if not self.require_annotations:
+            return datasets
+        kept = {
+            h: ds for h, ds in datasets.items() if _episode_has_annotation_spans(ds)
+        }
+        dropped = sorted(set(datasets) - set(kept))
+        if dropped:
+            logger.warning(
+                "[AnnotationCutoff] dropped %d/%d episodes with no usable "
+                "annotation spans (e.g. %s)",
+                len(dropped),
+                len(datasets),
+                dropped[:5],
+            )
+        logger.info(
+            "[AnnotationCutoff] kept %d/%d episodes with usable annotations",
+            len(kept),
+            len(datasets),
+        )
+        if not kept:
+            raise ValueError(
+                "[AnnotationCutoff] no resolved episodes contain usable annotation "
+                "spans — check the filter / annotation injection for this dataset."
+            )
+        return kept
 
 
 class LocalAnnotationCutoffEpisodeResolver(LocalEpisodeResolver):

@@ -1,0 +1,19 @@
+defaults:
+  - cotrain_pi_lang
+  - _self_
+
+# Same dense-language cotrain data as `cotrain_pi_lang`, but the cartesian action
+# chunk is expressed with the continuous 6D rotation representation
+# (xyz+6D per arm, +gripper for eva) instead of xyz+ypr. Pairs with the
+# `cartesian_normalized_rot6d` action_encoding (model=pi0.5_cotrain_eva_aria_6d).
+# Valid datasets inherit the train resolver via `${...}` interpolation in
+# cotrain_pi_base, so overriding the train transform mode is sufficient.
+train_datasets:
+  eva_bimanual:
+    resolver:
+      transform_list:
+        mode: cartesian_6d
+  human_bimanual:
+    resolver:
+      transform_list:
+        mode: cartesian_6d

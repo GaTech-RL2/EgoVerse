@@ -33,7 +33,7 @@ robomimic_model:
   tokenizer_max_length: 128
   sampling_mode: "random"
   annotation_key: "annotations"
-  default_prompt: "This is a bad action."
+  default_prompt: ""
   proprio_in_prompt: true
   embodiment_label: true
   state_num_bins: 256
@@ -62,11 +62,13 @@ optimizer:
   eps: 1e-8
   weight_decay: 0.0
 
+# Constant LR after warmup (matches the remote pi0.5 training stack). The
+# previous cosine schedule decayed to 0 over num_training_steps=60000, so runs
+# past ~60k steps trained at ~0 lr and shorter runs never saw the configured lr
+# for most of training.
 scheduler:
-  _target_: transformers.get_cosine_schedule_with_warmup
+  _target_: transformers.optimization.get_constant_schedule_with_warmup
   _partial_: true
   num_warmup_steps: 2000
-  num_training_steps: 60000
-  num_cycles: 0.5
 
 scheduler_interval: step
