@@ -25,10 +25,12 @@ EXPECTED_SMOKE_GATE_SHA=${EXPECTED_SMOKE_GATE_SHA:-}
 
 REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-transformer3-multij64-20260831
 PY_ENV=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv
-EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_transformer3_cg32_jmix2468163264_051010101550_20260831
+EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_transformer3_cg32_jmix2468163264_051010101550_a40x2_20260831
 LAUNCHER=$REPO/scripts/train/flow_transfer_transformer_skynet_l40sx2.sbatch
 VERIFIER=$REPO/egomimic/scripts/verify_training_smoke.py
 RUN_BUNDLE=$EXP_ROOT/RUN_BUNDLE_PROVENANCE.json
+SUPERSEDED_BUNDLE=/coc/flash7/paphiwetsa3/experiments/flow_transfer_transformer3_cg32_jmix2468163264_051010101550_20260831/RUN_BUNDLE_PROVENANCE.json
+SUPERSEDED_BUNDLE_SHA=0faef0cc302c0ebccedeb3f70418df821c7d0b85d8a6b63e8824b7e4c8f6dcbb
 DATA_FILE=$REPO/egomimic/hydra_configs/data/pusht/flow_transfer_usocket_chain_newdata_val01_h16_per_emb_proprio.yaml
 NORM_ARTIFACT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_temporal_h8_l8_world2_smokes_20260829/norm_artifacts/per_emb_proprio_h16/fast_merge_20260829/artifact/norm_stats/norm_stats.json
 SPLIT_MANIFEST=$EXP_ROOT/source_artifacts/splits/seed42_val01_skynet.json
@@ -42,7 +44,7 @@ EXPECTED_TEST_SHA=23b628b043b66a852e2313a0c1b66e7353f3af6a5542e3afbb218dcf3428d5
 EXPECTED_VERIFIER_SHA=28b73fe625cb305605110c7e5188314cc027578a1023751ed1c7449fb953bcd1
 EXPECTED_DATA_SHA=93297962d4343f6b085ea929c4fce2e2f03a8101ddd183d42563ea96ed9c3d9f
 EXPECTED_MODEL_SHA=4047c44b8367c453da836db41353f320e4bbe8e530b7500c6716f17604aed1ef
-EXPECTED_EXPERIMENT_SHA=d742ad6de1eb521a865bab279a5b29ad60b85feddb975dfdfe0c6c91f6301b9a
+EXPECTED_EXPERIMENT_SHA=4fc538e76a0808c0ecbfa70d723da2a003952faca02b09747201c80821de6d78
 WANDB_GROUP=flow_transfer_transformer3_cg32_multij_ablation_20260831
 EXPECTED_WORLD_SIZE=2
 EXPECTED_SLURM_ACCOUNT=${EXPECTED_SLURM_ACCOUNT:?set expected authorized Skynet account}
@@ -62,7 +64,7 @@ case "$ARM" in
     EXPECTED_DENOISER_WIDTH=256
     EXPECTED_USOCKET_DECODER_WIDTH=32
     EXPECTED_CHAIN_DECODER_WIDTH=32
-    BASE_WANDB_ID=ft_r02_l8_w256_d8_c128_transformer3_decu32_cg32_jmix2468163264_p051010101550_s42_skynet_l40sx2_20260831
+    BASE_WANDB_ID=ft_r02_l8_w256_d8_c128_transformer3_decu32_cg32_jmix2468163264_p051010101550_s42_skynet_a40x2_20260831
     ;;
   *)
     printf 'Unknown ARM=%s\n' "$ARM" >&2
@@ -144,6 +146,7 @@ assert_sha "$EXPECTED_VERIFIER_SHA" "$VERIFIER"
 assert_sha "$EXPECTED_DATA_SHA" "$DATA_FILE"
 assert_sha "$EXPECTED_MODEL_SHA" "$MODEL_FILE"
 assert_sha "$EXPECTED_EXPERIMENT_SHA" "$EXPERIMENT_FILE"
+assert_sha "$SUPERSEDED_BUNDLE_SHA" "$SUPERSEDED_BUNDLE"
 test "$(git -C "$REPO" rev-parse HEAD)" = "$EXPECTED_HEAD"
 test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
 if test "$MODE" != preflight; then
@@ -278,7 +281,7 @@ COMMON_OVERRIDES=(
   "logger.wandb.id=$WANDB_ID"
   "logger.wandb.name=$WANDB_ID"
   "logger.wandb.resume=$WANDB_RESUME"
-  "logger.wandb.tags=[flow-transfer,transformer-action-decoder,transformer-decoder-3blocks,symmetric-decoder-width,chain-decoder-32,condition-dim-128,$ARM,latent-dense,h16,j8,train-jmix-2-4-8-16-32-64,train-jmix-p05-10-10-10-15-50,val01-seed42,fresh-start,batch64-per-embodiment,checkpoint-20k,skynet,world2,chain-gen-frozen719,nccl-p2p-disabled]"
+  "logger.wandb.tags=[flow-transfer,transformer-action-decoder,transformer-decoder-3blocks,symmetric-decoder-width,chain-decoder-32,condition-dim-128,$ARM,latent-dense,h16,j8,train-jmix-2-4-8-16-32-64,train-jmix-p05-10-10-10-15-50,val01-seed42,fresh-start,batch64-per-embodiment,checkpoint-20k,skynet,a40x2,world2,chain-gen-frozen719,nccl-p2p-disabled]"
 )
 
 if test "$MODE" = smoke; then
@@ -475,7 +478,8 @@ if test "$MODE" = preflight; then
     "$EXPERIMENT_FILE" "$EXPECTED_HEAD" "$EXP_ROOT" "$BASE_WANDB_ID" \
     "$WANDB_GROUP" "$EXPECTED_SLURM_ACCOUNT" "$EXPECTED_SLURM_PARTITION" \
     "$EXPECTED_SLURM_QOS" "$EXPECTED_GPU_MODEL" \
-    "$TRAINING_GPU_MODEL" <<'PY'
+    "$TRAINING_GPU_MODEL" "$SUPERSEDED_BUNDLE" \
+    "$SUPERSEDED_BUNDLE_SHA" <<'PY'
 import copy
 import hashlib
 import json
@@ -519,6 +523,8 @@ def sha256(path):
     qos,
     gpu_model,
     training_gpu_model,
+    superseded_bundle,
+    superseded_bundle_sha,
 ) = sys.argv[1:]
 config = OmegaConf.load(config_path)
 train_datasets = {
@@ -597,6 +603,13 @@ bundle = {
         "matched": "architecture, data/split, normalization, optimizer, seed, batch, precision, budget, validation/checkpoint cadence, and inference J=8",
         "caveat": "Skynet GPU/runtime differs from the linked PACE Blackwell run",
         "fairness_verdict": "FAIR WITH CAVEATS",
+    },
+    "replacement": {
+        "reason": "User explicitly authorized 2 x A40 to minimize Skynet queue wait",
+        "supersedes_bundle": superseded_bundle,
+        "supersedes_bundle_sha256": superseded_bundle_sha,
+        "semantic_changes": ["scheduler allocation/account", "GPU class", "W&B identity", "output root"],
+        "model_data_optimizer_changes": [],
     },
     "source": {
         "repository": str(pathlib.Path(model_path).parents[4]),

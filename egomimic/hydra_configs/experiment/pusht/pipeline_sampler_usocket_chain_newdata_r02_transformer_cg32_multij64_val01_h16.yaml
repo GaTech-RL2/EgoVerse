@@ -62,8 +62,8 @@ logger:
     entity: rl2-group
     project: pushshapes-flow-transfer
     group: flow_transfer_transformer3_cg32_multij_ablation_20260831
-    id: ft_r02_l8_w256_d8_c128_transformer3_decu32_cg32_jmix2468163264_p051010101550_s42_skynet_l40sx2_20260831
-    name: ft_r02_l8_w256_d8_c128_transformer3_decu32_cg32_jmix2468163264_p051010101550_s42_skynet_l40sx2_20260831
+    id: ft_r02_l8_w256_d8_c128_transformer3_decu32_cg32_jmix2468163264_p051010101550_s42_skynet_a40x2_20260831
+    name: ft_r02_l8_w256_d8_c128_transformer3_decu32_cg32_jmix2468163264_p051010101550_s42_skynet_a40x2_20260831
     resume: never
     tags:
       - flow-transfer
@@ -85,7 +85,7 @@ logger:
       - batch64-per-embodiment
       - checkpoint-20k
       - chain-gen-frozen719
-      - l40sx2
+      - a40x2
 
 # Reuse the verified training-episode-only normalization artifact shared with
 # the linked model's exact Skynet data/split contract.
