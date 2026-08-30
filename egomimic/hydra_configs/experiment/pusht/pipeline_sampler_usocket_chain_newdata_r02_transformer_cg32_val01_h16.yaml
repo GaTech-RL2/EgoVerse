@@ -1,0 +1,96 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_pipeline_sampler_usocket_chain_points_r02_transformer_cg32_per_emb_proprio_h16
+  - override /data: pusht/flow_transfer_usocket_chain_newdata_val01_h16_per_emb_proprio
+  - override /evaluator: eval_pipeline_action_mse
+  - override /logger: wandb
+
+name: flow_transfer_r02_transformer3_cond128_cg32_decoder_val01_h16
+description: fresh_r02_l8_w256_d8_c128_transformer3_dec_u32_cg32_u4_chain6_h16_j8_val01
+ckpt_path: null
+mode: train
+seed: 42
+
+model:
+  enable_grad_norm: false
+  optimizer:
+    # Three tenths of the original 1e-4 schedule.
+    lr: 3.0e-5
+  scheduler:
+    eta_min: 3.0e-6
+  train_metrics_on_step: true
+  train_metrics_on_epoch: true
+
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  accelerator: gpu
+  devices: 2
+  num_nodes: 1
+  strategy: ddp
+  precision: bf16
+  sync_batchnorm: true
+  limit_train_batches: 1.0
+  val_check_interval: 10000
+  limit_val_batches: 8
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  gradient_clip_val: null
+  log_every_n_steps: 1
+
+callbacks:
+  model_checkpoint:
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: "step-{step}"
+    monitor: null
+    save_last: true
+    save_top_k: -1
+    every_n_epochs: null
+    every_n_train_steps: 20000
+    train_time_interval: null
+    save_on_train_epoch_end: false
+    auto_insert_metric_name: false
+
+logger:
+  wandb:
+    entity: rl2-group
+    project: pushshapes-flow-transfer
+    group: flow_transfer_transformer3_decoder_ablation_val01_20260830
+    id: ft_r02_l8_w256_d8_c128_transformer3_decu32_cg32_s42_l40sx2_20260830
+    name: ft_r02_l8_w256_d8_c128_transformer3_decu32_cg32_s42_l40sx2_20260830
+    resume: never
+    tags:
+      - flow-transfer
+      - r02
+      - transformer-action-decoder
+      - transformer-decoder-3blocks
+      - symmetric-decoder-width
+      - usocket-decoder-32
+      - chain-decoder-32
+      - condition-dim-128
+      - latent-dense
+      - per-emb-proprio
+      - h16
+      - j8
+      - val01-seed42
+      - fresh-start
+      - batch64-per-embodiment
+      - checkpoint-20k
+      - chain-gen-frozen719
+      - l40sx2
+
+# Explicit user override: reuse the existing full-corpus statistics even though
+# the new 1% validation episodes are excluded from optimization.
+norm_stats:
+  norm_mode: minmax
+  reduce_all_but_last: true
+  sample_frac: 1.0
+  num_workers: 4
+  save_cache_dir: null
+  precomputed_norm_path: /coc/flash7/paphiwetsa3/experiments/flow_transfer_temporal_h8_l8_world2_smokes_20260829/norm_artifacts/per_emb_proprio_h16/fast_merge_20260829/artifact/norm_stats/norm_stats.json

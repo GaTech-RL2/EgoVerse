@@ -15,6 +15,7 @@ from egomimic.pipeline.stages_sampler import (
     PerEmbodimentActionDecoder,
     TemporalConvActionDecoder,
     TokenwiseMLPActionDecoder,
+    TransformerActionDecoder,
 )
 
 
@@ -254,6 +255,97 @@ def test_split_tokenwise_decoder_routes_domains_and_backpropagates():
     assert decoder.decoder_for("human_bimanual")[-1].weight.grad is not None
 
 
+def test_transformer_action_decoder_is_dynamic_noncausal_cross_attention():
+    decoder = TransformerActionDecoder(
+        latent_dim=8,
+        hidden_dim=32,
+        action_dim=4,
+        num_blocks=2,
+        num_heads=4,
+        ff_ratio=4,
+        dropout=0.0,
+        output_num_layers=2,
+    )
+
+    assert isinstance(decoder.transformer_decoder, nn.TransformerDecoder)
+    assert len(decoder.transformer_decoder.layers) == 2
+    layer = decoder.transformer_decoder.layers[0]
+    assert layer.norm_first is True
+    assert layer.self_attn.num_heads == 4
+    assert layer.multihead_attn.num_heads == 4
+    assert layer.linear1.out_features == 4 * 32
+    assert [type(module) for module in decoder.output_projection] == [
+        nn.Linear,
+        nn.SiLU,
+        nn.Linear,
+    ]
+
+    for num_tokens in (7, 16):
+        latent = torch.randn(2, num_tokens, 8, requires_grad=True)
+        action = decoder(latent)
+        assert action.shape == (2, num_tokens, 4)
+        assert decoder.output_num_tokens(num_tokens) == num_tokens
+
+        decoder.zero_grad(set_to_none=True)
+        action.square().mean().backward()
+        assert latent.grad is not None
+        assert decoder.action_query.grad is not None
+        assert decoder.memory_projection.weight.grad is not None
+        assert layer.self_attn.in_proj_weight.grad is not None
+        assert layer.multihead_attn.in_proj_weight.grad is not None
+        assert decoder.output_projection[-1].weight.grad is not None
+
+
+def test_transformer_action_decoder_preserves_per_embodiment_action_widths():
+    stage = PerEmbodimentActionDecoder(
+        decoders={
+            "eva_bimanual": TransformerActionDecoder(8, 32, 4, dropout=0.0),
+            "human_bimanual": TransformerActionDecoder(8, 32, 6, dropout=0.0),
+        }
+    )
+    assert stage.latent_dim == 8
+    assert stage.temporal_factor == 1
+    assert stage.action_dims == {"eva_bimanual": 4, "human_bimanual": 6}
+    assert stage.output_num_tokens(16) == 16
+
+    for domain, action_dim in stage.action_dims.items():
+        out = stage(
+            {
+                "sampler/endpoint": torch.randn(2, 16, 8),
+                "embodiment": domain,
+            }
+        )
+        assert out["pred_action"].shape == (2, 16, action_dim)
+
+
+def test_transformer_action_decoder_rejects_invalid_contracts():
+    invalid_kwargs = (
+        {"hidden_dim": 30, "num_heads": 4},
+        {"num_blocks": 0},
+        {"ff_ratio": 0},
+        {"dropout": 1.0},
+        {"output_num_layers": 1},
+    )
+    for overrides in invalid_kwargs:
+        kwargs = {"latent_dim": 8, "hidden_dim": 32, "action_dim": 4}
+        kwargs.update(overrides)
+        try:
+            TransformerActionDecoder(**kwargs)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"invalid decoder contract was accepted: {overrides}")
+
+    decoder = TransformerActionDecoder(8, 32, 4)
+    for malformed in (torch.randn(2, 8), torch.randn(2, 16, 7)):
+        try:
+            decoder(malformed)
+        except ValueError as exc:
+            assert "latent shape" in str(exc)
+        else:
+            raise AssertionError("malformed decoder input was not rejected")
+
+
 def test_per_embodiment_decoder_rejects_mixed_temporal_mappings():
     try:
         PerEmbodimentActionDecoder(
@@ -459,6 +551,24 @@ def test_sampling_schedule_uses_start_step_and_exact_split():
     _, sampler, _ = _nodes()
     assert [sampler.unroll_steps_at(step) for step in range(1, 5)] == [1, 2, 1, 2]
     assert [sampler.unroll_steps_at(step) for step in range(5, 9)] == [2, 2, 2, 4]
+
+
+def test_sampling_schedule_supports_exact_multij64_distribution():
+    requested = {2: 0.05, 4: 0.10, 8: 0.10, 16: 0.10, 32: 0.15, 64: 0.50}
+    normalized, cycles = LatentFlowSampler._compile_schedule({1: requested})
+
+    assert normalized == {1: requested}
+    cycle = cycles[1]
+    assert len(cycle) == 20
+    assert {j: cycle.count(j) for j in requested} == {
+        2: 1,
+        4: 2,
+        8: 2,
+        16: 2,
+        32: 3,
+        64: 10,
+    }
+    assert sum(cycle) / len(cycle) == 39.7
 
 
 def test_training_grid_is_sorted_uniform_breakpoints():

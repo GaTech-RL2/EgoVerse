@@ -1,0 +1,123 @@
+# L8/W256/D8 Flow Transfer decoder-capacity ablation with dedicated
+# per-embodiment action-query Transformer decoders. U-Socket and ChainGripper
+# both use width 32; every other model setting matches the linked cg64 run.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 16
+  domains: [pushshapes_sim_u_socket, pushshapes_sim_chain_gripper]
+  ac_keys:
+    pushshapes_sim_u_socket: actions
+    pushshapes_sim_chain_gripper: actions
+  rollout_observation_adapters:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketModelStateObservationAdapter
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainModelStateObservationAdapter
+  rollout_adapters:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.ChainGripperPointRolloutAdapter
+      action_horizon: 16
+  stages:
+  - _target_: egomimic.pipeline.stages_sampler.EmbodimentProprioProjection
+    output_dim: 64
+    projections:
+      pushshapes_sim_u_socket:
+        source_dim: 4
+        hidden_dim: 64
+        semantic: x_y_cos_theta_sin_theta
+      pushshapes_sim_chain_gripper:
+        source_dim: 6
+        hidden_dim: 64
+        semantic: agent_x_y_theta_object_x_y_theta
+  - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+    n_obs_steps: 1
+    required_obs_keys: [front_img_1, proprio_condition]
+    encoder:
+      _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+      obs_specs:
+        proprio_condition: {input_dim: 64, input_slice: [0, 64]}
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 84
+          crop_width: 84
+          crop_eval_mode: center
+          crop_sample_mode: v02
+          crop_scope: frame
+          norm_layer: group
+          pool_type: spatial_softmax
+  - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+    num_tokens: 16
+    latent_dim: 8
+  - _target_: egomimic.pipeline.stages_sampler.LatentFlowSampler
+    condition_input_dim: 128
+    condition_dim: 128
+    domains: [pushshapes_sim_u_socket, pushshapes_sim_chain_gripper]
+    gradient_accumulation_steps: 1
+    schedule_anchor_domain: pushshapes_sim_u_socket
+    latent_dim: 8
+    denoiser_hidden_dim: 256
+    num_inference_steps: 8
+    sampling_schedule:
+      1: {1: 0.50, 2: 0.50}
+      2001: {2: 0.80, 4: 0.15, 8: 0.05}
+    gradient_checkpointing: true
+    denoising_module:
+      _target_: egomimic.models.denoising_nets.CrossTransformer
+      nblocks: 8
+      cond_dim: 128
+      hidden_dim: 256
+      act_dim: 8
+      act_seq: 16
+      n_heads: 8
+      dropout: 0.1
+      mlp_layers: 4
+      mlp_ratio: 4
+      time_conditioning: additive
+  - _target_: egomimic.pipeline.stages_sampler.PerEmbodimentActionDecoder
+    decoders:
+      pushshapes_sim_u_socket:
+        _target_: egomimic.pipeline.stages_sampler.TransformerActionDecoder
+        latent_dim: 8
+        hidden_dim: 32
+        action_dim: 4
+        num_blocks: 3
+        num_heads: 4
+        ff_ratio: 4
+        dropout: 0.1
+        output_num_layers: 2
+      pushshapes_sim_chain_gripper:
+        _target_: egomimic.pipeline.stages_sampler.TransformerActionDecoder
+        latent_dim: 8
+        hidden_dim: 32
+        action_dim: 6
+        num_blocks: 3
+        num_heads: 4
+        ff_ratio: 4
+        dropout: 0.1
+        output_num_layers: 2
+  - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 3000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

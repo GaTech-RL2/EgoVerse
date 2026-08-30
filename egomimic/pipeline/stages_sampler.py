@@ -355,6 +355,152 @@ class TokenwiseMLPActionDecoder(nn.Sequential):
         return input_num_tokens
 
 
+class TransformerActionDecoder(nn.Module):
+    """Decode latent tokens with dynamic action queries and cross-attention.
+
+    This decoder owns no action horizon. At runtime it creates one sinusoidal
+    action query for each latent-memory token, applies full noncausal query
+    self-attention plus cross-attention to the projected latent sequence, and
+    preserves the input token count. A per-embodiment output MLP supplies the
+    final action width without leaking that width into the shared sampler.
+    """
+
+    def __init__(
+        self,
+        latent_dim: int,
+        hidden_dim: int,
+        action_dim: int,
+        num_blocks: int = 2,
+        num_heads: int = 4,
+        ff_ratio: int = 4,
+        dropout: float = 0.1,
+        output_num_layers: int = 2,
+    ):
+        super().__init__()
+        self.latent_dim = int(latent_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.action_dim = int(action_dim)
+        self.num_blocks = int(num_blocks)
+        self.num_heads = int(num_heads)
+        self.ff_ratio = int(ff_ratio)
+        self.dropout = float(dropout)
+        self.output_num_layers = int(output_num_layers)
+        self.temporal_factor = 1
+
+        if min(self.latent_dim, self.hidden_dim, self.action_dim) <= 0:
+            raise ValueError("Transformer decoder dimensions must be positive")
+        if self.num_blocks <= 0:
+            raise ValueError("Transformer decoder num_blocks must be positive")
+        if self.num_heads <= 0 or self.hidden_dim % self.num_heads != 0:
+            raise ValueError(
+                "Transformer decoder hidden_dim must be divisible by num_heads"
+            )
+        if self.ff_ratio <= 0:
+            raise ValueError("Transformer decoder ff_ratio must be positive")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("Transformer decoder dropout must be in [0, 1)")
+        if self.output_num_layers < 2:
+            raise ValueError(
+                "Transformer decoder output_num_layers must be at least 2"
+            )
+
+        self.memory_projection = nn.Linear(self.latent_dim, self.hidden_dim)
+        self.action_query = nn.Parameter(torch.zeros(1, 1, self.hidden_dim))
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=self.hidden_dim,
+            nhead=self.num_heads,
+            dim_feedforward=self.hidden_dim * self.ff_ratio,
+            dropout=self.dropout,
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
+        )
+        self.transformer_decoder = nn.TransformerDecoder(
+            decoder_layer,
+            num_layers=self.num_blocks,
+            norm=nn.LayerNorm(self.hidden_dim),
+        )
+
+        output_layers: List[nn.Module] = []
+        for layer_index in range(self.output_num_layers):
+            is_output = layer_index == self.output_num_layers - 1
+            output_layers.append(
+                nn.Linear(
+                    self.hidden_dim,
+                    self.action_dim if is_output else self.hidden_dim,
+                )
+            )
+            if not is_output:
+                output_layers.append(nn.SiLU())
+        self.output_projection = nn.Sequential(*output_layers)
+
+    @staticmethod
+    def _sinusoidal_positions(
+        num_tokens: int,
+        hidden_dim: int,
+        *,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        """Return a runtime-sized positional grid without owning a horizon."""
+
+        position = torch.arange(
+            int(num_tokens), device=device, dtype=torch.float32
+        ).unsqueeze(1)
+        frequency = torch.exp(
+            torch.arange(0, int(hidden_dim), 2, device=device, dtype=torch.float32)
+            * (-math.log(10_000.0) / float(hidden_dim))
+        )
+        encoding = torch.zeros(
+            int(num_tokens), int(hidden_dim), device=device, dtype=torch.float32
+        )
+        encoding[:, 0::2] = torch.sin(position * frequency)
+        odd_width = encoding[:, 1::2].shape[1]
+        encoding[:, 1::2] = torch.cos(position * frequency[:odd_width])
+        return encoding.to(dtype=dtype).unsqueeze(0)
+
+    def forward(self, latent: torch.Tensor) -> torch.Tensor:
+        if latent.ndim != 3 or int(latent.shape[-1]) != self.latent_dim:
+            raise ValueError(
+                "TransformerActionDecoder expected latent shape "
+                f"(B, T, {self.latent_dim}), got {tuple(latent.shape)}"
+            )
+        if int(latent.shape[1]) <= 0:
+            raise ValueError("TransformerActionDecoder needs at least one token")
+
+        memory = self.memory_projection(latent)
+        positions = self._sinusoidal_positions(
+            int(latent.shape[1]),
+            self.hidden_dim,
+            device=latent.device,
+            dtype=memory.dtype,
+        )
+        memory = memory + positions
+        query_seed = self.action_query.to(dtype=memory.dtype)
+        action_queries = (query_seed + positions).expand(
+            int(latent.shape[0]), -1, -1
+        )
+        decoded = self.transformer_decoder(tgt=action_queries, memory=memory)
+        action = self.output_projection(decoded)
+        expected_output = (
+            int(latent.shape[0]),
+            int(latent.shape[1]),
+            self.action_dim,
+        )
+        if tuple(action.shape) != expected_output:
+            raise RuntimeError(
+                "TransformerActionDecoder produced shape "
+                f"{tuple(action.shape)}, expected {expected_output}"
+            )
+        return action
+
+    def output_num_tokens(self, input_num_tokens: int) -> int:
+        input_num_tokens = int(input_num_tokens)
+        if input_num_tokens <= 0:
+            raise ValueError("input_num_tokens must be positive")
+        return input_num_tokens
+
+
 class TemporalConvActionDecoder(nn.Module):
     """Decode a latent sequence into a 2x-longer action sequence.
 
@@ -602,8 +748,11 @@ class LatentFlowSampler(Stage):
             split = {int(j): float(weight) for j, weight in dict(raw_split).items()}
             if start < 1:
                 raise ValueError("sampling_schedule start steps must be positive")
-            if not split or any(j not in {1, 2, 4, 8, 16, 128} for j in split):
-                raise ValueError("sampling_schedule supports J in {1,2,4,8,16,128}")
+            supported_unroll_steps = {1, 2, 4, 8, 16, 32, 64, 128}
+            if not split or any(j not in supported_unroll_steps for j in split):
+                raise ValueError(
+                    "sampling_schedule supports J in {1,2,4,8,16,32,64,128}"
+                )
             if any(weight <= 0.0 for weight in split.values()):
                 raise ValueError("sampling_schedule weights must be positive")
             if not math.isclose(sum(split.values()), 1.0, rel_tol=0.0, abs_tol=1e-8):
