@@ -20,6 +20,7 @@ from wandb.proto import wandb_internal_pb2
 from wandb.sdk.internal.datastore import DataStore
 
 import egomimic.utils.hydra_resolvers  # noqa: F401
+from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 
 def _sha256(path: Path) -> str:
@@ -85,7 +86,7 @@ def read_wandb_history(
                     key.startswith("Train/")
                     or key.startswith("Timing/")
                     or key.startswith("Optimizer/")
-                    or (key.startswith("Valid/emb") and key.endswith("_action_mse"))
+                    or key.startswith("Valid/")
                 ):
                     continue
                 try:
@@ -128,7 +129,7 @@ def read_wandb_history(
         validation_metrics = {
             key: value
             for key, value in metrics.items()
-            if key.startswith("Valid/emb") and key.endswith("_action_mse")
+            if key.startswith("Valid/")
         }
         if validation_metrics:
             validation_rows.append(
@@ -153,10 +154,14 @@ def _has_required_metrics(
     metrics: dict[str, float], required_embodiments: list[int]
 ) -> bool:
     for embodiment in required_embodiments:
-        prefix = f"Valid/emb{embodiment}_"
-        if not any(key.startswith(prefix) for key in metrics):
+        embodiment_name = get_embodiment(embodiment).lower()
+        required = {
+            f"Valid/MSE/{embodiment_name}",
+            f"Valid/Native_MSE/{embodiment_name}",
+        }
+        if not required.issubset(metrics):
             return False
-    return True
+    return {"Valid/MSE", "Valid/Native_MSE"}.issubset(metrics)
 
 
 def _load_training_config(config_path: Path):
@@ -217,7 +222,10 @@ def verify_training_smoke(
     assert hyper_parameters.get("train_metrics_on_step") is True
     del checkpoint
 
-    streams = list(output_dir.glob("wandb/offline-run-*/run-*.wandb"))
+    streams = [
+        *output_dir.glob("wandb/offline-run-*/run-*.wandb"),
+        *output_dir.glob("wandb/run-*/run-*.wandb"),
+    ]
     assert len(streams) == 1, streams
     training_history, validation_history, wandb_exit_code = read_wandb_history(
         streams[0]
@@ -267,12 +275,16 @@ def verify_training_smoke(
     metrics = selected["validation_metrics"]
 
     for embodiment in required_embodiments:
-        prefix = f"Valid/emb{embodiment}_"
-        matches = {
-            key: value for key, value in metrics.items() if key.startswith(prefix)
+        embodiment_name = get_embodiment(embodiment).lower()
+        required_keys = {
+            f"Valid/MSE/{embodiment_name}",
+            f"Valid/Native_MSE/{embodiment_name}",
         }
-        assert matches, (embodiment, sorted(metrics))
+        matches = {key: metrics[key] for key in required_keys if key in metrics}
+        assert matches.keys() == required_keys, (embodiment, sorted(metrics))
         assert all(math.isfinite(value) for value in matches.values()), matches
+    for key in ("Valid/MSE", "Valid/Native_MSE"):
+        assert key in metrics and math.isfinite(metrics[key]), (key, metrics)
 
     return {
         "status": "passed",
@@ -290,6 +302,7 @@ def verify_training_smoke(
         "optimizer_lrs": optimizer_lrs,
         "scheduler_last_epoch": scheduler_last_epoch,
         "required_embodiments": required_embodiments,
+        "required_exact_metrics": True,
         "wandb_stream": str(streams[0]),
         "wandb_stream_sha256": _sha256(streams[0]),
         "wandb_exit_code": wandb_exit_code,
