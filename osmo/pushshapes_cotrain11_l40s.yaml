@@ -70,6 +70,7 @@ workflow:
       DATASET_DIR: /workspace/pushshapes
       PUSHSHAPES_ROOT: /workspace/pushshapes
       GAP_ROW: "{{gap_row}}"
+      N_PER_EMB: "{{n_per_emb}}"
       NCCL_DEBUG: WARN
       TOKENIZERS_PARALLELISM: "false"
       HYDRA_FULL_ERROR: "1"
@@ -192,6 +193,23 @@ workflow:
         # would silently rejoin the cotrain through a glob.
         rm -rf "$PUSHSHAPES_ROOT/${GAP_ROW}/circle_small" "$PUSHSHAPES_ROOT/${GAP_ROW}/suction"
         echo "after holdout removal: $(ls "$PUSHSHAPES_ROOT/${GAP_ROW}" | tr '\n' ' ')"
+
+        # Cap every cell at N_PER_EMB episodes ON DISK rather than through a
+        # loader kwarg. MultiDataset._from_resolver forwards unknown kwargs
+        # straight to __init__, so an unsupported max_episodes would either
+        # raise on the node after the pull or be silently ignored -- and a cap
+        # that is silently ignored is worse than no cap, because the run still
+        # looks correct. Trimming the directory is unambiguous.
+        for cell in "$PUSHSHAPES_ROOT/${GAP_ROW}"/*/T; do
+          [ -d "$cell" ] || continue
+          ls -1 "$cell" | sort | tail -n +$((N_PER_EMB + 1)) | while read -r ep; do
+            rm -rf "$cell/$ep"
+          done
+        done
+        echo "per-cell episode counts after cap:"
+        for cell in "$PUSHSHAPES_ROOT/${GAP_ROW}"/*/T; do
+          echo "  $(basename $(dirname $cell)) $(ls -1 "$cell" | wc -l)"
+        done
 
         # --------------------------------------------- phase 1: norm stats (1 GPU)
         # Also does the dataset download: S3EpisodeResolver.resolve() syncs into

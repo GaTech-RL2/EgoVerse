@@ -67,6 +67,17 @@ _ENV_TO_ZARR = {
     "pushshapes_sim_small_circle": _env_to_zarr_pushshapes,
     "pushshapes_sim_u_socket": _env_to_zarr_pushshapes_oriented,
     "pushshapes_sim_chain_gripper": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_l": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_circle": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_circle_small": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_flipper": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_gripper": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_scoop": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_spring": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_stick": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_suction": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_triangle": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_umi": _env_to_zarr_pushshapes_oriented,
 }
 
 
@@ -91,9 +102,23 @@ def _state_to_init(state: np.ndarray) -> tuple:
 def _state_to_env_init(state: np.ndarray, embodiment_name: str) -> dict:
     """Split a stored state into the exact arguments accepted by ``set_state``."""
     state = np.asarray(state, dtype=np.float32).reshape(-1)
+    # Every effector in the 6x13 control-gap corpus stores a 6-dim state
+    # (xy + controlled angle + object pose), verified across all 13 cells. The
+    # 5-dim branch below is for legacy collections only.
     oriented = embodiment_name in {
         "pushshapes_sim_u_socket",
         "pushshapes_sim_chain_gripper",
+        "pushshapes_sim_l",
+        "pushshapes_sim_circle",
+        "pushshapes_sim_circle_small",
+        "pushshapes_sim_flipper",
+        "pushshapes_sim_gripper",
+        "pushshapes_sim_scoop",
+        "pushshapes_sim_spring",
+        "pushshapes_sim_stick",
+        "pushshapes_sim_suction",
+        "pushshapes_sim_triangle",
+        "pushshapes_sim_umi",
     }
     expected = 6 if oriented else 5
     if state.shape[0] != expected:

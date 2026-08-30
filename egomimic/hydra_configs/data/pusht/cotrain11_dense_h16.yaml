@@ -16,7 +16,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/L/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/L/T
       embodiment_override: pushshapes_sim_L
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -30,7 +30,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/chain_gripper/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/chain_gripper/T
       embodiment_override: pushshapes_sim_chain_gripper
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -44,7 +44,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/circle/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/circle/T
       embodiment_override: pushshapes_sim_circle
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -58,7 +58,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/flipper/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/flipper/T
       embodiment_override: pushshapes_sim_flipper
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -72,7 +72,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/gripper/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/gripper/T
       embodiment_override: pushshapes_sim_gripper
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -86,7 +86,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/scoop/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/scoop/T
       embodiment_override: pushshapes_sim_scoop
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -100,7 +100,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/spring/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/spring/T
       embodiment_override: pushshapes_sim_spring
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -114,7 +114,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/stick/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/stick/T
       embodiment_override: pushshapes_sim_stick
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -128,7 +128,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/triangle/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/triangle/T
       embodiment_override: pushshapes_sim_triangle
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -142,7 +142,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/u_socket/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/u_socket/T
       embodiment_override: pushshapes_sim_u_socket
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -156,7 +156,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/umi/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/umi/T
       embodiment_override: pushshapes_sim_umi
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -172,7 +172,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/L/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/L/T
       embodiment_override: pushshapes_sim_L
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -186,7 +186,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/chain_gripper/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/chain_gripper/T
       embodiment_override: pushshapes_sim_chain_gripper
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -200,7 +200,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/circle/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/circle/T
       embodiment_override: pushshapes_sim_circle
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -214,7 +214,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/flipper/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/flipper/T
       embodiment_override: pushshapes_sim_flipper
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -228,7 +228,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/gripper/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/gripper/T
       embodiment_override: pushshapes_sim_gripper
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -242,7 +242,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/scoop/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/scoop/T
       embodiment_override: pushshapes_sim_scoop
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -256,7 +256,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/spring/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/spring/T
       embodiment_override: pushshapes_sim_spring
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -270,7 +270,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/stick/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/stick/T
       embodiment_override: pushshapes_sim_stick
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -284,7 +284,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/triangle/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/triangle/T
       embodiment_override: pushshapes_sim_triangle
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -298,7 +298,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/u_socket/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/u_socket/T
       embodiment_override: pushshapes_sim_u_socket
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
@@ -312,7 +312,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
-      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal/umi/T
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal/umi/T
       embodiment_override: pushshapes_sim_umi
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt

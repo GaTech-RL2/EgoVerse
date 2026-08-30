@@ -10,7 +10,7 @@ ALL = ["L","chain_gripper","circle","circle_small","flipper","gripper","scoop",
        "spring","stick","suction","triangle","u_socket","umi"]
 HELDOUT = ["circle_small", "suction"]
 TRAIN = [e for e in ALL if e not in HELDOUT]
-ROOT = "${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes_dedup_gen}/ideal"
+ROOT = "${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/ideal"
 OUT = pathlib.Path(__file__).parent
 
 HEAD = """_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
@@ -70,7 +70,8 @@ for D in (50, 100, 200):
         made.append(emit(f"cotrain11_arc_D{D}_M{M}", 200,
             "get_planar_arc_length_transform_list",
             {"min_distance_unit": f"{float(D)}", "resampled_vector_length": M,
-             "dt": 0.03333333333333333},
+             "dt": 0.03333333333333333, "rotation_radius": 0.0,
+             "velocity_mode": "mean_scalar", "velocity_layout": "append"},
             f"ARC: planar SE(2)+grip tokens, D={D} M={M} -> ({M}+1, 5) per chunk."))
 print("\n".join(made))
 print(f"\ntrain ({len(TRAIN)}): {', '.join(TRAIN)}")

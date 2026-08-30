@@ -35,6 +35,21 @@ class EMBODIMENT(Enum):
     # Chain-gripper point targets have distinct action semantics and rollout
     # kinematics, so they must not share the U-socket model domain.
     PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
+    # The remaining PushShapes effectors from the 6x13 control-gap corpus.
+    # New IDs start at 21: every value at or below 20 is already stored in
+    # datasets or checkpoints and must not be reused (18 in particular
+    # belonged to HUMAN_BIMANUAL before the human-embodiment collapse).
+    PUSHSHAPES_SIM_L = 21
+    PUSHSHAPES_SIM_CIRCLE = 22
+    PUSHSHAPES_SIM_CIRCLE_SMALL = 23
+    PUSHSHAPES_SIM_FLIPPER = 24
+    PUSHSHAPES_SIM_GRIPPER = 25
+    PUSHSHAPES_SIM_SCOOP = 26
+    PUSHSHAPES_SIM_SPRING = 27
+    PUSHSHAPES_SIM_STICK = 28
+    PUSHSHAPES_SIM_SUCTION = 29
+    PUSHSHAPES_SIM_TRIANGLE = 30
+    PUSHSHAPES_SIM_UMI = 31
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
