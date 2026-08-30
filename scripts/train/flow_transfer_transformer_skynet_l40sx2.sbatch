@@ -48,7 +48,8 @@ EXPECTED_WORLD_SIZE=2
 EXPECTED_SLURM_ACCOUNT=${EXPECTED_SLURM_ACCOUNT:?set expected authorized Skynet account}
 EXPECTED_SLURM_PARTITION=${EXPECTED_SLURM_PARTITION:?set expected Skynet partition}
 EXPECTED_SLURM_QOS=${EXPECTED_SLURM_QOS:?set expected Skynet QoS}
-EXPECTED_GPU_MODEL=${EXPECTED_GPU_MODEL:?set nvidia-smi GPU model substring}
+EXPECTED_GPU_MODEL=${EXPECTED_GPU_MODEL:?set observed nvidia-smi GPU model substring}
+TRAINING_GPU_MODEL=${TRAINING_GPU_MODEL:?set fixed smoke/full GPU model substring}
 SLURM_BIN=/opt/slurm/Ubuntu-20.04/24.11.0/bin
 export PATH=$SLURM_BIN:$PATH
 
@@ -183,6 +184,9 @@ PY
 
 if test "$MODE" != full; then
   test "$ATTEMPT" = 0
+fi
+if test "$MODE" != preflight; then
+  test "$EXPECTED_GPU_MODEL" = "$TRAINING_GPU_MODEL"
 fi
 test "${SLURM_JOB_ACCOUNT:?}" = "$EXPECTED_SLURM_ACCOUNT"
 test "${SLURM_JOB_PARTITION:?}" = "$EXPECTED_SLURM_PARTITION"
@@ -470,7 +474,8 @@ if test "$MODE" = preflight; then
     "$REPO/tests/test_pipeline_sampler_stage.py" "$MODEL_FILE" \
     "$EXPERIMENT_FILE" "$EXPECTED_HEAD" "$EXP_ROOT" "$BASE_WANDB_ID" \
     "$WANDB_GROUP" "$EXPECTED_SLURM_ACCOUNT" "$EXPECTED_SLURM_PARTITION" \
-    "$EXPECTED_SLURM_QOS" "$EXPECTED_GPU_MODEL" <<'PY'
+    "$EXPECTED_SLURM_QOS" "$EXPECTED_GPU_MODEL" \
+    "$TRAINING_GPU_MODEL" <<'PY'
 import copy
 import hashlib
 import json
@@ -513,6 +518,7 @@ def sha256(path):
     partition,
     qos,
     gpu_model,
+    training_gpu_model,
 ) = sys.argv[1:]
 config = OmegaConf.load(config_path)
 train_datasets = {
@@ -692,7 +698,9 @@ bundle = {
     },
     "resources": {
         "cluster": "Skynet", "account": account, "partition": partition,
-        "qos": qos, "gpu": gpu_model, "world_size": 2, "cpus": 16, "memory": "256G",
+        "qos": qos, "gpu": training_gpu_model,
+        "preflight_observed_gpu": gpu_model,
+        "world_size": 2, "cpus": 16, "memory": "256G",
     },
     "outputs": {
         "experiment_root": exp_root,
