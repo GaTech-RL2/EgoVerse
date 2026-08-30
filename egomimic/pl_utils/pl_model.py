@@ -245,18 +245,21 @@ class ModelWrapper(LightningModule):
         )
         self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
 
-    def on_validation_end(self):
-        print(f"[ON_VALIDATION_END] rank={self.global_rank}", flush=True)
+    def on_validation_epoch_end(self):
+        # Lightning forbids ``self.log`` from ``on_validation_end``. Evaluators
+        # aggregate and log exact epoch metrics, so invoke them from the
+        # supported epoch-end hook instead.
+        print(f"[ON_VALIDATION_EPOCH_END] rank={self.global_rank}", flush=True)
         if self.evaluator is not None:
             self.evaluator.on_validation_end()
 
         print(
-            f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
+            f"Rank {self.global_rank} on validation epoch end, waiting for all ranks to synchronize",
             flush=True,
         )
         torch.distributed.barrier()
         print(
-            f"Rank {self.global_rank} on validation end, all ranks synchronized",
+            f"Rank {self.global_rank} on validation epoch end, all ranks synchronized",
             flush=True,
         )
 

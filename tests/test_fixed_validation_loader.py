@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset
 
 from egomimic.pl_utils.pl_data_utils import MultiDataModuleWrapper
+from egomimic.pl_utils.pl_model import ModelWrapper
 
 
 class _TinyDataset(Dataset):
@@ -32,3 +33,8 @@ def test_max_size_validation_visits_each_domain_once_without_cycling():
     assert len(rows) == 3
     assert rows[-1][0]["short"] is None
     assert rows[-1][0]["long"]["value"].tolist() == [4]
+
+
+def test_validation_metrics_use_lightning_supported_epoch_end_hook():
+    assert "on_validation_epoch_end" in ModelWrapper.__dict__
+    assert "on_validation_end" not in ModelWrapper.__dict__
