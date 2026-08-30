@@ -249,6 +249,7 @@ def _assert_config_contract(
     assert int(smoke_cfg.trainer.limit_train_batches) == 2
     assert int(smoke_cfg.trainer.val_check_interval) == 1
     assert int(smoke_cfg.trainer.limit_val_batches) == 1
+    assert smoke_cfg.trainer.check_val_every_n_epoch is None
     assert int(smoke_cfg.trainer.num_sanity_val_steps) == 0
     assert int(smoke_cfg.trainer.log_every_n_steps) == 1
     assert int(full_cfg.trainer.max_steps) == int(
@@ -257,6 +258,10 @@ def _assert_config_contract(
     assert float(full_cfg.trainer.limit_val_batches) > 0
     assert int(full_cfg.trainer.val_check_interval) == int(
         full_cfg.run_provenance.training_contract.validation_interval_steps
+    )
+    assert full_cfg.trainer.check_val_every_n_epoch is None
+    assert (
+        full_cfg.run_provenance.training_contract.check_val_every_n_epoch is None
     )
     assert full_cfg.model.train_metrics_on_step is True
     assert float(full_cfg.model.optimizer.lr) == float(

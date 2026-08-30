@@ -84,6 +84,8 @@ def test_planar_v2_two_domain_config_contract() -> None:
     assert cfg.trainer.max_steps == 240_000
     assert cfg.trainer.log_every_n_steps == 1
     assert cfg.trainer.limit_val_batches == pytest.approx(1.0)
+    assert cfg.trainer.val_check_interval == 10_000
+    assert cfg.trainer.check_val_every_n_epoch is None
     assert cfg.norm_stats.norm_mode == "quantile"
     assert cfg.norm_stats.reduce_all_but_last is False
     assert cfg.evaluator.log_normalized_mse is True
@@ -114,6 +116,7 @@ def test_planar_v2_two_domain_config_contract() -> None:
     assert cfg.run_provenance.training_contract.world_size == 2
     assert cfg.run_provenance.training_contract.peak_lr == pytest.approx(3.0e-5)
     assert cfg.run_provenance.training_contract.warmup_start_lr == pytest.approx(3.0e-6)
+    assert cfg.run_provenance.training_contract.check_val_every_n_epoch is None
     assert set(cfg.run_provenance.required_wandb_metrics) == {
         "Train/MSE",
         "Train/MSE/pushshapes_sim_u_socket",
@@ -125,6 +128,10 @@ def test_planar_v2_two_domain_config_contract() -> None:
         "Valid/Native_MSE/pushshapes_sim_u_socket",
         "Valid/Native_MSE/pushshapes_sim_chain_gripper",
     }
+
+    smoke_cfg = _compose(SMOKE_EXPERIMENT)
+    assert smoke_cfg.trainer.val_check_interval == 1
+    assert smoke_cfg.trainer.check_val_every_n_epoch is None
 
     adapters = model.rollout_adapters
     assert set(adapters) == DOMAINS
