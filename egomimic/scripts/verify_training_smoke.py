@@ -171,15 +171,21 @@ def verify_training_smoke(
     required_embodiments: list[int],
     expected_head: str,
     expected_world_size: int = 1,
+    expected_steps: int = 2,
+    expected_val_check_interval: int = 1,
+    minimum_validation_step: int = 1,
 ) -> dict[str, Any]:
     output_dir = output_dir.resolve()
     config_path = output_dir / ".hydra" / "config.yaml"
     assert config_path.is_file(), config_path
     config = _load_training_config(config_path)
 
-    assert int(config.trainer.max_steps) == 2
-    assert int(config.trainer.limit_train_batches) == 2
-    assert int(config.trainer.val_check_interval) == 1
+    assert expected_steps > 0
+    assert expected_val_check_interval > 0
+    assert minimum_validation_step >= 0
+    assert int(config.trainer.max_steps) == expected_steps
+    assert int(config.trainer.limit_train_batches) == expected_steps
+    assert int(config.trainer.val_check_interval) == expected_val_check_interval
     assert int(config.trainer.limit_val_batches) == 1
     assert int(config.trainer.num_sanity_val_steps) == 0
     assert int(config.trainer.log_every_n_steps) == 1
@@ -200,7 +206,7 @@ def verify_training_smoke(
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     global_step = int(checkpoint["global_step"])
     epoch = int(checkpoint["epoch"])
-    assert global_step == 2, global_step
+    assert global_step == expected_steps, global_step
     optimizer_states = checkpoint.get("optimizer_states", [])
     assert optimizer_states, "Smoke checkpoint has no optimizer state"
     optimizer_lrs = [
@@ -217,7 +223,10 @@ def verify_training_smoke(
     assert hyper_parameters.get("train_metrics_on_step") is True
     del checkpoint
 
-    streams = list(output_dir.glob("wandb/offline-run-*/run-*.wandb"))
+    streams = [
+        *output_dir.glob("wandb/offline-run-*/run-*.wandb"),
+        *output_dir.glob("wandb/run-*/run-*.wandb"),
+    ]
     assert len(streams) == 1, streams
     training_history, validation_history, wandb_exit_code = read_wandb_history(
         streams[0]
@@ -240,9 +249,9 @@ def verify_training_smoke(
             for category, required in required_step_metrics.items()
         )
     ]
-    assert len(dense_training_history) == 2, training_history
+    assert len(dense_training_history) == expected_steps, training_history
     training_steps = [row["trainer_global_step"] for row in dense_training_history]
-    assert training_steps == [0, 1], training_steps
+    assert training_steps == list(range(expected_steps)), training_steps
     for row in dense_training_history:
         values = [
             value
@@ -251,10 +260,12 @@ def verify_training_smoke(
         ]
         assert values and all(math.isfinite(value) for value in values), row
 
-    # num_sanity_val_steps=0 plus a persisted trainer step >= 1 proves this
-    # metric came from scheduled validation after optimization had begun.
+    # num_sanity_val_steps=0 plus the requested minimum persisted trainer step
+    # proves this metric came from scheduled validation after optimization began.
     scheduled_history = [
-        row for row in validation_history if row["trainer_global_step"] >= 1
+        row
+        for row in validation_history
+        if row["trainer_global_step"] >= minimum_validation_step
     ]
     assert scheduled_history, validation_history
     qualifying_history = [
@@ -286,6 +297,9 @@ def verify_training_smoke(
         "epoch": epoch,
         "precision": str(config.trainer.precision),
         "world_size": expected_world_size,
+        "expected_steps": expected_steps,
+        "expected_val_check_interval": expected_val_check_interval,
+        "minimum_validation_step": minimum_validation_step,
         "optimizer_state_count": len(optimizer_states),
         "optimizer_lrs": optimizer_lrs,
         "scheduler_last_epoch": scheduler_last_epoch,
@@ -307,6 +321,9 @@ def main() -> None:
     parser.add_argument("--required-embodiments", required=True)
     parser.add_argument("--expected-head", required=True)
     parser.add_argument("--expected-world-size", type=int, default=1)
+    parser.add_argument("--expected-steps", type=int, default=2)
+    parser.add_argument("--expected-val-check-interval", type=int, default=1)
+    parser.add_argument("--minimum-validation-step", type=int, default=1)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -319,6 +336,9 @@ def main() -> None:
         required_embodiments,
         args.expected_head,
         args.expected_world_size,
+        args.expected_steps,
+        args.expected_val_check_interval,
+        args.minimum_validation_step,
     )
     if not args.dry_run:
         result_path = args.output_dir.resolve() / "SMOKE_RESULT.json"

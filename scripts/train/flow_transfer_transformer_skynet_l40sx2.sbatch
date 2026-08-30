@@ -25,12 +25,14 @@ EXPECTED_SMOKE_GATE_SHA=${EXPECTED_SMOKE_GATE_SHA:-}
 
 REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-transformer3-multij64-20260831
 PY_ENV=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv
-EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_transformer3_cg32_jmix2468163264_051010101550_a40x2_20260831
+EXP_ROOT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_transformer3_cg32_jmix2468163264_051010101550_a40x2_r2_20260831
 LAUNCHER=$REPO/scripts/train/flow_transfer_transformer_skynet_l40sx2.sbatch
 VERIFIER=$REPO/egomimic/scripts/verify_training_smoke.py
 RUN_BUNDLE=$EXP_ROOT/RUN_BUNDLE_PROVENANCE.json
-SUPERSEDED_BUNDLE=/coc/flash7/paphiwetsa3/experiments/flow_transfer_transformer3_cg32_jmix2468163264_051010101550_20260831/RUN_BUNDLE_PROVENANCE.json
-SUPERSEDED_BUNDLE_SHA=0faef0cc302c0ebccedeb3f70418df821c7d0b85d8a6b63e8824b7e4c8f6dcbb
+SUPERSEDED_BUNDLE=/coc/flash7/paphiwetsa3/experiments/flow_transfer_transformer3_cg32_jmix2468163264_051010101550_a40x2_20260831/RUN_BUNDLE_PROVENANCE.json
+SUPERSEDED_BUNDLE_SHA=f93c11c129920b077b529436d6b232150941bf86eb09663857216dde5329a3be
+SUPERSEDED_SMOKE=/coc/flash7/paphiwetsa3/experiments/flow_transfer_transformer3_cg32_jmix2468163264_051010101550_a40x2_20260831/smokes/r02_l8_cg32_multij64/job_3732683
+SUPERSEDED_SMOKE_HEAD=0c87afaf961928ca2e3daabca6001d9f24201589
 DATA_FILE=$REPO/egomimic/hydra_configs/data/pusht/flow_transfer_usocket_chain_newdata_val01_h16_per_emb_proprio.yaml
 NORM_ARTIFACT=/coc/flash7/paphiwetsa3/experiments/flow_transfer_temporal_h8_l8_world2_smokes_20260829/norm_artifacts/per_emb_proprio_h16/fast_merge_20260829/artifact/norm_stats/norm_stats.json
 SPLIT_MANIFEST=$EXP_ROOT/source_artifacts/splits/seed42_val01_skynet.json
@@ -41,10 +43,10 @@ EXCLUDED_CHAIN_EPISODE=episode_T_chain_gripper_obs7_000050.zarr
 EXPECTED_NORM_SHA=d6abc08a3315cd172bd6c03ded0346ae24d69f2ce1744e133fe1768f0feefa96
 EXPECTED_STAGE_SHA=caf081c136f42318e172007edc91e0c0073235c74dd0ad4ee8e8d2da43e43a34
 EXPECTED_TEST_SHA=23b628b043b66a852e2313a0c1b66e7353f3af6a5542e3afbb218dcf3428d510
-EXPECTED_VERIFIER_SHA=28b73fe625cb305605110c7e5188314cc027578a1023751ed1c7449fb953bcd1
+EXPECTED_VERIFIER_SHA=e1a1548c6e2ab5bae23591c8c061033272c13b74ef6edc27f132fe3e3efdb7cb
 EXPECTED_DATA_SHA=93297962d4343f6b085ea929c4fce2e2f03a8101ddd183d42563ea96ed9c3d9f
 EXPECTED_MODEL_SHA=4047c44b8367c453da836db41353f320e4bbe8e530b7500c6716f17604aed1ef
-EXPECTED_EXPERIMENT_SHA=4fc538e76a0808c0ecbfa70d723da2a003952faca02b09747201c80821de6d78
+EXPECTED_EXPERIMENT_SHA=85c3e1301648a7ee32937ab9bb916d5cc17a0833b701d32e89f3d6da5bccba92
 WANDB_GROUP=flow_transfer_transformer3_cg32_multij_ablation_20260831
 EXPECTED_WORLD_SIZE=2
 EXPECTED_SLURM_ACCOUNT=${EXPECTED_SLURM_ACCOUNT:?set expected authorized Skynet account}
@@ -64,7 +66,7 @@ case "$ARM" in
     EXPECTED_DENOISER_WIDTH=256
     EXPECTED_USOCKET_DECODER_WIDTH=32
     EXPECTED_CHAIN_DECODER_WIDTH=32
-    BASE_WANDB_ID=ft_r02_l8_w256_d8_c128_transformer3_decu32_cg32_jmix2468163264_p051010101550_s42_skynet_a40x2_20260831
+    BASE_WANDB_ID=ft_r02_l8_w256_d8_c128_transformer3_decu32_cg32_jmix2468163264_p051010101550_s42_skynet_a40x2_r2_20260831
     ;;
   *)
     printf 'Unknown ARM=%s\n' "$ARM" >&2
@@ -470,6 +472,14 @@ if test "$MODE" = preflight; then
     tests/test_pipeline_sampler_stage.py \
     tests/test_fixed_validation_loader.py \
     tests/test_human_robot_overlay_eval.py
+  "$PY_ENV/bin/python" "$VERIFIER" "$SUPERSEDED_SMOKE" \
+    --required-embodiments 19,20 \
+    --expected-head "$SUPERSEDED_SMOKE_HEAD" \
+    --expected-world-size 2 \
+    --expected-steps 2020 \
+    --expected-val-check-interval 2001 \
+    --minimum-validation-step 2000 \
+    --dry-run
   "$PY_ENV/bin/python" - \
     "$RESOLVED_CONFIG" "$RUN_BUNDLE" "$PREFLIGHT_RESULT" \
     "$SPLIT_MANIFEST" "$NORM_ARTIFACT" "$LAUNCHER" \
@@ -605,10 +615,10 @@ bundle = {
         "fairness_verdict": "FAIR WITH CAVEATS",
     },
     "replacement": {
-        "reason": "User explicitly authorized 2 x A40 to minimize Skynet queue wait",
+        "reason": "Canonical smoke verifier upgraded from fixed 2-step assumptions to the required 2020-step online-W&B gate",
         "supersedes_bundle": superseded_bundle,
         "supersedes_bundle_sha256": superseded_bundle_sha,
-        "semantic_changes": ["scheduler allocation/account", "GPU class", "W&B identity", "output root"],
+        "semantic_changes": ["source verification code", "W&B identity", "output root"],
         "model_data_optimizer_changes": [],
     },
     "source": {
@@ -771,7 +781,10 @@ if test "$MODE" = smoke; then
   "$PY_ENV/bin/python" "$VERIFIER" "$RUN_DIR" \
     --required-embodiments 19,20 \
     --expected-head "$EXPECTED_HEAD" \
-    --expected-world-size 2
+    --expected-world-size 2 \
+    --expected-steps 2020 \
+    --expected-val-check-interval 2001 \
+    --minimum-validation-step 2000
   test -s "$RUN_DIR/SMOKE_RESULT.json"
   "$PY_ENV/bin/python" - \
     "$RUN_DIR/checkpoints/last.ckpt" "$RUN_BUNDLE" \
