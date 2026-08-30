@@ -74,3 +74,13 @@ def test_dp20m_launcher_adds_optional_wandb_fields():
     cfg = _launch_config()
     assert cfg.logger.wandb.id == cfg.logger.wandb.name == "dp20m_smoke_test"
     assert cfg.logger.wandb.resume == "never"
+
+
+def test_dp20m_launcher_hardens_hardware_and_strict_reload_contracts():
+    launcher = (
+        ROOT / "scripts/train/flow_transfer_dp_capacity_skynet_l40sx2.sbatch"
+    ).read_text()
+    assert "EXPECTED_SLURM_ACCOUNT=${EXPECTED_SLURM_ACCOUNT:?" in launcher
+    assert "EXPECTED_SLURM_PARTITION=${EXPECTED_SLURM_PARTITION:?" in launcher
+    assert "EXPECTED_GPU_MODEL=${EXPECTED_GPU_MODEL:?" in launcher
+    assert "strict=True, weights_only=False" in launcher

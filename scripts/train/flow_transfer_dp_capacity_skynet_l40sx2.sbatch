@@ -10,6 +10,9 @@ EXPECTED_LAUNCHER_SHA=${EXPECTED_LAUNCHER_SHA:?set launcher SHA256}
 EXPECTED_SPLIT_SHA=${EXPECTED_SPLIT_SHA:?set split manifest SHA256}
 NORM_ARTIFACT=${NORM_ARTIFACT:?set train-only normalization artifact}
 EXPECTED_NORM_SHA=${EXPECTED_NORM_SHA:?set normalization SHA256}
+EXPECTED_SLURM_ACCOUNT=${EXPECTED_SLURM_ACCOUNT:?set exact authorized Slurm account}
+EXPECTED_SLURM_PARTITION=${EXPECTED_SLURM_PARTITION:?set exact Slurm partition}
+EXPECTED_GPU_MODEL=${EXPECTED_GPU_MODEL:?set nvidia-smi model substring, e.g. L40S or A40}
 SMOKE_GATE=${SMOKE_GATE:-}
 NORM_JOB_ROOT=$(dirname "$(dirname "$(dirname "$NORM_ARTIFACT")")")
 NORM_VALIDATION=$NORM_JOB_ROOT/validation_recovered.json
@@ -21,8 +24,8 @@ LAUNCHER=$REPO/scripts/train/flow_transfer_dp_capacity_skynet_l40sx2.sbatch
 VERIFIER=$REPO/egomimic/scripts/verify_training_smoke.py
 SPLIT_MANIFEST=/coc/flash7/paphiwetsa3/experiments/flow_transfer_dp20m_newdata_val01_h16_20260830/preflight_20260830/dataset_split/split_manifest.json
 EXPERIMENT=pusht/pipeline_diffusion_usocket_chain_newdata_val01_h16_20m
-BASE_WANDB_ID=ft_dp20m_cotrain_newdata3719_h16_val01_s42_l40sx2_20260830
-WANDB_GROUP=flow_transfer_dp_capacity_val01_20260830
+BASE_WANDB_ID=ft_dp20m_cotrain_newdata3719_h16_val01_s42_world2_20260831
+WANDB_GROUP=flow_transfer_dp_capacity_val01_20260831
 SLURM_BIN=/opt/slurm/Ubuntu-20.04/24.11.0/bin
 export PATH=$SLURM_BIN:$PATH
 
@@ -65,12 +68,14 @@ test ! -e "$PROVENANCE_DIR"
 mkdir -p "$RUN_DIR" "$PROVENANCE_DIR"
 
 test "${SLURM_RESTART_COUNT:-0}" = 0
-test "${SLURM_JOB_ACCOUNT:?}" = rl2-lab
-test "${SLURM_JOB_PARTITION:?}" = rl2-lab
+test "${SLURM_JOB_ACCOUNT:?}" = "$EXPECTED_SLURM_ACCOUNT"
+test "${SLURM_JOB_PARTITION:?}" = "$EXPECTED_SLURM_PARTITION"
 test "${SLURM_NTASKS:?}" = 2
 test "${SLURM_JOB_NUM_NODES:?}" = 1
 test "${SLURM_CPUS_PER_TASK:?}" -ge 8
-test "$(nvidia-smi --query-gpu=name --format=csv,noheader | grep -Fci L40S)" = 2
+GPU_NAMES=$(nvidia-smi --query-gpu=name --format=csv,noheader)
+test "$(printf '%s\n' "$GPU_NAMES" | sed '/^[[:space:]]*$/d' | wc -l)" = 2
+test "$(printf '%s\n' "$GPU_NAMES" | grep -Fci -- "$EXPECTED_GPU_MODEL")" = 2
 test "$(git -C "$REPO" rev-parse HEAD)" = "$EXPECTED_HEAD"
 test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
 assert_sha "$EXPECTED_LAUNCHER_SHA" "$LAUNCHER"
@@ -129,7 +134,7 @@ OVERRIDES=(
   "logger.wandb.id=$WANDB_ID"
   "+logger.wandb.name=$WANDB_ID"
   +logger.wandb.resume=never
-  "logger.wandb.tags=[flow-transfer,diffusion-policy,dp20m,h16,val01-seed42,fresh-start,batch64-per-embodiment,checkpoint-20k,skynet,l40sx2,world2,chain-gen-frozen719]"
+  "logger.wandb.tags=[flow-transfer,diffusion-policy,dp20m,h16,val01-seed42,fresh-start,batch64-per-embodiment,checkpoint-20k,skynet,gpu-auto,world2,chain-gen-frozen719]"
 )
 
 if test "$MODE" = smoke; then
@@ -232,7 +237,12 @@ import sys
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 path = pathlib.Path(sys.argv[1]).resolve(strict=True)
-model = ModelWrapper.load_from_checkpoint(str(path), map_location="cpu", strict=True)
+# This checkpoint was created by this exact smoke from the pinned clean source.
+# PyTorch 2.6 defaults torch.load to weights_only=True, which rejects Lightning's
+# trusted OmegaConf hyperparameter metadata before strict state-dict checks run.
+model = ModelWrapper.load_from_checkpoint(
+    str(path), map_location="cpu", strict=True, weights_only=False
+)
 total = sum(parameter.numel() for parameter in model.parameters())
 assert total == 19635818, total
 record = {"status": "PASS", "strict": True, "parameters": total, "checkpoint": str(path)}
