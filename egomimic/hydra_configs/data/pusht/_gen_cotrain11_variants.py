@@ -7,7 +7,7 @@ DD = WT/'egomimic/hydra_configs/data/pusht'
 MD = WT/'egomimic/hydra_configs/model/bf'
 base_model = yaml.safe_load((MD/'bf_pipeline_sampler_usocket_chain_points_dense_medium_h16.yaml').read_text())
 
-# (name, D, M, rotation_radius, velocity_layout, note)
+# (name, D, M, rotation_radius, velocity_layout, note, hybrid_rotation_unit)
 VARIANTS = [
  ("arc_D10_M16_append_r0",  10, 16, 0.0,  "append",
   "M matched to the h16 baseline's width with a much smaller D, so the token spans a short arc at baseline resolution."),
@@ -17,9 +17,19 @@ VARIANTS = [
   "Rotation enters the distance function: lambda=2sqrt(2)*30, so rotating costs what translating 30 units costs."),
  ("arc_D25_M16_append_r0",  25, 16, 0.0,  "append",
   "Width matched to h16, D between the fine 10 and the coarse 50."),
+ ("arc_D10_M16_hybrid_rm", 10, 16, 0.0, "append",
+  "HYBRID rate-matched: rotation gets its own budget and the token spans "
+  "min(D/v_trans, D_rot/v_rot). D_rot=0.044 is D times the measured median "
+  "ratio 0.0044 rad/unit, i.e. Cor 6.9's D_s ~ v_s, so both streams exhaust "
+  "together and this should behave like translation-only -- the control.", 0.044),
+ ("arc_D10_M16_hybrid_tight", 10, 16, 0.0, "append",
+  "HYBRID rotation-limited: D_rot=0.015 is ~3x tighter than rate-matched, so "
+  "rotation binds and truncates the token whenever the effector turns -- the "
+  "case where independent budgets differ from one translational clock.", 0.015),
 ]
 
-def data_cfg(name, D, M, rr, lay):
+def data_cfg(name, D, M, rr, lay, hyb=None):
+    hybline = f"        hybrid_rotation_unit: {float(hyb)}\n" if hyb is not None else ""
     def block(e, mode):
         return f"""  pushshapes_sim_{e}:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -38,7 +48,7 @@ def data_cfg(name, D, M, rr, lay):
         rotation_radius: {float(rr)}
         velocity_mode: mean_scalar
         velocity_layout: {lay}
-    mode: {mode}
+{hybline}    mode: {mode}
     valid_ratio: 0.02
     bounds_check: false
 """
@@ -85,6 +95,7 @@ def model_cfg(name, M, lay, note):
            f"# 11-embodiment cotrain; HELD OUT circle_small, suction.\n")
     (MD/f"bf_cotrain11_{name}.yaml").write_text(hdr + yaml.safe_dump(d, sort_keys=False, default_flow_style=False))
 
-for name, D, M, rr, lay, note in VARIANTS:
-    data_cfg(name, D, M, rr, lay); model_cfg(name, M, lay, note)
+for v in VARIANTS:
+    name, D, M, rr, lay, note = v[:6]; hyb = v[6] if len(v) > 6 else None
+    data_cfg(name, D, M, rr, lay, hyb); model_cfg(name, M, lay, note)
     print(f"  {name:26} D={D:>3} M={M} r={rr:>4} layout={lay:6} horizon={M+1 if lay=='append' else M} dims={5 if lay=='append' else 6}")
