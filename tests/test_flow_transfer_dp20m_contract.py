@@ -17,6 +17,19 @@ def _config():
         )
 
 
+def _launch_config():
+    with initialize_config_dir(version_base=None, config_dir=str(CONFIG_ROOT)):
+        return compose(
+            config_name="train_zarr_cartesian",
+            overrides=[
+                "+experiment=pusht/pipeline_diffusion_usocket_chain_newdata_val01_h16_20m",
+                "logger.wandb.id=dp20m_smoke_test",
+                "+logger.wandb.name=dp20m_smoke_test",
+                "+logger.wandb.resume=never",
+            ],
+        )
+
+
 def test_dp20m_architecture_and_training_contract():
     cfg = _config()
     pipeline = cfg.model.robomimic_model
@@ -55,3 +68,9 @@ def test_dp20m_disjoint_split_and_checkpoint_contract():
     assert checkpoint.save_last is True
     assert checkpoint.every_n_train_steps == 20000
     assert checkpoint.auto_insert_metric_name is False
+
+
+def test_dp20m_launcher_adds_optional_wandb_fields():
+    cfg = _launch_config()
+    assert cfg.logger.wandb.id == cfg.logger.wandb.name == "dp20m_smoke_test"
+    assert cfg.logger.wandb.resume == "never"

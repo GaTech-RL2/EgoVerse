@@ -122,8 +122,10 @@ for embodiment, frames in expected_frames.items():
     assert item["dataset_size"] == item["sampled_frames"] == frames
     assert item["sample_frac"] == 1.0 and item["seed"] == 42
 expected_widths = {
-    "19": {"state_agent_obj": 3, "actions": 4},
-    "20": {"state_agent_obj": 3, "actions": 6},
+    # Normalization is computed on the raw six-value state key. The observation
+    # encoder applies input_slice [0, 3] after normalization.
+    "19": {"state_agent_obj": 6, "actions": 4},
+    "20": {"state_agent_obj": 6, "actions": 6},
 }
 assert set(payload["stats"]) == set(expected_widths)
 for embodiment, keys in expected_widths.items():

@@ -11,6 +11,8 @@ EXPECTED_SPLIT_SHA=${EXPECTED_SPLIT_SHA:?set split manifest SHA256}
 NORM_ARTIFACT=${NORM_ARTIFACT:?set train-only normalization artifact}
 EXPECTED_NORM_SHA=${EXPECTED_NORM_SHA:?set normalization SHA256}
 SMOKE_GATE=${SMOKE_GATE:-}
+NORM_JOB_ROOT=$(dirname "$(dirname "$(dirname "$NORM_ARTIFACT")")")
+NORM_VALIDATION=$NORM_JOB_ROOT/validation_recovered.json
 
 REPO=/coc/flash7/paphiwetsa3/worktrees/flow-transfer-dp20m-newdata-h16-20260830
 PY_ENV=/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv
@@ -74,10 +76,12 @@ test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
 assert_sha "$EXPECTED_LAUNCHER_SHA" "$LAUNCHER"
 assert_sha "$EXPECTED_SPLIT_SHA" "$SPLIT_MANIFEST"
 assert_sha "$EXPECTED_NORM_SHA" "$NORM_ARTIFACT"
+test -s "$NORM_VALIDATION"
 test -x "$PY_ENV/bin/python"
 test -f "$VERIFIER"
 
-cp "$LAUNCHER" "$SPLIT_MANIFEST" "$NORM_ARTIFACT" "$PROVENANCE_DIR/"
+cp "$LAUNCHER" "$SPLIT_MANIFEST" "$NORM_ARTIFACT" "$NORM_VALIDATION" \
+  "$PROVENANCE_DIR/"
 cp "$(dirname "$SPLIT_MANIFEST")"/*.tsv "$PROVENANCE_DIR/"
 git -C "$REPO" log -1 --format=fuller > "$PROVENANCE_DIR/git_commit.txt"
 git -C "$REPO" status --porcelain=v1 --untracked-files=all \
@@ -123,8 +127,8 @@ OVERRIDES=(
   logger.wandb.project=pushshapes-flow-transfer
   "logger.wandb.group=$WANDB_GROUP"
   "logger.wandb.id=$WANDB_ID"
-  "logger.wandb.name=$WANDB_ID"
-  logger.wandb.resume=never
+  "+logger.wandb.name=$WANDB_ID"
+  +logger.wandb.resume=never
   "logger.wandb.tags=[flow-transfer,diffusion-policy,dp20m,h16,val01-seed42,fresh-start,batch64-per-embodiment,checkpoint-20k,skynet,l40sx2,world2,chain-gen-frozen719]"
 )
 
@@ -174,7 +178,8 @@ assert cfg.model.scheduler.warmup_steps == 3000
 assert math.isclose(cfg.model.scheduler.warmup_start_factor, 0.1)
 assert math.isclose(cfg.model.scheduler.eta_min, 3e-6)
 assert str(cfg.norm_stats.precomputed_norm_path) == norm_path
-assert cfg.logger.wandb.id == wandb_id and cfg.logger.wandb.resume == "never"
+assert cfg.logger.wandb.id == cfg.logger.wandb.name == wandb_id
+assert cfg.logger.wandb.resume == "never"
 assert cfg.data.valid_combined_mode == "max_size"
 domains = {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
 for domain in domains:
