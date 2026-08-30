@@ -27,6 +27,8 @@ class HumanRobotOverlayEval(EvalVideo):
         frame_stride: int = 10,
         max_frames: int | None = 120,
         max_frames_by_embodiment: dict[str, int] | None = None,
+        log_normalized_mse: bool = False,
+        log_native_mse: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -38,6 +40,8 @@ class HumanRobotOverlayEval(EvalVideo):
             str(name).lower(): int(limit)
             for name, limit in (max_frames_by_embodiment or {}).items()
         }
+        self.log_normalized_mse = bool(log_normalized_mse)
+        self.log_native_mse = bool(log_native_mse)
         self._rendered_frames: dict[int, int] = {}
 
     def on_validation_start(self):
@@ -71,6 +75,20 @@ class HumanRobotOverlayEval(EvalVideo):
         cu_seqlens = batch["cu_seqlens"].to(target.device)
         return unnormalized, packed.chunk_targets(target, cu_seqlens, self.chunk_len)
 
+    def _normalized_target(self, batch, action_key):
+        target = batch[action_key]
+        if "cu_seqlens" not in batch:
+            if target.ndim != 3:
+                raise ValueError(
+                    f"Expected standard actions (batch, horizon, dim), got "
+                    f"{tuple(target.shape)}"
+                )
+            return target
+        if self.chunk_len is None:
+            raise ValueError("chunk_len is required for a packed validation loader")
+        cu_seqlens = batch["cu_seqlens"].to(target.device)
+        return packed.chunk_targets(target, cu_seqlens, self.chunk_len)
+
     def _unnormalize_prediction(self, prediction, emb_id, action_key):
         if prediction.ndim != 3:
             raise ValueError(
@@ -80,9 +98,27 @@ class HumanRobotOverlayEval(EvalVideo):
         # Keep the horizon axis intact. MultiDataset statistics may be either
         # per-dimension (D,) or slotwise (H, D); both broadcast correctly into
         # (B, H, D), while flattening B and H breaks slotwise arc-token stats.
-        return self.model.norm_stats.unnormalize(
-            {action_key: prediction}, emb_id
-        )[action_key]
+        return self.model.norm_stats.unnormalize({action_key: prediction}, emb_id)[
+            action_key
+        ]
+
+    @staticmethod
+    def _finite_mse(prediction, target, label: str):
+        if prediction.shape != target.shape:
+            raise ValueError(
+                f"{label} prediction/target mismatch: "
+                f"{tuple(prediction.shape)} vs {tuple(target.shape)}"
+            )
+        if prediction.numel() == 0:
+            raise ValueError(f"{label} received an empty prediction/target")
+        squared_error = (prediction - target).float().square().reshape(-1)
+        if not bool(torch.isfinite(squared_error).all()):
+            raise ValueError(f"{label} contains non-finite squared error")
+        return (
+            squared_error.mean().detach(),
+            squared_error.sum().detach(),
+            squared_error.numel(),
+        )
 
     def compute_metrics_and_viz(
         self, batch: dict[int, dict[str, Any]]
@@ -90,6 +126,10 @@ class HumanRobotOverlayEval(EvalVideo):
         predictions = self.model.forward_eval(batch)
         metrics = {}
         images = {}
+        normalized_squared_error_sum = None
+        normalized_element_count = 0
+        native_squared_error_sum = None
+        native_element_count = 0
 
         for emb_id, embodiment_batch in batch.items():
             embodiment_name = get_embodiment(emb_id).lower()
@@ -100,11 +140,32 @@ class HumanRobotOverlayEval(EvalVideo):
                     f"Missing {prediction_key!r}; available={sorted(predictions)}"
                 )
 
+            normalized_prediction = predictions[prediction_key]
+            normalized_target = self._normalized_target(embodiment_batch, action_key)
+            normalized_count = min(
+                normalized_target.shape[0], normalized_prediction.shape[0]
+            )
+            normalized_target = normalized_target[:normalized_count]
+            normalized_prediction = normalized_prediction[:normalized_count]
+            if self.log_normalized_mse:
+                normalized_mse, squared_error_sum, element_count = self._finite_mse(
+                    normalized_prediction,
+                    normalized_target,
+                    f"normalized {embodiment_name}",
+                )
+                metrics[f"Valid/MSE/{embodiment_name}"] = normalized_mse
+                normalized_squared_error_sum = (
+                    squared_error_sum
+                    if normalized_squared_error_sum is None
+                    else normalized_squared_error_sum + squared_error_sum
+                )
+                normalized_element_count += element_count
+
             unnormalized, target = self._unnormalized_target(
                 embodiment_batch, emb_id, action_key
             )
             prediction = self._unnormalize_prediction(
-                predictions[prediction_key], emb_id, action_key
+                normalized_prediction, emb_id, action_key
             )
             count = min(target.shape[0], prediction.shape[0])
             target = target[:count]
@@ -120,6 +181,28 @@ class HumanRobotOverlayEval(EvalVideo):
             metrics[f"Valid/emb{emb_id}_{action_key}_copybaseline_mse"] = (
                 (target[:, :1] - target).square().mean().detach()
             )
+
+            if self.log_native_mse:
+                adapter = self.model.rollout_adapter_for(emb_id)
+                if adapter is None:
+                    raise ValueError(
+                        f"Native MSE requested but {embodiment_name} has no "
+                        "rollout adapter"
+                    )
+                native_prediction = adapter.decode(prediction, unnormalized)
+                native_target = adapter.decode(target, unnormalized)
+                native_mse, squared_error_sum, element_count = self._finite_mse(
+                    native_prediction,
+                    native_target,
+                    f"native {embodiment_name}",
+                )
+                metrics[f"Valid/Native_MSE/{embodiment_name}"] = native_mse
+                native_squared_error_sum = (
+                    squared_error_sum
+                    if native_squared_error_sum is None
+                    else native_squared_error_sum + squared_error_sum
+                )
+                native_element_count += element_count
 
             raw_images = embodiment_batch.get(self.image_key)
             viz = None if self.viz_func is None else self.viz_func.get(embodiment_name)
@@ -187,6 +270,21 @@ class HumanRobotOverlayEval(EvalVideo):
                     f"{embodiment_name}: {type(error).__name__}: {error}",
                     flush=True,
                 )
+
+        if self.log_normalized_mse:
+            if normalized_squared_error_sum is None or normalized_element_count == 0:
+                raise ValueError(
+                    "Normalized MSE requested for an empty validation batch"
+                )
+            metrics["Valid/MSE"] = (
+                normalized_squared_error_sum / normalized_element_count
+            ).detach()
+        if self.log_native_mse:
+            if native_squared_error_sum is None or native_element_count == 0:
+                raise ValueError("Native MSE requested for an empty validation batch")
+            metrics["Valid/Native_MSE"] = (
+                native_squared_error_sum / native_element_count
+            ).detach()
 
         return metrics, images
 

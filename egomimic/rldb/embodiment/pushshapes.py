@@ -184,14 +184,12 @@ def get_planar_arc_length_transform_list(
     min_distance_unit: float = 100.0,
     resampled_vector_length: int = 100,
     dt: float = 1.0 / 30.0,
+    rotation_radius: float = 0.0,
+    hybrid_rotation_unit: float | None = None,
+    velocity_mode: str = "mean_scalar",
+    velocity_layout: str = "append",
 ):
-    """Embodiment-agnostic planar arc tokenization, rotation and grip carried.
-
-    Chunking is by TRANSLATIONAL arc length only; theta and grip ride along it.
-    There is deliberately no rotation_radius: coupling rotation into the metric
-    was measured to end a chunk after 6 timesteps instead of 64 on a
-    rotation-dominant trajectory at equal rotation error.
-    """
+    """Build an explicitly configured embodiment-agnostic planar tokenizer."""
     from egomimic.rldb.zarr.arc_length_tokenizer import TokenizePlanarArcLength
 
     action_keys = keys or ["actions"]
@@ -204,5 +202,9 @@ def get_planar_arc_length_transform_list(
             min_distance_unit=min_distance_unit,
             resampled_vector_length=resampled_vector_length,
             dt=dt,
+            rotation_radius=rotation_radius,
+            hybrid_rotation_unit=hybrid_rotation_unit,
+            velocity_mode=velocity_mode,
+            velocity_layout=velocity_layout,
         )
     ]

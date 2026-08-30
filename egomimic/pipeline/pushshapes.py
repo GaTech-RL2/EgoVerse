@@ -12,6 +12,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 )
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     CHAIN_GRIPPER_POINT_ARC_DIM,
+    PLANAR_ARC_DIM,
     USOCKET_ARC_DIM,
     TokenizeChainGripperPointArcLength,
     TokenizeUSocketArcLength,
@@ -42,6 +43,72 @@ class USocketRotVecRolloutAdapter:
             )
         theta = np.arctan2(value[..., 3], value[..., 2])
         return np.concatenate((value[..., :2], theta[..., None]), axis=-1)
+
+    __call__ = decode
+
+
+class PlanarArcWaypointZeroRolloutAdapter:
+    """Decode the anchored planar waypoint and replan every control step.
+
+    The generic v2 token stores ``M`` common-layout waypoints followed by one
+    timing row. A full fixed-rate inverse is intentionally not inferred from
+    that scalar timing payload. Rollout therefore executes waypoint zero and
+    asks the policy for a fresh token at the next simulator step.
+    """
+
+    preserves_decoded_timing = True
+
+    def __init__(self, resampled_vector_length: int, native_action_dim: int):
+        self.resampled_vector_length = int(resampled_vector_length)
+        self.native_action_dim = int(native_action_dim)
+        self.action_horizon = 1
+        if self.resampled_vector_length < 2:
+            raise ValueError("resampled_vector_length must be at least 2")
+        if self.native_action_dim not in (2, 3, 4):
+            raise ValueError("native_action_dim must be one of 2, 3, or 4")
+
+    def decode(self, actions, context: dict | None = None):
+        del context
+        expected = (self.resampled_vector_length + 1, PLANAR_ARC_DIM)
+        if torch.is_tensor(actions):
+            value = actions.unsqueeze(0) if actions.ndim == 2 else actions
+            if value.ndim != 3 or tuple(value.shape[1:]) != expected:
+                raise ValueError(
+                    "PlanarArcWaypointZeroRolloutAdapter expects "
+                    f"(B, {expected[0]}, {expected[1]}), got {tuple(value.shape)}"
+                )
+            waypoint = value[:, 0]
+            theta = torch.atan2(waypoint[:, 3], waypoint[:, 2])
+            native = torch.stack(
+                (
+                    waypoint[:, 0],
+                    waypoint[:, 1],
+                    theta,
+                    waypoint[:, 4],
+                ),
+                dim=-1,
+            )
+            return native[:, None, : self.native_action_dim]
+
+        value = np.asarray(actions)
+        value = value[None] if value.ndim == 2 else value
+        if value.ndim != 3 or tuple(value.shape[1:]) != expected:
+            raise ValueError(
+                "PlanarArcWaypointZeroRolloutAdapter expects "
+                f"(B, {expected[0]}, {expected[1]}), got {value.shape}"
+            )
+        waypoint = value[:, 0]
+        theta = np.arctan2(waypoint[:, 3], waypoint[:, 2])
+        native = np.stack(
+            (
+                waypoint[:, 0],
+                waypoint[:, 1],
+                theta,
+                waypoint[:, 4],
+            ),
+            axis=-1,
+        )
+        return native[:, None, : self.native_action_dim]
 
     __call__ = decode
 

@@ -1,0 +1,12 @@
+_target_: egomimic.eval.human_robot_overlay_eval.HumanRobotOverlayEval
+
+# The v2 token has a complete normalized-space target and an explicit
+# waypoint-zero native decoder, so report both contracts. Full validation uses
+# every held-out episode; the smoke config deliberately limits this to one batch.
+limit_val_batches: 1.0
+viz_func: null
+transform_lists: {}
+frame_stride: 1
+max_frames: 0
+log_normalized_mse: true
+log_native_mse: true

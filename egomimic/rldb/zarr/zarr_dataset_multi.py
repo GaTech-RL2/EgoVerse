@@ -21,6 +21,7 @@ Each episode is self-contained with its own metadata, enabling:
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import logging
 import math
@@ -90,6 +91,46 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     valid = set(names[:n_valid])
     train = set(names[n_valid:])
     return train, valid
+
+
+def episode_names_sha256(dataset_names: Iterable[str]) -> str:
+    """Hash a sorted, newline-delimited episode-ID list."""
+    names = sorted(str(name) for name in dataset_names)
+    return hashlib.sha256(
+        "".join(f"{name}\n" for name in names).encode("utf-8")
+    ).hexdigest()
+
+
+def _validate_episode_name_pin(
+    *,
+    label: str,
+    dataset_names: Iterable[str],
+    expected_count: int | None,
+    expected_sha256: str | None,
+) -> None:
+    """Fail closed when a config-pinned episode-ID set changes."""
+    names = sorted(str(name) for name in dataset_names)
+    if expected_count is not None:
+        expected_count = int(expected_count)
+        if expected_count < 0:
+            raise ValueError(f"{label} expected episode count must be non-negative")
+        if len(names) != expected_count:
+            raise ValueError(
+                f"Expected {expected_count} {label} episodes, found {len(names)}"
+            )
+    if expected_sha256 is None:
+        return
+    expected_sha256 = str(expected_sha256).lower()
+    if len(expected_sha256) != 64 or any(
+        character not in "0123456789abcdef" for character in expected_sha256
+    ):
+        raise ValueError(f"{label} expected SHA-256 must be a 64-character hex digest")
+    actual = episode_names_sha256(names)
+    if actual != expected_sha256:
+        raise ValueError(
+            f"{label} episode-ID SHA-256 mismatch: expected "
+            f"{expected_sha256}, found {actual}"
+        )
 
 
 def _ensure_dataset_filter(filters: DatasetFilter | None) -> DatasetFilter:
@@ -618,9 +659,76 @@ class LocalEpisodeResolver(EpisodeResolver):
         key_map: dict | None = None,
         transform_list: list | None = None,
         debug=False,
+        expected_episode_count: int | None = None,
+        expected_episode_names_sha256: str | None = None,
     ):
         super().__init__(folder_path, key_map, transform_list)
         self.debug = debug
+        self.expected_episode_count = (
+            None if expected_episode_count is None else int(expected_episode_count)
+        )
+        self.expected_episode_names_sha256 = (
+            None
+            if expected_episode_names_sha256 is None
+            else str(expected_episode_names_sha256).lower()
+        )
+        if self.expected_episode_count is not None and self.expected_episode_count <= 0:
+            raise ValueError("expected_episode_count must be positive")
+        if self.expected_episode_names_sha256 is not None and (
+            len(self.expected_episode_names_sha256) != 64
+            or any(
+                c not in "0123456789abcdef" for c in self.expected_episode_names_sha256
+            )
+        ):
+            raise ValueError(
+                "expected_episode_names_sha256 must be a SHA-256 hex digest"
+            )
+
+    def _validate_expected_inventory(
+        self, filtered_paths: list[tuple[str, str]]
+    ) -> None:
+        """Fail closed when a config-pinned local episode inventory changes."""
+        names = sorted(folder_name for _, folder_name in filtered_paths)
+        if (
+            self.expected_episode_count is not None
+            and len(names) != self.expected_episode_count
+        ):
+            raise ValueError(
+                f"Expected {self.expected_episode_count} episodes under "
+                f"{self.folder_path}, found {len(names)}"
+            )
+        if self.expected_episode_names_sha256 is None:
+            return
+        actual = episode_names_sha256(names)
+        if actual != self.expected_episode_names_sha256:
+            raise ValueError(
+                "Episode inventory SHA-256 mismatch under "
+                f"{self.folder_path}: expected "
+                f"{self.expected_episode_names_sha256}, found {actual}"
+            )
+
+    def _validate_loaded_inventory(
+        self,
+        datasets: Mapping[str, "ZarrDataset"],
+        expected_names: set[str],
+    ) -> None:
+        """Reject silent Zarr constructor failures when inventory is pinned."""
+        if (
+            self.expected_episode_count is None
+            and self.expected_episode_names_sha256 is None
+        ):
+            return
+        loaded_names = set(datasets)
+        if loaded_names != expected_names:
+            missing = sorted(expected_names - loaded_names)
+            unexpected = sorted(loaded_names - expected_names)
+            raise ValueError(
+                "Pinned local episode inventory did not fully load under "
+                f"{self.folder_path}: missing={missing}, unexpected={unexpected}"
+            )
+        self._validate_expected_inventory(
+            [(str(self.folder_path / name), name) for name in loaded_names]
+        )
 
     @staticmethod
     def _local_filters_match(
@@ -688,6 +796,7 @@ class LocalEpisodeResolver(EpisodeResolver):
         filtered_paths = self._get_local_filtered_paths(
             self.folder_path, filters, debug=self.debug
         )
+        self._validate_expected_inventory(filtered_paths)
 
         valid_folder_names = {folder_name for _, folder_name in filtered_paths}
         logger.info(f"Valid folder names: {valid_folder_names}")
@@ -700,6 +809,7 @@ class LocalEpisodeResolver(EpisodeResolver):
         datasets = self._load_zarr_datasets(
             search_path=self.folder_path, valid_folder_names=valid_folder_names
         )
+        self._validate_loaded_inventory(datasets, valid_folder_names)
 
         return datasets
 
@@ -720,12 +830,16 @@ class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
         transform_list: list | None = None,
         debug=False,
         embodiment_override: str | None = None,
+        expected_episode_count: int | None = None,
+        expected_episode_names_sha256: str | None = None,
     ):
         super().__init__(
             folder_path=folder_path,
             key_map=key_map,
             transform_list=transform_list,
             debug=debug,
+            expected_episode_count=expected_episode_count,
+            expected_episode_names_sha256=expected_episode_names_sha256,
         )
         self.embodiment_override = embodiment_override
 
@@ -842,6 +956,11 @@ class MultiDataset(torch.utils.data.Dataset):
         mode: str = "train",
         percent: float = 0.1,
         valid_ratio: float = 0.2,
+        split_seed: int = SEED,
+        expected_train_episode_count: int | None = None,
+        expected_train_episode_names_sha256: str | None = None,
+        expected_valid_episode_count: int | None = None,
+        expected_valid_episode_names_sha256: str | None = None,
         norm_mode: str = "zscore",
         reduce_all_but_last: bool = False,
         bounds_check: bool = True,
@@ -854,6 +973,11 @@ class MultiDataset(torch.utils.data.Dataset):
             mode: One of "train", "valid", "total", "percent" — which split to keep.
             percent: Fraction (when mode="percent").
             valid_ratio: Train/valid split ratio.
+            split_seed: Seed used for the episode-level train/valid split.
+            expected_train_episode_count: Optional fail-closed train-set pin.
+            expected_train_episode_names_sha256: SHA-256 of sorted train IDs.
+            expected_valid_episode_count: Optional fail-closed validation-set pin.
+            expected_valid_episode_names_sha256: SHA-256 of sorted validation IDs.
             norm_mode: One of "zscore", "minmax", "quantile".
             reduce_all_but_last: Pool normalization statistics over every
                 sample dimension except the final feature dimension.
@@ -891,8 +1015,21 @@ class MultiDataset(torch.utils.data.Dataset):
             raise ValueError("MultiDataset requires either `datasets` or `state`.")
 
         # ---- Normal data-mode construction ----
+        self.split_seed = int(split_seed)
         self.train_collections, self.valid_collections = split_dataset_names(
-            datasets.keys(), valid_ratio=valid_ratio, seed=SEED
+            datasets.keys(), valid_ratio=valid_ratio, seed=self.split_seed
+        )
+        _validate_episode_name_pin(
+            label="train",
+            dataset_names=self.train_collections,
+            expected_count=expected_train_episode_count,
+            expected_sha256=expected_train_episode_names_sha256,
+        )
+        _validate_episode_name_pin(
+            label="validation",
+            dataset_names=self.valid_collections,
+            expected_count=expected_valid_episode_count,
+            expected_sha256=expected_valid_episode_names_sha256,
         )
 
         if mode == "train":
@@ -903,7 +1040,7 @@ class MultiDataset(torch.utils.data.Dataset):
             chosen = set(datasets.keys())
         elif mode == "percent":
             all_names = sorted(datasets.keys())
-            rng = random.Random(SEED)
+            rng = random.Random(self.split_seed)
             rng.shuffle(all_names)
             n_keep = int(len(all_names) * percent)
             if percent > 0.0:
@@ -1502,13 +1639,9 @@ class MultiDataset(torch.utils.data.Dataset):
         loading_time = None
         computing_time = None
         frames = None
-        if isinstance(metadata, dict) and isinstance(
-            metadata.get("embodiments"), dict
-        ):
+        if isinstance(metadata, dict) and isinstance(metadata.get("embodiments"), dict):
             per_embodiment = list(metadata["embodiments"].values())
-            loading_time = sum(
-                float(item["loading_time"]) for item in per_embodiment
-            )
+            loading_time = sum(float(item["loading_time"]) for item in per_embodiment)
             computing_time = sum(
                 float(item["computing_time"]) for item in per_embodiment
             )

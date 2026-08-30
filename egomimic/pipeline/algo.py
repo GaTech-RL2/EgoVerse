@@ -421,6 +421,11 @@ class PipelineAlgo(Algo):
 
     def log_info(self, info: dict) -> OrderedDict:
         losses = info["losses"]
-        logged = OrderedDict(Loss=losses["action_loss"].item())
+        overall_mse = losses["action_loss"].item()
+        logged = OrderedDict(Loss=overall_mse, MSE=overall_mse)
+        for emb_id, domain in self.domain_by_id.items():
+            metric_key = f"{emb_id}_log_native_action"
+            if metric_key in losses:
+                logged[f"MSE/{domain}"] = losses[metric_key].item()
         logged.update((key, value.item()) for key, value in losses.items())
         return logged
