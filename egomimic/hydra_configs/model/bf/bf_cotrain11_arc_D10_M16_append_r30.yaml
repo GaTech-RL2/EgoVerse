@@ -1,0 +1,118 @@
+# Rotation enters the distance function: lambda=2sqrt(2)*30, so rotating costs what translating 30 units costs.
+# layout=append -> action_horizon=17, action_dims=5
+# 11-embodiment cotrain; HELD OUT circle_small, suction.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 17
+  domains:
+  - pushshapes_sim_L
+  - pushshapes_sim_chain_gripper
+  - pushshapes_sim_circle
+  - pushshapes_sim_flipper
+  - pushshapes_sim_gripper
+  - pushshapes_sim_scoop
+  - pushshapes_sim_spring
+  - pushshapes_sim_stick
+  - pushshapes_sim_triangle
+  - pushshapes_sim_u_socket
+  - pushshapes_sim_umi
+  ac_keys:
+    pushshapes_sim_L: actions
+    pushshapes_sim_chain_gripper: actions
+    pushshapes_sim_circle: actions
+    pushshapes_sim_flipper: actions
+    pushshapes_sim_gripper: actions
+    pushshapes_sim_scoop: actions
+    pushshapes_sim_spring: actions
+    pushshapes_sim_stick: actions
+    pushshapes_sim_triangle: actions
+    pushshapes_sim_u_socket: actions
+    pushshapes_sim_umi: actions
+  stages:
+  - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+    n_obs_steps: 1
+    encoder:
+      _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+      obs_specs:
+        state_agent_obj:
+          input_dim: 3
+          input_slice:
+          - 0
+          - 3
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 84
+          crop_width: 84
+          crop_eval_mode: center
+          crop_sample_mode: v02
+          crop_scope: frame
+          norm_layer: group
+          pool_type: spatial_softmax
+  - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+    action_horizon: 17
+    latent_dim: 96
+  - _target_: egomimic.pipeline.stages_sampler.MultiJActionSampler
+    condition_input_dim: 67
+    condition_dim: 384
+    gradient_accumulation_steps: 1
+    schedule_anchor_domain: pushshapes_sim_circle
+    action_horizon: 17
+    action_dims:
+      pushshapes_sim_L: 5
+      pushshapes_sim_chain_gripper: 5
+      pushshapes_sim_circle: 5
+      pushshapes_sim_flipper: 5
+      pushshapes_sim_gripper: 5
+      pushshapes_sim_scoop: 5
+      pushshapes_sim_spring: 5
+      pushshapes_sim_stick: 5
+      pushshapes_sim_triangle: 5
+      pushshapes_sim_u_socket: 5
+      pushshapes_sim_umi: 5
+    latent_dim: 96
+    decoder_hidden_dim: 512
+    denoiser_hidden_dim: 384
+    num_inference_steps: 16
+    sampling_schedule:
+      1:
+        1: 0.5
+        2: 0.5
+      2001:
+        2: 0.8
+        4: 0.15
+        8: 0.05
+    gradient_checkpointing: true
+    denoising_module:
+      _target_: egomimic.models.denoising_nets.CrossTransformer
+      nblocks: 16
+      cond_dim: 384
+      hidden_dim: 384
+      act_dim: 96
+      act_seq: 16
+      n_heads: 8
+      dropout: 0.1
+      mlp_layers: 4
+      mlp_ratio: 4
+      time_conditioning: additive
+  - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0001
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 3000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-05
