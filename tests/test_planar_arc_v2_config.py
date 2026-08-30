@@ -21,6 +21,7 @@ from egomimic.rldb.zarr.zarr_dataset_multi import (
     episode_names_sha256,
     split_dataset_names,
 )
+from egomimic.trainHydra import _build_model_config_tree
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
 EXPERIMENT = "pusht/pipeline_sampler_usocket_chain_planar_v2_arc_D200_M100"
@@ -93,6 +94,26 @@ def test_planar_v2_two_domain_config_contract() -> None:
     assert cfg.run_provenance.valid_ratio == pytest.approx(0.01)
     assert cfg.run_provenance.id_overlap_count == 0
     assert cfg.run_provenance.resolved_path_overlap_count == 0
+    assert OmegaConf.to_container(cfg.run_provenance.norm_contract, resolve=True) == {
+        "norm_mode": "quantile",
+        "reduce_all_but_last": False,
+        "sample_frac": 0.05,
+        "domains": {
+            "pushshapes_sim_u_socket": {
+                "embodiment_id": 19,
+                "state_agent_obj_shape": [6],
+                "actions_shape": [101, 5],
+            },
+            "pushshapes_sim_chain_gripper": {
+                "embodiment_id": 20,
+                "state_agent_obj_shape": [6],
+                "actions_shape": [101, 5],
+            },
+        },
+    }
+    assert cfg.run_provenance.training_contract.world_size == 2
+    assert cfg.run_provenance.training_contract.peak_lr == pytest.approx(3.0e-5)
+    assert cfg.run_provenance.training_contract.warmup_start_lr == pytest.approx(3.0e-6)
     assert set(cfg.run_provenance.required_wandb_metrics) == {
         "Train/MSE",
         "Train/MSE/pushshapes_sim_u_socket",
@@ -456,3 +477,19 @@ def test_planar_v2_full_and_smoke_preserve_model_data_and_evaluator() -> None:
         smoke.norm_stats, resolve=False
     ) == OmegaConf.to_container(full.norm_stats, resolve=False)
     assert smoke.norm_stats.sample_frac == pytest.approx(0.05)
+
+
+def test_planar_v2_checkpoint_config_tree_keeps_run_provenance() -> None:
+    cfg = _compose(EXPERIMENT)
+    tree = _build_model_config_tree(cfg)
+
+    assert tree.run_provenance.split_manifest_sha256 == (
+        cfg.run_provenance.split_manifest_sha256
+    )
+    u_socket_contract = (
+        tree.run_provenance.norm_contract.domains.pushshapes_sim_u_socket
+    )
+    assert u_socket_contract.actions_shape == [101, 5]
+    assert tree.run_provenance.training_contract.peak_lr == pytest.approx(3.0e-5)
+    resolved_provenance = OmegaConf.to_container(tree.run_provenance, resolve=True)
+    assert resolved_provenance["split_seed"] == 42

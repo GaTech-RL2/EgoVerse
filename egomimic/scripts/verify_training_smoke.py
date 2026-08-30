@@ -20,6 +20,23 @@ from wandb.proto import wandb_internal_pb2
 from wandb.sdk.internal.datastore import DataStore
 
 import egomimic.utils.hydra_resolvers  # noqa: F401 -- project config resolvers
+from egomimic.pl_utils.pl_model import ModelWrapper
+
+_HISTORY_METRIC_PREFIXES = ("Train/", "Timing/", "Optimizer/", "Valid/")
+_DEFAULT_REQUIRED_STEP_METRICS = {
+    "train_metrics": {"Train/Loss"},
+    "timing_metrics": {
+        "Timing/Process_Batch_Sec",
+        "Timing/Forward_Pass_Sec",
+        "Timing/Compute_Losses_Sec",
+    },
+    "optimizer_metrics": {"Optimizer/param_group_0_lr"},
+}
+_STEP_METRIC_CATEGORIES = {
+    "Train/": "train_metrics",
+    "Timing/": "timing_metrics",
+    "Optimizer/": "optimizer_metrics",
+}
 
 
 def _register_training_config_resolvers() -> None:
@@ -111,12 +128,7 @@ def read_wandb_history(
             step = int(step)
             metrics = history_by_step.setdefault(step, {})
             for key, value in row.items():
-                if not (
-                    key.startswith("Train/")
-                    or key.startswith("Timing/")
-                    or key.startswith("Optimizer/")
-                    or (key.startswith("Valid/emb") and key.endswith("_action_mse"))
-                ):
+                if not key.startswith(_HISTORY_METRIC_PREFIXES):
                     continue
                 try:
                     metrics[key] = float(value)
@@ -156,9 +168,7 @@ def read_wandb_history(
                 }
             )
         validation_metrics = {
-            key: value
-            for key, value in metrics.items()
-            if key.startswith("Valid/emb") and key.endswith("_action_mse")
+            key: value for key, value in metrics.items() if key.startswith("Valid/")
         }
         if validation_metrics:
             validation_rows.append(
@@ -184,9 +194,167 @@ def _has_required_metrics(
 ) -> bool:
     for embodiment in required_embodiments:
         prefix = f"Valid/emb{embodiment}_"
-        if not any(key.startswith(prefix) for key in metrics):
+        if not any(
+            key.startswith(prefix) and key.endswith("_action_mse") for key in metrics
+        ):
             return False
     return True
+
+
+def _required_metric_contract(
+    config: Any,
+) -> tuple[list[str] | None, dict[str, set[str]], set[str]]:
+    """Resolve configured metric requirements and retain legacy smoke defaults."""
+
+    configured = OmegaConf.select(
+        config,
+        "run_provenance.required_wandb_metrics",
+        default=None,
+    )
+    required_step_metrics = {
+        category: set(metrics)
+        for category, metrics in _DEFAULT_REQUIRED_STEP_METRICS.items()
+    }
+    if configured is None:
+        return None, required_step_metrics, set()
+
+    configured_metrics = [str(metric) for metric in configured]
+    assert configured_metrics, "required_wandb_metrics must not be empty"
+    assert len(configured_metrics) == len(set(configured_metrics)), (
+        "required_wandb_metrics contains duplicates",
+        configured_metrics,
+    )
+
+    required_validation_metrics: set[str] = set()
+    for metric in configured_metrics:
+        assert metric and metric.startswith(_HISTORY_METRIC_PREFIXES), (
+            "Unsupported required W&B metric namespace",
+            metric,
+        )
+        if metric.startswith("Valid/"):
+            required_validation_metrics.add(metric)
+            continue
+        category = next(
+            category
+            for prefix, category in _STEP_METRIC_CATEGORIES.items()
+            if metric.startswith(prefix)
+        )
+        required_step_metrics[category].add(metric)
+
+    return configured_metrics, required_step_metrics, required_validation_metrics
+
+
+def _select_dense_training_history(
+    training_history: list[dict[str, Any]],
+    required_step_metrics: dict[str, set[str]],
+) -> tuple[list[dict[str, Any]], list[int]]:
+    dense_training_history = [
+        row
+        for row in training_history
+        if all(
+            required.issubset(row[category])
+            for category, required in required_step_metrics.items()
+        )
+    ]
+    assert len(dense_training_history) == 2, training_history
+    training_steps = [row["trainer_global_step"] for row in dense_training_history]
+    assert training_steps == [0, 1], training_steps
+    for row in dense_training_history:
+        for category, required in required_step_metrics.items():
+            required_values = {
+                metric: row[category][metric] for metric in sorted(required)
+            }
+            assert all(math.isfinite(value) for value in required_values.values()), (
+                category,
+                required_values,
+            )
+    return dense_training_history, training_steps
+
+
+def _select_scheduled_validation(
+    validation_history: list[dict[str, Any]],
+    required_embodiments: list[int],
+    required_validation_metrics: set[str],
+) -> dict[str, Any]:
+    # num_sanity_val_steps=0 plus a persisted trainer step >= 1 proves these
+    # metrics came from scheduled validation after optimization had begun.
+    scheduled_history = [
+        row for row in validation_history if row["trainer_global_step"] >= 1
+    ]
+    assert scheduled_history, validation_history
+    if required_validation_metrics:
+        qualifying_history = [
+            row
+            for row in scheduled_history
+            if required_validation_metrics.issubset(row["validation_metrics"])
+        ]
+        assert qualifying_history, (
+            sorted(required_validation_metrics),
+            scheduled_history,
+        )
+        selected = qualifying_history[-1]
+        required_values = {
+            metric: selected["validation_metrics"][metric]
+            for metric in sorted(required_validation_metrics)
+        }
+        assert all(math.isfinite(value) for value in required_values.values()), (
+            required_values
+        )
+        return selected
+
+    # Legacy configs did not declare required_wandb_metrics. Preserve their
+    # per-embodiment ``Valid/emb*_..._action_mse`` contract.
+    qualifying_history = [
+        row
+        for row in scheduled_history
+        if _has_required_metrics(row["validation_metrics"], required_embodiments)
+    ]
+    assert qualifying_history, (required_embodiments, scheduled_history)
+    selected = qualifying_history[-1]
+    metrics = selected["validation_metrics"]
+    for embodiment in required_embodiments:
+        prefix = f"Valid/emb{embodiment}_"
+        matches = {
+            key: value
+            for key, value in metrics.items()
+            if key.startswith(prefix) and key.endswith("_action_mse")
+        }
+        assert matches, (embodiment, sorted(metrics))
+        assert all(math.isfinite(value) for value in matches.values()), matches
+    return selected
+
+
+def _strict_load_model_wrapper(checkpoint_path: Path) -> dict[str, Any]:
+    """Reconstruct the checkpointed wrapper on CPU with an exact state load."""
+
+    assert not torch.cuda.is_available(), (
+        "strict CPU verification must run with CUDA hidden"
+    )
+    wrapper = ModelWrapper.load_from_checkpoint(
+        str(checkpoint_path),
+        map_location="cpu",
+        weights_only=False,
+        strict=True,
+    )
+    assert isinstance(wrapper, ModelWrapper), type(wrapper)
+    state_dict = wrapper.state_dict()
+    non_cpu_tensors = {
+        key: str(value.device)
+        for key, value in state_dict.items()
+        if value.device.type != "cpu"
+    }
+    assert not non_cpu_tensors, non_cpu_tensors
+    record = {
+        "status": "passed",
+        "model_class": f"{type(wrapper).__module__}.{type(wrapper).__qualname__}",
+        "map_location": "cpu",
+        "strict": True,
+        "state_dict_key_count": len(state_dict),
+        "parameter_count": sum(parameter.numel() for parameter in wrapper.parameters()),
+        "buffer_count": sum(buffer.numel() for buffer in wrapper.buffers()),
+    }
+    del wrapper
+    return record
 
 
 def verify_training_smoke(
@@ -218,6 +386,11 @@ def verify_training_smoke(
         config.evaluator._target_
         == "egomimic.eval.human_robot_overlay_eval.HumanRobotOverlayEval"
     )
+    (
+        required_wandb_metrics,
+        required_step_metrics,
+        required_validation_metrics,
+    ) = _required_metric_contract(config)
 
     checkpoint_path = output_dir / "checkpoints" / "last.ckpt"
     assert checkpoint_path.is_file(), checkpoint_path
@@ -227,6 +400,7 @@ def verify_training_smoke(
     assert global_step == 2, global_step
     optimizer_states = checkpoint.get("optimizer_states", [])
     assert optimizer_states, "Smoke checkpoint has no optimizer state"
+    optimizer_state_count = len(optimizer_states)
     optimizer_lrs = [
         float(group["lr"])
         for state in optimizer_states
@@ -239,7 +413,8 @@ def verify_training_smoke(
     assert scheduler_last_epoch == global_step, scheduler_states[0]
     hyper_parameters = checkpoint.get("hyper_parameters", {})
     assert hyper_parameters.get("train_metrics_on_step") is True
-    del checkpoint
+    del checkpoint, hyper_parameters, optimizer_states, scheduler_states
+    model_wrapper_load = _strict_load_model_wrapper(checkpoint_path)
 
     streams = list(output_dir.glob("wandb/offline-run-*/run-*.wandb"))
     assert len(streams) == 1, streams
@@ -247,56 +422,16 @@ def verify_training_smoke(
         streams[0]
     )
 
-    required_step_metrics = {
-        "train_metrics": {"Train/Loss"},
-        "timing_metrics": {
-            "Timing/Process_Batch_Sec",
-            "Timing/Forward_Pass_Sec",
-            "Timing/Compute_Losses_Sec",
-        },
-        "optimizer_metrics": {"Optimizer/param_group_0_lr"},
-    }
-    dense_training_history = [
-        row
-        for row in training_history
-        if all(
-            required.issubset(row[category])
-            for category, required in required_step_metrics.items()
-        )
-    ]
-    assert len(dense_training_history) == 2, training_history
-    training_steps = [row["trainer_global_step"] for row in dense_training_history]
-    assert training_steps == [0, 1], training_steps
-    for row in dense_training_history:
-        values = [
-            value
-            for category in required_step_metrics
-            for value in row[category].values()
-        ]
-        assert values and all(math.isfinite(value) for value in values), row
-
-    # num_sanity_val_steps=0 plus a persisted trainer step >= 1 proves this
-    # metric came from scheduled validation after optimization had begun.
-    scheduled_history = [
-        row for row in validation_history if row["trainer_global_step"] >= 1
-    ]
-    assert scheduled_history, validation_history
-    qualifying_history = [
-        row
-        for row in scheduled_history
-        if _has_required_metrics(row["validation_metrics"], required_embodiments)
-    ]
-    assert qualifying_history, (required_embodiments, scheduled_history)
-    selected = qualifying_history[-1]
+    dense_training_history, training_steps = _select_dense_training_history(
+        training_history,
+        required_step_metrics,
+    )
+    selected = _select_scheduled_validation(
+        validation_history,
+        required_embodiments,
+        required_validation_metrics,
+    )
     metrics = selected["validation_metrics"]
-
-    for embodiment in required_embodiments:
-        prefix = f"Valid/emb{embodiment}_"
-        matches = {
-            key: value for key, value in metrics.items() if key.startswith(prefix)
-        }
-        assert matches, (embodiment, sorted(metrics))
-        assert all(math.isfinite(value) for value in matches.values()), matches
 
     return {
         "status": "passed",
@@ -310,10 +445,17 @@ def verify_training_smoke(
         "epoch": epoch,
         "precision": str(config.trainer.precision),
         "world_size": expected_world_size,
-        "optimizer_state_count": len(optimizer_states),
+        "optimizer_state_count": optimizer_state_count,
         "optimizer_lrs": optimizer_lrs,
         "scheduler_last_epoch": scheduler_last_epoch,
+        "model_wrapper_load": model_wrapper_load,
         "required_embodiments": required_embodiments,
+        "required_wandb_metrics": required_wandb_metrics,
+        "required_step_metrics": {
+            category: sorted(required)
+            for category, required in required_step_metrics.items()
+        },
+        "required_validation_metrics": sorted(required_validation_metrics),
         "wandb_stream": str(streams[0]),
         "wandb_stream_sha256": _sha256(streams[0]),
         "wandb_exit_code": wandb_exit_code,
@@ -347,6 +489,8 @@ def main() -> None:
     if not args.dry_run:
         result_path = args.output_dir.resolve() / "SMOKE_RESULT.json"
         temporary_path = result_path.with_suffix(".json.tmp")
+        assert not result_path.exists(), f"Refusing to overwrite {result_path}"
+        assert not temporary_path.exists(), f"Stale temporary result: {temporary_path}"
         temporary_path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
         temporary_path.replace(result_path)
     label = "VERIFY_PASS" if args.dry_run else "PASS"

@@ -23,7 +23,8 @@ from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper
 
-OmegaConf.register_new_resolver("eval", eval)
+if not OmegaConf.has_resolver("eval"):
+    OmegaConf.register_new_resolver("eval", eval)
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
@@ -51,7 +52,13 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
         and "norm_stats" in model_cfg.robomimic_model
     ):
         model_cfg.robomimic_model.norm_stats = None
-    return OmegaConf.create({"model": model_cfg})
+    tree = {"model": model_cfg}
+    if cfg.get("run_provenance") is not None:
+        tree["run_provenance"] = OmegaConf.to_container(
+            cfg.run_provenance,
+            resolve=True,
+        )
+    return OmegaConf.create(tree)
 
 
 def _instantiate_model_wrapper(cfg: DictConfig, norm_stats: MultiDataset):
@@ -135,9 +142,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         )
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    assert (
-        "MultiDataModuleWrapper" in cfg.data._target_
-    ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    assert "MultiDataModuleWrapper" in cfg.data._target_, (
+        "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    )
     datamodule: LightningDataModule = hydra.utils.instantiate(
         cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
     )
@@ -154,9 +161,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     norm_stats.populate_from_datasets(datamodule.train_datasets)
 
     sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
-    norm_num_workers = OmegaConf.select(
-        cfg, "norm_stats.num_workers", default=4
-    )
+    norm_num_workers = OmegaConf.select(cfg, "norm_stats.num_workers", default=4)
     precomputed_norm_path = configured_precomputed_path
     save_cache_dir = configured_save_cache_dir
 
@@ -188,9 +193,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
     if mode == "norm_stats":
-        _log_dataset_frame_counts(
-            datamodule.train_datasets, datamodule.valid_datasets
-        )
+        _log_dataset_frame_counts(datamodule.train_datasets, datamodule.valid_datasets)
         return {}, {"cfg": cfg, "datamodule": datamodule, "norm_stats": norm_stats}
 
     # Wire each training/valid MultiDataset to the stats-only ``norm_stats``
@@ -251,9 +254,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     if os.environ.get("SLURM_RESTART_COUNT", "0") != "0":
         if cfg.get("ckpt_path"):
-            log.info(
-                "Detected SLURM requeue — using checkpoint selected by launcher"
-            )
+            log.info("Detected SLURM requeue — using checkpoint selected by launcher")
         else:
             log.info(
                 "Detected SLURM requeue — Lightning will select the newest "

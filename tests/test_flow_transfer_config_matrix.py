@@ -782,5 +782,9 @@ def test_training_smoke_verifier_checks_world2_and_dense_step_history() -> None:
     assert '"Optimizer/param_group_0_lr"' in verifier
     assert "dense_training_history" in verifier
     assert "training_steps == [0, 1]" in verifier
-    assert "all(math.isfinite(value) for value in values)" in verifier
+    assert "math.isfinite(value) for value in required_values.values()" in verifier
     assert "scheduled_history" in verifier
+    assert "run_provenance.required_wandb_metrics" in verifier
+    assert "ModelWrapper.load_from_checkpoint" in verifier
+    assert 'map_location="cpu"' in verifier
+    assert "strict=True" in verifier

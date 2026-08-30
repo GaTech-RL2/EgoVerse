@@ -40,6 +40,30 @@ run_provenance:
   id_overlap_count: 0
   resolved_path_overlap_count: 0
   union_episode_count_per_domain: 1000
+  norm_contract:
+    norm_mode: quantile
+    reduce_all_but_last: false
+    sample_frac: 0.05
+    domains:
+      pushshapes_sim_u_socket:
+        embodiment_id: 19
+        state_agent_obj_shape: [6]
+        actions_shape: [101, 5]
+      pushshapes_sim_chain_gripper:
+        embodiment_id: 20
+        state_agent_obj_shape: [6]
+        actions_shape: [101, 5]
+  training_contract:
+    world_size: 2
+    precision: bf16
+    max_steps: 240000
+    validation_interval_steps: 10000
+    validation_fraction: 1.0
+    optimizer: AdamW
+    peak_lr: 3.0e-5
+    warmup_steps: 3000
+    warmup_start_lr: 3.0e-6
+    cosine_floor_lr: 3.0e-6
   required_wandb_metrics:
     - Train/MSE
     - Train/MSE/pushshapes_sim_u_socket
