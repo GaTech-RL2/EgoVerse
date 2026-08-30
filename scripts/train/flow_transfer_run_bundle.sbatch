@@ -6,6 +6,7 @@ set -Eeuo pipefail
 
 MODE=${MODE:?set MODE=norm, smoke, or full}
 REPO=${REPO:?set the exact clean repository checkout}
+export PYTHONPATH=$REPO${PYTHONPATH:+:$PYTHONPATH}
 PY_ENV=${PY_ENV:?set the pinned Python environment}
 SLURM_BIN=${SLURM_BIN:-/opt/slurm/Ubuntu-20.04/24.11.0/bin}
 export PATH=$SLURM_BIN:$PATH

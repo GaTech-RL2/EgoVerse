@@ -18,7 +18,13 @@ from typing import Any
 
 from omegaconf import OmegaConf
 
-import egomimic.utils.hydra_resolvers  # noqa: F401 -- project config resolvers
+# This file is invoked by absolute path from Slurm entry points. In that mode,
+# Python adds ``egomimic/scripts`` rather than the repository root to sys.path.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+import egomimic.utils.hydra_resolvers  # noqa: E402, F401 -- project resolvers
 
 SCHEMA_VERSION = 1
 

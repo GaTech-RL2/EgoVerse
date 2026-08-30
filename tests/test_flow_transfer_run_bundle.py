@@ -1,5 +1,8 @@
 import json
 import math
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -187,3 +190,32 @@ def test_launcher_hides_cuda_for_strict_checkpoint_verification() -> None:
 
     assert launcher.count('CUDA_VISIBLE_DEVICES= "$PYTHON" "$SMOKE_VERIFIER"') == 2
     assert launcher.count('CUDA_VISIBLE_DEVICES= "$PYTHON" "$FULL_VERIFIER"') == 2
+
+
+def test_bundle_tool_bootstraps_repo_for_absolute_path_invocation(
+    tmp_path: Path,
+) -> None:
+    tool = REPO_ROOT / "egomimic/scripts/flow_transfer_run_bundle.py"
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+
+    result = subprocess.run(
+        [sys.executable, str(tool), "--help"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Materialize and verify immutable" in result.stdout
+
+
+def test_shell_entry_points_prepend_repo_to_pythonpath() -> None:
+    for relative_path in (
+        "scripts/train/submit_flow_transfer_run_bundle.sh",
+        "scripts/train/flow_transfer_run_bundle.sbatch",
+    ):
+        source = (REPO_ROOT / relative_path).read_text()
+        assert "export PYTHONPATH=$REPO${PYTHONPATH:+:$PYTHONPATH}" in source

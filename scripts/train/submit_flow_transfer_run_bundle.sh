@@ -7,6 +7,7 @@ test "$#" = 2
 MODE=$1
 MANIFEST=$(realpath "$2")
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+export PYTHONPATH=$REPO${PYTHONPATH:+:$PYTHONPATH}
 PY_ENV=${PY_ENV:?set the pinned Python environment}
 SLURM_BIN=${SLURM_BIN:-/opt/slurm/Ubuntu-20.04/24.11.0/bin}
 PYTHON=$PY_ENV/bin/python
