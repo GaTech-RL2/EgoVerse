@@ -103,6 +103,51 @@ robomimic_model:
       mlp_ratio: 4
       time_conditioning: additive
   - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+  rollout_adapters:
+    pushshapes_sim_L:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_L
+      velocity_layout: append
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_chain_gripper
+      velocity_layout: append
+    pushshapes_sim_circle:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_circle
+      velocity_layout: append
+    pushshapes_sim_flipper:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_flipper
+      velocity_layout: append
+    pushshapes_sim_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_gripper
+      velocity_layout: append
+    pushshapes_sim_scoop:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_scoop
+      velocity_layout: append
+    pushshapes_sim_spring:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_spring
+      velocity_layout: append
+    pushshapes_sim_stick:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_stick
+      velocity_layout: append
+    pushshapes_sim_triangle:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_triangle
+      velocity_layout: append
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_u_socket
+      velocity_layout: append
+    pushshapes_sim_umi:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_umi
+      velocity_layout: append
 enable_grad_norm: false
 optimizer:
   _target_: torch.optim.AdamW

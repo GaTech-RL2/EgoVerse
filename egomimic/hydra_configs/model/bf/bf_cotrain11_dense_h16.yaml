@@ -105,6 +105,40 @@ robomimic_model:
       mlp_ratio: 4
       time_conditioning: additive
   - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+  rollout_adapters:
+    pushshapes_sim_L:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_L
+    pushshapes_sim_chain_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_chain_gripper
+    pushshapes_sim_circle:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_circle
+    pushshapes_sim_flipper:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_flipper
+    pushshapes_sim_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_gripper
+    pushshapes_sim_scoop:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_scoop
+    pushshapes_sim_spring:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_spring
+    pushshapes_sim_stick:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_stick
+    pushshapes_sim_triangle:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_triangle
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_u_socket
+    pushshapes_sim_umi:
+      _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter
+      embodiment: pushshapes_sim_umi
 enable_grad_norm: false
 optimizer:
   _target_: torch.optim.AdamW

@@ -1,0 +1,188 @@
+# Sim rollout eval for the 11-embodiment PushShapes cotrain.
+#
+# Without this the run reports train/val loss only. A seen-BC vs unseen-
+# embodiment comparison is defined in terms of task success, so loss alone
+# cannot answer it -- the launcher previously passed ~evaluator, which silently
+# produced runs with no SR at all.
+#
+# One SimRolloutEval per embodiment, composed with EvalVideoList (which already
+# exists; there is no MultiEvaluatorWrapper). The 11 trained embodiments give
+# seen-embodiment BC. circle_small and suction are NOT in the training mixture
+# and give unseen generalization -- circle_small is mechanically near-identical
+# to circle (interpolation) while suction is the only non-pushing mechanism
+# (extrapolation), so the pair brackets the transfer question.
+#
+# coverage_threshold matches the simulator's own SUCCESS_THRESHOLD (0.95 IoU).
+# A lower bar would report successes the environment does not count.
+
+_target_: egomimic.eval.core.eval_composite.EvalVideoList
+evals:
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_L
+    env_kwargs:
+      object_shape: T
+      pusher_shape: L
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_chain_gripper
+    env_kwargs:
+      object_shape: T
+      pusher_shape: chain_gripper
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_circle
+    env_kwargs:
+      object_shape: T
+      pusher_shape: circle
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_flipper
+    env_kwargs:
+      object_shape: T
+      pusher_shape: flipper
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_gripper
+    env_kwargs:
+      object_shape: T
+      pusher_shape: gripper
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_scoop
+    env_kwargs:
+      object_shape: T
+      pusher_shape: scoop
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_spring
+    env_kwargs:
+      object_shape: T
+      pusher_shape: spring
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_stick
+    env_kwargs:
+      object_shape: T
+      pusher_shape: stick
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_triangle
+    env_kwargs:
+      object_shape: T
+      pusher_shape: triangle
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_u_socket
+    env_kwargs:
+      object_shape: T
+      pusher_shape: u_socket
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_umi
+    env_kwargs:
+      object_shape: T
+      pusher_shape: umi
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_circle_small
+    env_kwargs:
+      object_shape: T
+      pusher_shape: circle_small
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_suction
+    env_kwargs:
+      object_shape: T
+      pusher_shape: suction
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seed
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1

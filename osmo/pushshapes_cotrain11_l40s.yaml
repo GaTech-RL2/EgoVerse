@@ -251,7 +251,7 @@ workflow:
         python egomimic/trainHydra.py \
           data="$DATA_CFG" \
           model="$MODEL_CFG" \
-          ~evaluator \
+          evaluator=eval_sim_pushshapes \
           trainer.strategy=ddp_find_unused_parameters_true \
           norm_stats.precomputed_norm_path="$NORM_JSON" \
           paths.dataset_dir="$DATASET_DIR" \
