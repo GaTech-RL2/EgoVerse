@@ -1,0 +1,82 @@
+# Genuine epsilon-prediction Diffusion Policy baseline on the same Planar V2
+# common-five action representation used by the arc-length arms.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+train_metrics_on_step: true
+train_metrics_on_epoch: true
+
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 16
+  domains: [pushshapes_sim_u_socket]
+  ac_keys: {pushshapes_sim_u_socket: actions}
+  rollout_adapters:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.PlanarCommon5RolloutAdapter
+      action_horizon: 16
+      native_action_dim: 3
+  stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 1
+      encoder:
+        _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+        obs_specs:
+          state_agent_obj: {input_dim: 3, input_slice: [0, 3]}
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 96
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 84
+            crop_width: 84
+            crop_eval_mode: center
+            crop_sample_mode: v02
+            crop_scope: frame
+            norm_layer: group
+            pool_type: spatial_softmax
+    - _target_: egomimic.pipeline.stages_diffusion.MultiDomainDiffusionPolicyStage
+      action_horizon: 16
+      condition_input_dim: 67
+      policies:
+        pushshapes_sim_u_socket:
+          _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+          action_horizon: 16
+          infer_ac_dims: {pushshapes_sim_u_socket: 5}
+          num_inference_steps: 100
+          model:
+            _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+            input_dim: 5
+            cond_dim: 67
+            ac_latent_seq: 1
+            diffusion_step_embed_dim: 256
+            down_dims: [256, 512, 1024]
+            kernel_size: 3
+            n_groups: 8
+            cond_predict_scale: true
+          noise_scheduler:
+            _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+            num_train_timesteps: 100
+            beta_start: 0.0001
+            beta_end: 0.02
+            beta_schedule: squaredcos_cap_v2
+            clip_sample: true
+            set_alpha_to_one: true
+            steps_offset: 0
+            prediction_type: epsilon
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 3000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

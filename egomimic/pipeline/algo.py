@@ -424,7 +424,11 @@ class PipelineAlgo(Algo):
         overall_mse = losses["action_loss"].item()
         logged = OrderedDict(Loss=overall_mse, MSE=overall_mse)
         for emb_id, domain in self.domain_by_id.items():
-            metric_key = f"{emb_id}_log_native_action"
+            # Every Pipeline training objective is an MSE: normalized native
+            # action error for sampler policies and epsilon-prediction error
+            # for Diffusion Policy.  Log the exact per-domain objective rather
+            # than relying on a sampler-specific ``log/native_action`` key.
+            metric_key = f"{emb_id}_action_loss"
             if metric_key in losses:
                 logged[f"MSE/{domain}"] = losses[metric_key].item()
         logged.update((key, value.item()) for key, value in losses.items())

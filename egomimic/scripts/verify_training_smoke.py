@@ -357,6 +357,68 @@ def _strict_load_model_wrapper(checkpoint_path: Path) -> dict[str, Any]:
     return record
 
 
+def _validate_energy_score_artifacts(
+    output_dir: Path,
+    config: Any,
+    *,
+    global_step: int,
+    expected_world_size: int,
+    required_embodiments: list[int],
+) -> list[dict[str, Any]]:
+    energy = OmegaConf.select(config, "evaluator.energy_score", default=None)
+    assert energy is not None and bool(energy.enabled)
+    assert int(energy.sample_count) == 32
+    expected_seed_sha = str(energy.seed_bank_sha256)
+    artifact_root = Path(str(energy.artifact_root)).resolve()
+    assert (
+        artifact_root
+        == (output_dir / "validation_predictions" / "energy_score").resolve()
+    )
+    candidates = sorted(
+        artifact_root.glob(f"epoch-*-step-{global_step}/rank-*-batch-*.pt")
+    )
+    assert len(candidates) == expected_world_size, candidates
+    records = []
+    seen_ranks = set()
+    seen_embodiments = set()
+    for path in candidates:
+        payload = torch.load(path, map_location="cpu", weights_only=False)
+        assert payload["schema_version"] == 1
+        assert payload["metric"] == "EnergyScore@32"
+        assert payload["sample_count"] == 32
+        assert payload["seed_bank_sha256"] == expected_seed_sha
+        assert len(payload["seed_bank"]) == 32
+        assert len(set(payload["seed_bank"])) == 32
+        assert int(payload["global_step"]) == global_step
+        rank = int(payload["rank"])
+        assert rank not in seen_ranks
+        seen_ranks.add(rank)
+        domains = payload["domains"]
+        assert isinstance(domains, dict) and domains
+        for domain in domains.values():
+            emb_id = int(domain["embodiment_id"])
+            seen_embodiments.add(emb_id)
+            predictions = domain["predictions"]
+            targets = domain["targets"]
+            assert tuple(predictions.shape[1:]) == tuple(targets.shape)
+            assert predictions.shape[0] == 32
+            assert predictions.numel() and targets.numel()
+            assert bool(torch.isfinite(predictions).all())
+            assert bool(torch.isfinite(targets).all())
+            for key in (
+                "accuracy_by_condition",
+                "diversity_by_condition",
+                "score_by_condition",
+            ):
+                value = domain[key]
+                assert value.shape == targets.shape[:1]
+                assert bool(torch.isfinite(value).all())
+        records.append({"path": str(path), "sha256": _sha256(path), "rank": rank})
+    assert seen_ranks == set(range(expected_world_size)), seen_ranks
+    assert seen_embodiments == set(required_embodiments), seen_embodiments
+    return records
+
+
 def verify_training_smoke(
     output_dir: Path,
     required_embodiments: list[int],
@@ -432,6 +494,13 @@ def verify_training_smoke(
         required_validation_metrics,
     )
     metrics = selected["validation_metrics"]
+    energy_score_artifacts = _validate_energy_score_artifacts(
+        output_dir,
+        config,
+        global_step=int(selected["trainer_global_step"]),
+        expected_world_size=expected_world_size,
+        required_embodiments=required_embodiments,
+    )
 
     return {
         "status": "passed",
@@ -461,6 +530,7 @@ def verify_training_smoke(
         "wandb_exit_code": wandb_exit_code,
         "validation_trainer_global_step": selected["trainer_global_step"],
         "validation_metrics": metrics,
+        "energy_score_artifacts": energy_score_artifacts,
         "training_history": training_history,
         "dense_training_steps": training_steps,
         "validation_history": validation_history,

@@ -1,0 +1,75 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/control_gap_all6x13_1000_per_cell_simv2_20260826/ideal/chain_gripper/T
+      embodiment_override: pushshapes_sim_chain_gripper
+      expected_episode_count: 1000
+      expected_episode_names_sha256: 2dc9e797f5032a807f9bbb5f3f4442830846c7f809fd9d33b5c1149a13498b69
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: ${arc_distance}
+        resampled_vector_length: ${arc_waypoints}
+        dt: 0.03333333333333333
+        rotation_radius: 30.0
+        hybrid_rotation_unit: null
+        velocity_mode: mean_scalar
+        velocity_layout: append
+    mode: train
+    valid_ratio: 0.01
+    split_seed: ${seed}
+    expected_train_episode_count: 990
+    expected_train_episode_names_sha256: 590b4208b7039c0f0416a1b6d854add9399b467549087325ef64e24a155e8686
+    expected_valid_episode_count: 10
+    expected_valid_episode_names_sha256: df44a5509637ca0a4a6232ad74a335fdf8d74e028b62c68dbaffa6ce512f2d34
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_chain_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/control_gap_all6x13_1000_per_cell_simv2_20260826/ideal/chain_gripper/T
+      embodiment_override: pushshapes_sim_chain_gripper
+      expected_episode_count: 1000
+      expected_episode_names_sha256: 2dc9e797f5032a807f9bbb5f3f4442830846c7f809fd9d33b5c1149a13498b69
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: ${arc_distance}
+        resampled_vector_length: ${arc_waypoints}
+        dt: 0.03333333333333333
+        rotation_radius: 30.0
+        hybrid_rotation_unit: null
+        velocity_mode: mean_scalar
+        velocity_layout: append
+    mode: valid
+    valid_ratio: 0.01
+    split_seed: ${seed}
+    expected_train_episode_count: 990
+    expected_train_episode_names_sha256: 590b4208b7039c0f0416a1b6d854add9399b467549087325ef64e24a155e8686
+    expected_valid_episode_count: 10
+    expected_valid_episode_names_sha256: df44a5509637ca0a4a6232ad74a335fdf8d74e028b62c68dbaffa6ce512f2d34
+    bounds_check: false
+
+train_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 16
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+
+valid_dataloader_params:
+  pushshapes_sim_chain_gripper:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true

@@ -230,10 +230,31 @@ def _assert_config_contract(
     norm_cfg = OmegaConf.load(configs["norm"])
     smoke_cfg = OmegaConf.load(configs["smoke"])
     full_cfg = OmegaConf.load(configs["full"])
-    for key in ("model", "data", "evaluator", "run_provenance"):
+    for key in ("model", "data", "run_provenance"):
         full_value = OmegaConf.to_container(full_cfg[key], resolve=True)
         assert OmegaConf.to_container(smoke_cfg[key], resolve=True) == full_value, key
         assert OmegaConf.to_container(norm_cfg[key], resolve=True) == full_value, key
+
+    # Prediction artifacts must live below each phase's unique output root.
+    # Permit only that exact path substitution while requiring the complete
+    # evaluator metric/view/seed/provenance contract to remain identical.
+    canonical_evaluator = None
+    for phase, cfg in (("norm", norm_cfg), ("smoke", smoke_cfg), ("full", full_cfg)):
+        evaluator = OmegaConf.to_container(cfg.evaluator, resolve=True)
+        assert isinstance(evaluator, dict)
+        energy = evaluator.get("energy_score")
+        assert isinstance(energy, dict) and energy.get("enabled") is True
+        artifact_root = Path(str(energy.pop("artifact_root"))).resolve()
+        expected_root = (
+            Path(str(cfg.paths.output_dir)).resolve()
+            / "validation_predictions"
+            / "energy_score"
+        )
+        assert artifact_root == expected_root, (phase, artifact_root, expected_root)
+        if canonical_evaluator is None:
+            canonical_evaluator = evaluator
+        else:
+            assert evaluator == canonical_evaluator, f"evaluator:{phase}"
     assert full_cfg.seed == smoke_cfg.seed == split_manifest["split_seed"]
     assert float(full_cfg.run_provenance.valid_ratio) == float(
         split_manifest["valid_ratio"]
@@ -260,9 +281,7 @@ def _assert_config_contract(
         full_cfg.run_provenance.training_contract.validation_interval_steps
     )
     assert full_cfg.trainer.check_val_every_n_epoch is None
-    assert (
-        full_cfg.run_provenance.training_contract.check_val_every_n_epoch is None
-    )
+    assert full_cfg.run_provenance.training_contract.check_val_every_n_epoch is None
     assert full_cfg.model.train_metrics_on_step is True
     assert float(full_cfg.model.optimizer.lr) == float(
         full_cfg.run_provenance.training_contract.peak_lr
@@ -303,6 +322,30 @@ def _assert_config_contract(
                 str(dataset.resolver.expected_episode_names_sha256)
                 == evidence["inventory_names_sha256"]
             )
+    action_dim_stages = [
+        stage
+        for stage in full_cfg.model.robomimic_model.stages
+        if stage.get("action_dims") is not None
+    ]
+    if len(action_dim_stages) == 1:
+        action_dims = OmegaConf.to_container(
+            action_dim_stages[0].action_dims, resolve=True
+        )
+    else:
+        diffusion_stages = [
+            stage
+            for stage in full_cfg.model.robomimic_model.stages
+            if stage.get("policies") is not None
+            and str(stage.get("_target_", "")).endswith(
+                ".MultiDomainDiffusionPolicyStage"
+            )
+        ]
+        assert not action_dim_stages and len(diffusion_stages) == 1
+        action_dims = {}
+        for domain, policy in diffusion_stages[0].policies.items():
+            infer = OmegaConf.to_container(policy.infer_ac_dims, resolve=True)
+            assert infer is not None and set(infer) == {str(domain)}
+            action_dims[str(domain)] = int(infer[str(domain)])
     return {
         "seed": int(full_cfg.seed),
         "domains": domains,
@@ -316,9 +359,7 @@ def _assert_config_contract(
             full_cfg.run_provenance.training_contract, resolve=True
         ),
         "action_horizon": int(full_cfg.model.robomimic_model.action_horizon),
-        "action_dims": OmegaConf.to_container(
-            full_cfg.model.robomimic_model.stages[2].action_dims, resolve=True
-        ),
+        "action_dims": action_dims,
     }
 
 

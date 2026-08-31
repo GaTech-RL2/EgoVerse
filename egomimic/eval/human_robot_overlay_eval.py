@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -29,6 +33,7 @@ class HumanRobotOverlayEval(EvalVideo):
         max_frames_by_embodiment: dict[str, int] | None = None,
         log_normalized_mse: bool = False,
         log_native_mse: bool = False,
+        energy_score: dict[str, Any] | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -42,11 +47,212 @@ class HumanRobotOverlayEval(EvalVideo):
         }
         self.log_normalized_mse = bool(log_normalized_mse)
         self.log_native_mse = bool(log_native_mse)
+        self.energy_score = dict(energy_score or {})
+        self.energy_score_enabled = bool(self.energy_score.get("enabled", False))
+        self._energy_seed_bank: list[int] = []
+        self._energy_seed_bank_sha256: str | None = None
+        self._energy_batches_done = 0
+        if self.energy_score_enabled:
+            self._configure_energy_score()
         self._rendered_frames: dict[int, int] = {}
 
     def on_validation_start(self):
         self._rendered_frames.clear()
+        self._energy_batches_done = 0
         super().on_validation_start()
+
+    @staticmethod
+    def _sha256(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(16 * 1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _configure_energy_score(self) -> None:
+        sample_count = int(self.energy_score.get("sample_count", 0))
+        if sample_count != 32:
+            raise ValueError("Energy Score requires sample_count=32")
+        path = Path(str(self.energy_score.get("seed_bank_path", ""))).resolve()
+        expected_sha = str(self.energy_score.get("seed_bank_sha256", ""))
+        if not path.is_file() or self._sha256(path) != expected_sha:
+            raise ValueError(f"Energy Score seed bank identity mismatch: {path}")
+        payload = json.loads(path.read_text())
+        seeds = payload.get("seeds") if isinstance(payload, dict) else None
+        if not isinstance(seeds, list) or len(seeds) != sample_count:
+            raise ValueError("Energy Score seed bank must contain exactly 32 seeds")
+        self._energy_seed_bank = [int(seed) for seed in seeds]
+        if len(set(self._energy_seed_bank)) != sample_count:
+            raise ValueError("Energy Score seeds must be unique")
+        self._energy_seed_bank_sha256 = expected_sha
+
+        blocks = dict(self.energy_score.get("distance_blocks", {}))
+        if not blocks:
+            raise ValueError("Energy Score requires semantic distance blocks")
+        covered = set()
+        for name, raw in blocks.items():
+            indices = [int(index) for index in raw.get("indices", [])]
+            weight = float(raw.get("weight", 0.0))
+            if not indices or weight <= 0.0 or covered.intersection(indices):
+                raise ValueError(f"Invalid Energy Score block {name!r}: {raw}")
+            covered.update(indices)
+        if covered != set(range(int(self.energy_score.get("action_dim", 0)))):
+            raise ValueError(
+                "Energy Score semantic blocks must partition every action channel"
+            )
+        if int(self.energy_score.get("max_batches_per_rank", 0)) <= 0:
+            raise ValueError("Energy Score max_batches_per_rank must be positive")
+        if not str(self.energy_score.get("artifact_root", "")):
+            raise ValueError("Energy Score requires an artifact_root")
+
+    def _energy_distance(self, left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+        """Return a block-balanced normalized chunk distance.
+
+        The tensors may carry any shared leading axes. Their last two axes are
+        horizon and action channel; every semantic block contributes one RMS
+        term regardless of its coordinate count.
+        """
+
+        if left.shape != right.shape:
+            left, right = torch.broadcast_tensors(left, right)
+        terms = []
+        weights = []
+        for raw in self.energy_score["distance_blocks"].values():
+            indices = [int(index) for index in raw["indices"]]
+            weight = float(raw["weight"])
+            delta = left[..., indices] - right[..., indices]
+            terms.append(delta.float().square().mean(dim=(-2, -1)).sqrt() * weight)
+            weights.append(weight)
+        return torch.stack(terms).sum(dim=0) / sum(weights)
+
+    def _sample_energy_predictions(
+        self, batch: dict[int, dict[str, Any]]
+    ) -> dict[int, torch.Tensor]:
+        samples: dict[int, list[torch.Tensor]] = {emb_id: [] for emb_id in batch}
+        cuda_devices = sorted(
+            {
+                int(value.device.index)
+                for embodiment_batch in batch.values()
+                for value in embodiment_batch.values()
+                if torch.is_tensor(value)
+                and value.device.type == "cuda"
+                and value.device.index is not None
+            }
+        )
+        for seed in self._energy_seed_bank:
+            # The fixed seed bank must not perturb subsequent training RNG.
+            with torch.random.fork_rng(devices=cuda_devices, enabled=True):
+                torch.manual_seed(seed)
+                prediction = self.model.forward_eval(batch)
+            for emb_id in batch:
+                action_key = self.model.resolved_ac_keys[emb_id]
+                key = f"emb{emb_id}_{action_key}"
+                samples[emb_id].append(prediction[key].detach())
+        return {
+            emb_id: torch.stack(per_seed, dim=0) for emb_id, per_seed in samples.items()
+        }
+
+    def _energy_metrics_and_artifact(
+        self,
+        batch: dict[int, dict[str, Any]],
+        batch_idx: int,
+    ) -> dict[str, torch.Tensor]:
+        sampled = self._sample_energy_predictions(batch)
+        metrics: dict[str, torch.Tensor] = {}
+        artifact_domains: dict[str, Any] = {}
+        domain_scores = []
+        domain_accuracies = []
+        domain_diversities = []
+        for emb_id, predictions in sampled.items():
+            embodiment_name = get_embodiment(emb_id).lower()
+            action_key = self.model.resolved_ac_keys[emb_id]
+            target = self._normalized_target(batch[emb_id], action_key)
+            if predictions.shape[1:] != target.shape:
+                raise ValueError(
+                    f"Energy Score prediction/target mismatch for {embodiment_name}: "
+                    f"{tuple(predictions.shape)} vs {tuple(target.shape)}"
+                )
+            accuracy_by_condition = self._energy_distance(
+                predictions,
+                target.unsqueeze(0).expand_as(predictions),
+            ).mean(dim=0)
+            pairwise = self._energy_distance(predictions[:, None], predictions[None, :])
+            sample_count = int(predictions.shape[0])
+            off_diagonal = ~torch.eye(
+                sample_count, device=pairwise.device, dtype=torch.bool
+            )
+            diversity_by_condition = (
+                pairwise[off_diagonal]
+                .reshape(sample_count * (sample_count - 1), predictions.shape[1])
+                .mean(dim=0)
+            )
+            score_by_condition = accuracy_by_condition - 0.5 * diversity_by_condition
+            accuracy = accuracy_by_condition.mean().detach()
+            diversity = diversity_by_condition.mean().detach()
+            score = score_by_condition.mean().detach()
+            if not bool(
+                torch.isfinite(torch.stack((score, accuracy, diversity))).all()
+            ):
+                raise ValueError(f"Non-finite Energy Score for {embodiment_name}")
+            metrics[f"Valid/EnergyScore@32/{embodiment_name}"] = score
+            metrics[f"Valid/EnergyScoreAccuracy@32/{embodiment_name}"] = accuracy
+            metrics[f"Valid/EnergyScoreDiversity@32/{embodiment_name}"] = diversity
+            domain_scores.append(score)
+            domain_accuracies.append(accuracy)
+            domain_diversities.append(diversity)
+            artifact_domains[embodiment_name] = {
+                "embodiment_id": int(emb_id),
+                "action_key": action_key,
+                "predictions": predictions.float().cpu(),
+                "targets": target.detach().float().cpu(),
+                "accuracy_by_condition": accuracy_by_condition.float().cpu(),
+                "diversity_by_condition": diversity_by_condition.float().cpu(),
+                "score_by_condition": score_by_condition.float().cpu(),
+            }
+
+        metrics["Valid/EnergyScore@32"] = torch.stack(domain_scores).mean()
+        metrics["Valid/EnergyScoreAccuracy@32"] = torch.stack(domain_accuracies).mean()
+        metrics["Valid/EnergyScoreDiversity@32"] = torch.stack(
+            domain_diversities
+        ).mean()
+
+        root = Path(str(self.energy_score["artifact_root"])).resolve()
+        step = int(self.trainer.global_step)
+        epoch = int(self.trainer.current_epoch)
+        rank = int(self.trainer.global_rank)
+        destination = (
+            root
+            / f"epoch-{epoch}-step-{step}"
+            / f"rank-{rank}-batch-{int(batch_idx)}.pt"
+        )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_suffix(".pt.tmp")
+        if destination.exists() or temporary.exists():
+            raise FileExistsError(f"Refusing to overwrite {destination}")
+        payload = {
+            "schema_version": 1,
+            "metric": "EnergyScore@32",
+            "sample_count": 32,
+            "seed_bank": self._energy_seed_bank,
+            "seed_bank_sha256": self._energy_seed_bank_sha256,
+            "distance": {
+                "space": "normalized_action_chunk",
+                "formula": "mean_weighted_semantic_block_rms",
+                "blocks": self.energy_score["distance_blocks"],
+            },
+            "aggregation": "condition_mean_then_equal_domain_macro_mean",
+            "global_step": step,
+            "epoch": epoch,
+            "rank": rank,
+            "batch_idx": int(batch_idx),
+            "precision": str(self.trainer.precision),
+            "validation_view": self.energy_score.get("validation_view"),
+            "provenance": self.energy_score.get("provenance"),
+            "domains": artifact_domains,
+        }
+        torch.save(payload, temporary)
+        os.replace(temporary, destination)
+        return metrics
 
     @staticmethod
     def _error_metrics(prefix: str, prediction, target) -> dict:
@@ -130,6 +336,14 @@ class HumanRobotOverlayEval(EvalVideo):
         normalized_element_count = 0
         native_squared_error_sum = None
         native_element_count = 0
+
+        if self.energy_score_enabled and self._energy_batches_done < int(
+            self.energy_score["max_batches_per_rank"]
+        ):
+            metrics.update(
+                self._energy_metrics_and_artifact(batch, self._energy_batches_done)
+            )
+            self._energy_batches_done += 1
 
         for emb_id, embodiment_batch in batch.items():
             embodiment_name = get_embodiment(emb_id).lower()

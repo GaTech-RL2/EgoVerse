@@ -1,0 +1,164 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_planar_v2_usocket_arc_parametric
+  - override /data: pusht/planar_v2_usocket_arc_parametric
+  - override /evaluator: eval_planar_v2_action_mse
+  - override /logger: wandb
+
+arc_distance: 50.0
+arc_waypoints: 16
+arc_token_horizon: 17
+name: planar_v2_usocket_arc_parametric
+description: usocket_common5_arc_r30_J8_replan1
+
+launch_params: {gpus_per_node: 2, nodes: 1}
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 1.0
+  val_check_interval: 10000
+  limit_val_batches: 1.0
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+
+logger:
+  wandb: {project: pushshapes-flow-transfer}
+
+run_provenance:
+  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_usocket_split_seed42_v1.json
+  split_manifest_sha256: 09fe48388fb0b2265f9f9ac8513cb62c4825a5240c3ff04c68fbb02b7330dc27
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  train_episode_count_per_domain: 990
+  valid_episode_count_per_domain: 10
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
+  union_episode_count_per_domain: 1000
+  norm_contract:
+    norm_mode: quantile
+    reduce_all_but_last: false
+    sample_frac: 0.05
+    domains:
+      pushshapes_sim_u_socket:
+        embodiment_id: 19
+        state_agent_obj_shape: [6]
+        actions_shape:
+          - ${arc_token_horizon}
+          - 5
+  training_contract:
+    world_size: 2
+    precision: bf16
+    max_steps: 240000
+    validation_interval_steps: 10000
+    check_val_every_n_epoch: null
+    validation_fraction: 1.0
+    optimizer: AdamW
+    peak_lr: 1.0e-4
+    warmup_steps: 3000
+    warmup_start_lr: 1.0e-5
+    cosine_floor_lr: 1.0e-5
+  action_contract:
+    representation: common5_arc_waypoints_plus_mean_scalar_timing
+    action_dim: 5
+    raw_lookahead: 200
+    distance: ${arc_distance}
+    waypoints: ${arc_waypoints}
+    token_horizon: ${arc_token_horizon}
+    rotation_radius: 30.0
+    execution_horizon: 1
+  energy_score_contract:
+    sample_count: 32
+    seed_bank_path: egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    validation_view: first_batch_per_ddp_rank_from_ordered_heldout_split
+    conditions_per_rank: 16
+    distance: equal_weight_translation_rotation_grip_block_rms_normalized
+    aggregation: condition_mean_then_equal_domain_macro_mean
+  required_wandb_metrics:
+    - Train/MSE
+    - Train/MSE/pushshapes_sim_u_socket
+    - Valid/MSE
+    - Valid/MSE/pushshapes_sim_u_socket
+    - Valid/Native_MSE
+    - Valid/Native_MSE/pushshapes_sim_u_socket
+    - Valid/EnergyScore@32
+    - Valid/EnergyScore@32/pushshapes_sim_u_socket
+    - Valid/EnergyScoreAccuracy@32
+    - Valid/EnergyScoreAccuracy@32/pushshapes_sim_u_socket
+    - Valid/EnergyScoreDiversity@32
+    - Valid/EnergyScoreDiversity@32/pushshapes_sim_u_socket
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+  reduce_all_but_last: false
+
+evaluator:
+  energy_score:
+    enabled: true
+    sample_count: 32
+    seed_bank_path: egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    action_dim: 5
+    max_batches_per_rank: 1
+    artifact_root: ${paths.output_dir}/validation_predictions/energy_score
+    validation_view:
+      definition: first_deterministic_validation_batch_per_ddp_rank
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      per_rank_batch_size: 16
+      world_size: 2
+    provenance:
+      action_representation: ${run_provenance.action_contract.representation}
+      prediction_horizon: ${arc_token_horizon}
+      sampler_inference_steps: 8
+      precision: bf16
+    distance_blocks:
+      translation: {indices: [0, 1], weight: 1.0}
+      rotation: {indices: [2, 3], weight: 1.0}
+      grip: {indices: [4], weight: 1.0}
+
+callbacks:
+  model_checkpoint:
+    filename: "epoch-{epoch}-step-{step}"
+    every_n_epochs: null
+    every_n_train_steps: null
+    train_time_interval: {_target_: datetime.timedelta, hours: 1}
+    save_top_k: -1
+    save_last: true
+    save_on_train_epoch_end: false
+    auto_insert_metric_name: false
+    enable_version_counter: false
+  validation_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints/validation
+    filename: "epoch-{epoch}-step-{step}"
+    monitor: null
+    every_n_epochs: null
+    every_n_train_steps: ${trainer.val_check_interval}
+    train_time_interval: null
+    save_top_k: -1
+    save_last: false
+    save_on_train_epoch_end: false
+    save_on_exception: false
+    save_weights_only: false
+    auto_insert_metric_name: false
+    enable_version_counter: false
+  terminal_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints/final
+    filename: "epoch-{epoch}-step-{step}"
+    monitor: null
+    every_n_epochs: null
+    every_n_train_steps: ${trainer.max_steps}
+    train_time_interval: null
+    save_top_k: -1
+    save_last: false
+    save_on_train_epoch_end: false
+    save_on_exception: false
+    save_weights_only: false
+    auto_insert_metric_name: false
+    enable_version_counter: false
