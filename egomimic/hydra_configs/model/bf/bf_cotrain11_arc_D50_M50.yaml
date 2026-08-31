@@ -98,7 +98,7 @@ robomimic_model:
       cond_dim: 384
       hidden_dim: 384
       act_dim: 96
-      act_seq: 16
+      act_seq: 51
       n_heads: 8
       dropout: 0.1
       mlp_layers: 4

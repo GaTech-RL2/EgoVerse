@@ -8,8 +8,9 @@
 # (including the shared 11.20M observation encoder). All four arms are matched
 # to within 5% at each capacity; see _gen_control_modes.py.
 #
-# Control-mode study: gripper only, trained on ideal, tight, loose, laggy, sticky,
-# held out jittery. Arc token D=10.0 M=16 r=0.0 layout=append.
+# Control-mode study: gripper only, trained on tight, loose, laggy, sticky,
+# held out ideal, jittery. Arc token D=10.0 M=16 r=0.0
+# layout=append.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.pipeline.algo.PipelineAlgo

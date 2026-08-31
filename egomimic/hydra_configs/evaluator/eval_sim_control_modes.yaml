@@ -1,4 +1,15 @@
-# Control-mode rollout eval: five SEEN controller modes plus held-out jittery.
+# Control-mode rollout eval: 4 SEEN controller modes plus 2 held out.
+#
+# Ordered by sensing-noise floor, which is the axis the held-out question is
+# asked along. TRAINING spans 0.3-0.8; both holdouts sit outside it, on
+# opposite sides, so extrapolation is bracketed rather than tested in one
+# direction only:
+#   ideal   0.0  UNSEEN — below the training range
+#   tight   0.3  seen
+#   laggy   0.4  seen
+#   loose   0.8  seen
+#   sticky  0.0  seen   (deadband/gain bias, no sensing noise)
+#   jittery 2.5  UNSEEN — 3x above the range; the headline test
 #
 # Every instance is the same embodiment (gripper) and differs ONLY in the
 # control gap the policy is evaluated under, which is the study's independent
@@ -19,6 +30,21 @@ _target_: egomimic.eval.core.eval_composite.EvalVideoList
 evals:
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
+    control_gap: sticky
+    env_kwargs:
+      object_shape: T
+      pusher_shape: gripper
+      obstacle_level: 0
+      image_size: 96
+    init_mode: seeds
+    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    max_steps: 600
+    coverage_threshold: 0.95
+    limit_val_batches: 2
+    max_videos: 1
+    # seen_sticky
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    embodiment_name: pushshapes_sim_gripper
     control_gap: ideal
     env_kwargs:
       object_shape: T
@@ -31,7 +57,7 @@ evals:
     coverage_threshold: 0.95
     limit_val_batches: 2
     max_videos: 1
-    # seen_ideal
+    # unseen_ideal
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
     control_gap: tight
@@ -49,21 +75,6 @@ evals:
     # seen_tight
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
-    control_gap: loose
-    env_kwargs:
-      object_shape: T
-      pusher_shape: gripper
-      obstacle_level: 0
-      image_size: 96
-    init_mode: seeds
-    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-    max_steps: 600
-    coverage_threshold: 0.95
-    limit_val_batches: 2
-    max_videos: 1
-    # seen_loose
-  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
-    embodiment_name: pushshapes_sim_gripper
     control_gap: laggy
     env_kwargs:
       object_shape: T
@@ -79,7 +90,7 @@ evals:
     # seen_laggy
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
-    control_gap: sticky
+    control_gap: loose
     env_kwargs:
       object_shape: T
       pusher_shape: gripper
@@ -91,7 +102,7 @@ evals:
     coverage_threshold: 0.95
     limit_val_batches: 2
     max_videos: 1
-    # seen_sticky
+    # seen_loose
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
     control_gap: jittery

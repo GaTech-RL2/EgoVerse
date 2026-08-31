@@ -2,14 +2,14 @@
 #
 # This is the TRANSPOSE of pushshapes_cotrain11_l40s.yaml. That launcher pulls
 # ONE control-gap row and 11 embodiments; this one pulls ONE embodiment
-# (gripper) across FIVE control-gap rows and holds out a sixth.
+# (gripper) across FOUR control-gap rows and holds out two more.
 #
-#   trained on : ideal, tight, loose, laggy, sticky
-#   held out   : jittery  (evaluated by rollout SR only — no jittery episodes
-#                are staged, because the gap is applied to the evaluator's env
-#                rather than read from data)
+#   trained on : tight, loose, laggy, sticky
+#   held out   : ideal and jittery, evaluated by rollout SR only. No episodes
+#                from either are staged: the gap is applied to the evaluator's
+#                env rather than read from data.
 #
-# All five seen modes are staged into ONE directory under a single embodiment
+# All seen modes are staged into ONE directory under a single embodiment
 # key, so the model is never told which controller produced an episode —
 # inferring that is the capability under test. Episode filenames collide across
 # modes (every cell has episode_T_gripper_obs0_000000.zarr), so the stage step
@@ -48,6 +48,11 @@ workflow:
       BATCH_SIZE: "{{batch_size}}"
       NUM_WORKERS: "{{num_workers}}"
       MAX_EPOCHS: "{{max_epochs}}"
+      # Caps steps per "epoch" so the sim evaluator runs on a useful cadence.
+      # A natural epoch here is ~19.5k steps at batch 32, which would give only
+      # a handful of SR points in a night; the interesting signal is the SR
+      # curve on seen vs held-out modes, not the final loss.
+      LIMIT_TRAIN_BATCHES: "{{limit_train_batches}}"
       JOB_NAME: "{{job_name}}"
       WANDB_ENTITY: "{{wandb_entity}}"
       # Space separated. One embodiment here, but the dataloader-override loop
@@ -193,12 +198,18 @@ workflow:
         echo "TOTAL staged: $(ls -1 "$TRAIN_DIR" | wc -l) episodes"
         du -sh "$PUSHSHAPES_ROOT"
 
-        # The held-out mode must not be present under any name. A stray
+        # No episode may come from a mode that is not in SEEN_MODES. A stray
         # directory would silently rejoin training through a glob and turn the
-        # generalization result into an in-distribution one.
-        if ls -1 "$TRAIN_DIR" | grep -q '^jittery__'; then
-          echo "FATAL: held-out mode jittery present in the training set"; exit 1
-        fi
+        # generalization result into an in-distribution one. Checked by
+        # enumerating what is actually on disk rather than by naming the
+        # holdouts, so adding a mode cannot outgrow the guard.
+        for ep in $(ls -1 "$TRAIN_DIR"); do
+          m="${ep%%__*}"
+          case " $SEEN_MODES " in
+            *" $m "*) ;;
+            *) echo "FATAL: episode from non-training mode '$m' in $TRAIN_DIR: $ep"; exit 1 ;;
+          esac
+        done
         for mode in $SEEN_MODES; do
           n=$(ls -1 "$TRAIN_DIR" | grep -c "^${mode}__" || true)
           if [ "$n" -eq 0 ]; then
@@ -251,6 +262,7 @@ workflow:
           launch_params.nodes=1 launch_params.gpus_per_node="$NUM_GPU" \
           $DL_OVERRIDES \
           logger.wandb.entity="$WANDB_ENTITY" \
+          trainer.limit_train_batches="$LIMIT_TRAIN_BATCHES" \
           trainer.max_epochs="$MAX_EPOCHS" trainer.min_epochs="$MAX_EPOCHS" \
           name="$RUN_NAME" description="$RUN_DESC"
 

@@ -17,24 +17,30 @@ import numpy as np
 import zarr
 
 from egomimic.rldb.zarr.arc_length_tokenizer import TokenizePlanarArcLength
-from Tsimulation.sim_v2.generate.mimicgen import SourceDemo, apply_source_control_gap
+from Tsimulation.pushshapes.agents import CONTROL_GAPS
 from Tsimulation.sim_v2.pushshapes.env import PushShapesEnv
 
 BASE = "/Users/rpunamiya/Desktop/GEAR/sim_run"
 
 
 def mk(ini, acts, agent):
+    """Build the env and put it under the episode's own controller.
+
+    planar_arc_sr_gate.py reaches for mimicgen.apply_source_control_gap, which
+    lives only in the untracked sim_run/runtime copy — so that gate cannot run
+    from a clean checkout. The gap is set directly here instead: it is one
+    assignment, and `reset_control_gap` preserves it because randomize_gap is
+    False.
+    """
     env = PushShapesEnv(object_shape=ini["object_shape"], pusher_shape=agent,
                         obstacle_level=0, image_size=96)
     env.reset(seed=0)
-    apply_source_control_gap(env, SourceDemo(
-        agent=agent, actions=acts,
-        object_pose=tuple(ini["object_pose"]), goal_pose=tuple(ini["goal_pose"]),
-        agent_pos=tuple(ini["agent_pos"]),
-        agent_angle=float(ini.get("agent_angle", 0.0)),
-        object_shape=ini["object_shape"], obstacle_level=0,
-        control_gap=ini.get("control_gap"),
-        control_gap_mode=ini.get("control_gap_mode")))
+    mode = ini.get("control_gap_mode") or "ideal"
+    if mode not in CONTROL_GAPS:
+        raise ValueError(f"episode declares unknown control_gap_mode {mode!r}")
+    env.agent.control_gap = CONTROL_GAPS[mode]
+    env.agent.randomize_gap = False
+    env.agent.reset_control_gap(env)
     env._skip_obs_render = True
     env.set_state(object_pose=tuple(ini["object_pose"]),
                   goal_pose=tuple(ini["goal_pose"]),

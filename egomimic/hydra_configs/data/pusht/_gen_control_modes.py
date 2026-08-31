@@ -1,23 +1,24 @@
 """Generate the control-mode study's data, model and evaluator configs.
 
-Experiment: ONE embodiment (`gripper`), six controller modes. Train on five,
-hold out `jittery`. Four arms at two capacities.
+Experiment: ONE embodiment (`gripper`), six controller modes. Train on four,
+hold out two (`ideal` and `jittery`) on opposite sides of the training noise
+range. Four arms at two capacities.
 
 Two structural decisions worth stating, because they are not obvious from the
 generated YAML:
 
 1. ONE domain, not six. Every control mode maps to the same embodiment key
-   `pushshapes_sim_gripper` and the launcher stages all five seen modes into a
+   `pushshapes_sim_gripper` and the launcher stages every seen mode into a
    single directory. Giving each mode its own domain would hand the model a
    per-mode embedding — i.e. it would be TOLD which controller it is driving,
    which is exactly the inference the study asks whether it can make. It also
-   avoids registering five embodiment IDs for what is one embodiment.
+   avoids registering four embodiment IDs for what is one embodiment.
 
-2. Held-out `jittery` is measured by ROLLOUT, not by validation loss. A
-   jittery validation set would need its own domain key, whose domain
+2. The held-out modes are measured by ROLLOUT, not by validation loss. A
+   held-out validation set would need its own domain key, whose domain
    embedding would never be trained — so the number would report an untrained
-   embedding rather than distribution shift. SR under the jittery gap needs no
-   jittery episodes at all, only the gap. A held-out BC loss is still worth
+   embedding rather than distribution shift. SR under a gap needs no episodes
+   from that mode at all, only the gap. A held-out BC loss is still worth
    having; it is a post-hoc pass over the trained checkpoint, not an in-run
    metric.
 
@@ -33,8 +34,32 @@ MODEL_DIR = REPO / "egomimic/hydra_configs/model/bf"
 EVAL_DIR = REPO / "egomimic/hydra_configs/evaluator"
 
 DOMAIN = "pushshapes_sim_gripper"
-SEEN = ["ideal", "tight", "loose", "laggy", "sticky"]
-HELD_OUT = "jittery"
+
+# Controller modes ordered by sensing-noise floor, which is the axis the
+# held-out question is actually asked along:
+#
+#   ideal 0.0 | tight 0.3 | laggy 0.4 | loose 0.8 | jittery 2.5
+#
+# TRAINING spans 0.3-0.8. Both held-out modes sit OUTSIDE that range, on
+# opposite sides, which brackets the extrapolation instead of testing only one
+# direction:
+#   ideal   (0.0) — below the training range: can it stop compensating for a
+#                   noise floor that is no longer there?
+#   jittery (2.5) — 3x above it: can it cope with an irreducible floor it has
+#                   never seen? This is the headline test.
+#
+# `ideal` began as a training mode and became a holdout because 714/1000 of its
+# generated episodes were unreadable (zarr 3.1.0 wrote corrupt numeric arrays
+# while reporting success). Training on its 286 survivors would have put a 3.5x
+# data imbalance under the comparison, which is worse than one fewer training
+# mode. When a clean ideal cell lands it can move back; the 4-mode and 5-mode
+# results are worth reporting together, since the difference measures what
+# controller diversity buys.
+SEEN = ["tight", "loose", "laggy", "sticky"]
+HELD_OUT = ["ideal", "jittery"]
+PRIMARY_HELD_OUT = "jittery"
+NOISE_STD = {"ideal": 0.0, "tight": 0.3, "laggy": 0.4, "loose": 0.8,
+             "sticky": 0.0, "jittery": 2.5}
 
 # Arc token: D=10, M=16, rotation_radius=0, velocity_layout=append.
 # M=16 matches the dense h16 baseline's width so the arc and dense arms have
@@ -70,15 +95,18 @@ ARMS = {
 def data_config() -> str:
     return f"""_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
-# CONTROL-MODE STUDY — gripper only, five seen controller modes, jittery held out.
+# CONTROL-MODE STUDY — gripper only. Seen: {", ".join(SEEN)}.
+# Held out: {", ".join(HELD_OUT)}.
 #
-# All five seen modes ({", ".join(SEEN)}) are staged by the launcher into ONE
+# The seen modes are staged by the launcher into ONE
 # directory under a single embodiment key. The model is deliberately not told
 # which controller produced an episode: inferring and compensating for the
 # controller is the capability under test. See _gen_control_modes.py.
 #
-# {HELD_OUT} is absent from training entirely and is measured by rollout SR
-# under its control gap (evaluator/eval_sim_control_modes.yaml).
+# {", ".join(HELD_OUT)} are absent from training entirely and are measured by
+# rollout SR under their control gaps (evaluator/eval_sim_control_modes.yaml).
+# They sit on OPPOSITE sides of the training noise range (0.3-0.8): ideal at
+# 0.0 and jittery at 2.5.
 #
 # Arc token: D={D} M={M} rotation_radius={ROTATION_RADIUS} velocity_layout={LAYOUT}
 # -> action_horizon {HORIZON}.
@@ -287,7 +315,8 @@ def model_config(arm: str, cap_name: str, cap: dict, params_m: str) -> str:
 # to within 5% at each capacity; see _gen_control_modes.py.
 #
 # Control-mode study: gripper only, trained on {", ".join(SEEN)},
-# held out {HELD_OUT}. Arc token D={D} M={M} r={ROTATION_RADIUS} layout={LAYOUT}.
+# held out {", ".join(HELD_OUT)}. Arc token D={D} M={M} r={ROTATION_RADIUS}
+# layout={LAYOUT}.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.pipeline.algo.PipelineAlgo
@@ -326,8 +355,8 @@ def evaluator_config() -> str:
     which SimRolloutEval rejects outright — that config cannot instantiate.
     """
     blocks = []
-    for mode in SEEN + [HELD_OUT]:
-        tag = "unseen" if mode == HELD_OUT else "seen"
+    for mode in sorted(SEEN + HELD_OUT, key=lambda m: NOISE_STD[m]):
+        tag = "unseen" if mode in HELD_OUT else "seen"
         blocks.append(f"""  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: {DOMAIN}
     control_gap: {mode}
@@ -343,7 +372,18 @@ def evaluator_config() -> str:
     limit_val_batches: 2
     max_videos: 1
     # {tag}_{mode}""")
-    return f"""# Control-mode rollout eval: five SEEN controller modes plus held-out {HELD_OUT}.
+    return f"""# Control-mode rollout eval: {len(SEEN)} SEEN controller modes plus {len(HELD_OUT)} held out.
+#
+# Ordered by sensing-noise floor, which is the axis the held-out question is
+# asked along. TRAINING spans 0.3-0.8; both holdouts sit outside it, on
+# opposite sides, so extrapolation is bracketed rather than tested in one
+# direction only:
+#   ideal   0.0  UNSEEN — below the training range
+#   tight   0.3  seen
+#   laggy   0.4  seen
+#   loose   0.8  seen
+#   sticky  0.0  seen   (deadband/gain bias, no sensing noise)
+#   jittery 2.5  UNSEEN — 3x above the range; the headline test
 #
 # Every instance is the same embodiment (gripper) and differs ONLY in the
 # control gap the policy is evaluated under, which is the study's independent

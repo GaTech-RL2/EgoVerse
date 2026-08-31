@@ -1,14 +1,17 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
-# CONTROL-MODE STUDY — gripper only, five seen controller modes, jittery held out.
+# CONTROL-MODE STUDY — gripper only. Seen: tight, loose, laggy, sticky.
+# Held out: ideal, jittery.
 #
-# All five seen modes (ideal, tight, loose, laggy, sticky) are staged by the launcher into ONE
+# The seen modes are staged by the launcher into ONE
 # directory under a single embodiment key. The model is deliberately not told
 # which controller produced an episode: inferring and compensating for the
 # controller is the capability under test. See _gen_control_modes.py.
 #
-# jittery is absent from training entirely and is measured by rollout SR
-# under its control gap (evaluator/eval_sim_control_modes.yaml).
+# ideal, jittery are absent from training entirely and are measured by
+# rollout SR under their control gaps (evaluator/eval_sim_control_modes.yaml).
+# They sit on OPPOSITE sides of the training noise range (0.3-0.8): ideal at
+# 0.0 and jittery at 2.5.
 #
 # Arc token: D=10.0 M=16 rotation_radius=0.0 velocity_layout=append
 # -> action_horizon 17.
