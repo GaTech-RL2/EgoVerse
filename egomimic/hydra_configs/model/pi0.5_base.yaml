@@ -8,7 +8,7 @@ robomimic_model:
       pi05: true
       action_dim: 32
       action_horizon: 100
-      max_token_len: 180
+      max_token_len: 200
 
   # Prompt assembly + tokenization. The PI algo owns the tokenizer because
   # the prompt template is model-specific (paligemma + pi0.5 anchor). All
@@ -30,7 +30,7 @@ robomimic_model:
   #   model.robomimic_model.default_prompt="this is a bad action"
   #   model.robomimic_model.control_mode='{human: "wrist frame xyzypr per arm", eva: "wrist frame xyzypr gripper per arm"}'
   tokenizer_model_name: "google/paligemma-3b-mix-224"
-  tokenizer_max_length: 128
+  tokenizer_max_length: 200
   sampling_mode: "random"
   annotation_key: "annotations"
   default_prompt: "This is a bad action."
