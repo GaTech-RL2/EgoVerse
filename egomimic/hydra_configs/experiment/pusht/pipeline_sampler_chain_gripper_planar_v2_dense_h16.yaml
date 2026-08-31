@@ -1,0 +1,20 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/pipeline_sampler_chain_gripper_planar_v2_arc_D200_M100
+  - override /model: bf/bf_planar_v2_chain_gripper_dense_h16
+  - override /data: pusht/planar_v2_chain_gripper_dense_h16
+  - _self_
+
+name: planar_v2_chain_gripper_dense_h16
+description: single_domain_chain_direct_dense_common5_H16_J8
+
+run_provenance:
+  action_contract:
+    representation: direct_dense_common5_h16
+    model_action_shape: [16, 5]
+    native_action_shape: [16, 4]
+    comparator: planar_v2_chain_gripper_arc_D200_M100
+  norm_contract:
+    domains:
+      pushshapes_sim_chain_gripper:
+        actions_shape: [16, 5]

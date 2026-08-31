@@ -14,9 +14,11 @@ PYTHON=$PY_ENV/bin/python
 TOOL=$REPO/egomimic/scripts/flow_transfer_run_bundle.py
 LAUNCHER=$REPO/scripts/train/flow_transfer_run_bundle.sbatch
 SBATCH=$SLURM_BIN/sbatch
+SCONTROL=$SLURM_BIN/scontrol
 
 test -x "$PYTHON"
 test -x "$SBATCH"
+test -x "$SCONTROL"
 test -f "$TOOL"
 test -f "$LAUNCHER"
 
@@ -54,6 +56,21 @@ COMMON=(
   "--mem=$MEMORY"
   --open-mode=append
 )
+if [[ -v FLOW_TRANSFER_EXCLUDE_NODES ]]; then
+  NODE_LIST_PATTERN='^[][[:alnum:]_.,-]+$'
+  if [[ -z $FLOW_TRANSFER_EXCLUDE_NODES || \
+        ! $FLOW_TRANSFER_EXCLUDE_NODES =~ $NODE_LIST_PATTERN ]]; then
+    printf 'FLOW_TRANSFER_EXCLUDE_NODES must be a nonempty Slurm node list\n' >&2
+    exit 2
+  fi
+  if ! EXCLUDED_HOSTS=$(
+    "$SCONTROL" show hostnames "$FLOW_TRANSFER_EXCLUDE_NODES" 2>/dev/null
+  ) || [[ -z $EXCLUDED_HOSTS ]]; then
+    printf 'FLOW_TRANSFER_EXCLUDE_NODES is not a valid Slurm node list\n' >&2
+    exit 2
+  fi
+  COMMON+=("--exclude=$FLOW_TRANSFER_EXCLUDE_NODES")
+fi
 
 case "$MODE" in
   norm)

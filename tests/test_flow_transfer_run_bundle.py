@@ -219,3 +219,95 @@ def test_shell_entry_points_prepend_repo_to_pythonpath() -> None:
     ):
         source = (REPO_ROOT / relative_path).read_text()
         assert "export PYTHONPATH=$REPO${PYTHONPATH:+:$PYTHONPATH}" in source
+
+
+def test_bundle_submitter_records_only_safe_explicit_node_exclusions() -> None:
+    source = (
+        REPO_ROOT / "scripts/train/submit_flow_transfer_run_bundle.sh"
+    ).read_text()
+
+    assert "[[ -v FLOW_TRANSFER_EXCLUDE_NODES ]]" in source
+    assert "-z $FLOW_TRANSFER_EXCLUDE_NODES" in source
+    assert "^[][[:alnum:]_.,-]+$" in source
+    assert '"$SCONTROL" show hostnames "$FLOW_TRANSFER_EXCLUDE_NODES"' in source
+    assert 'COMMON+=("--exclude=$FLOW_TRANSFER_EXCLUDE_NODES")' in source
+    assert 'printf \'%q \' "${COMMAND[@]}"' in source
+
+
+def test_bundle_submitter_exclusion_is_validated_and_recorded(
+    tmp_path: Path,
+) -> None:
+    py_env = tmp_path / "env"
+    slurm_bin = tmp_path / "slurm"
+    output_root = tmp_path / "output"
+    (py_env / "bin").mkdir(parents=True)
+    slurm_bin.mkdir()
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("{}")
+
+    fake_python = py_env / "bin" / "python"
+    fake_python.write_text(
+        """#!/bin/bash
+set -euo pipefail
+if [[ $* == *' print-field '* ]]; then
+  field=${!#}
+  case "$field" in
+    outputs.root) printf '%s\\n' "$FAKE_OUTPUT_ROOT" ;;
+    run_id) echo test-run ;;
+    resources.account) echo rl2-lab ;;
+    resources.partition) echo normal ;;
+    resources.cpus_per_task) echo 2 ;;
+    resources.memory) echo 4G ;;
+    resources.world_size) echo 2 ;;
+    resources.gpu_type) echo L40S ;;
+    resources.smoke_qos) echo normal ;;
+    resources.smoke_time) echo 00:10:00 ;;
+    *) exit 3 ;;
+  esac
+fi
+"""
+    )
+    fake_sbatch = slurm_bin / "sbatch"
+    fake_sbatch.write_text("#!/bin/bash\nprintf '987654\\n'\n")
+    fake_scontrol = slurm_bin / "scontrol"
+    fake_scontrol.write_text(
+        """#!/bin/bash
+set -euo pipefail
+[[ $1 == show && $2 == hostnames ]]
+case "$3" in
+  bishop) echo bishop ;;
+  'node[01-02]') printf 'node01\\nnode02\\n' ;;
+  *) exit 1 ;;
+esac
+"""
+    )
+    for path in (fake_python, fake_sbatch, fake_scontrol):
+        path.chmod(0o755)
+
+    submitter = REPO_ROOT / "scripts/train/submit_flow_transfer_run_bundle.sh"
+    base_env = {
+        **os.environ,
+        "PY_ENV": str(py_env),
+        "SLURM_BIN": str(slurm_bin),
+        "FAKE_OUTPUT_ROOT": str(output_root),
+    }
+    valid = subprocess.run(
+        [str(submitter), "norm", str(manifest)],
+        env={**base_env, "FLOW_TRANSFER_EXCLUDE_NODES": "bishop"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert valid.returncode == 0, valid.stderr
+    receipt = output_root / "submissions" / "norm_job_987654.txt"
+    assert "--exclude=bishop" in receipt.read_text()
+
+    for invalid in ("", "bishop;touch_bad", "node[02-01]"):
+        result = subprocess.run(
+            [str(submitter), "norm", str(manifest)],
+            env={**base_env, "FLOW_TRANSFER_EXCLUDE_NODES": invalid},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 2

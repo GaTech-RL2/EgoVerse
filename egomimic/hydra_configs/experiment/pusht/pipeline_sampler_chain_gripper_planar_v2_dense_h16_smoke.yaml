@@ -1,0 +1,32 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/pipeline_sampler_chain_gripper_planar_v2_dense_h16
+  - _self_
+
+name: planar_v2_chain_gripper_dense_h16_smoke
+description: two_optimizer_steps_plus_real_scheduled_validation
+
+trainer:
+  max_steps: 2
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 2
+  val_check_interval: 1
+  limit_val_batches: 1
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+
+logger:
+  wandb:
+    offline: true
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: null
+    every_n_train_steps: 1
+    train_time_interval: null
+    save_top_k: 1
+    save_last: true
+    save_on_train_epoch_end: false

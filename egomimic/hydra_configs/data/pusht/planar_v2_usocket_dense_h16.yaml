@@ -1,0 +1,63 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Direct-dense common5 H16 baseline on the exact U-Socket corpus and seed-42 1%
+# split used by the matched Planar V2 arc singleton.
+train_datasets:
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/control_gap_all6x13_1000_per_cell_simv2_20260826/ideal/u_socket/T
+      embodiment_override: pushshapes_sim_u_socket
+      expected_episode_count: 1000
+      expected_episode_names_sha256: 8e010c4af6b810252d4f59cf03fdef43c2cb8eac80ba702eccd2bb3714352492
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_dense_transform_list
+    mode: train
+    valid_ratio: 0.01
+    split_seed: ${seed}
+    expected_train_episode_count: 990
+    expected_train_episode_names_sha256: 6cbc1af867ce1eed0d88b29c3714f0141d3d0671f03aa8187e4243893771d917
+    expected_valid_episode_count: 10
+    expected_valid_episode_names_sha256: 5ae796e49f3a13b0817bf4d763373b99f1c6df5d58650897c0c50641f2aa2276
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/control_gap_all6x13_1000_per_cell_simv2_20260826/ideal/u_socket/T
+      embodiment_override: pushshapes_sim_u_socket
+      expected_episode_count: 1000
+      expected_episode_names_sha256: 8e010c4af6b810252d4f59cf03fdef43c2cb8eac80ba702eccd2bb3714352492
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_dense_transform_list
+    mode: valid
+    valid_ratio: 0.01
+    split_seed: ${seed}
+    expected_train_episode_count: 990
+    expected_train_episode_names_sha256: 6cbc1af867ce1eed0d88b29c3714f0141d3d0671f03aa8187e4243893771d917
+    expected_valid_episode_count: 10
+    expected_valid_episode_names_sha256: 5ae796e49f3a13b0817bf4d763373b99f1c6df5d58650897c0c50641f2aa2276
+    bounds_check: false
+
+train_dataloader_params:
+  pushshapes_sim_u_socket:
+    batch_size: 16
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+
+valid_dataloader_params:
+  pushshapes_sim_u_socket:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
