@@ -27,6 +27,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -40,6 +41,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -53,6 +55,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -66,6 +69,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -79,6 +83,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -92,6 +97,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -105,6 +111,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -118,6 +125,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -131,6 +139,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -144,6 +153,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -157,6 +167,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -170,6 +181,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
@@ -183,6 +195,7 @@ evals:
     init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
     max_steps: 600
+    rollout_timeout_s: 900
     coverage_threshold: 0.95
     limit_val_batches: 8
     max_videos: 8
