@@ -121,8 +121,13 @@ workflow:
         s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp "$NORM_URI" /workspace/ckpt/norm_stats.json
         ls -la /workspace/ckpt
 
-        # ---- data: needed only to build the val dataloader that drives the
-        # rollout loop. The rollouts themselves come from the simulator.
+        # ---- data: needed ONLY to build the val dataloader whose single batch
+        # drives on_validation_step. The rollouts themselves come from the
+        # simulator, not from these episodes, so N_PER_MODE should be SMALL —
+        # with limit_val_batches=1 and valid_ratio 0.02, ~20 episodes per mode
+        # already yields several hundred candidate val samples for one batch of
+        # 16. Staging the full 547 per mode costs many minutes of pull for data
+        # that is never read.
         TRAIN_DIR="$PUSHSHAPES_ROOT/train/gripper/T"
         mkdir -p "$TRAIN_DIR"
         for mode in $SEEN_MODES; do
