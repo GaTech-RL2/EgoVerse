@@ -41,7 +41,7 @@ callbacks:
   terminal_checkpoint:
     _target_: lightning.pytorch.callbacks.ModelCheckpoint
     dirpath: ${paths.output_dir}/checkpoints/final
-    filename: "step-{step}"
+    filename: "epoch-{epoch}-step-{step}"
     monitor: null
     verbose: true
     every_n_epochs: null
