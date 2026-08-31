@@ -107,6 +107,34 @@ workflow:
         uv sync --frozen
         source .venv/bin/activate
 
+        # ------------------------------------------------------ simulator deps
+        # The SIMULATOR's dependencies are NOT in EgoVerse's pyproject or
+        # uv.lock: pymunk, gymnasium, pygame and shapely are all absent, and
+        # Tsimulation/sim_v2/pushshapes/env.py imports every one of them at
+        # module scope. So `uv sync --frozen` produces an environment in which
+        # SimRolloutEval cannot construct an env at all — the evaluator dies on
+        # its first rollout, in phase 2, after training has already started.
+        #
+        # Installed here rather than added to pyproject/uv.lock on purpose:
+        # the lock is shared with other people's runs and regenerating it to
+        # land a test-time dependency is a much larger blast radius than an
+        # explicit install in this launcher.
+        #
+        # pymunk MUST be 7.x — the sim uses the 7.x `Space.on_collision` API and
+        # 6.9.0 fails on reset.
+        uv pip install "pymunk==7.3.0" gymnasium pygame shapely
+
+        # Fail here, in seconds, rather than at the first rollout hours in.
+        python -c "
+from Tsimulation.pushshapes import PushShapesEnv
+from Tsimulation.pushshapes.agents import CONTROL_GAPS
+e = PushShapesEnv(object_shape='T', pusher_shape='gripper', obstacle_level=0, image_size=96)
+e.reset(seed=0)
+e.agent.control_gap = CONTROL_GAPS['jittery']
+assert e.agent.control_gap.as_dict() == CONTROL_GAPS['jittery'].as_dict()
+print('simulator import + control gap OK; gaps:', sorted(CONTROL_GAPS))
+"
+
         bash ./egomimic/utils/aws/setup_secret.sh
         test -s "$HOME/.egoverse_env"
 
