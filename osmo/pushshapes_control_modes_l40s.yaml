@@ -125,15 +125,21 @@ workflow:
         uv pip install "pymunk==7.3.0" gymnasium pygame shapely
 
         # Fail here, in seconds, rather than at the first rollout hours in.
-        python -c "
-from Tsimulation.pushshapes import PushShapesEnv
-from Tsimulation.pushshapes.agents import CONTROL_GAPS
-e = PushShapesEnv(object_shape='T', pusher_shape='gripper', obstacle_level=0, image_size=96)
-e.reset(seed=0)
-e.agent.control_gap = CONTROL_GAPS['jittery']
-assert e.agent.control_gap.as_dict() == CONTROL_GAPS['jittery'].as_dict()
-print('simulator import + control gap OK; gaps:', sorted(CONTROL_GAPS))
-"
+        # Heredoc, NOT `python -c "..."`: an unindented continuation line
+        # escapes this YAML literal block and the spec fails to parse.
+        python - <<'SIMPY'
+        from Tsimulation.pushshapes import PushShapesEnv
+        from Tsimulation.pushshapes.agents import CONTROL_GAPS
+
+        env = PushShapesEnv(object_shape="T", pusher_shape="gripper",
+                            obstacle_level=0, image_size=96)
+        env.reset(seed=0)
+        env.agent.control_gap = CONTROL_GAPS["jittery"]
+        env.agent.randomize_gap = False
+        env.agent.reset_control_gap(env)
+        assert env.agent.control_gap.as_dict() == CONTROL_GAPS["jittery"].as_dict()
+        print("simulator OK; control gaps:", sorted(CONTROL_GAPS))
+        SIMPY
 
         bash ./egomimic/utils/aws/setup_secret.sh
         test -s "$HOME/.egoverse_env"
