@@ -228,6 +228,60 @@ issue, not a correctness one. Apply it next launch.
 `tvio.write_video` will not raise, and the frame buffer flushes at 1000 frames
 so it cannot grow unbounded.)
 
+## 5d. FIRST RESULT — and it is not yet interpretable
+
+`arm2_causal_bidir` small, 100 epochs / 250k steps, evaluated offline:
+**0% success on all six control modes**, coverage ~0.0000 (not merely below the
+0.95 bar — the object barely moves).
+
+Before reading anything into that, four things were checked and all pass:
+
+| check | result |
+|---|---|
+| checkpoint weights loaded | 222/222 tensors match name AND shape |
+| optimizer worked | train loss 0.139 → 0.00417, monotone |
+| all four modes trained on | launcher guard: `all 4 seen modes staged at 547 episodes each` |
+| observation path | same 6 channels, same order, same units at train and rollout |
+
+And the model itself is **good**, open-loop, on the row that is actually
+executed:
+
+```
+ROW 0, raw units      x        y        cos      sin      grip
+model FVE           +0.997   +0.991   +0.998   +0.998   +0.977
+persistence FVE     +0.917   +0.936   +0.937   +0.917    n/a
+median |error|       2.5 px   2.3 px   0.010    0.012    0.002
+```
+
+It beats a persistence baseline on every channel and predicts the commanded
+action to ~2.5 px in a 512-unit world.
+
+**So: excellent open-loop, zero closed-loop. The root cause is NOT identified.**
+The leading hypothesis is ordinary BC compounding error — 2.5 px per action, 16
+waypoints per replan, ~300 steps — which is precisely the phenomenon this study
+exists to measure. But coverage of exactly 0.0000 rather than partial is more
+extreme than compounding comfortably explains, so it is a hypothesis, not a
+finding.
+
+### Methodological warning, paid for four times
+
+Every intermediate verdict in this diagnosis was WRONG, and always the same
+way: **an aggregate error computed across mismatched units.**
+
+- normalized predictions vs RAW targets → "training did not learn" (false)
+- mean/std-normalized targets vs a QUANTILE-normalized model → "orientation not
+  learned, sin FVE +0.07" (false; it is +0.998)
+- `MultiDataset.infer_norm_from_dataset` silently no-ops on a hand-built dataset
+  (`No proprio/action keys for embodiment=25`), so a "normalized" rerun produced
+  byte-identical numbers to the unnormalized one
+
+`norm_mode` here is **quantile**: `2*(x-q1)/(q99-q1) - 1`, not mean/std. Check
+`norm_mode` before comparing anything to a model's output.
+
+What caught each error was never the aggregate — it was **per-channel
+disaggregation**. Two channels in the tens of thousands beside three near 1.0 is
+a units bug; no summary statistic shows you that.
+
 ## 6. Gates (all passing)
 
 | gate | what it protects |
