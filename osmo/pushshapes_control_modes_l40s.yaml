@@ -210,12 +210,18 @@ workflow:
             *) echo "FATAL: episode from non-training mode '$m' in $TRAIN_DIR: $ep"; exit 1 ;;
           esac
         done
+        # Every mode must land EXACTLY N_PER_MODE episodes. Checking for
+        # non-zero is not enough: a partially-written or partially-pulled cell
+        # yields a short mode that still trains, still logs, and silently
+        # reweights the mixture the whole comparison rests on.
         for mode in $SEEN_MODES; do
           n=$(ls -1 "$TRAIN_DIR" | grep -c "^${mode}__" || true)
-          if [ "$n" -eq 0 ]; then
-            echo "FATAL: staged 0 episodes for seen mode $mode"; exit 1
+          if [ "$n" -ne "$N_PER_MODE" ]; then
+            echo "FATAL: mode $mode staged $n episodes, expected $N_PER_MODE"
+            exit 1
           fi
         done
+        echo "all $(echo $SEEN_MODES | wc -w) seen modes staged at $N_PER_MODE episodes each"
 
         # --------------------------------------------- phase 1: norm stats (1 GPU)
         # trainHydra computes stats unguarded by rank, so letting all ranks do
