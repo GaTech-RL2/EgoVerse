@@ -142,10 +142,31 @@ the 4-mode vs 5-mode difference measures what controller diversity buys.
 
 ## 5. Reading the results
 
-Per run, the evaluator reports SR for all six modes:
+```bash
+python scripts/control_modes/collect_results.py --step-matched
+```
+
+Per run, the evaluator reports SR for all six modes under these wandb keys:
+
+```
+Valid/seen_tight_sim_success_rate     Valid/unseen_ideal_sim_success_rate
+Valid/seen_laggy_sim_success_rate     Valid/unseen_jittery_sim_success_rate
+Valid/seen_loose_sim_success_rate
+Valid/seen_sticky_sim_success_rate
+```
+
+(plus `_sim_coverage` for the mean IoU behind each.) The `seen_`/`unseen_`
+prefix is a `metric_tag`, not decoration: metrics default to keying by
+embodiment, and all six evaluators are the SAME embodiment, so without distinct
+tags the six collapse to whichever ran last — one plausible number instead of
+six, with nothing raised.
 
 - **seen**: `tight`, `loose`, `laggy`, `sticky` — in-distribution BC
 - **unseen**: `ideal`, `jittery` — controller generalization
+
+Compare at **matched steps**, not wall-clock: runs start at different times, so
+the last logged value of a run that started earlier is not comparable to one
+that started later. `--step-matched` does this.
 
 Questions, in order of what the study was built to answer:
 
