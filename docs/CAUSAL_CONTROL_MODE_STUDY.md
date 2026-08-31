@@ -837,3 +837,49 @@ Neither closed-loop SR (saturated at 0) nor delta-FVE (dominated by the approach
 tracks the quantity that decides success. **Fine-bucket error — median
 \|policy - expert\| restricted to timesteps where the expert commands <1px — is
 the metric that moves.** Report it alongside the others.
+
+
+---
+
+## FINAL (n=1282): fine control PLATEAUS; the residual target clears the ceiling
+
+The previous section claimed fine-phase error halves every ~12 epochs. **That was
+a 3-episode sampling artefact.** At 12 episodes (~1282 fine-bucket samples):
+
+| epoch | fine cos | wrong dir | fine \|err\| | approach \|err\| |
+|---|---|---|---|---|
+| 3 | 0.059 | 47.3% | 13.49 | 78.46 |
+| 7 | 0.120 | 46.2% | 7.93 | 67.54 |
+| 11 | 0.182 | 43.8% | 7.70 | 42.46 |
+| 15 | 0.130 | 46.3% | 7.42 | 42.37 |
+
+One drop (epoch 3->7), then **flat at ~7.4px through epoch 15**. Direction
+agreement sits at ~0.13 with **46% of commands pointing the wrong way**,
+unchanged across the range. The 3-episode version read 14.45 / 9.49 / 10.57 /
+7.32, which looked like steady halving and was not.
+
+**The policy converges to ~7.4px fine-phase error and stops**, while the task
+needs sub-pixel precision. That is ~7x too coarse, permanently. More epochs do
+not close it, and this is why closed-loop success is zero on TRAINED modes.
+
+### The residual target clears that ceiling
+
+| | fine \|err\| |
+|---|---|
+| baseline plateau (epochs 7-15) | 7.4-7.9 px |
+| residual @ epoch 3 | **5.51 px** |
+
+Not "faster convergence" — the delta target at epoch 3 is already better than the
+baseline ever reaches.
+
+**Caveat:** the residual arm is WORSE on the approach at epoch 3 (113px error, cos
+0.558) than the baseline (78px, cos 0.960). Rescaling the loss toward small deltas
+takes weight off the big move, so this is a REDISTRIBUTION of accuracy. Whether it
+nets out depends on the approach recovering with training.
+
+### Measurement lesson
+
+Three episodes could not distinguish a plateau from a trend, and produced two
+confident conclusions in opposite directions within an hour. Twelve episodes
+(~1282 fine-bucket samples) makes the curve unambiguous. Raise the sample BEFORE
+revising a claim, not after.
