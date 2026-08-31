@@ -41,6 +41,7 @@ from egomimic.eval.core.eval_video import EvalVideo
 # legacy eval_sim._ENV_TO_ZARR / _state_to_init / _env_to_zarr_pushshapes
 # names (used internally + by eval_dfot_self_rollout and scripts/verify_*) keep
 # resolving unchanged.
+from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.pushshapes_sim import (  # noqa: E402,F401
     _ENV_TO_ZARR,
     _env_to_zarr_pushshapes,
@@ -76,6 +77,7 @@ class SimRolloutEval(EvalVideo):
         self,
         env_kwargs: dict | None = None,
         embodiment_name: str = "pushshapes_sim",
+        policy_embodiment_name: str | None = None,
         init_mode: str = "replay",
         init_seeds: list[int] | None = None,
         max_steps: int = 200,
@@ -103,6 +105,34 @@ class SimRolloutEval(EvalVideo):
                 f"No env-to-zarr converter for {self.embodiment_name!r}. "
                 f"Add to _ENV_TO_ZARR in egomimic/rldb/embodiment/pushshapes_sim.py."
             )
+        # Pin the ONE policy head this evaluator drives. The env comes from
+        # embodiment_name; rolling out any other head in it pairs a policy with
+        # the wrong effector, and the action widths differ (2 for pure pushers,
+        # 3 with an angle, 4 with a grip) so env.step rejects the mismatch.
+        #
+        # policy_embodiment_name exists for HELD-OUT effectors: circle_small and
+        # suction are never in the training batch, so pinning them to their own
+        # id would make their evaluator silently produce no metric at all. Point
+        # them at a trained head of the SAME native width instead -- that is the
+        # unseen-embodiment transfer question: a known policy, a new effector.
+        self.policy_embodiment_name = str(
+            policy_embodiment_name or self.embodiment_name
+        )
+        self.target_emb_id = get_embodiment_id(self.policy_embodiment_name)
+        from egomimic.pipeline.pushshapes import PLANAR_NATIVE_WIDTH
+
+        _env_w = PLANAR_NATIVE_WIDTH.get(self.embodiment_name.lower())
+        _pol_w = PLANAR_NATIVE_WIDTH.get(self.policy_embodiment_name.lower())
+        if _env_w is not None and _pol_w is not None and _env_w != _pol_w:
+            raise ValueError(
+                f"policy {self.policy_embodiment_name!r} emits {_pol_w} native "
+                f"channels but env {self.embodiment_name!r} takes {_env_w}. "
+                "Pick a policy embodiment with the same native width."
+            )
+        # Metric keys are named by the ENV, not the policy id: several
+        # evaluators may share a policy head, and eval_composite merges with
+        # dict.update(), so id-named keys would silently overwrite each other.
+        self.metric_slug = self.embodiment_name.replace("pushshapes_sim_", "")
         self.init_mode = str(init_mode)
         if self.init_mode not in {"replay", "random", "seeds"}:
             raise ValueError(
@@ -329,6 +359,13 @@ class SimRolloutEval(EvalVideo):
         self._last_per_ep_coverages = {}
 
         for emb_id, _batch in batch.items():
+            # One evaluator == one (env, policy head) pair. Without this the
+            # cotrain batch's N embodiments each get rolled out in THIS
+            # evaluator's env, which both crashes on width mismatch and makes
+            # the metric key a lie: every evaluator writes the same
+            # Valid/emb{id}_sim_* keys, so the last one to run silently wins.
+            if emb_id != self.target_emb_id:
+                continue
             if self.init_mode == "seeds":
                 B = len(self.init_seeds)
                 if B == 0:
@@ -375,17 +412,19 @@ class SimRolloutEval(EvalVideo):
             # the near-miss mass). Parse with: grep '\[sim\] .* ep_coverages'.
             if ep_coverages:
                 print(
-                    f"[sim] emb{emb_id} ep_coverages: "
+                    f"[sim] env={self.embodiment_name} "
+                    f"policy={self.policy_embodiment_name}(emb{emb_id}) "
+                    "ep_coverages: "
                     + ",".join(f"{c:.4f}" for c in ep_coverages)
                 )
             self._last_per_ep_frames[emb_id] = per_ep_frames
             self._last_per_ep_coverages[emb_id] = list(ep_coverages)
             mean_cov = float(np.mean(ep_coverages)) if ep_coverages else 0.0
             success_rate = float(np.mean(ep_successes)) if ep_successes else 0.0
-            metrics[f"Valid/emb{emb_id}_sim_coverage"] = torch.tensor(
+            metrics[f"Valid/{self.metric_slug}_sim_coverage"] = torch.tensor(
                 mean_cov, device=device
             )
-            metrics[f"Valid/emb{emb_id}_sim_success_rate"] = torch.tensor(
+            metrics[f"Valid/{self.metric_slug}_sim_success_rate"] = torch.tensor(
                 success_rate, device=device
             )
             if ep_frames:

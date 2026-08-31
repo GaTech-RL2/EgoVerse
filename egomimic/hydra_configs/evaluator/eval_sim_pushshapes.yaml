@@ -184,6 +184,7 @@ evals:
     max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_circle_small
+    policy_embodiment_name: pushshapes_sim_circle
     env_kwargs:
       object_shape: T
       pusher_shape: circle_small
@@ -199,6 +200,7 @@ evals:
     max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_suction
+    policy_embodiment_name: pushshapes_sim_gripper
     env_kwargs:
       object_shape: T
       pusher_shape: suction

@@ -76,7 +76,17 @@ train_datasets:
 def model_cfg(name, M, lay, note):
     d = copy.deepcopy(base_model); m = d['robomimic_model']
     m['domains'] = list(doms); m['ac_keys'] = {x: 'actions' for x in doms}
-    m.pop('rollout_adapters', None)
+    # The arc variants MUST carry adapters. Dropping them (this used to pop)
+    # leaves rollout_adapter_for() falling back to None, so forward_rollout
+    # hands the raw 5-channel planar token straight to env.step and every
+    # effector rejects it -- 2-DOF pushers loudest. velocity_layout has to
+    # match the data config or decode strips the wrong axis.
+    m['rollout_adapters'] = {
+        d: {'_target_': 'egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter',
+            'embodiment': d,
+            'velocity_layout': lay}
+        for d in doms
+    }
     dim = 5 if lay == "append" else 6      # concat appends the velocity channel
     hor = M + 1 if lay == "append" else M  # append adds a trailing velocity row
     for st in m.get('stages', []):
