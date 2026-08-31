@@ -116,6 +116,37 @@ workflow:
         uv sync --frozen
         source .venv/bin/activate
 
+        # The SIMULATOR's dependencies are in neither pyproject.toml nor
+        # uv.lock, so `uv sync --frozen` yields an env where
+        # Tsimulation/sim_v2/pushshapes/env.py cannot import at all -- it pulls
+        # gymnasium, pygame, pymunk and shapely at module scope. Without these
+        # SimRolloutEval constructs fine and then dies at the first rollout, in
+        # phase 2, after training has started.
+        #
+        # Installed here rather than added to pyproject/uv.lock on purpose: the
+        # lock is shared with every other EgoVerse run, and regenerating it to
+        # land what is effectively a test-time dependency is a far larger blast
+        # radius than an explicit install. Revisit if the sim becomes a
+        # first-class dependency.
+        #
+        # pymunk MUST be 7.x: the sim uses Space.on_collision, which is 7.x API,
+        # and 6.9.0 fails in reset().
+        uv pip install "pymunk==7.3.0" gymnasium pygame shapely
+
+        # Fail in seconds if the sim still cannot come up, rather than hours
+        # into training at the first rollout.
+        SDL_VIDEODRIVER=dummy python - <<'SIMCHECK'
+        import numpy as np
+        from Tsimulation.sim_v2.pushshapes.env import PushShapesEnv
+        env = PushShapesEnv(object_shape="T", pusher_shape="gripper",
+                            obstacle_level=0, image_size=96)
+        env.reset(seed=0)
+        env.step(np.zeros(len(env.agent.action_spec), dtype=np.float64))
+        import pymunk
+        assert pymunk.version.startswith("7."), f"pymunk {pymunk.version}, need 7.x"
+        print(f"SIMCHECK OK: pymunk {pymunk.version}, env constructs and steps")
+        SIMCHECK
+
         # --------------------------------------------------------- credentials
         # Writes ~/.egoverse_env with R2_* (for the s5cmd sync) and SECRETS_ARN
         # (for the SQL episode table). Both are what S3EpisodeResolver needs.
