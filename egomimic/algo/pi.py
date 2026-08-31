@@ -25,7 +25,11 @@ from egomimic.models.preprocess_pi_obs import (
     _to_minus1_1,
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.utils.action_utils import ConverterRegistry
+from egomimic.utils.action_utils import (
+    ConverterRegistry,
+    PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
+    PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D,
+)
 
 logger = logging.getLogger(__name__)
 # Ensure logger propagates to root logger and has appropriate level
@@ -70,6 +74,7 @@ class PI(Algo):
         state_num_bins: int = 256,
         control_mode: dict[str, str] | None = None,
         proprio_keys_for_prompt: list[str] | None = None,
+        action_encoding: str = PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
@@ -103,6 +108,7 @@ class PI(Algo):
             "pi_cam_keys", ["base_0_rgb", "left_wrist_0_rgb", "right_wrist_0_rgb"]
         )
         self.config = config
+        self.action_encoding = action_encoding
 
         self.ac_keys = ac_keys
 
@@ -293,6 +299,21 @@ class PI(Algo):
             "token_ar_mask": attention_mask.clone().requires_grad_(False),
         }
 
+    def _action_stats(self, embodiment_id: int, ac_key: str) -> dict:
+        try:
+            return self.norm_stats.norm_stats[embodiment_id][ac_key]
+        except KeyError as exc:
+            raise KeyError(
+                f"Missing norm stats for action key {ac_key!r} "
+                f"and embodiment id {embodiment_id}"
+            ) from exc
+
+    def _unnormalize_action(self, action: torch.Tensor, embodiment_id: int, ac_key: str):
+        return self.norm_stats.unnormalize(
+            {ac_key: action.clone(), "embodiment": embodiment_id},
+            embodiment_id,
+        )[ac_key].to(action.device)
+
     @override
     def process_batch_for_training(self, batch):
         """
@@ -453,12 +474,28 @@ class PI(Algo):
                 B, T, D = ref.shape
 
                 converter = self.action_registry.get(embodiment_id, ac_key)
-                pred_actions_orig = converter.from32(pred_actions)
-
-                pred = pred_actions_orig[:, :T, :D]
-                predictions[ac_key] = pred
-
-                unnorm_actions = self.norm_stats.unnormalize(predictions, embodiment_id)
+                if (
+                    self.action_encoding
+                    == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D
+                ):
+                    pred_actions_orig = converter.from32_raw_rotation(
+                        pred_actions,
+                        stats=self._action_stats(embodiment_id, ac_key),
+                        norm_mode=self.norm_stats.norm_mode,
+                        unnormalize_non_rotation=True,
+                    )
+                    unnorm_actions = {ac_key: pred_actions_orig[:, :T, :D]}
+                elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
+                    pred_actions_orig = converter.from32(pred_actions)
+                    pred = pred_actions_orig[:, :T, :D]
+                    predictions[ac_key] = pred
+                    unnorm_actions = self.norm_stats.unnormalize(
+                        predictions, embodiment_id
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported PI0.5 action_encoding: {self.action_encoding!r}"
+                    )
                 for key in unnorm_actions:
                     unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
 
@@ -533,7 +570,20 @@ class PI(Algo):
 
         emb_id = get_embodiment_id(embodiment)  # embodiment is a name string
         converter = self.action_registry.get(emb_id, ac_key)
-        action32 = converter.to32(action)
+        if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D:
+            raw_action = self._unnormalize_action(action, emb_id, ac_key)
+            action32 = converter.to32_raw_rotation(
+                raw_action,
+                normalized_actions=action,
+                stats=self._action_stats(emb_id, ac_key),
+                norm_mode=self.norm_stats.norm_mode,
+            )
+        elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
+            action32 = converter.to32(action)
+        else:
+            raise ValueError(
+                f"Unsupported PI0.5 action_encoding: {self.action_encoding!r}"
+            )
 
         # OpenPI expects a fixed camera tuple. Human datasets only provide
         # `base_0_rgb`, so duplicate that view into the missing wrist slots and
