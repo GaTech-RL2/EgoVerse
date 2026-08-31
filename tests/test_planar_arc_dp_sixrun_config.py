@@ -7,6 +7,7 @@ import pytest
 import torch
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
+from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 from egomimic.eval.human_robot_overlay_eval import HumanRobotOverlayEval
@@ -224,6 +225,20 @@ def test_genuine_dp_baseline_contract(experiment: str) -> None:
     assert not any(
         "GaussianLatentNoise" in str(stage._target_) for stage in model.stages
     )
+
+
+@pytest.mark.parametrize("experiment", sorted(DP_SPECS))
+def test_paper_dp_smoke_checkpoint_callbacks_have_unique_state_keys(
+    experiment: str,
+) -> None:
+    smoke = _compose(f"{experiment}_smoke")
+    smoke.paths.output_dir = str(REPO_ROOT / "test-output")
+    assert smoke.callbacks.validation_checkpoint is None
+    callbacks = [
+        instantiate(smoke.callbacks.model_checkpoint),
+        instantiate(smoke.callbacks.terminal_checkpoint),
+    ]
+    assert len({callback.state_key for callback in callbacks}) == len(callbacks)
 
 
 def test_paper_dp_observation_and_action_windows_are_causally_aligned() -> None:

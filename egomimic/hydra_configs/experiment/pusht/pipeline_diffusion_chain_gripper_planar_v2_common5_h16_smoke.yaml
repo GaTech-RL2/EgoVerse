@@ -12,6 +12,7 @@ trainer:
   limit_val_batches: 1
 logger: {wandb: {offline: true}}
 callbacks:
+  validation_checkpoint: null
   model_checkpoint:
     every_n_train_steps: 1
     train_time_interval: null
