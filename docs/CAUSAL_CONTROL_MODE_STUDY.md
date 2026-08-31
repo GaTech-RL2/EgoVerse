@@ -256,12 +256,45 @@ median |error|       2.5 px   2.3 px   0.010    0.012    0.002
 It beats a persistence baseline on every channel and predicts the commanded
 action to ~2.5 px in a 512-unit world.
 
-**So: excellent open-loop, zero closed-loop. The root cause is NOT identified.**
-The leading hypothesis is ordinary BC compounding error — 2.5 px per action, 16
-waypoints per replan, ~300 steps — which is precisely the phenomenon this study
-exists to measure. But coverage of exactly 0.0000 rather than partial is more
-extreme than compounding comfortably explains, so it is a hypothesis, not a
-finding.
+### ROOT CAUSE — the rollout executed the whole token (fix pending validation)
+
+`inference_step` defaults `replan_every=None`, which consumes the ENTIRE
+decoded chunk before querying a new observation. Measured:
+
+```
+expert motion per env step : 3.537 px
+spacing between waypoints  : 0.656 px    (= D/M = 10/16, as designed)
+ratio                      : 0.19x
+```
+
+Waypoints are spaced by ARC LENGTH; env steps happen at the control rate. So
+executing all 16 consecutively drives the pusher at about a FIFTH of expert
+speed — ~375 px over a 600-step episode where the expert covers ~2100. The
+pusher crawls, the object barely moves, every rollout scores ~0 coverage, and
+nothing raises.
+
+`PlanarArcRolloutAdapter`'s own docstring states the contract: *"the deployed
+controller predicts, executes waypoint 0, and re-predicts"* — waypoint 0 IS the
+action at `t` by construction, and that is exactly the loop
+`planar_arc_sr_gate` replays to reproduce the untokenized baseline at 93% SR.
+
+**The gate validated a loop the deployment did not use.** `replan_every` was
+reachable only through a CLI flag in `ckpt_loading.py` that neither the
+in-training evaluator nor the offline eval path touches. It is now a
+`PipelineAlgo` constructor argument, set to 1 in all eight configs and asserted
+by a test.
+
+Ruled out first, each with evidence: weights load (222/222 by name and shape);
+the model generalizes rather than memorizes (open-loop FVE +0.998 at ~2.5 px on
+trained modes, +0.72..+0.90 at ~6 px on HELD-OUT modes); the rollout adapter
+agrees with the gate's decoder to 1.2e-5; observation normalization is
+consistent between training and rollout; and `norm_mode` is quantile on both
+sides (the `zscore` constructor default never fires because trainHydra passes
+it explicitly and `set_norm_stats_from` propagates it).
+
+**Status: fix implemented, validation in flight** — the same archived
+checkpoint re-evaluated with `replan_every=1` against a prior run of the
+identical eval that scored 0.0000 on 60/60 rollouts.
 
 ### Methodological warning, paid for four times
 
