@@ -15,6 +15,12 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.pipeline.algo.PipelineAlgo
   action_horizon: 17
+  # Execute ONE waypoint per observation. Arc-token waypoints are spaced by arc
+  # length (D/M = 0.66 px), not by control period (~3.5 px/step), so consuming
+  # the whole 16-step chunk open-loop drives the pusher at ~1/5 expert speed and
+  # every rollout scores ~0 coverage. Waypoint 0 is the action at t by
+  # construction; this is the loop planar_arc_sr_gate validates at 93%.
+  replan_every: 1
   domains:
   - pushshapes_sim_gripper
   ac_keys:

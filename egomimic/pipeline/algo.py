@@ -46,6 +46,7 @@ class PipelineAlgo(Algo):
         rollout_adapter=None,
         rollout_adapters: dict | None = None,
         rollout_transform_mode: str | None = None,
+        replan_every: int | None = None,
         device=None,
     ):
         super().__init__()
@@ -65,6 +66,22 @@ class PipelineAlgo(Algo):
                 f"{sorted(unknown_adapter_domains)}"
             )
         self.rollout_transform_mode = rollout_transform_mode
+        # How many decoded actions to execute before querying a fresh
+        # observation. None means "consume the whole chunk", which is WRONG for
+        # arc tokens: their waypoints are spaced by ARC LENGTH (D/M = 10/16 =
+        # 0.66 px here) while env steps happen at the control rate (the expert
+        # moves ~3.5 px per step). Executing all 16 consecutively drives the
+        # pusher at about a fifth of the expert's speed, so it crawls, never
+        # completes the push, and every rollout scores ~0 coverage.
+        #
+        # The tokenizer's own contract is execute-waypoint-0-and-re-predict —
+        # waypoint 0 IS the action at t by construction, which is what makes
+        # planar_arc_sr_gate reproduce the untokenized baseline at 93%. Set
+        # replan_every=1 for arc tokens so the deployed loop matches the loop
+        # the gate validates.
+        if replan_every is not None and int(replan_every) <= 0:
+            raise ValueError(f"replan_every must be positive, got {replan_every}")
+        self.replan_every = None if replan_every is None else int(replan_every)
         self.device = device or torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )

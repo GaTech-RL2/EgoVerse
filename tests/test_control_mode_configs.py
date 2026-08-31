@@ -399,3 +399,27 @@ def test_watchdog_is_generous_enough_for_the_causal_arms():
             f"{e.metric_tag}: rollout_timeout_s={e.rollout_timeout_s} is close "
             f"to a plausible rollout time; a timeout is scored 0 and biases "
             f"against the slower causal arms")
+
+
+def test_replan_every_is_one_for_arc_tokens():
+    """Arc-token waypoints are spaced by ARC LENGTH, not by control period.
+
+    Measured on this dataset: waypoints sit 0.66 px apart (D/M = 10/16) while
+    the expert moves ~3.5 px per env step. `inference_step` defaults
+    replan_every=None, which consumes the whole 16-waypoint chunk open-loop and
+    drives the pusher at roughly a FIFTH of expert speed — it crawls, never
+    completes the push, and every rollout scores ~0 coverage. Nothing raises.
+
+    The tokenizer's contract is execute-waypoint-0-then-re-predict; waypoint 0
+    is the action at t by construction, and that is the loop
+    planar_arc_sr_gate validates at 93% SR. The deployed loop must match it.
+    """
+    for name in CONFIGS:
+        cfg = OmegaConf.load(MODEL_DIR / name).robomimic_model
+        layout = cfg.rollout_adapters[DOMAIN].velocity_layout
+        assert "replan_every" in cfg, (
+            f"{name}: replan_every unset — the rollout will consume all "
+            f"{cfg.action_horizon} waypoints open-loop")
+        assert int(cfg.replan_every) == 1, (
+            f"{name}: replan_every={cfg.replan_every}; arc tokens ({layout} "
+            f"layout) require 1")
