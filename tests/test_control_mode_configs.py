@@ -215,3 +215,45 @@ def test_seen_and_unseen_tags_match_the_training_set():
     assert seen == {"tight", "loose", "laggy", "sticky"}
     assert unseen == {"ideal", "jittery"}
     assert not (seen & unseen)
+
+
+def test_evaluator_config_instantiates_through_hydra():
+    """Build the real composite the way trainHydra does.
+
+    The YAML checks above are structural; this is the one that would have
+    caught `init_mode: seed`, because SimRolloutEval only rejects it at
+    construction. On the node this happens after the dataset pull, so a
+    failure here costs hours.
+    """
+    pytest.importorskip("pymunk")
+    ev = hydra.utils.instantiate(OmegaConf.load(EVAL_CFG))
+    evals = list(ev.evals)
+    assert len(evals) == 6
+    tags = [e.metric_tag for e in evals]
+    assert len(set(tags)) == 6, tags
+    for e in evals:
+        assert e.control_gap is not None
+        assert e.embodiment_name == DOMAIN
+        assert e.init_mode == "seeds"
+
+
+def test_each_evaluator_env_really_carries_its_own_gap():
+    """Construct every env and read the gap back off the agent.
+
+    Six evaluators that all silently ran under `ideal` would produce six
+    plausible, nearly identical numbers and no error — the failure mode that
+    makes the whole study meaningless.
+    """
+    pytest.importorskip("pymunk")
+    from Tsimulation.pushshapes.agents import CONTROL_GAPS
+
+    ev = hydra.utils.instantiate(OmegaConf.load(EVAL_CFG))
+    seen_gaps = {}
+    for e in ev.evals:
+        env = e._get_env()
+        seen_gaps[e.metric_tag] = env.agent.control_gap.as_dict()
+        assert seen_gaps[e.metric_tag] == CONTROL_GAPS[e.control_gap].as_dict()
+    # Distinct gaps must remain distinct after construction.
+    distinct = {tuple(sorted(v.items())) for v in seen_gaps.values()}
+    assert len(distinct) == len(seen_gaps), (
+        f"control gaps collapsed: {seen_gaps}")
