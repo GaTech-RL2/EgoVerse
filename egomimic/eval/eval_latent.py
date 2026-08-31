@@ -58,6 +58,8 @@ class PILatentEvalVideo(EvalVideo):
         compute_pca_umap: bool = True,
         pca_n_components: int = 50,
         pca_for_downstream: bool = False,
+        compute_knn: bool = False,
+        knn_k: int = 5,
         emit_combined: bool = True,
         color_by: str = "embodiment",  # "embodiment" or "hash"
     ):
@@ -95,6 +97,8 @@ class PILatentEvalVideo(EvalVideo):
                 f"color_by must be 'embodiment' or 'hash', got {color_by!r}"
             )
         self.color_by = color_by
+        self.compute_knn = compute_knn
+        self.knn_k = knn_k
         self._layer_keys = {}  # layer_name -> list[np.ndarray (B, S, D)]
         self._row_hashes = []  # one entry per sample (replicated by S at write time)
         self._row_embodiments = []
@@ -414,6 +418,19 @@ class PILatentEvalVideo(EvalVideo):
                 ):
                     tsne_3d = self._tsne_3d(features_for_reduction)
 
+            knn_result = None
+            if self.compute_knn:
+                with _timed(f"{layer_name} | KNN-{self.knn_k} ({keys.shape[0]} rows)"):
+                    knn_result = self._knn_accuracy(
+                        features_for_reduction, embs, k=self.knn_k
+                    )
+                logger.info(
+                    "[KNN] %s: accuracy=%.4f (+/- %.4f)",
+                    layer_name,
+                    knn_result["accuracy"],
+                    knn_result.get("std", 0.0),
+                )
+
             csv_path = os.path.join(out_dir, f"{layer_name}.csv")
             keys_pt_path = os.path.join(out_dir, f"{layer_name}_keys.pt")
             with _timed(f"{layer_name} | write_csv ({keys.shape[0]} rows)"):
@@ -598,6 +615,38 @@ class PILatentEvalVideo(EvalVideo):
             return transformed.astype(
                 np.float32
             ), reducer.explained_variance_ratio_.astype(np.float32)
+
+    @staticmethod
+    def _knn_accuracy(features: np.ndarray, labels: list, k: int = 5) -> dict:
+        """KNN classification accuracy predicting embodiment from latent features.
+        Returns dict with accuracy (mean 5-fold CV) and per-fold scores.
+        Uses cuML GPU KNN when available, sklearn CPU otherwise."""
+        n = features.shape[0]
+        if n < k + 1:
+            return {"accuracy": 0.0, "per_fold": []}
+        from sklearn.preprocessing import LabelEncoder
+
+        le = LabelEncoder()
+        y = le.fit_transform(labels)
+        if len(np.unique(y)) < 2:
+            return {"accuracy": 1.0, "per_fold": [1.0]}
+        X = features.astype(np.float32)
+        try:
+            from cuml.neighbors import KNeighborsClassifier
+
+            knn = KNeighborsClassifier(n_neighbors=k, output_type="numpy")
+        except ImportError:
+            from sklearn.neighbors import KNeighborsClassifier
+
+            knn = KNeighborsClassifier(n_neighbors=k)
+        from sklearn.model_selection import cross_val_score
+
+        scores = cross_val_score(knn, X, y, cv=min(5, n), scoring="accuracy")
+        return {
+            "accuracy": float(scores.mean()),
+            "std": float(scores.std()),
+            "per_fold": scores.tolist(),
+        }
 
     @staticmethod
     def _write_csv(
