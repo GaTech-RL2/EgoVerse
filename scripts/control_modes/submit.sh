@@ -79,7 +79,12 @@ read -r -a ARMS <<< "${ARMS:-arm1_dp_flow arm2_causal_bidir arm3_state_action_ar
 # happens in phase 1 — i.e. after the image pull, uv sync, the R2 pull and
 # staging. Bash quoting does not help: the value reaches hydra intact and hydra
 # is the one that objects. Colons are avoided for the same reason.
-# SHORT. logger/wandb.yaml builds the run id as
+# SHORT and SPACE-FREE. Lightning names its run directory after the
+# description, so a space there becomes a space in every checkpoint path — and
+# the sync loop then has to be word-split-proof to survive it. Both are fixed,
+# but keeping the name clean removes the hazard at the source.
+#
+# logger/wandb.yaml builds the run id as
 #   "${name}_${description}_${now:%Y-%m-%d_%H-%M-%S}"
 # and wandb rejects a Name over 128 chars with
 #   CommError: invalid parameters: 128 limit exceeded for Name
@@ -88,10 +93,10 @@ read -r -a ARMS <<< "${ARMS:-arm1_dp_flow arm2_causal_bidir arm3_state_action_ar
 # capacity are already in the run name; do not repeat them here.
 arm_desc() {
   case "$1" in
-    arm1_dp_flow)         echo "flow bidir | 4seen holdout ideal+jittery" ;;
-    arm2_causal_bidir)    echo "MSE bidir CONTROL | 4seen holdout ideal+jittery" ;;
-    arm3_state_action_ar) echo "MSE causal AR | 4seen holdout ideal+jittery" ;;
-    arm4_state_idm)       echo "MSE causal IDM | 4seen holdout ideal+jittery" ;;
+    arm1_dp_flow)         echo "flow-bidir-4seen-holdout-ideal+jittery" ;;
+    arm2_causal_bidir)    echo "MSE-bidir-CONTROL-4seen-holdout-ideal+jittery" ;;
+    arm3_state_action_ar) echo "MSE-causal-AR-4seen-holdout-ideal+jittery" ;;
+    arm4_state_idm)       echo "MSE-causal-IDM-4seen-holdout-ideal+jittery" ;;
     *) echo "unknown arm $1" >&2; exit 2 ;;
   esac
 }

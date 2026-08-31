@@ -184,13 +184,21 @@ workflow:
         export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
         export AWS_DEFAULT_REGION=auto AWS_REGION=auto
         DEST="s3://rldb/staged/pushshapes_control_modes/$1"
+        # NUL-delimited, not `for d in $(find ...)`. Lightning's run directory
+        # is named after the run DESCRIPTION, which contains spaces — an
+        # unquoted command substitution word-splits that path into fragments and
+        # every sync fails into a log nobody reads. Checkpoints then silently
+        # never leave the container, which is exactly how two completed 20h runs
+        # were lost before.
         while true; do
-          for d in $(find /workspace/EgoVerse/logs -type d -name checkpoints 2>/dev/null); do
-            s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 sync "$d/" "$DEST/checkpoints/" >>/tmp/ckpt_sync.log 2>&1
-          done
-          for f in $(find /workspace/EgoVerse/logs -name norm_stats.json 2>/dev/null); do
-            s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp "$f" "$DEST/norm_stats.json" >>/tmp/ckpt_sync.log 2>&1
-          done
+          find /workspace/EgoVerse/logs -type d -name checkpoints -print0 2>/dev/null |
+            while IFS= read -r -d '' d; do
+              s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 sync "$d/" "$DEST/checkpoints/" >>/tmp/ckpt_sync.log 2>&1
+            done
+          find /workspace/EgoVerse/logs -name norm_stats.json -print0 2>/dev/null |
+            while IFS= read -r -d '' f; do
+              s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp "$f" "$DEST/norm_stats.json" >>/tmp/ckpt_sync.log 2>&1
+            done
           sleep 420
         done
         CSEOF
@@ -311,10 +319,17 @@ workflow:
           name="$RUN_NAME" description="$RUN_DESC"
 
         # The periodic sync may be mid-sleep when training ends.
-        bash -c 'set -a; source "$HOME/.egoverse_env"; set +a
-          AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
-          AWS_DEFAULT_REGION=auto s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
-          sync /workspace/EgoVerse/logs/*/*/checkpoints/ "s3://rldb/staged/pushshapes_control_modes/'"$JOB_NAME"'/checkpoints/"' || true
+        # Same hazard: a bare glob passes each match as a separate argument and
+        # s5cmd sync takes exactly two, so a run directory with spaces breaks it.
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto
+        find /workspace/EgoVerse/logs -type d -name checkpoints -print0 2>/dev/null |
+          while IFS= read -r -d '' d; do
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
+              sync "$d/" "s3://rldb/staged/pushshapes_control_modes/$JOB_NAME/checkpoints/" || true
+          done
         echo "final checkpoint flush done"
 
   # groot-l40s-01 is 4 GPU/node — num_gpu=8 is rejected outright. Storage is
