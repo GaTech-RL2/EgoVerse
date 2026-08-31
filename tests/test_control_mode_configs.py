@@ -257,3 +257,40 @@ def test_each_evaluator_env_really_carries_its_own_gap():
     distinct = {tuple(sorted(v.items())) for v in seen_gaps.values()}
     assert len(distinct) == len(seen_gaps), (
         f"control gaps collapsed: {seen_gaps}")
+
+
+def test_evaluator_embodiments_are_registered_verbatim():
+    """`_ENV_TO_ZARR` is an EXACT-match registry, and SimRolloutEval only
+    resolves it in PHASE 2.
+
+    A case or spelling mismatch therefore survives the clone, the R2 pull, the
+    staging and the whole norm-stats phase, then dies on the phase transition
+    as `No env-to-zarr converter for '<name>'` — hours in, presenting as a
+    training failure rather than a config error. That is exactly how the `L`
+    effector (registered lowercased as `pushshapes_sim_l`) burned a run.
+
+    This is a registry lookup, not a shape, so the forward-pass preflight above
+    cannot catch it. Static and instant.
+    """
+    from egomimic.rldb.embodiment.pushshapes_sim import _ENV_TO_ZARR
+
+    cfg = OmegaConf.load(EVAL_CFG)
+    for e in cfg.evals:
+        name = str(e.embodiment_name)
+        assert name in _ENV_TO_ZARR, (
+            f"{name!r} is not a key of _ENV_TO_ZARR (exact match). "
+            f"Registered: {sorted(_ENV_TO_ZARR)}")
+
+
+def test_model_config_domains_are_registered_verbatim():
+    """Same exact-match hazard on the training side.
+
+    `PipelineAlgo` maps domains through `get_embodiment_id`, which raises
+    KeyError on an unregistered name — after hydra has built the model.
+    """
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+    for name in CONFIGS:
+        cfg = OmegaConf.load(MODEL_DIR / name).robomimic_model
+        for domain in cfg.domains:
+            get_embodiment_id(str(domain))  # raises if unregistered
