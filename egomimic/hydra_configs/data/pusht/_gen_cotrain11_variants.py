@@ -81,6 +81,9 @@ def model_cfg(name, M, lay, note):
     # hands the raw 5-channel planar token straight to env.step and every
     # effector rejects it -- 2-DOF pushers loudest. velocity_layout has to
     # match the data config or decode strips the wrong axis.
+    # Arc waypoints are spaced by DISTANCE, not by control rate, so the
+    # whole-chunk default would crawl at (D/(M-1)) px per env step.
+    m['replan_every'] = 1
     m['rollout_adapters'] = {
         d: {'_target_': 'egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter',
             'embodiment': d,

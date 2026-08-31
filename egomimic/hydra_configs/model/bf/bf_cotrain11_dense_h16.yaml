@@ -105,6 +105,10 @@ robomimic_model:
       mlp_ratio: 4
       time_conditioning: additive
   - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+  # Execute ONE action then re-observe, matching planar_arc_sr_gate's
+  # validated loop. Identical cadence across arms so the dense-vs-arc
+  # comparison isolates the tokenization, not the replan schedule.
+  replan_every: 1
   rollout_adapters:
     pushshapes_sim_L:
       _target_: egomimic.pipeline.pushshapes.PlanarDenseRolloutAdapter

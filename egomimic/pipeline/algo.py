@@ -46,6 +46,7 @@ class PipelineAlgo(Algo):
         rollout_adapter=None,
         rollout_adapters: dict | None = None,
         rollout_transform_mode: str | None = None,
+        replan_every: int | None = None,
         device=None,
     ):
         super().__init__()
@@ -54,6 +55,18 @@ class PipelineAlgo(Algo):
         self.ac_keys = dict(ac_keys)
         self.auxiliary_ac_keys = dict(auxiliary_ac_keys or {})
         self.action_horizon = int(action_horizon)
+        # How many decoded actions to execute before re-observing. None means
+        # "consume the whole chunk", which is right ONLY when the chunk is
+        # spaced at the control rate. Arc-length tokens are spaced by DISTANCE,
+        # so consuming M waypoints back-to-back drives the effector at
+        # (D/(M-1)) px per env step instead of the expert's ~3.5 -- a ~0.19x
+        # crawl for D=10,M=16 that scores ~0 coverage while every open-loop
+        # metric stays perfect, because open-loop never executes the chunk.
+        # planar_arc_sr_gate validates execute-waypoint-0-then-re-predict, i.e.
+        # replan_every=1; anything else deploys a loop the gate never checked.
+        if replan_every is not None and int(replan_every) <= 0:
+            raise ValueError(f"replan_every must be positive, got {replan_every}")
+        self.replan_every = None if replan_every is None else int(replan_every)
         # Keep the historical singleton as a fallback so old configs and
         # checkpoints reconstruct unchanged. A configured domain entry wins.
         self.rollout_adapter = rollout_adapter

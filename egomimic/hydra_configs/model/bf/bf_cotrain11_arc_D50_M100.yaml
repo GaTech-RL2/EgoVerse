@@ -105,6 +105,9 @@ robomimic_model:
       mlp_ratio: 4
       time_conditioning: additive
   - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+  # Arc waypoints are spaced by distance, not control rate: consuming the
+  # whole chunk crawls at D/(M-1) px per env step. Execute one, re-observe.
+  replan_every: 1
   rollout_adapters:
     pushshapes_sim_L:
       _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter

@@ -148,6 +148,7 @@ robomimic_model:
       mlp_ratio: 4
       time_conditioning: additive
   - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+  replan_every: 1
 enable_grad_norm: false
 optimizer:
   _target_: torch.optim.AdamW
