@@ -658,7 +658,7 @@ in-distribution fit the study does not need and no transfer that it does.
 
 ---
 
-## ROOT CAUSE OF THE ZEROS: an unrecoverable physics wedge
+## ROOT CAUSE OF THE ZEROS (SUPERSEDED BELOW - see the correction)
 
 Closed-loop coverage is 0.0000 everywhere because **the pusher gets physically
 pinned and no command recovers it**. This is a simulator-robustness failure, not
@@ -732,3 +732,60 @@ blindness (command shifts 24.9px when the goal moves, directionally correct, and
 MORE sensitive to goal than to object at 13.1px); mode collapse (predicted delta
 p99 266.7 vs true 267.7 — the full jump range is emitted); NaN actions;
 undertraining; `replan_every`.
+
+
+---
+
+## CORRECTION: the sim is not broken; it is a real policy failure
+
+The section above claims an "unrecoverable physics wedge" and that closed-loop
+SR is unmeasurable. **Both are wrong.** Sweeping 32 commanded directions from the
+wedged state, restoring exact pymunk body state between trials:
+
+    9/32 directions move the gripper >1px
+    every escape lies in headings 247-338 deg (AWAY from the object), up to 100px
+    0 / 90 / 180 deg (toward and past the object) -> 0.000px
+
+The gripper can back off freely. It cannot move THROUGH the object — which is
+correct. The pusher is kinematic with infinite mass and no contact response, so
+`_guard_solid_contact_penetration` exists precisely to stop it tunnelling. The
+guard is doing its job.
+
+### What actually happens
+
+1. the policy drives the gripper into contact with the T
+2. it then keeps commanding directions that would push THROUGH the object
+3. the guard rolls those substeps back (measured: 200/200)
+4. it never commands the back-off-and-re-approach that would free it
+5. it stalls for the remaining ~490 steps; 6/8 rollouts; coverage 0.0000
+
+The policy has no recovery behaviour because **the expert never gets stuck**, so
+"gripper jammed against the object" appears nowhere in the training data. This is
+textbook compounding error, and it matches the three-way split exactly: A-B ~ 0
+(no memorisation — genuinely good ON the expert's state distribution) and useless
+once off it.
+
+### Mechanisms proposed and refuted along the way
+
+Recorded so the next reader does not re-run them:
+
+| claim | refuted by |
+|---|---|
+| `_clamp_pusher_to_static` pins it against a wall | zero static contacts at the wedged state; it is pusher-vs-object penetration (0.3855) |
+| over-commanding trips the guard | from a clean approach LARGER steps push the object BETTER (step=10px -> object moves 180px at 62.8% rollback; step=0.5px -> 0px) |
+| an absorbing fixed point where the policy commands its own position | the policy commands a target 5.5px away; the simulator is what refuses |
+| a limit cycle sampled at `t%50` | printing every step shows 33 consecutive identical rows — genuinely stationary |
+| the eval is broken / scoring a corpse | the state is recoverable; SR measures a real failure |
+
+The failure pattern in all five: reading plausible code and asserting a mechanism
+before testing its precondition. The escape sweep was run BEFORE claiming, and it
+is the one that held.
+
+### Consequence for the study
+
+Closed-loop SR measures something real, but it is **saturated** — every arm hits
+the same wall, so it cannot RANK arms. Use delta-FVE for ranking and keep SR as a
+validity check.
+
+The fix is not the simulator. It is recovery data (DAgger-style corrections from
+stuck states) or an action space that cannot command through contact.
