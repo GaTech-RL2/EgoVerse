@@ -56,6 +56,7 @@ def _make_converter(
     annotation_dir: str,
     prompt_filepath: str,
     augment_prompt_filepath: str | None = None,
+    link_prompt_filepath: str | None = None,
 ):
     from egomimic.scripts.language_process.converter import (
         HardCodedConverter,
@@ -67,6 +68,7 @@ def _make_converter(
             annotation_dir,
             prompt_filepath,
             augment_prompt_filepath=augment_prompt_filepath,
+            link_prompt_filepath=link_prompt_filepath,
         )
     elif conversion_mode == "hardcoded":
         return HardCodedConverter(annotation_dir)
@@ -85,6 +87,7 @@ def process_episode(
     annotation_key: str = "annotations",
     overwrite: bool = False,
     augment_prompt_filepath: str | None = None,
+    link_prompt_filepath: str | None = None,
 ) -> str:
     """
     Self-contained Ray task: download, convert, and write one episode's annotations.
@@ -104,6 +107,7 @@ def process_episode(
         scale_annotation_dir,
         prompt_filepath,
         augment_prompt_filepath=augment_prompt_filepath,
+        link_prompt_filepath=link_prompt_filepath,
     )
     annotation = converter.convert(tid)
 
@@ -160,6 +164,16 @@ if __name__ == "__main__":
         "--overwrite",
         action="store_true",
         help="Overwrite existing annotation key. If unset, episodes that already have the key are skipped.",
+    )
+    parser.add_argument(
+        "--link-prompt-filepath",
+        type=str,
+        default=None,
+        help=(
+            "If provided, also emit linked pick→place annotations using this "
+            "prompt template. Each Pick is paired with the next Put on the "
+            "same arm into a single combined instruction spanning both clips."
+        ),
     )
     parser.add_argument(
         "--ray-address",
@@ -243,6 +257,7 @@ if __name__ == "__main__":
             annotation_key=args.annotation_key,
             overwrite=args.overwrite,
             augment_prompt_filepath=args.augment_prompt_filepath,
+            link_prompt_filepath=args.link_prompt_filepath,
         )
         pending[ref] = ep_hash
 

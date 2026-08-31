@@ -35,6 +35,40 @@ _EMBODIMENT_CLASSES: dict[str, type[Embodiment]] = {
 }
 
 
+def _combined_spans(annotations: list[dict]) -> set[tuple[int, int]]:
+    """Spans that strictly contain another annotation's span — i.e. linked
+    pick→place/dump entries that cover both clips."""
+    spans = {(int(a["start_idx"]), int(a["end_idx"])) for a in annotations}
+    combined: set[tuple[int, int]] = set()
+    for s in spans:
+        for o in spans:
+            if o == s:
+                continue
+            if s[0] <= o[0] and o[1] <= s[1] and (o[0] > s[0] or o[1] < s[1]):
+                combined.add(s)
+                break
+    return combined
+
+
+def _extract_combined_for_frame(
+    annotations: list[dict],
+    combined: set[tuple[int, int]],
+    frame_idx: int,
+) -> list[str]:
+    texts: list[str] = []
+    for ann in annotations:
+        s = int(ann.get("start_idx", -1))
+        e = int(ann.get("end_idx", -1))
+        if not (s <= frame_idx < e):
+            continue
+        if (s, e) not in combined:
+            continue
+        text = ann.get("text", "")
+        if isinstance(text, str) and text.strip():
+            texts.append(text)
+    return texts
+
+
 def _extract_annotation(batch: dict, annotation_key: str) -> list[str]:
     """Return all active annotation strings for this batch (batch_size=1).
 
@@ -161,6 +195,7 @@ def _run_viz_for_datasets(
     max_batches: int,
     fps: int,
     frames_per_file: int,
+    combined_only: bool = False,
 ) -> None:
     for embodiment_name, dataset in datasets.items():
         embodiment_cls = _EMBODIMENT_CLASSES.get(embodiment_name.lower())
@@ -209,10 +244,24 @@ def _run_viz_for_datasets(
             carried_annotation: list[str] = []
             batch_idx = 0
 
+            raw_annotations: list[dict] = []
+            combined_span_set: set[tuple[int, int]] = set()
+            if combined_only:
+                try:
+                    raw_annotations = ep_ds._load_annotations()
+                    combined_span_set = _combined_spans(raw_annotations)
+                except Exception as e:
+                    print(f"  [warn] {ep_name} could not load raw annotations: {e}")
+
             for batch in ep_loader:
                 if batch_idx >= max_batches:
                     break
-                if ann_key is not None:
+                if combined_only:
+                    fresh = _extract_combined_for_frame(
+                        raw_annotations, combined_span_set, batch_idx
+                    )
+                    carried_annotation = fresh
+                elif ann_key is not None:
                     fresh = _extract_annotation(batch, ann_key)
                     if fresh:
                         carried_annotation = fresh
@@ -260,6 +309,7 @@ def main(cfg: DictConfig) -> None:
     max_batches = cfg.get("max_batches", 500)
     fps = cfg.get("fps", 30)
     frames_per_file = cfg.get("frames_per_file", 1000)
+    combined_only = bool(cfg.get("combined_only", False))
     annotation_key = OmegaConf.select(cfg, "data.annotation_key", default=None)
     viz_cfg = cfg.viz_func
 
@@ -294,6 +344,7 @@ def main(cfg: DictConfig) -> None:
             max_batches=max_batches,
             fps=fps,
             frames_per_file=frames_per_file,
+            combined_only=combined_only,
         )
 
 

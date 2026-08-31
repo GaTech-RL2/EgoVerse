@@ -58,6 +58,27 @@ if __name__ == "__main__":
     )
     parser.add_argument("--prompt-filepath", type=str, required=True)
     parser.add_argument("--augment-prompt-filepath", type=str, default=None)
+    parser.add_argument(
+        "--link-prompt-filepath",
+        type=str,
+        default=None,
+        help=(
+            "If provided, also emit linked pick→place annotations using this "
+            "prompt template. Each Pick is paired with the next Put on the "
+            "same arm into a single combined instruction spanning both clips."
+        ),
+    )
+    parser.add_argument(
+        "--episode-hash",
+        type=str,
+        default=None,
+        help=(
+            "If provided, only annotate the single episode with this hash "
+            "(SEQUENCE_ID). The dataset config is still used to resolve the "
+            "zarr episode path, so the hash must appear in train_datasets or "
+            "valid_datasets."
+        ),
+    )
     args = parser.parse_args()
 
     os.makedirs(args.scale_annotation_dir, exist_ok=True)
@@ -86,6 +107,13 @@ if __name__ == "__main__":
         valid_hashes.update(list(valid_datasets[dataset_name].datasets.keys()))
 
     dataset_hashes = train_hashes.union(valid_hashes)
+    if args.episode_hash is not None:
+        if args.episode_hash not in dataset_hashes:
+            raise ValueError(
+                f"--episode-hash {args.episode_hash} is not present in the "
+                "dataset config's train_datasets or valid_datasets."
+            )
+        dataset_hashes = {args.episode_hash}
     available_hashes = get_available_hashes(df)
 
     # Check if all annotations are present for the train and valid datasets and download scale annotations
@@ -108,6 +136,7 @@ if __name__ == "__main__":
             args.scale_annotation_dir,
             args.prompt_filepath,
             augment_prompt_filepath=args.augment_prompt_filepath,
+            link_prompt_filepath=args.link_prompt_filepath,
         )
     elif args.conversion_mode == "hardcoded":
         converter = HardCodedConverter(args.scale_annotation_dir)
@@ -117,6 +146,8 @@ if __name__ == "__main__":
     # Write annotations to train datasets
     for dataset_name in train_datasets:
         for episode_hash, zarr_dataset in train_datasets[dataset_name].datasets.items():
+            if args.episode_hash is not None and episode_hash != args.episode_hash:
+                continue
             tid = get_episode_hash_to_tid(df, episode_hash)
             if tid is None:
                 continue
@@ -131,6 +162,8 @@ if __name__ == "__main__":
 
     for dataset_name in valid_datasets:
         for episode_hash, zarr_dataset in valid_datasets[dataset_name].datasets.items():
+            if args.episode_hash is not None and episode_hash != args.episode_hash:
+                continue
             tid = get_episode_hash_to_tid(df, episode_hash)
             if tid is None:
                 continue
