@@ -235,12 +235,41 @@ is the property that matters, not a high number.
    passes the broken string, so the gate checks `is_sweep_override()`.
    Verified safe in a value: `|`, `+`, `-`, spaces. Only commas break.
 
-The common shape across all six: hydra validates on CONSTRUCTION, and the
-expensive objects are constructed late (phase 2, or the first forward). A
-mistake therefore survives the pull and the staging and presents as a training
-failure hours after the fact. The generalizable defence is not another specific
-assertion — it is to construct everything the run will construct, before the
-run, which is what the preflight and the launcher's on-node pytest step do.
+7. **The simulator's deps are not in EgoVerse's environment.** `pymunk`,
+   `gymnasium`, `pygame` and `shapely` are in neither `pyproject.toml` nor
+   `uv.lock`, yet `Tsimulation/sim_v2/pushshapes/env.py` imports all four at
+   module scope. `uv sync --frozen` therefore yields an env in which
+   `SimRolloutEval` cannot construct an env at all — ANY sim rollout eval dies
+   at its first rollout, in phase 2, after training has begun. The launcher now
+   installs them (pymunk pinned to 7.3.0 per §9) and then constructs a real env
+   to verify.
+
+   Nearly missed: the on-node preflight reported "42 passed, **2 skipped**",
+   and those 2 skips were exactly the `pytest.importorskip("pymunk")` tests. On
+   a machine whose whole job is rollouts, an `importorskip` is a failure
+   wearing a pass's clothes.
+8. **A `python -c "` block broke the launcher YAML.** Unindented continuation
+   lines escaped the literal block and the spec stopped parsing. Embedded
+   interpreters belong in an indented heredoc. Now gated: the launcher must
+   parse as YAML and every embedded script must pass `bash -n`.
+
+These sit in THREE distinct layers, and each is invisible to the layer below's
+gate:
+
+  1. **Config** (1-5, 7's registry cousin) — caught by constructing every
+     object the run will construct, before the run.
+  2. **Invocation** (6, and the config-group prefix) — the overrides are
+     upstream of every object, so no amount of instantiating configs sees them.
+     Caught by composing the real config with the real override list.
+  3. **Environment** (7, 8) — upstream of the interpreter itself. No config
+     test can see `uv.lock`. Caught by installing and then USING the dependency
+     in the launcher.
+
+All of them share a failure shape: validation happens on construction, and the
+expensive objects are constructed late, so a mistake survives the pull and the
+staging and presents as a training failure hours after the fact. The defence is
+to move construction earlier — but "earlier" has to mean all three layers, not
+just the configs.
 
 Handover **TODO-3 is obsolete**: the decoders are a pipeline `Stage` occupying
 the sampler's slot, so they inherit `PipelineAlgo.inference_step`, the rollout
