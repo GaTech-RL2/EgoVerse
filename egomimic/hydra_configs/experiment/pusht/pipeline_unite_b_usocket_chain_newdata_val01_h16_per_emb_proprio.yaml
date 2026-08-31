@@ -1,0 +1,98 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_pipeline_unite_usocket_chain_points_unite_b_per_emb_proprio_h16
+  - override /data: pusht/flow_transfer_usocket_chain_newdata_val01_h16_per_emb_proprio
+  - override /evaluator: eval_pipeline_action_mse
+  - override /logger: wandb
+
+# Configuration only. A gated launcher must still bind immutable 1% split
+# manifests, train-only normalization, source identity, and unique W&B/output
+# paths before a smoke or full run is allowed.
+name: flow_transfer_unite_b_w128_transformer_h16
+description: unite_b_216m_xstart_shared_ge_u_rotvec4_chain_points6_w128_h16
+model:
+  enable_grad_norm: false
+  optimizer:
+    lr: 3.0e-5
+  scheduler:
+    eta_min: 3.0e-6
+  train_metrics_on_step: true
+  train_metrics_on_epoch: true
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 1.0
+  val_check_interval: 10000
+  limit_val_batches: 8
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+logger:
+  wandb: {project: pushshapes-flow-transfer}
+run_provenance:
+  split_manifest_sha256: 672f0f519bb7bff5b6b956d1b709abf1a1d387dd6b88b20a7c37536799bce0cd
+  action_contract:
+    representations:
+      pushshapes_sim_u_socket: x_y_cos_theta_sin_theta
+      pushshapes_sim_chain_gripper: ordered_left_center_right_points6
+  energy_score_contract:
+    sample_count: 32
+    seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    validation_view: first_deterministic_validation_batch_per_ddp_rank
+    aggregation: condition_mean_then_equal_domain_macro_mean
+  required_wandb_metrics:
+    - Train/MSE
+    - Train/MSE/pushshapes_sim_u_socket
+    - Train/MSE/pushshapes_sim_chain_gripper
+    - Valid/MSE
+    - Valid/MSE/pushshapes_sim_u_socket
+    - Valid/MSE/pushshapes_sim_chain_gripper
+    - Valid/Native_MSE
+    - Valid/Native_MSE/pushshapes_sim_u_socket
+    - Valid/Native_MSE/pushshapes_sim_chain_gripper
+    - Valid/EnergyScore@32
+    - Valid/EnergyScore@32/pushshapes_sim_u_socket
+    - Valid/EnergyScore@32/pushshapes_sim_chain_gripper
+    - Valid/EnergyScoreAccuracy@32
+    - Valid/EnergyScoreDiversity@32
+norm_stats:
+  norm_mode: minmax
+  reduce_all_but_last: true
+callbacks:
+  model_checkpoint:
+    filename: "epoch-{epoch}-step-{step}"
+evaluator:
+  deterministic_seed: 420042
+  energy_score:
+    enabled: true
+    sample_count: 32
+    seed_bank_path: egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
+    seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    action_dims:
+      pushshapes_sim_u_socket: 4
+      pushshapes_sim_chain_gripper: 6
+    max_batches_per_rank: 1
+    artifact_root: ${paths.output_dir}/validation_predictions/energy_score
+    validation_view:
+      definition: first_deterministic_validation_batch_per_ddp_rank
+      split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+      per_rank_batch_size: 16
+      world_size: 2
+    provenance:
+      action_representations: ${run_provenance.action_contract.representations}
+      prediction_horizon: 16
+      flow_inference_steps: 8
+      precision: bf16
+    distance_blocks:
+      pushshapes_sim_u_socket:
+        translation: {indices: [0, 1], weight: 1.0}
+        rotation_unit_vector: {indices: [2, 3], weight: 1.0}
+      pushshapes_sim_chain_gripper:
+        left_tip: {indices: [0, 1], weight: 1.0}
+        center_joint: {indices: [2, 3], weight: 1.0}
+        right_tip: {indices: [4, 5], weight: 1.0}

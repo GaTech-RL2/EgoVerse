@@ -20,6 +20,7 @@ from wandb.proto import wandb_internal_pb2
 from wandb.sdk.internal.datastore import DataStore
 
 import egomimic.utils.hydra_resolvers  # noqa: F401
+from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 
 def _sha256(path: Path) -> str:
@@ -85,7 +86,7 @@ def read_wandb_history(
                     key.startswith("Train/")
                     or key.startswith("Timing/")
                     or key.startswith("Optimizer/")
-                    or (key.startswith("Valid/emb") and key.endswith("_action_mse"))
+                    or key.startswith("Valid/")
                 ):
                     continue
                 try:
@@ -126,9 +127,7 @@ def read_wandb_history(
                 }
             )
         validation_metrics = {
-            key: value
-            for key, value in metrics.items()
-            if key.startswith("Valid/emb") and key.endswith("_action_mse")
+            key: value for key, value in metrics.items() if key.startswith("Valid/")
         }
         if validation_metrics:
             validation_rows.append(
@@ -152,11 +151,85 @@ def read_wandb_validation(
 def _has_required_metrics(
     metrics: dict[str, float], required_embodiments: list[int]
 ) -> bool:
+    required_overall = {
+        "Valid/MSE",
+        "Valid/Native_MSE",
+        "Valid/EnergyScore@32",
+        "Valid/EnergyScoreAccuracy@32",
+        "Valid/EnergyScoreDiversity@32",
+    }
+    if not required_overall.issubset(metrics):
+        return False
     for embodiment in required_embodiments:
         prefix = f"Valid/emb{embodiment}_"
         if not any(key.startswith(prefix) for key in metrics):
             return False
+        name = get_embodiment(embodiment).lower()
+        required_domain = {
+            f"Valid/MSE/{name}",
+            f"Valid/Native_MSE/{name}",
+            f"Valid/EnergyScore@32/{name}",
+            f"Valid/EnergyScoreAccuracy@32/{name}",
+            f"Valid/EnergyScoreDiversity@32/{name}",
+        }
+        if not required_domain.issubset(metrics):
+            return False
     return True
+
+
+def _validate_energy_score_artifacts(
+    output_dir: Path,
+    config: Any,
+    required_embodiments: list[int],
+    expected_world_size: int,
+    selected_step: int,
+) -> list[dict[str, Any]]:
+    energy = OmegaConf.select(config, "evaluator.energy_score", default=None)
+    assert energy is not None and energy.enabled is True
+    assert int(energy.sample_count) == 32
+    seed_bank_path = Path(str(energy.seed_bank_path)).resolve()
+    assert seed_bank_path.is_file(), seed_bank_path
+    assert _sha256(seed_bank_path) == str(energy.seed_bank_sha256)
+    expected_seeds = json.loads(seed_bank_path.read_text())["seeds"]
+    assert len(expected_seeds) == 32 and len(set(expected_seeds)) == 32
+
+    root = output_dir / "validation_predictions" / "energy_score"
+    candidates = sorted(root.glob(f"epoch-*-step-{selected_step}/rank-*-batch-0.pt"))
+    assert len(candidates) == expected_world_size, candidates
+    expected_domains = {
+        get_embodiment(embodiment).lower() for embodiment in required_embodiments
+    }
+    records = []
+    observed_ranks = set()
+    for path in candidates:
+        payload = torch.load(path, map_location="cpu", weights_only=False)
+        assert payload["schema_version"] == 1
+        assert payload["metric"] == "EnergyScore@32"
+        assert payload["sample_count"] == 32
+        assert payload["seed_bank"] == expected_seeds
+        assert payload["seed_bank_sha256"] == str(energy.seed_bank_sha256)
+        assert payload["global_step"] == selected_step
+        assert set(payload["domains"]) == expected_domains
+        assert payload["rank"] not in observed_ranks
+        observed_ranks.add(payload["rank"])
+        for domain, artifact in payload["domains"].items():
+            predictions = artifact["predictions"]
+            targets = artifact["targets"]
+            assert predictions.ndim == 4 and predictions.shape[0] == 32
+            assert targets.ndim == 3 and predictions.shape[1:] == targets.shape
+            expected_dim = int(energy.action_dims[domain])
+            assert predictions.shape[-1] == expected_dim
+            for key in (
+                "accuracy_by_condition",
+                "diversity_by_condition",
+                "score_by_condition",
+            ):
+                values = artifact[key]
+                assert values.shape == targets.shape[:1]
+                assert bool(torch.isfinite(values).all()), (path, domain, key)
+        records.append({"path": str(path), "sha256": _sha256(path)})
+    assert observed_ranks == set(range(expected_world_size)), observed_ranks
+    return records
 
 
 def _load_training_config(config_path: Path):
@@ -285,6 +358,15 @@ def verify_training_smoke(
         assert matches, (embodiment, sorted(metrics))
         assert all(math.isfinite(value) for value in matches.values()), matches
 
+    assert all(math.isfinite(value) for value in metrics.values()), metrics
+    energy_score_artifacts = _validate_energy_score_artifacts(
+        output_dir,
+        config,
+        required_embodiments,
+        expected_world_size,
+        selected["trainer_global_step"],
+    )
+
     return {
         "status": "passed",
         "repo_head": expected_head,
@@ -309,6 +391,7 @@ def verify_training_smoke(
         "wandb_exit_code": wandb_exit_code,
         "validation_trainer_global_step": selected["trainer_global_step"],
         "validation_metrics": metrics,
+        "energy_score_artifacts": energy_score_artifacts,
         "training_history": training_history,
         "dense_training_steps": training_steps,
         "validation_history": validation_history,

@@ -781,8 +781,10 @@ def test_temporal_compression_config_denoises_h8_l8_and_outputs_native_h16() -> 
         assert datasets.pushshapes_sim_u_socket.resolver.key_map._target_.endswith(
             "get_keymap_hpt_per_emb_proprio"
         )
-        assert datasets.pushshapes_sim_u_socket.resolver.transform_list._target_.endswith(
-            "get_usocket_rotvec_action_state_transform_list"
+        assert (
+            datasets.pushshapes_sim_u_socket.resolver.transform_list._target_.endswith(
+                "get_usocket_rotvec_action_state_transform_list"
+            )
         )
         assert datasets.pushshapes_sim_chain_gripper.resolver.key_map._target_.endswith(
             "get_keymap_hpt_per_emb_proprio"
@@ -926,6 +928,6 @@ def test_training_smoke_verifier_checks_world2_and_dense_step_history() -> None:
     assert '"Timing/Compute_Losses_Sec"' in verifier
     assert '"Optimizer/param_group_0_lr"' in verifier
     assert "dense_training_history" in verifier
-    assert "training_steps == [0, 1]" in verifier
+    assert "training_steps == list(range(expected_steps))" in verifier
     assert "all(math.isfinite(value) for value in values)" in verifier
     assert "scheduled_history" in verifier
