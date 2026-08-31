@@ -33,7 +33,19 @@ EVAL_CFG = REPO / "egomimic/hydra_configs/evaluator/eval_sim_control_modes.yaml"
 
 DOMAIN = "pushshapes_sim_gripper"
 HORIZON, ACTION_DIM, COND_DIM = 17, 5, 67
-CONFIGS = sorted(p.name for p in MODEL_DIR.glob("bf_ctrlmode_*.yaml"))
+# Exploratory variants that are deliberately NOT part of the 4-arms x
+# 2-capacities grid. They must be excluded by name rather than by relaxing the
+# grid invariants below: "there are exactly eight" and "the arms are parameter
+# matched" are the properties that make arm3-minus-arm2 a controlled comparison,
+# and a test that grows to accommodate every new config stops guarding anything.
+#
+#   arm2_residual — arm2 with xy predicted RELATIVE to the pusher. Validates
+#   whether the action parameterisation, not the architecture, is what pins
+#   closed-loop coverage at 0.0000. Shares arm2's backbone, so it would pass the
+#   capacity check while silently making the grid five arms wide.
+NON_GRID_CONFIGS = {"bf_ctrlmode_arm2_residual_small.yaml"}
+CONFIGS = sorted(p.name for p in MODEL_DIR.glob("bf_ctrlmode_*.yaml")
+                 if p.name not in NON_GRID_CONFIGS)
 CAPACITY_BUDGET = 0.05  # handover TODO-2: match arms to within ~5%
 
 

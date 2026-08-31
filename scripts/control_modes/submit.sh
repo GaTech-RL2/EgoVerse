@@ -97,6 +97,11 @@ arm_desc() {
     arm2_causal_bidir)    echo "MSE-bidir-CONTROL-4seen-holdout-ideal+jittery" ;;
     arm3_state_action_ar) echo "MSE-causal-AR-4seen-holdout-ideal+jittery" ;;
     arm4_state_idm)       echo "MSE-causal-IDM-4seen-holdout-ideal+jittery" ;;
+    # arm2 with xy predicted RELATIVE to the pusher. Absolute row-0 xy has
+    # median magnitude 319px against an informative delta of 0.50px, so MSE on
+    # the absolute target fits a channel the policy already reads off its own
+    # state. Must be paired with data_cfg=..._residual.
+    arm2_residual)        echo "MSE-bidir-RESIDUALxy-4seen-holdout-ideal+jittery" ;;
     *) echo "unknown arm $1" >&2; exit 2 ;;
   esac
 }

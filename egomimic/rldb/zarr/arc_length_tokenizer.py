@@ -1880,3 +1880,78 @@ class TokenizePlanarArcLength:
         theta = math.atan2(float(w[3]), float(w[2]))
         full = np.array([w[0], w[1], theta, w[4]], dtype=np.float64)
         return full[:width]
+
+
+class ResidualizeArcTokenXY:
+    """Re-express an arc token's xy waypoints RELATIVE to the pusher's position.
+
+    PushShapes actions are ABSOLUTE pusher targets, and the pusher's own xy is
+    channels 0-1 of ``state_agent_obj``. The planner emits
+    ``tx = px + clip(gx-ox, -3, 3)`` -- position plus a <=3px delta -- so a
+    persistence baseline ("command where I already am") already scores FVE
+    0.85-0.95, with a median error of 0.00px on the ideal control gap.
+
+    Training MSE on the absolute target therefore spends almost all of its
+    gradient on a quantity the policy can copy straight off its own input, and
+    almost none on the small delta that actually drives the task. Measured
+    consequence: every arm over-commands by 3-12x, leaves the data manifold
+    within ~50 rollout steps, and settles into an absorbing fixed point where
+    the commanded target equals the current position -- the pusher stops, the
+    object is never engaged, and coverage sits at exactly 0.0000.
+
+    Subtracting the anchor here makes the delta the learning target. Because
+    norm stats are computed downstream from whatever this emits, the deltas also
+    get normalized on THEIR own scale (~10px) rather than the absolute position
+    range (~500px). That rescaling is the point: adding the anchor back inside
+    the model without it leaves a 3px delta at ~0.012 in normalized units and
+    the loss just as badly allocated.
+
+    Only xy is residualized. cos/sin/grip are already local quantities, and the
+    trailing velocity row is a rate, not a position -- shifting either would
+    corrupt them.
+    """
+
+    def __init__(
+        self,
+        action_key: str = "actions",
+        state_key: str = "state_agent_obj",
+        velocity_layout: str = "append",
+    ):
+        self.action_key = str(action_key)
+        self.state_key = str(state_key)
+        self.velocity_layout = str(velocity_layout)
+        if self.velocity_layout not in {"append", "concat"}:
+            raise ValueError(
+                f"velocity_layout must be append|concat, got {velocity_layout!r}"
+            )
+
+    def transform(self, batch: dict) -> dict:
+        if self.state_key not in batch:
+            raise KeyError(
+                f"ResidualizeArcTokenXY needs {self.state_key!r} in the batch to "
+                f"anchor the token; present keys: {sorted(batch)}"
+            )
+        token = np.asarray(batch[self.action_key])
+        if token.ndim != 2 or token.shape[1] < 2:
+            raise ValueError(
+                f"expected a tokenized (rows, channels) action, got {token.shape}"
+            )
+        state = np.asarray(batch[self.state_key]).reshape(-1)
+        if state.shape[0] < 2:
+            raise ValueError(
+                f"{self.state_key} must carry pusher xy in channels 0-1, "
+                f"got shape {state.shape}"
+            )
+        anchor = state[:2].astype(np.float64)
+
+        out = token.astype(np.float64, copy=True)
+        # 'append' puts a trailing velocity row after the M waypoints; it is a
+        # rate and must not be shifted. 'concat' keeps velocity in extra
+        # CHANNELS, so every row is a waypoint.
+        n_way = out.shape[0] - 1 if self.velocity_layout == "append" else out.shape[0]
+        out[:n_way, 0] -= anchor[0]
+        out[:n_way, 1] -= anchor[1]
+
+        dtype = token.dtype if np.issubdtype(token.dtype, np.floating) else np.float32
+        batch[self.action_key] = out.astype(dtype, copy=False)
+        return batch

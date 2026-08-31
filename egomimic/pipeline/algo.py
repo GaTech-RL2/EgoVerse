@@ -47,6 +47,7 @@ class PipelineAlgo(Algo):
         rollout_adapters: dict | None = None,
         rollout_transform_mode: str | None = None,
         replan_every: int | None = None,
+        residual_xy: bool = False,
         device=None,
     ):
         super().__init__()
@@ -82,6 +83,12 @@ class PipelineAlgo(Algo):
         if replan_every is not None and int(replan_every) <= 0:
             raise ValueError(f"replan_every must be positive, got {replan_every}")
         self.replan_every = None if replan_every is None else int(replan_every)
+        # Must MATCH the data side. A model trained with
+        # get_planar_arc_length_transform_list(residual_xy=True) predicts xy
+        # RELATIVE to the pusher; rolling it out without adding the anchor back
+        # commands a ~10px delta as an absolute world coordinate, which drives
+        # the pusher to the arena origin. The reverse mismatch is just as silent.
+        self.residual_xy = bool(residual_xy)
         self.device = device or torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
@@ -379,6 +386,31 @@ class PipelineAlgo(Algo):
                         f"got {actions.shape}"
                     )
                 chunk = [actions[index] for index in range(actions.shape[0])]
+
+            if getattr(self, "residual_xy", False):
+                # numpy is imported locally throughout this method (there is no
+                # module-level import), and the branch that does so runs AFTER
+                # this block on the tensor path.
+                import numpy as np
+
+                # The model was trained on xy RELATIVE to the pusher, so put the
+                # anchor back before anything executes these as world targets.
+                # obs_zarr is pre-normalization here (_env_to_zarr_dict emits raw
+                # units), so channels 0-1 are the pusher's xy in pixels.
+                anchor = obs_zarr["state_agent_obj"]
+                if torch.is_tensor(anchor):
+                    anchor = anchor.detach().float().cpu().numpy()
+                anchor = np.asarray(anchor).reshape(-1)[:2]
+                rebased = []
+                for step_action in chunk:
+                    if torch.is_tensor(step_action):
+                        shifted = step_action.detach().float().cpu().numpy().copy()
+                    else:
+                        shifted = np.array(step_action, dtype=np.float32, copy=True)
+                    shifted[0] += float(anchor[0])
+                    shifted[1] += float(anchor[1])
+                    rebased.append(shifted)
+                chunk = rebased
 
             replan_every = getattr(self, "replan_every", None)
             n_keep = len(chunk) if replan_every is None else int(replan_every)

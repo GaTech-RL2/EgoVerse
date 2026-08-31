@@ -188,6 +188,7 @@ def get_planar_arc_length_transform_list(
     hybrid_rotation_unit: float | None = None,
     velocity_mode: str = "mean_scalar",
     velocity_layout: str = "append",
+    residual_xy: bool = False,
 ):
     """Embodiment-agnostic planar arc tokenization.
 
@@ -203,13 +204,26 @@ def get_planar_arc_length_transform_list(
                             min(D/v_trans, D_rot/v_rot).
       velocity_mode         mean_scalar | per_step_scalar.
       velocity_layout       append -> (M+1, 5); concat -> (M, 5+V).
+      residual_xy           express xy waypoints relative to the pusher's
+                            current position. PushShapes actions are ABSOLUTE
+                            targets equal to the pusher's own position plus a
+                            <=3px delta, and that position is an input channel,
+                            so a persistence baseline already scores FVE
+                            0.85-0.95 and MSE on the absolute target learns
+                            almost nothing about the delta that drives the task.
+                            Changes the norm-stat scale too (~10px instead of
+                            ~500px), which is the half that actually matters.
+                            A model trained with this ON must be rolled out with
+                            PipelineAlgo(residual_xy=True) or it will command
+                            deltas as if they were absolute world coordinates.
     """
-    from egomimic.rldb.zarr.arc_length_tokenizer import TokenizePlanarArcLength
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        ResidualizeArcTokenXY, TokenizePlanarArcLength)
 
     action_keys = keys or ["actions"]
     if len(action_keys) != 1:
         raise ValueError("planar arc tokenization expects exactly one action key")
-    return [
+    transforms = [
         TokenizePlanarArcLength(
             action_key=action_keys[0],
             output_action_key=action_keys[0],
@@ -222,3 +236,12 @@ def get_planar_arc_length_transform_list(
             velocity_layout=velocity_layout,
         )
     ]
+    if residual_xy:
+        transforms.append(
+            ResidualizeArcTokenXY(
+                action_key=action_keys[0],
+                state_key="state_agent_obj",
+                velocity_layout=velocity_layout,
+            )
+        )
+    return transforms
