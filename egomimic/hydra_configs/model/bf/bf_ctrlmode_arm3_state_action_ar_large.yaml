@@ -1,0 +1,78 @@
+# ARM 3 — the causal model. Row m of the arc token is predicted from
+# rows < m, teacher-forced in training and fed back at rollout.
+#
+# Capacity: large — d_model=1024 n_layers=24 n_heads=16 -> ~313M total params
+# (including the shared 11.20M observation encoder). All four arms are matched
+# to within 5% at each capacity; see _gen_control_modes.py.
+#
+# Control-mode study: gripper only, trained on ideal, tight, loose, laggy, sticky,
+# held out jittery. Arc token D=10.0 M=16 r=0.0 layout=append.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 17
+  domains:
+  - pushshapes_sim_gripper
+  ac_keys:
+    pushshapes_sim_gripper: actions
+  stages:
+  - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+    n_obs_steps: 1
+    encoder:
+      _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+      obs_specs:
+        state_agent_obj:
+          input_dim: 3
+          input_slice:
+          - 0
+          - 3
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 84
+          crop_width: 84
+          crop_eval_mode: center
+          crop_sample_mode: v02
+          crop_scope: frame
+          norm_layer: group
+          pool_type: spatial_softmax
+  - _target_: egomimic.pipeline.stages_ar.ARActionDecoder
+    variant: state_action_ar
+    condition_input_dim: 67
+    action_horizon: 17
+    action_dims:
+      pushshapes_sim_gripper: 5
+    d_model: 1024
+    n_layers: 24
+    n_heads: 16
+    ff_mult: 4
+    dropout: 0.1
+    n_waypoints: 16
+    pose_channels: 4
+    idm_hidden: 256
+    gradient_checkpointing: true
+  - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+  rollout_adapters:
+    pushshapes_sim_gripper:
+      _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
+      embodiment: pushshapes_sim_gripper
+      velocity_layout: append
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0001
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 3000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-05

@@ -1,0 +1,74 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# CONTROL-MODE STUDY — gripper only, five seen controller modes, jittery held out.
+#
+# All five seen modes (ideal, tight, loose, laggy, sticky) are staged by the launcher into ONE
+# directory under a single embodiment key. The model is deliberately not told
+# which controller produced an episode: inferring and compensating for the
+# controller is the capability under test. See _gen_control_modes.py.
+#
+# jittery is absent from training entirely and is measured by rollout SR
+# under its control gap (evaluator/eval_sim_control_modes.yaml).
+#
+# Arc token: D=10.0 M=16 rotation_radius=0.0 velocity_layout=append
+# -> action_horizon 17.
+
+train_datasets:
+  pushshapes_sim_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/train/gripper/T
+      embodiment_override: pushshapes_sim_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 10.0
+        resampled_vector_length: 16
+        dt: 0.03333333333333333
+        rotation_radius: 0.0
+        velocity_mode: mean_scalar
+        velocity_layout: append
+    mode: train
+    valid_ratio: 0.02
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_gripper:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: ${oc.env:PUSHSHAPES_ROOT,/workspace/pushshapes}/train/gripper/T
+      embodiment_override: pushshapes_sim_gripper
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 200
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list
+        min_distance_unit: 10.0
+        resampled_vector_length: 16
+        dt: 0.03333333333333333
+        rotation_radius: 0.0
+        velocity_mode: mean_scalar
+        velocity_layout: append
+    mode: valid
+    valid_ratio: 0.02
+    bounds_check: false
+
+train_dataloader_params:
+  pushshapes_sim_gripper:
+    batch_size: 16
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+
+valid_dataloader_params:
+  pushshapes_sim_gripper:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3

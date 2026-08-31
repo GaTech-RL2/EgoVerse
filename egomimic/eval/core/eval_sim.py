@@ -89,6 +89,7 @@ class SimRolloutEval(EvalVideo):
         transform_lists: dict | None = None,
         rng_pairing: bool = False,
         run_full_horizon: bool = False,
+        control_gap: str | None = None,
     ):
         super().__init__(
             limit_val_batches=limit_val_batches,
@@ -126,6 +127,25 @@ class SimRolloutEval(EvalVideo):
         # for the same episode index. Off by default: numbers from unpaired
         # evals stay reproducible.
         self.rng_pairing = bool(rng_pairing)
+        # Controller fidelity the policy is evaluated UNDER. `control_gap` is a
+        # class attribute on PushShapesEnv, not a constructor argument, so it
+        # cannot be reached through env_kwargs — passing it there raises
+        # "unexpected PushShapesEnv option(s)". It is applied to the agent in
+        # `_get_env` instead, which survives reset(): `reset_control_gap` only
+        # redraws the gap when `randomize_gap` is set.
+        #
+        # Validated HERE rather than at first use: a typo would otherwise
+        # surface on the training node after the dataset pull and the
+        # norm-stats phase, which is hours in.
+        self.control_gap = None if control_gap is None else str(control_gap)
+        if self.control_gap is not None:
+            from Tsimulation.pushshapes.agents import CONTROL_GAPS
+
+            if self.control_gap not in CONTROL_GAPS:
+                raise ValueError(
+                    f"unknown control_gap {self.control_gap!r}; "
+                    f"known: {sorted(CONTROL_GAPS)}"
+                )
         self._env = None
         self._init_counter = 0
 
@@ -139,6 +159,13 @@ class SimRolloutEval(EvalVideo):
             from Tsimulation.pushshapes import PushShapesEnv
 
             self._env = PushShapesEnv(**kwargs)
+            if self.control_gap is not None:
+                from Tsimulation.pushshapes.agents import CONTROL_GAPS
+
+                self._env.agent.control_gap = CONTROL_GAPS[self.control_gap]
+                # A randomizing agent would redraw the gap every reset and
+                # quietly evaluate a different controller than the one named.
+                self._env.agent.randomize_gap = False
         return self._env
 
     def _init_env(self, env, env_init_dict: dict | None, ep_seed_offset: int) -> None:
