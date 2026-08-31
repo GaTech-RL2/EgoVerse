@@ -51,4 +51,29 @@ for f in sorted(glob.glob(os.path.join(mdir, "bf_cotrain11_*.yaml"))):
     else:
         print(f"  ok   {os.path.basename(f):44} act_seq={sorted(aq) or '-'} horizon={sorted(ah)}")
 
+
+# --- evaluator config: registry keys and instantiate-time enums ---
+# Both fail only when SimRolloutEval is CONSTRUCTED, which happens in phase 2 --
+# after the R2 pull, staging and norm-stats. Four separate config errors in this
+# study have had that shape (act_seq, rotation_radius, init_mode, the L key), so
+# check statically what construction would check hours later.
+evf = os.path.join(here, "../../evaluator/eval_sim_pushshapes.yaml")
+if os.path.exists(evf):
+    reg = open(os.path.join(here, "../../../rldb/embodiment/pushshapes_sim.py")).read()
+    for e in yaml.safe_load(open(evf))["evals"]:
+        nm = e["embodiment_name"]
+        if f'"{nm}"' not in reg:
+            bad.append(evf); print(f"  FAIL evaluator {nm}: not a verbatim key in _ENV_TO_ZARR")
+        if e.get("init_mode") not in ("replay", "random", "seeds"):
+            bad.append(evf); print(f"  FAIL evaluator {nm}: init_mode={e.get('init_mode')!r} not in replay/random/seeds")
+        if e.get("init_mode") == "seeds" and not e.get("init_seeds"):
+            bad.append(evf); print(f"  FAIL evaluator {nm}: init_mode=seeds requires init_seeds")
+    names = [e["embodiment_name"] for e in yaml.safe_load(open(evf))["evals"]]
+    if len(names) != len(set(names)):
+        bad.append(evf)
+        print("  FAIL evaluator: duplicate embodiment_name -- SimRolloutEval keys metrics as "
+              "Valid/emb<id>_..., so evaluators sharing an embodiment silently overwrite each other")
+    else:
+        print(f"  ok   evaluator {len(names)} entries, all registered, distinct embodiments, valid init_mode")
+
 raise SystemExit(1 if bad else 0)

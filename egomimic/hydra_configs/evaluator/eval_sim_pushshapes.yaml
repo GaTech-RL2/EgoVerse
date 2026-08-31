@@ -24,7 +24,7 @@ evals:
       pusher_shape: L
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -37,7 +37,7 @@ evals:
       pusher_shape: chain_gripper
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -50,7 +50,7 @@ evals:
       pusher_shape: circle
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -63,7 +63,7 @@ evals:
       pusher_shape: flipper
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -76,7 +76,7 @@ evals:
       pusher_shape: gripper
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -89,7 +89,7 @@ evals:
       pusher_shape: scoop
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -102,7 +102,7 @@ evals:
       pusher_shape: spring
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -115,7 +115,7 @@ evals:
       pusher_shape: stick
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -128,7 +128,7 @@ evals:
       pusher_shape: triangle
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -141,7 +141,7 @@ evals:
       pusher_shape: u_socket
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -154,7 +154,7 @@ evals:
       pusher_shape: umi
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -167,7 +167,7 @@ evals:
       pusher_shape: circle_small
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
@@ -180,7 +180,7 @@ evals:
       pusher_shape: suction
       obstacle_level: 0
       image_size: 96
-    init_mode: seed
+    init_mode: seeds
     init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     max_steps: 600
     coverage_threshold: 0.95
