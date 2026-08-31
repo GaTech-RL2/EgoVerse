@@ -38,6 +38,8 @@ class ModelWrapper(LightningModule):
         enable_grad_norm: bool = True,
         train_metrics_on_step: bool = False,
         train_metrics_on_epoch: bool = True,
+        unite_flow_updates_per_reconstruction: int = 0,
+        unite_gradient_telemetry_every_n_steps: int = 0,
     ):
         """
         Args:
@@ -66,6 +68,25 @@ class ModelWrapper(LightningModule):
         self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
         self.train_metrics_on_step = train_metrics_on_step
         self.train_metrics_on_epoch = train_metrics_on_epoch
+        self.unite_flow_updates_per_reconstruction = int(
+            unite_flow_updates_per_reconstruction
+        )
+        self.unite_gradient_telemetry_every_n_steps = int(
+            unite_gradient_telemetry_every_n_steps
+        )
+        if self.unite_flow_updates_per_reconstruction < 0:
+            raise ValueError("unite_flow_updates_per_reconstruction must be non-negative")
+        if self.unite_gradient_telemetry_every_n_steps < 0:
+            raise ValueError(
+                "unite_gradient_telemetry_every_n_steps must be non-negative"
+            )
+        if (
+            self.unite_flow_updates_per_reconstruction > 0
+            and self.unite_gradient_telemetry_every_n_steps == 0
+        ):
+            raise ValueError(
+                "Alternating UNITE updates require shared-gradient telemetry"
+            )
 
         self.epoch_memory_stats = []  # Store memory stats per epoch
         self.evaluator = evaluator
@@ -79,6 +100,12 @@ class ModelWrapper(LightningModule):
         )
         hyper_parameters["train_metrics_on_epoch"] = bool(
             self.train_metrics_on_epoch
+        )
+        hyper_parameters["unite_flow_updates_per_reconstruction"] = int(
+            self.unite_flow_updates_per_reconstruction
+        )
+        hyper_parameters["unite_gradient_telemetry_every_n_steps"] = int(
+            self.unite_gradient_telemetry_every_n_steps
         )
 
     @staticmethod
@@ -119,6 +146,122 @@ class ModelWrapper(LightningModule):
                 sync_dist=sync_dist,
             )
 
+    @staticmethod
+    def _mean_loss_terms(losses, suffix: str):
+        terms = [
+            value
+            for key, value in losses.items()
+            if key.endswith(suffix) and torch.is_tensor(value) and value.ndim == 0
+        ]
+        if not terms:
+            raise RuntimeError(f"Missing UNITE loss terms ending in {suffix!r}")
+        return torch.stack(terms).mean()
+
+    @staticmethod
+    def _select_unite_update_loss(
+        reconstruction_loss,
+        flow_loss,
+        global_step: int,
+        flow_updates_per_reconstruction: int,
+    ):
+        ratio = int(flow_updates_per_reconstruction)
+        if ratio <= 0:
+            return reconstruction_loss + flow_loss, "joint", 0
+        cycle_position = int(global_step) % (ratio + 1)
+        if cycle_position < ratio:
+            return flow_loss, "flow", cycle_position
+        return reconstruction_loss, "reconstruction", cycle_position
+
+    def _unite_shared_parameters(self):
+        matches = [
+            stage
+            for stage in self.model.policy.stages
+            if hasattr(stage, "shared_reconstruction_denoising_named_parameters")
+        ]
+        if len(matches) != 1:
+            raise RuntimeError(
+                "UNITE gradient telemetry requires exactly one latent policy; "
+                f"found {len(matches)}"
+            )
+        named = matches[0].shared_reconstruction_denoising_named_parameters(
+            self.model.domains
+        )
+        return tuple(name for name, _ in named), tuple(
+            parameter for _, parameter in named
+        )
+
+    def _measure_unite_shared_gradients(self, reconstruction_loss, flow_loss):
+        names, parameters = self._unite_shared_parameters()
+        reconstruction_gradients = torch.autograd.grad(
+            reconstruction_loss,
+            parameters,
+            retain_graph=True,
+            create_graph=False,
+            allow_unused=False,
+        )
+        flow_gradients = torch.autograd.grad(
+            flow_loss,
+            parameters,
+            retain_graph=True,
+            create_graph=False,
+            allow_unused=False,
+        )
+
+        world_size = 1
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            world_size = torch.distributed.get_world_size()
+            for gradient in (*reconstruction_gradients, *flow_gradients):
+                torch.distributed.all_reduce(
+                    gradient,
+                    op=torch.distributed.ReduceOp.SUM,
+                )
+                gradient.div_(world_size)
+
+        dot = torch.zeros((), device=self.device, dtype=torch.float32)
+        reconstruction_square = torch.zeros_like(dot)
+        flow_square = torch.zeros_like(dot)
+        for reconstruction_gradient, flow_gradient in zip(
+            reconstruction_gradients, flow_gradients
+        ):
+            reconstruction_gradient = reconstruction_gradient.float()
+            flow_gradient = flow_gradient.float()
+            dot.add_(torch.sum(reconstruction_gradient * flow_gradient))
+            reconstruction_square.add_(torch.sum(reconstruction_gradient.square()))
+            flow_square.add_(torch.sum(flow_gradient.square()))
+
+        reconstruction_norm = reconstruction_square.sqrt()
+        flow_norm = flow_square.sqrt()
+        values = torch.stack((dot, reconstruction_norm, flow_norm))
+        if not bool(torch.isfinite(values).all()):
+            raise RuntimeError("Non-finite UNITE shared-gradient telemetry")
+        if float(reconstruction_norm) <= 0.0 or float(flow_norm) <= 0.0:
+            raise RuntimeError(
+                "UNITE shared-gradient telemetry encountered a zero gradient norm"
+            )
+        cosine = dot / (reconstruction_norm * flow_norm)
+        if not bool(torch.isfinite(cosine)):
+            raise RuntimeError("Non-finite UNITE shared-gradient cosine")
+
+        self._log_train_metric(
+            "log/unite_gradient_cosine", cosine.detach(), sync_dist=False
+        )
+        self._log_train_metric(
+            "log/unite_recon_grad_norm",
+            reconstruction_norm.detach(),
+            sync_dist=False,
+        )
+        self._log_train_metric(
+            "log/unite_denoise_grad_norm", flow_norm.detach(), sync_dist=False
+        )
+        self._log_train_metric(
+            "log/unite_gradient_parameter_count",
+            float(sum(parameter.numel() for parameter in parameters)),
+            sync_dist=False,
+        )
+        self._log_train_metric(
+            "log/unite_gradient_tensor_count", float(len(names)), sync_dist=False
+        )
+
     # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
         self.train()
@@ -143,6 +286,39 @@ class ModelWrapper(LightningModule):
             losses[key] = torch.mean(
                 torch.stack([loss_dict[key] for loss_dict in loss_dicts])
             )
+
+        if self.unite_flow_updates_per_reconstruction > 0:
+            reconstruction_loss = self._mean_loss_terms(
+                losses, "_loss_unite_reconstruction"
+            )
+            flow_loss = self._mean_loss_terms(losses, "_loss_unite_latent")
+            selected_loss, update_mode, cycle_position = (
+                self._select_unite_update_loss(
+                    reconstruction_loss,
+                    flow_loss,
+                    int(self.global_step),
+                    self.unite_flow_updates_per_reconstruction,
+                )
+            )
+            losses["action_loss"] = selected_loss
+            self._log_train_metric(
+                "log/unite_update_is_flow", float(update_mode == "flow")
+            )
+            self._log_train_metric(
+                "log/unite_update_is_reconstruction",
+                float(update_mode == "reconstruction"),
+            )
+            self._log_train_metric(
+                "log/unite_update_cycle_position", float(cycle_position)
+            )
+            if (
+                int(self.global_step)
+                % self.unite_gradient_telemetry_every_n_steps
+                == 0
+            ):
+                self._measure_unite_shared_gradients(
+                    reconstruction_loss, flow_loss
+                )
 
         if (
             self.debug_loss_spike

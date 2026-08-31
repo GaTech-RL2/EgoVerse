@@ -12,6 +12,11 @@ name: flow_transfer_unite_b_w128_transformer_h16
 description: unite_b_216m_xstart_shared_ge_u_rotvec4_chain_points6_w128_h16
 model:
   enable_grad_norm: false
+  # One 15-step cycle: 14 latent-flow-only optimizer updates, followed by one
+  # clean-action reconstruction-only update. Both objectives are still
+  # evaluated together at telemetry steps without changing the optimizer loss.
+  unite_flow_updates_per_reconstruction: 14
+  unite_gradient_telemetry_every_n_steps: 100
   optimizer:
     lr: 3.0e-5
   scheduler:
@@ -40,12 +45,30 @@ run_provenance:
     representations:
       pushshapes_sim_u_socket: x_y_cos_theta_sin_theta
       pushshapes_sim_chain_gripper: ordered_left_center_right_points6
+  unite_update_schedule:
+    flow_updates_per_reconstruction: 14
+    cycle_length_optimizer_steps: 15
+    cycle_order: 14_flow_then_1_reconstruction
+    total_optimizer_steps: 240000
+    expected_flow_updates: 224000
+    expected_reconstruction_updates: 16000
+  unite_gradient_telemetry:
+    cadence_optimizer_steps: 100
+    parameter_set: shared_denoising_module_output_norm_and_domain_embeddings
+    gradient_convention: unscaled_autograd_grad_then_ddp_mean
+    metrics:
+      - log/unite_gradient_cosine
+      - log/unite_recon_grad_norm
+      - log/unite_denoise_grad_norm
   energy_score_contract:
     sample_count: 32
     seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
     validation_view: first_deterministic_validation_batch_per_ddp_rank
     aggregation: condition_mean_then_equal_domain_macro_mean
   required_wandb_metrics:
+    - log/unite_gradient_cosine
+    - log/unite_recon_grad_norm
+    - log/unite_denoise_grad_norm
     - Train/MSE
     - Train/MSE/pushshapes_sim_u_socket
     - Train/MSE/pushshapes_sim_chain_gripper

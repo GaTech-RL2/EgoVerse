@@ -115,6 +115,53 @@ def test_unite_latent_loss_stops_gradient_into_clean_target_branch():
     assert encoder.denoising_module.proj_u.weight.grad is not None
 
 
+def test_unite_shared_parameter_set_has_finite_two_objective_gradients():
+    policy = _policy().train()
+    out = UniteObjective()(policy(_batch()))
+    named = policy.shared_reconstruction_denoising_named_parameters(
+        ["pushshapes_sim_u_socket"]
+    )
+    names = {name for name, _ in named}
+    parameters = tuple(parameter for _, parameter in named)
+
+    assert any(name.startswith("denoising_module.") for name in names)
+    assert any(name.startswith("output_norm.") for name in names)
+    assert "domain_embeddings.pushshapes_sim_u_socket" in names
+    assert not any(name.startswith("action_projections.") for name in names)
+    assert not any(name.startswith("condition_projection.") for name in names)
+
+    reconstruction_gradients = torch.autograd.grad(
+        out["loss/unite_reconstruction"], parameters, retain_graph=True
+    )
+    denoising_gradients = torch.autograd.grad(
+        out["loss/unite_latent"], parameters, retain_graph=True
+    )
+    for gradient in (*reconstruction_gradients, *denoising_gradients):
+        assert torch.isfinite(gradient).all()
+
+
+def test_unite_update_schedule_is_exactly_fourteen_flow_then_one_reconstruction():
+    from egomimic.pl_utils.pl_model import ModelWrapper
+
+    reconstruction = torch.tensor(2.0)
+    flow = torch.tensor(3.0)
+    modes = []
+    selected = []
+    positions = []
+    for step in range(30):
+        loss, mode, position = ModelWrapper._select_unite_update_loss(
+            reconstruction, flow, step, 14
+        )
+        modes.append(mode)
+        selected.append(float(loss))
+        positions.append(position)
+
+    assert modes[:15] == ["flow"] * 14 + ["reconstruction"]
+    assert modes[15:] == modes[:15]
+    assert selected[:15] == [3.0] * 14 + [2.0]
+    assert positions[:15] == list(range(15))
+
+
 def test_unite_rollout_starts_from_noise_and_excludes_training_objective():
     noise = GaussianLatentNoise(num_tokens=4, latent_dim=8)
     policy = _policy(num_inference_steps=3).eval()

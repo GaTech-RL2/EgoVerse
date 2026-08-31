@@ -87,6 +87,7 @@ def read_wandb_history(
                     or key.startswith("Timing/")
                     or key.startswith("Optimizer/")
                     or key.startswith("Valid/")
+                    or key.startswith("log/")
                 ):
                     continue
                 try:
@@ -117,13 +118,17 @@ def read_wandb_history(
             for key, value in metrics.items()
             if key.startswith("Optimizer/") and not key.endswith("_epoch")
         }
-        if train_metrics or timing_metrics or optimizer_metrics:
+        telemetry_metrics = {
+            key: value for key, value in metrics.items() if key.startswith("log/")
+        }
+        if train_metrics or timing_metrics or optimizer_metrics or telemetry_metrics:
             training_rows.append(
                 {
                     "trainer_global_step": step,
                     "train_metrics": train_metrics,
                     "timing_metrics": timing_metrics,
                     "optimizer_metrics": optimizer_metrics,
+                    "telemetry_metrics": telemetry_metrics,
                 }
             )
         validation_metrics = {
@@ -333,6 +338,65 @@ def verify_training_smoke(
         ]
         assert values and all(math.isfinite(value) for value in values), row
 
+    flow_updates_per_reconstruction = int(
+        config.model.unite_flow_updates_per_reconstruction
+    )
+    telemetry_cadence = int(
+        config.model.unite_gradient_telemetry_every_n_steps
+    )
+    assert flow_updates_per_reconstruction > 0
+    assert telemetry_cadence > 0
+    assert expected_steps >= flow_updates_per_reconstruction + 1
+    required_schedule = {
+        "log/unite_update_is_flow",
+        "log/unite_update_is_reconstruction",
+        "log/unite_update_cycle_position",
+    }
+    schedule_history = [
+        {
+            "trainer_global_step": row["trainer_global_step"],
+            "telemetry_metrics": row["telemetry_metrics"],
+        }
+        for row in training_history
+        if required_schedule.issubset(row["telemetry_metrics"])
+    ]
+    assert len(schedule_history) == expected_steps, schedule_history
+    for expected_step, row in enumerate(schedule_history):
+        assert row["trainer_global_step"] == expected_step, row
+        metrics = row["telemetry_metrics"]
+        expected_position = expected_step % (flow_updates_per_reconstruction + 1)
+        expected_flow = float(expected_position < flow_updates_per_reconstruction)
+        expected_reconstruction = 1.0 - expected_flow
+        assert metrics["log/unite_update_cycle_position"] == float(
+            expected_position
+        ), row
+        assert metrics["log/unite_update_is_flow"] == expected_flow, row
+        assert (
+            metrics["log/unite_update_is_reconstruction"]
+            == expected_reconstruction
+        ), row
+
+    required_telemetry = {
+        "log/unite_gradient_cosine",
+        "log/unite_recon_grad_norm",
+        "log/unite_denoise_grad_norm",
+    }
+    telemetry_history = [
+        {
+            "trainer_global_step": row["trainer_global_step"],
+            "telemetry_metrics": row["telemetry_metrics"],
+        }
+        for row in training_history
+        if required_telemetry.issubset(row["telemetry_metrics"])
+    ]
+    assert telemetry_history, training_history
+    for row in telemetry_history:
+        metrics = row["telemetry_metrics"]
+        assert all(math.isfinite(metrics[key]) for key in required_telemetry), row
+        assert metrics["log/unite_recon_grad_norm"] > 0.0, row
+        assert metrics["log/unite_denoise_grad_norm"] > 0.0, row
+        assert -1.000001 <= metrics["log/unite_gradient_cosine"] <= 1.000001, row
+
     # num_sanity_val_steps=0 plus the requested minimum persisted trainer step
     # proves this metric came from scheduled validation after optimization began.
     scheduled_history = [
@@ -393,6 +457,13 @@ def verify_training_smoke(
         "validation_metrics": metrics,
         "energy_score_artifacts": energy_score_artifacts,
         "training_history": training_history,
+        "unite_update_schedule": {
+            "flow_updates_per_reconstruction": flow_updates_per_reconstruction,
+            "cycle_length_optimizer_steps": flow_updates_per_reconstruction + 1,
+            "telemetry_cadence_optimizer_steps": telemetry_cadence,
+            "history": schedule_history,
+        },
+        "unite_gradient_telemetry": telemetry_history,
         "dense_training_steps": training_steps,
         "validation_history": validation_history,
     }

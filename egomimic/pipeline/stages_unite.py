@@ -14,7 +14,7 @@ existing Latent Dense and Diffusion Policy stages untouched.
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Iterable
 
 import torch
 import torch.nn as nn
@@ -149,6 +149,44 @@ class UniteGenerativeEncoder(nn.Module):
             )
         return embodiment
 
+    def shared_reconstruction_denoising_named_parameters(
+        self,
+        embodiments: Iterable[str] | None = None,
+    ) -> tuple[tuple[str, nn.Parameter], ...]:
+        """Return the exact parameter intersection of the two UNITE paths.
+
+        The shared Transformer and output normalization participate in both
+        action tokenization and latent denoising. Domain embeddings also
+        participate in both paths, but only for embodiments present in the
+        current multi-domain batch. Tokenization-only action projections and
+        conditions, denoising-only observation projection, and action decoders
+        are deliberately excluded.
+        """
+
+        selected_domains = (
+            self.domains
+            if embodiments is None
+            else tuple(self._validate_domain(domain) for domain in embodiments)
+        )
+        named: list[tuple[str, nn.Parameter]] = []
+        named.extend(
+            (f"denoising_module.{name}", parameter)
+            for name, parameter in self.denoising_module.named_parameters()
+        )
+        named.extend(
+            (f"output_norm.{name}", parameter)
+            for name, parameter in self.output_norm.named_parameters()
+        )
+        named.extend(
+            (f"domain_embeddings.{domain}", self.domain_embeddings[domain])
+            for domain in selected_domains
+        )
+        if not named or len({id(parameter) for _, parameter in named}) != len(named):
+            raise RuntimeError("UNITE shared parameter selection is empty or duplicated")
+        if any(not parameter.requires_grad for _, parameter in named):
+            raise RuntimeError("UNITE shared telemetry requires trainable parameters")
+        return tuple(named)
+
     def _validate_latent_horizon(self, value: torch.Tensor) -> None:
         pos_emb = getattr(self.denoising_module, "pos_emb", None)
         if pos_emb is not None and (
@@ -277,6 +315,14 @@ class UniteLatentPolicy(Stage):
 
     def _decode(self, latent: torch.Tensor, embodiment: str) -> torch.Tensor:
         return self.action_decoder.decoder_for(embodiment)(latent)
+
+    def shared_reconstruction_denoising_named_parameters(
+        self,
+        embodiments: Iterable[str] | None = None,
+    ) -> tuple[tuple[str, nn.Parameter], ...]:
+        return self.generative_encoder.shared_reconstruction_denoising_named_parameters(
+            embodiments
+        )
 
     def _validate_noise(self, noise: torch.Tensor) -> None:
         if (
