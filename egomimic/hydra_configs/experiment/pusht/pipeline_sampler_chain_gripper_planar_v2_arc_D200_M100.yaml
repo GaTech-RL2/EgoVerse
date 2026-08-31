@@ -1,0 +1,100 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_planar_v2_chain_gripper_arc_D200_M100
+  - override /data: pusht/planar_v2_chain_gripper_arc_D200_M100
+  - override /evaluator: eval_planar_v2_action_mse
+  - override /logger: wandb
+
+name: planar_v2_chain_gripper_arc_D200_M100
+description: single_domain_chain_common5_arc_rotation_r30_D200_M100_J8_replan1
+
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 1.0
+  val_check_interval: 10000
+  limit_val_batches: 1.0
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+
+logger:
+  wandb:
+    project: pushshapes-flow-transfer
+
+run_provenance:
+  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_chain_gripper_split_seed42_v1.json
+  split_manifest_sha256: 764a0c1f94c50bc18346df2e5330572acffbb323a0f8fb0685c91ca6c73fbb21
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  train_episode_count_per_domain: 990
+  valid_episode_count_per_domain: 10
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
+  union_episode_count_per_domain: 1000
+  norm_contract:
+    norm_mode: quantile
+    reduce_all_but_last: false
+    sample_frac: 0.05
+    domains:
+      pushshapes_sim_chain_gripper:
+        embodiment_id: 20
+        state_agent_obj_shape: [6]
+        actions_shape: [101, 5]
+  training_contract:
+    world_size: 2
+    precision: bf16
+    max_steps: 240000
+    validation_interval_steps: 10000
+    check_val_every_n_epoch: null
+    validation_fraction: 1.0
+    optimizer: AdamW
+    peak_lr: 3.0e-5
+    warmup_steps: 3000
+    warmup_start_lr: 3.0e-6
+    cosine_floor_lr: 3.0e-6
+  required_wandb_metrics:
+    - Train/MSE
+    - Train/MSE/pushshapes_sim_chain_gripper
+    - Valid/MSE
+    - Valid/MSE/pushshapes_sim_chain_gripper
+    - Valid/Native_MSE
+    - Valid/Native_MSE/pushshapes_sim_chain_gripper
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+  reduce_all_but_last: false
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: null
+    every_n_train_steps: null
+    train_time_interval:
+      _target_: datetime.timedelta
+      hours: 6
+    save_top_k: 1
+    save_last: true
+    save_on_train_epoch_end: true
+  terminal_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints/final
+    filename: "step-{step}"
+    monitor: null
+    verbose: true
+    every_n_epochs: null
+    every_n_train_steps: ${trainer.max_steps}
+    train_time_interval: null
+    save_top_k: 1
+    save_last: false
+    save_on_train_epoch_end: false
+    save_on_exception: false
+    save_weights_only: false
+    auto_insert_metric_name: false
+    enable_version_counter: false

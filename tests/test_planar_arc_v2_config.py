@@ -28,6 +28,18 @@ EXPERIMENT = "pusht/pipeline_sampler_usocket_chain_planar_v2_arc_D200_M100"
 SMOKE_EXPERIMENT = f"{EXPERIMENT}_smoke"
 DOMAINS = {"pushshapes_sim_u_socket", "pushshapes_sim_chain_gripper"}
 TOKEN_HORIZON = 101
+SINGLE_DOMAIN_EXPERIMENTS = {
+    "pushshapes_sim_u_socket": {
+        "experiment": "pusht/pipeline_sampler_usocket_planar_v2_arc_D200_M100",
+        "split_manifest": "planar_v2_usocket_split_seed42_v1.json",
+        "native_action_dim": 3,
+    },
+    "pushshapes_sim_chain_gripper": {
+        "experiment": "pusht/pipeline_sampler_chain_gripper_planar_v2_arc_D200_M100",
+        "split_manifest": "planar_v2_chain_gripper_split_seed42_v1.json",
+        "native_action_dim": 4,
+    },
+}
 
 
 def _compose(experiment: str):
@@ -45,6 +57,101 @@ def _apply_resolver_transforms(resolver, actions: np.ndarray) -> np.ndarray:
     for transform in resolver.transform_list:
         sample = transform.transform(sample)
     return sample["actions"]
+
+
+@pytest.mark.parametrize("domain", sorted(SINGLE_DOMAIN_EXPERIMENTS))
+def test_planar_v2_single_domain_config_contract(domain: str) -> None:
+    spec = SINGLE_DOMAIN_EXPERIMENTS[domain]
+    cfg = _compose(spec["experiment"])
+    model = cfg.model.robomimic_model
+    noise = model.stages[1]
+    sampler = model.stages[2]
+
+    assert list(model.domains) == [domain]
+    assert set(model.ac_keys) == {domain}
+    assert set(model.rollout_adapters) == {domain}
+    assert set(cfg.data.train_datasets) == {domain}
+    assert set(cfg.data.valid_datasets) == {domain}
+    assert dict(sampler.action_dims) == {domain: 5}
+    assert sampler.schedule_anchor_domain == domain
+    assert model.rollout_adapters[domain].native_action_dim == spec["native_action_dim"]
+    assert model.rollout_adapters[domain].resampled_vector_length == 100
+
+    assert model.action_horizon == TOKEN_HORIZON
+    assert noise.action_horizon == TOKEN_HORIZON
+    assert sampler.action_horizon == TOKEN_HORIZON
+    assert sampler.denoising_module.act_seq == TOKEN_HORIZON
+    assert noise.latent_dim == sampler.latent_dim == 96
+    assert sampler.denoising_module.act_dim == 96
+    assert sampler.denoising_module.hidden_dim == 384
+    assert sampler.denoising_module.nblocks == 16
+    assert sampler.num_inference_steps == 8
+    assert (
+        max(int(j) for phase in sampler.sampling_schedule.values() for j in phase) == 8
+    )
+
+    assert cfg.model.optimizer.lr == pytest.approx(3.0e-5)
+    assert cfg.model.scheduler.max_steps == cfg.trainer.max_steps == 240_000
+    assert cfg.model.scheduler.warmup_steps == 3000
+    assert cfg.model.scheduler.warmup_start_factor == pytest.approx(0.1)
+    assert cfg.model.scheduler.eta_min == pytest.approx(3.0e-6)
+    assert cfg.launch_params.gpus_per_node == 2
+    assert cfg.launch_params.nodes == 1
+    assert cfg.trainer.log_every_n_steps == 1
+    assert cfg.trainer.limit_val_batches == pytest.approx(1.0)
+    assert cfg.trainer.val_check_interval == 10_000
+    assert cfg.trainer.check_val_every_n_epoch is None
+    assert cfg.run_provenance.split_seed == cfg.seed == 42
+    assert cfg.run_provenance.valid_ratio == pytest.approx(0.01)
+    assert cfg.run_provenance.training_contract.world_size == 2
+
+    dataset = cfg.data.train_datasets[domain]
+    valid_dataset = cfg.data.valid_datasets[domain]
+    for split, mode in ((dataset, "train"), (valid_dataset, "valid")):
+        assert split.mode == mode
+        assert split.valid_ratio == pytest.approx(0.01)
+        assert split.split_seed == 42
+        assert split.expected_train_episode_count == 990
+        assert split.expected_valid_episode_count == 10
+        assert split.resolver.expected_episode_count == 1000
+        assert split.resolver.key_map.action_horizon == 200
+        assert split.resolver.transform_list.min_distance_unit == pytest.approx(200.0)
+        assert split.resolver.transform_list.resampled_vector_length == 100
+        assert split.resolver.transform_list.rotation_radius == pytest.approx(30.0)
+        assert split.resolver.transform_list.velocity_layout == "append"
+
+    norm_domains = OmegaConf.to_container(
+        cfg.run_provenance.norm_contract.domains, resolve=True
+    )
+    assert set(norm_domains) == {domain}
+    assert norm_domains[domain]["actions_shape"] == [101, 5]
+    required_metrics = set(cfg.run_provenance.required_wandb_metrics)
+    assert required_metrics == {
+        "Train/MSE",
+        f"Train/MSE/{domain}",
+        "Valid/MSE",
+        f"Valid/MSE/{domain}",
+        "Valid/Native_MSE",
+        f"Valid/Native_MSE/{domain}",
+    }
+
+    split_path = CONFIG_DIR / "data" / "pusht" / spec["split_manifest"]
+    manifest = json.loads(split_path.read_text())
+    assert hashlib.sha256(split_path.read_bytes()).hexdigest() == (
+        cfg.run_provenance.split_manifest_sha256
+    )
+    assert set(manifest["domains"]) == {domain}
+    entry = manifest["domains"][domain]
+    assert entry["train_count"] == len(entry["train_ids"]) == 990
+    assert entry["valid_count"] == len(entry["valid_ids"]) == 10
+    assert set(entry["train_ids"]).isdisjoint(entry["valid_ids"])
+
+    smoke_cfg = _compose(f"{spec['experiment']}_smoke")
+    assert smoke_cfg.trainer.max_steps == 2
+    assert smoke_cfg.trainer.limit_train_batches == 2
+    assert smoke_cfg.trainer.val_check_interval == 1
+    assert smoke_cfg.trainer.limit_val_batches == 1
+    assert smoke_cfg.trainer.check_val_every_n_epoch is None
 
 
 def test_planar_v2_two_domain_config_contract() -> None:
