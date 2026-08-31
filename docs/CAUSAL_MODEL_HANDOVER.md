@@ -146,33 +146,48 @@ lookup. See §6 for why.
 
 ---
 
-## 4. Capacity
+## 4. Capacity — MEASURED, do not derive
 
-Current `ARVariantConfig`: `d_model=256, n_layers=4, n_heads=8` — about **3M
-params**. Target is ~300M.
+All totals include the shared **11.20M** observation encoder (VisualCore +
+DPStyle). "Parameter-matched" has to mean the whole model or it is not holding
+capacity fixed.
 
-Params ≈ `12 * n_layers * d_model^2`:
+### LARGE
+| arm | setting | params |
+|-----|---------|--------|
+| arms 2–4 | `d_model=1024 n_layers=24 n_heads=16 ff_mult=4` | **313.63M** |
+| arm 1 | `CrossTransformer nblocks=31 hidden_dim=384` | **309.12M** (1.44% apart) |
 
-| config     | d_model | layers | heads | params |
-|------------|---------|--------|-------|--------|
-| current    | 256     | 4      | 8     | ~3M    |
-| **target** | **1024**| **24** | **16**| ~302M  |
-| alt (wide) | 1280    | 16     | 16    | ~315M  |
+### SMALL
+| arm | setting | params |
+|-----|---------|--------|
+| arms 2–4 | `d_model=512 n_layers=12 n_heads=8 ff_mult=4` | **49.09M** |
+| arm 1 | `CrossTransformer nblocks=4 hidden_dim=384` | **50.01M** (1.88% apart) |
 
-Use **1024 / 24 / 16, ff_mult=4**. Depth suits causal sequence modeling better
-than width.
+Call these **large/small**, not 300M/30M. The small arm is ~49M once the shared
+encoder is counted; "30M" was never achievable at `d=512 L=12` and chasing it
+wastes time.
 
-**Run a ~30M control (d_model=512, n_layers=12) alongside.** 300M on 6000
-episodes is ~50k params per episode. It will fit the training modes easily; the
-risk is that held-out-controller SR gets *worse*, and without the smaller model
-you cannot distinguish "causal structure helps" from "we overfit". Report both.
+**Measure, do not derive.** An earlier version of this document estimated arm 1
+at ~20M from `n_heads: 8` in the yaml and concluded the baseline had to be
+scaled UP to meet a 300M causal model. The real shipped `CrossTransformer` at
+`nblocks=16 hidden_dim=384` is **153.6M**, so the correct move is the opposite:
+arms 2–4 come DOWN and arm 1 barely moves. The `12*L*d^2` rule of thumb happens
+to land for the causal decoder (predicts 302M, actual 302.43M) but ignores
+heads, per-domain projections and `ff_mult`, and is far worse for
+`CrossTransformer` where `mlp_layers=4` at `mlp_ratio=4` dominates each block.
+Count parameters from an instantiated module.
 
-**TODO-2**: match parameter count across all four arms to within ~5%. Arm 1's
-capacity lives in `bf_pipeline_sampler_*` (CrossTransformer, `n_heads: 8`); you
-will need to scale it up to sit next to a 300M causal model. A comparison where
-the baseline is 20M and the causal model is 300M measures capacity.
+Arm 1 holds `hidden_dim=384` in both rows on purpose. `hidden=256 / nblocks=71`
+matched tighter (0.31%) but changes width AND depth; holding the shipped width
+and moving only depth keeps arm 1 recognizably the established baseline instead
+of a third architecture. 1.44% is well inside the 5% budget.
 
----
+**Run both capacities for every arm.** With ~547 episodes per mode x 5 seen
+modes = ~2,735 training episodes, the large arm is ~110k params/episode. If
+large wins on the seen modes and loses on held-out `jittery`, that is
+overfitting rather than causal structure — and without the small arm you cannot
+say which.
 
 ## 5. Integration — the actual blocker
 
