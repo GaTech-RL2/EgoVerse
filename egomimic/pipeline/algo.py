@@ -18,6 +18,7 @@ _PACKED_META_KEYS = frozenset(
 _VIZ_PASSTHROUGH_KEYS = frozenset(
     {
         "embodiment",
+        "pad_mask",
         "front_intrinsics",
         "left_camera_extrinsics",
         "right_camera_extrinsics",
@@ -50,6 +51,7 @@ class PipelineAlgo(Algo):
         device=None,
     ):
         super().__init__()
+        stages = list(stages)
         self.norm_stats = norm_stats
         self.domains = list(domains)
         self.ac_keys = dict(ac_keys)
@@ -65,12 +67,10 @@ class PipelineAlgo(Algo):
                 "Rollout adapters configured for unknown domains: "
                 f"{sorted(unknown_adapter_domains)}"
             )
-        self.rollout_observation_adapters = dict(
-            rollout_observation_adapters or {}
-        )
-        unknown_observation_adapter_domains = (
-            set(self.rollout_observation_adapters) - set(self.domains)
-        )
+        self.rollout_observation_adapters = dict(rollout_observation_adapters or {})
+        unknown_observation_adapter_domains = set(
+            self.rollout_observation_adapters
+        ) - set(self.domains)
         if unknown_observation_adapter_domains:
             raise ValueError(
                 "Rollout observation adapters configured for unknown domains: "
@@ -84,7 +84,20 @@ class PipelineAlgo(Algo):
             get_embodiment_id(domain): domain for domain in self.domains
         }
         self._resolve_keys()
-        self.nets = nn.ModuleDict({"policy": Pipeline(list(stages))})
+        for stage in stages:
+            bind_normalization = getattr(stage, "bind_action_normalization", None)
+            if bind_normalization is None:
+                continue
+            for domain in self.domains:
+                emb_id = get_embodiment_id(domain)
+                action_key = self.resolved_ac_keys[emb_id]
+                stats = self.norm_stats.norm_stats[emb_id][action_key]
+                bind_normalization(
+                    domain,
+                    norm_mode=self.norm_stats.norm_mode,
+                    stats=stats,
+                )
+        self.nets = nn.ModuleDict({"policy": Pipeline(stages)})
         self.nets.to(self.device)
 
     @property
@@ -185,6 +198,8 @@ class PipelineAlgo(Algo):
         if include_actions:
             action_key = self.resolved_ac_keys[emb_id]
             seed["actions"] = batch[action_key]
+        if "pad_mask" in batch:
+            seed["pad_mask"] = batch["pad_mask"]
         seed.update(
             {
                 f"obs/{key}": value
@@ -445,6 +460,18 @@ class PipelineAlgo(Algo):
             predictions[f"emb{emb_id}_{action_key}"] = prediction
             predictions[f"{self.domain_by_id[emb_id]}_{action_key}"] = prediction
             predictions.setdefault(action_key, prediction)
+            if "pred_action_samples" in result:
+                samples = result["pred_action_samples"]
+                predictions[f"emb{emb_id}_{action_key}_samples"] = samples
+                predictions[f"{self.domain_by_id[emb_id]}_{action_key}_samples"] = (
+                    samples
+                )
+            if "raw_pred_action" in result:
+                predictions[f"emb{emb_id}_{action_key}_raw"] = result["raw_pred_action"]
+            if "raw_pred_action_samples" in result:
+                predictions[f"emb{emb_id}_{action_key}_raw_samples"] = result[
+                    "raw_pred_action_samples"
+                ]
         return predictions
 
     def log_info(self, info: dict) -> OrderedDict:
@@ -456,13 +483,47 @@ class PipelineAlgo(Algo):
         # retain their historical embodiment-id names, while these aliases are
         # readable and consistent across single-domain and cotrain runs.
         per_domain_mse = []
+        per_domain_raw_mse = []
+        per_domain_canonical_mse = []
+        per_domain_energy_score = []
         for emb_id, domain in self.domain_by_id.items():
-            key = f"{emb_id}_loss_native_action"
-            if key not in losses:
-                continue
-            value = losses[key].item()
-            logged[f"MSE/{domain}"] = value
-            per_domain_mse.append(value)
+            mse_key = f"{emb_id}_loss_native_action"
+            if mse_key not in losses:
+                mse_key = f"{emb_id}_log_native_action"
+            if mse_key in losses:
+                value = losses[mse_key].item()
+                logged[f"MSE/{domain}"] = value
+                per_domain_mse.append(value)
+
+            raw_mse_key = f"{emb_id}_log_raw_action_mse"
+            if raw_mse_key in losses:
+                value = losses[raw_mse_key].item()
+                logged[f"Raw_MSE/{domain}"] = value
+                per_domain_raw_mse.append(value)
+
+            canonical_mse_key = f"{emb_id}_log_canonical_action_mse"
+            if canonical_mse_key in losses:
+                value = losses[canonical_mse_key].item()
+                logged[f"Canonical_MSE/{domain}"] = value
+                per_domain_canonical_mse.append(value)
+
+            score_key = f"{emb_id}_loss_conditional_energy_score"
+            if score_key not in losses:
+                score_key = f"{emb_id}_log_conditional_energy_score"
+            if score_key in losses:
+                value = losses[score_key].item()
+                logged[f"EnergyScore/{domain}"] = value
+                per_domain_energy_score.append(value)
         if per_domain_mse:
             logged["MSE"] = sum(per_domain_mse) / len(per_domain_mse)
+        if per_domain_raw_mse:
+            logged["Raw_MSE"] = sum(per_domain_raw_mse) / len(per_domain_raw_mse)
+        if per_domain_canonical_mse:
+            logged["Canonical_MSE"] = sum(per_domain_canonical_mse) / len(
+                per_domain_canonical_mse
+            )
+        if per_domain_energy_score:
+            logged["EnergyScore"] = sum(per_domain_energy_score) / len(
+                per_domain_energy_score
+            )
         return logged

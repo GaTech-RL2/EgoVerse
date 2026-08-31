@@ -1,11 +1,13 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import torch
 
-from egomimic.pipeline.algo import PipelineAlgo
-from egomimic.eval.human_robot_overlay_eval import HumanRobotOverlayEval
 from egomimic.eval.eval_video import EvalVideo
+from egomimic.eval.human_robot_overlay_eval import HumanRobotOverlayEval
+from egomimic.pipeline.algo import PipelineAlgo
+from egomimic.pipeline.pushshapes import USocketRotVecRolloutAdapter
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.human import (
     build_fold_keypoint_wristframe_revert_transform_list,
@@ -79,6 +81,61 @@ def test_metrics_include_per_domain_and_cotrain_mse_aliases():
     assert metrics["Valid/Native_MSE"].item() == 2.5
 
 
+def test_grouped_validation_logs_energy_score_and_k_sample_mse():
+    emb_id = get_embodiment_id("eva_bimanual")
+    action_key = "actions_cartesian"
+    target = torch.zeros(1, 1, 1)
+    samples = torch.tensor([[[[-1.0]], [[1.0]]]])
+    predictions = {
+        f"emb{emb_id}_{action_key}": samples[:, 0],
+        f"emb{emb_id}_{action_key}_samples": samples,
+    }
+    evaluator = HumanRobotOverlayEval(viz_func=None)
+    evaluator.model = SimpleNamespace(
+        resolved_ac_keys={emb_id: action_key},
+        norm_stats=IdentityNorm(),
+        forward_eval=lambda _batch: predictions,
+    )
+
+    metrics, _ = evaluator.compute_metrics_and_viz({emb_id: {action_key: target}})
+
+    assert metrics["Valid/MSE/eva_bimanual"].item() == 1.0
+    assert metrics["Valid/Native_MSE/eva_bimanual"].item() == 1.0
+    assert metrics["Valid/EnergyScore/eva_bimanual"].item() == 0.0
+    assert metrics["Valid/EnergyAttraction/eva_bimanual"].item() == 1.0
+    assert metrics["Valid/EnergyRepulsion/eva_bimanual"].item() == 1.0
+    assert metrics["Valid/PairwiseDistance/eva_bimanual"].item() == 2.0
+
+
+def test_native_mse_decodes_rotvec_and_wraps_theta_circularly():
+    emb_id = get_embodiment_id("pushshapes_sim_u_socket")
+    action_key = "actions"
+    target_theta = torch.tensor(torch.pi - 0.1)
+    prediction_theta = torch.tensor(-torch.pi + 0.1)
+    target = torch.tensor(
+        [[[[10.0, 20.0, torch.cos(target_theta), torch.sin(target_theta)]]]]
+    ).squeeze(1)
+    prediction = torch.tensor(
+        [[[10.0, 20.0, torch.cos(prediction_theta), torch.sin(prediction_theta)]]]
+    )
+    evaluator = HumanRobotOverlayEval(viz_func=None)
+    evaluator.model = SimpleNamespace(
+        resolved_ac_keys={emb_id: action_key},
+        norm_stats=IdentityNorm(),
+        forward_eval=lambda _batch: {f"emb{emb_id}_{action_key}": prediction},
+        rollout_adapter_for=lambda _emb_id: USocketRotVecRolloutAdapter(),
+    )
+
+    metrics, _ = evaluator.compute_metrics_and_viz({emb_id: {action_key: target}})
+
+    assert metrics["Valid/Native_MSE/pushshapes_sim_u_socket"].item() == pytest.approx(
+        0.2**2 / 3.0, rel=1e-5
+    )
+    assert metrics[
+        "Valid/ActionToken_MSE/pushshapes_sim_u_socket"
+    ].item() == pytest.approx(((prediction - target) ** 2).mean().item())
+
+
 def test_training_log_info_includes_per_domain_and_cotrain_mse_aliases():
     algo = SimpleNamespace(domain_by_id={3: "u_socket", 7: "chain_grabber"})
     info = {
@@ -96,15 +153,37 @@ def test_training_log_info_includes_per_domain_and_cotrain_mse_aliases():
     assert logged["MSE"] == 2.5
 
 
+def test_training_log_info_aliases_energy_objective_and_diagnostic_mse():
+    algo = SimpleNamespace(domain_by_id={3: "u_socket", 7: "chain_grabber"})
+    info = {
+        "losses": {
+            "action_loss": torch.tensor(0.5),
+            "3_loss_conditional_energy_score": torch.tensor(0.4),
+            "7_loss_conditional_energy_score": torch.tensor(0.6),
+            "3_log_native_action": torch.tensor(1.0),
+            "7_log_native_action": torch.tensor(3.0),
+        }
+    }
+
+    logged = PipelineAlgo.log_info(algo, info)
+
+    assert logged["EnergyScore/u_socket"] == pytest.approx(0.4)
+    assert logged["EnergyScore/chain_grabber"] == pytest.approx(0.6)
+    assert logged["EnergyScore"] == pytest.approx(0.5)
+    assert logged["MSE/u_socket"] == 1.0
+    assert logged["MSE/chain_grabber"] == 3.0
+    assert logged["MSE"] == 2.0
+
+
 def test_prediction_unnormalize_preserves_slotwise_arc_token_stats():
     emb_id = get_embodiment_id("eva_bimanual")
     action_key = "actions_cartesian"
     horizon, action_dim = 4, 3
     stats = {
         "quantile_1": np.zeros((horizon, action_dim), dtype=np.float32),
-        "quantile_99": np.arange(
-            1, horizon * action_dim + 1, dtype=np.float32
-        ).reshape(horizon, action_dim),
+        "quantile_99": np.arange(1, horizon * action_dim + 1, dtype=np.float32).reshape(
+            horizon, action_dim
+        ),
     }
     norm_stats = MultiDataset.from_state(
         {
@@ -237,18 +316,22 @@ def test_exact_epoch_metrics_weight_every_action_element_once():
 
     evaluator = HumanRobotOverlayEval(exact_epoch_metrics=True)
     evaluator.trainer = SimpleNamespace(
-        lightning_module=SimpleNamespace(
-            device=torch.device("cpu"), log_dict=log_dict
-        )
+        lightning_module=SimpleNamespace(device=torch.device("cpu"), log_dict=log_dict)
     )
     evaluator._accumulate_exact(
-        emb_ids[0], torch.tensor([1.0, 3.0]), torch.tensor([2.0, 4.0])
+        emb_ids[0],
+        torch.tensor([1.0, 3.0]),
+        torch.tensor([10.0, 20.0]),
+        torch.tensor([2.0, 4.0]),
     )
     evaluator._accumulate_exact(
-        emb_ids[0], torch.tensor([5.0]), torch.tensor([6.0])
+        emb_ids[0], torch.tensor([5.0]), torch.tensor([30.0]), torch.tensor([6.0])
     )
     evaluator._accumulate_exact(
-        emb_ids[1], torch.tensor([4.0, 4.0]), torch.tensor([8.0, 8.0])
+        emb_ids[1],
+        torch.tensor([4.0, 4.0]),
+        torch.tensor([40.0, 40.0]),
+        torch.tensor([8.0, 8.0]),
     )
 
     evaluator.on_validation_end()
@@ -256,5 +339,8 @@ def test_exact_epoch_metrics_weight_every_action_element_once():
     assert logged["Valid/MSE/eva_bimanual"].item() == 3.0
     assert logged["Valid/MSE/human_bimanual"].item() == 4.0
     assert logged["Valid/MSE"].item() == 3.5
+    assert logged["Valid/ActionToken_MSE/eva_bimanual"].item() == 20.0
+    assert logged["Valid/ActionToken_MSE/human_bimanual"].item() == 40.0
+    assert logged["Valid/ActionToken_MSE"].item() == 30.0
     assert logged["Valid/Native_MSE/eva_bimanual"].item() == 4.0
     assert logged["Valid/Native_MSE/human_bimanual"].item() == 8.0

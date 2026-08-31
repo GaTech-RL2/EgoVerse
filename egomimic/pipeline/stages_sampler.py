@@ -9,6 +9,7 @@ import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 
 from egomimic.pipeline.core import Stage
+from egomimic.pipeline.losses import conditional_energy_score
 
 
 class DPStyleObsEncoder(nn.Module):
@@ -248,7 +249,12 @@ class FusedObsEncoder(Stage):
 
 
 class GaussianLatentNoise(Stage):
-    """Create independent Gaussian initial state without reading the target."""
+    """Create Gaussian initial states without reading target values.
+
+    ``num_samples`` groups multiple independent latent draws under one encoded
+    training or teacher-forced-validation condition. Observation-only rollout
+    deliberately retains the historical single-sample tensor contract.
+    """
 
     reads = ["condition"]
     writes = ["sampler/noise"]
@@ -258,20 +264,18 @@ class GaussianLatentNoise(Stage):
         num_tokens: int = None,
         latent_dim: int = 128,
         action_horizon: int = None,
+        num_samples: int = 1,
     ):
         super().__init__()
         if num_tokens is None and action_horizon is None:
             raise ValueError("num_tokens must be configured")
         if num_tokens is not None and action_horizon is not None:
-            raise ValueError(
-                "Configure num_tokens or legacy action_horizon, not both"
-            )
-        self.num_tokens = int(
-            action_horizon if num_tokens is None else num_tokens
-        )
+            raise ValueError("Configure num_tokens or legacy action_horizon, not both")
+        self.num_tokens = int(action_horizon if num_tokens is None else num_tokens)
         self.latent_dim = int(latent_dim)
-        if self.num_tokens <= 0 or self.latent_dim <= 0:
-            raise ValueError("num_tokens and latent_dim must be positive")
+        self.num_samples = int(num_samples)
+        if self.num_tokens <= 0 or self.latent_dim <= 0 or self.num_samples <= 0:
+            raise ValueError("num_tokens, latent_dim, and num_samples must be positive")
 
     def forward(self, batch: dict) -> dict:
         condition = batch["condition"]
@@ -284,13 +288,15 @@ class GaussianLatentNoise(Stage):
             if torch.is_autocast_enabled(device.type)
             else torch.get_default_dtype()
         )
-        batch["sampler/noise"] = torch.randn(
-            batch_size,
-            self.num_tokens,
-            self.latent_dim,
-            dtype=dtype,
-            device=device,
-        )
+        shape = (batch_size, self.num_tokens, self.latent_dim)
+        if self.num_samples > 1 and "target" in batch:
+            shape = (
+                batch_size,
+                self.num_samples,
+                self.num_tokens,
+                self.latent_dim,
+            )
+        batch["sampler/noise"] = torch.randn(*shape, dtype=dtype, device=device)
         return batch
 
     @property
@@ -387,9 +393,7 @@ class TemporalConvActionDecoder(nn.Module):
                 )
         self.num_layers = int(num_layers)
         self.extra_hidden_layers = self.num_layers - 3
-        self.project_to_action_before_temporal = bool(
-            project_to_action_before_temporal
-        )
+        self.project_to_action_before_temporal = bool(project_to_action_before_temporal)
         if min(self.latent_dim, self.hidden_dim, self.action_dim) <= 0:
             raise ValueError("Temporal decoder dimensions must be positive")
         if self.num_layers < 2:
@@ -549,19 +553,20 @@ class LatentFlowSampler(Stage):
             )
 
     def _validate_noise_contract(self, noise: torch.Tensor) -> None:
-        if noise.ndim != 3 or int(noise.shape[-1]) != self.latent_dim:
+        if noise.ndim not in {3, 4} or int(noise.shape[-1]) != self.latent_dim:
             raise ValueError(
                 "LatentFlowSampler expected sampler/noise shape "
-                f"(B, T, {self.latent_dim}), got {tuple(noise.shape)}"
+                f"(B, T, {self.latent_dim}) or (B, K, T, {self.latent_dim}), "
+                f"got {tuple(noise.shape)}"
             )
         pos_emb = getattr(self.denoising_module, "pos_emb", None)
         if pos_emb is not None and (
-            pos_emb.ndim < 2 or int(pos_emb.shape[-2]) != int(noise.shape[1])
+            pos_emb.ndim < 2 or int(pos_emb.shape[-2]) != int(noise.shape[-2])
         ):
             raise ValueError(
                 "Denoiser positional horizon is "
                 f"{tuple(pos_emb.shape)}, but sampler/noise has "
-                f"{int(noise.shape[1])} tokens"
+                f"{int(noise.shape[-2])} tokens"
             )
 
     def condition_for_domain(
@@ -739,16 +744,36 @@ class LatentFlowSampler(Stage):
                 f"{expected_batch_size} from condition"
             )
         condition = self._condition_from_batch(batch, embodiment)
+        grouped = noise.ndim == 4
+        if grouped:
+            batch_size, num_samples, num_tokens, latent_dim = noise.shape
+            flat_noise = noise.reshape(batch_size * num_samples, num_tokens, latent_dim)
+            condition = condition.repeat_interleave(num_samples, dim=0)
+        else:
+            batch_size, num_samples = int(noise.shape[0]), 1
+            flat_noise = noise
         if self.training:
             optimizer_step = self._optimizer_step(embodiment)
             num_steps = self.unroll_steps_at(optimizer_step)
-            step_sizes = self.sample_step_sizes(noise.shape[0], num_steps, noise)
+            # One integration grid is drawn per condition and shared by all K
+            # latent seeds. Gaussian noise is therefore the only within-group
+            # generator randomness when configured dropout is zero.
+            step_sizes = self.sample_step_sizes(batch_size, num_steps, flat_noise)
+            if grouped:
+                step_sizes = step_sizes.repeat_interleave(num_samples, dim=0)
             batch["log/optimizer_step"] = float(optimizer_step)
         else:
             num_steps = self.num_inference_steps
             step_sizes = None
-        endpoint = self.integrate(
-            noise, condition, num_steps=num_steps, step_sizes=step_sizes
+        flat_endpoint = self.integrate(
+            flat_noise, condition, num_steps=num_steps, step_sizes=step_sizes
+        )
+        endpoint = (
+            flat_endpoint.reshape(
+                batch_size, num_samples, flat_endpoint.shape[-2], latent_dim
+            )
+            if grouped
+            else flat_endpoint
         )
         batch["sampler/endpoint"] = endpoint
         batch["log/sampler_unroll_steps"] = float(num_steps)
@@ -761,11 +786,13 @@ class PerEmbodimentActionDecoder(Stage):
     """Route one latent endpoint to an embodiment-specific action decoder."""
 
     reads = ["sampler/endpoint", "embodiment"]
-    writes = ["pred_action", "log/*"]
+    writes = ["pred_action", "pred_action_samples", "log/*"]
 
     def __init__(self, decoders: Dict[str, nn.Module]):
         super().__init__()
-        configured = {str(domain): decoder for domain, decoder in dict(decoders).items()}
+        configured = {
+            str(domain): decoder for domain, decoder in dict(decoders).items()
+        }
         if not configured:
             raise ValueError("decoders must configure at least one embodiment")
         if any(not isinstance(decoder, nn.Module) for decoder in configured.values()):
@@ -781,9 +808,7 @@ class PerEmbodimentActionDecoder(Stage):
             for decoder in configured.values()
         }
         if len(latent_dims) != 1 or min(latent_dims) <= 0:
-            raise ValueError(
-                "All decoders must expose the same positive latent_dim"
-            )
+            raise ValueError("All decoders must expose the same positive latent_dim")
         if len(temporal_factors) != 1 or min(temporal_factors) <= 0:
             raise ValueError(
                 "All decoders must expose the same positive temporal_factor"
@@ -824,25 +849,48 @@ class PerEmbodimentActionDecoder(Stage):
     def forward(self, batch: dict) -> dict:
         embodiment = str(batch["embodiment"])
         endpoint = batch["sampler/endpoint"]
-        if endpoint.ndim != 3 or int(endpoint.shape[-1]) != self.latent_dim:
+        if endpoint.ndim not in {3, 4} or int(endpoint.shape[-1]) != self.latent_dim:
             raise ValueError(
                 "PerEmbodimentActionDecoder expected sampler/endpoint shape "
-                f"(B, T, {self.latent_dim}), got {tuple(endpoint.shape)}"
+                f"(B, T, {self.latent_dim}) or (B, K, T, {self.latent_dim}), "
+                f"got {tuple(endpoint.shape)}"
             )
-        prediction = self.decoder_for(embodiment)(endpoint)
-        expected = (
-            int(endpoint.shape[0]),
-            self.output_num_tokens(int(endpoint.shape[1])),
+        grouped = endpoint.ndim == 4
+        if grouped:
+            batch_size, num_samples, num_tokens, latent_dim = endpoint.shape
+            decoder_input = endpoint.reshape(
+                batch_size * num_samples, num_tokens, latent_dim
+            )
+        else:
+            batch_size, num_samples, num_tokens = (
+                int(endpoint.shape[0]),
+                1,
+                int(endpoint.shape[1]),
+            )
+            decoder_input = endpoint
+        flat_prediction = self.decoder_for(embodiment)(decoder_input)
+        expected_flat = (
+            batch_size * num_samples,
+            self.output_num_tokens(num_tokens),
             self.action_dims[embodiment],
         )
-        if tuple(prediction.shape) != expected:
+        if tuple(flat_prediction.shape) != expected_flat:
             raise RuntimeError(
-                f"Decoder for {embodiment!r} produced {tuple(prediction.shape)}, "
-                f"expected {expected}"
+                f"Decoder for {embodiment!r} produced "
+                f"{tuple(flat_prediction.shape)}, expected {expected_flat}"
             )
-        batch["pred_action"] = prediction
+        prediction_samples = flat_prediction.reshape(
+            batch_size,
+            num_samples,
+            expected_flat[1],
+            expected_flat[2],
+        )
+        # Existing rollout/evaluator consumers retain their rank-3 contract.
+        # The complete grouped tensor is explicit for distributional losses.
+        batch["pred_action_samples"] = prediction_samples
+        batch["pred_action"] = prediction_samples[:, 0]
         batch["log/sampler_prediction_rms"] = (
-            prediction.detach().square().mean().sqrt()
+            prediction_samples.detach().square().mean().sqrt()
         )
         return batch
 
@@ -985,9 +1033,174 @@ class MultiJActionSampler(LatentFlowSampler):
                 f"Decoder produced shape {tuple(prediction.shape)}, expected {expected}"
             )
         batch["pred_action"] = prediction
-        batch["log/sampler_prediction_rms"] = (
-            prediction.detach().square().mean().sqrt()
+        batch["log/sampler_prediction_rms"] = prediction.detach().square().mean().sqrt()
+        return batch
+
+
+class PerEmbodimentActionCanonicalizer(Stage):
+    """Apply the deployed action equivalence before any loss or rollout.
+
+    Decoder outputs are normalized tokens. This node uses the exact dataset
+    normalization to enter physical units, applies one embodiment-specific
+    differentiable canonicalizer, then returns to normalized model units. Raw
+    outputs are retained only for diagnostics. Because the canonicalized tensor
+    replaces ``pred_action``, training, teacher-forced evaluation, and rollout
+    all consume the same representation.
+    """
+
+    reads = ["pred_action", "embodiment"]
+    writes = [
+        "pred_action",
+        "pred_action_samples",
+        "raw_pred_action",
+        "raw_pred_action_samples",
+        "raw_target",
+        "target",
+        "log/canonicalization_rmse",
+        "log/action_representation_mse",
+        "log/raw_action_mse",
+        "loss/action_representation",
+    ]
+
+    def __init__(
+        self,
+        canonicalizers: Dict[str, nn.Module],
+        representation_loss_weight: float = 0.0,
+    ):
+        super().__init__()
+        self.canonicalizers = nn.ModuleDict(dict(canonicalizers))
+        self.representation_loss_weight = float(representation_loss_weight)
+        if not self.canonicalizers:
+            raise ValueError("At least one action canonicalizer is required")
+        if self.representation_loss_weight < 0.0:
+            raise ValueError("representation_loss_weight must be non-negative")
+        self._normalization_buffers: dict[str, tuple[str, str]] = {}
+
+    def bind_action_normalization(
+        self,
+        domain: str,
+        *,
+        norm_mode: str,
+        stats: dict,
+    ) -> None:
+        """Bind the exact affine action normalization used by the dataset."""
+
+        domain = str(domain)
+        if domain not in self.canonicalizers:
+            return
+        if domain in self._normalization_buffers:
+            raise RuntimeError(f"Action normalization already bound for {domain!r}")
+        norm_mode = str(norm_mode)
+        if norm_mode == "zscore":
+            offset = torch.as_tensor(stats["mean"], dtype=torch.float32)
+            scale = torch.as_tensor(stats["std"], dtype=torch.float32) + 1e-6
+        elif norm_mode == "minmax":
+            minimum = torch.as_tensor(stats["min"], dtype=torch.float32)
+            maximum = torch.as_tensor(stats["max"], dtype=torch.float32)
+            scale = 0.5 * (maximum - minimum + 1e-6)
+            offset = minimum + scale
+        elif norm_mode == "quantile":
+            minimum = torch.as_tensor(stats["quantile_1"], dtype=torch.float32)
+            maximum = torch.as_tensor(stats["quantile_99"], dtype=torch.float32)
+            scale = 0.5 * (maximum - minimum + 1e-6)
+            offset = minimum + scale
+        else:
+            raise ValueError(f"Unsupported action normalization mode {norm_mode!r}")
+        expected_dim = getattr(self.canonicalizers[domain], "action_dim", None)
+        if expected_dim is not None and int(offset.shape[-1]) != int(expected_dim):
+            raise ValueError(
+                f"Canonicalizer for {domain!r} expects action_dim={expected_dim}, "
+                f"but normalization has shape {tuple(offset.shape)}"
+            )
+        index = len(self._normalization_buffers)
+        offset_name = f"_action_norm_offset_{index}"
+        scale_name = f"_action_norm_scale_{index}"
+        self.register_buffer(offset_name, offset, persistent=True)
+        self.register_buffer(scale_name, scale, persistent=True)
+        self._normalization_buffers[domain] = (offset_name, scale_name)
+
+    def canonicalize_normalized_actions(
+        self, actions: torch.Tensor, domain: str
+    ) -> torch.Tensor:
+        domain = str(domain)
+        if domain not in self.canonicalizers:
+            return actions.float()
+        if domain not in self._normalization_buffers:
+            raise RuntimeError(
+                f"Action normalization was not bound for canonicalized domain {domain!r}"
+            )
+        offset_name, scale_name = self._normalization_buffers[domain]
+        offset = getattr(self, offset_name)
+        scale = getattr(self, scale_name)
+        physical = actions.float() * scale + offset
+        canonical = self.canonicalizers[domain](physical)
+        return (canonical - offset) / scale
+
+    def unnormalize_actions(self, actions: torch.Tensor, domain: str) -> torch.Tensor:
+        domain = str(domain)
+        if domain not in self._normalization_buffers:
+            raise RuntimeError(f"Action normalization was not bound for {domain!r}")
+        offset_name, scale_name = self._normalization_buffers[domain]
+        return actions.float() * getattr(self, scale_name) + getattr(self, offset_name)
+
+    def forward(self, batch: dict) -> dict:
+        domain = str(batch["embodiment"])
+        raw_prediction = batch["pred_action"]
+        batch["raw_pred_action"] = raw_prediction
+        batch["pred_action"] = self.canonicalize_normalized_actions(
+            raw_prediction, domain
         )
+        residuals = [
+            (batch["pred_action"].detach() - raw_prediction.detach().float()).square()
+        ]
+        if "pred_action_samples" in batch:
+            raw_samples = batch["pred_action_samples"]
+            canonical_samples = self.canonicalize_normalized_actions(
+                raw_samples, domain
+            )
+            batch["raw_pred_action_samples"] = raw_samples
+            batch["pred_action_samples"] = canonical_samples
+            # Keep the rank-3 compatibility output exactly equal to member zero.
+            batch["pred_action"] = canonical_samples[:, 0]
+            residuals = [
+                (canonical_samples.detach() - raw_samples.detach().float()).square()
+            ]
+            diagnostic_input = raw_samples
+        else:
+            diagnostic_input = raw_prediction
+        if "target" in batch:
+            raw_target = batch["target"]
+            batch["raw_target"] = raw_target
+            batch["target"] = self.canonicalize_normalized_actions(raw_target, domain)
+            if "raw_pred_action_samples" in batch:
+                raw_error = (
+                    batch["raw_pred_action_samples"].float()
+                    - raw_target.float()[:, None]
+                ).square()
+            else:
+                raw_error = (raw_prediction.float() - raw_target.float()).square()
+            batch["log/raw_action_mse"] = raw_error.mean().detach()
+        representation_mse = torch.cat(
+            [residual.reshape(-1) for residual in residuals]
+        ).mean()
+        batch["log/canonicalization_rmse"] = representation_mse.sqrt()
+        batch["log/action_representation_mse"] = representation_mse
+        if "target" in batch and self.representation_loss_weight > 0.0:
+            # This selects a stable raw representative of each executed action
+            # equivalence class; both scientific arms use the identical term.
+            live_residual = (
+                batch["pred_action_samples"] - batch["raw_pred_action_samples"].float()
+                if "pred_action_samples" in batch
+                else batch["pred_action"] - batch["raw_pred_action"].float()
+            )
+            batch["loss/action_representation"] = (
+                self.representation_loss_weight * live_residual.square().mean()
+            )
+        diagnostics = getattr(self.canonicalizers[domain], "diagnostics", None)
+        if diagnostics is not None:
+            physical = self.unnormalize_actions(diagnostic_input, domain)
+            for name, value in diagnostics(physical).items():
+                batch[f"log/{name}"] = value.detach()
         return batch
 
 
@@ -1017,4 +1230,164 @@ class NativeActionMSELoss(Stage):
             loss = (error * mask).sum() / mask.sum().clamp_min(1.0)
         batch["loss/native_action"] = loss
         batch["log/native_action"] = loss.detach()
+        return batch
+
+
+class ConditionalEnergyScoreLoss(Stage):
+    """Train-only conditional energy score over grouped action chunks.
+
+    This is a replacement endpoint objective, not an auxiliary term. Native
+    MSE remains a detached diagnostic and contributes no gradient to
+    ``sum_losses``.
+    """
+
+    train_only = True
+    reads = ["pred_action_samples", "target"]
+    writes = [
+        "loss/conditional_energy_score",
+        "log/conditional_energy_score",
+        "log/energy_attraction",
+        "log/energy_repulsion",
+        "log/energy_pairwise_distance",
+        "log/native_action",
+        "log/canonical_action_mse",
+        "log/ensemble_mean_mse",
+        "log/best_of_k_mse",
+    ]
+
+    def __init__(
+        self,
+        beta: float = 1.0,
+        normalize_by_dimension: bool = True,
+        expected_num_samples: int | None = None,
+    ):
+        super().__init__()
+        self.beta = float(beta)
+        self.normalize_by_dimension = bool(normalize_by_dimension)
+        self.expected_num_samples = (
+            None if expected_num_samples is None else int(expected_num_samples)
+        )
+        if not math.isfinite(self.beta) or not 0.0 < self.beta < 2.0:
+            raise ValueError(f"beta must satisfy 0 < beta < 2, got {self.beta}")
+        if self.expected_num_samples is not None and self.expected_num_samples < 2:
+            raise ValueError("expected_num_samples must be at least two")
+
+    def forward(self, batch: dict) -> dict:
+        prediction_samples = batch["pred_action_samples"]
+        if (
+            self.expected_num_samples is not None
+            and prediction_samples.ndim >= 2
+            and int(prediction_samples.shape[1]) != self.expected_num_samples
+        ):
+            raise ValueError(
+                "ConditionalEnergyScoreLoss expected "
+                f"K={self.expected_num_samples}, got "
+                f"shape {tuple(prediction_samples.shape)}"
+            )
+        target = batch["target"]
+        metrics = conditional_energy_score(
+            prediction_samples,
+            target,
+            beta=self.beta,
+            normalize_by_dimension=self.normalize_by_dimension,
+            pad_mask=batch.get("pad_mask"),
+        )
+        batch["loss/conditional_energy_score"] = metrics["score"]
+        for destination, source in (
+            ("log/conditional_energy_score", "score"),
+            ("log/energy_attraction", "attraction"),
+            ("log/energy_repulsion", "repulsion"),
+            ("log/energy_pairwise_distance", "pairwise_distance"),
+            ("log/native_action", "mse"),
+            ("log/canonical_action_mse", "mse"),
+            ("log/ensemble_mean_mse", "ensemble_mean_mse"),
+            ("log/best_of_k_mse", "best_of_k_mse"),
+        ):
+            batch[destination] = metrics[source].detach()
+        return batch
+
+
+class GroupedActionMSELoss(Stage):
+    """Matched K-sample MSE control with detached energy-score diagnostics."""
+
+    train_only = True
+    reads = ["pred_action_samples", "target"]
+    writes = [
+        "loss/grouped_action_mse",
+        "log/native_action",
+        "log/canonical_action_mse",
+        "log/conditional_energy_score",
+        "log/energy_attraction",
+        "log/energy_repulsion",
+        "log/energy_pairwise_distance",
+        "log/ensemble_mean_mse",
+        "log/best_of_k_mse",
+    ]
+
+    def __init__(
+        self,
+        beta: float = 1.0,
+        normalize_by_dimension: bool = True,
+        expected_num_samples: int | None = None,
+    ):
+        super().__init__()
+        self.beta = float(beta)
+        self.normalize_by_dimension = bool(normalize_by_dimension)
+        self.expected_num_samples = (
+            None if expected_num_samples is None else int(expected_num_samples)
+        )
+        if not math.isfinite(self.beta) or not 0.0 < self.beta < 2.0:
+            raise ValueError(f"beta must satisfy 0 < beta < 2, got {self.beta}")
+        if self.expected_num_samples is not None and self.expected_num_samples < 2:
+            raise ValueError("expected_num_samples must be at least two")
+
+    def forward(self, batch: dict) -> dict:
+        prediction_samples = batch["pred_action_samples"]
+        target = batch["target"]
+        if (
+            self.expected_num_samples is not None
+            and prediction_samples.ndim >= 2
+            and int(prediction_samples.shape[1]) != self.expected_num_samples
+        ):
+            raise ValueError(
+                "GroupedActionMSELoss expected "
+                f"K={self.expected_num_samples}, got "
+                f"shape {tuple(prediction_samples.shape)}"
+            )
+        error = (prediction_samples.float() - target.float()[:, None]).square()
+        pad_mask = batch.get("pad_mask")
+        if pad_mask is None:
+            loss = error.mean()
+        else:
+            mask = pad_mask.to(device=error.device, dtype=torch.float32)
+            if mask.ndim == 2:
+                mask = mask[:, None, :, None]
+            elif mask.ndim == 3:
+                mask = mask[:, None]
+            else:
+                raise ValueError(
+                    "pad_mask must have shape (B,H) or (B,H,D), got "
+                    f"{tuple(mask.shape)}"
+                )
+            mask = mask.expand_as(error)
+            loss = (error * mask).sum() / mask.sum().clamp_min(1.0)
+        metrics = conditional_energy_score(
+            prediction_samples,
+            target,
+            beta=self.beta,
+            normalize_by_dimension=self.normalize_by_dimension,
+            pad_mask=pad_mask,
+        )
+        batch["loss/grouped_action_mse"] = loss
+        batch["log/native_action"] = loss.detach()
+        batch["log/canonical_action_mse"] = loss.detach()
+        for destination, source in (
+            ("log/conditional_energy_score", "score"),
+            ("log/energy_attraction", "attraction"),
+            ("log/energy_repulsion", "repulsion"),
+            ("log/energy_pairwise_distance", "pairwise_distance"),
+            ("log/ensemble_mean_mse", "ensemble_mean_mse"),
+            ("log/best_of_k_mse", "best_of_k_mse"),
+        ):
+            batch[destination] = metrics[source].detach()
         return batch
