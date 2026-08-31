@@ -100,3 +100,32 @@ def test_the_known_bad_string_is_still_detected():
     assert any(o.is_sweep_override() for o in parsed), (
         "the comma-as-sweep behaviour this gate exists for is no longer "
         "reproducible; re-derive the gate before trusting it")
+
+
+def test_wandb_run_id_stays_under_the_128_char_limit():
+    """`logger/wandb.yaml` builds the run id as name_description_timestamp.
+
+    wandb rejects a Name over 128 chars with
+    `CommError: invalid parameters: 128 limit exceeded for Name`, and it does so
+    in PHASE 2 at wandb.init() — after the R2 pull, the staging and the entire
+    phase-1 norm-stats pass have already succeeded. Cheap to check, expensive
+    to discover.
+    """
+
+
+    TIMESTAMP_LEN = len("2026-08-31_07-57-02")
+    names, descs = {}, {}
+    for pair in _dry_run_overrides():
+        key, _, value = pair.partition("=")
+        if key == "run_name":
+            names[value] = True
+        elif key == "run_desc":
+            descs[value] = True
+    assert names and descs, "no run_name/run_desc recovered"
+
+    worst_name = max(names, key=len)
+    worst_desc = max(descs, key=len)
+    composed = len(worst_name) + 1 + len(worst_desc) + 1 + TIMESTAMP_LEN
+    assert composed <= 128, (
+        f"wandb run id would be {composed} chars (limit 128): "
+        f"name={worst_name!r} desc={worst_desc!r}")
