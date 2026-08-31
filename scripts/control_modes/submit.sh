@@ -79,12 +79,19 @@ read -r -a ARMS <<< "${ARMS:-arm1_dp_flow arm2_causal_bidir arm3_state_action_ar
 # happens in phase 1 — i.e. after the image pull, uv sync, the R2 pull and
 # staging. Bash quoting does not help: the value reaches hydra intact and hydra
 # is the one that objects. Colons are avoided for the same reason.
+# SHORT. logger/wandb.yaml builds the run id as
+#   "${name}_${description}_${now:%Y-%m-%d_%H-%M-%S}"
+# and wandb rejects a Name over 128 chars with
+#   CommError: invalid parameters: 128 limit exceeded for Name
+# — in PHASE 2, after norm-stats has already completed. The longest run name is
+# 44 chars and the timestamp 19, so the description budget is ~63. The arm and
+# capacity are already in the run name; do not repeat them here.
 arm_desc() {
   case "$1" in
-    arm1_dp_flow)         echo "ARM1 baseline bidirectional flow-matching" ;;
-    arm2_causal_bidir)    echo "ARM2 CONTROL bidirectional regression+MSE same backbone as arms 3-4" ;;
-    arm3_state_action_ar) echo "ARM3 causal AR over arc-token rows regression+MSE" ;;
-    arm4_state_idm)       echo "ARM4 causal pose path + inverse dynamics regression+MSE" ;;
+    arm1_dp_flow)         echo "flow bidir | 4seen holdout ideal+jittery" ;;
+    arm2_causal_bidir)    echo "MSE bidir CONTROL | 4seen holdout ideal+jittery" ;;
+    arm3_state_action_ar) echo "MSE causal AR | 4seen holdout ideal+jittery" ;;
+    arm4_state_idm)       echo "MSE causal IDM | 4seen holdout ideal+jittery" ;;
     *) echo "unknown arm $1" >&2; exit 2 ;;
   esac
 }
@@ -94,7 +101,7 @@ for cap in "${CAPS[@]}"; do
     MODEL_CFG="bf/bf_ctrlmode_${arm}_${cap}"
     JOB="ctrlmode-${arm//_/-}-${cap}"
     RUN_NAME="ctrlmode_${arm}_${cap}_${STAMP}"
-    RUN_DESC="$(arm_desc "$arm") | ${cap} capacity | train ${SEEN_MODES// /+} | holdout ideal+jittery"
+    RUN_DESC="$(arm_desc "$arm")"
 
     ARGS=(
       workflow submit "$LAUNCHER"
@@ -120,6 +127,17 @@ for cap in "${CAPS[@]}"; do
       "memory=${MEMORY:-320Gi}"
       "storage=${STORAGE:-200Gi}"
     )
+
+    # wandb builds its run id as name_description_timestamp and rejects
+    # anything over 128 chars — in phase 2, after norm-stats. Check the real
+    # composed length rather than eyeballing the parts.
+    WANDB_ID_LEN=$(( ${#RUN_NAME} + 1 + ${#RUN_DESC} + 1 + 19 ))
+    if [ "$WANDB_ID_LEN" -gt 128 ]; then
+      echo "FATAL: wandb run id would be $WANDB_ID_LEN chars (limit 128)." >&2
+      echo "  name=$RUN_NAME" >&2
+      echo "  desc=$RUN_DESC" >&2
+      exit 4
+    fi
 
     # Guard rather than trust: a comma anywhere in a --set value becomes a
     # hydra list and kills the run in phase 1, ~40 minutes of staging in.
