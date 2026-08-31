@@ -175,6 +175,37 @@ def test_training_log_info_aliases_energy_objective_and_diagnostic_mse():
     assert logged["MSE"] == 2.0
 
 
+def test_training_log_info_aliases_latent_gauge_diagnostics_by_domain():
+    algo = SimpleNamespace(domain_by_id={3: "u_socket", 7: "chain_grabber"})
+    info = {
+        "losses": {
+            "action_loss": torch.tensor(0.5),
+            "3_loss_latent_endpoint_gauge": torch.tensor(0.002),
+            "7_loss_latent_endpoint_gauge": torch.tensor(0.004),
+            "3_log_latent_endpoint_total_rms": torch.tensor(8.0),
+            "7_log_latent_endpoint_total_rms": torch.tensor(10.0),
+            "3_log_latent_endpoint_centered_within_k_rms": torch.tensor(2.0),
+            "7_log_latent_endpoint_centered_within_k_rms": torch.tensor(4.0),
+            "3_log_decoder_first_linear_weight_frobenius_norm": torch.tensor(1.5),
+            "7_log_decoder_first_linear_weight_frobenius_norm": torch.tensor(2.5),
+            "3_log_latent_decoder_scale_product": torch.tensor(12.0),
+            "7_log_latent_decoder_scale_product": torch.tensor(25.0),
+        }
+    }
+
+    logged = PipelineAlgo.log_info(algo, info)
+
+    assert logged["LatentGauge/Loss/u_socket"] == pytest.approx(0.002)
+    assert logged["LatentGauge/Loss/chain_grabber"] == pytest.approx(0.004)
+    assert logged["LatentGauge/Loss"] == pytest.approx(0.003)
+    assert logged["LatentGauge/Endpoint_RMS/u_socket"] == pytest.approx(8.0)
+    assert logged["LatentGauge/Endpoint_RMS/chain_grabber"] == pytest.approx(10.0)
+    assert logged["LatentGauge/Endpoint_RMS"] == pytest.approx(9.0)
+    assert logged["LatentGauge/WithinK_RMS"] == pytest.approx(3.0)
+    assert logged["LatentGauge/Decoder_FirstLinear_Frobenius"] == pytest.approx(2.0)
+    assert logged["LatentGauge/Latent_Decoder_Scale_Product"] == pytest.approx(18.5)
+
+
 def test_prediction_unnormalize_preserves_slotwise_arc_token_stats():
     emb_id = get_embodiment_id("eva_bimanual")
     action_key = "actions_cartesian"

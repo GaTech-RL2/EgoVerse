@@ -486,6 +486,21 @@ class PipelineAlgo(Algo):
         per_domain_raw_mse = []
         per_domain_canonical_mse = []
         per_domain_energy_score = []
+        gauge_metric_keys = {
+            "Loss": "loss_latent_endpoint_gauge",
+            "Active": "log_latent_endpoint_gauge_active",
+            "Endpoint_RMS": "log_latent_endpoint_total_rms",
+            "GroupMean_RMS": "log_latent_endpoint_group_mean_rms",
+            "WithinK_RMS": "log_latent_endpoint_centered_within_k_rms",
+            "MaxAbs": "log_latent_endpoint_max_abs",
+            "Decoder_FirstLinear_Frobenius": (
+                "log_decoder_first_linear_weight_frobenius_norm"
+            ),
+            "Latent_Decoder_Scale_Product": (
+                "log_latent_decoder_scale_product"
+            ),
+        }
+        per_domain_gauge = {name: [] for name in gauge_metric_keys}
         for emb_id, domain in self.domain_by_id.items():
             mse_key = f"{emb_id}_loss_native_action"
             if mse_key not in losses:
@@ -514,6 +529,14 @@ class PipelineAlgo(Algo):
                 value = losses[score_key].item()
                 logged[f"EnergyScore/{domain}"] = value
                 per_domain_energy_score.append(value)
+
+            for name, suffix in gauge_metric_keys.items():
+                key = f"{emb_id}_{suffix}"
+                if key not in losses:
+                    continue
+                value = losses[key].item()
+                logged[f"LatentGauge/{name}/{domain}"] = value
+                per_domain_gauge[name].append(value)
         if per_domain_mse:
             logged["MSE"] = sum(per_domain_mse) / len(per_domain_mse)
         if per_domain_raw_mse:
@@ -526,4 +549,7 @@ class PipelineAlgo(Algo):
             logged["EnergyScore"] = sum(per_domain_energy_score) / len(
                 per_domain_energy_score
             )
+        for name, values in per_domain_gauge.items():
+            if values:
+                logged[f"LatentGauge/{name}"] = sum(values) / len(values)
         return logged
