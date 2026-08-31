@@ -860,6 +860,231 @@ class LatentEndpointGaugeLoss(Stage):
         return batch
 
 
+def _latent_endpoint_with_active_mask(
+    batch: dict, input_key: str
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    endpoint = batch[input_key]
+    if not torch.is_tensor(endpoint) or endpoint.numel() == 0:
+        raise ValueError(f"{input_key} must be a non-empty tensor")
+    if endpoint.ndim not in {3, 4}:
+        raise ValueError(
+            f"{input_key} must have shape (B,T,D) or (B,K,T,D), "
+            f"got {tuple(endpoint.shape)}"
+        )
+    endpoint_fp32 = endpoint.float()
+    mask = batch.get("pad_mask")
+    if mask is None:
+        return endpoint, endpoint_fp32, torch.ones_like(endpoint_fp32)
+
+    temporal_mask = mask.to(device=endpoint.device, dtype=torch.bool)
+    if temporal_mask.ndim == 3:
+        temporal_mask = temporal_mask.any(dim=-1)
+    if temporal_mask.ndim != 2:
+        raise ValueError(
+            "pad_mask must have shape (B,T) or (B,T,D), got "
+            f"{tuple(temporal_mask.shape)}"
+        )
+    if tuple(temporal_mask.shape) != (
+        int(endpoint.shape[0]),
+        int(endpoint.shape[-2]),
+    ):
+        raise ValueError(
+            "pad_mask must match latent batch/time axes: "
+            f"mask={tuple(temporal_mask.shape)} endpoint={tuple(endpoint.shape)}"
+        )
+    if not bool(temporal_mask.any(dim=-1).all()):
+        raise ValueError("every latent candidate must retain a valid timestep")
+    temporal_mask = temporal_mask[:, None, :, None]
+    if endpoint.ndim == 3:
+        temporal_mask = temporal_mask[:, 0]
+    return endpoint, endpoint_fp32, temporal_mask.expand_as(endpoint_fp32).float()
+
+
+def _masked_candidate_m2(
+    endpoint_fp32: torch.Tensor, active: torch.Tensor
+) -> torch.Tensor:
+    return (endpoint_fp32.square() * active).sum(
+        dim=(-2, -1), keepdim=True
+    ) / active.sum(dim=(-2, -1), keepdim=True)
+
+
+class LatentEndpointRadiusHingeLoss(Stage):
+    """Penalize each raw latent candidate whose valid RMS exceeds a cap."""
+
+    train_only = True
+    reads = ["sampler/endpoint"]
+    writes = [
+        "loss/latent_endpoint_gauge",
+        "log/latent_endpoint_hinge_active_fraction",
+        "log/latent_endpoint_hinge_excess_m2",
+    ]
+
+    def __init__(
+        self,
+        input_key: str = "sampler/endpoint",
+        max_rms: float = 8.0,
+        weight: float = 1.0e-4,
+    ):
+        super().__init__()
+        self.input_key = str(input_key)
+        self.max_rms = float(max_rms)
+        self.weight = float(weight)
+        if not self.input_key:
+            raise ValueError("input_key must be non-empty")
+        if not math.isfinite(self.max_rms) or self.max_rms <= 0.0:
+            raise ValueError("max_rms must be finite and positive")
+        if not math.isfinite(self.weight) or self.weight < 0.0:
+            raise ValueError("weight must be finite and non-negative")
+        self.reads = [self.input_key]
+
+    def forward(self, batch: dict) -> dict:
+        _, endpoint_fp32, active = _latent_endpoint_with_active_mask(
+            batch, self.input_key
+        )
+        candidate_m2 = _masked_candidate_m2(endpoint_fp32, active)
+        excess = torch.relu(candidate_m2 - self.max_rms * self.max_rms)
+        batch["loss/latent_endpoint_gauge"] = self.weight * excess.mean()
+        batch["log/latent_endpoint_hinge_active_fraction"] = (
+            (candidate_m2.detach() > self.max_rms * self.max_rms).float().mean()
+        )
+        batch["log/latent_endpoint_hinge_excess_m2"] = excess.detach().mean()
+        return batch
+
+
+class LatentEndpointSmoothRMSCap(Stage):
+    """Smoothly bound each candidate radius before the action decoder.
+
+    Valid candidate radii through ``soft_start_rms`` are unchanged. Larger
+    radii are mapped monotonically toward ``max_rms`` using a tanh knee, which
+    keeps radial ordering and useful radial gradients through the transition.
+    Invalid padded tokens are zeroed and do not affect the radius. The same
+    transform runs in training, teacher-forced evaluation, and rollout.
+    """
+
+    reads = ["sampler/endpoint"]
+
+    def __init__(
+        self,
+        input_key: str = "sampler/endpoint",
+        output_key: str = "sampler/stabilized_endpoint",
+        max_rms: float = 8.0,
+        soft_start_rms: float = 6.0,
+        eps: float = 1.0e-6,
+    ):
+        super().__init__()
+        self.input_key = str(input_key)
+        self.output_key = str(output_key)
+        self.max_rms = float(max_rms)
+        self.soft_start_rms = float(soft_start_rms)
+        self.eps = float(eps)
+        if not self.input_key or not self.output_key:
+            raise ValueError("input_key and output_key must be non-empty")
+        if self.input_key == self.output_key:
+            raise ValueError("output_key must differ from input_key")
+        if not math.isfinite(self.max_rms) or self.max_rms <= 0.0:
+            raise ValueError("max_rms must be finite and positive")
+        if (
+            not math.isfinite(self.soft_start_rms)
+            or self.soft_start_rms <= 0.0
+            or self.soft_start_rms >= self.max_rms
+        ):
+            raise ValueError(
+                "soft_start_rms must be finite, positive, and below max_rms"
+            )
+        if not math.isfinite(self.eps) or self.eps <= 0.0:
+            raise ValueError("eps must be finite and positive")
+        self.reads = [self.input_key]
+        self.writes = [
+            self.output_key,
+            "log/latent_endpoint_total_rms",
+            "log/latent_endpoint_stabilized_rms",
+            "log/latent_endpoint_group_mean_rms",
+            "log/latent_endpoint_centered_within_k_rms",
+            "log/latent_endpoint_max_abs",
+            "log/latent_endpoint_m2",
+            "log/latent_endpoint_saturation_fraction",
+            "log/latent_endpoint_above_cap_fraction",
+            "log/latent_endpoint_radial_scale_mean",
+            "log/latent_endpoint_radial_scale_min",
+            "log/latent_endpoint_candidate_rms_max",
+            "log/latent_endpoint_stabilized_candidate_rms_max",
+        ]
+
+    def forward(self, batch: dict) -> dict:
+        endpoint, endpoint_fp32, active = _latent_endpoint_with_active_mask(
+            batch, self.input_key
+        )
+        candidate_m2 = _masked_candidate_m2(endpoint_fp32, active)
+        # ``sqrt(0)`` has an infinite derivative. Even when torch.where selects
+        # the identity branch, that unused derivative can contaminate backward
+        # as 0 * inf. Clamp only the transform's private radius; diagnostics
+        # below retain the exact detached radius, including exact zeros.
+        safe_candidate_rms = candidate_m2.clamp_min(self.eps * self.eps).sqrt()
+        above_knee = candidate_m2 > self.soft_start_rms * self.soft_start_rms
+        radial_span = self.max_rms - self.soft_start_rms
+        excess_radius = torch.relu(safe_candidate_rms - self.soft_start_rms)
+        saturated_candidate_rms = (
+            self.soft_start_rms
+            + radial_span * torch.tanh(excess_radius / radial_span)
+        )
+        scale = torch.where(
+            above_knee,
+            saturated_candidate_rms / safe_candidate_rms,
+            torch.ones_like(safe_candidate_rms),
+        )
+        stabilized_fp32 = endpoint_fp32 * scale * active
+        batch[self.output_key] = stabilized_fp32.to(dtype=endpoint.dtype)
+
+        candidate_rms = candidate_m2.detach().sqrt()
+        stabilized_candidate_rms = _masked_candidate_m2(
+            stabilized_fp32.detach(), active
+        ).sqrt()
+
+        second_moment = (endpoint_fp32.square() * active).sum() / active.sum()
+        total_rms = second_moment.sqrt()
+        if endpoint_fp32.ndim == 4:
+            group_mean = endpoint_fp32.mean(dim=1, keepdim=True)
+            group_active = active[:, :1]
+            group_mean_rms = (
+                (group_mean.square() * group_active).sum() / group_active.sum()
+            ).sqrt()
+            centered_within_k_rms = (
+                ((endpoint_fp32 - group_mean).square() * active).sum()
+                / active.sum()
+            ).sqrt()
+        else:
+            group_mean_rms = total_rms
+            centered_within_k_rms = torch.zeros_like(total_rms)
+
+        batch["log/latent_endpoint_total_rms"] = total_rms.detach()
+        batch["log/latent_endpoint_stabilized_rms"] = (
+            stabilized_fp32.square().sum() / active.sum()
+        ).sqrt().detach()
+        batch["log/latent_endpoint_group_mean_rms"] = group_mean_rms.detach()
+        batch["log/latent_endpoint_centered_within_k_rms"] = (
+            centered_within_k_rms.detach()
+        )
+        batch["log/latent_endpoint_max_abs"] = (
+            endpoint_fp32.detach().abs() * active
+        ).amax()
+        batch["log/latent_endpoint_m2"] = second_moment.detach()
+        batch["log/latent_endpoint_saturation_fraction"] = (
+            (candidate_rms.detach() > self.soft_start_rms).float().mean()
+        )
+        batch["log/latent_endpoint_above_cap_fraction"] = (
+            (candidate_rms.detach() > self.max_rms).float().mean()
+        )
+        batch["log/latent_endpoint_radial_scale_mean"] = scale.detach().mean()
+        batch["log/latent_endpoint_radial_scale_min"] = scale.detach().amin()
+        batch["log/latent_endpoint_candidate_rms_max"] = (
+            candidate_rms.detach().amax()
+        )
+        batch["log/latent_endpoint_stabilized_candidate_rms_max"] = (
+            stabilized_candidate_rms.detach().amax()
+        )
+        return batch
+
+
 class PerEmbodimentActionDecoder(Stage):
     """Route one latent endpoint to an embodiment-specific action decoder."""
 
@@ -870,18 +1095,24 @@ class PerEmbodimentActionDecoder(Stage):
         self,
         decoders: Dict[str, nn.Module],
         output_key: str = "pred_action",
+        input_key: str = "sampler/endpoint",
     ):
         super().__init__()
+        input_key = str(input_key)
         output_key = str(output_key)
+        if not input_key:
+            raise ValueError("input_key must be non-empty")
         if not output_key or output_key.endswith("_samples"):
             raise ValueError(
                 f"output_key must be a non-empty singular batch key, got {output_key!r}"
             )
+        self.input_key = input_key
         self.output_key = output_key
         self.output_samples_key = f"{output_key}_samples"
         # Preserve the historical public keys by default while allowing a
         # downstream transform node to own ``pred_action`` without an
         # ambiguous overwrite in the dependency graph.
+        self.reads = [self.input_key, "embodiment"]
         self.writes = [self.output_key, self.output_samples_key, "log/*"]
         configured = {
             str(domain): decoder for domain, decoder in dict(decoders).items()
@@ -941,10 +1172,10 @@ class PerEmbodimentActionDecoder(Stage):
 
     def forward(self, batch: dict) -> dict:
         embodiment = str(batch["embodiment"])
-        endpoint = batch["sampler/endpoint"]
+        endpoint = batch[self.input_key]
         if endpoint.ndim not in {3, 4} or int(endpoint.shape[-1]) != self.latent_dim:
             raise ValueError(
-                "PerEmbodimentActionDecoder expected sampler/endpoint shape "
+                f"PerEmbodimentActionDecoder expected {self.input_key} shape "
                 f"(B, T, {self.latent_dim}) or (B, K, T, {self.latent_dim}), "
                 f"got {tuple(endpoint.shape)}"
             )

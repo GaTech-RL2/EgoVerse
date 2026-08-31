@@ -1,4 +1,4 @@
-# Small direct-decoder causal test of the conditional energy-score objective.
+# Stable 260M direct-decoder test of the conditional energy-score objective.
 # U-Socket remains rotvec4 and ChainGripper remains ordered point6 keypoints.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
@@ -69,7 +69,7 @@ robomimic_model:
     gradient_accumulation_steps: 1
     schedule_anchor_domain: pushshapes_sim_u_socket
     latent_dim: 4
-    denoiser_hidden_dim: 128
+    denoiser_hidden_dim: 768
     num_inference_steps: 8
     sampling_schedule:
       1: {1: 0.50, 2: 0.50}
@@ -77,24 +77,32 @@ robomimic_model:
     gradient_checkpointing: true
     denoising_module:
       _target_: egomimic.models.denoising_nets.CrossTransformer
-      nblocks: 8
+      nblocks: 13
       cond_dim: 384
-      hidden_dim: 128
+      hidden_dim: 768
       act_dim: 4
       act_seq: 16
-      n_heads: 8
+      n_heads: 12
       # Disable extra stochasticity so the K samples differ only in Gaussian z.
       dropout: 0.0
-      mlp_layers: 4
+      mlp_layers: 2
       mlp_ratio: 4
       time_conditioning: additive
-  - _target_: egomimic.pipeline.stages_sampler.LatentEndpointGaugeLoss
-    # Break the latent/decoder scale gauge only once endpoint RMS exceeds 8.
-    # This identical term is retained in the energy-score and grouped-MSE arms.
+  - _target_: egomimic.pipeline.stages_sampler.LatentEndpointRadiusHingeLoss
+    # Penalize each raw candidate independently; this stage is train-only.
+    input_key: sampler/endpoint
+    max_rms: 8.0
     weight: 1.0e-4
-    second_moment_threshold: 64.0
+  - _target_: egomimic.pipeline.stages_sampler.LatentEndpointSmoothRMSCap
+    # Preserve RMS <= 6 exactly, then smoothly saturate toward RMS 8. This
+    # pure transform is shared by training, validation, and rollout.
+    input_key: sampler/endpoint
+    output_key: sampler/stabilized_endpoint
+    max_rms: 8.0
+    soft_start_rms: 6.0
   - _target_: egomimic.pipeline.stages_sampler.PerEmbodimentActionDecoder
     # The canonicalizer is the sole owner of the deployed pred_action keys.
+    input_key: sampler/stabilized_endpoint
     output_key: raw_pred_action
     decoders:
       pushshapes_sim_u_socket:

@@ -1,7 +1,9 @@
 from pathlib import Path
 
+import torch
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
+from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 CONFIG_DIR = Path(__file__).parents[1] / "egomimic" / "hydra_configs"
@@ -24,8 +26,19 @@ def _compose(experiment=EXPERIMENT, extra_overrides=()):
 def test_energy_score_model_keeps_u4_chain_point6_h16_contract():
     cfg = _compose()
     model = cfg.model.robomimic_model
-    projection, _, noise, sampler, gauge, decoder, canonicalizer, loss = model.stages
+    (
+        projection,
+        _,
+        noise,
+        sampler,
+        hinge,
+        cap,
+        decoder,
+        canonicalizer,
+        loss,
+    ) = model.stages
 
+    assert len(model.stages) == 9
     assert list(model.domains) == list(DOMAINS)
     assert model.action_horizon == 16
     assert projection.projections[DOMAINS[0]].source_dim == 4
@@ -34,17 +47,32 @@ def test_energy_score_model_keeps_u4_chain_point6_h16_contract():
     assert noise.latent_dim == 4
     assert noise.num_samples == 4
     assert sampler.latent_dim == 4
-    assert sampler.denoiser_hidden_dim == 128
+    assert sampler.denoiser_hidden_dim == 768
     assert sampler.num_inference_steps == 8
-    assert sampler.denoising_module.nblocks == 8
+    assert sampler.denoising_module.nblocks == 13
+    assert sampler.denoising_module.hidden_dim == 768
+    assert sampler.denoising_module.n_heads == 12
+    assert sampler.denoising_module.mlp_layers == 2
     assert sampler.denoising_module.dropout == 0.0
-    assert gauge._target_.endswith("LatentEndpointGaugeLoss")
-    assert gauge.weight == 1.0e-4
-    assert gauge.second_moment_threshold == 64.0
+    with torch.device("meta"):
+        denoiser = instantiate(sampler.denoising_module)
+    assert sum(parameter.numel() for parameter in denoiser.parameters()) == 249_459_460
+    assert hinge._target_.endswith("LatentEndpointRadiusHingeLoss")
+    assert hinge.input_key == "sampler/endpoint"
+    assert hinge.max_rms == 8.0
+    assert hinge.weight == 1.0e-4
+    assert cap._target_.endswith("LatentEndpointSmoothRMSCap")
+    assert cap.input_key == "sampler/endpoint"
+    assert cap.output_key == "sampler/stabilized_endpoint"
+    assert cap.soft_start_rms == 6.0
+    assert cap.max_rms == 8.0
     assert decoder.decoders[DOMAINS[0]].action_dim == 4
     assert decoder.decoders[DOMAINS[1]].action_dim == 6
     assert decoder.decoders[DOMAINS[0]].hidden_dim == 16
     assert decoder.decoders[DOMAINS[1]].hidden_dim == 16
+    assert decoder.decoders[DOMAINS[0]].num_layers == 3
+    assert decoder.decoders[DOMAINS[1]].num_layers == 3
+    assert decoder.input_key == "sampler/stabilized_endpoint"
     assert decoder.output_key == "raw_pred_action"
     assert canonicalizer._target_.endswith("PerEmbodimentActionCanonicalizer")
     assert canonicalizer.input_key == "raw_pred_action"
@@ -117,12 +145,15 @@ def test_energy_score_training_validation_logging_and_checkpoint_contract():
     tags = set(cfg.logger.wandb.tags)
     assert {
         "conditional-energy-score",
-        "latent-gauge-rms8-w1e4",
+        "model-260m",
+        "denoiser-w768-d13-mlp2",
+        "latent-candidate-hinge-rms8-w1e4",
+        "latent-smooth-rms6to8",
         "global-step-val-10k",
-        "corrected-pair",
+        "stability-gated-pair",
         "checkpoint-20k",
     } <= tags
-    assert cfg.logger.wandb.group.endswith("gauge_globalval_20260831")
+    assert cfg.logger.wandb.group.endswith("260m_smoothcap_20260831")
 
 
 def test_legacy_mse_recipe_remains_the_default_for_existing_experiment():
@@ -137,11 +168,11 @@ def test_matched_control_changes_only_the_grouped_objective_target():
     energy_cfg = _compose()
     control_cfg = _compose(
         extra_overrides=[
-            "model.robomimic_model.stages.7._target_="
+            "model.robomimic_model.stages.8._target_="
             "egomimic.pipeline.stages_sampler.GroupedActionMSELoss"
         ]
     )
-    stage = control_cfg.model.robomimic_model.stages[7]
+    stage = control_cfg.model.robomimic_model.stages[8]
     assert stage._target_.endswith("GroupedActionMSELoss")
     assert stage.expected_num_samples == 4
     assert control_cfg.model.robomimic_model.stages[2].num_samples == 4
@@ -153,7 +184,7 @@ def test_matched_control_changes_only_the_grouped_objective_target():
     control_model = OmegaConf.to_container(
         control_cfg.model.robomimic_model, resolve=True
     )
-    control_model["stages"][7]["_target_"] = energy_model["stages"][7]["_target_"]
+    control_model["stages"][8]["_target_"] = energy_model["stages"][8]["_target_"]
     assert control_model == energy_model
     for section in ("data", "trainer", "evaluator", "norm_stats"):
         assert OmegaConf.to_container(

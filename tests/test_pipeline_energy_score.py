@@ -11,6 +11,8 @@ from egomimic.pipeline.stages_sampler import (
     GaussianLatentNoise,
     GroupedActionMSELoss,
     LatentEndpointGaugeLoss,
+    LatentEndpointRadiusHingeLoss,
+    LatentEndpointSmoothRMSCap,
     LatentFlowSampler,
     PerEmbodimentActionDecoder,
     TokenwiseMLPActionDecoder,
@@ -292,6 +294,165 @@ def test_latent_endpoint_gauge_is_excluded_from_rollout_plan():
     assert excluded == [(stage, ["<train-only>"])]
 
 
+def test_latent_endpoint_hinge_penalizes_each_raw_candidate_independently():
+    endpoint = torch.tensor(
+        [[[[3.0], [4.0]], [[10.0], [10.0]]]], requires_grad=True
+    )
+    stage = LatentEndpointRadiusHingeLoss(max_rms=8.0, weight=1.0e-4)
+    out = stage({"sampler/endpoint": endpoint})
+
+    # The two candidates have m2 12.5 and 100. The hinge is applied before
+    # averaging candidates, so the second contributes (100 - 64) / 2.
+    assert out["loss/latent_endpoint_gauge"].item() == pytest.approx(0.0018)
+    assert out["log/latent_endpoint_hinge_active_fraction"].item() == 0.5
+    assert out["log/latent_endpoint_hinge_excess_m2"].item() == pytest.approx(18.0)
+    assert torch.equal(sum_losses(out), out["loss/latent_endpoint_gauge"])
+
+    out["loss/latent_endpoint_gauge"].backward()
+    torch.testing.assert_close(endpoint.grad[:, 0], torch.zeros_like(endpoint[:, 0]))
+    torch.testing.assert_close(
+        endpoint.grad[:, 1], torch.full_like(endpoint[:, 1], 5.0e-4)
+    )
+
+
+def test_latent_endpoint_hinge_and_cap_ignore_and_zero_padding():
+    endpoint = torch.tensor(
+        [[[[3.0], [4.0], [1000.0]], [[10.0], [10.0], [-1000.0]]]],
+        requires_grad=True,
+    )
+    batch = {"sampler/endpoint": endpoint, "pad_mask": torch.tensor([[1, 1, 0]])}
+    hinge_out = LatentEndpointRadiusHingeLoss(weight=1.0e-4)(dict(batch))
+    cap_out = LatentEndpointSmoothRMSCap()(dict(batch))
+
+    assert hinge_out["loss/latent_endpoint_gauge"].item() == pytest.approx(0.0018)
+    stabilized = cap_out["sampler/stabilized_endpoint"]
+    assert torch.equal(stabilized[:, :, 2], torch.zeros_like(stabilized[:, :, 2]))
+    torch.testing.assert_close(stabilized[:, 0, :2], endpoint[:, 0, :2])
+    expected_rms = 6.0 + 2.0 * math.tanh(2.0)
+    actual_rms = stabilized[:, 1, :2].float().square().mean().sqrt()
+    assert actual_rms.item() == pytest.approx(expected_rms)
+    assert cap_out["log/latent_endpoint_candidate_rms_max"].item() == 10.0
+
+
+def test_smooth_rms_cap_is_identity_through_knee_then_tanh_bounded():
+    endpoint = torch.tensor(
+        [[[[6.0], [6.0]], [[10.0], [10.0]]]], requires_grad=True
+    )
+    out = LatentEndpointSmoothRMSCap(
+        soft_start_rms=6.0, max_rms=8.0
+    )({"sampler/endpoint": endpoint})
+
+    stabilized = out["sampler/stabilized_endpoint"]
+    torch.testing.assert_close(stabilized[:, 0], endpoint[:, 0])
+    expected_rms = 6.0 + 2.0 * math.tanh(2.0)
+    candidate_rms = stabilized.float().square().mean(dim=(-2, -1)).sqrt()
+    assert candidate_rms[0, 0].item() == 6.0
+    assert candidate_rms[0, 1].item() == pytest.approx(expected_rms)
+    assert 6.0 < candidate_rms[0, 1].item() < 8.0
+    assert out["log/latent_endpoint_saturation_fraction"].item() == 0.5
+    assert out["log/latent_endpoint_above_cap_fraction"].item() == 0.5
+    assert out["log/latent_endpoint_stabilized_candidate_rms_max"].item() < 8.0
+
+    stabilized[:, 1].sum().backward()
+    assert endpoint.grad is not None
+    assert torch.isfinite(endpoint.grad).all()
+    assert torch.count_nonzero(endpoint.grad[:, 1]) == endpoint[:, 1].numel()
+    assert (endpoint.grad[:, 1] > 0.0).all()
+
+
+@pytest.mark.parametrize("shape", [(2, 3, 4), (2, 4, 3, 4)])
+def test_smooth_rms_cap_zero_candidate_has_finite_identity_gradient(shape):
+    endpoint = torch.zeros(shape, requires_grad=True)
+    out = LatentEndpointSmoothRMSCap()({"sampler/endpoint": endpoint})
+
+    stabilized = out["sampler/stabilized_endpoint"]
+    torch.testing.assert_close(stabilized, endpoint)
+    assert out["log/latent_endpoint_candidate_rms_max"].item() == 0.0
+    assert out["log/latent_endpoint_stabilized_candidate_rms_max"].item() == 0.0
+
+    stabilized.sum().backward()
+    assert endpoint.grad is not None
+    torch.testing.assert_close(endpoint.grad, torch.ones_like(endpoint))
+
+
+@pytest.mark.parametrize("shape", [(2, 3, 4), (2, 4, 3, 4)])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+def test_smooth_rms_cap_supports_rank3_rank4_and_preserves_dtype(shape, dtype):
+    endpoint = torch.full(shape, 10.0, dtype=dtype)
+    out = LatentEndpointSmoothRMSCap()({"sampler/endpoint": endpoint})
+
+    stabilized = out["sampler/stabilized_endpoint"]
+    candidate_rms = stabilized.float().square().mean(dim=(-2, -1)).sqrt()
+    assert stabilized.shape == endpoint.shape
+    assert stabilized.dtype == dtype
+    assert torch.all(candidate_rms < 8.0)
+    assert torch.allclose(
+        candidate_rms,
+        torch.full_like(candidate_rms, 6.0 + 2.0 * math.tanh(2.0)),
+        atol=3.0e-2 if dtype == torch.bfloat16 else 1.0e-6,
+        rtol=0.0,
+    )
+
+
+def test_rollout_excludes_hinge_but_runs_identical_smooth_cap():
+    hinge = LatentEndpointRadiusHingeLoss(input_key="latent/raw")
+    cap = LatentEndpointSmoothRMSCap(
+        input_key="latent/raw",
+        output_key="latent/stable",
+        soft_start_rms=6.0,
+        max_rms=8.0,
+    )
+    runnable, excluded = Pipeline([hinge, cap]).plan(["latent/raw"], mode="rollout")
+
+    assert runnable == [cap]
+    assert excluded == [(hinge, ["<train-only>"])]
+    rollout_reads, rollout_writes = cap.contract("rollout")
+    assert rollout_reads == ("latent/raw",)
+    assert "latent/stable" in rollout_writes
+    assert "loss/latent_endpoint_gauge" not in rollout_writes
+
+    raw = torch.full((1, 3, 2), 10.0)
+    cap.train()
+    train_stable = cap({"latent/raw": raw.clone()})["latent/stable"]
+    cap.eval()
+    rollout_stable = cap({"latent/raw": raw.clone()})["latent/stable"]
+    torch.testing.assert_close(rollout_stable, train_stable)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"input_key": ""}, "input_key must be non-empty"),
+        ({"max_rms": 0.0}, "max_rms must be finite and positive"),
+        ({"weight": -1.0}, "weight must be finite and non-negative"),
+    ],
+)
+def test_latent_endpoint_hinge_rejects_invalid_config(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        LatentEndpointRadiusHingeLoss(**kwargs)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"input_key": ""}, "input_key and output_key must be non-empty"),
+        (
+            {"input_key": "same", "output_key": "same"},
+            "output_key must differ from input_key",
+        ),
+        ({"max_rms": 0.0}, "max_rms must be finite and positive"),
+        (
+            {"soft_start_rms": 8.0},
+            "soft_start_rms must be finite, positive, and below max_rms",
+        ),
+        ({"eps": 0.0}, "eps must be finite and positive"),
+    ],
+)
+def test_smooth_rms_cap_rejects_invalid_config(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        LatentEndpointSmoothRMSCap(**kwargs)
+
+
 @pytest.mark.parametrize("grouped", [False, True])
 def test_decoder_logs_selected_first_linear_scale_diagnostics(grouped):
     decoder = PerEmbodimentActionDecoder(
@@ -315,6 +476,26 @@ def test_decoder_logs_selected_first_linear_scale_diagnostics(grouped):
     assert product.dtype == torch.float32
     assert not actual_norm.requires_grad
     assert not product.requires_grad
+
+
+def test_decoder_accepts_a_generic_stabilized_endpoint_key():
+    decoder = PerEmbodimentActionDecoder(
+        decoders={"u_socket": TokenwiseMLPActionDecoder(2, 8, 4)},
+        input_key="sampler/stabilized_endpoint",
+    )
+    endpoint = torch.randn(2, 3, 2)
+    out = decoder(
+        {
+            "sampler/stabilized_endpoint": endpoint,
+            "embodiment": "u_socket",
+        }
+    )
+
+    assert out["pred_action"].shape == (2, 3, 4)
+    assert decoder.contract("train")[0] == (
+        "sampler/stabilized_endpoint",
+        "embodiment",
+    )
 
 
 def test_decoder_without_linear_keeps_prior_public_contract():

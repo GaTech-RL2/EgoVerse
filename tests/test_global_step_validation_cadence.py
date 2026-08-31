@@ -16,7 +16,7 @@ EXPERIMENT = (
     "pusht/pipeline_sampler_usocket_chain_newdata_r01_l4_energy_score_val01_h16"
 )
 GROUPED_MSE_OVERRIDE = (
-    "model.robomimic_model.stages.7._target_="
+    "model.robomimic_model.stages.8._target_="
     "egomimic.pipeline.stages_sampler.GroupedActionMSELoss"
 )
 

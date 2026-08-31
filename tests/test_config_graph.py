@@ -420,6 +420,17 @@ def test_energy_score_action_transform_has_unambiguous_graph_ownership() -> None
 
     assert train["lint"] == []
     assert rollout["lint"] == []
+    assert [node["t"] for node in train["nodes"]] == [
+        "EmbodimentProprioProjection",
+        "FusedObsEncoder",
+        "GaussianLatentNoise",
+        "LatentFlowSampler",
+        "LatentEndpointRadiusHingeLoss",
+        "LatentEndpointSmoothRMSCap",
+        "PerEmbodimentActionDecoder",
+        "PerEmbodimentActionCanonicalizer",
+        "ConditionalEnergyScoreLoss",
+    ]
     train_by_name = {node["t"]: node for node in train["nodes"]}
     rollout_by_name = {node["t"]: node for node in rollout["nodes"]}
     assert train_by_name["PerEmbodimentActionDecoder"]["out"][:2] == [
@@ -436,10 +447,39 @@ def test_energy_score_action_transform_has_unambiguous_graph_ownership() -> None
         "pred_action_samples",
         "canonical_target",
     ]
-    assert train_by_name["LatentEndpointGaugeLoss"]["in"] == [
+    assert train_by_name["LatentEndpointRadiusHingeLoss"]["in"] == [
         "sampler/endpoint"
     ]
-    assert "LatentEndpointGaugeLoss" not in rollout_by_name
+    assert train_by_name["LatentEndpointRadiusHingeLoss"]["out"][0] == (
+        "loss/latent_endpoint_gauge"
+    )
+    assert train_by_name["LatentEndpointSmoothRMSCap"]["in"] == [
+        "sampler/endpoint"
+    ]
+    assert train_by_name["LatentEndpointSmoothRMSCap"]["out"][0] == (
+        "sampler/stabilized_endpoint"
+    )
+    assert train_by_name["PerEmbodimentActionDecoder"]["in"][0] == (
+        "sampler/stabilized_endpoint"
+    )
+    assert "LatentEndpointRadiusHingeLoss" not in rollout_by_name
+    assert "LatentEndpointSmoothRMSCap" in rollout_by_name
+    assert rollout_by_name["LatentEndpointSmoothRMSCap"]["in"] == [
+        "sampler/endpoint"
+    ]
+    assert rollout_by_name["LatentEndpointSmoothRMSCap"]["out"][0] == (
+        "sampler/stabilized_endpoint"
+    )
+    skipped = {stage["t"]: stage["reason"] for stage in rollout["skipped_stages"]}
+    assert skipped["LatentEndpointRadiusHingeLoss"] == "train-only"
+    assert skipped["ConditionalEnergyScoreLoss"] == "train-only"
+    edge_keys = {
+        (edge["a"], edge["b"], edge["k"])
+        for edge in train["edges"]
+    }
+    assert (3, 4, "sampler/endpoint") in edge_keys
+    assert (3, 5, "sampler/endpoint") in edge_keys
+    assert (5, 6, "sampler/stabilized_endpoint") in edge_keys
     assert (
         "canonical_target"
         not in rollout_by_name["PerEmbodimentActionCanonicalizer"]["out"]

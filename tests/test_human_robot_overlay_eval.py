@@ -175,15 +175,33 @@ def test_training_log_info_aliases_energy_objective_and_diagnostic_mse():
     assert logged["MSE"] == 2.0
 
 
-def test_training_log_info_aliases_latent_gauge_diagnostics_by_domain():
+def test_training_log_info_aliases_two_node_latent_stability_diagnostics():
     algo = SimpleNamespace(domain_by_id={3: "u_socket", 7: "chain_grabber"})
     info = {
         "losses": {
             "action_loss": torch.tensor(0.5),
             "3_loss_latent_endpoint_gauge": torch.tensor(0.002),
             "7_loss_latent_endpoint_gauge": torch.tensor(0.004),
+            "3_log_latent_endpoint_hinge_active_fraction": torch.tensor(0.25),
+            "7_log_latent_endpoint_hinge_active_fraction": torch.tensor(0.5),
+            "3_log_latent_endpoint_hinge_excess_m2": torch.tensor(2.0),
+            "7_log_latent_endpoint_hinge_excess_m2": torch.tensor(4.0),
             "3_log_latent_endpoint_total_rms": torch.tensor(8.0),
             "7_log_latent_endpoint_total_rms": torch.tensor(10.0),
+            "3_log_latent_endpoint_stabilized_rms": torch.tensor(7.5),
+            "7_log_latent_endpoint_stabilized_rms": torch.tensor(8.0),
+            "3_log_latent_endpoint_saturation_fraction": torch.tensor(0.25),
+            "7_log_latent_endpoint_saturation_fraction": torch.tensor(0.5),
+            "3_log_latent_endpoint_above_cap_fraction": torch.tensor(0.125),
+            "7_log_latent_endpoint_above_cap_fraction": torch.tensor(0.25),
+            "3_log_latent_endpoint_radial_scale_mean": torch.tensor(0.9),
+            "7_log_latent_endpoint_radial_scale_mean": torch.tensor(0.8),
+            "3_log_latent_endpoint_radial_scale_min": torch.tensor(0.7),
+            "7_log_latent_endpoint_radial_scale_min": torch.tensor(0.6),
+            "3_log_latent_endpoint_candidate_rms_max": torch.tensor(9.0),
+            "7_log_latent_endpoint_candidate_rms_max": torch.tensor(11.0),
+            "3_log_latent_endpoint_stabilized_candidate_rms_max": torch.tensor(7.7),
+            "7_log_latent_endpoint_stabilized_candidate_rms_max": torch.tensor(7.9),
             "3_log_latent_endpoint_centered_within_k_rms": torch.tensor(2.0),
             "7_log_latent_endpoint_centered_within_k_rms": torch.tensor(4.0),
             "3_log_decoder_first_linear_weight_frobenius_norm": torch.tensor(1.5),
@@ -198,9 +216,18 @@ def test_training_log_info_aliases_latent_gauge_diagnostics_by_domain():
     assert logged["LatentGauge/Loss/u_socket"] == pytest.approx(0.002)
     assert logged["LatentGauge/Loss/chain_grabber"] == pytest.approx(0.004)
     assert logged["LatentGauge/Loss"] == pytest.approx(0.003)
+    assert logged["LatentGauge/Hinge_Active_Fraction"] == pytest.approx(0.375)
+    assert logged["LatentGauge/Hinge_Excess_M2"] == pytest.approx(3.0)
     assert logged["LatentGauge/Endpoint_RMS/u_socket"] == pytest.approx(8.0)
     assert logged["LatentGauge/Endpoint_RMS/chain_grabber"] == pytest.approx(10.0)
     assert logged["LatentGauge/Endpoint_RMS"] == pytest.approx(9.0)
+    assert logged["LatentGauge/Stabilized_RMS"] == pytest.approx(7.75)
+    assert logged["LatentGauge/Saturation_Fraction"] == pytest.approx(0.375)
+    assert logged["LatentGauge/Above_Cap_Fraction"] == pytest.approx(0.1875)
+    assert logged["LatentGauge/Radial_Scale_Mean"] == pytest.approx(0.85)
+    assert logged["LatentGauge/Radial_Scale_Min"] == pytest.approx(0.65)
+    assert logged["LatentGauge/Candidate_RMS_Max"] == pytest.approx(10.0)
+    assert logged["LatentGauge/Stabilized_Candidate_RMS_Max"] == pytest.approx(7.8)
     assert logged["LatentGauge/WithinK_RMS"] == pytest.approx(3.0)
     assert logged["LatentGauge/Decoder_FirstLinear_Frobenius"] == pytest.approx(2.0)
     assert logged["LatentGauge/Latent_Decoder_Scale_Product"] == pytest.approx(18.5)

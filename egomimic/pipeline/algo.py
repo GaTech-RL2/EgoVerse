@@ -489,10 +489,23 @@ class PipelineAlgo(Algo):
         gauge_metric_keys = {
             "Loss": "loss_latent_endpoint_gauge",
             "Active": "log_latent_endpoint_gauge_active",
+            "Hinge_Active_Fraction": (
+                "log_latent_endpoint_hinge_active_fraction"
+            ),
+            "Hinge_Excess_M2": "log_latent_endpoint_hinge_excess_m2",
             "Endpoint_RMS": "log_latent_endpoint_total_rms",
+            "Stabilized_RMS": "log_latent_endpoint_stabilized_rms",
             "GroupMean_RMS": "log_latent_endpoint_group_mean_rms",
             "WithinK_RMS": "log_latent_endpoint_centered_within_k_rms",
             "MaxAbs": "log_latent_endpoint_max_abs",
+            "Saturation_Fraction": "log_latent_endpoint_saturation_fraction",
+            "Above_Cap_Fraction": "log_latent_endpoint_above_cap_fraction",
+            "Radial_Scale_Mean": "log_latent_endpoint_radial_scale_mean",
+            "Radial_Scale_Min": "log_latent_endpoint_radial_scale_min",
+            "Candidate_RMS_Max": "log_latent_endpoint_candidate_rms_max",
+            "Stabilized_Candidate_RMS_Max": (
+                "log_latent_endpoint_stabilized_candidate_rms_max"
+            ),
             "Decoder_FirstLinear_Frobenius": (
                 "log_decoder_first_linear_weight_frobenius_norm"
             ),
