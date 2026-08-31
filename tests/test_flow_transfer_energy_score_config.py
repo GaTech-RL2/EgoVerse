@@ -24,7 +24,7 @@ def _compose(experiment=EXPERIMENT, extra_overrides=()):
 def test_energy_score_model_keeps_u4_chain_point6_h16_contract():
     cfg = _compose()
     model = cfg.model.robomimic_model
-    projection, _, noise, sampler, decoder, canonicalizer, loss = model.stages
+    projection, _, noise, sampler, gauge, decoder, canonicalizer, loss = model.stages
 
     assert list(model.domains) == list(DOMAINS)
     assert model.action_horizon == 16
@@ -38,6 +38,9 @@ def test_energy_score_model_keeps_u4_chain_point6_h16_contract():
     assert sampler.num_inference_steps == 8
     assert sampler.denoising_module.nblocks == 8
     assert sampler.denoising_module.dropout == 0.0
+    assert gauge._target_.endswith("LatentEndpointGaugeLoss")
+    assert gauge.weight == 1.0e-4
+    assert gauge.second_moment_threshold == 64.0
     assert decoder.decoders[DOMAINS[0]].action_dim == 4
     assert decoder.decoders[DOMAINS[1]].action_dim == 6
     assert decoder.decoders[DOMAINS[0]].hidden_dim == 16
@@ -111,7 +114,15 @@ def test_energy_score_training_validation_logging_and_checkpoint_contract():
     assert cfg.callbacks.model_checkpoint.save_top_k == -1
     assert "epoch=" in cfg.callbacks.model_checkpoint.filename
     assert "step=" in cfg.callbacks.model_checkpoint.filename
-    assert "conditional-energy-score" in list(cfg.logger.wandb.tags)
+    tags = set(cfg.logger.wandb.tags)
+    assert {
+        "conditional-energy-score",
+        "latent-gauge-rms8-w1e4",
+        "global-step-val-10k",
+        "corrected-pair",
+        "checkpoint-20k",
+    } <= tags
+    assert cfg.logger.wandb.group.endswith("gauge_globalval_20260831")
 
 
 def test_legacy_mse_recipe_remains_the_default_for_existing_experiment():
@@ -123,14 +134,28 @@ def test_legacy_mse_recipe_remains_the_default_for_existing_experiment():
 
 
 def test_matched_control_changes_only_the_grouped_objective_target():
-    cfg = _compose(
+    energy_cfg = _compose()
+    control_cfg = _compose(
         extra_overrides=[
-            "model.robomimic_model.stages.6._target_="
+            "model.robomimic_model.stages.7._target_="
             "egomimic.pipeline.stages_sampler.GroupedActionMSELoss"
         ]
     )
-    stage = cfg.model.robomimic_model.stages[6]
+    stage = control_cfg.model.robomimic_model.stages[7]
     assert stage._target_.endswith("GroupedActionMSELoss")
     assert stage.expected_num_samples == 4
-    assert cfg.model.robomimic_model.stages[2].num_samples == 4
-    assert cfg.data.train_dataloader_params[DOMAINS[0]].batch_size == 32
+    assert control_cfg.model.robomimic_model.stages[2].num_samples == 4
+    assert control_cfg.data.train_dataloader_params[DOMAINS[0]].batch_size == 32
+
+    energy_model = OmegaConf.to_container(
+        energy_cfg.model.robomimic_model, resolve=True
+    )
+    control_model = OmegaConf.to_container(
+        control_cfg.model.robomimic_model, resolve=True
+    )
+    control_model["stages"][7]["_target_"] = energy_model["stages"][7]["_target_"]
+    assert control_model == energy_model
+    for section in ("data", "trainer", "evaluator", "norm_stats"):
+        assert OmegaConf.to_container(
+            control_cfg[section], resolve=False
+        ) == OmegaConf.to_container(energy_cfg[section], resolve=False)

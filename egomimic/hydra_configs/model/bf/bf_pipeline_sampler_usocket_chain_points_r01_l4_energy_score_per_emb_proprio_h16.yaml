@@ -88,6 +88,11 @@ robomimic_model:
       mlp_layers: 4
       mlp_ratio: 4
       time_conditioning: additive
+  - _target_: egomimic.pipeline.stages_sampler.LatentEndpointGaugeLoss
+    # Break the latent/decoder scale gauge only once endpoint RMS exceeds 8.
+    # This identical term is retained in the energy-score and grouped-MSE arms.
+    weight: 1.0e-4
+    second_moment_threshold: 64.0
   - _target_: egomimic.pipeline.stages_sampler.PerEmbodimentActionDecoder
     # The canonicalizer is the sole owner of the deployed pred_action keys.
     output_key: raw_pred_action

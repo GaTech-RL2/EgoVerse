@@ -10,6 +10,7 @@ from egomimic.pipeline.stages_sampler import (
     ConditionalEnergyScoreLoss,
     GaussianLatentNoise,
     GroupedActionMSELoss,
+    LatentEndpointGaugeLoss,
     LatentFlowSampler,
     PerEmbodimentActionDecoder,
     TokenwiseMLPActionDecoder,
@@ -204,6 +205,143 @@ def test_grouped_mse_control_optimizes_every_sample_and_logs_energy_detached():
     assert samples.grad[0, 0].item() < 0.0
     assert samples.grad[0, 2].item() > 0.0
     assert samples.grad[0, 3].item() > 0.0
+
+
+def test_latent_endpoint_gauge_is_inactive_below_threshold_and_logs_fp32():
+    endpoint = torch.full((2, 4, 3, 2), 2.0, dtype=torch.bfloat16, requires_grad=True)
+    out = LatentEndpointGaugeLoss()({"sampler/endpoint": endpoint})
+
+    assert out["loss/latent_endpoint_gauge"].dtype == torch.float32
+    assert out["loss/latent_endpoint_gauge"].item() == 0.0
+    assert out["log/latent_endpoint_m2"].item() == pytest.approx(4.0)
+    assert out["log/latent_endpoint_total_rms"].item() == pytest.approx(2.0)
+    assert out["log/latent_endpoint_group_mean_rms"].item() == pytest.approx(2.0)
+    assert out["log/latent_endpoint_centered_within_k_rms"].item() == 0.0
+    assert out["log/latent_endpoint_max_abs"].item() == pytest.approx(2.0)
+    assert out["log/latent_endpoint_gauge_active"].item() == 0.0
+    assert not out["log/latent_endpoint_m2"].requires_grad
+    assert not out["log/latent_endpoint_total_rms"].requires_grad
+
+
+def test_latent_endpoint_gauge_active_value_and_grouped_gradient_are_correct():
+    endpoint = torch.full((2, 4, 3, 2), 10.0, requires_grad=True)
+    stage = LatentEndpointGaugeLoss(weight=1.0e-4, second_moment_threshold=64.0)
+    out = stage({"sampler/endpoint": endpoint})
+
+    expected = torch.tensor(1.0e-4 * (100.0 - 64.0))
+    torch.testing.assert_close(out["loss/latent_endpoint_gauge"], expected)
+    assert out["log/latent_endpoint_gauge_active"].item() == 1.0
+    assert torch.equal(sum_losses(out), out["loss/latent_endpoint_gauge"])
+
+    out["loss/latent_endpoint_gauge"].backward()
+    assert endpoint.grad is not None
+    assert torch.isfinite(endpoint.grad).all()
+    expected_gradient = torch.full_like(endpoint, 2.0e-4 * 10.0 / endpoint.numel())
+    torch.testing.assert_close(endpoint.grad, expected_gradient)
+
+
+def test_latent_endpoint_gauge_decomposes_grouped_scale_and_rank3_is_k1():
+    grouped = torch.tensor([[[[1.0]], [[3.0]]]], requires_grad=True)
+    grouped_out = LatentEndpointGaugeLoss()({"sampler/endpoint": grouped})
+
+    assert grouped_out["log/latent_endpoint_total_rms"].item() == pytest.approx(
+        math.sqrt(5.0)
+    )
+    assert grouped_out["log/latent_endpoint_group_mean_rms"].item() == pytest.approx(
+        2.0
+    )
+    assert grouped_out[
+        "log/latent_endpoint_centered_within_k_rms"
+    ].item() == pytest.approx(1.0)
+    assert grouped_out["log/latent_endpoint_max_abs"].item() == pytest.approx(3.0)
+
+    rank3 = torch.tensor([[[1.0], [3.0]]], requires_grad=True)
+    rank3_out = LatentEndpointGaugeLoss()({"sampler/endpoint": rank3})
+    assert torch.equal(
+        rank3_out["log/latent_endpoint_group_mean_rms"],
+        rank3_out["log/latent_endpoint_total_rms"],
+    )
+    assert rank3_out["log/latent_endpoint_centered_within_k_rms"].item() == 0.0
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"weight": -1.0}, "weight must be finite and non-negative"),
+        ({"weight": float("inf")}, "weight must be finite and non-negative"),
+        (
+            {"second_moment_threshold": 0.0},
+            "second_moment_threshold must be finite and positive",
+        ),
+        (
+            {"second_moment_threshold": float("nan")},
+            "second_moment_threshold must be finite and positive",
+        ),
+    ],
+)
+def test_latent_endpoint_gauge_rejects_invalid_config(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        LatentEndpointGaugeLoss(**kwargs)
+
+
+def test_latent_endpoint_gauge_is_excluded_from_rollout_plan():
+    stage = LatentEndpointGaugeLoss()
+    runnable, excluded = Pipeline([stage]).plan(["sampler/endpoint"], mode="rollout")
+
+    assert runnable == []
+    assert excluded == [(stage, ["<train-only>"])]
+
+
+@pytest.mark.parametrize("grouped", [False, True])
+def test_decoder_logs_selected_first_linear_scale_diagnostics(grouped):
+    decoder = PerEmbodimentActionDecoder(
+        decoders={"u_socket": TokenwiseMLPActionDecoder(2, 8, 4)}
+    )
+    endpoint_shape = (2, 4, 3, 2) if grouped else (2, 3, 2)
+    endpoint = torch.full(endpoint_shape, 3.0, requires_grad=True)
+    out = decoder({"sampler/endpoint": endpoint, "embodiment": "u_socket"})
+
+    first_linear = next(
+        module
+        for module in decoder.decoder_for("u_socket").modules()
+        if isinstance(module, torch.nn.Linear)
+    )
+    expected_norm = torch.linalg.vector_norm(first_linear.weight.detach().float())
+    actual_norm = out["log/decoder_first_linear_weight_frobenius_norm"]
+    product = out["log/latent_decoder_scale_product"]
+    torch.testing.assert_close(actual_norm, expected_norm)
+    torch.testing.assert_close(product, 3.0 * expected_norm)
+    assert actual_norm.dtype == torch.float32
+    assert product.dtype == torch.float32
+    assert not actual_norm.requires_grad
+    assert not product.requires_grad
+
+
+def test_decoder_without_linear_keeps_prior_public_contract():
+    class IdentityDecoder(torch.nn.Module):
+        latent_dim = 2
+        action_dim = 2
+        temporal_factor = 1
+
+        @staticmethod
+        def output_num_tokens(input_num_tokens):
+            return int(input_num_tokens)
+
+        @staticmethod
+        def forward(latent):
+            return latent
+
+    decoder = PerEmbodimentActionDecoder(decoders={"custom": IdentityDecoder()})
+    out = decoder(
+        {
+            "sampler/endpoint": torch.randn(2, 3, 2),
+            "embodiment": "custom",
+        }
+    )
+
+    assert out["pred_action"].shape == (2, 3, 2)
+    assert "log/decoder_first_linear_weight_frobenius_norm" not in out
+    assert "log/latent_decoder_scale_product" not in out
 
 
 def _grouped_nodes(action_dim=4):

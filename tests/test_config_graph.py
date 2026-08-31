@@ -436,6 +436,10 @@ def test_energy_score_action_transform_has_unambiguous_graph_ownership() -> None
         "pred_action_samples",
         "canonical_target",
     ]
+    assert train_by_name["LatentEndpointGaugeLoss"]["in"] == [
+        "sampler/endpoint"
+    ]
+    assert "LatentEndpointGaugeLoss" not in rollout_by_name
     assert (
         "canonical_target"
         not in rollout_by_name["PerEmbodimentActionCanonicalizer"]["out"]

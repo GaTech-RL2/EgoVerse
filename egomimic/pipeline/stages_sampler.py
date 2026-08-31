@@ -782,6 +782,84 @@ class LatentFlowSampler(Stage):
         return batch
 
 
+class LatentEndpointGaugeLoss(Stage):
+    """Cap an otherwise-unidentified latent endpoint scale.
+
+    A decoder can preserve its action output while scaling the latent endpoint
+    by ``s`` and its first linear weight by ``1 / s``. This one-sided second-
+    moment hinge breaks only the upward direction of that scale gauge. The
+    live endpoint is accumulated in FP32 so the regularizer retains gradients
+    under mixed-precision training; diagnostics are detached explicitly.
+    """
+
+    train_only = True
+    reads = ["sampler/endpoint"]
+    writes = [
+        "loss/latent_endpoint_gauge",
+        "log/latent_endpoint_total_rms",
+        "log/latent_endpoint_group_mean_rms",
+        "log/latent_endpoint_centered_within_k_rms",
+        "log/latent_endpoint_max_abs",
+        "log/latent_endpoint_m2",
+        "log/latent_endpoint_gauge_active",
+    ]
+
+    def __init__(
+        self,
+        weight: float = 1.0e-4,
+        second_moment_threshold: float = 64.0,
+    ):
+        super().__init__()
+        self.weight = float(weight)
+        self.second_moment_threshold = float(second_moment_threshold)
+        if not math.isfinite(self.weight) or self.weight < 0.0:
+            raise ValueError("weight must be finite and non-negative")
+        if (
+            not math.isfinite(self.second_moment_threshold)
+            or self.second_moment_threshold <= 0.0
+        ):
+            raise ValueError("second_moment_threshold must be finite and positive")
+
+    def forward(self, batch: dict) -> dict:
+        endpoint = batch["sampler/endpoint"]
+        if not torch.is_tensor(endpoint) or endpoint.numel() == 0:
+            raise ValueError("sampler/endpoint must be a non-empty tensor")
+        if endpoint.ndim not in {3, 4}:
+            raise ValueError(
+                "sampler/endpoint must have shape (B,T,D) or (B,K,T,D), "
+                f"got {tuple(endpoint.shape)}"
+            )
+
+        endpoint_fp32 = endpoint.float()
+        second_moment = endpoint_fp32.square().mean()
+        gauge_loss = self.weight * torch.relu(
+            second_moment - self.second_moment_threshold
+        )
+        total_rms = second_moment.sqrt()
+        if endpoint_fp32.ndim == 4:
+            group_mean = endpoint_fp32.mean(dim=1, keepdim=True)
+            group_mean_rms = group_mean.square().mean().sqrt()
+            centered_within_k_rms = (endpoint_fp32 - group_mean).square().mean().sqrt()
+        else:
+            # A rank-3 endpoint is the rollout-compatible K=1 fallback: its
+            # group mean is the endpoint itself and it has no within-K spread.
+            group_mean_rms = total_rms
+            centered_within_k_rms = torch.zeros_like(total_rms)
+
+        batch["loss/latent_endpoint_gauge"] = gauge_loss
+        batch["log/latent_endpoint_total_rms"] = total_rms.detach()
+        batch["log/latent_endpoint_group_mean_rms"] = group_mean_rms.detach()
+        batch["log/latent_endpoint_centered_within_k_rms"] = (
+            centered_within_k_rms.detach()
+        )
+        batch["log/latent_endpoint_max_abs"] = endpoint_fp32.detach().abs().amax()
+        batch["log/latent_endpoint_m2"] = second_moment.detach()
+        batch["log/latent_endpoint_gauge_active"] = (
+            second_moment.detach() > self.second_moment_threshold
+        ).to(dtype=torch.float32)
+        return batch
+
+
 class PerEmbodimentActionDecoder(Stage):
     """Route one latent endpoint to an embodiment-specific action decoder."""
 
@@ -883,7 +961,8 @@ class PerEmbodimentActionDecoder(Stage):
                 int(endpoint.shape[1]),
             )
             decoder_input = endpoint
-        flat_prediction = self.decoder_for(embodiment)(decoder_input)
+        decoder = self.decoder_for(embodiment)
+        flat_prediction = decoder(decoder_input)
         expected_flat = (
             batch_size * num_samples,
             self.output_num_tokens(num_tokens),
@@ -907,6 +986,24 @@ class PerEmbodimentActionDecoder(Stage):
         batch["log/sampler_prediction_rms"] = (
             prediction_samples.detach().square().mean().sqrt()
         )
+        first_linear = next(
+            (module for module in decoder.modules() if isinstance(module, nn.Linear)),
+            None,
+        )
+        # Scale diagnostics are available for the configured MLP/temporal
+        # decoders, but remain fail-soft for third-party decoders whose public
+        # contract never required an nn.Linear child.
+        if first_linear is not None:
+            endpoint_rms = endpoint.detach().float().square().mean().sqrt()
+            first_weight_norm = torch.linalg.vector_norm(
+                first_linear.weight.detach().float()
+            )
+            batch["log/decoder_first_linear_weight_frobenius_norm"] = (
+                first_weight_norm
+            )
+            batch["log/latent_decoder_scale_product"] = (
+                endpoint_rms * first_weight_norm
+            )
         return batch
 
 
