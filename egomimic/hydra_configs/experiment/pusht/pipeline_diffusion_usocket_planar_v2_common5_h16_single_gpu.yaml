@@ -1,0 +1,28 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/pipeline_diffusion_usocket_planar_v2_common5_h16
+  - _self_
+
+name: planar_v2_usocket_dp_common5_h16_single_gpu
+description: paper_scale_dp_single_gpu_global_batch64
+launch_params: {gpus_per_node: 1, nodes: 1}
+
+data:
+  train_dataloader_params:
+    pushshapes_sim_u_socket:
+      batch_size: 64
+
+run_provenance:
+  training_contract:
+    world_size: 1
+    per_rank_batch_size: 64
+    global_batch_size: 64
+  energy_score_contract:
+    validation_view: first_batch_single_rank_from_ordered_heldout_split
+
+evaluator:
+  energy_score:
+    validation_view:
+      definition: first_deterministic_validation_batch_single_rank
+      per_rank_batch_size: 32
+      world_size: 1

@@ -63,6 +63,16 @@ DP_SPECS = {
         4,
     ),
 }
+DP_SINGLE_GPU_SPECS = {
+    "pipeline_diffusion_usocket_planar_v2_common5_h16_single_gpu": (
+        "pushshapes_sim_u_socket",
+        "pipeline_diffusion_usocket_planar_v2_common5_h16",
+    ),
+    "pipeline_diffusion_chain_gripper_planar_v2_common5_h16_single_gpu": (
+        "pushshapes_sim_chain_gripper",
+        "pipeline_diffusion_chain_gripper_planar_v2_common5_h16",
+    ),
+}
 
 
 def _compose(experiment: str):
@@ -239,6 +249,41 @@ def test_paper_dp_smoke_checkpoint_callbacks_have_unique_state_keys(
         instantiate(smoke.callbacks.terminal_checkpoint),
     ]
     assert len({callback.state_key for callback in callbacks}) == len(callbacks)
+
+
+@pytest.mark.parametrize("experiment", sorted(DP_SINGLE_GPU_SPECS))
+def test_paper_dp_single_gpu_keeps_global_batch_and_model_contract(
+    experiment: str,
+) -> None:
+    domain, base_experiment = DP_SINGLE_GPU_SPECS[experiment]
+    cfg = _compose(experiment)
+    base = _compose(base_experiment)
+    assert cfg.launch_params.gpus_per_node == 1
+    assert cfg.data.train_dataloader_params[domain].batch_size == 64
+    assert cfg.data.valid_dataloader_params[domain].batch_size == 32
+    contract = cfg.run_provenance.training_contract
+    assert contract.world_size == 1
+    assert contract.per_rank_batch_size == 64
+    assert contract.global_batch_size == 64
+    view = cfg.evaluator.energy_score.validation_view
+    assert view.world_size == 1
+    assert view.per_rank_batch_size == 32
+    assert OmegaConf.to_container(cfg.model, resolve=True) == OmegaConf.to_container(
+        base.model, resolve=True
+    )
+    assert (
+        cfg.run_provenance.diffusion_contract.online_model_parameter_count
+        == 262777125
+    )
+
+    smoke = _compose(f"{experiment}_smoke")
+    for key in ("model", "data", "evaluator", "run_provenance"):
+        assert OmegaConf.to_container(
+            smoke[key], resolve=False
+        ) == OmegaConf.to_container(cfg[key], resolve=False)
+    assert smoke.trainer.max_steps == smoke.trainer.limit_train_batches == 2
+    assert smoke.trainer.val_check_interval == smoke.trainer.limit_val_batches == 1
+    assert smoke.callbacks.validation_checkpoint is None
 
 
 def test_paper_dp_observation_and_action_windows_are_causally_aligned() -> None:

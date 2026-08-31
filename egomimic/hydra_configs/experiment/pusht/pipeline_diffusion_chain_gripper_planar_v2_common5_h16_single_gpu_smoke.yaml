@@ -1,0 +1,18 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/pipeline_diffusion_chain_gripper_planar_v2_common5_h16_single_gpu
+  - _self_
+
+name: planar_v2_chain_gripper_dp_common5_h16_single_gpu_smoke
+description: two_optimizer_steps_plus_scheduled_validation_energy32
+trainer:
+  max_steps: 2
+  limit_train_batches: 2
+  val_check_interval: 1
+  limit_val_batches: 1
+logger: {wandb: {offline: true}}
+callbacks:
+  validation_checkpoint: null
+  model_checkpoint:
+    every_n_train_steps: 1
+    train_time_interval: null

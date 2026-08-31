@@ -296,6 +296,23 @@ def _assert_config_contract(
     assert domains == sorted(split_manifest["domains"])
     assert sorted(full_cfg.data.train_datasets) == domains
     assert sorted(full_cfg.data.valid_datasets) == domains
+    training_contract = full_cfg.run_provenance.training_contract
+    assert int(training_contract.world_size) == world_size
+    train_batch_sizes = {
+        int(full_cfg.data.train_dataloader_params[domain].batch_size)
+        for domain in domains
+    }
+    assert len(train_batch_sizes) == 1, train_batch_sizes
+    per_rank_batch_size = train_batch_sizes.pop()
+    assert per_rank_batch_size == int(training_contract.per_rank_batch_size)
+    assert int(training_contract.global_batch_size) == per_rank_batch_size * world_size
+    validation_view = full_cfg.evaluator.energy_score.validation_view
+    assert int(validation_view.world_size) == world_size
+    valid_batch_sizes = {
+        int(full_cfg.data.valid_dataloader_params[domain].batch_size)
+        for domain in domains
+    }
+    assert valid_batch_sizes == {int(validation_view.per_rank_batch_size)}
     for domain in domains:
         train = full_cfg.data.train_datasets[domain]
         valid = full_cfg.data.valid_datasets[domain]
