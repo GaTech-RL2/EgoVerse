@@ -7,20 +7,19 @@ train_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${paths.dataset_dir}
       key_map:
-        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
         mode: cartesian
-        stride: 1
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '69199812208123403bbdb24f'"
+        - "lambda row: row['episode_hash'] == '69bb1284d385c444f34222a7'"
     mode: total
 
 valid_datasets:
-  human_bimanual: ${train_datasets.human_bimanual}
+  human_bimanual: ${data.train_datasets.human_bimanual}
 
 train_dataloader_params:
   human_bimanual:

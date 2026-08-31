@@ -64,6 +64,10 @@ dependencies = [
     "scaleapi",
     "openai",
     "scikit-learn>=1.8.0",
+    "diffusers>=0.38.0",
+    "safetensors>=0.8.0",
+    "accelerate>=1.14.0",
+    "peft>=0.19.1",
 ]
 
 [tool.setuptools.packages.find]

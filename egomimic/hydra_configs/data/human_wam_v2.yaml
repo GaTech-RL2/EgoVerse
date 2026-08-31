@@ -1,0 +1,39 @@
+# WAM data — human_bimanual v2 slice from egoverseS3ZarrDatasets_v2 (large
+# aggregated staging: 41k+ human_bimanual episodes as of this run, all with
+# ``embodiment=human_bimanual`` and no lab/task tags in metadata, so we filter
+# by embodiment only). Uses ``LocalWamEpisodeResolver`` since the data is
+# already staged locally — no SQL / S3 sync at eval or train time.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_wam.WamMultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_wam.LocalWamEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets_v2
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_keymap
+        cam_horizon: 33
+        action_horizon: 192
+        state_horizon: 4
+        state_stride: 48     # action_horizon / state_horizon: state[k] aligns with block k's action-start
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_transform_list
+        state_stride: 48
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual'"
+    mode: total
+
+valid_datasets:
+  human_bimanual: ${data.train_datasets.human_bimanual}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 4
+    num_workers: 10
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 4
+    num_workers: 10

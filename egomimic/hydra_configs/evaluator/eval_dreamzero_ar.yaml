@@ -1,0 +1,12 @@
+# WAM evaluator, dreamzero offline eval — fully-autoregressive rolling mode.
+# Chunk 0 conditions on ``[g0] × n_hist`` (the anchor frame). Each subsequent
+# chunk conditions ONLY on the model's own K previous predicted latents (no
+# GT reconditioning). Right for measuring open-loop generation quality —
+# drift accumulates step-to-step, so any visible seam at chunk boundaries is
+# genuine model divergence, not an artifact of teacher-forcing.
+defaults:
+  - viz@viz_func: wam_cartesian
+  - _self_
+
+_target_: egomimic.eval.eval_wam.WAMEvalVideo
+teacher_force_rolling: false

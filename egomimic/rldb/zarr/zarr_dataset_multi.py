@@ -990,10 +990,24 @@ class MultiDataset(torch.utils.data.Dataset):
     def populate_from_datasets(self, datasets: dict | None = None) -> None:
         """
         Populate per-embodiment key inventory by walking leaves and probing
-        one post-transform sample per leaf. ``datasets`` defaults to
+        ONE post-transform sample per embodiment. ``datasets`` defaults to
         ``self.datasets`` so the typical call is just ``mds.populate_from_datasets()``.
+
+        Scale note: within a given graph, all leaves for the same embodiment
+        share the same ``key_map`` and ``transform_list`` (they only differ in
+        the underlying zarr episode path), so ONE successful probe per
+        embodiment tells us every post-transform key we need. Probing every
+        leaf turned into an O(N)-episode wedge at 41k-episode scale: a
+        single zarr chunk read or JPEG decode that stalled at the C level
+        (holding the GIL, not interruptible by Python signals) would hang
+        the whole call indefinitely — and ``try/except Exception`` here
+        cannot rescue a stuck C extension. If a probe FAILS with a Python
+        exception (bad JPEG, missing key, etc.) we advance to the next leaf
+        of the same embodiment; if it SUCCEEDS we mark the embodiment done
+        and skip subsequent probes for it entirely.
         """
         graph = datasets if datasets is not None else self.datasets
+        probed_embodiments: set[int] = set()
         for ds in graph.values():
             for leaf in self._iter_leaves(ds):
                 emb = getattr(leaf, "embodiment", None)
@@ -1007,6 +1021,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 self.shapes.setdefault(emb_id, {})
                 self.norm_stats.setdefault(emb_id, {})
 
+                if emb_id in probed_embodiments:
+                    continue
+
                 sample_keys: set | None = None
                 try:
                     sample = leaf[0]
@@ -1015,8 +1032,10 @@ class MultiDataset(torch.utils.data.Dataset):
                 except Exception as e:
                     logger.warning(
                         f"[MultiDataset] Could not probe leaf for post-transform "
-                        f"keys (emb={emb_id}): {e}. Falling back to raw key_map."
+                        f"keys (emb={emb_id}): {e}. Trying next leaf."
                     )
+                    # Don't mark probed — try another leaf for this embodiment.
+                    continue
 
                 if sample_keys is None:
                     for key_name, info in key_map.items():
@@ -1024,6 +1043,7 @@ class MultiDataset(torch.utils.data.Dataset):
                             "key_type", "metadata_keys"
                         )
                         self.zarr_keys[emb_id][key_name] = info["zarr_key"]
+                    probed_embodiments.add(emb_id)
                     continue
 
                 # Identity zarr_keys map (data_key is the algo-side name).
@@ -1039,6 +1059,7 @@ class MultiDataset(torch.utils.data.Dataset):
                             continue
                         self.key_types[emb_id][data_key] = inferred
                     self.zarr_keys[emb_id][data_key] = data_key
+                probed_embodiments.add(emb_id)
 
     # ---- key lookups ----
 
@@ -1266,6 +1287,8 @@ class MultiDataset(torch.utils.data.Dataset):
             std = torch.as_tensor(
                 stats["std"], device=tensor.device, dtype=torch.float32
             )
+            mean = self._tile_stats_time(mean, tensor)
+            std = self._tile_stats_time(std, tensor)
             return (tensor - mean) / (std + 1e-6)
         if self.norm_mode == "minmax":
             mn = torch.as_tensor(
@@ -1274,6 +1297,8 @@ class MultiDataset(torch.utils.data.Dataset):
             mx = torch.as_tensor(
                 stats["max"], device=tensor.device, dtype=torch.float32
             )
+            mn = self._tile_stats_time(mn, tensor)
+            mx = self._tile_stats_time(mx, tensor)
             return 2.0 * ((tensor - mn) / (mx - mn + 1e-6)) - 1.0
         if self.norm_mode == "quantile":
             q1 = torch.as_tensor(
@@ -1282,8 +1307,32 @@ class MultiDataset(torch.utils.data.Dataset):
             q99 = torch.as_tensor(
                 stats["quantile_99"], device=tensor.device, dtype=torch.float32
             )
+            q1 = self._tile_stats_time(q1, tensor)
+            q99 = self._tile_stats_time(q99, tensor)
             return 2.0 * ((tensor - q1) / (q99 - q1 + 1e-6)) - 1.0
         raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
+
+    def _tile_stats_time(
+        self, stat_t: torch.Tensor, tensor: torch.Tensor
+    ) -> torch.Tensor:
+        """Block-cyclic tile stats along the time axis to match ``tensor``.
+
+        Rolling val produces pred_actions longer than the training-time
+        action_horizon (e.g. cam_horizon=97 → 12 rolling steps × 48 actions
+        = 576, vs. training horizon 192). Norm stats are baked to training
+        horizon and per-timestep, but the rolling assumption is that each
+        block position repeats — so tiling stats block-cyclically matches
+        the paper's per-block stationarity assumption. Noop when shapes
+        already match or ``stat_t`` is not time-indexed.
+        """
+        if stat_t.dim() < 2 or tensor.dim() < 2:
+            return stat_t
+        T_stat = stat_t.shape[0]
+        T_tensor = tensor.shape[-2]
+        if T_tensor <= T_stat:
+            return stat_t
+        n_tiles = (T_tensor + T_stat - 1) // T_stat
+        return stat_t.repeat(n_tiles, *([1] * (stat_t.dim() - 1)))[:T_tensor]
 
     def _apply_unnorm_one(self, tensor, stats):
         if self.norm_mode == "zscore":
@@ -1293,6 +1342,8 @@ class MultiDataset(torch.utils.data.Dataset):
             std = torch.as_tensor(
                 stats["std"], device=tensor.device, dtype=torch.float32
             )
+            mean = self._tile_stats_time(mean, tensor)
+            std = self._tile_stats_time(std, tensor)
             return tensor * (std + 1e-6) + mean
         if self.norm_mode == "minmax":
             mn = torch.as_tensor(
@@ -1301,6 +1352,8 @@ class MultiDataset(torch.utils.data.Dataset):
             mx = torch.as_tensor(
                 stats["max"], device=tensor.device, dtype=torch.float32
             )
+            mn = self._tile_stats_time(mn, tensor)
+            mx = self._tile_stats_time(mx, tensor)
             return (tensor + 1) * 0.5 * (mx - mn + 1e-6) + mn
         if self.norm_mode == "quantile":
             q1 = torch.as_tensor(
@@ -1309,6 +1362,8 @@ class MultiDataset(torch.utils.data.Dataset):
             q99 = torch.as_tensor(
                 stats["quantile_99"], device=tensor.device, dtype=torch.float32
             )
+            q1 = self._tile_stats_time(q1, tensor)
+            q99 = self._tile_stats_time(q99, tensor)
             return (tensor + 1) * 0.5 * (q99 - q1 + 1e-6) + q1
         raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
 
@@ -1753,13 +1808,18 @@ class ZarrDataset(torch.utils.data.Dataset):
                     # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
                     # some contributors store 3x3 (e.g. microagi).
                     K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
+                if K.shape != (
+                    3,
+                    4,
+                ):  # unexpected -> sentinel (viz falls back to const)
                     K = np.full((3, 4), np.nan, dtype=np.float32)
             else:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             _ = origin  # preserved for symmetry with prior API
             return data
 
@@ -1858,6 +1918,25 @@ class ZarrEpisode:
         if isinstance(raw, dict):
             return {k: np.asarray(v) for k, v in raw.items()}
         return np.asarray(raw)
+
+    @property
+    def extrinsics(self) -> dict[str, np.ndarray] | np.ndarray | None:
+        """
+        Camera / arm extrinsics persisted in zarr metadata (e.g. eva stores
+        ``{"left": SE3_4x4, "right": SE3_4x4}`` — the per-arm rigid transforms
+        used to bring per-arm command / obs poses into the front-camera frame).
+
+        Returns:
+            - dict[str, np.ndarray] for the multi-key layout (eva),
+            - np.ndarray if a single 4x4 was written,
+            - None if no extrinsics were persisted.
+        """
+        raw = self.metadata.get("extrinsics")
+        if raw is None:
+            return None
+        if isinstance(raw, dict):
+            return {k: np.asarray(v, dtype=np.float32) for k, v in raw.items()}
+        return np.asarray(raw, dtype=np.float32)
 
     def read(
         self, keys_with_ranges: dict[str, tuple[int, int | None]]

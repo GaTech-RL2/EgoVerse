@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import Literal
 
 import numpy as np
@@ -17,6 +16,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     QuaternionPoseToYPR,
     Reshape,
     SplitKeys,
+    SubsampleKeys,
     Transform,
     XYZWXYZ_to_XYZYPR,
 )
@@ -25,7 +25,6 @@ from egomimic.utils.viz_utils import (
     _viz_gaze,
     _viz_keypoints,
 )
-
 
 ARIA_INTRINSICS = np.array(
     [
@@ -80,14 +79,32 @@ ARIA_T_RGB_CPF = np.array(
 # Aria's raw 21-keypoint layout (0-4 fingertips, 5 palm root) — NOT MANO. Used
 # only for the opt-in raw-Aria-keypoint viz; the canonical keypoints are MANO.
 ARIA_FINGER_EDGES = [
-    (5, 6), (6, 7), (7, 0),                # thumb
-    (5, 8), (8, 9), (9, 10), (10, 1),      # index
-    (5, 11), (11, 12), (12, 13), (13, 2),  # middle
-    (5, 14), (14, 15), (15, 16), (16, 3),  # ring
-    (5, 17), (17, 18), (18, 19), (19, 4),  # pinky
+    (5, 6),
+    (6, 7),
+    (7, 0),  # thumb
+    (5, 8),
+    (8, 9),
+    (9, 10),
+    (10, 1),  # index
+    (5, 11),
+    (11, 12),
+    (12, 13),
+    (13, 2),  # middle
+    (5, 14),
+    (14, 15),
+    (15, 16),
+    (16, 3),  # ring
+    (5, 17),
+    (17, 18),
+    (18, 19),
+    (19, 4),  # pinky
 ]
 ARIA_FINGER_EDGE_RANGES = [
-    ("thumb", 0, 3), ("index", 3, 7), ("middle", 7, 11), ("ring", 11, 15), ("pinky", 15, 19),
+    ("thumb", 0, 3),
+    ("index", 3, 7),
+    ("middle", 7, 11),
+    ("ring", 11, 15),
+    ("pinky", 15, 19),
 ]
 
 
@@ -103,6 +120,7 @@ class Human(Embodiment):
     zarr.json); ``cls.INTRINSICS`` is only a fallback for legacy episodes that
     lack them. The canonical keypoints are MANO for every vendor.
     """
+
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
     # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
@@ -111,11 +129,26 @@ class Human(Embodiment):
     T_RGB_CPF = ARIA_T_RGB_CPF  # for the opt-in aria gaze viz
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
-        (0, 5), (5, 6), (6, 7), (7, 8),         # index
-        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
-        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
-        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),  # thumb
+        (0, 5),
+        (5, 6),
+        (6, 7),
+        (7, 8),  # index
+        (0, 9),
+        (9, 10),
+        (10, 11),
+        (11, 12),  # middle
+        (0, 13),
+        (13, 14),
+        (14, 15),
+        (15, 16),  # ring
+        (0, 17),
+        (17, 18),
+        (18, 19),
+        (19, 20),  # pinky
     ]
     FINGER_COLORS = {
         "thumb": (255, 100, 100),
@@ -342,9 +375,9 @@ class Human(Embodiment):
         if mode == "cartesian":
             return _build_human_cartesian_bimanual_transform_list(stride=stride)
         if mode == "cartesian_padded":
-            return _build_human_cartesian_bimanual_transform_list(
-                stride=stride
-            ) + [PadGripperZeros(action_key="actions_cartesian")]
+            return _build_human_cartesian_bimanual_transform_list(stride=stride) + [
+                PadGripperZeros(action_key="actions_cartesian")
+            ]
         if mode == "cartesian_wristframe_ypr":
             return _build_human_cartesian_eef_frame_transform_list(stride=stride)
         if mode == "keypoints_headframe_ypr":
@@ -1149,3 +1182,174 @@ def _build_human_cartesian_bimanual_transform_list(
         ]
     )
     return transform_list
+
+
+# ===========================================================================
+# WAM (World-Action Model) data path — vendored back on top of the refactored
+# Human base. Only the WAM-specific keymap + transform are needed here; the
+# Mecka viz/keymap pipeline has been collapsed into Human by the refactor.
+# aria_wam.yaml (and future mecka_wam.yaml) reference these classmethods.
+# ===========================================================================
+class Mecka(Human):
+    VIZ_INTRINSICS_KEY = "mecka"
+
+    @classmethod
+    def get_wam_keymap(
+        cls,
+        cam_horizon: int = 17,
+        action_horizon: int = 16,
+        state_horizon: int = 4,
+        video_stride: int = 1,
+        state_stride: int = 1,
+        norm_mode: bool = False,
+        annotation_key=None,
+    ):
+        # video_stride=6 downsamples aria's native 30 fps -> 5 fps (paper's
+        # DROID regime). We read cam_horizon*video_stride raw frames from the
+        # zarr, then SubsampleKeys in the transform_list slices every
+        # video_stride-th frame back to cam_horizon frames.
+        #
+        # state_stride: per-block temporal alignment of the state register.
+        # WAM's DiT partitions state tokens across the predicted blocks
+        # (num_state_per_block per block, num_pred_blocks blocks). Each state
+        # slot for block k must carry proprio at native timestep k*state_stride
+        # so the state signal is time-aligned with that block's action span
+        # (paper's action-start convention: state_stride = action_horizon /
+        # state_horizon = 192 / 4 = 48). We read state_horizon*state_stride
+        # raw frames and SubsampleKeys slices every state_stride-th value.
+        raw_cam_horizon = cam_horizon * max(1, int(video_stride))
+        raw_state_horizon = state_horizon * max(1, int(state_stride))
+        key_map = {
+            cls.VIZ_IMAGE_KEY: {
+                "key_type": "camera_keys",
+                "zarr_key": "images.front_1",
+                "horizon": raw_cam_horizon,
+            },
+            "right.action_ee_pose": {
+                "key_type": "action_keys",
+                "zarr_key": "right.obs_ee_pose",
+                "horizon": action_horizon,
+            },
+            "left.action_ee_pose": {
+                "key_type": "action_keys",
+                "zarr_key": "left.obs_ee_pose",
+                "horizon": action_horizon,
+            },
+            "right.state_ee_pose": {
+                "key_type": "proprio_keys",
+                "zarr_key": "right.obs_ee_pose",
+                "horizon": raw_state_horizon,
+            },
+            "left.state_ee_pose": {
+                "key_type": "proprio_keys",
+                "zarr_key": "left.obs_ee_pose",
+                "horizon": raw_state_horizon,
+            },
+            "obs_head_pose": {
+                "key_type": "proprio_keys",
+                "zarr_key": "obs_head_pose",
+            },
+            # Chunked read of the same zarr key so the batch also carries the
+            # per-raw-frame head pose across the whole camera-clip window.
+            # ``key_type=metadata_keys`` keeps it out of the algo's
+            # ``proprio_keys[eid]`` list (so WAM._to_wam_data doesn't append it
+            # to ``data["state"]`` and change model input) and out of norm
+            # inference. Used at viz time to project each action onto the
+            # camera pose CURRENT at the displayed pixel — otherwise the
+            # single-pose head reference at frame 0 drifts as the head moves
+            # and the overlay walks off the hand.
+            "obs_head_pose_chunk": {
+                "key_type": "metadata_keys",
+                "zarr_key": "obs_head_pose",
+                "horizon": raw_cam_horizon,
+            },
+        }
+        if norm_mode:
+            for k in [
+                k for k, v in key_map.items() if v.get("key_type") == "camera_keys"
+            ]:
+                del key_map[k]
+        return key_map
+
+    @classmethod
+    def get_wam_transform_list(cls, video_stride: int = 1, state_stride: int = 1):
+        transforms = []
+        if video_stride > 1:
+            # Prepended: slice the raw camera clip [::video_stride] to the
+            # semantic cam_horizon count. Must run BEFORE the coordinate-frame
+            # transforms which don't touch the camera key but expect the batch
+            # dict to have the right shapes. Also downsample the head-pose
+            # chunk so it carries one pose per displayed pixel (used by
+            # WAMEvalVideo to re-project the overlay per-frame instead of
+            # anchoring everything to the frame-0 head pose).
+            transforms.append(
+                SubsampleKeys(
+                    keys=[cls.VIZ_IMAGE_KEY, "obs_head_pose_chunk"],
+                    stride=int(video_stride),
+                )
+            )
+        if state_stride > 1:
+            # Slice the raw state clip [::state_stride] so state[k] lands at
+            # native timestep k*state_stride — the start of block k's action
+            # span. Must run BEFORE ActionChunkCoordinateFrameTransform, which
+            # consumes {left,right}.state_ee_pose as a (state_horizon, 7) chunk.
+            transforms.append(
+                SubsampleKeys(
+                    keys=["left.state_ee_pose", "right.state_ee_pose"],
+                    stride=int(state_stride),
+                )
+            )
+        transforms += [
+            ActionChunkCoordinateFrameTransform(
+                target_world="obs_head_pose",
+                chunk_world="left.action_ee_pose",
+                transformed_key_name="left.action_ee_pose_hf",
+                mode="xyzwxyz",
+            ),
+            ActionChunkCoordinateFrameTransform(
+                target_world="obs_head_pose",
+                chunk_world="right.action_ee_pose",
+                transformed_key_name="right.action_ee_pose_hf",
+                mode="xyzwxyz",
+            ),
+            ActionChunkCoordinateFrameTransform(
+                target_world="obs_head_pose",
+                chunk_world="left.state_ee_pose",
+                transformed_key_name="left.state_ee_pose_hf",
+                mode="xyzwxyz",
+            ),
+            ActionChunkCoordinateFrameTransform(
+                target_world="obs_head_pose",
+                chunk_world="right.state_ee_pose",
+                transformed_key_name="right.state_ee_pose_hf",
+                mode="xyzwxyz",
+            ),
+            XYZWXYZ_to_XYZYPR(
+                keys=[
+                    "left.action_ee_pose_hf",
+                    "right.action_ee_pose_hf",
+                    "left.state_ee_pose_hf",
+                    "right.state_ee_pose_hf",
+                ]
+            ),
+            ConcatKeys(
+                ["left.action_ee_pose_hf", "right.action_ee_pose_hf"],
+                "actions_cartesian",
+                delete_old_keys=True,
+            ),
+            ConcatKeys(
+                ["left.state_ee_pose_hf", "right.state_ee_pose_hf"],
+                "state_ee_pose",
+                delete_old_keys=True,
+            ),
+            DeleteKeys(
+                keys_to_delete=[
+                    "obs_head_pose",
+                    "left.action_ee_pose",
+                    "right.action_ee_pose",
+                    "left.state_ee_pose",
+                    "right.state_ee_pose",
+                ]
+            ),
+        ]
+        return transforms

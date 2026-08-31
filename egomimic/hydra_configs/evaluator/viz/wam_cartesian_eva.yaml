@@ -1,0 +1,11 @@
+# Cartesian action viz for the WAM eval on eva data (cross-embodiment probing).
+# Adds an ``eva_bimanual`` entry so ``EvalVideo._visualize_preds`` can look up
+# the per-embodiment renderer at eval time. Uses ``Eva.viz_gt_preds`` (inherited
+# from the ``Embodiment`` base) which projects the 12D bimanual xyzypr action
+# chunks with ``Eva.INTRINSICS`` (aria intrinsics, as configured in eva.py).
+eva_bimanual:
+  _target_: egomimic.rldb.embodiment.eva.Eva.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_cartesian
+  mode: traj

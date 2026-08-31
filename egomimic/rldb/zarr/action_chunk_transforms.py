@@ -182,7 +182,12 @@ class ActionChunkCoordinateFrameTransform(Transform):
         """
         # flatten to (T, D)
         # target world is head pose, chunk world is keypoints
-        batch.update(self.extra_batch_key or {})
+        # ``extra_batch_key`` acts as a FALLBACK — if the dataset already
+        # emitted the key (e.g. per-episode camera extrinsics from zarr
+        # metadata via ``ZarrWamDataset``), we keep that dynamic value
+        # instead of overwriting with the transform-constructed default.
+        for _k, _v in (self.extra_batch_key or {}).items():
+            batch.setdefault(_k, _v)
         target_world = np.asarray(batch[self.target_world])
         chunk_world = np.asarray(batch[self.chunk_world])
         chunk_world_shape = None
@@ -366,6 +371,29 @@ class DeleteKeys(Transform):
         return batch
 
 
+class SubsampleKeys(Transform):
+    """Subsample given batch keys along axis 0 by ``stride``.
+
+    Use to temporally downsample a video clip (e.g. aria 30 fps -> 5 fps by
+    stride=6) after the zarr read but before the model consumes it. Works on
+    numpy arrays and torch tensors alike (both support ``x[::stride]``).
+    """
+
+    def __init__(self, keys: list[str], stride: int = 1):
+        if stride <= 0:
+            raise ValueError(f"stride must be positive, got {stride}")
+        self.keys = list(keys)
+        self.stride = int(stride)
+
+    def transform(self, batch: dict) -> dict:
+        if self.stride <= 1:
+            return batch
+        for key in self.keys:
+            if key in batch:
+                batch[key] = batch[key][:: self.stride]
+        return batch
+
+
 class XYZWXYZ_to_XYZYPR(Transform):
     """Convert listed keys from xyz+quat(wxyz) to xyz+ypr in-place."""
 
@@ -535,12 +563,8 @@ class PadGripperZeros(Transform):
             )
         pad_shape = (*arr.shape[:-1], 1)
         pad = np.zeros(pad_shape, dtype=arr.dtype)
-        padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
-        )
-        batch[self.action_key] = (
-            torch.from_numpy(padded) if is_tensor else padded
-        )
+        padded = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
+        batch[self.action_key] = torch.from_numpy(padded) if is_tensor else padded
         return batch
 
 
@@ -552,6 +576,36 @@ class Reshape(Transform):
 
     def transform(self, batch: dict) -> dict:
         batch[self.output_key] = batch[self.input_key].reshape(*self.shape)
+        return batch
+
+
+class DropGripperDims(Transform):
+    """Inverse of ``PadGripperZeros``: drop the two 1-D gripper scalars from a
+    14D bimanual cartesian chunk to yield a 12D chunk matching aria/mecka's
+    ``[L xyz ypr, R xyz ypr]`` layout.
+
+    Assumes the canonical eva layout ``[L(6) L_grip(1) R(6) R_grip(1)]`` — the
+    grippers sit at indices 6 and 13. Used at WAM eval time to feed a 12D
+    human-trained denoiser eva data (cross-embodiment probing).
+    """
+
+    def __init__(self, keys: list[str]):
+        # accepts either a single key or a list of keys (both actions & state)
+        self.keys = [keys] if isinstance(keys, str) else list(keys)
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            arr = batch[key]
+            is_tensor = isinstance(arr, torch.Tensor)
+            v = arr.cpu().numpy() if is_tensor else np.asarray(arr)
+            if v.shape[-1] != 14:
+                raise ValueError(
+                    f"DropGripperDims expects last-dim 14, got {v.shape} for '{key}'"
+                )
+            trimmed = np.concatenate((v[..., :6], v[..., 7:13]), axis=-1)
+            batch[key] = torch.from_numpy(trimmed) if is_tensor else trimmed
         return batch
 
 

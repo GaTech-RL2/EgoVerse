@@ -1,0 +1,17 @@
+# Cartesian action viz for the aria+eva cotrain — needs BOTH renderer entries
+# because val step batches come from a CombinedLoader that alternates
+# embodiments, and ``EvalVideo._visualize_preds`` looks up
+# ``viz_func[batch_embodiment_name]``. Missing entry → ConfigKeyError.
+human_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Mecka.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_cartesian
+  mode: traj
+
+eva_bimanual:
+  _target_: egomimic.rldb.embodiment.eva.Eva.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_cartesian
+  mode: traj

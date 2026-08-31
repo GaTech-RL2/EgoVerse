@@ -84,6 +84,13 @@ class ModelWrapper(LightningModule):
 
     # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
+        if batch_idx < 3:
+            print(
+                f"[DBG training_step] rank={self.global_rank} "
+                f"epoch={self.current_epoch} batch_idx={batch_idx} "
+                f"global_step={self.global_step}",
+                flush=True,
+            )
         self.train()
         loss_dicts = []
 
@@ -195,7 +202,25 @@ class ModelWrapper(LightningModule):
             sync_dist=True,
         )
 
+    def _rank_barrier(self, tag: str) -> None:
+        """Synchronize all ranks at a named point. Cheap when everyone gets
+        here at roughly the same time; useful to avoid NCCL ALLREDUCE
+        timeouts when one rank has been slower (e.g. first-epoch zarr JPEG
+        read burst, val-loop imbalance, sporadic filesystem stalls). No-op
+        outside a distributed run."""
+        if (
+            not torch.distributed.is_available()
+            or not torch.distributed.is_initialized()
+        ):
+            return
+        print(f"[BARRIER {tag}] rank={self.global_rank} entering", flush=True)
+        torch.distributed.barrier()
+        print(f"[BARRIER {tag}] rank={self.global_rank} released", flush=True)
+
     def on_validation_start(self):
+        # Sync before the val loop so no rank enters validation while others
+        # are still finishing the previous training epoch's last step.
+        self._rank_barrier("on_validation_start")
         if self.evaluator is None:
             return
         self.model.device = self.device
@@ -220,15 +245,10 @@ class ModelWrapper(LightningModule):
         if self.evaluator is not None:
             self.evaluator.on_validation_end()
 
-        print(
-            f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
-            flush=True,
-        )
-        torch.distributed.barrier()
-        print(
-            f"Rank {self.global_rank} on validation end, all ranks synchronized",
-            flush=True,
-        )
+        # Sync after the val loop — mp4 writers on different ranks finish at
+        # different times, and if we don't wait here the next train epoch's
+        # first ALLREDUCE can hit the 30-min NCCL default.
+        self._rank_barrier("on_validation_end")
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
@@ -279,16 +299,63 @@ class ModelWrapper(LightningModule):
 
     def on_fit_start(self):
         self.model.device = self.device
+        # Debug: per-rank dataloader lengths (catches DistributedSampler-caused
+        # empty shards where a rank has 0 train batches and its trainer.fit()
+        # returns instantly while other ranks hang on the next allreduce).
+        try:
+            train_dl = self.trainer.train_dataloader
+            n_train = len(train_dl) if train_dl is not None else -1
+        except Exception as _e:
+            n_train = f"<err:{_e!r}>"
+        try:
+            val_dls = self.trainer.val_dataloaders
+            if isinstance(val_dls, list):
+                n_val = [len(v) for v in val_dls]
+            elif val_dls is not None:
+                n_val = len(val_dls)
+            else:
+                n_val = -1
+        except Exception as _e:
+            n_val = f"<err:{_e!r}>"
         print(
-            f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
+            f"[DBG on_fit_start] rank={self.global_rank}/{self.trainer.world_size} "
+            f"local={self.local_rank} max_epochs={self.trainer.max_epochs} "
+            f"limit_train_batches={self.trainer.limit_train_batches} "
+            f"len_train_dl={n_train} len_val_dl={n_val}",
             flush=True,
         )
-        torch.distributed.barrier()
+        self._rank_barrier("on_fit_start")
+
+    def on_train_batch_start(self, batch, batch_idx):
+        # Only print first few per epoch to avoid log spam. Catches rank-1's
+        # non-participation in training_step (if this never prints on rank 1,
+        # rank 1 never entered the training loop for that epoch).
+        if batch_idx < 3:
+            print(
+                f"[DBG on_train_batch_start] rank={self.global_rank} "
+                f"epoch={self.current_epoch} batch_idx={batch_idx} "
+                f"global_step={self.global_step}",
+                flush=True,
+            )
+
+    def on_train_end(self):
+        # Fires when fit() is about to return normally. Rank 1 exiting early
+        # (with `("success", JobReturn(...))` in submitit's result.pkl) means
+        # this hook fires on rank 1 while other ranks are still training.
         print(
-            f"Rank {self.global_rank} on fit start, all ranks synchronized", flush=True
+            f"[DBG on_train_end] rank={self.global_rank} "
+            f"current_epoch={self.current_epoch} global_step={self.global_step}",
+            flush=True,
         )
 
+    def teardown(self, stage: str) -> None:
+        print(f"[DBG teardown] rank={self.global_rank} stage={stage}", flush=True)
+
     def on_train_epoch_start(self):
+        # Barrier at the start of each epoch — the first-epoch zarr JPEG
+        # read burst is uneven across ranks (shared FS), so this pulls the
+        # slow rank in before any per-step ALLREDUCE.
+        self._rank_barrier("on_train_epoch_start")
         for i, param_group in enumerate(self.optimizers().param_groups):
             self.log(
                 f"Optimizer/param_group_{i}_lr",
@@ -299,3 +366,10 @@ class ModelWrapper(LightningModule):
             )
 
         return super().on_train_epoch_start()
+
+    def on_train_epoch_end(self):
+        # Sync at epoch end so no rank races into on_validation_start (or the
+        # next epoch's first step) while another is still finishing its last
+        # backward pass.
+        self._rank_barrier("on_train_epoch_end")
+        return super().on_train_epoch_end()

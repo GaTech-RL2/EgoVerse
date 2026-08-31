@@ -1,0 +1,67 @@
+# WAM data — 50/50 cotrain of ARIA fold_clothes (human_bimanual, S3-backed via
+# aria_fold folder) + EVA fold_clothes (eva_bimanual, local arc_tests folder).
+# Same universal WAM pipeline as the single-embodiment configs. Equal batch_size
+# on each loader → CombinedLoader("max_size_cycle") yields one aria batch + one
+# eva batch per training step, so the model sees exactly balanced samples per
+# gradient step regardless of dataset size disparity (aria ~572, eva ~290).
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_wam.WamMultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_wam.S3WamEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/aria_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_keymap
+        cam_horizon: 33
+        action_horizon: 192
+        state_horizon: 4
+        state_stride: 48     # action_horizon / state_horizon: state[k] aligns with block k's action-start
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_transform_list
+        state_stride: 48
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: total
+
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_wam.WamMultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_wam.LocalWamEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/arc_tests
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_wam_keymap
+        cam_horizon: 33
+        action_horizon: 192
+        state_horizon: 4
+        state_stride: 48     # action_horizon / state_horizon: state[k] aligns with block k's action-start
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_wam_transform_list
+        state_stride: 48
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual'"
+    mode: total
+
+valid_datasets:
+  human_bimanual: ${data.train_datasets.human_bimanual}
+  eva_bimanual: ${data.train_datasets.eva_bimanual}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 4
+    num_workers: 10
+  eva_bimanual:
+    batch_size: 4
+    num_workers: 10
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 4
+    num_workers: 10
+  eva_bimanual:
+    batch_size: 4
+    num_workers: 10
