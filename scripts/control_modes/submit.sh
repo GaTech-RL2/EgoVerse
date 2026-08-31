@@ -38,10 +38,12 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LAUNCHER="$REPO/osmo/pushshapes_control_modes_l40s.yaml"
 
 BRANCH="${BRANCH:-algo/causal-action-models}"
-POOL="${POOL:-groot-l40s-01}"
+# groot-h100-01 allocates WHOLE NODES: it rejects anything but num_gpu=8
+# ("Assertion failed for task train: GPU value must be 8"). groot-l40s-01 is
+# 4 GPU/node and rejects 8, so POOL and NUM_GPU have to move together.
+POOL="${POOL:-groot-h100-01}"
 PRIORITY="${PRIORITY:-HIGH}"
-# groot-l40s-01 is 4 GPU/node — num_gpu=8 is rejected outright.
-NUM_GPU="${NUM_GPU:-2}"
+NUM_GPU="${NUM_GPU:-8}"
 BATCH_SIZE="${BATCH_SIZE:-16}"
 NUM_WORKERS="${NUM_WORKERS:-4}"
 # An "epoch" is capped at LIMIT_TRAIN_BATCHES steps so the sim evaluator runs
@@ -59,7 +61,11 @@ N_PER_MODE="${N_PER_MODE:-547}"
 DATA_CFG="${DATA_CFG:-control_modes_gripper_arc_D10_M16_append_r0}"
 STAMP="$(date +%Y%m%d)"
 
-ARMS=(arm1_dp_flow arm2_causal_bidir arm3_state_action_ar arm4_state_idm)
+# ARMS is overridable so a single arm can be submitted first as a canary:
+# a launcher bug fails identically for all eight, and finding that out from
+# one run costs one slot instead of the night.
+#   ARMS="arm2_causal_bidir" scripts/control_modes/submit.sh small
+read -r -a ARMS <<< "${ARMS:-arm1_dp_flow arm2_causal_bidir arm3_state_action_ar arm4_state_idm}"
 
 # A case, not an associative array: macOS ships bash 3.2, where `declare -A`
 # does not exist and this script could not be dry-run locally.
@@ -100,9 +106,9 @@ for cap in "${CAPS[@]}"; do
       "seen_modes=$SEEN_MODES"
       "data_prefix=$DATA_PREFIX"
       "n_per_mode=$N_PER_MODE"
-      "cpu=32"
-      "memory=200Gi"
-      "storage=200Gi"
+      "cpu=${CPU:-64}"
+      "memory=${MEMORY:-320Gi}"
+      "storage=${STORAGE:-200Gi}"
     )
 
     echo "=== $JOB ($MODEL_CFG) ==="
