@@ -10,29 +10,31 @@ from hydra.core.global_hydra import GlobalHydra
 from omegaconf import OmegaConf
 
 from egomimic.eval.human_robot_overlay_eval import HumanRobotOverlayEval
+from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.pushshapes import (
     get_keymap_hpt,
     get_planar_dense_transform_list,
 )
+from egomimic.trainHydra import _build_model_config_tree
 
 REPO_ROOT = Path(__file__).parents[1]
 CONFIG_DIR = REPO_ROOT / "egomimic" / "hydra_configs"
 SEED_BANK = CONFIG_DIR / "evaluator" / "energy_score_seed_bank_k32_v1.json"
 SEED_BANK_SHA256 = "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6"
 SPECS = {
-    "pipeline_sampler_usocket_planar_v2_arc_D50_M16": {
+    "pipeline_sampler_usocket_planar_v2_arc_D50_M20": {
         "domain": "pushshapes_sim_u_socket",
         "distance": 50.0,
-        "waypoints": 16,
-        "horizon": 17,
+        "waypoints": 20,
+        "horizon": 21,
         "native_dim": 3,
     },
-    "pipeline_sampler_usocket_planar_v2_arc_D100_M25": {
+    "pipeline_sampler_usocket_planar_v2_arc_D100_M40": {
         "domain": "pushshapes_sim_u_socket",
         "distance": 100.0,
-        "waypoints": 25,
-        "horizon": 26,
+        "waypoints": 40,
+        "horizon": 41,
         "native_dim": 3,
     },
     "pipeline_sampler_chain_gripper_planar_v2_arc_D40_M16": {
@@ -42,11 +44,11 @@ SPECS = {
         "horizon": 17,
         "native_dim": 4,
     },
-    "pipeline_sampler_chain_gripper_planar_v2_arc_D80_M25": {
+    "pipeline_sampler_chain_gripper_planar_v2_arc_D80_M32": {
         "domain": "pushshapes_sim_chain_gripper",
         "distance": 80.0,
-        "waypoints": 25,
-        "horizon": 26,
+        "waypoints": 32,
+        "horizon": 33,
         "native_dim": 4,
     },
 }
@@ -135,8 +137,14 @@ def test_arc_sixrun_contract(experiment: str) -> None:
     assert model.action_horizon == spec["horizon"]
     assert noise.action_horizon == sampler.action_horizon == spec["horizon"]
     assert sampler.denoising_module.act_seq == spec["horizon"]
-    assert sampler.latent_dim == noise.latent_dim == 96
-    assert sampler.num_inference_steps == 8
+    assert sampler.latent_dim == noise.latent_dim == 128
+    assert sampler.decoder_hidden_dim == 512
+    assert sampler.denoiser_hidden_dim == 512
+    assert sampler.num_inference_steps == 16
+    assert sampler.denoising_module.nblocks == 16
+    assert sampler.denoising_module.hidden_dim == 512
+    assert sampler.denoising_module.act_dim == 128
+    assert sampler.denoising_module.n_heads == 8
     assert dict(sampler.action_dims) == {spec["domain"]: 5}
     adapter = model.rollout_adapters[spec["domain"]]
     assert adapter._target_.endswith(".PlanarArcWaypointZeroRolloutAdapter")
@@ -149,6 +157,13 @@ def test_arc_sixrun_contract(experiment: str) -> None:
     assert cfg.run_provenance.norm_contract.domains[spec["domain"]].actions_shape == [
         spec["horizon"],
         5,
+    ]
+    assert cfg.run_provenance.energy_score_contract.sample_count == 32
+    assert cfg.evaluator.energy_score.provenance.sampler_inference_steps == 16
+    config_tree = _build_model_config_tree(cfg)
+    resolved_tree = OmegaConf.to_container(config_tree, resolve=True)
+    assert resolved_tree["model"]["robomimic_model"]["action_horizon"] == spec[
+        "horizon"
     ]
     smoke = _compose(f"{experiment}_smoke")
     for key in ("model", "data", "evaluator", "run_provenance"):
@@ -239,6 +254,64 @@ def test_paper_dp_observation_and_action_windows_are_causally_aligned() -> None:
     assert actions[0, 2] == pytest.approx(np.cos(native[1, 2]))
     assert actions[0, 3] == pytest.approx(np.sin(native[1, 2]))
     assert actions[0, 4] == pytest.approx(0.0)
+
+
+def test_paper_ema_is_registered_checkpointed_and_uses_exact_warmup(
+    monkeypatch,
+) -> None:
+    class FakeAlgo:
+        def __init__(self):
+            self.nets = torch.nn.ModuleDict(
+                {"policy": torch.nn.Linear(2, 2, bias=False)}
+            )
+
+    monkeypatch.setattr(
+        ModelWrapper,
+        "_instantiate_model",
+        lambda self, config_tree, norm_stats_state: FakeAlgo(),
+    )
+    wrapper = ModelWrapper(
+        config_tree={
+            "model": {
+                "robomimic_model": {"_target_": "unused.FakeAlgo"},
+                "ema": {
+                    "enabled": True,
+                    "update_after_step": 0,
+                    "inv_gamma": 1.0,
+                    "power": 0.75,
+                    "min_value": 0.0,
+                    "max_value": 0.9999,
+                    "use_for_validation": True,
+                },
+            }
+        },
+        norm_stats_state={},
+    )
+    assert wrapper.ema_model.nets is wrapper.ema_nets
+    assert all(not parameter.requires_grad for parameter in wrapper.ema_nets.parameters())
+    assert any(key.startswith("ema_nets.") for key in wrapper.state_dict())
+
+    with torch.no_grad():
+        wrapper.model.nets["policy"].weight.fill_(1.0)
+    wrapper._update_ema()
+    assert wrapper.ema_optimization_step.item() == 1
+    assert wrapper.ema_decay.item() == pytest.approx(0.0)
+    assert torch.equal(
+        wrapper.ema_model.nets["policy"].weight,
+        wrapper.model.nets["policy"].weight,
+    )
+
+    with torch.no_grad():
+        wrapper.model.nets["policy"].weight.fill_(2.0)
+    wrapper._update_ema()
+    expected_decay = 1.0 - 2.0**-0.75
+    assert wrapper.ema_optimization_step.item() == 2
+    assert wrapper.ema_decay.item() == pytest.approx(expected_decay)
+
+    checkpoint = {}
+    wrapper.on_save_checkpoint(checkpoint)
+    assert "ema_state_dict" not in checkpoint
+    assert checkpoint["hyper_parameters"]["ema_optimization_step"] == 2
 
 
 def test_energy_score_seed_bank_and_prediction_artifact(tmp_path: Path) -> None:

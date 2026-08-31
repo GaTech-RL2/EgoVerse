@@ -91,15 +91,25 @@ def load_algo_from_ckpt(
     if use_ema:
         ema = ckpt.get("ema_state_dict")
         if ema is None:
-            raise SystemExit(
-                "--use-ema: checkpoint has no ema_state_dict "
-                "(was the run trained with EMACallback?)"
-            )
+            # Integrated paper-DP EMA is a registered ModelWrapper subtree.
+            # Re-key it to the established online ``nets.*`` contract without
+            # duplicating a ~1 GB EMA tree in every checkpoint.
+            ema = {
+                f"nets.{key.removeprefix('ema_nets.')}": value
+                for key, value in state_dict.items()
+                if key.startswith("ema_nets.")
+            }
+        if not ema:
+            raise SystemExit("--use-ema: checkpoint has no EMA parameter tree")
         state_dict = dict(state_dict)
         state_dict.update(ema)  # float params/buffers -> EMA; int buffers stay live
         print(f"[load] using EMA weights ({len(ema)} tensors)")
     new_sd = {}
     for k, v in state_dict.items():
+        if k.startswith("ema_nets."):
+            # Registered EMA parameters belong to ModelWrapper, not the
+            # reconstructed online Algo ModuleDict loaded below.
+            continue
         for prefix in ("nets.", "model.nets."):
             if k.startswith(prefix):
                 new_sd[k[len(prefix) :]] = v

@@ -7,4 +7,4 @@ arc_distance: 40.0
 arc_waypoints: 16
 arc_token_horizon: 17
 name: planar_v2_chain_gripper_arc_D40_M16
-description: chain_common5_arc_r30_D40_M16_J8_replan1
+description: chain_common5_arc_r30_D40_M16_fold_backbone_J16_replan1

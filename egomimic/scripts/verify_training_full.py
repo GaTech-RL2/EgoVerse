@@ -387,14 +387,14 @@ def _strict_load_model_wrapper(checkpoint_path: Path) -> dict[str, Any]:
         assert hasattr(wrapper, "ema_model")
         optimization_step = int(wrapper.ema_optimization_step.item())
         assert optimization_step > 0, optimization_step
-        expected_decay = wrapper._ema_decay_for_step(optimization_step - 1)
+        expected_decay = wrapper._ema_decay_for_step(optimization_step)
         actual_decay = float(wrapper.ema_decay.item())
         assert math.isclose(actual_decay, expected_decay, abs_tol=1.0e-12), (
             actual_decay,
             expected_decay,
         )
-        online = dict(wrapper.model.named_parameters())
-        averaged = dict(wrapper.ema_model.named_parameters())
+        online = dict(wrapper.model.nets.named_parameters())
+        averaged = dict(wrapper.ema_model.nets.named_parameters())
         assert online.keys() == averaged.keys()
         assert all(not parameter.requires_grad for parameter in averaged.values())
         assert all(torch.isfinite(parameter).all() for parameter in averaged.values())

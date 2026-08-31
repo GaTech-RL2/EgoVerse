@@ -74,8 +74,12 @@ class ModelWrapper(LightningModule):
         self._ema_config = self._resolve_ema_config(config_tree)
         if self._ema_config is not None:
             self.ema_model = copy.deepcopy(self.model)
-            self.ema_model.eval()
-            self.ema_model.requires_grad_(False)
+            # Algo is an orchestration object rather than nn.Module. Register
+            # its ModuleDict explicitly so Lightning moves, saves, and strictly
+            # reloads the complete EMA tree.
+            self.ema_nets = self.ema_model.nets
+            self.ema_nets.eval()
+            self.ema_nets.requires_grad_(False)
             self.register_buffer(
                 "ema_optimization_step", torch.zeros((), dtype=torch.long)
             )
@@ -108,7 +112,7 @@ class ModelWrapper(LightningModule):
     def train(self, mode: bool = True):
         super().train(mode)
         if hasattr(self, "ema_model"):
-            self.ema_model.eval()
+            self.ema_nets.eval()
         return self
 
     def _ema_decay_for_step(self, optimization_step: int) -> float:
@@ -123,9 +127,12 @@ class ModelWrapper(LightningModule):
     def _update_ema(self):
         if not hasattr(self, "ema_model"):
             return
+        # Match diffusers.EMAModel exactly: increment the completed optimizer
+        # step before evaluating the warm-up decay schedule.
+        self.ema_optimization_step.add_(1)
         decay = self._ema_decay_for_step(int(self.ema_optimization_step.item()))
-        online_params = dict(self.model.named_parameters())
-        ema_params = dict(self.ema_model.named_parameters())
+        online_params = dict(self.model.nets.named_parameters())
+        ema_params = dict(self.ema_model.nets.named_parameters())
         if online_params.keys() != ema_params.keys():
             raise RuntimeError("EMA/online parameter trees differ")
         for name, parameter in online_params.items():
@@ -136,14 +143,13 @@ class ModelWrapper(LightningModule):
                 averaged.mul_(decay).add_(
                     parameter.detach().to(dtype=averaged.dtype), alpha=1.0 - decay
                 )
-        online_buffers = dict(self.model.named_buffers())
-        ema_buffers = dict(self.ema_model.named_buffers())
+        online_buffers = dict(self.model.nets.named_buffers())
+        ema_buffers = dict(self.ema_model.nets.named_buffers())
         if online_buffers.keys() != ema_buffers.keys():
             raise RuntimeError("EMA/online buffer trees differ")
         for name, value in online_buffers.items():
             ema_buffers[name].copy_(value.detach().to(dtype=ema_buffers[name].dtype))
         self.ema_decay.fill_(decay)
-        self.ema_optimization_step.add_(1)
 
     def on_save_checkpoint(self, checkpoint):
         """Keep runtime logging controls accurate across full-state resumes."""

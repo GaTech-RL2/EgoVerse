@@ -1,9 +1,9 @@
 # @package _global_
 defaults:
-  - /experiment/pusht/pipeline_sampler_usocket_planar_v2_arc_D100_M25
+  - /experiment/pusht/pipeline_sampler_usocket_planar_v2_arc_D50_M20
   - _self_
 
-name: planar_v2_usocket_arc_D100_M25_smoke
+name: planar_v2_usocket_arc_D50_M20_smoke
 description: two_optimizer_steps_plus_scheduled_validation_energy32
 trainer:
   max_steps: 2

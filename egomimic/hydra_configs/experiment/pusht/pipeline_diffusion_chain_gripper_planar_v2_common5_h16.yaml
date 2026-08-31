@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - override /model: bf/bf_planar_v2_chain_gripper_dp_common5_h16
-  - override /data: pusht/planar_v2_chain_gripper_dense_h16
+  - override /data: pusht/planar_v2_chain_gripper_dp_common5_h16
   - override /evaluator: eval_planar_v2_action_mse
   - override /logger: wandb
 

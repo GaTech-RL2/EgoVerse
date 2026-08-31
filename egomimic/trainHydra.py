@@ -45,7 +45,13 @@ def _resolve_mode(cfg: DictConfig) -> str:
 
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
-    model_cfg = copy.deepcopy(cfg.model)
+    # Resolve while the model subtree is still attached to the composed root.
+    # Parametric model configs legitimately reference experiment-level values
+    # such as ``arc_token_horizon``. Deep-copying first detaches that parent
+    # scope and leaves checkpoint reconstruction with broken interpolations.
+    model_cfg = OmegaConf.create(
+        OmegaConf.to_container(cfg.model, resolve=True)
+    )
     if (
         "robomimic_model" in model_cfg
         and isinstance(model_cfg.robomimic_model, DictConfig)

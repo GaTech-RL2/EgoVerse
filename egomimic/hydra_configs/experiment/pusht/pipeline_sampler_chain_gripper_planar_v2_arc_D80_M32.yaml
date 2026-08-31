@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/pipeline_sampler_chain_gripper_planar_v2_arc_parametric_base
+  - _self_
+
+arc_distance: 80.0
+arc_waypoints: 32
+arc_token_horizon: 33
+name: planar_v2_chain_gripper_arc_D80_M32
+description: chain_common5_arc_r30_D80_M32_fold_backbone_J16_replan1

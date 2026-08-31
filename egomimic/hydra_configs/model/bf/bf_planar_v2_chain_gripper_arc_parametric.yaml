@@ -37,7 +37,7 @@ robomimic_model:
             pool_type: spatial_softmax
     - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
       action_horizon: ${arc_token_horizon}
-      latent_dim: 96
+      latent_dim: 128
     - _target_: egomimic.pipeline.stages_sampler.MultiJActionSampler
       condition_input_dim: 67
       condition_dim: 384
@@ -45,10 +45,10 @@ robomimic_model:
       schedule_anchor_domain: pushshapes_sim_chain_gripper
       action_horizon: ${arc_token_horizon}
       action_dims: {pushshapes_sim_chain_gripper: 5}
-      latent_dim: 96
+      latent_dim: 128
       decoder_hidden_dim: 512
-      denoiser_hidden_dim: 384
-      num_inference_steps: 8
+      denoiser_hidden_dim: 512
+      num_inference_steps: 16
       sampling_schedule:
         1: {1: 0.5, 2: 0.5}
         2001: {2: 0.8, 4: 0.15, 8: 0.05}
@@ -57,8 +57,8 @@ robomimic_model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 16
         cond_dim: 384
-        hidden_dim: 384
-        act_dim: 96
+        hidden_dim: 512
+        act_dim: 128
         act_seq: ${arc_token_horizon}
         n_heads: 8
         dropout: 0.1

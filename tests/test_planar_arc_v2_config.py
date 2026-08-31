@@ -561,8 +561,8 @@ def test_planar_v2_logs_required_normalized_and_native_mse() -> None:
         {
             "losses": {
                 "action_loss": torch.tensor(2.5),
-                f"{u_id}_log_native_action": torch.tensor(1.0),
-                f"{chain_id}_log_native_action": torch.tensor(4.0),
+                f"{u_id}_action_loss": torch.tensor(1.0),
+                f"{chain_id}_action_loss": torch.tensor(4.0),
             }
         },
     )

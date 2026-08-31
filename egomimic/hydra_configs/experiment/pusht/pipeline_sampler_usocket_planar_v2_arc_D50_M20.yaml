@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/pipeline_sampler_usocket_planar_v2_arc_parametric_base
+  - _self_
+
+arc_distance: 50.0
+arc_waypoints: 20
+arc_token_horizon: 21
+name: planar_v2_usocket_arc_D50_M20
+description: usocket_common5_arc_r30_D50_M20_fold_backbone_J16_replan1
