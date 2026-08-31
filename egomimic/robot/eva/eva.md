@@ -58,7 +58,7 @@ You only need to do this initially and whenever you pull/modify code.
 From the repo root (or wherever `run_eva_docker.sh` lives):
 
 ```bash
-./run_eva_docker.sh {left | right | both}
+./run_eva_docker.sh <left | right | both>
 ```
 
 Once the container appears in Cursor / VS Code, attach a terminal to it and run:
