@@ -206,6 +206,28 @@ and it is cheap to falsify: **any** WATCHDOG line means the seen/unseen SR for
 that arm is biased low and the arm comparison is contaminated. If they appear,
 raise `rollout_timeout_s` and rerun rather than reasoning about how many.
 
+## 5c. Known waste, deliberately not fixed in this batch
+
+Every rollout renders a frame per step and the frames are encoded to mp4 — and
+**the videos are never synced anywhere**. The checkpoint loop pushes only
+`checkpoints/` and `norm_stats.json`, so the videos are written to node-local
+ephemeral storage, raced across all 8 ranks writing identical filenames, and
+then discarded with the container.
+
+Cost: 60 episodes/rank x up to 600 renders per validation, plus h264 encoding
+of the result. Plausibly a large fraction of validation wall-clock, which
+directly reduces how many SR points a night produces.
+
+The fix is one line — `env_kwargs: {render_mode: null}` — which is permitted
+(`env.py:164` allows None, and `render()` then returns None so no frames are
+collected and no video is written). It is NOT applied here because this batch
+was already relaunched five times for correctness, and this is a throughput
+issue, not a correctness one. Apply it next launch.
+
+(Video writing itself is safe: `av` and `torchvision` are both in uv.lock, so
+`tvio.write_video` will not raise, and the frame buffer flushes at 1000 frames
+so it cannot grow unbounded.)
+
 ## 6. Gates (all passing)
 
 | gate | what it protects |
