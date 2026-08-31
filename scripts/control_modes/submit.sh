@@ -58,7 +58,12 @@ DATA_PREFIX="${DATA_PREFIX:-s3://rldb/processed_v3/pushshapes_sim/control_gap_de
 # Matches the cap the dedupe-only upload was built with. Defensive: a cap that
 # is silently ignored is worse than no cap, because the run still looks right.
 N_PER_MODE="${N_PER_MODE:-547}"
-DATA_CFG="${DATA_CFG:-control_modes_gripper_arc_D10_M16_append_r0}"
+# GROUP-PREFIXED. `data/pusht` and `model/bf` are nested config GROUPS, so
+# hydra needs `data=pusht/<name>` and `model=bf/<name>`. Without the prefix it
+# fails with "Could not find 'data/<name>'" during phase-1 composition — after
+# the image pull, uv sync, the R2 pull and staging. Loading the YAML by path
+# succeeds either way, which is why a path-based config test cannot catch this.
+DATA_CFG="${DATA_CFG:-pusht/control_modes_gripper_arc_D10_M16_append_r0}"
 STAMP="$(date +%Y%m%d)"
 
 # ARMS is overridable so a single arm can be submitted first as a canary:
@@ -86,7 +91,7 @@ arm_desc() {
 
 for cap in "${CAPS[@]}"; do
   for arm in "${ARMS[@]}"; do
-    MODEL_CFG="bf_ctrlmode_${arm}_${cap}"
+    MODEL_CFG="bf/bf_ctrlmode_${arm}_${cap}"
     JOB="ctrlmode-${arm//_/-}-${cap}"
     RUN_NAME="ctrlmode_${arm}_${cap}_${STAMP}"
     RUN_DESC="$(arm_desc "$arm") | ${cap} capacity | train ${SEEN_MODES// /+} | holdout ideal+jittery"

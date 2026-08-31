@@ -132,6 +132,10 @@ workflow:
         # init_mode typos here, in seconds, rather than after the data pull.
         python -m pytest tests/test_control_mode_configs.py -q
         python -m pytest tests/test_ar_action_decoder.py -q
+        # Composes the FULL config with the real overrides. Strictly stronger
+        # than the per-file tests above, which load YAML by path and so cannot
+        # see a missing config-GROUP prefix.
+        python -m pytest tests/test_hydra_composition.py -q
 
         mkdir -p "$DATASET_DIR"
 
