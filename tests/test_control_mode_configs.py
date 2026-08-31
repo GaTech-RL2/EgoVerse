@@ -294,3 +294,43 @@ def test_model_config_domains_are_registered_verbatim():
         cfg = OmegaConf.load(MODEL_DIR / name).robomimic_model
         for domain in cfg.domains:
             get_embodiment_id(str(domain))  # raises if unregistered
+
+
+def test_seed_count_equals_limit_val_batches():
+    """eval_sim.py:375 raises unless len(init_seeds) == limit_val_batches.
+
+        ValueError: explicit seed count must equal requested rollout count
+
+    under `init_mode="seeds"`. It fires on the FIRST validation step — i.e.
+    after training has already run — so it presents as a mid-training crash.
+
+    The shipped eval_sim_pushshapes.yaml pairs 20 seeds with
+    limit_val_batches=2 and never trips this, only because its
+    `init_mode: seed` is rejected at construction first. Fixing that typo
+    exposes this one: repairing the outer bug activated the code path holding
+    the inner bug.
+    """
+    cfg = OmegaConf.load(EVAL_CFG)
+    for e in cfg.evals:
+        if str(e.init_mode) != "seeds":
+            continue
+        n_seeds = len(list(e.init_seeds))
+        assert n_seeds == int(e.limit_val_batches), (
+            f"{e.metric_tag}: {n_seeds} seeds vs limit_val_batches="
+            f"{e.limit_val_batches}; eval_sim requires them equal")
+        assert n_seeds > 0
+
+
+def test_rollout_budget_is_stated_and_bounded():
+    """Every DDP rank runs the full rollout set — there is no rank guard.
+
+    So a validation pass costs ranks x evaluators x seeds rollouts of
+    CPU-bound physics. This asserts the per-rank budget stays somewhere a
+    validation can actually finish between training epochs, rather than
+    silently ballooning when someone adds evaluators or seeds.
+    """
+    cfg = OmegaConf.load(EVAL_CFG)
+    per_rank = sum(len(list(e.init_seeds)) for e in cfg.evals)
+    assert per_rank <= 100, (
+        f"{per_rank} rollouts per rank per validation; at 8 ranks that is "
+        f"{per_rank * 8} episodes of pymunk and the SR curve will starve")

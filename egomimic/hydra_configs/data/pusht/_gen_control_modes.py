@@ -65,6 +65,22 @@ NOISE_STD = {"ideal": 0.0, "tight": 0.3, "laggy": 0.4, "loose": 0.8,
 # it by noise would imply a similarity to `ideal` that does not exist.
 EVAL_ORDER = ["ideal", "tight", "laggy", "loose", "sticky", "jittery"]
 
+# eval_sim.py:375 REQUIRES len(init_seeds) == limit_val_batches under
+# init_mode="seeds" and raises otherwise:
+#   ValueError: explicit seed count must equal requested rollout count (20 != 2)
+# The shipped eval_sim_pushshapes.yaml pairs 20 seeds with limit_val_batches 2,
+# which never fired only because its `init_mode: seed` was rejected at
+# construction first — fixing that typo exposes this. Keep them equal.
+#
+# 10 rather than 20: every DDP rank runs the full rollout set unguarded (there
+# is no rank-0 guard in the eval path), so a validation pass costs
+# ranks x evaluators x N episodes of CPU-bound pymunk. At 8 ranks and 6
+# evaluators, 20 seeds is 960 rollouts per validation and starves the SR curve
+# of points. 10 seeds halves that; SR granularity becomes 10% per episode,
+# which is coarse but reported across many validations.
+N_ROLLOUTS = 10
+SEED_LIST = list(range(N_ROLLOUTS))
+
 # Arc token: D=10, M=16, rotation_radius=0, velocity_layout=append.
 # M=16 matches the dense h16 baseline's width so the arc and dense arms have
 # the same scalar output budget. append -> (M+1, 5), hence horizon 17.
@@ -371,10 +387,10 @@ def evaluator_config() -> str:
       obstacle_level: 0
       image_size: 96
     init_mode: seeds
-    init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    init_seeds: {SEED_LIST}
     max_steps: 600
     coverage_threshold: 0.95
-    limit_val_batches: 2
+    limit_val_batches: {N_ROLLOUTS}
     max_videos: 1""")
     return f"""# Control-mode rollout eval: {len(SEEN)} SEEN controller modes plus {len(HELD_OUT)} held out.
 #
