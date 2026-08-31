@@ -181,16 +181,28 @@ def get_planar_dense_transform_list(keys: list[str] | None = None):
 
 def get_planar_arc_length_transform_list(
     keys: list[str] | None = None,
-    min_distance_unit: float = 100.0,
-    resampled_vector_length: int = 100,
+    min_distance_unit: float = 50.0,
+    resampled_vector_length: int = 16,
     dt: float = 1.0 / 30.0,
+    rotation_radius: float = 0.0,
+    hybrid_rotation_unit: float | None = None,
+    velocity_mode: str = "mean_scalar",
+    velocity_layout: str = "append",
 ):
-    """Embodiment-agnostic planar arc tokenization, rotation and grip carried.
+    """Embodiment-agnostic planar arc tokenization.
 
-    Chunking is by TRANSLATIONAL arc length only; theta and grip ride along it.
-    There is deliberately no rotation_radius: coupling rotation into the metric
-    was measured to end a chunk after 6 timesteps instead of 64 on a
-    rotation-dominant trajectory at equal rotation error.
+    Every knob the tokenizer exposes has to appear here or hydra cannot reach
+    it: a config key with no matching parameter raises TypeError only once the
+    job is on the node, after the data pull. That cost 8 of 9 sweep runs.
+
+      rotation_radius       0 measures arc by translation alone and lets theta
+                            ride the path; >0 adds lambda_for_radius(r)*mu to
+                            the step, so rotating costs what translating r
+                            units costs.
+      hybrid_rotation_unit  gives rotation its own budget; the token then spans
+                            min(D/v_trans, D_rot/v_rot).
+      velocity_mode         mean_scalar | per_step_scalar.
+      velocity_layout       append -> (M+1, 5); concat -> (M, 5+V).
     """
     from egomimic.rldb.zarr.arc_length_tokenizer import TokenizePlanarArcLength
 
@@ -204,5 +216,9 @@ def get_planar_arc_length_transform_list(
             min_distance_unit=min_distance_unit,
             resampled_vector_length=resampled_vector_length,
             dt=dt,
+            rotation_radius=rotation_radius,
+            hybrid_rotation_unit=hybrid_rotation_unit,
+            velocity_mode=velocity_mode,
+            velocity_layout=velocity_layout,
         )
     ]
