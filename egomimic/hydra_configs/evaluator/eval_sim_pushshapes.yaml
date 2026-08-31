@@ -29,7 +29,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_chain_gripper
     env_kwargs:
@@ -42,7 +42,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_circle
     env_kwargs:
@@ -55,7 +55,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_flipper
     env_kwargs:
@@ -68,7 +68,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
     env_kwargs:
@@ -81,7 +81,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_scoop
     env_kwargs:
@@ -94,7 +94,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_spring
     env_kwargs:
@@ -107,7 +107,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_stick
     env_kwargs:
@@ -120,7 +120,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_triangle
     env_kwargs:
@@ -133,7 +133,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_u_socket
     env_kwargs:
@@ -146,7 +146,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_umi
     env_kwargs:
@@ -159,7 +159,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_circle_small
     env_kwargs:
@@ -172,7 +172,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_suction
     env_kwargs:
@@ -185,4 +185,4 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 8
-    max_videos: 1
+    max_videos: 8

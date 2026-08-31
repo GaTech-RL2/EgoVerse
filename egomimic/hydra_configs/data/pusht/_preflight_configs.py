@@ -80,6 +80,17 @@ if os.path.exists(evf):
             if ns != lvb:
                 bad.append(evf)
                 print(f"  FAIL evaluator {nm}: len(init_seeds)={ns} != limit_val_batches={lvb}")
+            # max_videos bounds the ROLLOUT loop, not video recording:
+            # B_render = min(B, max_videos) and success_rate is the mean over
+            # B_render. Setting it below the seed count silently computes SR
+            # from a subset -- at 1, every SR is one episode, i.e. 0% or 100%.
+            # Nothing raises. This is the only failure in this file that costs
+            # the CONCLUSION rather than a relaunch.
+            mv = e.get("max_videos")
+            if mv is not None and mv < ns:
+                bad.append(evf)
+                print(f"  FAIL evaluator {nm}: max_videos={mv} < seeds={ns} "
+                      f"-> SR computed from {mv} episode(s), not {ns}")
     names = [e["embodiment_name"] for e in yaml.safe_load(open(evf))["evals"]]
     if len(names) != len(set(names)):
         bad.append(evf)
