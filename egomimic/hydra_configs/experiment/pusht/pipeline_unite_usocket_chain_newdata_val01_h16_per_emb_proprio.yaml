@@ -38,19 +38,5 @@ norm_stats:
   norm_mode: minmax
   reduce_all_but_last: true
 callbacks:
-  terminal_checkpoint:
-    _target_: lightning.pytorch.callbacks.ModelCheckpoint
-    dirpath: ${paths.output_dir}/checkpoints/final
+  model_checkpoint:
     filename: "epoch-{epoch}-step-{step}"
-    monitor: null
-    verbose: true
-    every_n_epochs: null
-    every_n_train_steps: ${trainer.max_steps}
-    train_time_interval: null
-    save_top_k: -1
-    save_last: false
-    save_on_train_epoch_end: false
-    save_on_exception: false
-    save_weights_only: false
-    auto_insert_metric_name: false
-    enable_version_counter: false
