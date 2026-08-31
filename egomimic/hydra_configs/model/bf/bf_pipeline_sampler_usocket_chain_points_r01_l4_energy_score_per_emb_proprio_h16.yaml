@@ -89,6 +89,8 @@ robomimic_model:
       mlp_ratio: 4
       time_conditioning: additive
   - _target_: egomimic.pipeline.stages_sampler.PerEmbodimentActionDecoder
+    # The canonicalizer is the sole owner of the deployed pred_action keys.
+    output_key: raw_pred_action
     decoders:
       pushshapes_sim_u_socket:
         _target_: egomimic.pipeline.stages_sampler.TokenwiseMLPActionDecoder
@@ -103,6 +105,9 @@ robomimic_model:
         action_dim: 6
         num_layers: 3
   - _target_: egomimic.pipeline.stages_sampler.PerEmbodimentActionCanonicalizer
+    input_key: raw_pred_action
+    target_output_key: canonical_target
+    require_samples: true
     # A tiny common selector term keeps raw rotvec radii and point predictions
     # near the canonical manifold without changing the executed distribution.
     representation_loss_weight: 1.0e-3
@@ -114,6 +119,7 @@ robomimic_model:
         _target_: egomimic.pipeline.pushshapes.ChainGripperPointActionCanonicalizer
         world_size: 512.0
   - _target_: egomimic.pipeline.stages_sampler.ConditionalEnergyScoreLoss
+    target_key: canonical_target
     beta: 1.0
     normalize_by_dimension: true
     expected_num_samples: 4

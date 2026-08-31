@@ -42,7 +42,11 @@ def test_energy_score_model_keeps_u4_chain_point6_h16_contract():
     assert decoder.decoders[DOMAINS[1]].action_dim == 6
     assert decoder.decoders[DOMAINS[0]].hidden_dim == 16
     assert decoder.decoders[DOMAINS[1]].hidden_dim == 16
+    assert decoder.output_key == "raw_pred_action"
     assert canonicalizer._target_.endswith("PerEmbodimentActionCanonicalizer")
+    assert canonicalizer.input_key == "raw_pred_action"
+    assert canonicalizer.target_output_key == "canonical_target"
+    assert canonicalizer.require_samples is True
     assert canonicalizer.representation_loss_weight == 1.0e-3
     assert canonicalizer.canonicalizers[DOMAINS[0]]._target_.endswith(
         "USocketRotVecActionCanonicalizer"
@@ -54,6 +58,7 @@ def test_energy_score_model_keeps_u4_chain_point6_h16_contract():
     assert loss.beta == 1.0
     assert loss.normalize_by_dimension is True
     assert loss.expected_num_samples == 4
+    assert loss.target_key == "canonical_target"
     assert model.rollout_adapters[DOMAINS[1]].input_is_canonical is True
 
     model_yaml = OmegaConf.to_yaml(cfg.model).lower()

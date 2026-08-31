@@ -168,11 +168,13 @@ def test_pad_mask_removes_padded_timesteps_from_both_terms():
 
 def test_stage_optimizes_only_energy_score_and_keeps_mse_diagnostic():
     samples = torch.randn(2, 4, 3, 4, requires_grad=True)
-    stage = ConditionalEnergyScoreLoss(beta=1.0, expected_num_samples=4)
+    stage = ConditionalEnergyScoreLoss(
+        beta=1.0, expected_num_samples=4, target_key="canonical_target"
+    )
     out = stage(
         {
             "pred_action_samples": samples,
-            "target": torch.randn(2, 3, 4),
+            "canonical_target": torch.randn(2, 3, 4),
         }
     )
 
@@ -183,8 +185,15 @@ def test_stage_optimizes_only_energy_score_and_keeps_mse_diagnostic():
 
 def test_grouped_mse_control_optimizes_every_sample_and_logs_energy_detached():
     samples = torch.tensor([[[[0.0]], [[1.0]], [[2.0]], [[3.0]]]], requires_grad=True)
-    stage = GroupedActionMSELoss(beta=1.0, expected_num_samples=4)
-    out = stage({"pred_action_samples": samples, "target": torch.ones(1, 1, 1)})
+    stage = GroupedActionMSELoss(
+        beta=1.0, expected_num_samples=4, target_key="canonical_target"
+    )
+    out = stage(
+        {
+            "pred_action_samples": samples,
+            "canonical_target": torch.ones(1, 1, 1),
+        }
+    )
 
     assert torch.equal(sum_losses(out), out["loss/grouped_action_mse"])
     assert out["loss/grouped_action_mse"].item() == pytest.approx(1.5)
@@ -236,7 +245,12 @@ def _grouped_batch(domain="u_socket", target=True):
     action_dim = 4 if domain == "u_socket" else 6
     batch = {"condition": torch.randn(2, 5), "embodiment": domain}
     if target:
-        batch["target"] = torch.randn(2, 3, action_dim)
+        target_value = torch.randn(2, 3, action_dim)
+        # GaussianLatentNoise uses the raw target's presence to distinguish
+        # teacher-forced sampling from observation-only rollout. The loss
+        # consumes the canonicalized counterpart produced later in the graph.
+        batch["target"] = target_value
+        batch["canonical_target"] = target_value
     return batch
 
 
@@ -267,7 +281,11 @@ def test_grouped_sampler_reuses_condition_and_integration_grid():
 def test_grouped_noise_is_target_value_independent_and_rollout_stays_rank_three():
     noise, sampler, decoder, _ = _grouped_nodes()
     first = _grouped_batch()
-    second = {**first, "target": torch.randn_like(first["target"]) * 1000.0}
+    second = {
+        **first,
+        "target": torch.randn_like(first["target"]) * 1000.0,
+    }
+    second["canonical_target"] = second["target"]
     torch.manual_seed(31)
     first_noise = noise(dict(first))["sampler/noise"]
     torch.manual_seed(31)

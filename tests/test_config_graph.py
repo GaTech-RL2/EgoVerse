@@ -406,3 +406,37 @@ robomimic_model:
     assert graph["nodes"] == []
     assert graph["lint"] == []
     assert graph["skipped_stages"][0]["reason"] == "train-only"
+
+
+def test_energy_score_action_transform_has_unambiguous_graph_ownership() -> None:
+    model = (
+        Path(__file__).resolve().parents[1]
+        / "egomimic/hydra_configs/model/bf"
+        / "bf_pipeline_sampler_usocket_chain_points_r01_l4_energy_score_per_emb_proprio_h16.yaml"
+    )
+
+    train = config_graph.build_graph(model, mode="train")
+    rollout = config_graph.build_graph(model, mode="rollout")
+
+    assert train["lint"] == []
+    assert rollout["lint"] == []
+    train_by_name = {node["t"]: node for node in train["nodes"]}
+    rollout_by_name = {node["t"]: node for node in rollout["nodes"]}
+    assert train_by_name["PerEmbodimentActionDecoder"]["out"][:2] == [
+        "raw_pred_action",
+        "raw_pred_action_samples",
+    ]
+    assert train_by_name["PerEmbodimentActionCanonicalizer"]["out"][:4] == [
+        "pred_action",
+        "pred_action_samples",
+        "raw_target",
+        "canonical_target",
+    ]
+    assert train_by_name["ConditionalEnergyScoreLoss"]["in"] == [
+        "pred_action_samples",
+        "canonical_target",
+    ]
+    assert (
+        "canonical_target"
+        not in rollout_by_name["PerEmbodimentActionCanonicalizer"]["out"]
+    )

@@ -788,8 +788,23 @@ class PerEmbodimentActionDecoder(Stage):
     reads = ["sampler/endpoint", "embodiment"]
     writes = ["pred_action", "pred_action_samples", "log/*"]
 
-    def __init__(self, decoders: Dict[str, nn.Module]):
+    def __init__(
+        self,
+        decoders: Dict[str, nn.Module],
+        output_key: str = "pred_action",
+    ):
         super().__init__()
+        output_key = str(output_key)
+        if not output_key or output_key.endswith("_samples"):
+            raise ValueError(
+                f"output_key must be a non-empty singular batch key, got {output_key!r}"
+            )
+        self.output_key = output_key
+        self.output_samples_key = f"{output_key}_samples"
+        # Preserve the historical public keys by default while allowing a
+        # downstream transform node to own ``pred_action`` without an
+        # ambiguous overwrite in the dependency graph.
+        self.writes = [self.output_key, self.output_samples_key, "log/*"]
         configured = {
             str(domain): decoder for domain, decoder in dict(decoders).items()
         }
@@ -887,8 +902,8 @@ class PerEmbodimentActionDecoder(Stage):
         )
         # Existing rollout/evaluator consumers retain their rank-3 contract.
         # The complete grouped tensor is explicit for distributional losses.
-        batch["pred_action_samples"] = prediction_samples
-        batch["pred_action"] = prediction_samples[:, 0]
+        batch[self.output_samples_key] = prediction_samples
+        batch[self.output_key] = prediction_samples[:, 0]
         batch["log/sampler_prediction_rms"] = (
             prediction_samples.detach().square().mean().sqrt()
         )
@@ -1048,12 +1063,10 @@ class PerEmbodimentActionCanonicalizer(Stage):
     all consume the same representation.
     """
 
-    reads = ["pred_action", "embodiment"]
+    reads = ["pred_action", "pred_action_samples", "embodiment", "target"]
     writes = [
         "pred_action",
         "pred_action_samples",
-        "raw_pred_action",
-        "raw_pred_action_samples",
         "raw_target",
         "target",
         "log/canonicalization_rmse",
@@ -1061,19 +1074,76 @@ class PerEmbodimentActionCanonicalizer(Stage):
         "log/raw_action_mse",
         "loss/action_representation",
     ]
+    reads_by_mode = {"rollout": ["pred_action", "pred_action_samples", "embodiment"]}
+    writes_by_mode = {
+        "rollout": [
+            "pred_action",
+            "pred_action_samples",
+            "log/canonicalization_rmse",
+            "log/action_representation_mse",
+        ]
+    }
 
     def __init__(
         self,
         canonicalizers: Dict[str, nn.Module],
         representation_loss_weight: float = 0.0,
+        input_key: str = "pred_action",
+        target_output_key: str = "target",
+        require_samples: bool = False,
     ):
         super().__init__()
+        input_key = str(input_key)
+        target_output_key = str(target_output_key)
+        if not input_key or input_key.endswith("_samples"):
+            raise ValueError(
+                f"input_key must be a non-empty singular batch key, got {input_key!r}"
+            )
+        if not target_output_key:
+            raise ValueError("target_output_key must be non-empty")
+        self.input_key = input_key
+        self.input_samples_key = f"{input_key}_samples"
+        self.target_output_key = target_output_key
+        self.require_samples = bool(require_samples)
+        sample_reads = [self.input_samples_key] if self.require_samples else []
+        self.reads = [self.input_key, *sample_reads, "embodiment", "target"]
+        self.reads_by_mode = {"rollout": [self.input_key, *sample_reads, "embodiment"]}
+        raw_prediction_writes = (
+            []
+            if self.input_key == "raw_pred_action"
+            else ["raw_pred_action", "raw_pred_action_samples"]
+        )
         self.canonicalizers = nn.ModuleDict(dict(canonicalizers))
         self.representation_loss_weight = float(representation_loss_weight)
         if not self.canonicalizers:
             raise ValueError("At least one action canonicalizer is required")
         if self.representation_loss_weight < 0.0:
             raise ValueError("representation_loss_weight must be non-negative")
+        representation_loss_writes = (
+            ["loss/action_representation"]
+            if self.representation_loss_weight > 0.0
+            else []
+        )
+        self.writes = [
+            "pred_action",
+            "pred_action_samples",
+            *raw_prediction_writes,
+            "raw_target",
+            self.target_output_key,
+            "log/canonicalization_rmse",
+            "log/action_representation_mse",
+            "log/raw_action_mse",
+            *representation_loss_writes,
+        ]
+        self.writes_by_mode = {
+            "rollout": [
+                "pred_action",
+                "pred_action_samples",
+                *raw_prediction_writes,
+                "log/canonicalization_rmse",
+                "log/action_representation_mse",
+            ]
+        }
         self._normalization_buffers: dict[str, tuple[str, str]] = {}
 
     def bind_action_normalization(
@@ -1145,40 +1215,44 @@ class PerEmbodimentActionCanonicalizer(Stage):
 
     def forward(self, batch: dict) -> dict:
         domain = str(batch["embodiment"])
-        raw_prediction = batch["pred_action"]
+        raw_prediction = batch[self.input_key]
+        raw_samples = batch.get(self.input_samples_key)
+        if raw_samples is None:
+            if self.require_samples:
+                raise KeyError(
+                    f"Required grouped action key {self.input_samples_key!r} is missing"
+                )
+            if raw_prediction.ndim != 3:
+                raise ValueError(
+                    "Rank-3 action fallback expected (B,H,D), got "
+                    f"{tuple(raw_prediction.shape)}"
+                )
+            raw_samples = raw_prediction[:, None]
+        # Preserve stable diagnostic keys even for the historical rank-3-only
+        # input path; assigning the same object is a no-op when raw keys are
+        # already the configured inputs.
         batch["raw_pred_action"] = raw_prediction
+        batch["raw_pred_action_samples"] = raw_samples
         batch["pred_action"] = self.canonicalize_normalized_actions(
             raw_prediction, domain
         )
+        canonical_samples = self.canonicalize_normalized_actions(raw_samples, domain)
+        batch["pred_action_samples"] = canonical_samples
+        # Keep the rank-3 compatibility output exactly equal to member zero.
+        batch["pred_action"] = canonical_samples[:, 0]
         residuals = [
-            (batch["pred_action"].detach() - raw_prediction.detach().float()).square()
+            (canonical_samples.detach() - raw_samples.detach().float()).square()
         ]
-        if "pred_action_samples" in batch:
-            raw_samples = batch["pred_action_samples"]
-            canonical_samples = self.canonicalize_normalized_actions(
-                raw_samples, domain
-            )
-            batch["raw_pred_action_samples"] = raw_samples
-            batch["pred_action_samples"] = canonical_samples
-            # Keep the rank-3 compatibility output exactly equal to member zero.
-            batch["pred_action"] = canonical_samples[:, 0]
-            residuals = [
-                (canonical_samples.detach() - raw_samples.detach().float()).square()
-            ]
-            diagnostic_input = raw_samples
-        else:
-            diagnostic_input = raw_prediction
+        diagnostic_input = raw_samples
         if "target" in batch:
             raw_target = batch["target"]
             batch["raw_target"] = raw_target
-            batch["target"] = self.canonicalize_normalized_actions(raw_target, domain)
-            if "raw_pred_action_samples" in batch:
-                raw_error = (
-                    batch["raw_pred_action_samples"].float()
-                    - raw_target.float()[:, None]
-                ).square()
-            else:
-                raw_error = (raw_prediction.float() - raw_target.float()).square()
+            batch[self.target_output_key] = self.canonicalize_normalized_actions(
+                raw_target, domain
+            )
+            raw_error = (
+                batch["raw_pred_action_samples"].float() - raw_target.float()[:, None]
+            ).square()
             batch["log/raw_action_mse"] = raw_error.mean().detach()
         representation_mse = torch.cat(
             [residual.reshape(-1) for residual in residuals]
@@ -1190,8 +1264,6 @@ class PerEmbodimentActionCanonicalizer(Stage):
             # equivalence class; both scientific arms use the identical term.
             live_residual = (
                 batch["pred_action_samples"] - batch["raw_pred_action_samples"].float()
-                if "pred_action_samples" in batch
-                else batch["pred_action"] - batch["raw_pred_action"].float()
             )
             batch["loss/action_representation"] = (
                 self.representation_loss_weight * live_residual.square().mean()
@@ -1260,8 +1332,14 @@ class ConditionalEnergyScoreLoss(Stage):
         beta: float = 1.0,
         normalize_by_dimension: bool = True,
         expected_num_samples: int | None = None,
+        target_key: str = "target",
     ):
         super().__init__()
+        target_key = str(target_key)
+        if not target_key:
+            raise ValueError("target_key must be non-empty")
+        self.target_key = target_key
+        self.reads = ["pred_action_samples", self.target_key]
         self.beta = float(beta)
         self.normalize_by_dimension = bool(normalize_by_dimension)
         self.expected_num_samples = (
@@ -1284,7 +1362,7 @@ class ConditionalEnergyScoreLoss(Stage):
                 f"K={self.expected_num_samples}, got "
                 f"shape {tuple(prediction_samples.shape)}"
             )
-        target = batch["target"]
+        target = batch[self.target_key]
         metrics = conditional_energy_score(
             prediction_samples,
             target,
@@ -1329,8 +1407,14 @@ class GroupedActionMSELoss(Stage):
         beta: float = 1.0,
         normalize_by_dimension: bool = True,
         expected_num_samples: int | None = None,
+        target_key: str = "target",
     ):
         super().__init__()
+        target_key = str(target_key)
+        if not target_key:
+            raise ValueError("target_key must be non-empty")
+        self.target_key = target_key
+        self.reads = ["pred_action_samples", self.target_key]
         self.beta = float(beta)
         self.normalize_by_dimension = bool(normalize_by_dimension)
         self.expected_num_samples = (
@@ -1343,7 +1427,7 @@ class GroupedActionMSELoss(Stage):
 
     def forward(self, batch: dict) -> dict:
         prediction_samples = batch["pred_action_samples"]
-        target = batch["target"]
+        target = batch[self.target_key]
         if (
             self.expected_num_samples is not None
             and prediction_samples.ndim >= 2

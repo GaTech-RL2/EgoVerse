@@ -56,7 +56,9 @@ def test_usocket_canonicalization_uses_physical_units_with_asymmetric_stats():
     minimum = [-20.0, 5.0, -1.0, -1.0]
     maximum = [700.0, 600.0, 1.0, 1.0]
     stage = PerEmbodimentActionCanonicalizer(
-        {"u": USocketRotVecActionCanonicalizer(world_size=512.0)}
+        {"u": USocketRotVecActionCanonicalizer(world_size=512.0)},
+        input_key="raw_pred_action",
+        target_output_key="canonical_target",
     )
     stage.bind_action_normalization(
         "u", norm_mode="minmax", stats={"min": minimum, "max": maximum}
@@ -66,7 +68,8 @@ def test_usocket_canonicalization_uses_physical_units_with_asymmetric_stats():
     output = stage(
         {
             "embodiment": "u",
-            "pred_action": normalized.clone(),
+            "raw_pred_action": normalized.clone(),
+            "raw_pred_action_samples": normalized[:, None].clone(),
             "target": normalized.clone(),
         }
     )
@@ -167,7 +170,11 @@ def test_chain_canonical_rollout_keeps_accelerator_device_without_numpy_boundary
 
 
 def test_canonicalization_stage_replaces_train_eval_and_rollout_tensor():
-    stage = PerEmbodimentActionCanonicalizer({"u": USocketRotVecActionCanonicalizer()})
+    stage = PerEmbodimentActionCanonicalizer(
+        {"u": USocketRotVecActionCanonicalizer()},
+        input_key="raw_pred_action",
+        target_output_key="canonical_target",
+    )
     stage.bind_action_normalization(
         "u",
         norm_mode="minmax",
@@ -178,15 +185,46 @@ def test_canonicalization_stage_replaces_train_eval_and_rollout_tensor():
     train = stage(
         {
             "embodiment": "u",
-            "pred_action": raw.clone(),
-            "pred_action_samples": grouped.clone(),
+            "raw_pred_action": raw.clone(),
+            "raw_pred_action_samples": grouped.clone(),
             "target": raw.clone(),
         }
     )
-    rollout = stage({"embodiment": "u", "pred_action": raw.clone()})
+    rollout = stage(
+        {
+            "embodiment": "u",
+            "raw_pred_action": raw.clone(),
+            "raw_pred_action_samples": raw[:, None].clone(),
+        }
+    )
 
     assert "raw_pred_action" in train and "raw_target" in train
-    assert "raw_pred_action" in rollout and "target" not in rollout
+    assert "raw_pred_action" in rollout and "canonical_target" not in rollout
+    assert "canonical_target" in train
     torch.testing.assert_close(train["pred_action"], train["pred_action_samples"][:, 0])
     torch.testing.assert_close(train["pred_action"], rollout["pred_action"])
     assert not torch.equal(train["raw_pred_action"], train["pred_action"])
+
+
+def test_canonicalizer_historical_default_batch_keys_remain_compatible():
+    stage = PerEmbodimentActionCanonicalizer({"u": USocketRotVecActionCanonicalizer()})
+    stage.bind_action_normalization(
+        "u",
+        norm_mode="minmax",
+        stats={"min": [0.0, 0.0, -1.0, -1.0], "max": [512.0, 512.0, 1.0, 1.0]},
+    )
+    raw = torch.tensor([[[0.0, 0.0, 0.2, 0.4]]])
+    grouped = raw[:, None].repeat(1, 2, 1, 1)
+
+    output = stage(
+        {
+            "embodiment": "u",
+            "pred_action": raw.clone(),
+            "target": raw.clone(),
+        }
+    )
+
+    assert output["raw_pred_action"] is not output["pred_action"]
+    torch.testing.assert_close(output["raw_pred_action"], raw)
+    torch.testing.assert_close(output["raw_pred_action_samples"], grouped[:, :1])
+    torch.testing.assert_close(output["target"], output["pred_action"])
