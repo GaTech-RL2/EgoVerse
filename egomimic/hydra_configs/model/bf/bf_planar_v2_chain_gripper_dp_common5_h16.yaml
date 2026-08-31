@@ -16,7 +16,7 @@ robomimic_model:
       native_action_dim: 4
   stages:
     - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
-      n_obs_steps: 1
+      n_obs_steps: 2
       encoder:
         _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
         obs_specs:
@@ -39,7 +39,7 @@ robomimic_model:
             pool_type: spatial_softmax
     - _target_: egomimic.pipeline.stages_diffusion.MultiDomainDiffusionPolicyStage
       action_horizon: 16
-      condition_input_dim: 67
+      condition_input_dim: 134
       policies:
         pushshapes_sim_chain_gripper:
           _target_: egomimic.models.diffusion_policy.DiffusionPolicy
@@ -47,36 +47,45 @@ robomimic_model:
           infer_ac_dims: {pushshapes_sim_chain_gripper: 5}
           num_inference_steps: 100
           model:
-            _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+            _target_: egomimic.models.denoising_nets.PaperConditionalUnet1D
             input_dim: 5
-            cond_dim: 67
-            ac_latent_seq: 1
-            diffusion_step_embed_dim: 256
-            down_dims: [256, 512, 1024]
-            kernel_size: 3
+            global_cond_dim: 134
+            diffusion_step_embed_dim: 128
+            down_dims: [512, 1024, 2048]
+            kernel_size: 5
             n_groups: 8
             cond_predict_scale: true
           noise_scheduler:
-            _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+            _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
             num_train_timesteps: 100
             beta_start: 0.0001
             beta_end: 0.02
             beta_schedule: squaredcos_cap_v2
+            variance_type: fixed_small
             clip_sample: true
-            set_alpha_to_one: true
-            steps_offset: 0
             prediction_type: epsilon
+
+ema:
+  enabled: true
+  update_after_step: 0
+  inv_gamma: 1.0
+  power: 0.75
+  min_value: 0.0
+  max_value: 0.9999
+  use_for_validation: true
 
 enable_grad_norm: false
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
   lr: 1.0e-4
-  weight_decay: 1.0e-4
+  betas: [0.95, 0.999]
+  eps: 1.0e-8
+  weight_decay: 1.0e-6
 scheduler:
   _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
   _partial_: true
   max_steps: 240000
-  warmup_steps: 3000
-  warmup_start_factor: 0.1
-  eta_min: 1.0e-5
+  warmup_steps: 500
+  warmup_start_factor: 1.0e-8
+  eta_min: 0.0

@@ -183,13 +183,16 @@ def _validate_smoke_result(
             payload.get("required_wandb_metrics"),
             required_wandb_metrics,
         )
-    return {
+    record = {
         "path": str(smoke_result),
         "sha256": sha,
         "global_step": 2,
         "wandb_exit_code": 0,
         "strict_model_load": True,
     }
+    if strict_load.get("ema") is not None:
+        record["ema"] = strict_load["ema"]
+    return record
 
 
 def _validate_training_config(
@@ -379,6 +382,34 @@ def _strict_load_model_wrapper(checkpoint_path: Path) -> dict[str, Any]:
         if value.device.type != "cpu"
     }
     assert not non_cpu, non_cpu
+    ema_record = None
+    if getattr(wrapper, "_ema_config", None) is not None:
+        assert hasattr(wrapper, "ema_model")
+        optimization_step = int(wrapper.ema_optimization_step.item())
+        assert optimization_step > 0, optimization_step
+        expected_decay = wrapper._ema_decay_for_step(optimization_step - 1)
+        actual_decay = float(wrapper.ema_decay.item())
+        assert math.isclose(actual_decay, expected_decay, abs_tol=1.0e-12), (
+            actual_decay,
+            expected_decay,
+        )
+        online = dict(wrapper.model.named_parameters())
+        averaged = dict(wrapper.ema_model.named_parameters())
+        assert online.keys() == averaged.keys()
+        assert all(not parameter.requires_grad for parameter in averaged.values())
+        assert all(torch.isfinite(parameter).all() for parameter in averaged.values())
+        ema_record = {
+            "enabled": True,
+            "optimization_step": optimization_step,
+            "decay": actual_decay,
+            "power": float(wrapper._ema_config["power"]),
+            "max_value": float(wrapper._ema_config["max_value"]),
+            "use_for_validation": bool(
+                wrapper._ema_config["use_for_validation"]
+            ),
+            "parameter_tree_exact": True,
+            "parameters_finite": True,
+        }
     record = {
         "status": "passed",
         "model_class": f"{type(wrapper).__module__}.{type(wrapper).__qualname__}",
@@ -388,6 +419,8 @@ def _strict_load_model_wrapper(checkpoint_path: Path) -> dict[str, Any]:
         "parameter_count": sum(parameter.numel() for parameter in wrapper.parameters()),
         "buffer_count": sum(buffer.numel() for buffer in wrapper.buffers()),
     }
+    if ema_record is not None:
+        record["ema"] = ema_record
     del wrapper
     gc.collect()
     return record
@@ -577,8 +610,22 @@ def verify_training_full(
     assert not git_status, (work_dir, git_status)
 
     terminal_dir = run_dir / "checkpoints" / "final"
-    expected_checkpoint = terminal_dir / f"step-{expected_max_step}.ckpt"
     checkpoints = sorted(terminal_dir.glob("*.ckpt"))
+    terminal_template = str(
+        OmegaConf.select(
+            config,
+            "callbacks.terminal_checkpoint.filename",
+            default="step-{step}",
+        )
+    )
+    if "{epoch}" in terminal_template:
+        candidates = sorted(
+            terminal_dir.glob(f"epoch-*-step-{expected_max_step}.ckpt")
+        )
+        assert len(candidates) == 1, candidates
+        expected_checkpoint = candidates[0]
+    else:
+        expected_checkpoint = terminal_dir / f"step-{expected_max_step}.ckpt"
     assert checkpoints == [expected_checkpoint], (checkpoints, expected_checkpoint)
     assert expected_checkpoint.is_file() and expected_checkpoint.stat().st_size > 0
 
@@ -591,6 +638,10 @@ def verify_training_full(
     global_step = int(checkpoint.get("global_step"))
     epoch = int(checkpoint.get("epoch"))
     assert global_step == expected_max_step, global_step
+    if "{epoch}" in terminal_template:
+        assert expected_checkpoint.name == (
+            f"epoch-{epoch}-step-{global_step}.ckpt"
+        ), (expected_checkpoint.name, epoch, global_step)
     state_dict = checkpoint.get("state_dict")
     assert isinstance(state_dict, Mapping) and state_dict, (
         "checkpoint state_dict is empty"
@@ -635,6 +686,24 @@ def verify_training_full(
     gc.collect()
 
     model_wrapper_load = _strict_load_model_wrapper(expected_checkpoint)
+    ema_config = OmegaConf.select(config, "model.ema", default=None)
+    if ema_config is not None and bool(ema_config.enabled):
+        for label, ema_load in (
+            ("smoke", smoke_record.get("ema")),
+            ("full", model_wrapper_load.get("ema")),
+        ):
+            assert isinstance(ema_load, dict) and ema_load.get("enabled") is True, (
+                label,
+                ema_load,
+            )
+            assert math.isclose(float(ema_load["power"]), float(ema_config.power))
+            assert math.isclose(
+                float(ema_load["max_value"]), float(ema_config.max_value)
+            )
+            assert ema_load["use_for_validation"] is bool(
+                ema_config.use_for_validation
+            )
+        assert int(model_wrapper_load["ema"]["optimization_step"]) == global_step
     wandb_record = _validate_wandb(run_dir, required_wandb_metrics)
 
     return {

@@ -344,6 +344,34 @@ def _strict_load_model_wrapper(checkpoint_path: Path) -> dict[str, Any]:
         if value.device.type != "cpu"
     }
     assert not non_cpu_tensors, non_cpu_tensors
+    ema_record = None
+    if getattr(wrapper, "_ema_config", None) is not None:
+        assert hasattr(wrapper, "ema_model")
+        optimization_step = int(wrapper.ema_optimization_step.item())
+        assert optimization_step == 2, optimization_step
+        expected_decay = wrapper._ema_decay_for_step(optimization_step - 1)
+        actual_decay = float(wrapper.ema_decay.item())
+        assert math.isclose(actual_decay, expected_decay, abs_tol=1.0e-12), (
+            actual_decay,
+            expected_decay,
+        )
+        online = dict(wrapper.model.named_parameters())
+        averaged = dict(wrapper.ema_model.named_parameters())
+        assert online.keys() == averaged.keys()
+        assert all(not parameter.requires_grad for parameter in averaged.values())
+        assert all(torch.isfinite(parameter).all() for parameter in averaged.values())
+        ema_record = {
+            "enabled": True,
+            "optimization_step": optimization_step,
+            "decay": actual_decay,
+            "power": float(wrapper._ema_config["power"]),
+            "max_value": float(wrapper._ema_config["max_value"]),
+            "use_for_validation": bool(
+                wrapper._ema_config["use_for_validation"]
+            ),
+            "parameter_tree_exact": True,
+            "parameters_finite": True,
+        }
     record = {
         "status": "passed",
         "model_class": f"{type(wrapper).__module__}.{type(wrapper).__qualname__}",
@@ -353,6 +381,8 @@ def _strict_load_model_wrapper(checkpoint_path: Path) -> dict[str, Any]:
         "parameter_count": sum(parameter.numel() for parameter in wrapper.parameters()),
         "buffer_count": sum(buffer.numel() for buffer in wrapper.buffers()),
     }
+    if ema_record is not None:
+        record["ema"] = ema_record
     del wrapper
     return record
 
@@ -477,6 +507,18 @@ def verify_training_smoke(
     assert hyper_parameters.get("train_metrics_on_step") is True
     del checkpoint, hyper_parameters, optimizer_states, scheduler_states
     model_wrapper_load = _strict_load_model_wrapper(checkpoint_path)
+    ema_config = OmegaConf.select(config, "model.ema", default=None)
+    if ema_config is not None and bool(ema_config.enabled):
+        ema_load = model_wrapper_load.get("ema")
+        assert isinstance(ema_load, dict) and ema_load.get("enabled") is True
+        assert int(ema_load["optimization_step"]) == global_step
+        assert math.isclose(float(ema_load["power"]), float(ema_config.power))
+        assert math.isclose(
+            float(ema_load["max_value"]), float(ema_config.max_value)
+        )
+        assert ema_load["use_for_validation"] is bool(
+            ema_config.use_for_validation
+        )
 
     streams = list(output_dir.glob("wandb/offline-run-*/run-*.wandb"))
     assert len(streams) == 1, streams

@@ -1,3 +1,4 @@
+import copy
 import random
 import time
 from collections import OrderedDict, deque
@@ -70,6 +71,80 @@ class ModelWrapper(LightningModule):
         self.epoch_memory_stats = []  # Store memory stats per epoch
         self.evaluator = evaluator
 
+        self._ema_config = self._resolve_ema_config(config_tree)
+        if self._ema_config is not None:
+            self.ema_model = copy.deepcopy(self.model)
+            self.ema_model.eval()
+            self.ema_model.requires_grad_(False)
+            self.register_buffer(
+                "ema_optimization_step", torch.zeros((), dtype=torch.long)
+            )
+            self.register_buffer("ema_decay", torch.zeros((), dtype=torch.float64))
+
+    @classmethod
+    def _resolve_ema_config(cls, config_tree):
+        cfg = cls._as_config(config_tree)
+        if cfg is None:
+            return None
+        raw = OmegaConf.select(cfg, "model.ema")
+        if raw is None or not bool(raw.get("enabled", False)):
+            return None
+        values = {
+            "update_after_step": int(raw.get("update_after_step", 0)),
+            "inv_gamma": float(raw.get("inv_gamma", 1.0)),
+            "power": float(raw.get("power", 0.75)),
+            "min_value": float(raw.get("min_value", 0.0)),
+            "max_value": float(raw.get("max_value", 0.9999)),
+            "use_for_validation": bool(raw.get("use_for_validation", True)),
+        }
+        if values["update_after_step"] < 0 or values["inv_gamma"] <= 0.0:
+            raise ValueError("EMA requires update_after_step>=0 and inv_gamma>0")
+        if values["power"] <= 0.0:
+            raise ValueError("EMA power must be positive")
+        if not 0.0 <= values["min_value"] <= values["max_value"] < 1.0:
+            raise ValueError("EMA decay bounds must satisfy 0<=min<=max<1")
+        return values
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        if hasattr(self, "ema_model"):
+            self.ema_model.eval()
+        return self
+
+    def _ema_decay_for_step(self, optimization_step: int) -> float:
+        cfg = self._ema_config
+        step = max(0, int(optimization_step) - cfg["update_after_step"] - 1)
+        value = 1.0 - (1.0 + step / cfg["inv_gamma"]) ** (-cfg["power"])
+        if step <= 0:
+            return 0.0
+        return max(cfg["min_value"], min(value, cfg["max_value"]))
+
+    @torch.no_grad()
+    def _update_ema(self):
+        if not hasattr(self, "ema_model"):
+            return
+        decay = self._ema_decay_for_step(int(self.ema_optimization_step.item()))
+        online_params = dict(self.model.named_parameters())
+        ema_params = dict(self.ema_model.named_parameters())
+        if online_params.keys() != ema_params.keys():
+            raise RuntimeError("EMA/online parameter trees differ")
+        for name, parameter in online_params.items():
+            averaged = ema_params[name]
+            if not parameter.requires_grad:
+                averaged.copy_(parameter.detach().to(dtype=averaged.dtype))
+            else:
+                averaged.mul_(decay).add_(
+                    parameter.detach().to(dtype=averaged.dtype), alpha=1.0 - decay
+                )
+        online_buffers = dict(self.model.named_buffers())
+        ema_buffers = dict(self.ema_model.named_buffers())
+        if online_buffers.keys() != ema_buffers.keys():
+            raise RuntimeError("EMA/online buffer trees differ")
+        for name, value in online_buffers.items():
+            ema_buffers[name].copy_(value.detach().to(dtype=ema_buffers[name].dtype))
+        self.ema_decay.fill_(decay)
+        self.ema_optimization_step.add_(1)
+
     def on_save_checkpoint(self, checkpoint):
         """Keep runtime logging controls accurate across full-state resumes."""
         hyper_parameters = checkpoint.setdefault("hyper_parameters", {})
@@ -80,6 +155,12 @@ class ModelWrapper(LightningModule):
         hyper_parameters["train_metrics_on_epoch"] = bool(
             self.train_metrics_on_epoch
         )
+        if self._ema_config is not None:
+            hyper_parameters["ema_contract"] = dict(self._ema_config)
+            hyper_parameters["ema_optimization_step"] = int(
+                self.ema_optimization_step.item()
+            )
+            hyper_parameters["ema_decay"] = float(self.ema_decay.item())
 
     @staticmethod
     def _as_config(cfg):
@@ -222,7 +303,18 @@ class ModelWrapper(LightningModule):
             return
         self.model.device = self.device
 
+        validation_model = self.model
+        if self._ema_config is not None and self._ema_config["use_for_validation"]:
+            self.ema_model.device = self.device
+            validation_model = self.ema_model
+        self.evaluator.model = validation_model
+
         self.evaluator.on_validation_start()
+
+    def on_before_zero_grad(self, optimizer):
+        """Update EMA exactly once after each completed optimizer step."""
+        del optimizer
+        self._update_ema()
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         """
@@ -266,7 +358,11 @@ class ModelWrapper(LightningModule):
             cfg = self._as_config(config_tree)
             optimizer = hydra.utils.instantiate(
                 cfg.model.optimizer,
-                params=self.trainer.model.parameters(),
+                params=(
+                    parameter
+                    for parameter in self.trainer.model.parameters()
+                    if parameter.requires_grad
+                ),
             )
             if callable(optimizer):
                 optimizer = optimizer()
@@ -281,7 +377,13 @@ class ModelWrapper(LightningModule):
             else:
                 scheduler = None
         else:
-            optimizer = self.hparams.optimizer(params=self.trainer.model.parameters())
+            optimizer = self.hparams.optimizer(
+                params=(
+                    parameter
+                    for parameter in self.trainer.model.parameters()
+                    if parameter.requires_grad
+                )
+            )
             scheduler = (
                 self.hparams.scheduler(optimizer=optimizer)
                 if self.hparams.scheduler is not None
@@ -301,6 +403,8 @@ class ModelWrapper(LightningModule):
 
     def on_fit_start(self):
         self.model.device = self.device
+        if hasattr(self, "ema_model"):
+            self.ema_model.device = self.device
         print(
             f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
             flush=True,

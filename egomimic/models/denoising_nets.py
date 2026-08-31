@@ -427,6 +427,224 @@ class ConditionalUnet1D(nn.Module):
         return x
 
 
+class PaperConditionalUnet1D(nn.Module):
+    """Stock Diffusion Policy image-policy U-Net architecture.
+
+    This deliberately preserves the published implementation's timestep MLP,
+    direct concatenation of the flattened observation condition, channel
+    widths, and the checkpoint-compatible local-condition quirk.  The only
+    interface adaptation is that ``global_cond`` is the third positional
+    argument, matching :class:`egomimic.models.diffusion_policy.DiffusionPolicy`.
+    """
+
+    def __init__(
+        self,
+        input_dim,
+        local_cond_dim=None,
+        global_cond_dim=None,
+        diffusion_step_embed_dim=256,
+        down_dims=(256, 512, 1024),
+        kernel_size=3,
+        n_groups=8,
+        cond_predict_scale=False,
+    ):
+        super().__init__()
+        self.input_dim = int(input_dim)
+        self.global_cond_dim = (
+            None if global_cond_dim is None else int(global_cond_dim)
+        )
+        self.diffusion_step_embed_dim = int(diffusion_step_embed_dim)
+        self.down_dims = tuple(int(dim) for dim in down_dims)
+        self.kernel_size = int(kernel_size)
+        self.n_groups = int(n_groups)
+        self.cond_predict_scale = bool(cond_predict_scale)
+
+        all_dims = [self.input_dim] + list(self.down_dims)
+        start_dim = self.down_dims[0]
+        dsed = self.diffusion_step_embed_dim
+        self.diffusion_step_encoder = nn.Sequential(
+            SinusoidalPosEmb(dsed),
+            nn.Linear(dsed, dsed * 4),
+            nn.Mish(),
+            nn.Linear(dsed * 4, dsed),
+        )
+        cond_dim = dsed
+        if self.global_cond_dim is not None:
+            cond_dim += self.global_cond_dim
+
+        in_out = list(zip(all_dims[:-1], all_dims[1:]))
+        self.local_cond_encoder = None
+        if local_cond_dim is not None:
+            _, dim_out = in_out[0]
+            self.local_cond_encoder = nn.ModuleList(
+                [
+                    ConditionalResidualBlock1D(
+                        local_cond_dim,
+                        dim_out,
+                        cond_dim=cond_dim,
+                        kernel_size=self.kernel_size,
+                        n_groups=self.n_groups,
+                        cond_predict_scale=self.cond_predict_scale,
+                    ),
+                    ConditionalResidualBlock1D(
+                        local_cond_dim,
+                        dim_out,
+                        cond_dim=cond_dim,
+                        kernel_size=self.kernel_size,
+                        n_groups=self.n_groups,
+                        cond_predict_scale=self.cond_predict_scale,
+                    ),
+                ]
+            )
+
+        mid_dim = all_dims[-1]
+        self.mid_modules = nn.ModuleList(
+            [
+                ConditionalResidualBlock1D(
+                    mid_dim,
+                    mid_dim,
+                    cond_dim=cond_dim,
+                    kernel_size=self.kernel_size,
+                    n_groups=self.n_groups,
+                    cond_predict_scale=self.cond_predict_scale,
+                ),
+                ConditionalResidualBlock1D(
+                    mid_dim,
+                    mid_dim,
+                    cond_dim=cond_dim,
+                    kernel_size=self.kernel_size,
+                    n_groups=self.n_groups,
+                    cond_predict_scale=self.cond_predict_scale,
+                ),
+            ]
+        )
+
+        self.down_modules = nn.ModuleList([])
+        for index, (dim_in, dim_out) in enumerate(in_out):
+            is_last = index >= len(in_out) - 1
+            self.down_modules.append(
+                nn.ModuleList(
+                    [
+                        ConditionalResidualBlock1D(
+                            dim_in,
+                            dim_out,
+                            cond_dim=cond_dim,
+                            kernel_size=self.kernel_size,
+                            n_groups=self.n_groups,
+                            cond_predict_scale=self.cond_predict_scale,
+                        ),
+                        ConditionalResidualBlock1D(
+                            dim_out,
+                            dim_out,
+                            cond_dim=cond_dim,
+                            kernel_size=self.kernel_size,
+                            n_groups=self.n_groups,
+                            cond_predict_scale=self.cond_predict_scale,
+                        ),
+                        Downsample1d(dim_out) if not is_last else nn.Identity(),
+                    ]
+                )
+            )
+
+        self.up_modules = nn.ModuleList([])
+        for index, (dim_in, dim_out) in enumerate(reversed(in_out[1:])):
+            is_last = index >= len(in_out) - 1
+            self.up_modules.append(
+                nn.ModuleList(
+                    [
+                        ConditionalResidualBlock1D(
+                            dim_out * 2,
+                            dim_in,
+                            cond_dim=cond_dim,
+                            kernel_size=self.kernel_size,
+                            n_groups=self.n_groups,
+                            cond_predict_scale=self.cond_predict_scale,
+                        ),
+                        ConditionalResidualBlock1D(
+                            dim_in,
+                            dim_in,
+                            cond_dim=cond_dim,
+                            kernel_size=self.kernel_size,
+                            n_groups=self.n_groups,
+                            cond_predict_scale=self.cond_predict_scale,
+                        ),
+                        Upsample1d(dim_in) if not is_last else nn.Identity(),
+                    ]
+                )
+            )
+
+        self.final_conv = nn.Sequential(
+            Conv1dBlock(start_dim, start_dim, kernel_size=self.kernel_size),
+            nn.Conv1d(start_dim, self.input_dim, 1),
+        )
+        logger.info(
+            "PaperConditionalUnet1D parameters: %d",
+            sum(parameter.numel() for parameter in self.parameters()),
+        )
+
+    def forward(
+        self,
+        sample: torch.Tensor,
+        timestep: Union[torch.Tensor, float, int],
+        global_cond=None,
+        local_cond=None,
+        **kwargs,
+    ):
+        sample = einops.rearrange(sample, "b h t -> b t h")
+        timesteps = timestep
+        if not torch.is_tensor(timesteps):
+            timesteps = torch.tensor(
+                [timesteps], dtype=torch.long, device=sample.device
+            )
+        elif len(timesteps.shape) == 0:
+            timesteps = timesteps[None].to(sample.device)
+        timesteps = timesteps.expand(sample.shape[0])
+
+        global_feature = self.diffusion_step_encoder(timesteps)
+        if global_cond is not None:
+            if (
+                self.global_cond_dim is not None
+                and global_cond.shape[-1] != self.global_cond_dim
+            ):
+                raise ValueError(
+                    "PaperConditionalUnet1D expected global condition width "
+                    f"{self.global_cond_dim}, got {global_cond.shape[-1]}"
+                )
+            global_feature = torch.cat([global_feature, global_cond], dim=-1)
+
+        h_local = []
+        if local_cond is not None:
+            local_cond = einops.rearrange(local_cond, "b h t -> b t h")
+            resnet, resnet2 = self.local_cond_encoder
+            h_local.append(resnet(local_cond, global_feature))
+            h_local.append(resnet2(local_cond, global_feature))
+
+        x = sample
+        residuals = []
+        for index, (resnet, resnet2, downsample) in enumerate(self.down_modules):
+            x = resnet(x, global_feature)
+            if index == 0 and h_local:
+                x = x + h_local[0]
+            x = resnet2(x, global_feature)
+            residuals.append(x)
+            x = downsample(x)
+
+        for mid_module in self.mid_modules:
+            x = mid_module(x, global_feature)
+
+        for index, (resnet, resnet2, upsample) in enumerate(self.up_modules):
+            x = torch.cat((x, residuals.pop()), dim=1)
+            x = resnet(x, global_feature)
+            # Preserve the published checkpoint-compatible condition exactly.
+            if index == len(self.up_modules) and h_local:
+                x = x + h_local[1]
+            x = resnet2(x, global_feature)
+            x = upsample(x)
+
+        x = self.final_conv(x)
+        return einops.rearrange(x, "b t h -> b h t")
+
+
 class ConditionalClassifier1D(nn.Module):
     def __init__(
         self,

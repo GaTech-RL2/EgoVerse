@@ -2,6 +2,7 @@ import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import torch
 from hydra import compose, initialize_config_dir
@@ -10,6 +11,10 @@ from omegaconf import OmegaConf
 
 from egomimic.eval.human_robot_overlay_eval import HumanRobotOverlayEval
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.embodiment.pushshapes import (
+    get_keymap_hpt,
+    get_planar_dense_transform_list,
+)
 
 REPO_ROOT = Path(__file__).parents[1]
 CONFIG_DIR = REPO_ROOT / "egomimic" / "hydra_configs"
@@ -81,9 +86,15 @@ def _assert_shared_gate(cfg, domain: str) -> None:
     assert cfg.trainer.val_check_interval == 10_000
     assert cfg.trainer.limit_val_batches == pytest.approx(1.0)
     assert cfg.model.optimizer.lr == pytest.approx(1.0e-4)
-    assert cfg.model.optimizer.weight_decay == pytest.approx(1.0e-4)
-    assert cfg.model.scheduler.warmup_steps == 3000
-    assert cfg.model.scheduler.eta_min == pytest.approx(1.0e-5)
+    if "ema_contract" in cfg.run_provenance:
+        assert cfg.model.optimizer.weight_decay == pytest.approx(1.0e-6)
+        assert list(cfg.model.optimizer.betas) == pytest.approx([0.95, 0.999])
+        assert cfg.model.scheduler.warmup_steps == 500
+        assert cfg.model.scheduler.eta_min == pytest.approx(0.0)
+    else:
+        assert cfg.model.optimizer.weight_decay == pytest.approx(1.0e-4)
+        assert cfg.model.scheduler.warmup_steps == 3000
+        assert cfg.model.scheduler.eta_min == pytest.approx(1.0e-5)
     assert cfg.launch_params.gpus_per_node == 2
     assert cfg.model.train_metrics_on_step is True
     assert cfg.evaluator.energy_score.sample_count == 32
@@ -160,9 +171,18 @@ def test_genuine_dp_baseline_contract(experiment: str) -> None:
     assert diffusion._target_.endswith(".MultiDomainDiffusionPolicyStage")
     policy = diffusion.policies[domain]
     assert policy._target_.endswith(".DiffusionPolicy")
-    assert policy.model._target_.endswith(".ConditionalUnet1D")
+    assert policy.model._target_.endswith(".PaperConditionalUnet1D")
     assert policy.model.input_dim == 5
-    assert policy.model.down_dims == [256, 512, 1024]
+    assert policy.model.global_cond_dim == 134
+    assert policy.model.diffusion_step_embed_dim == 128
+    assert policy.model.down_dims == [512, 1024, 2048]
+    assert policy.model.kernel_size == 5
+    assert model.stages[0].n_obs_steps == 2
+    assert diffusion.condition_input_dim == 134
+    assert (
+        policy.noise_scheduler._target_
+        == "diffusers.schedulers.scheduling_ddpm.DDPMScheduler"
+    )
     assert policy.noise_scheduler.prediction_type == "epsilon"
     assert policy.noise_scheduler.num_train_timesteps == 100
     assert policy.num_inference_steps == 100
@@ -172,10 +192,53 @@ def test_genuine_dp_baseline_contract(experiment: str) -> None:
     assert adapter.action_horizon == 16
     assert adapter.native_action_dim == native_dim
     assert cfg.data.train_datasets[domain].resolver.key_map.action_horizon == 16
+    assert cfg.data.train_datasets[domain].resolver.key_map.observation_horizon == 2
+    assert cfg.data.train_datasets[domain].resolver.key_map.action_target_offset == 1
+    assert cfg.data.train_dataloader_params[domain].batch_size == 32
+    assert cfg.run_provenance.action_contract.execution_horizon == 8
+    assert cfg.run_provenance.diffusion_contract.scheduler == "DDPM"
+    assert cfg.run_provenance.diffusion_contract.unet_parameter_count == 251580037
+    assert (
+        cfg.run_provenance.diffusion_contract.online_model_parameter_count
+        == 262777125
+    )
+    assert cfg.model.ema.enabled is True
+    assert cfg.model.ema.power == pytest.approx(0.75)
+    assert cfg.model.ema.max_value == pytest.approx(0.9999)
     assert cfg.run_provenance.norm_contract.domains[domain].actions_shape == [16, 5]
     assert not any(
         "GaussianLatentNoise" in str(stage._target_) for stage in model.stages
     )
+
+
+def test_paper_dp_observation_and_action_windows_are_causally_aligned() -> None:
+    keymap = get_keymap_hpt(
+        action_horizon=16,
+        observation_horizon=2,
+        action_target_offset=1,
+    )
+    assert keymap["front_img_1"]["horizon"] == 2
+    assert keymap["state_agent_obj"]["horizon"] == 2
+    assert keymap["actions"]["horizon"] == 17
+
+    native = np.zeros((17, 3), dtype=np.float32)
+    native[:, 0] = np.arange(17)
+    native[:, 1] = 100 + np.arange(17)
+    native[:, 2] = np.linspace(-0.4, 0.4, 17)
+    batch = {"actions": native.copy()}
+    for transform in get_planar_dense_transform_list(
+        action_horizon=16,
+        action_target_offset=1,
+    ):
+        batch = transform.transform(batch)
+
+    actions = batch["actions"]
+    assert actions.shape == (16, 5)
+    assert actions[0, 0] == pytest.approx(native[1, 0])
+    assert actions[0, 1] == pytest.approx(native[1, 1])
+    assert actions[0, 2] == pytest.approx(np.cos(native[1, 2]))
+    assert actions[0, 3] == pytest.approx(np.sin(native[1, 2]))
+    assert actions[0, 4] == pytest.approx(0.0)
 
 
 def test_energy_score_seed_bank_and_prediction_artifact(tmp_path: Path) -> None:

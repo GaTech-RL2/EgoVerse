@@ -14,8 +14,12 @@ train_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
         action_horizon: 16
+        observation_horizon: 2
+        action_target_offset: 1
       transform_list:
         _target_: egomimic.rldb.embodiment.pushshapes.get_planar_dense_transform_list
+        action_horizon: 16
+        action_target_offset: 1
     mode: train
     valid_ratio: 0.01
     split_seed: ${seed}
@@ -37,8 +41,12 @@ valid_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
         action_horizon: 16
+        observation_horizon: 2
+        action_target_offset: 1
       transform_list:
         _target_: egomimic.rldb.embodiment.pushshapes.get_planar_dense_transform_list
+        action_horizon: 16
+        action_target_offset: 1
     mode: valid
     valid_ratio: 0.01
     split_seed: ${seed}
@@ -50,7 +58,7 @@ valid_datasets:
 
 train_dataloader_params:
   pushshapes_sim_chain_gripper:
-    batch_size: 16
+    batch_size: 32
     num_workers: 6
     pin_memory: true
     persistent_workers: true
@@ -58,6 +66,6 @@ train_dataloader_params:
 
 valid_dataloader_params:
   pushshapes_sim_chain_gripper:
-    batch_size: 16
+    batch_size: 32
     num_workers: 4
     pin_memory: true

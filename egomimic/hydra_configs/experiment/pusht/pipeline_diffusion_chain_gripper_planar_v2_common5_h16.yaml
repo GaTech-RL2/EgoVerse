@@ -6,7 +6,7 @@ defaults:
   - override /logger: wandb
 
 name: planar_v2_chain_gripper_dp_common5_h16
-description: genuine_dp_epsilon_ddim100_common5_h16
+description: paper_scale_dp_epsilon_ddpm100_ema_obs2_common5_h16_exec8
 launch_params: {gpus_per_node: 2, nodes: 1}
 
 trainer:
@@ -40,7 +40,7 @@ run_provenance:
     domains:
       pushshapes_sim_chain_gripper:
         embodiment_id: 20
-        state_agent_obj_shape: [6]
+        state_agent_obj_shape: [2, 6]
         actions_shape: [16, 5]
   training_contract:
     world_size: 2
@@ -50,28 +50,48 @@ run_provenance:
     check_val_every_n_epoch: null
     validation_fraction: 1.0
     optimizer: AdamW
+    optimizer_betas: [0.95, 0.999]
+    optimizer_eps: 1.0e-8
+    weight_decay: 1.0e-6
     peak_lr: 1.0e-4
-    warmup_steps: 3000
-    warmup_start_lr: 1.0e-5
-    cosine_floor_lr: 1.0e-5
+    warmup_steps: 500
+    warmup_start_lr: 1.0e-12
+    cosine_floor_lr: 0.0
+    per_rank_batch_size: 32
+    global_batch_size: 64
   action_contract:
     representation: common5_fixed_rate_dense
     action_dim: 5
     prediction_horizon: 16
-    execution_horizon: 16
+    execution_horizon: 8
   diffusion_contract:
     objective: epsilon_prediction
-    architecture: ConditionalUnet1D
-    down_dims: [256, 512, 1024]
+    architecture: PaperConditionalUnet1D
+    observation_horizon: 2
+    down_dims: [512, 1024, 2048]
+    kernel_size: 5
+    diffusion_step_embed_dim: 128
     train_timesteps: 100
     inference_timesteps: 100
-    scheduler: DDIM
+    scheduler: DDPM
+    unet_parameter_count: 251580037
+    vision_encoder_parameter_count: 11197088
+    online_model_parameter_count: 262777125
+    paper_adaptation: common5_action_channels_and_planar_v2_dataset
+  ema_contract:
+    enabled: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_value: 0.0
+    max_value: 0.9999
+    validation_and_rollout_weights: ema
   energy_score_contract:
     sample_count: 32
     seed_bank_path: egomimic/hydra_configs/evaluator/energy_score_seed_bank_k32_v1.json
     seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
     validation_view: first_batch_per_ddp_rank_from_ordered_heldout_split
-    conditions_per_rank: 16
+    conditions_per_rank: 32
     distance: equal_weight_translation_rotation_grip_block_rms_normalized
     aggregation: condition_mean_then_equal_domain_macro_mean
   required_wandb_metrics:
@@ -105,12 +125,14 @@ evaluator:
     validation_view:
       definition: first_deterministic_validation_batch_per_ddp_rank
       split_manifest_sha256: ${run_provenance.split_manifest_sha256}
-      per_rank_batch_size: 16
+      per_rank_batch_size: 32
       world_size: 2
     provenance:
       action_representation: ${run_provenance.action_contract.representation}
       prediction_horizon: 16
       diffusion_inference_steps: 100
+      diffusion_scheduler: DDPM
+      weight_source: ema
       precision: bf16
     distance_blocks:
       translation: {indices: [0, 1], weight: 1.0}

@@ -2133,12 +2133,24 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if zarr_key in self._image_keys:
                     jpeg_bytes = data[k]
                     try:
-                        decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                        if isinstance(jpeg_bytes, np.ndarray):
+                            decoded = np.stack(
+                                [
+                                    simplejpeg.decode_jpeg(frame, colorspace="RGB")
+                                    for frame in jpeg_bytes
+                                ],
+                                axis=0,
+                            )
+                            data[k] = np.transpose(decoded, (0, 3, 1, 2)) / 255.0
+                        else:
+                            decoded = simplejpeg.decode_jpeg(
+                                jpeg_bytes, colorspace="RGB"
+                            )
+                            data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
                     except Exception:
                         idx = _next("JPEG decode failed", key=k)
                         retry = True
                         break
-                    data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
                 elif zarr_key in self._json_keys:
                     if isinstance(data[k], np.ndarray):
                         data[k] = [self._decode_json_entry(v) for v in data[k]]

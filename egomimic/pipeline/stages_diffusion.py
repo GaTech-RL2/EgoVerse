@@ -122,6 +122,15 @@ class MultiDomainDiffusionPolicyStage(Stage):
                     f"Policy {domain!r} expects {proj_cond.in_features} condition "
                     f"features, configured Pipeline condition has {self.condition_input_dim}"
                 )
+            global_cond_dim = getattr(policy.model, "global_cond_dim", None)
+            if (
+                global_cond_dim is not None
+                and int(global_cond_dim) != self.condition_input_dim
+            ):
+                raise ValueError(
+                    f"Policy {domain!r} expects {global_cond_dim} condition "
+                    f"features, configured Pipeline condition has {self.condition_input_dim}"
+                )
             normalized[domain] = policy
             action_dims[domain] = action_dim
 
