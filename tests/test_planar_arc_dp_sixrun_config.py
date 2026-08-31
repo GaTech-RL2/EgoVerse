@@ -286,6 +286,13 @@ def test_paper_dp_single_gpu_keeps_global_batch_and_model_contract(
     assert smoke.callbacks.validation_checkpoint is None
 
 
+def test_bundle_launcher_disables_inherited_cpu_binding() -> None:
+    launcher = (REPO_ROOT / "scripts/train/flow_transfer_run_bundle.sbatch").read_text()
+    command = '"$SRUN" --cpu-bind=none --kill-on-bad-exit=1 --unbuffered'
+    assert launcher.count(command) == 2
+    assert '"$SRUN" --kill-on-bad-exit=1' not in launcher
+
+
 def test_paper_dp_observation_and_action_windows_are_causally_aligned() -> None:
     keymap = get_keymap_hpt(
         action_horizon=16,

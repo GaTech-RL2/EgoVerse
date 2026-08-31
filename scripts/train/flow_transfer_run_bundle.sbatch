@@ -181,7 +181,7 @@ case "$MODE" in
     test ! -e "$RUN_DIR"
     mkdir -p "$(dirname "$RUN_DIR")"
     export WANDB_MODE=offline
-    "$SRUN" --kill-on-bad-exit=1 --unbuffered \
+    "$SRUN" --cpu-bind=none --kill-on-bad-exit=1 --unbuffered \
       "$PYTHON" -m egomimic.trainHydra "${HYDRA_ARGS[@]}" \
       2>&1 | tee "$OUTPUT_ROOT/smoke/training.log"
     EMBODIMENTS=$(
@@ -279,7 +279,7 @@ PY
       test "$FRESH_RUN" = true
     fi
 
-    "$SRUN" --kill-on-bad-exit=1 --unbuffered \
+    "$SRUN" --cpu-bind=none --kill-on-bad-exit=1 --unbuffered \
       "$PYTHON" -m egomimic.trainHydra "${HYDRA_ARGS[@]}" \
       2>&1 | tee -a "$OUTPUT_ROOT/full/training.log"
 
