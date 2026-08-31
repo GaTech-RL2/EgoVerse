@@ -509,3 +509,83 @@ Checkpoints sync to
 `s3://rldb/staged/pushshapes_control_modes/<job_name>/checkpoints/` every 7
 minutes — the container is ephemeral and declares no outputs, and two completed
 20h runs were lost that way previously.
+
+
+---
+
+## RESULT PATH: closed-loop coverage is dead; score the DELTA
+
+Closed-loop coverage returns exactly 0.0000 for every arm, every control gap,
+every seed — 180 rollouts confirmed. It cannot separate the arms and never will,
+for a reason that is now understood rather than suspected.
+
+### Why coverage is saturated
+
+`_grasp_planner` commands `tx = px + clip(gx-ox, -3, 3)`: the action is the
+pusher's CURRENT POSITION plus a <=3px delta, and the pusher's xy is channels
+0-1 of the policy's own state. A PERSISTENCE baseline — "command where I already
+am" — therefore scores:
+
+| mode | FVE_persist | median error |
+|---|---|---|
+| tight | 0.8539 | 0.58 px |
+| loose | 0.9544 | 2.62 px |
+| laggy | 0.9047 | 4.70 px |
+| sticky | 0.9027 | 2.65 px |
+| ideal | 0.8500 | **0.00 px** |
+| jittery | 0.9111 | 3.41 px |
+
+So MSE on the ABSOLUTE action spends nearly all its gradient on a quantity the
+policy reads off its own input. All four arms consequently over-command by
+3-12x (median 6-12px against the expert's 0.6-5.3px), leave the data manifold
+within ~50 steps, and land in an ABSORBING FIXED POINT where the commanded
+target equals the current position. Action is a desired xy that the pusher walks
+toward, so commanding your own position is zero velocity: the pusher freezes,
+the object is never engaged, and coverage stays at EXACTLY its initial 0.0000.
+
+Exact zeros mean "nothing happened", not "the metric is broken". Replaying
+recorded actions from recorded inits reaches 0.93-0.95.
+
+### The metric that does discriminate
+
+    delta = action - pusher_xy
+
+Score **row 0 only**. Row 0 is the first autoregressive output, produced with no
+action context, so causal arms get no teacher-forcing advantage over the
+bidirectional control even though the batch carries `actions`.
+
+### Matched-epoch comparison (all four small arms @ epoch 11 of 100)
+
+FVE_delta:
+
+| arm | tight | loose | laggy | sticky | ideal | jittery | seen | held |
+|---|---|---|---|---|---|---|---|---|
+| arm1 dp_flow | 0.732 | 0.221 | 0.721 | 0.724 | -0.008 | -0.519 | 0.599 | -0.264 |
+| arm2 causal_bidir (CONTROL) | 0.914 | 0.580 | 0.650 | 0.764 | -0.118 | -0.387 | **0.727** | -0.252 |
+| arm3 state_action_ar (CAUSAL) | 0.792 | 0.217 | 0.735 | 0.773 | -0.161 | -0.254 | 0.629 | **-0.208** |
+| arm4 state_idm | 0.602 | 0.096 | 0.550 | 0.425 | -0.350 | -0.230 | 0.418 | -0.290 |
+
+**arm3 - arm2 = -0.098 on SEEN, +0.044 on HELD-OUT.** Causal generation fits the
+training gaps worse and generalizes slightly better. arm3 also over-commands
+least (7.4px vs arm2's 10.0px on tight, expert 0.6px), consistent with more
+conservative out-of-distribution behaviour.
+
+### What this does NOT yet support
+
+- Epoch 11 of 100. arm2's held-out FVE_delta moved from -0.252 (ep11) to -0.188
+  (ep15), ~0.064 per 4 epochs, so these numbers are still moving fast.
+- Every held-out value is NEGATIVE — worse than predicting zero delta. The
+  arm3-vs-arm2 comparison is currently between two failures.
+- One seed per arm, n=96 samples per mode.
+- Small capacity only. arm1-large is at 46 min/epoch (77h to 100) and will not
+  produce a matched large-capacity row on any useful timescale.
+
+### Recommended fix to the action representation
+
+MSE on absolute targets is the wrong objective for this data. Two options:
+
+1. **Residual head (cheap):** predict `action - pusher_xy` and add the current
+   position back. The loss then lands entirely on the delta. No retokenization —
+   a change at the head and target only. Validate on one arm before the grid.
+2. **Retokenize in delta space (clean, expensive):** regenerate tokens and
+   retrain all eight runs.
