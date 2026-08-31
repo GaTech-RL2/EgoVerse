@@ -489,3 +489,21 @@ def get_vector_from_yaw_pitch(
         return unit_dir
     else:
         return unit_dir * depth
+
+
+def safe_rot3_from_T(T, ortho_tol=1e-3, det_tol=1e-3):
+    """Extract a trustworthy 3x3 rotation from a pose matrix, else identity.
+
+    Rejects non-finite entries, a non-positive or off-unit determinant, and
+    columns that have drifted from orthonormal. Used by the teleop/calibration
+    paths, where a silently-degenerate rotation is worse than falling back.
+    """
+    Rm = np.asarray(T, dtype=float)[:3, :3]
+    if Rm.shape != (3, 3) or not np.all(np.isfinite(Rm)):
+        return np.eye(3)
+    det = np.linalg.det(Rm)
+    if det <= 0 or abs(det - 1.0) > det_tol:
+        return np.eye(3)
+    if np.linalg.norm(Rm.T @ Rm - np.eye(3), ord="fro") > ortho_tol:
+        return np.eye(3)
+    return Rm
