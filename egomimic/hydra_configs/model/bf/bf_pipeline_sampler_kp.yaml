@@ -1,0 +1,111 @@
+# Robot-human Fold cotrain: native PipelineAlgo end-to-end latent sampler.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 100
+  domains: [eva_bimanual, human_bimanual]
+  ac_keys:
+    eva_bimanual: actions_cartesian
+    human_bimanual: actions_keypoints
+  stages:
+  - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+    n_obs_steps: 2
+    encoder:
+      _target_: egomimic.pipeline.stages_sampler.SharedAdapterObsEncoder
+      # The front-camera representation is genuinely weight-shared across
+      # robot and human. It is fused immediately with a small embodiment
+      # adapter; the sampler sees one condition tensor, never A/S streams.
+      shared_encoder:
+        _target_: egomimic.models.stems.input_modules.ObsToken
+        d_model: 256
+        obs_encoder:
+          _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+          d_cond: 256
+          output_key: fused_cond
+          cond_proj_widths: [256, 256]
+          obs_specs: {}
+          img_encoders:
+            front_img_1: &img
+              _target_: egomimic.models.stems.visual_core.VisualCore
+              in_channels: 3
+              image_size: 480
+              num_kp: 32
+              feature_dimension: 64
+              pretrained: false
+              crop_aug: true
+              crop_height: 128
+              crop_width: 128
+              crop_eval_mode: center
+              crop_sample_mode: v02
+      embodiment_adapter:
+        _target_: egomimic.models.stems.input_modules.ObsToken
+        d_model: 64
+        obs_encoder:
+          _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+          encoders:
+            eva_bimanual:
+              _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+              d_cond: 64
+              output_key: fused_cond
+              cond_proj_widths: [64, 64]
+              obs_specs:
+                state_ee_pose: {input_dim: 20, input_slice: [0, 20], embed_dim: 64}
+              img_encoders:
+                left_wrist_img: *img
+                right_wrist_img: *img
+            human_bimanual:
+              _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+              d_cond: 64
+              output_key: fused_cond
+              cond_proj_widths: [64, 64]
+              obs_specs:
+                state_keypoints: {input_dim: 126, input_slice: [0, 126], embed_dim: 64}
+                obs_head_pose: {input_dim: 7, input_slice: [0, 7], embed_dim: 64}
+              img_encoders: {}
+  - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+    action_horizon: 100
+    latent_dim: 128
+  - _target_: egomimic.pipeline.stages_sampler.MultiJActionSampler
+    condition_input_dim: 640
+    condition_dim: 384
+    gradient_accumulation_steps: 1
+    schedule_anchor_domain: eva_bimanual
+    action_horizon: 100
+    action_dims: {eva_bimanual: 20, human_bimanual: 126}
+    latent_dim: 128
+    decoder_hidden_dim: 512
+    decoder_extra_hidden_layers_by_domain: {human_bimanual: 2}
+    denoiser_hidden_dim: 512
+    num_inference_steps: 16
+    sampling_schedule:
+      1: {1: 0.50, 2: 0.50}
+      2001: {2: 0.80, 4: 0.15, 8: 0.05}
+    gradient_checkpointing: true
+    denoising_module:
+      _target_: egomimic.models.denoising_nets.CrossTransformer
+      nblocks: 16
+      cond_dim: 384
+      hidden_dim: 512
+      act_dim: 128
+      act_seq: 100
+      n_heads: 8
+      dropout: 0.1
+      mlp_layers: 4
+      mlp_ratio: 4
+      time_conditioning: additive
+  - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 3000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

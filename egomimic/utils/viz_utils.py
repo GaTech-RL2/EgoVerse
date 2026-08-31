@@ -3,8 +3,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from egomimic.utils.pose_utils import cam_frame_to_cam_pixels
-from egomimic.utils.pose_utils import _split_action_pose, _split_keypoints
+from egomimic.utils.pose_utils import (
+    _split_action_pose,
+    _split_keypoints,
+    cam_frame_to_cam_pixels,
+    ee_pose_to_cam_frame,
+    get_vector_from_yaw_pitch,
+)
 
 
 class ColorPalette:
@@ -290,6 +295,118 @@ def _viz_gaze(
     )
 
 
+def _split_hand_keypoint_chunks(actions):
+    """Return one ``(horizon, 21, 3)`` array per hand."""
+    actions = np.asarray(actions)
+    if actions.ndim == 1:
+        actions = actions[None]
+    if actions.ndim != 2:
+        raise ValueError(
+            "Expected one keypoint chunk shaped (horizon, action_dim), got "
+            f"{actions.shape}"
+        )
+    if actions.shape[-1] == 140:
+        _, _, left, _, _, right = _split_keypoints(actions, wrist_in_data=True)
+    elif actions.shape[-1] == 138:
+        _, _, left, _, _, right = _split_keypoints(
+            actions, wrist_in_data=True, is_quat=False
+        )
+    elif actions.shape[-1] == 132:
+        left, right = actions[..., 3:66], actions[..., 69:132]
+    elif actions.shape[-1] == 126:
+        left, right = actions[..., :63], actions[..., 63:]
+    else:
+        raise ValueError(f"Unsupported keypoint action width {actions.shape[-1]}")
+    return {
+        "left": np.asarray(left).reshape(-1, 21, 3),
+        "right": np.asarray(right).reshape(-1, 21, 3),
+    }
+
+
+def _safe_cv_point(point):
+    xy = np.clip(np.asarray(point)[:2], -1_000_000, 1_000_000)
+    return tuple(np.rint(xy).astype(int))
+
+
+def _draw_clipped_line(image, first, second, color, thickness=2):
+    height, width = image.shape[:2]
+    visible, first, second = cv2.clipLine(
+        (0, 0, width, height),
+        _safe_cv_point(first),
+        _safe_cv_point(second),
+    )
+    if visible:
+        cv2.line(image, first, second, color, thickness, lineType=cv2.LINE_AA)
+
+
+def _viz_keypoint_traj(
+    image,
+    actions,
+    intrinsics,
+    landmark_indices,
+    **kwargs,
+):
+    """Draw wrist and fingertip paths across the full action horizon."""
+    color = kwargs.get("color", "Blues")
+    alpha = kwargs.get("alpha", 1.0)
+    if not ColorPalette.is_valid(color):
+        raise ValueError(f"Invalid color palette: {color}")
+    requested_steps = kwargs.get("keypoint_traj_steps")
+    if requested_steps is not None and int(requested_steps) < 1:
+        raise ValueError("keypoint_traj_steps must be positive")
+
+    base = _prepare_viz_image(image)
+    rendered = base.copy()
+    chunks = _split_hand_keypoint_chunks(actions)
+    for hand in ("left", "right"):
+        chunk = chunks[hand]
+        if requested_steps is not None:
+            chunk = chunk[: int(requested_steps)]
+        for index, (_, keypoint_index) in enumerate(landmark_indices):
+            points_camera = chunk[:, keypoint_index]
+            points_pixels = cam_frame_to_cam_pixels(points_camera, intrinsics)
+            valid = points_camera[:, 2] > 0.01
+            valid &= np.isfinite(points_camera).all(axis=1)
+            valid &= np.isfinite(points_pixels[:, :2]).all(axis=1)
+            path_color = ColorPalette.to_rgb(
+                color, value=(index + 1) / (len(landmark_indices) + 1)
+            )
+            for step in range(len(points_pixels) - 1):
+                if valid[step] and valid[step + 1]:
+                    _draw_clipped_line(
+                        rendered,
+                        points_pixels[step],
+                        points_pixels[step + 1],
+                        path_color,
+                    )
+            if len(points_pixels) and valid[0]:
+                start = _safe_cv_point(points_pixels[0])
+                cv2.circle(rendered, start, 5, path_color, -1, lineType=cv2.LINE_AA)
+                cv2.circle(rendered, start, 5, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+            if len(points_pixels) and valid[-1]:
+                end_x, end_y = _safe_cv_point(points_pixels[-1])
+                triangle = np.asarray(
+                    [
+                        (end_x, end_y - 6),
+                        (end_x - 6, end_y + 5),
+                        (end_x + 6, end_y + 5),
+                    ],
+                    dtype=np.int32,
+                )
+                cv2.fillConvexPoly(rendered, triangle, path_color, lineType=cv2.LINE_AA)
+                cv2.polylines(
+                    rendered,
+                    [triangle],
+                    True,
+                    (255, 255, 255),
+                    1,
+                    lineType=cv2.LINE_AA,
+                )
+    if alpha < 1.0:
+        rendered = cv2.addWeighted(rendered, alpha, base, 1.0 - alpha, 0)
+    return rendered
+
+
 def _viz_keypoints(
     image,
     actions,
@@ -444,10 +561,9 @@ def _viz_annotations(image, annotations: list[str], **kwargs):
 def save_image(image: np.ndarray, path: str) -> None:
     cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
-from egomimic.utils.pose_utils import ee_pose_to_cam_frame, get_vector_from_yaw_pitch
-
 
 # ---- moved from egomimicUtils.py (code unchanged) ----
+
 
 def draw_actions(
     im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None
@@ -500,6 +616,7 @@ def draw_actions(
 
     return im
 
+
 def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=5):
     """
     frame: (H, W, C) numpy array
@@ -532,6 +649,7 @@ def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=
             plt.show()
 
     return frame
+
 
 def get_gaze_endpoint(yaw_rads, pitch_rads, depth, T_cam_cpf):
     """

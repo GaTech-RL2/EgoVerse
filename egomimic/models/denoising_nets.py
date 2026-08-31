@@ -690,9 +690,15 @@ class CrossTransformer(nn.Module):
         dropout,
         mlp_layers,
         mlp_ratio,
+        time_conditioning="concat",
         **kwargs,
     ):
         super().__init__()
+        if time_conditioning not in {"concat", "additive"}:
+            raise ValueError("time_conditioning must be either 'concat' or 'additive'")
+        if time_conditioning == "concat" and hidden_dim % 2:
+            raise ValueError("concat time conditioning requires an even hidden_dim")
+        self.time_conditioning = time_conditioning
         self.layers = nn.ModuleList(
             [
                 CrossBlock(
@@ -707,9 +713,18 @@ class CrossTransformer(nn.Module):
                 for i in range(nblocks)
             ]
         )
-        self.proj_u = nn.Linear(act_dim, hidden_dim // 2)
+        action_embedding_dim = (
+            hidden_dim // 2 if time_conditioning == "concat" else hidden_dim
+        )
+        if action_embedding_dim < act_dim:
+            raise ValueError(
+                "Rank-deficient denoiser input: action embedding width "
+                f"{action_embedding_dim} is smaller than noisy action dimension "
+                f"{act_dim}. Increase hidden_dim or use additive time conditioning."
+            )
+        self.proj_u = nn.Linear(act_dim, action_embedding_dim)
         self.proj_d = nn.Linear(hidden_dim, act_dim)
-        self.pos_emb = nn.Parameter(torch.zeros(1, act_seq, hidden_dim // 2))
+        self.pos_emb = nn.Parameter(torch.zeros(1, act_seq, action_embedding_dim))
 
     def forward(self, x, timesteps, cond, *args, **kwargs):
         hid_tkns = self.proj_u(x)
@@ -724,7 +739,10 @@ class CrossTransformer(nn.Module):
         )
         # if hasattr(timesteps, "shape") and len(timesteps.shape) > 0 and timesteps.shape[0] == 1:
         #     breakpoint()
-        hid_tkns = torch.cat([hid_tkns, time_embed], dim=-1)
+        if self.time_conditioning == "concat":
+            hid_tkns = torch.cat([hid_tkns, time_embed], dim=-1)
+        else:
+            hid_tkns = hid_tkns + time_embed
 
         for layer in self.layers:
             hid_tkns = layer(hid_tkns, cond)
