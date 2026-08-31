@@ -1,0 +1,176 @@
+# Offline evaluation of a trained control-mode checkpoint — OSMO, 1 GPU.
+#
+# Runs `trainHydra.py mode=eval ckpt_path=...`, which loads the weights and
+# calls trainer.validate() once. Use it to get success rates from a checkpoint
+# that already exists, instead of waiting for a training run to reach its next
+# validation.
+#
+# PREFER ONE GPU. SimRolloutEval has no rank guard, so under DDP every rank runs
+# the full rollout set redundantly — N times the physics for identical numbers.
+# Evaluation is a single pass with nothing to parallelise, so one rank is both
+# cheaper and no slower. num_gpu is a parameter only because pools disagree:
+# groot-h100-01 allocates whole nodes and rejects anything but 8, while
+# groot-l40s-01 accepts small counts. Pick the pool that lets you ask for 1.
+#
+# Why this exists at all: a training run can complete all its epochs, exit 0,
+# write a valid checkpoint, and log ZERO success rates, because
+# trainer/ddp.yaml ships check_val_every_n_epoch=200. Everything that normally
+# signals health is present and the measurement is absent. This recovers the
+# measurement from the checkpoint that run left behind.
+
+workflow:
+  name: "{{job_name}}"
+
+  tasks:
+  - name: eval
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+      egoverse-wandb:
+        WANDB_API_KEY: wandb_api_key
+
+    environment:
+      BRANCH: "{{branch}}"
+      DATA_CFG: "{{data_cfg}}"
+      MODEL_CFG: "{{model_cfg}}"
+      RUN_NAME: "{{run_name}}"
+      RUN_DESC: "{{run_desc}}"
+      JOB_NAME: "{{job_name}}"
+      NUM_GPU: "{{num_gpu}}"
+      WANDB_ENTITY: "{{wandb_entity}}"
+      # s3:// path of the checkpoint to evaluate, and of the norm stats it was
+      # trained under. Norm stats MUST be the training ones: recomputing them
+      # would rescale the actions the checkpoint learned to emit.
+      CKPT_URI: "{{ckpt_uri}}"
+      NORM_URI: "{{norm_uri}}"
+      SEEN_MODES: "{{seen_modes}}"
+      DATA_PREFIX: "{{data_prefix}}"
+      N_PER_MODE: "{{n_per_mode}}"
+      WORKDIR: /workspace
+      DATASET_DIR: /workspace/pushshapes
+      PUSHSHAPES_ROOT: /workspace/pushshapes
+      TOKENIZERS_PARALLELISM: "false"
+      HYDRA_FULL_ERROR: "1"
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+
+        mkdir -p "$WORKDIR" && cd "$WORKDIR"
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" EgoVerse
+        cd "$WORKDIR/EgoVerse"
+        git rev-parse HEAD
+        uv sync --frozen
+        source .venv/bin/activate
+
+        # Simulator deps are absent from EgoVerse's lock; without them
+        # SimRolloutEval cannot construct an env at all.
+        uv pip install "pymunk==7.3.0" gymnasium pygame shapely
+
+        python - <<'SIMPY'
+        from Tsimulation.pushshapes import PushShapesEnv
+        from Tsimulation.pushshapes.agents import CONTROL_GAPS
+        env = PushShapesEnv(object_shape="T", pusher_shape="gripper",
+                            obstacle_level=0, image_size=96)
+        env.reset(seed=0)
+        env.agent.control_gap = CONTROL_GAPS["jittery"]
+        print("simulator OK; gaps:", sorted(CONTROL_GAPS))
+        SIMPY
+
+        bash ./egomimic/utils/aws/setup_secret.sh
+        test -s "$HOME/.egoverse_env"
+
+        python -m pytest tests/test_control_mode_configs.py -q
+        python -m pytest tests/test_hydra_composition.py -q
+
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        unset AWS_SESSION_TOKEN
+
+        # ---- checkpoint + the norm stats it was trained under
+        mkdir -p /workspace/ckpt
+        s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp "$CKPT_URI" /workspace/ckpt/model.ckpt
+        s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp "$NORM_URI" /workspace/ckpt/norm_stats.json
+        ls -la /workspace/ckpt
+
+        # ---- data: needed only to build the val dataloader that drives the
+        # rollout loop. The rollouts themselves come from the simulator.
+        TRAIN_DIR="$PUSHSHAPES_ROOT/train/gripper/T"
+        mkdir -p "$TRAIN_DIR"
+        for mode in $SEEN_MODES; do
+          STAGE="/tmp/stage_$mode"; mkdir -p "$STAGE"
+          s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 48 \
+            cp "${DATA_PREFIX}/${mode}/gripper/T/*" "$STAGE/"
+          ls -1 "$STAGE" | sort | tail -n +$((N_PER_MODE + 1)) | while read -r ep; do
+            rm -rf "$STAGE/$ep"
+          done
+          for ep in "$STAGE"/*; do
+            [ -e "$ep" ] || continue
+            mv "$ep" "$TRAIN_DIR/${mode}__$(basename "$ep")"
+          done
+          rmdir "$STAGE" || true
+        done
+        echo "staged $(ls -1 "$TRAIN_DIR" | wc -l) episodes"
+
+        ulimit -n 65536 || true
+
+        # ---- evaluate. limit_val_batches=1 because on_validation_step runs the
+        # WHOLE evaluator per batch; more than one batch just multiplies every
+        # rollout by that many.
+        python egomimic/trainHydra.py \
+          mode=eval \
+          ckpt_path=/workspace/ckpt/model.ckpt \
+          data="$DATA_CFG" \
+          model="$MODEL_CFG" \
+          evaluator=eval_sim_control_modes \
+          norm_stats.precomputed_norm_path=/workspace/ckpt/norm_stats.json \
+          paths.dataset_dir="$DATASET_DIR" \
+          launch_params.nodes=1 launch_params.gpus_per_node="$NUM_GPU" \
+          trainer.limit_val_batches=1 \
+          data.valid_dataloader_params.pushshapes_sim_gripper.batch_size=16 \
+          data.valid_dataloader_params.pushshapes_sim_gripper.num_workers=4 \
+          logger.wandb.entity="$WANDB_ENTITY" \
+          name="$RUN_NAME" description="$RUN_DESC"
+
+        # ---- the numbers, printed plainly so they survive the log transport
+        echo "================ SUCCESS RATES ================"
+        grep -a "\[sim\]" /tmp/entry_script.log || echo "NO [sim] OUTPUT — the evaluator did not run"
+        echo "==============================================="
+
+  resources:
+    default:
+      cpu: {{cpu}}
+      gpu: {{num_gpu}}
+      memory: {{memory}}
+      storage: {{storage}}
+
+  timeout:
+    queue_timeout: 1d
