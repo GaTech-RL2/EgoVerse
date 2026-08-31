@@ -1,17 +1,35 @@
 import logging
-import random
-from typing import Literal
 
-import numpy as np
-import torch
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
-from termcolor import cprint
-from torch.utils.data import DataLoader, default_collate
-from transformers import AutoTokenizer
+from torch.utils.data import DataLoader, DistributedSampler, Sampler, default_collate
 
 logger = logging.getLogger(__name__)
 
+
+class NonPaddingDistributedSampler(Sampler[int]):
+    """Deterministically shard validation indices without padding or overlap."""
+
+    def __init__(self, dataset, *, num_replicas: int, rank: int):
+        self.dataset = dataset
+        self.num_replicas = int(num_replicas)
+        self.rank = int(rank)
+        if self.num_replicas <= 0:
+            raise ValueError("num_replicas must be positive")
+        if not 0 <= self.rank < self.num_replicas:
+            raise ValueError(
+                f"rank must be in [0, {self.num_replicas}), got {self.rank}"
+            )
+
+    def __iter__(self):
+        return iter(range(self.rank, len(self.dataset), self.num_replicas))
+
+    def __len__(self):
+        remaining = max(0, len(self.dataset) - self.rank)
+        return (remaining + self.num_replicas - 1) // self.num_replicas
+
+    def set_epoch(self, epoch: int) -> None:
+        del epoch
 
 
 class MultiDataModuleWrapper(LightningDataModule):
@@ -28,6 +46,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
         valid_combined_mode: str = "max_size_cycle",
+        manage_distributed_samplers: bool = False,
     ):
         """
         Args:
@@ -51,6 +70,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.valid_datasets = {k: v for k, v in valid_datasets.items() if v is not None}
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
+        self.manage_distributed_samplers = bool(manage_distributed_samplers)
         if valid_combined_mode not in {"min_size", "max_size_cycle", "max_size"}:
             raise ValueError(
                 "valid_combined_mode must be min_size, max_size_cycle, or "
@@ -59,17 +79,43 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.valid_combined_mode = valid_combined_mode
         self.collate_fn = annotation_collate
 
+    def _distributed_context(self) -> tuple[int, int]:
+        trainer = getattr(self, "trainer", None)
+        if trainer is None:
+            return 1, 0
+        world_size = int(getattr(trainer, "world_size", 1))
+        rank = int(getattr(trainer, "global_rank", 0))
+        if world_size <= 0 or not 0 <= rank < world_size:
+            raise RuntimeError(
+                f"Invalid Trainer distributed context rank={rank} world={world_size}"
+            )
+        return world_size, rank
+
     def train_dataloader(self):
         iterables = dict()
+        world_size, rank = self._distributed_context()
         for dataset_name, dataset in self.train_datasets.items():
             dataset_params = self.train_dataloader_params.get(dataset_name)
             if dataset_params is None or len(dataset_params) == 0:
                 raise ValueError(
                     f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config train_dataloader_params."
                 )
+            sampler = None
+            shuffle = True
+            if self.manage_distributed_samplers and world_size > 1:
+                sampler = DistributedSampler(
+                    dataset,
+                    num_replicas=world_size,
+                    rank=rank,
+                    shuffle=True,
+                    seed=42,
+                    drop_last=False,
+                )
+                shuffle = False
             iterables[dataset_name] = DataLoader(
                 dataset,
-                shuffle=True,
+                shuffle=shuffle,
+                sampler=sampler,
                 collate_fn=self.collate_fn,
                 **dataset_params,
             )
@@ -78,6 +124,7 @@ class MultiDataModuleWrapper(LightningDataModule):
 
     def val_dataloader(self):
         iterables = dict()
+        world_size, rank = self._distributed_context()
         for dataset_name, dataset in self.valid_datasets.items():
             dataset_params = self.valid_dataloader_params.get(dataset_name)
             if dataset_params is None or len(dataset_params) == 0:
@@ -86,9 +133,21 @@ class MultiDataModuleWrapper(LightningDataModule):
                 )
             dataset_params = dict(dataset_params)
             shuffle = dataset_params.pop("shuffle", False)
+            sampler = None
+            if self.manage_distributed_samplers and world_size > 1:
+                if shuffle:
+                    raise ValueError(
+                        "Exact distributed validation requires shuffle=false"
+                    )
+                sampler = NonPaddingDistributedSampler(
+                    dataset,
+                    num_replicas=world_size,
+                    rank=rank,
+                )
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=shuffle,
+                sampler=sampler,
                 collate_fn=self.collate_fn,
                 **dataset_params,
             )
@@ -99,8 +158,6 @@ class MultiDataModuleWrapper(LightningDataModule):
         # silently cycling and double-counting its first batches. Training
         # intentionally keeps the historical ``max_size_cycle`` behavior.
         return CombinedLoader(iterables, self.valid_combined_mode)
-
-
 
 
 def _extract_list_keys(batch):

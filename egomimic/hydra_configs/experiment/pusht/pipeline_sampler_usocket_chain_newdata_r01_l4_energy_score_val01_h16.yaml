@@ -23,6 +23,7 @@ trainer:
   devices: 2
   num_nodes: 1
   strategy: ddp
+  use_distributed_sampler: false
   precision: bf16
   sync_batchnorm: true
   limit_train_batches: 1.0

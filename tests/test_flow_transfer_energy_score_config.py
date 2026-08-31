@@ -65,6 +65,8 @@ def test_energy_score_data_is_disjoint_seed42_val01_and_train_only_norm():
     cfg = _compose()
     assert cfg.seed == 42
     assert cfg.data.valid_combined_mode == "max_size"
+    assert cfg.data.manage_distributed_samplers is True
+    assert cfg.trainer.use_distributed_sampler is False
     for domain in DOMAINS:
         train = cfg.data.train_datasets[domain]
         valid = cfg.data.valid_datasets[domain]

@@ -4,6 +4,9 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 # same namespaced episode inventories before selecting complementary 99/1
 # membership. Chain generated data is the immutable audited 719-episode view.
 valid_combined_mode: max_size
+# Lightning's default DistributedSampler pads odd validation lengths. This
+# recipe owns train sharding and uses no-padding validation shards instead.
+manage_distributed_samplers: true
 
 train_datasets:
   pushshapes_sim_u_socket:
