@@ -292,7 +292,62 @@ consistent between training and rollout; and `norm_mode` is quantile on both
 sides (the `zscore` constructor default never fires because trainHydra passes
 it explicitly and `set_norm_stats_from` propagates it).
 
-**Status: fix implemented, validation in flight** — the same archived
+**Status: THIS FIX DID NOT RESOLVE THE ZEROS.** Re-running the identical
+eval on the archived checkpoint with `replan_every: 1` present in the composed
+config (verified in the job log; `PipelineAlgo.__init__` takes no `**kwargs`, so
+a stale clone would have raised rather than swallowed it) still returns coverage
+0.0000 on 60/60 rollouts across all six control modes. The 0.19x speed defect is
+real and the fix is correct on the merits, but it is NOT the cause of the zeros.
+The root cause is still open.
+
+### What has since been RULED OUT, each with evidence
+
+| candidate | evidence it is not the fault |
+|---|---|
+| harness / env / physics / coverage metric | replaying RECORDED actions from RECORDED `episode_init` reaches final coverage 0.9529 / 0.9295 / 0.9538 / 0.9520 on 4 of 5 episodes — the harness reproduces its own data |
+| action semantics | gripper `action_spec=('x','y','angle','grip')`, 4-wide, replayed verbatim above |
+| state vector | `pushshapes_sim_gripper` -> `_env_to_zarr_pushshapes_oriented`, 6-wide `[ax,ay,a_th,ox,oy,o_th]`, matches the dataset's `observations.state` (N,6) channel-for-channel; object pose identical |
+| observation images | rollout frames vs dataset frames agree to 0.03/255 mean; `_skip_obs_render` is never set in the eval path and `render_mode` governs only `env.render()` |
+| eval init distribution | recorded `|obj-goal|` 121.8..414.5 (mean 212.3) vs `env.reset(seed)` 122.3..400.4 (mean 233.8); position and angle marginals overlap |
+| weights / open-loop | 222/222 load by name+shape; FVE +0.998 on trained modes, +0.72..+0.90 on HELD-OUT modes |
+| `replan_every` | applied and measured; no change (this section) |
+
+### Two traps that produce a FALSE harness failure
+
+Both cost a wrong zero during this investigation:
+
+1. `scripted_collect.scripted_action` returns `(2,)`, but the gripper action
+   space is `(4,)`. Padding `angle`/`grip` by hand yields ~0 coverage that is an
+   artifact of the padding. Recorded `grip` spans 0.14..1.00, `angle` 6.46..8.14.
+   Use `Tsimulation/sim_v2/generate/planner.py::plan_for(agent)` — that is the
+   planner that generated the 4-wide data.
+2. `episode_init` in the zarr attrs is a JSON **string**, not a dict.
+   `env.set_state(agent_pos=init["agent_pos"], ...)` raises
+   `string indices must be integers`; swallow that and you replay correct
+   actions from the WRONG initial state, which looks exactly like a broken
+   harness. `json.loads` it.
+
+### Open landmine (not the current fault, but silent)
+
+`goal_pose` is absent from the pushshapes keymap, so it never reaches the val
+batch. `SimRolloutEval.batch_to_env_init` then passes `goal_pose=None` and
+`env.set_state` leaves the goal where the seeded reset put it. Under
+`init_mode: replay` that gives agent+object from the dataset and the GOAL FROM A
+RANDOM SEED — a different task than the data represents, scored silently. This
+study uses `init_mode: seeds`, where agent/object/goal all derive from one seed
+and stay self-consistent, so it is not affected.
+
+### Still open
+
+Training inits are SUCCESS-FILTERED (`scripted_collect` discards episodes below
+threshold as `low_coverage`), while the evaluator scores UNFILTERED
+`env.reset(seed=0..9)`. Measuring the expert's ceiling on those exact seeds
+decides whether any policy could score above zero through this evaluator. Also
+note the policy's state carries no goal — the goal is only in the 96x96 image,
+and coverage 0.95 requires position AND angle. Exactly-0.0000 is zero IoU
+overlap: the object is not merely misaligned, it is nowhere near the goal.
+
+**Original status line (superseded):** — the same archived
 checkpoint re-evaluated with `replan_every=1` against a prior run of the
 identical eval that scored 0.0000 on 60/60 rollouts.
 
