@@ -268,7 +268,7 @@ workflow:
         i=0
         for V in $VARIANTS; do
           mkdir -p "$WORKDIR/norm_stats/$V"
-          ( CUDA_VISIBLE_DEVICES=$i python egomimic/trainHydra.py \
+          ( CUDA_VISIBLE_DEVICES=$((i % NUM_GPU)) python egomimic/trainHydra.py \
               data="pusht/cotrain11_$V" model="bf/bf_cotrain11_$V" \
               ~evaluator \
               paths.dataset_dir="$DATASET_DIR" \
@@ -280,6 +280,8 @@ workflow:
               name="cotrain11_$V" description="${V}_normstats" \
               > "/tmp/norm_$V.log" 2>&1 ) &
           i=$((i + 1))
+          # Drain every NUM_GPU so more variants than GPUs still works.
+          if [ $((i % NUM_GPU)) -eq 0 ]; then wait; fi
         done
         wait
         for V in $VARIANTS; do
@@ -294,9 +296,13 @@ workflow:
         # own MASTER_PORT -- concurrent DDP groups otherwise all bind the
         # default 29500 and every run after the first dies on "address already
         # in use", which reads as a CUDA error and wastes the whole pull.
+        WAVE=$((NUM_GPU / GPUS_PER_RUN))
+        echo "wave size: $WAVE concurrent variants on $NUM_GPU GPUs"
+        RC=0
+        run_wave () {
         PIDS=""
         i=0
-        for V in $VARIANTS; do
+        for V in $1; do
           LO=$((i * GPUS_PER_RUN))
           DEVS=$(seq -s, $LO $((LO + GPUS_PER_RUN - 1)))
           PORT=$((29500 + i * 17))
@@ -321,16 +327,31 @@ workflow:
           i=$((i + 1))
         done
 
-        # Stream the first variant so the workflow log is not silent for hours.
-        FIRST=$(echo $VARIANTS | awk '{print $1}')
+        # Stream the first variant of the wave so the log is not silent for hours.
+        FIRST=$(echo $1 | awk '{print $1}')
         touch "/tmp/train_$FIRST.log"
         tail -f "/tmp/train_$FIRST.log" & TAILPID=$!
 
-        RC=0
         for p in $PIDS; do
           if ! wait $p; then RC=1; echo "a packed run exited nonzero (pid $p)"; fi
         done
         kill $TAILPID 2>/dev/null || true
+        }
+
+        # Chop VARIANTS into waves and run them BACK TO BACK on this one node.
+        BATCH=""
+        for V in $VARIANTS; do
+          BATCH="$BATCH $V"
+          if [ "$(echo $BATCH | wc -w)" -eq "$WAVE" ]; then
+            echo "===== wave:$BATCH ====="
+            run_wave "$BATCH"
+            BATCH=""
+          fi
+        done
+        if [ -n "$BATCH" ]; then
+          echo "===== final wave:$BATCH ====="
+          run_wave "$BATCH"
+        fi
 
         for V in $VARIANTS; do
           echo "================ tail: $V ================"
