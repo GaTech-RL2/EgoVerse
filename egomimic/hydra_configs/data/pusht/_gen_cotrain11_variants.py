@@ -86,7 +86,11 @@ def model_cfg(name, M, lay, note):
     def seth(o):
         if isinstance(o, dict):
             for k, v in o.items():
-                if k == 'action_horizon' and isinstance(v, int): o[k] = hor
+                # act_seq is CrossTransformer's positional-embedding length; if it
+                # does not track action_horizon the first forward pass dies with
+                # 'size of tensor a (17) must match tensor b (16)' -- AFTER the
+                # R2 pull and norm-stats, i.e. ~2.5h of staging burned.
+                if k in ('action_horizon', 'act_seq') and isinstance(v, int): o[k] = hor
                 else: seth(v)
         elif isinstance(o, list):
             for v in o: seth(v)

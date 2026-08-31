@@ -23,4 +23,32 @@ for f in sorted(glob.glob(os.path.join(here, "cotrain11_*.yaml"))):
         print(f"  ok   {os.path.basename(f):44} -> {out.shape}")
     except Exception as e:
         bad.append(f); print(f"  FAIL {os.path.basename(f):44} {type(e).__name__}: {e}")
+
+# --- model configs: every act_seq must track its action_horizon ---
+# CrossTransformer adds a (1, act_seq, D) positional embedding to the sampler's
+# action_horizon tokens. A mismatch raises only on the first forward pass, i.e.
+# AFTER the R2 pull and norm-stats -- ~2.5h of staging burned per run. Nine
+# configs shipped with act_seq 16 against horizons of 17/51/101; the one config
+# anyone would smoke-test first (concat, horizon 16) matched by accident.
+def _collect(o, out):
+    if isinstance(o, dict):
+        for k, v in o.items():
+            if k in ("act_seq", "action_horizon") and isinstance(v, int):
+                out.setdefault(k, []).append(v)
+            _collect(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            _collect(v, out)
+
+mdir = os.path.join(here, "../../model/bf")
+for f in sorted(glob.glob(os.path.join(mdir, "bf_cotrain11_*.yaml"))):
+    got = {}
+    _collect(yaml.safe_load(open(f)), got)
+    ah, aq = set(got.get("action_horizon", [])), set(got.get("act_seq", []))
+    if aq and not aq <= ah:
+        bad.append(f)
+        print(f"  FAIL {os.path.basename(f):44} act_seq={sorted(aq)} vs action_horizon={sorted(ah)}")
+    else:
+        print(f"  ok   {os.path.basename(f):44} act_seq={sorted(aq) or '-'} horizon={sorted(ah)}")
+
 raise SystemExit(1 if bad else 0)
