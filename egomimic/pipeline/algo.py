@@ -457,7 +457,9 @@ class PipelineAlgo(Algo):
         # readable and consistent across single-domain and cotrain runs.
         per_domain_mse = []
         for emb_id, domain in self.domain_by_id.items():
-            key = f"{emb_id}_loss_native_action"
+            loss_key = f"{emb_id}_loss_native_action"
+            log_key = f"{emb_id}_log_native_action"
+            key = loss_key if loss_key in losses else log_key
             if key not in losses:
                 continue
             value = losses[key].item()
