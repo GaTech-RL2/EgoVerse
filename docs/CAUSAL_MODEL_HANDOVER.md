@@ -296,12 +296,31 @@ not currently plumbed and will need a small change.
    (3.3.0 raises `Chunk size must be positive, got 0` on the empty
    `annotations` array; 3.0.8 lacks `zarr.core.dtype`; 3.1.0 fails writing the
    longest-episode cells).
-3. **Do not put long-running output in `/tmp`** — macOS wipes it on reboot. A
+
+   **zarr 3.1.0 also corrupts SILENTLY.** It visibly failed on 4 long-episode
+   cells with checksum errors, but cells that *appeared* to succeed under it
+   were written corrupt too — 11 of 13 `ideal` cells, 52–88% of episodes
+   unreadable, while reporting `WRITTEN=1000`. The damage is per-array: the
+   zstd-compressed numeric arrays (`actions`, `observations.state`) raise
+   `Zstd decompression error` or a checksum mismatch, while the JPEG
+   `front_img_1`, `reward` and `goal_pose` in the SAME episode read fine — so a
+   spot check that only opens images will not see it. Anything under
+   `ds_gen/` dated 2026-08-29 is suspect; 08-30 onward is zarr 3.1.3 and clean.
+   Verify a regenerated cell by actually reading `actions` and
+   `observations.state`, not by trusting the written count.
+
+3. **Deleting only the result JSON re-runs a cell but does NOT replace it.**
+   `run_cell.py` skips a cell whose `results/<gap>__<emb>__T.json` exists, so
+   removing the JSON forces a re-run — but the writer then APPENDS to the
+   existing output directory. That produced cells with 1801 and 1834 episodes
+   against a target of 1000, containing two passes mixed together. Always
+   `rm -rf ds_gen/<gap>/<emb>` as well.
+4. **Do not put long-running output in `/tmp`** — macOS wipes it on reboot. A
    15-hour dataset build and a day of uncommitted work were lost that way.
    Commit before running anything long.
-4. **`nohup` alone did not survive harness teardown**; `setsid` does not exist
+5. **`nohup` alone did not survive harness teardown**; `setsid` does not exist
    on macOS. Use `nohup bash -c "exec ..." &` + `disown`.
-5. Verify a `_target_` exists before writing a config against it. Two configs in
+6. Verify a `_target_` exists before writing a config against it. Two configs in
    this session referenced classes that were never in the tree.
 
 ---
