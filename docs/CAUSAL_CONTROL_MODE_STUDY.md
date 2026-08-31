@@ -188,6 +188,24 @@ Questions, in order of what the study was built to answer:
 
 ---
 
+## 5b. One thing to check in the logs before trusting the numbers
+
+Grep the run logs for `[sim] WATCHDOG:`.
+
+Each rollout has a 120s SIGALRM watchdog; a rollout that trips it is recorded
+as **0 coverage**. The causal arms are structurally slower per action than the
+bidirectional one — free-running decode does 17 sequential backbone passes per
+replan, where `causal_bidir` does one — so if the watchdog ever fires, it fires
+on arms 3/4 first and hands arm 2 an advantage that has nothing to do with
+attention.
+
+Estimated margin is comfortable (~10-15s per episode against a 120s budget,
+even with 8 ranks contending for CPU on renders and physics), which is why the
+timeout was left at its default rather than raised. But it is an assumption,
+and it is cheap to falsify: **any** WATCHDOG line means the seen/unseen SR for
+that arm is biased low and the arm comparison is contaminated. If they appear,
+raise `rollout_timeout_s` and rerun rather than reasoning about how many.
+
 ## 6. Gates (all passing)
 
 | gate | what it protects |
