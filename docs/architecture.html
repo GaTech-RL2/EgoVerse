@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Causal action models across control modes — architectures &amp; ablations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;450;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDF0F3; --panel:#F8FAFB; --ink:#101821; --muted:#5C6A78;
+  --rule:#CFD7DF; --rule-strong:#AEBAC6;
+  --seen:#186A73; --seen-soft:#186A731A;
+  --holdout:#8E1F5B; --holdout-soft:#8E1F5B14;
+  --result:#0F62FE;
+  --sans:"IBM Plex Sans",system-ui,sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --maxw:1080px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:16px; line-height:1.55;
+  font-feature-settings:"kern","liga";
+}
+.wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px}
+a{color:var(--result)}
+:focus-visible{outline:2px solid var(--result); outline-offset:3px}
+
+.eyebrow{
+  font-family:var(--mono); font-size:11px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--muted);
+}
+h1{
+  font-family:var(--cond); font-weight:700; letter-spacing:-.015em;
+  font-size:clamp(34px,5.4vw,60px); line-height:1.02; margin:.35em 0 .28em;
+  max-width:19ch;
+}
+h2{
+  font-family:var(--cond); font-weight:700; letter-spacing:-.01em;
+  font-size:clamp(21px,2.6vw,28px); line-height:1.1; margin:0;
+}
+h3{font-family:var(--cond); font-weight:600; font-size:17px; margin:0 0 6px}
+p{margin:0 0 14px; max-width:66ch}
+.lede{font-size:18px; color:#26313D; max-width:60ch}
+.note{font-size:13.5px; color:var(--muted); max-width:70ch}
+code,.m{font-family:var(--mono); font-size:.92em}
+
+/* ---- section frame ---- */
+.sec{padding:56px 0; border-top:1px solid var(--rule)}
+.sec-head{display:flex; gap:16px; align-items:baseline; margin-bottom:26px; flex-wrap:wrap}
+.sec-head .eyebrow{flex:0 0 auto}
+
+/* ---- hero: noise axis to true scale ---- */
+.hero{padding:60px 0 52px}
+.axis{
+  position:relative; margin:44px 0 10px; padding:0 0 4px;
+  border-bottom:2px solid var(--rule-strong);
+  height:132px;
+}
+.window{
+  position:absolute; bottom:0; top:52px; background:var(--seen-soft);
+  border-left:1px dashed var(--seen); border-right:1px dashed var(--seen);
+}
+.window-label{
+  position:absolute; top:26px; font-family:var(--mono); font-size:10.5px;
+  letter-spacing:.11em; text-transform:uppercase; color:var(--seen);
+  transform:translateX(-50%); white-space:nowrap;
+}
+.tick{position:absolute; bottom:0; transform:translateX(-50%); text-align:center}
+.tick .stem{width:1px; height:26px; background:var(--rule-strong); margin:0 auto}
+.tick.is-seen .stem{background:var(--seen); width:2px}
+.tick.is-out .stem{background:var(--holdout); width:2px; height:52px}
+.tick .dot{
+  width:11px; height:11px; border-radius:50%; margin:0 auto 6px;
+  background:var(--seen); border:2px solid var(--paper);
+}
+.tick.is-out .dot{background:var(--holdout); width:14px; height:14px}
+.tick .nm{font-family:var(--cond); font-weight:600; font-size:14px; display:block}
+.tick.is-out .nm{color:var(--holdout)}
+.tick .vl{font-family:var(--mono); font-size:11px; color:var(--muted); display:block}
+.tick .rl{
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--holdout); display:block; margin-top:3px;
+}
+.axis-caption{
+  display:flex; justify-content:space-between; font-family:var(--mono);
+  font-size:11px; color:var(--muted); margin-top:8px;
+}
+.aside-sticky{
+  margin-top:26px; padding:13px 16px; background:var(--panel);
+  border-left:3px solid var(--seen); font-size:13.5px; color:#26313D; max-width:72ch;
+}
+
+/* ---- arms ---- */
+.arms{display:grid; gap:1px; background:var(--rule); border:1px solid var(--rule)}
+@media(min-width:760px){.arms{grid-template-columns:repeat(2,1fr)}}
+.arm{background:var(--panel); padding:22px}
+.arm.is-control{background:#fff; box-shadow:inset 3px 0 0 var(--result)}
+.arm-top{display:flex; justify-content:space-between; gap:12px; align-items:baseline}
+.arm-id{font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:.1em}
+.tag{
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+  padding:3px 7px; border:1px solid var(--result); color:var(--result); white-space:nowrap;
+}
+.spec{margin:14px 0 0; border-top:1px solid var(--rule); padding-top:12px}
+.spec div{display:flex; justify-content:space-between; gap:14px; padding:3px 0; font-size:13.5px}
+.spec dt{color:var(--muted)}
+.spec dd{margin:0; font-family:var(--mono); font-size:12.5px; text-align:right}
+.arm p{font-size:14px; margin:12px 0 0; color:#26313D}
+
+/* ---- confound ledger ---- */
+.ledger{border:1px solid var(--rule); background:var(--panel)}
+.lrow{display:grid; grid-template-columns:1fr; gap:0; border-bottom:1px solid var(--rule)}
+@media(min-width:720px){.lrow{grid-template-columns:minmax(230px,1.1fr) 1fr 1fr auto}}
+.lrow:last-child{border-bottom:0}
+.lrow.is-result{background:#fff; box-shadow:inset 3px 0 0 var(--result)}
+.lcell{padding:15px 18px; border-right:1px solid var(--rule); font-size:13.5px}
+.lcell:last-child{border-right:0}
+.lcell.hd{font-family:var(--mono); font-size:10.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--muted); background:var(--paper)}
+.pair{font-family:var(--cond); font-weight:600; font-size:15px}
+.diff{display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-size:12px}
+.pip{width:9px; height:9px; flex:0 0 auto; border:1px solid var(--rule-strong)}
+.pip.on{background:var(--holdout); border-color:var(--holdout)}
+.pip.off{background:transparent}
+.verdict{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase}
+.verdict.bad{color:var(--holdout)}
+.verdict.good{color:var(--result)}
+
+/* ---- attention masks ---- */
+.masks{display:grid; gap:26px}
+@media(min-width:700px){.masks{grid-template-columns:1fr 1fr}}
+.mask-card{background:var(--panel); border:1px solid var(--rule); padding:20px}
+.grid17{
+  display:grid; grid-template-columns:repeat(17,1fr); gap:1px;
+  width:min(100%,272px); margin:14px 0 12px; background:var(--rule);
+  border:1px solid var(--rule);
+}
+.grid17 i{aspect-ratio:1; background:#fff; display:block}
+.grid17 i.on{background:var(--seen)}
+.grid17 i.cond{background:var(--result)}
+.mask-legend{font-family:var(--mono); font-size:11px; color:var(--muted); line-height:1.7}
+.sw{display:inline-block; width:9px; height:9px; margin-right:5px; vertical-align:-1px; border:1px solid var(--rule-strong)}
+.sw.a{background:var(--seen); border-color:var(--seen)}
+.sw.b{background:var(--result); border-color:var(--result)}
+.sw.c{background:#fff}
+
+/* ---- token ---- */
+.token{display:grid; gap:22px; align-items:start}
+@media(min-width:760px){.token{grid-template-columns:auto 1fr}}
+.tokgrid{display:grid; grid-template-columns:repeat(5,26px); gap:2px}
+.tokgrid b{
+  height:15px; background:var(--seen); display:block; border-radius:1px; opacity:.82;
+}
+.tokgrid b.vel{background:var(--holdout)}
+.tokrow-lbl{font-family:var(--mono); font-size:10px; color:var(--muted)}
+
+/* ---- table ---- */
+.tbl{width:100%; border-collapse:collapse; font-size:13.5px}
+.tbl th,.tbl td{padding:11px 13px; border:1px solid var(--rule); text-align:left}
+.tbl th{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); background:var(--panel); font-weight:500;
+}
+.tbl td.n{font-family:var(--mono); text-align:right}
+.tbl tr.is-control td{background:#fff; font-weight:450}
+
+footer{padding:40px 0 64px; border-top:1px solid var(--rule); color:var(--muted); font-size:13px}
+@media (prefers-reduced-motion:no-preference){
+  .reveal{opacity:0; transform:translateY(8px); animation:rise .5s ease forwards}
+  @keyframes rise{to{opacity:1; transform:none}}
+}
+</style>
+</head>
+<body>
+
+<header class="wrap hero">
+  <div class="eyebrow">Controlled comparison &middot; PushShapes &middot; gripper</div>
+  <h1>Can an action model cope with a controller it has never driven?</h1>
+  <p class="lede">Four architectures, one embodiment, six controller modes. Train on four,
+  hold out two &mdash; on opposite sides of the training range.</p>
+
+  <div class="axis" id="axis" aria-label="Controller modes positioned by sensing-noise floor">
+    <div class="window" id="win"></div>
+    <div class="window-label" id="winlbl">trained range 0.3 – 0.8</div>
+  </div>
+  <div class="axis-caption"><span>sensing-noise floor σ = 0.0</span><span>σ = 2.5</span></div>
+
+  <div class="aside-sticky">
+    <strong>sticky</strong> is trained but does not sit on this axis: its gap is a 4.0 deadband
+    and 0.88 gain, not sensing noise. Plotting it at σ&nbsp;=&nbsp;0 would imply a similarity to
+    <strong>ideal</strong> that does not exist.
+  </div>
+</header>
+
+<section class="wrap sec">
+  <div class="sec-head">
+    <span class="eyebrow">01 / architectures</span>
+    <h2>Four arms</h2>
+  </div>
+  <p class="note" style="margin-bottom:22px">Every arm shares the observation encoder, the optimizer,
+  the data and the parameter budget. They differ only where marked.</p>
+
+  <div class="arms">
+    <article class="arm">
+      <div class="arm-top"><h3>dp_baseline</h3><span class="arm-id">ARM 1</span></div>
+      <dl class="spec">
+        <div><dt>attention</dt><dd>bidirectional</dd></div>
+        <div><dt>objective</dt><dd>flow matching</dd></div>
+        <div><dt>action from</dt><dd>iterative sampler</dd></div>
+      </dl>
+      <p>The established baseline. Differs from arms&nbsp;3&ndash;4 on <em>two</em> axes, so it is a
+      reference point for absolute success rate &mdash; not a control.</p>
+    </article>
+
+    <article class="arm is-control">
+      <div class="arm-top"><h3>causal_bidir</h3><span class="tag">the control</span></div>
+      <dl class="spec">
+        <div><dt>attention</dt><dd>bidirectional</dd></div>
+        <div><dt>objective</dt><dd>regression + MSE</dd></div>
+        <div><dt>action from</dt><dd>learned queries</dd></div>
+      </dl>
+      <p>Same backbone, same head, same loss as arms&nbsp;3&ndash;4. Differs only in the attention
+      mask. This is what isolates causality from everything else.</p>
+    </article>
+
+    <article class="arm">
+      <div class="arm-top"><h3>state_action_ar</h3><span class="arm-id">ARM 3</span></div>
+      <dl class="spec">
+        <div><dt>attention</dt><dd>causal</dd></div>
+        <div><dt>objective</dt><dd>regression + MSE</dd></div>
+        <div><dt>action from</dt><dd>fed-back row</dd></div>
+      </dl>
+      <p>Row <span class="m">m</span> of the arc token is predicted from rows &lt;&nbsp;<span class="m">m</span>:
+      teacher-forced in training, free-running at rollout.</p>
+    </article>
+
+    <article class="arm">
+      <div class="arm-top"><h3>state_idm</h3><span class="arm-id">ARM 4</span></div>
+      <dl class="spec">
+        <div><dt>attention</dt><dd>causal</dd></div>
+        <div><dt>objective</dt><dd>regression + MSE</dd></div>
+        <div><dt>action from</dt><dd>IDM(p<sub>m</sub>, p<sub>m+1</sub>)</dd></div>
+      </dl>
+      <p>Predicts the pose path causally; the grip channel is recovered by inverse dynamics.
+      Action channels are never fed back, so it cannot lean on action history.</p>
+    </article>
+  </div>
+</section>
+
+<section class="wrap sec">
+  <div class="sec-head">
+    <span class="eyebrow">02 / ablation</span>
+    <h2>What each comparison isolates</h2>
+  </div>
+  <p class="note" style="margin-bottom:22px">A comparison answers a question only if the two arms
+  differ on one axis. Filled squares mark axes that differ.</p>
+
+  <div class="ledger">
+    <div class="lrow">
+      <div class="lcell hd">comparison</div>
+      <div class="lcell hd">attention</div>
+      <div class="lcell hd">objective</div>
+      <div class="lcell hd">reads as</div>
+    </div>
+    <div class="lrow">
+      <div class="lcell"><span class="pair">arm1 &rarr; arm3</span></div>
+      <div class="lcell"><span class="diff"><i class="pip on"></i>bidir &rarr; causal</span></div>
+      <div class="lcell"><span class="diff"><i class="pip on"></i>flow &rarr; MSE</span></div>
+      <div class="lcell"><span class="verdict bad">confounded &mdash; 2 axes</span></div>
+    </div>
+    <div class="lrow is-result">
+      <div class="lcell"><span class="pair">arm2 &rarr; arm3</span></div>
+      <div class="lcell"><span class="diff"><i class="pip on"></i>bidir &rarr; causal</span></div>
+      <div class="lcell"><span class="diff"><i class="pip off"></i>MSE &mdash; held fixed</span></div>
+      <div class="lcell"><span class="verdict good">the result</span></div>
+    </div>
+    <div class="lrow">
+      <div class="lcell"><span class="pair">arm3 &rarr; arm4</span></div>
+      <div class="lcell"><span class="diff"><i class="pip off"></i>causal &mdash; held fixed</span></div>
+      <div class="lcell"><span class="diff"><i class="pip off"></i>MSE &mdash; held fixed</span></div>
+      <div class="lcell"><span class="verdict good">direct head vs IDM</span></div>
+    </div>
+    <div class="lrow">
+      <div class="lcell"><span class="pair">large &rarr; small</span></div>
+      <div class="lcell"><span class="diff"><i class="pip off"></i>held fixed</span></div>
+      <div class="lcell"><span class="diff"><i class="pip off"></i>held fixed</span></div>
+      <div class="lcell"><span class="verdict good">overfitting check</span></div>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:20px">Arms&nbsp;2&ndash;4 use regression&nbsp;+&nbsp;MSE rather than
+  flow matching. That is what makes arm&nbsp;2 load-bearing: without it, any win by arm&nbsp;3 over
+  arm&nbsp;1 mixes &ldquo;causal generation helps&rdquo; with &ldquo;this head helps.&rdquo;</p>
+</section>
+
+<section class="wrap sec">
+  <div class="sec-head">
+    <span class="eyebrow">03 / mechanism</span>
+    <h2>What &ldquo;causal&rdquo; means here</h2>
+  </div>
+  <p>One sample is a single observation plus one planar arc token: 16 waypoints and a trailing
+  velocity row, five channels each. The sequence the causal arms are autoregressive
+  <em>over</em> is the rows of that token &mdash; not time. Row&nbsp;<span class="m">m</span> is a point
+  further along the same arc, so feeding row&nbsp;<span class="m">m&minus;1</span> back is meaningful:
+  it is the model&rsquo;s own committed path so far.</p>
+
+  <div class="token" style="margin:24px 0 34px">
+    <div>
+      <div class="tokgrid" id="tok"></div>
+      <div class="tokrow-lbl" style="margin-top:8px">17 &times; 5 &nbsp;·&nbsp; x y cos sin grip</div>
+    </div>
+    <p class="note" style="margin:0">The last row is a velocity summary, not a waypoint. The rollout
+    adapter drops it; the inverse-dynamics arm must not difference into it. Reading the same token
+    with the wrong layout yields 17 actions instead of 16 &mdash; the simulator accepts both.</p>
+  </div>
+
+  <div class="masks">
+    <div class="mask-card">
+      <h3>causal &mdash; arms 3 &amp; 4</h3>
+      <div class="grid17" id="mCausal" role="img" aria-label="Lower-triangular attention mask over 17 token rows"></div>
+      <div class="mask-legend">
+        <span class="sw a"></span>row attends &nbsp; <span class="sw b"></span>observation<br>
+        Row <span class="m">m</span> sees rows &lt; <span class="m">m</span> only.
+      </div>
+    </div>
+    <div class="mask-card">
+      <h3>bidirectional &mdash; arms 1 &amp; 2</h3>
+      <div class="grid17" id="mBidir" role="img" aria-label="Full attention mask over 17 token rows"></div>
+      <div class="mask-legend">
+        <span class="sw a"></span>row attends &nbsp; <span class="sw c"></span>masked<br>
+        All rows decoded at once from learned queries.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap sec">
+  <div class="sec-head">
+    <span class="eyebrow">04 / capacity</span>
+    <h2>Matched, not assumed</h2>
+  </div>
+  <p class="note" style="margin-bottom:20px">Measured by counting modules, not derived from
+  12·L·d². Totals include the shared 11.20M observation encoder.</p>
+  <table class="tbl">
+    <thead><tr><th>arm</th><th>large</th><th>small</th><th>configuration</th></tr></thead>
+    <tbody>
+      <tr><td>arm1 dp_flow</td><td class="n">309.12M</td><td class="n">50.01M</td><td class="m">CrossTransformer nblocks 31 / 4</td></tr>
+      <tr class="is-control"><td>arm2 causal_bidir</td><td class="n">313.63M</td><td class="n">49.09M</td><td class="m">d 1024 L 24 / d 512 L 12</td></tr>
+      <tr><td>arm3 state_action_ar</td><td class="n">313.63M</td><td class="n">49.09M</td><td class="m">d 1024 L 24 / d 512 L 12</td></tr>
+      <tr><td>arm4 state_idm</td><td class="n">313.70M</td><td class="n">49.16M</td><td class="m">+ inverse-dynamics head</td></tr>
+      <tr><td colspan="4" style="color:var(--muted)">spread <span class="m">1.44%</span> large &middot; <span class="m">1.88%</span> small &mdash; inside the 5% budget</td></tr>
+    </tbody>
+  </table>
+  <p class="note" style="margin-top:18px">Both capacities run because ~2,188 training episodes put the
+  large arm at ~143k parameters per episode. If large wins on the trained modes and loses on the
+  held-out ones, that is overfitting &mdash; and without the small arm you cannot tell the two apart.</p>
+</section>
+
+<section class="wrap sec">
+  <div class="sec-head">
+    <span class="eyebrow">05 / measurement</span>
+    <h2>What gets reported</h2>
+  </div>
+  <p>Success rate under each controller, logged per mode so the six cannot collapse into one
+  number. Ten rollouts per evaluator per validation, success at IoU&nbsp;&ge;&nbsp;0.95 &mdash; the
+  simulator&rsquo;s own threshold.</p>
+  <table class="tbl" style="margin-top:16px">
+    <thead><tr><th>metric</th><th>modes</th><th>question</th></tr></thead>
+    <tbody>
+      <tr><td class="m">Valid/seen_*_sim_success_rate</td><td>tight, laggy, loose, sticky</td><td>in-distribution behaviour cloning</td></tr>
+      <tr><td class="m">Valid/unseen_ideal_*</td><td>ideal &mdash; σ below the range</td><td>can it stop compensating for noise that is gone?</td></tr>
+      <tr><td class="m">Valid/unseen_jittery_*</td><td>jittery &mdash; σ 3× above</td><td>the headline test</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer class="wrap">
+  <div class="eyebrow" style="margin-bottom:10px">read the result as</div>
+  <p style="font-family:var(--cond); font-size:19px; font-weight:600; max-width:52ch; color:var(--ink)">
+    arm3 &minus; arm2 on <span style="color:var(--holdout)">unseen_jittery</span>, at matched capacity.
+  </p>
+  <p class="note">arm1 differs in objective as well as attention, so a gap against it is not an
+  attention result. Check the run logs for <span class="m">[sim] WATCHDOG:</span> first &mdash; a
+  timed-out rollout scores zero, and the causal arms are slower per action, so any timeout biases
+  against precisely the arms under test.</p>
+</footer>
+
+<script>
+(function(){
+  // Noise axis, drawn to true linear scale so the extrapolation is visible
+  // rather than asserted. sticky is deliberately absent: its gap is a deadband,
+  // not sensing noise, and placing it at 0 would imply kinship with `ideal`.
+  var MODES=[
+    {n:"ideal",  v:0.0, out:true,  role:"held out"},
+    {n:"tight",  v:0.3, out:false},
+    {n:"laggy",  v:0.4, out:false},
+    {n:"loose",  v:0.8, out:false},
+    {n:"jittery",v:2.5, out:true,  role:"held out"}
+  ];
+  var MAX=2.5, ax=document.getElementById("axis");
+  var pct=function(v){return (v/MAX)*100;};
+  MODES.forEach(function(m){
+    var d=document.createElement("div");
+    d.className="tick"+(m.out?" is-out":" is-seen");
+    d.style.left=pct(m.v)+"%";
+    d.innerHTML='<span class="nm">'+m.n+'</span><span class="vl">σ '+m.v.toFixed(1)+'</span>'+
+                (m.role?'<span class="rl">'+m.role+'</span>':'')+
+                '<span class="dot"></span><span class="stem"></span>';
+    ax.appendChild(d);
+  });
+  var w=document.getElementById("win");
+  w.style.left=pct(0.3)+"%"; w.style.width=(pct(0.8)-pct(0.3))+"%";
+  document.getElementById("winlbl").style.left=((pct(0.3)+pct(0.8))/2)+"%";
+
+  // Attention masks over the token's 17 rows. Column 0 is the observation
+  // condition, always visible to every row.
+  function mask(el,causal){
+    var f=document.createDocumentFragment();
+    for(var r=0;r<17;r++)for(var c=0;c<17;c++){
+      var i=document.createElement("i");
+      if(c===0) i.className="cond";
+      else if(!causal||c<=r) i.className="on";
+      f.appendChild(i);
+    }
+    el.appendChild(f);
+  }
+  mask(document.getElementById("mCausal"),true);
+  mask(document.getElementById("mBidir"),false);
+
+  // Token: 16 waypoints + a trailing velocity row that is not a waypoint.
+  var t=document.getElementById("tok"),g=document.createDocumentFragment();
+  for(var r=0;r<17;r++)for(var c=0;c<5;c++){
+    var b=document.createElement("b");
+    if(r===16) b.className="vel";
+    g.appendChild(b);
+  }
+  t.appendChild(g);
+})();
+</script>
+</body>
+</html>
