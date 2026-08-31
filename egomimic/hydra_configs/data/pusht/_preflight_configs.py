@@ -68,6 +68,18 @@ if os.path.exists(evf):
             bad.append(evf); print(f"  FAIL evaluator {nm}: init_mode={e.get('init_mode')!r} not in replay/random/seeds")
         if e.get("init_mode") == "seeds" and not e.get("init_seeds"):
             bad.append(evf); print(f"  FAIL evaluator {nm}: init_mode=seeds requires init_seeds")
+        # eval_sim.py:336 requires len(init_seeds) == limit_val_batches. It is
+        # checked on the FIRST VALIDATION STEP, i.e. after training has already
+        # run, so a mismatch presents as a mid-training crash and every run pays
+        # its full training time first. It was also unreachable while init_mode
+        # was the invalid 'seed': the earlier construction error fired first, so
+        # fixing that bug ACTIVATED this one. Assume any path behind a loud
+        # error is untested.
+        if e.get("init_mode") == "seeds":
+            ns, lvb = len(e.get("init_seeds") or []), e.get("limit_val_batches")
+            if ns != lvb:
+                bad.append(evf)
+                print(f"  FAIL evaluator {nm}: len(init_seeds)={ns} != limit_val_batches={lvb}")
     names = [e["embodiment_name"] for e in yaml.safe_load(open(evf))["evals"]]
     if len(names) != len(set(names)):
         bad.append(evf)
