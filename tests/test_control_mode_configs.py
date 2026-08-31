@@ -156,10 +156,11 @@ def test_data_config_transform_instantiates_exactly_as_hydra_will():
         assert transforms, f"{split}: empty transform list"
 
 
-def test_evaluator_covers_five_seen_modes_and_the_held_out_one():
+def test_evaluator_covers_every_control_mode_exactly_once():
+    """All six modes, in the documented order, no duplicates or omissions."""
     cfg = OmegaConf.load(EVAL_CFG)
-    gaps = [e.control_gap for e in cfg.evals]
-    assert gaps == ["ideal", "tight", "loose", "laggy", "sticky", "jittery"]
+    gaps = [str(e.control_gap) for e in cfg.evals]
+    assert gaps == ["ideal", "tight", "laggy", "loose", "sticky", "jittery"]
     for e in cfg.evals:
         assert e.init_mode == "seeds", "SimRolloutEval rejects 'seed'"
         assert e.embodiment_name == DOMAIN
@@ -174,3 +175,43 @@ def test_training_data_excludes_the_held_out_mode():
     for split in ("train_datasets", "valid_datasets"):
         path = str(data[split][DOMAIN].resolver.folder_path)
         assert "jittery" not in path, path
+
+
+def test_every_evaluator_has_a_distinct_metric_tag():
+    """Six evaluators share ONE embodiment, so emb-keyed metrics collide.
+
+    SimRolloutEval keys metrics as `Valid/emb<id>_sim_success_rate` by default.
+    Every instance here is `pushshapes_sim_gripper`, and composed evaluators
+    merge their metric dicts — so without distinct tags the six control modes
+    collapse to whichever ran last. That failure reports ONE plausible success
+    rate instead of six and raises nothing, which would invalidate the study
+    silently.
+    """
+    cfg = OmegaConf.load(EVAL_CFG)
+    tags = [e.get("metric_tag") for e in cfg.evals]
+    assert all(t is not None for t in tags), f"missing metric_tag: {tags}"
+    assert len(set(tags)) == len(tags), f"duplicate metric_tag: {tags}"
+    # The tag must name the gap it measures, or the dashboard column is a lie.
+    for e in cfg.evals:
+        assert str(e.metric_tag).endswith(str(e.control_gap)), (
+            f"metric_tag {e.metric_tag!r} does not name gap {e.control_gap!r}")
+    assert sorted(tags) == sorted([
+        "seen_tight", "seen_loose", "seen_laggy", "seen_sticky",
+        "unseen_ideal", "unseen_jittery",
+    ])
+
+
+def test_seen_and_unseen_tags_match_the_training_set():
+    """A mode tagged `seen_` must be trainable and `unseen_` must not be.
+
+    Mislabelling here would put a held-out number in a seen column, which is
+    the one mistake that inverts the study's conclusion.
+    """
+    cfg = OmegaConf.load(EVAL_CFG)
+    seen = {str(e.control_gap) for e in cfg.evals
+            if str(e.metric_tag).startswith("seen_")}
+    unseen = {str(e.control_gap) for e in cfg.evals
+              if str(e.metric_tag).startswith("unseen_")}
+    assert seen == {"tight", "loose", "laggy", "sticky"}
+    assert unseen == {"ideal", "jittery"}
+    assert not (seen & unseen)

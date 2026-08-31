@@ -90,6 +90,7 @@ class SimRolloutEval(EvalVideo):
         rng_pairing: bool = False,
         run_full_horizon: bool = False,
         control_gap: str | None = None,
+        metric_tag: str | None = None,
     ):
         super().__init__(
             limit_val_batches=limit_val_batches,
@@ -137,6 +138,17 @@ class SimRolloutEval(EvalVideo):
         # Validated HERE rather than at first use: a typo would otherwise
         # surface on the training node after the dataset pull and the
         # norm-stats phase, which is hours in.
+        # Metrics are keyed by embodiment id by default, which is ambiguous the
+        # moment several evaluators share ONE embodiment and differ in
+        # something else — as the control-mode study does, where six instances
+        # are all `gripper` and differ only in the control gap. Composed
+        # evaluators merge their metric dicts, so without a distinguishing tag
+        # the six collapse to whichever ran last: one plausible number instead
+        # of six, with nothing raised.
+        #
+        # Default None preserves the historical `emb{id}` keys exactly, so
+        # existing configs and their dashboards are unchanged.
+        self.metric_tag = None if metric_tag is None else str(metric_tag)
         self.control_gap = None if control_gap is None else str(control_gap)
         if self.control_gap is not None:
             from Tsimulation.pushshapes.agents import CONTROL_GAPS
@@ -400,19 +412,20 @@ class SimRolloutEval(EvalVideo):
             # Per-episode values to stdout so offline eval logs carry the full
             # DISTRIBUTION (means hide bimodality; success-rate alone hides
             # the near-miss mass). Parse with: grep '\[sim\] .* ep_coverages'.
+            key = self.metric_tag or f"emb{emb_id}"
             if ep_coverages:
                 print(
-                    f"[sim] emb{emb_id} ep_coverages: "
+                    f"[sim] {key} ep_coverages: "
                     + ",".join(f"{c:.4f}" for c in ep_coverages)
                 )
             self._last_per_ep_frames[emb_id] = per_ep_frames
             self._last_per_ep_coverages[emb_id] = list(ep_coverages)
             mean_cov = float(np.mean(ep_coverages)) if ep_coverages else 0.0
             success_rate = float(np.mean(ep_successes)) if ep_successes else 0.0
-            metrics[f"Valid/emb{emb_id}_sim_coverage"] = torch.tensor(
+            metrics[f"Valid/{key}_sim_coverage"] = torch.tensor(
                 mean_cov, device=device
             )
-            metrics[f"Valid/emb{emb_id}_sim_success_rate"] = torch.tensor(
+            metrics[f"Valid/{key}_sim_success_rate"] = torch.tensor(
                 success_rate, device=device
             )
             if ep_frames:

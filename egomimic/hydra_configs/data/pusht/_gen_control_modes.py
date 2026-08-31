@@ -60,6 +60,10 @@ HELD_OUT = ["ideal", "jittery"]
 PRIMARY_HELD_OUT = "jittery"
 NOISE_STD = {"ideal": 0.0, "tight": 0.3, "laggy": 0.4, "loose": 0.8,
              "sticky": 0.0, "jittery": 2.5}
+# Explicit, because sorting by NOISE_STD alone puts `sticky` next to `ideal`:
+# sticky's gap is a 4.0 deadband and 0.88 gain, not sensing noise, so ordering
+# it by noise would imply a similarity to `ideal` that does not exist.
+EVAL_ORDER = ["ideal", "tight", "laggy", "loose", "sticky", "jittery"]
 
 # Arc token: D=10, M=16, rotation_radius=0, velocity_layout=append.
 # M=16 matches the dense h16 baseline's width so the arc and dense arms have
@@ -355,11 +359,12 @@ def evaluator_config() -> str:
     which SimRolloutEval rejects outright — that config cannot instantiate.
     """
     blocks = []
-    for mode in sorted(SEEN + HELD_OUT, key=lambda m: NOISE_STD[m]):
+    for mode in EVAL_ORDER:
         tag = "unseen" if mode in HELD_OUT else "seen"
         blocks.append(f"""  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: {DOMAIN}
     control_gap: {mode}
+    metric_tag: {tag}_{mode}
     env_kwargs:
       object_shape: T
       pusher_shape: gripper
@@ -370,8 +375,7 @@ def evaluator_config() -> str:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 2
-    max_videos: 1
-    # {tag}_{mode}""")
+    max_videos: 1""")
     return f"""# Control-mode rollout eval: {len(SEEN)} SEEN controller modes plus {len(HELD_OUT)} held out.
 #
 # Ordered by sensing-noise floor, which is the axis the held-out question is
@@ -393,6 +397,12 @@ def evaluator_config() -> str:
 #
 # init_mode is "seeds", not "seed": SimRolloutEval validates against
 # {{replay, random, seeds}} and rejects anything else at construction.
+#
+# metric_tag is REQUIRED here and is not decoration. Metrics default to
+# `Valid/emb<id>_sim_success_rate`, keyed by embodiment — but all six of these
+# share ONE embodiment and differ only in the control gap. Composed evaluators
+# merge their metric dicts, so without distinct tags the six collapse to
+# whichever ran last: one plausible number instead of six, and nothing raised.
 #
 # coverage_threshold 0.95 matches the simulator's own SUCCESS_THRESHOLD; a
 # lower bar reports successes the environment does not count.
