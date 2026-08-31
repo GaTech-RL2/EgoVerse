@@ -654,3 +654,81 @@ arm2 small, FVE_delta by epoch:
 Seen fit more than doubles then plateaus by epoch 11. Held-out is flat within
 noise across the whole range and never goes positive. Epochs 15-100 buy
 in-distribution fit the study does not need and no transfer that it does.
+
+
+---
+
+## ROOT CAUSE OF THE ZEROS: an unrecoverable physics wedge
+
+Closed-loop coverage is 0.0000 everywhere because **the pusher gets physically
+pinned and no command recovers it**. This is a simulator-robustness failure, not
+a learning failure.
+
+Probing a LIVE rollout at the stalled state (arm2 @100ep, seed 0, gap=tight):
+
+    info tracking_error = 5.517   command_gap = 0.256
+    10 steps commanding (256, 400), ~340px away:
+        [293.114, 63.346] -> [293.114, 63.346]   moved = 0.000 px
+
+Zero motion under a 340px command. Steps t=100..132 are bit-identical in every
+channel (cmd, angle, grip, pusher, object).
+
+**Mechanism.** `_clamp_pusher_to_static` (env.py:592) keeps the kinematic pusher
+out of static geometry by pushing it back out each substep and "cancelling the
+velocity component heading into the surface". Once the gripper is embedded, the
+clamp restores it to the same point forever. Its docstring correctly promises it
+is a no-op *unless* touching static geometry — it says nothing about being
+unrecoverable once it IS touching. The gripper is large (rail 2x34px, 34px
+fingers, half-extent ~48px rotated), so it reaches wall geometry while its centre
+is still 59-86px from the edge.
+
+**Rate:** 6/8 rollouts wedge, at t=63-119 of 600. The other 2 simply fail the
+task. All 8 score 0.0000.
+
+| gap | seed | wedged at | pos | dist to edge | cov |
+|---|---|---|---|---|---|
+| tight | 0 | 119 | (293.1, 63.3) | 63.3 | 0.0000 |
+| tight | 1 | 97 | (425.8, 230.5) | 86.2 | 0.0000 |
+| tight | 2 | - | (162.4, 59.1) | 59.1 | 0.0000 |
+| tight | 3 | 64 | (130.8, 76.9) | 76.9 | 0.0000 |
+| ideal | 0 | 110 | (292.7, 63.7) | 63.7 | 0.0000 |
+| ideal | 1 | 94 | (425.6, 229.0) | 86.4 | 0.0000 |
+| ideal | 2 | - | (160.1, 58.3) | 58.3 | 0.0000 |
+| ideal | 3 | 63 | (128.9, 81.2) | 81.2 | 0.0000 |
+
+### Why every guard missed it
+
+- not a hang, so eval_sim's SIGALRM watchdog never fires
+- actions stay finite, so the non-finite guard never fires (0 warnings across
+  the entire cluster eval)
+- env returns valid obs/reward/info every step
+
+It presents as a perfectly healthy rollout that scores zero, for 600 steps.
+
+### Consequence
+
+**Closed-loop SR is currently unmeasurable in this sim for any policy that
+touches a wall.** It cannot distinguish the arms because it is not measuring
+them. Every "arm X scores 0.00" line in this document measures the wedge, not
+the policy.
+
+### Fixes, in order of cost
+
+1. **Detect and report.** A rollout whose `agent_pos` is unchanged for N steps
+   while `tracking_error` stays large is wedged. Log it separately instead of
+   silently recording 0 coverage — an eval that cannot tell "failed" from
+   "never ran" is worse than no eval.
+2. **Make the clamp recoverable.** Cancel only the velocity component heading
+   INTO the surface, and leave the outward component intact so a command away
+   from the wall still moves the pusher. The current behaviour pins both.
+3. **Keep the policy off the walls** (reward/penalty or action clipping) — this
+   treats the symptom, and the expert never wedges because its targets stay in
+   free space.
+
+### What was ruled out first, each with evidence
+
+harness (recorded actions from recorded inits replay to 0.93-0.95); goal
+blindness (command shifts 24.9px when the goal moves, directionally correct, and
+MORE sensitive to goal than to object at 13.1px); mode collapse (predicted delta
+p99 266.7 vs true 267.7 — the full jump range is emitted); NaN actions;
+undertraining; `replan_every`.
