@@ -265,6 +265,26 @@ workflow:
         # ---- phase 1: norm stats, one GPU per variant, all in parallel.
         # Each tokenisation has its own action statistics, so this cannot be
         # shared across variants the way the episode pull can.
+        # Poll on liveness rather than calling bare `wait`.
+        #
+        # OBSERVED: a run died with the trace stopped dead on "+ wait" -- all 8
+        # norm-stats jobs finished (8 norm_stats.json on disk), zero python
+        # processes left, shell still alive, GPUs idle, and the 9th variant
+        # never launched. An hour of dataset pull lost.
+        #
+        # Bare `wait` blocks on EVERY child of the shell, not just the jobs we
+        # care about, and this script has long-lived children (the detached
+        # checkpoint-sync loop, the tee from the line-2 process substitution).
+        # Which one held it is NOT confirmed -- it did not reproduce in a local
+        # bash -- so do not rely on knowing. Polling the specific PIDs with
+        # kill -0 is correct whichever child was responsible.
+        drain_pids () {
+          for dp in $1; do
+            while kill -0 "$dp" 2>/dev/null; do sleep 15; done
+          done
+        }
+
+        NPIDS=""
         i=0
         for V in $VARIANTS; do
           mkdir -p "$WORKDIR/norm_stats/$V"
@@ -279,11 +299,23 @@ workflow:
               ~logger ~callbacks \
               name="cotrain11_$V" description="${V}_normstats" \
               > "/tmp/norm_$V.log" 2>&1 ) &
+          NPIDS="$NPIDS $!"
           i=$((i + 1))
           # Drain every NUM_GPU so more variants than GPUs still works.
-          if [ $((i % NUM_GPU)) -eq 0 ]; then wait; fi
+          #
+          # wait MUST take explicit PIDs. Bare `wait` waits for EVERY child of
+          # this shell, and line 2's `exec > >(tee ...)` process substitution
+          # leaves a tee running for the life of the script -- so bare `wait`
+          # blocks forever after the first drain, with every job finished, no
+          # processes left, and the trace stopped dead on "+ wait". That cost
+          # an hour of dataset pull once already.
+          if [ $((i % NUM_GPU)) -eq 0 ]; then
+            drain_pids "$NPIDS"
+            NPIDS=""
+          fi
         done
-        wait
+        drain_pids "$NPIDS"
+        NPIDS=""
         for V in $VARIANTS; do
           NJ="$WORKDIR/norm_stats/$V/norm_stats/norm_stats.json"
           if [ ! -s "$NJ" ]; then
@@ -332,8 +364,9 @@ workflow:
         touch "/tmp/train_$FIRST.log"
         tail -f "/tmp/train_$FIRST.log" & TAILPID=$!
 
+        drain_pids "$PIDS"
         for p in $PIDS; do
-          if ! wait $p; then RC=1; echo "a packed run exited nonzero (pid $p)"; fi
+          if ! wait $p 2>/dev/null; then RC=1; echo "packed run pid $p exited nonzero"; fi
         done
         kill $TAILPID 2>/dev/null || true
         }
