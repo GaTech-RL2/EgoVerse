@@ -1,0 +1,42 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      manifest_csv: ${oc.env:FOLDCLOTHES_TRAIN_MANIFEST}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian
+        stride: 3
+    mode: total
+
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.manifest_resolver.ManifestEpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      manifest_csv: ${oc.env:FOLDCLOTHES_VAL_MANIFEST}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian
+        stride: 3
+    mode: total
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 16
+    num_workers: 4
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 16
+    num_workers: 4

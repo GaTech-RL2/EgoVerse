@@ -1,0 +1,67 @@
+[
+  {
+    "episode_hash": "2026-05-22-23-27-19-185616",
+    "task": "Fold_clothes",
+    "task_description": "Fold a blue cloth garment and place it on the table.",
+    "lab": "microagi",
+    "operator": NaN,
+    "scene": NaN,
+    "objects": NaN,
+    "num_frames": 228.0,
+    "rig_name": "",
+    "zarr_mp4_path": "s3://rldb/processed_v3/microagi/2026-05-22-23-27-19-185616.mp4",
+    "zarr_processed_path": "s3://rldb/processed_v3/microagi/2026-05-22-23-27-19-185616.zarr"
+  },
+  {
+    "episode_hash": "2026-05-22-23-32-28-166377",
+    "task": "Fold_clothes",
+    "task_description": "Fold a khaki garment and place it on the table with other folded clothes.",
+    "lab": "microagi",
+    "operator": NaN,
+    "scene": NaN,
+    "objects": NaN,
+    "num_frames": 169.0,
+    "rig_name": "",
+    "zarr_mp4_path": "s3://rldb/processed_v3/microagi/2026-05-22-23-32-28-166377.mp4",
+    "zarr_processed_path": "s3://rldb/processed_v3/microagi/2026-05-22-23-32-28-166377.zarr"
+  },
+  {
+    "episode_hash": "2026-05-22-23-27-51-437283",
+    "task": "Fold_clothes",
+    "task_description": "Fold an orange shirt/garment by picking it up, stretching it flat, and folding it into a compact shape.",
+    "lab": "microagi",
+    "operator": NaN,
+    "scene": NaN,
+    "objects": NaN,
+    "num_frames": 196.0,
+    "rig_name": "",
+    "zarr_mp4_path": "s3://rldb/processed_v3/microagi/2026-05-22-23-27-51-437283.mp4",
+    "zarr_processed_path": "s3://rldb/processed_v3/microagi/2026-05-22-23-27-51-437283.zarr"
+  },
+  {
+    "episode_hash": "2026-05-22-23-27-07-111893",
+    "task": "Fold_clothes",
+    "task_description": "Fold a dark blue garment by stretching and folding it with both hands into a compact shape.",
+    "lab": "microagi",
+    "operator": NaN,
+    "scene": NaN,
+    "objects": NaN,
+    "num_frames": 164.0,
+    "rig_name": "",
+    "zarr_mp4_path": "s3://rldb/processed_v3/microagi/2026-05-22-23-27-07-111893.mp4",
+    "zarr_processed_path": "s3://rldb/processed_v3/microagi/2026-05-22-23-27-07-111893.zarr"
+  },
+  {
+    "episode_hash": "2026-05-22-23-27-59-542283",
+    "task": "Fold_clothes",
+    "task_description": "Fold an orange cloth in half and place the folded cloth on the table.",
+    "lab": "microagi",
+    "operator": NaN,
+    "scene": NaN,
+    "objects": NaN,
+    "num_frames": 301.0,
+    "rig_name": "",
+    "zarr_mp4_path": "s3://rldb/processed_v3/microagi/2026-05-22-23-27-59-542283.mp4",
+    "zarr_processed_path": "s3://rldb/processed_v3/microagi/2026-05-22-23-27-59-542283.zarr"
+  }
+]

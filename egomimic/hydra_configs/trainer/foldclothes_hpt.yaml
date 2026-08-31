@@ -1,0 +1,22 @@
+_target_: lightning.pytorch.trainer.Trainer
+
+default_root_dir: ${paths.output_dir}
+
+max_steps: 2000
+max_epochs: -1
+min_epochs: 1
+
+accelerator: gpu
+devices: 1
+num_nodes: 1
+strategy: ddp_find_unused_parameters_true
+sync_batchnorm: False
+
+precision: bf16
+limit_train_batches: 1.0
+limit_val_batches: 40
+val_check_interval: 500
+check_val_every_n_epoch: null
+num_sanity_val_steps: 0
+deterministic: False
+log_every_n_steps: 20

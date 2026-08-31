@@ -1,0 +1,73 @@
+{
+  "method": {
+    "name": "Visual Interaction Diversity Score",
+    "corpus": "foldclothes-v1 train pool",
+    "corpus_size": 1304,
+    "subset_size": 774,
+    "embedding_model": "openai/clip-vit-base-patch32",
+    "embedding_version": "foldclothes_train_clip_v1_8frames",
+    "seed": 42,
+    "random_baseline_trials": 20,
+    "plain_english": "A selected training subset scores well when it represents the visual patterns across the full train pool while avoiding repeated lookalike clips."
+  },
+  "baseline": {
+    "mean_coverage": 0.9808,
+    "mean_pairwise_similarity": 0.8098
+  },
+  "scores": {
+    "random-774": {
+      "coverage": 0.9793,
+      "mean_pairwise_similarity": 0.8076,
+      "nearest_similarity_p10": 0.9296,
+      "nearest_similarity_p50": 1.0,
+      "nearest_similarity_p90": 1.0,
+      "pairwise_similarity_p95": 0.9013,
+      "diversity_score": 50.3,
+      "n_episodes": 774,
+      "task_counts": {
+        "fold_black_t-shirt": 129,
+        "fold_blue_jeans": 129,
+        "fold_clothes": 129,
+        "fold_laundry": 129,
+        "fold_shirt": 129,
+        "fold_white_shirt": 129
+      }
+    },
+    "duration-balanced-774": {
+      "coverage": 0.9786,
+      "mean_pairwise_similarity": 0.8071,
+      "nearest_similarity_p10": 0.9287,
+      "nearest_similarity_p50": 1.0,
+      "nearest_similarity_p90": 1.0,
+      "pairwise_similarity_p95": 0.9004,
+      "diversity_score": 50.3,
+      "n_episodes": 774,
+      "task_counts": {
+        "fold_black_t-shirt": 129,
+        "fold_blue_jeans": 129,
+        "fold_clothes": 129,
+        "fold_laundry": 129,
+        "fold_shirt": 129,
+        "fold_white_shirt": 129
+      }
+    },
+    "diversity-774": {
+      "coverage": 0.9824,
+      "mean_pairwise_similarity": 0.8044,
+      "nearest_similarity_p10": 0.9368,
+      "nearest_similarity_p50": 1.0,
+      "nearest_similarity_p90": 1.0,
+      "pairwise_similarity_p95": 0.894,
+      "diversity_score": 52.1,
+      "n_episodes": 774,
+      "task_counts": {
+        "fold_black_t-shirt": 129,
+        "fold_blue_jeans": 129,
+        "fold_clothes": 129,
+        "fold_laundry": 129,
+        "fold_shirt": 129,
+        "fold_white_shirt": 129
+      }
+    }
+  }
+}
