@@ -220,6 +220,27 @@ is the property that matters, not a high number.
 5. **zarr 3.1.0 corruption** (found, owned by the peer session). Discriminator
    is mtime: cells written 08-29 are suspect, 08-30 are clean. A written count
    is not evidence of a good write.
+6. **A comma in a hydra override value is a SWEEP.** `RUN_DESC` contained
+   `train tight,loose,laggy,sticky`, so config composition aborted with
+   `Ambiguous value for argument` — in phase 1, ~40 minutes in, after the image
+   pull, uv sync, R2 pull and staging had all succeeded. Bash quoting does not
+   help; the value reaches hydra intact and hydra objects.
+
+   Worth separating from the others: this is a CLI-composition error, not a
+   config error, so the config preflight structurally cannot catch it — it
+   passed on the node minutes before this failed. `tests/test_submit_overrides.py`
+   asks hydra's own parser instead. Note the predicate: `parse_overrides`
+   accepts the broken string happily and returns a *sweep*; it is
+   `validate_sweep_overrides_legal` that refuses it. A "does it parse?" test
+   passes the broken string, so the gate checks `is_sweep_override()`.
+   Verified safe in a value: `|`, `+`, `-`, spaces. Only commas break.
+
+The common shape across all six: hydra validates on CONSTRUCTION, and the
+expensive objects are constructed late (phase 2, or the first forward). A
+mistake therefore survives the pull and the staging and presents as a training
+failure hours after the fact. The generalizable defence is not another specific
+assertion — it is to construct everything the run will construct, before the
+run, which is what the preflight and the launcher's on-node pytest step do.
 
 Handover **TODO-3 is obsolete**: the decoders are a pipeline `Stage` occupying
 the sampler's slot, so they inherit `PipelineAlgo.inference_step`, the rollout
