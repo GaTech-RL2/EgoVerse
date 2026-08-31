@@ -83,6 +83,7 @@ def model_cfg(name, M, lay, note):
     # match the data config or decode strips the wrong axis.
     # Arc waypoints are spaced by DISTANCE, not by control rate, so the
     # whole-chunk default would crawl at (D/(M-1)) px per env step.
+    d['enable_grad_norm'] = True
     m['replan_every'] = 1
     m['rollout_adapters'] = {
         d: {'_target_': 'egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter',

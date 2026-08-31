@@ -149,7 +149,12 @@ robomimic_model:
       time_conditioning: additive
   - _target_: egomimic.pipeline.stages_sampler.NativeActionMSELoss
   replan_every: 1
-enable_grad_norm: false
+# Adaptive spike guard: measures the grad norm every step and clips to the
+# running median only when it exceeds median + scale*MAD. Off means no guard
+# AND no grad-norm telemetry at all, so an arm that destabilises is
+# indistinguishable from one whose tokenisation is simply worse. This sweep
+# spans act_seq 16..101, so enable it identically on every arm.
+enable_grad_norm: true
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true

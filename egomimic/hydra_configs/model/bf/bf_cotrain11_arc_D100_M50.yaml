@@ -153,7 +153,12 @@ robomimic_model:
       _target_: egomimic.pipeline.pushshapes.PlanarArcRolloutAdapter
       embodiment: pushshapes_sim_umi
       velocity_layout: append
-enable_grad_norm: false
+# Adaptive spike guard: measures the grad norm every step and clips to the
+# running median only when it exceeds median + scale*MAD. Off means no guard
+# AND no grad-norm telemetry at all, so an arm that destabilises is
+# indistinguishable from one whose tokenisation is simply worse. This sweep
+# spans act_seq 16..101, so enable it identically on every arm.
+enable_grad_norm: true
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
