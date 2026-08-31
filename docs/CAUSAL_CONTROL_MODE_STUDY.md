@@ -789,3 +789,51 @@ validity check.
 
 The fix is not the simulator. It is recovery data (DAgger-style corrections from
 stuck states) or an action space that cannot command through contact.
+
+
+---
+
+## CORRECTION: training longer DOES help, and the residual target accelerates it
+
+Two earlier claims in this document are wrong.
+
+### "Training longer does not help" — WRONG
+
+That was based on delta-FVE plateauing, but delta-FVE is dominated by the single
+~250px approach move per episode. Measuring the FINE regime directly
+(teacher-forced along the expert trajectory, expert steps <1px):
+
+| epoch | fine cos | wrong dir | fine \|err\| | fine step |
+|---|---|---|---|---|
+| 3 | -0.070 | 53.3% | 14.45 | 14.52 |
+| 7 | +0.151 | 44.4% | 9.49 | 9.46 |
+| 11 | +0.116 | 46.1% | 10.57 | 10.47 |
+| 15 | +0.217 | 44.7% | 7.32 | 7.24 |
+
+Fine-phase error HALVES between epochs 3 and 15, and the commanded step size
+falls from 14.52px toward the expert's <1px. Direction agreement climbs from
+-0.070 to +0.217 against a sampling noise of about +/-0.06. The approach move
+converges by epoch 11 and then dominates delta-FVE, which is why that metric
+looked flat while the part that decides task success kept improving.
+
+**The runs should continue.** Extrapolating the halving rate puts ~1px fine error
+near epoch 50, inside the 100-epoch budget.
+
+### The residual (delta) target converges ~5x faster
+
+| | fine \|err\| |
+|---|---|
+| residual @ epoch 3 | **4.64 px** |
+| baseline @ epoch 15 | 7.32 px |
+
+The residual model at epoch 3 already beats the baseline at epoch 15. An earlier
+revision called this comparison "inconclusive" because it anchored on
+direction-cos, which emerges late and noisily; absolute fine-phase error is the
+cleaner signal and it is unambiguous.
+
+### Why this matters for the metric choice
+
+Neither closed-loop SR (saturated at 0) nor delta-FVE (dominated by the approach)
+tracks the quantity that decides success. **Fine-bucket error — median
+\|policy - expert\| restricted to timesteps where the expert commands <1px — is
+the metric that moves.** Report it alongside the others.
