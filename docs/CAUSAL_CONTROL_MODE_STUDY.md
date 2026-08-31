@@ -589,3 +589,68 @@ MSE on absolute targets is the wrong objective for this data. Two options:
    a change at the head and target only. Validate on one arm before the grid.
 2. **Retokenize in delta space (clean, expensive):** regenerate tokens and
    retrain all eight runs.
+
+
+---
+
+## THREE-WAY SPLIT: the control gap is the entire failure
+
+The two-way seen/held-out split conflated two different things. "Seen" sampled
+the whole 1000-episode ds_gen folder while training used n_per_mode=547, so it
+mixed memorised episodes with new episodes from trained gaps. Decomposing:
+
+| group | data | measures |
+|---|---|---|
+| A | episodes 0-546 of tight/loose/laggy/sticky | train fit |
+| B | episodes 547-999 of the same gaps | NEW episodes, SAME control gap |
+| C | ideal / jittery | NEW control gap |
+
+FVE_delta, all four small arms, matched at epoch 11, n=96 per folder:
+
+| arm | A trained eps | B new eps same gap | C new gap | A-B | B-C |
+|---|---|---|---|---|---|
+| arm1 dp_flow | 0.764 | 0.733 | -0.113 | 0.031 | 0.846 |
+| arm2 causal_bidir | 0.705 | 0.671 | -0.175 | 0.034 | 0.845 |
+| arm3 state_action_ar | 0.635 | 0.633 | -0.182 | 0.002 | 0.816 |
+| arm4 state_idm | 0.421 | 0.350 | -0.328 | 0.071 | 0.679 |
+
+**A-B is ~0 (0.002-0.071): there is essentially no memorisation.** Every arm
+transfers cleanly to unseen episodes from trained gaps.
+
+**B-C is 0.68-0.85: the entire collapse is the control-gap change.** Against a
+noise band of roughly +/-0.07 this is a large, robust effect, and it isolates
+the study's question — the failure is specifically about control-gap transfer,
+not about overfitting to episodes.
+
+### Retracted
+
+An earlier revision reported `arm3 - arm2 = +0.044` on held-out and read it as
+"causal generation generalises slightly better". Under the cleaner group-C
+sampling it is **-0.007**, i.e. arm2 marginally ahead. The sign flips between
+two reasonable sampling choices, so **arm3 and arm2 are indistinguishable on
+held-out at epoch 11** and the directional claim was over-read from noise.
+
+What survives is stronger and less convenient: **no arm generalises across
+control gaps at all.** Every C value sits at or below predicting zero delta.
+
+### Unexpected
+
+**arm1 (dp_flow) leads every column**, including the best held-out (-0.113) —
+the flow-matching baseline the study moved away from. One seed at epoch 11 is
+not grounds to act, but it inverts the assumed arm ordering and should be
+checked before more capacity goes into the causal arms.
+
+### Does training longer help? No.
+
+arm2 small, FVE_delta by epoch:
+
+| epoch | A/B-style seen | held-out |
+|---|---|---|
+| 3 | 0.343 | -0.115 |
+| 7 | 0.603 | -0.114 |
+| 11 | 0.727 | -0.252 |
+| 15 | 0.730 | -0.188 |
+
+Seen fit more than doubles then plateaus by epoch 11. Held-out is flat within
+noise across the whole range and never goes positive. Epochs 15-100 buy
+in-distribution fit the study does not need and no transfer that it does.
