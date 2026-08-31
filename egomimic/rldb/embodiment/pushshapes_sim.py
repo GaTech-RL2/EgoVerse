@@ -67,7 +67,7 @@ _ENV_TO_ZARR = {
     "pushshapes_sim_small_circle": _env_to_zarr_pushshapes,
     "pushshapes_sim_u_socket": _env_to_zarr_pushshapes_oriented,
     "pushshapes_sim_chain_gripper": _env_to_zarr_pushshapes_oriented,
-    "pushshapes_sim_l": _env_to_zarr_pushshapes_oriented,
+    "pushshapes_sim_L": _env_to_zarr_pushshapes_oriented,
     "pushshapes_sim_circle": _env_to_zarr_pushshapes_oriented,
     "pushshapes_sim_circle_small": _env_to_zarr_pushshapes_oriented,
     "pushshapes_sim_flipper": _env_to_zarr_pushshapes_oriented,
@@ -108,7 +108,7 @@ def _state_to_env_init(state: np.ndarray, embodiment_name: str) -> dict:
     oriented = embodiment_name in {
         "pushshapes_sim_u_socket",
         "pushshapes_sim_chain_gripper",
-        "pushshapes_sim_l",
+        "pushshapes_sim_L",
         "pushshapes_sim_circle",
         "pushshapes_sim_circle_small",
         "pushshapes_sim_flipper",
