@@ -69,12 +69,17 @@ read -r -a ARMS <<< "${ARMS:-arm1_dp_flow arm2_causal_bidir arm3_state_action_ar
 
 # A case, not an associative array: macOS ships bash 3.2, where `declare -A`
 # does not exist and this script could not be dry-run locally.
+# NO COMMAS in any of these. hydra parses a comma in an override value as a
+# LIST and aborts config composition with "Ambiguous value for argument", which
+# happens in phase 1 — i.e. after the image pull, uv sync, the R2 pull and
+# staging. Bash quoting does not help: the value reaches hydra intact and hydra
+# is the one that objects. Colons are avoided for the same reason.
 arm_desc() {
   case "$1" in
-    arm1_dp_flow)         echo "ARM1 baseline: bidirectional, flow matching" ;;
-    arm2_causal_bidir)    echo "ARM2 CONTROL: bidirectional, regression+MSE, same backbone as arms 3/4" ;;
-    arm3_state_action_ar) echo "ARM3 causal AR over arc-token rows, regression+MSE" ;;
-    arm4_state_idm)       echo "ARM4 causal pose path + inverse dynamics, regression+MSE" ;;
+    arm1_dp_flow)         echo "ARM1 baseline bidirectional flow-matching" ;;
+    arm2_causal_bidir)    echo "ARM2 CONTROL bidirectional regression+MSE same backbone as arms 3-4" ;;
+    arm3_state_action_ar) echo "ARM3 causal AR over arc-token rows regression+MSE" ;;
+    arm4_state_idm)       echo "ARM4 causal pose path + inverse dynamics regression+MSE" ;;
     *) echo "unknown arm $1" >&2; exit 2 ;;
   esac
 }
@@ -84,7 +89,7 @@ for cap in "${CAPS[@]}"; do
     MODEL_CFG="bf_ctrlmode_${arm}_${cap}"
     JOB="ctrlmode-${arm//_/-}-${cap}"
     RUN_NAME="ctrlmode_${arm}_${cap}_${STAMP}"
-    RUN_DESC="$(arm_desc "$arm") | ${cap} capacity | train ${SEEN_MODES// /,} | holdout ideal,jittery"
+    RUN_DESC="$(arm_desc "$arm") | ${cap} capacity | train ${SEEN_MODES// /+} | holdout ideal+jittery"
 
     ARGS=(
       workflow submit "$LAUNCHER"
@@ -110,6 +115,14 @@ for cap in "${CAPS[@]}"; do
       "memory=${MEMORY:-320Gi}"
       "storage=${STORAGE:-200Gi}"
     )
+
+    # Guard rather than trust: a comma anywhere in a --set value becomes a
+    # hydra list and kills the run in phase 1, ~40 minutes of staging in.
+    for a in "${ARGS[@]}"; do
+      case "$a" in
+        *=*,*) echo "FATAL: comma in override value, hydra will read it as a list: $a" >&2; exit 3 ;;
+      esac
+    done
 
     echo "=== $JOB ($MODEL_CFG) ==="
     if [ "$DRY_RUN" -eq 1 ]; then
