@@ -279,6 +279,20 @@ workflow:
         test -s "$NORM_JSON"
 
         # ------------------------------------------ phase 2: training (8 GPUs)
+        # Three shipped trainer defaults each independently suppress or
+        # explode evaluation, and NONE of them raises:
+        #   check_val_every_n_epoch: 200 (ddp.yaml) with num_sanity_val_steps 0
+        #     -> first validation at epoch 200. Under max_epochs=200 it never
+        #        runs at all and the job still COMPLETES, exit 0, empty error
+        #        log, checkpoint written, zero success rates.
+        #   limit_val_batches: 80 (default.yaml)
+        #     -> eval_video.on_validation_step runs the WHOLE evaluator PER
+        #        BATCH, so one validation is 80 x 13 evaluators x 8 seeds x 8
+        #        unguarded ranks = 66,560 rollouts. Indistinguishable from a hang.
+        #   model_checkpoint.every_n_epochs: 100
+        #     -> nothing on disk until epoch 100, so an in-flight run is
+        #        unrecoverable.
+        # Override all three explicitly. Do not rely on the defaults.
         python egomimic/trainHydra.py \
           data="$DATA_CFG" \
           model="$MODEL_CFG" \
@@ -290,6 +304,9 @@ workflow:
           $DL_OVERRIDES \
           logger.wandb.entity="$WANDB_ENTITY" \
           trainer.max_epochs="$MAX_EPOCHS" trainer.min_epochs="$MAX_EPOCHS" \
+          trainer.check_val_every_n_epoch=5 \
+          trainer.limit_val_batches=1 \
+          callbacks.model_checkpoint.every_n_epochs=5 \
           name="$RUN_NAME" description="$RUN_DESC"
 
         # Final flush: the periodic loop may be mid-sleep when training ends.
