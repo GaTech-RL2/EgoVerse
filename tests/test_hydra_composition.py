@@ -92,6 +92,9 @@ def test_phase2_training_composition(model_cfg):
         "data.valid_dataloader_params.pushshapes_sim_gripper.num_workers=4",
         "logger.wandb.entity=rl2-group",
         "trainer.limit_train_batches=2500",
+        "trainer.check_val_every_n_epoch=1",
+        "trainer.limit_val_batches=1",
+        "callbacks.model_checkpoint.every_n_epochs=1",
         "trainer.max_epochs=100",
         "trainer.min_epochs=100",
         "name=ctrlmode_x",
@@ -100,6 +103,17 @@ def test_phase2_training_composition(model_cfg):
     assert cfg.evaluator is not None
     gaps = [e.control_gap for e in cfg.evaluator.evals]
     assert gaps == ["ideal", "tight", "laggy", "loose", "sticky", "jittery"]
+
+    # The evaluator must actually be REACHED. trainer/ddp.yaml ships
+    # check_val_every_n_epoch=200 with num_sanity_val_steps=0, so at
+    # max_epochs=100 the first validation is scheduled for an epoch that never
+    # arrives: the run trains fully, exits COMPLETED, and logs no success rate.
+    assert int(cfg.trainer.check_val_every_n_epoch) <= int(cfg.trainer.max_epochs)
+    # on_validation_step runs the WHOLE evaluator per batch, so >1 batch
+    # multiplies every rollout (the shipped default of 80 means 4,800).
+    assert int(cfg.trainer.limit_val_batches) == 1
+    # Otherwise a checkpoint only lands at the very end (default every_n_epochs=100).
+    assert int(cfg.callbacks.model_checkpoint.every_n_epochs) <= 1
 
 
 def test_group_prefix_is_actually_required():

@@ -304,6 +304,24 @@ workflow:
         # evaluator= MUST be passed here. Passing ~evaluator in both phases
         # produces a run that reports loss only, finishes cleanly, and cannot
         # answer the question it was launched for.
+        #
+        # THREE trainer defaults must be overridden or the evaluator never
+        # produces a number, and the run still exits 0:
+        #
+        #   check_val_every_n_epoch: 200  (trainer/ddp.yaml)
+        #     Greater than max_epochs=100, so the FIRST validation is scheduled
+        #     for an epoch that never arrives. num_sanity_val_steps is 0 too, so
+        #     nothing runs at step 0 either. A run trains all 100 epochs, exits
+        #     COMPLETED, and logs zero success rates. Observed exactly that.
+        #
+        #   limit_val_batches: 80  (trainer/default.yaml, inherited by ddp)
+        #     eval_video.on_validation_step runs the ENTIRE evaluator per batch,
+        #     so 80 batches x 6 evaluators x 10 rollouts = 4,800 rollouts for a
+        #     single validation. One batch is what triggers one full sweep.
+        #
+        #   model_checkpoint.every_n_epochs: 100  (callbacks/checkpoints.yaml)
+        #     Only writes at the very end, so a run in progress shows no
+        #     checkpoint and there is nothing to recover if it dies.
         python egomimic/trainHydra.py \
           data="$DATA_CFG" \
           model="$MODEL_CFG" \
@@ -315,6 +333,9 @@ workflow:
           $DL_OVERRIDES \
           logger.wandb.entity="$WANDB_ENTITY" \
           trainer.limit_train_batches="$LIMIT_TRAIN_BATCHES" \
+          trainer.check_val_every_n_epoch=1 \
+          trainer.limit_val_batches=1 \
+          callbacks.model_checkpoint.every_n_epochs=1 \
           trainer.max_epochs="$MAX_EPOCHS" trainer.min_epochs="$MAX_EPOCHS" \
           name="$RUN_NAME" description="$RUN_DESC"
 
