@@ -146,6 +146,12 @@ the 4-mode vs 5-mode difference measures what controller diversity buys.
 python scripts/control_modes/collect_results.py --step-matched
 ```
 
+**Credentials:** the runs log to `rl2-group`, using the node's wandb key from
+Secrets Manager. A personal key with a different default entity cannot read
+them — and wandb reports that as a missing PROJECT rather than a permissions
+error, which is misleading. The script now says so explicitly and prints
+`https://wandb.ai/rl2-group/zarr_test` as the fallback.
+
 Per run, the evaluator reports SR for all six modes under these wandb keys:
 
 ```

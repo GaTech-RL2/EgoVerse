@@ -59,10 +59,30 @@ def main() -> int:
     import wandb
 
     api = wandb.Api()
-    runs = [r for r in api.runs(f"{args.entity}/{args.project}")
-            if r.name.startswith("ctrlmode_")]
+    try:
+        runs = [r for r in api.runs(f"{args.entity}/{args.project}")
+                if r.name.startswith("ctrlmode_")]
+    except ValueError as e:
+        # The runs log to the entity the NODE's key can reach (rl2-group, from
+        # Secrets Manager). A personal key with a different default entity
+        # cannot see them, and wandb reports that as a missing PROJECT rather
+        # than a permissions error, which is misleading.
+        teams = [t if isinstance(t, str) else getattr(t, "name", str(t))
+                 for t in (getattr(api.viewer, "teams", None) or [])]
+        reachable = sorted({e for e in (api.default_entity, *teams) if e})
+        print(f"could not read {args.entity}/{args.project}: {e}")
+        print(f"this key ({api.viewer.username}) can reach: {reachable}")
+        if args.entity not in reachable:
+            print(f"\n{args.entity!r} is not among them. The runs are logged by "
+                  f"the node's key, not this one. Either export a WANDB_API_KEY "
+                  f"with {args.entity!r} access, or read them in the browser:")
+            print(f"  https://wandb.ai/{args.entity}/{args.project}")
+        else:
+            print(f"\nentity is reachable, so the project name is likely wrong. "
+                  f"Try --project with one of that entity's projects.")
+        return 2
     if not runs:
-        print("no ctrlmode_* runs found")
+        print(f"no ctrlmode_* runs in {args.entity}/{args.project} yet")
         return 1
 
     keys = ([f"Valid/seen_{m}_sim_success_rate" for m in SEEN]
