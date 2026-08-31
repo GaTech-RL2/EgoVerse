@@ -46,7 +46,7 @@ PREFIX = ("s3://rldb/processed_v3/pushshapes_sim/"
 CAP = 547
 DEDUPE_RADIUS = 40
 EMB = "gripper"
-ALL_MODES = ["tight", "loose", "laggy", "sticky", "jittery"]
+ALL_MODES = ["ideal", "tight", "loose", "laggy", "sticky", "jittery"]
 
 
 def r2_env() -> dict:
@@ -105,12 +105,35 @@ def verified_set(mode: str) -> set[str] | None:
         return None
 
 
+MANIFEST_PATH = f"{BASE}/MANIFEST_dedup_gripper.json"
+
+
+def load_manifest() -> dict:
+    """Existing manifest, or a fresh skeleton.
+
+    MERGED, never replaced. Uploading a single mode used to rewrite the
+    manifest with only that mode in it and push the result over the top of the
+    real one — silently discarding the provenance of every other cell in the
+    prefix. The manifest is the only record of what the prefix contains.
+    """
+    try:
+        with open(MANIFEST_PATH) as fh:
+            m = json.load(fh)
+        if isinstance(m.get("modes"), dict):
+            return m
+    except Exception:
+        pass
+    return {}
+
+
 def main() -> int:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     dry = "--dry-run" in sys.argv
+    manifest_only = "--manifest-only" in sys.argv
     modes = args or ALL_MODES
     env = r2_env()
     endpoint = env["R2_ENDPOINT_URL"]
+    prior = load_manifest()
     manifest = {
         "prefix": PREFIX,
         "embodiment": EMB,
@@ -127,7 +150,7 @@ def main() -> int:
             "dimensionality. PC95 measured 4-8 both before and after. Read this "
             "as better sample efficiency per epoch, not broader behaviour "
             "coverage."),
-        "modes": {},
+        "modes": dict(prior.get("modes") or {}),
     }
 
     for mode in modes:
@@ -162,8 +185,9 @@ def main() -> int:
                 fh.write(f'cp "{src_dir}/{e}/*" "{PREFIX}/{mode}/{EMB}/T/{e}/"\n')
             cmds = fh.name
 
-        if dry:
-            print(f"  [dry-run] would upload {len(eps)} episodes via {cmds}")
+        if dry or manifest_only:
+            why = "dry-run" if dry else "manifest-only"
+            print(f"  [{why}] skipping upload of {len(eps)} episodes")
         else:
             t0 = time.time()
             subprocess.run(
