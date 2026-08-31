@@ -394,10 +394,32 @@ def evaluator_config() -> str:
       pusher_shape: gripper
       obstacle_level: 0
       image_size: 96
+      # No rendering: the videos are never synced anywhere (the checkpoint loop
+      # pushes only checkpoints/ and norm_stats.json), so every frame is
+      # rendered, h264-encoded, raced across 8 ranks writing identical
+      # filenames, and then discarded with the container. Dropping it also cuts
+      # the per-rollout wall-clock, which is what keeps rollouts clear of the
+      # watchdog below. env.py:164 permits None and render() then returns None.
+      render_mode: null
     init_mode: seeds
     init_seeds: {SEED_LIST}
     max_steps: 600
     coverage_threshold: 0.95
+    # EXPLICIT because the defaults silently change what a number MEANS.
+    # A tripped watchdog does not raise — eval_sim.py logs 0 coverage and
+    # continues — so a merely SLOW rollout is recorded as a failed episode.
+    # The causal arms do 17 sequential backbone passes per replan where
+    # causal_bidir does one, so at the 120s default any timeout lands
+    # preferentially on arms 3/4 and reads as "causal generalizes worse".
+    # 900s still catches a true hang (where the env stops terminating and
+    # max_steps never trips) without the false positives.
+    rollout_timeout_s: 900
+    # Final IoU at termination, not peak-over-rollout: peak would credit a
+    # policy that aligned once and then drifted off the goal.
+    report_max_coverage: false
+    # Stop at termination rather than stepping out the full horizon; stepping
+    # on past success changes the final IoU that success is scored from.
+    run_full_horizon: false
     limit_val_batches: {N_ROLLOUTS}
     max_videos: {N_ROLLOUTS}""")
     return f"""# Control-mode rollout eval: {len(SEEN)} SEEN controller modes plus {len(HELD_OUT)} held out.

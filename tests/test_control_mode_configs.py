@@ -358,3 +358,44 @@ def test_max_videos_does_not_truncate_the_rollout_count():
         assert int(mv) >= n_seeds, (
             f"{e.metric_tag}: max_videos={mv} < {n_seeds} seeds, so only {mv} "
             f"episode(s) would run and SR would be measured over {mv} sample(s)")
+
+
+#: Evaluator knobs whose DEFAULT can silently change a reported number rather
+#: than raise. Derived by enumerating every ``self.<attr>`` the rollout path
+#: reads and asking, for each, what an unset default would do to the metric.
+#: A default that crashes is cheap; a default that quietly alters a number is
+#: what costs the conclusion.
+SILENTLY_DANGEROUS = {
+    "rollout_timeout_s": "a slow rollout is logged as 0 coverage and continues",
+    "max_videos": "bounds the rollout loop; truncates the SR sample size",
+    "report_max_coverage": "peak vs final IoU changes what 'success' means",
+    "run_full_horizon": "stepping past termination changes the final IoU",
+    "coverage_threshold": "the success bar itself",
+    "max_steps": "a short horizon scores slow-but-correct policies as failures",
+}
+
+
+def test_every_silently_dangerous_knob_is_set_explicitly():
+    """Never inherit a default that can move a number without saying so.
+
+    These do not raise when wrong — they change what the metric MEANS. The
+    watchdog is the sharpest case: a tripped rollout is scored 0 coverage and
+    execution continues, and because the causal arms do 17 sequential backbone
+    passes per replan where causal_bidir does one, any timeout lands
+    preferentially on arms 3/4 and reads as "causal generalizes worse".
+    """
+    cfg = OmegaConf.load(EVAL_CFG)
+    for e in cfg.evals:
+        missing = [k for k in SILENTLY_DANGEROUS if k not in e]
+        assert not missing, (
+            f"{e.metric_tag}: relying on defaults for {missing}; "
+            + "; ".join(f"{k}: {SILENTLY_DANGEROUS[k]}" for k in missing))
+
+
+def test_watchdog_is_generous_enough_for_the_causal_arms():
+    cfg = OmegaConf.load(EVAL_CFG)
+    for e in cfg.evals:
+        assert int(e.rollout_timeout_s) >= 600, (
+            f"{e.metric_tag}: rollout_timeout_s={e.rollout_timeout_s} is close "
+            f"to a plausible rollout time; a timeout is scored 0 and biases "
+            f"against the slower causal arms")
