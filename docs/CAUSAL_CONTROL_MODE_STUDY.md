@@ -299,6 +299,28 @@ is the property that matters, not a high number.
    interpreters belong in an indented heredoc. Now gated: the launcher must
    parse as YAML and every embedded script must pass `bash -n`.
 
+9. **The evaluator was never reached at all.** A run trained all 100 epochs,
+   exited `COMPLETED`, wrote a valid 589MB checkpoint — and logged ZERO success
+   rates. Three shipped defaults, each independently fatal, none of which
+   raises:
+
+   | setting | ships as | effect |
+   |---|---|---|
+   | `check_val_every_n_epoch` | 200 (`trainer/ddp.yaml`) | > `max_epochs=100`, so the first validation is scheduled for an epoch that never arrives; `num_sanity_val_steps: 0` means nothing runs at step 0 either |
+   | `limit_val_batches` | 80 (`trainer/default.yaml`) | `on_validation_step` runs the WHOLE evaluator per batch → 80 × 6 × 10 = 4,800 rollouts for one validation |
+   | `model_checkpoint.every_n_epochs` | 100 | writes only at the very end, so an in-progress run has nothing recoverable |
+
+   **This is the sharpest failure of the set, because the run SUCCEEDS.** Exit
+   0, empty error log, checkpoint present, five GPU-hours spent. Every signal
+   that normally means "healthy" was present and the one thing the run existed
+   to produce was absent. Status could not have caught it. The check that did:
+
+   ```bash
+   grep -c '\[sim\]' <run log>    # 0 ⇒ no evaluation happened, whatever the status says
+   ```
+
+   Overridden in phase 2 and asserted in `tests/test_hydra_composition.py`.
+
 These sit in THREE distinct layers, and each is invisible to the layer below's
 gate:
 
@@ -310,6 +332,10 @@ gate:
   3. **Environment** (7, 8) — upstream of the interpreter itself. No config
      test can see `uv.lock`. Caught by installing and then USING the dependency
      in the launcher.
+  4. **Reachability** (9) — the code is correct, the config is correct, and the
+     schedule never calls it. Nothing upstream can see this: the only evidence
+     is the ABSENCE of an expected output. Caught by asserting the metric
+     appears, not that the job succeeded.
 
 All of them share a failure shape: validation happens on construction, and the
 expensive objects are constructed late, so a mistake survives the pull and the
