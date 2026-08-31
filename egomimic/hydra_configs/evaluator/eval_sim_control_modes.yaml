@@ -48,7 +48,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 10
-    max_videos: 1
+    max_videos: 10
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
     control_gap: tight
@@ -63,7 +63,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 10
-    max_videos: 1
+    max_videos: 10
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
     control_gap: laggy
@@ -78,7 +78,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 10
-    max_videos: 1
+    max_videos: 10
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
     control_gap: loose
@@ -93,7 +93,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 10
-    max_videos: 1
+    max_videos: 10
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
     control_gap: sticky
@@ -108,7 +108,7 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 10
-    max_videos: 1
+    max_videos: 10
   - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
     embodiment_name: pushshapes_sim_gripper
     control_gap: jittery
@@ -123,4 +123,4 @@ evals:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: 10
-    max_videos: 1
+    max_videos: 10

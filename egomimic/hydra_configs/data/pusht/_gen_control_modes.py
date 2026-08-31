@@ -78,6 +78,14 @@ EVAL_ORDER = ["ideal", "tight", "laggy", "loose", "sticky", "jittery"]
 # evaluators, 20 seeds is 960 rollouts per validation and starves the SR curve
 # of points. 10 seeds halves that; SR granularity becomes 10% per episode,
 # which is coarse but reported across many validations.
+# max_videos ALSO BOUNDS THE ROLLOUT LOOP, despite the name:
+#     B_render = min(B, self.max_videos) if self.max_videos is not None else B
+#     for b in range(B_render):
+#         ep_successes.append(float(cov >= self.coverage_threshold))
+#     success_rate = float(np.mean(ep_successes))
+# So `max_videos: 1` (as the shipped eval_sim_pushshapes.yaml has) computes
+# every success rate over exactly ONE episode: SR is 0% or 100% per mode per
+# validation, and the arms become incomparable. It must be >= the seed count.
 N_ROLLOUTS = 10
 SEED_LIST = list(range(N_ROLLOUTS))
 
@@ -391,7 +399,7 @@ def evaluator_config() -> str:
     max_steps: 600
     coverage_threshold: 0.95
     limit_val_batches: {N_ROLLOUTS}
-    max_videos: 1""")
+    max_videos: {N_ROLLOUTS}""")
     return f"""# Control-mode rollout eval: {len(SEEN)} SEEN controller modes plus {len(HELD_OUT)} held out.
 #
 # Ordered by sensing-noise floor, which is the axis the held-out question is

@@ -334,3 +334,27 @@ def test_rollout_budget_is_stated_and_bounded():
     assert per_rank <= 100, (
         f"{per_rank} rollouts per rank per validation; at 8 ranks that is "
         f"{per_rank * 8} episodes of pymunk and the SR curve will starve")
+
+
+def test_max_videos_does_not_truncate_the_rollout_count():
+    """`max_videos` bounds the ROLLOUT LOOP, not just video recording.
+
+        B_render = min(B, self.max_videos) if self.max_videos is not None else B
+        for b in range(B_render):
+            ep_successes.append(float(cov >= self.coverage_threshold))
+        success_rate = float(np.mean(ep_successes))
+
+    So `max_videos: 1` — which the shipped eval_sim_pushshapes.yaml uses —
+    computes every success rate from a SINGLE episode. SR becomes 0% or 100%
+    per mode per validation and the arms cannot be compared. Nothing raises;
+    the numbers just quietly carry no information.
+    """
+    cfg = OmegaConf.load(EVAL_CFG)
+    for e in cfg.evals:
+        n_seeds = len(list(e.init_seeds))
+        mv = e.get("max_videos")
+        if mv is None:
+            continue  # None means "no cap", so B_render == B
+        assert int(mv) >= n_seeds, (
+            f"{e.metric_tag}: max_videos={mv} < {n_seeds} seeds, so only {mv} "
+            f"episode(s) would run and SR would be measured over {mv} sample(s)")
