@@ -883,3 +883,60 @@ Three episodes could not distinguish a plateau from a trend, and produced two
 confident conclusions in opposite directions within an hour. Twelve episodes
 (~1282 fine-bucket samples) makes the curve unambiguous. Raise the sample BEFORE
 revising a claim, not after.
+
+
+---
+
+## ARM COMPARISON at matched epoch 25 (n=1282) — and a convergence-rate confound
+
+### The confound: arms converge at different rates
+
+Comparing arms before ~epoch 20 measures CONVERGENCE SPEED, not architecture:
+
+| arm | fine cos @ep11 | @ep25 | change |
+|---|---|---|---|
+| arm2 causal_bidir | 0.182 | 0.208 | +0.026 |
+| arm3 state_action_ar | **-0.016** | **0.183** | **+0.199** |
+| arm4 state_idm | -0.062 | 0.105 | +0.167 |
+
+arm2 was converged by epoch 11; the causal arms were not. arm3 went from BELOW
+CHANCE to a tie. Two earlier conclusions in this document fell inside that
+window and are withdrawn: delta-FVE "arm3 - arm2 = +0.044, causal generalises
+better", and fine-cos "causal is mildly hurting". Both were reading convergence
+rate as quality.
+
+### Matched epoch 25
+
+| arm | fine cos | right | ratio | approach cos | approach ratio |
+|---|---|---|---|---|---|
+| arm1 dp_flow | 0.161 | 55.1% | 12.8 | 0.974 | 0.70 |
+| arm2 causal_bidir | **0.208** | 56.6% | 12.9 | 0.987 | 0.89 |
+| arm3 state_action_ar | 0.183 | 55.9% | 15.6 | 0.971 | 0.63 |
+| arm4 state_idm | 0.105 | 54.4% | 14.9 | 0.876 | 0.42 |
+
+**Arms 1-3 cluster inside the noise** (spread 0.047 against ~0.06 sampling
+noise). `arm3 - arm2 = -0.026` is a tie. Only arm4 (`state_idm`) is meaningfully
+worse, on both buckets.
+
+**Reading: causal generation makes no measurable difference here.** Every arm
+overshoots fine commands by 13-16x and sits near chance on direction regardless
+of attention pattern or generative head. That is consistent with the bottleneck
+being the shared objective rather than the architecture.
+
+### The metric trap that produced a false headline
+
+An earlier revision reported "arm3 - arm2 = -1.13px, causal better" from raw
+fine-bucket `|err|`. **That metric is confounded.** The expert commands <1px in
+the fine bucket, so a policy that commands NOTHING scores ~0.5px and looks
+excellent — `|err|` tracks the policy's own step size, not its correctness. The
+tell was that `|err|` and `step` were near-identical in every row.
+
+Report instead:
+- `cos` and `frac right` — direction agreement, invariant to moving less
+- `ratio` = |policy step| / |expert step| — 1.0 correct, >1 overshoots
+
+### Still open
+
+arm3 moved +0.199 between epochs 11 and 25 and may not be converged even at 25.
+The same trap applies recursively: check whether it has flattened before treating
+the tie as final.
