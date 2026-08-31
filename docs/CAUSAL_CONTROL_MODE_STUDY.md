@@ -940,3 +940,61 @@ Report instead:
 arm3 moved +0.199 between epochs 11 and 25 and may not be converged even at 25.
 The same trap applies recursively: check whether it has flattened before treating
 the tie as final.
+
+
+---
+
+## FUNDAMENTALS CHECK: the runs overfit from epoch 7 and nothing watches
+
+Loss was never checked until late. It is **not** in the checkpoints
+(`ModelCheckpoint` runs with `monitor: None`, so `current_score` is None) and it
+is **not** in the osmo logs (4000 lines scraped: no loss, no epoch markers, no
+lr -- Lightning's progress output is suppressed in a non-TTY). It exists only in
+wandb. Measured directly from checkpoints instead (MSE on quantile-normalised
+actions, 64 samples per gap):
+
+| ckpt | step | TRAINED MSE | HELD-OUT MSE |
+|---|---|---|---|
+| ep3 | 10000 | 3.810e-02 | 8.413e-02 |
+| ep7 | 20000 | 3.535e-02 | **7.628e-02** (minimum) |
+| ep11 | 30000 | 2.071e-02 | 1.002e-01 |
+| ep15 | 40000 | 2.237e-02 | 9.527e-02 |
+| ep25 | 65000 | 1.538e-02 | 1.146e-01 |
+| ep30 | 77500 | 1.435e-02 | 1.132e-01 |
+
+- **train loss is still descending** (3.81e-2 -> 1.44e-2): NOT converged at ep30
+- **held-out bottomed at epoch 7 and has risen 48% since**: overfitting to the
+  four trained control gaps, unchecked for 23 epochs
+- with `monitor: None` there is no best-checkpoint selection and no early
+  stopping, so `last.ckpt` at epoch 100 will be the MOST overfit checkpoint
+
+**Every held-out comparison in this document made at epoch 11/25/30 is measured
+on progressively more overfit models.** The right comparison point is each arm's
+own held-out minimum, which may differ per arm.
+
+### LR and optimizer ARE healthy (verified from the checkpoint, not the config)
+
+    epoch 25, global_step 65000
+    lr           = 8.564e-5   (warmup-cosine at 27%; warmup done at step 3000)
+    weight_decay = 1e-4
+    betas        = (0.9, 0.999)
+
+Minor: `global_step 65000` at epoch 25 is 2600 steps/epoch, so 100 epochs is
+~260k against the scheduler's `max_steps: 240000` -- the cosine bottoms out about
+8 epochs early.
+
+### `enable_grad_norm: false` -- no gradient clipping
+
+arm2 (one bidirectional pass) is stable and monotone: fine cos 0.182 / 0.208 /
+0.233 at epochs 11 / 25 / 30. arm3 (17 sequential AR passes) swings
+-0.016 / 0.183 / 0.052 on the SAME 12 episodes, so the variance is in the model,
+not the measurement. Unclipped gradients through a deep sequential unroll is a
+plausible cause, and it means **arm3's poor showing may be a training-stability
+artefact rather than a statement about causal generation.**
+
+### Correction
+
+A prediction in an earlier revision -- "loss should be ~1.1e-3 if fine error is
+~7px" -- was wrong by 13x. The loss covers the whole 17x5 token and is dominated
+by the distant waypoints; the 7px figure is row-0 xy only. They are not
+comparable.
