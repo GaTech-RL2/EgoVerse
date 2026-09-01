@@ -2,7 +2,7 @@
 #SBATCH --job-name=abc_backfill
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=16
 #SBATCH --mem=32G
 #SBATCH --time=720
 #SBATCH --partition=rl2-lab
@@ -30,6 +30,7 @@ set -euo pipefail
 # MCAP (the calibration lives in its first chunk) plus a small R2 get/put, run
 # across a thread pool. No GPU, little memory.
 
+# First arg is either a task substring, or ALL / --all for every lab='abc' episode.
 TASK_CONTAINS="${1:-fold and stack}"
 MANIFEST="${2:-/coc/flash7/scratch/acheluva3/abc_data/backfill_manifest.json}"
 APPLY="${3:-}"
@@ -40,7 +41,12 @@ export HF_HOME="${HF_HOME:-/coc/flash7/scratch/acheluva3/.cache}"
 echo "task_contains='$TASK_CONTAINS'  manifest=$MANIFEST  mode=${APPLY:-DRY-RUN}"
 echo "cpus=${SLURM_CPUS_PER_TASK:-?}  node=$(hostname)"
 
+case "$TASK_CONTAINS" in
+  ALL|all|--all) SELECTOR=(--all) ;;
+  *)             SELECTOR=(--task-contains "$TASK_CONTAINS") ;;
+esac
+
 srun .venv/bin/python -m egomimic.scripts.abc_process.backfill_abc_metadata \
-    --task-contains "$TASK_CONTAINS" \
+    "${SELECTOR[@]}" \
     --manifest "$MANIFEST" \
     ${APPLY:+$APPLY}
