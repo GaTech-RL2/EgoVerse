@@ -63,6 +63,12 @@ def _instantiate_model_wrapper(cfg: DictConfig, norm_stats: MultiDataset):
         enable_grad_norm=bool(cfg.model.get("enable_grad_norm", True)),
         train_metrics_on_step=bool(cfg.model.get("train_metrics_on_step", False)),
         train_metrics_on_epoch=bool(cfg.model.get("train_metrics_on_epoch", True)),
+        unite_flow_updates_per_reconstruction=int(
+            cfg.model.get("unite_flow_updates_per_reconstruction", 0)
+        ),
+        unite_gradient_telemetry_every_n_steps=int(
+            cfg.model.get("unite_gradient_telemetry_every_n_steps", 0)
+        ),
     )
 
 

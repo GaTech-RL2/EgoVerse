@@ -137,6 +137,8 @@ def test_model_wrapper_receives_configured_runtime_flags(monkeypatch):
                 "enable_grad_norm": False,
                 "train_metrics_on_step": True,
                 "train_metrics_on_epoch": False,
+                "unite_flow_updates_per_reconstruction": 14,
+                "unite_gradient_telemetry_every_n_steps": 100,
             }
         }
     )
@@ -152,6 +154,8 @@ def test_model_wrapper_receives_configured_runtime_flags(monkeypatch):
     assert captured["enable_grad_norm"] is False
     assert captured["train_metrics_on_step"] is True
     assert captured["train_metrics_on_epoch"] is False
+    assert captured["unite_flow_updates_per_reconstruction"] == 14
+    assert captured["unite_gradient_telemetry_every_n_steps"] == 100
     assert captured["norm_stats_state"] == {"stats": "sentinel"}
 
 
