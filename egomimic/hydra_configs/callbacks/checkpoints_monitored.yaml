@@ -1,0 +1,28 @@
+defaults:
+  - defaults
+  - _self_
+
+# Same as `checkpoints`, but it actually SELECTS a best checkpoint.
+#
+# The default config leaves `monitor` unset, which makes ModelCheckpoint record
+# best_model_score=None and keep everything by recency. On the control-mode
+# study that was actively harmful: held-out loss stops improving around epoch
+# 7-11 while training loss keeps falling, so `last.ckpt` at epoch 100 is the
+# WORST checkpoint for generalisation and nothing marks the good one.
+#
+# `Valid/action_loss` is logged by pl_model.validation_step (added alongside this
+# config -- it did not exist before, which is WHY monitor was unset).
+#
+# save_top_k is kept at -1 so every epoch is still retained: the per-epoch
+# checkpoints are what made the retrospective epoch-sweep analysis possible, and
+# dropping them would trade a cheap disk cost for an irreversible loss of
+# evidence. `monitor` here buys best-checkpoint TRACKING, not pruning.
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch_{epoch}"
+  save_last: true
+  save_top_k: -1
+  every_n_epochs: 1
+  monitor: "Valid/action_loss"
+  mode: min

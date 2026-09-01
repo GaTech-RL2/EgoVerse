@@ -1,0 +1,371 @@
+# Causal action models across PushShapes CONTROL MODES — OSMO, 1 node.
+#
+# This is the TRANSPOSE of pushshapes_cotrain11_l40s.yaml. That launcher pulls
+# ONE control-gap row and 11 embodiments; this one pulls ONE embodiment
+# (gripper) across FOUR control-gap rows and holds out two more.
+#
+#   trained on : tight, loose, laggy, sticky
+#   held out   : ideal and jittery, evaluated by rollout SR only. No episodes
+#                from either are staged: the gap is applied to the evaluator's
+#                env rather than read from data.
+#
+# All seen modes are staged into ONE directory under a single embodiment
+# key, so the model is never told which controller produced an episode —
+# inferring that is the capability under test. Episode filenames collide across
+# modes (every cell has episode_T_gripper_obs0_000000.zarr), so the stage step
+# PREFIXES each with its mode. Copying without the prefix silently keeps only
+# the last mode's episodes.
+#
+# The data is the dedupe-only gripper set: near-duplicate source demos removed,
+# NO MimicGen-generated fill. The generated episodes are kept only if they
+# re-reach the goal under their own cell's gap, which is a success filter
+# sitting directly on top of the quantity this study measures.
+
+workflow:
+  name: "{{job_name}}"
+
+  tasks:
+  - name: train
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+      egoverse-wandb:
+        WANDB_API_KEY: wandb_api_key
+
+    environment:
+      BRANCH: "{{branch}}"
+      DATA_CFG: "{{data_cfg}}"
+      MODEL_CFG: "{{model_cfg}}"
+      RUN_NAME: "{{run_name}}"
+      RUN_DESC: "{{run_desc}}"
+      NUM_GPU: "{{num_gpu}}"
+      BATCH_SIZE: "{{batch_size}}"
+      NUM_WORKERS: "{{num_workers}}"
+      MAX_EPOCHS: "{{max_epochs}}"
+      # Caps steps per "epoch" so the sim evaluator runs on a useful cadence.
+      # A natural epoch here is ~19.5k steps at batch 32, which would give only
+      # a handful of SR points in a night; the interesting signal is the SR
+      # curve on seen vs held-out modes, not the final loss.
+      LIMIT_TRAIN_BATCHES: "{{limit_train_batches}}"
+      JOB_NAME: "{{job_name}}"
+      SEED: "{{seed}}"
+      WANDB_ENTITY: "{{wandb_entity}}"
+      # Space separated. One embodiment here, but the dataloader-override loop
+      # below is written generically so it does not have to change if a second
+      # effector is ever added.
+      EMBODIMENTS: "pushshapes_sim_gripper"
+      # Control-gap rows staged into the single training directory.
+      SEEN_MODES: "{{seen_modes}}"
+      DATA_PREFIX: "{{data_prefix}}"
+      N_PER_MODE: "{{n_per_mode}}"
+      WORKDIR: /workspace
+      DATASET_DIR: /workspace/pushshapes
+      PUSHSHAPES_ROOT: /workspace/pushshapes
+      NCCL_DEBUG: WARN
+      TOKENIZERS_PARALLELISM: "false"
+      HYDRA_FULL_ERROR: "1"
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        # ---------------------------------------------------------------- deps
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+
+        # --------------------------------------------------------------- clone
+        mkdir -p "$WORKDIR" && cd "$WORKDIR"
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" EgoVerse
+        cd "$WORKDIR/EgoVerse"
+        git rev-parse HEAD
+
+        uv sync --frozen
+        source .venv/bin/activate
+
+        # ------------------------------------------------------ simulator deps
+        # The SIMULATOR's dependencies are NOT in EgoVerse's pyproject or
+        # uv.lock: pymunk, gymnasium, pygame and shapely are all absent, and
+        # Tsimulation/sim_v2/pushshapes/env.py imports every one of them at
+        # module scope. So `uv sync --frozen` produces an environment in which
+        # SimRolloutEval cannot construct an env at all — the evaluator dies on
+        # its first rollout, in phase 2, after training has already started.
+        #
+        # Installed here rather than added to pyproject/uv.lock on purpose:
+        # the lock is shared with other people's runs and regenerating it to
+        # land a test-time dependency is a much larger blast radius than an
+        # explicit install in this launcher.
+        #
+        # pymunk MUST be 7.x — the sim uses the 7.x `Space.on_collision` API and
+        # 6.9.0 fails on reset.
+        uv pip install "pymunk==7.3.0" gymnasium pygame shapely
+
+        # Fail here, in seconds, rather than at the first rollout hours in.
+        # Heredoc, NOT `python -c "..."`: an unindented continuation line
+        # escapes this YAML literal block and the spec fails to parse.
+        python - <<'SIMPY'
+        from Tsimulation.pushshapes import PushShapesEnv
+        from Tsimulation.pushshapes.agents import CONTROL_GAPS
+
+        env = PushShapesEnv(object_shape="T", pusher_shape="gripper",
+                            obstacle_level=0, image_size=96)
+        env.reset(seed=0)
+        env.agent.control_gap = CONTROL_GAPS["jittery"]
+        env.agent.randomize_gap = False
+        env.agent.reset_control_gap(env)
+        assert env.agent.control_gap.as_dict() == CONTROL_GAPS["jittery"].as_dict()
+        print("simulator OK; control gaps:", sorted(CONTROL_GAPS))
+        SIMPY
+
+        bash ./egomimic/utils/aws/setup_secret.sh
+        test -s "$HOME/.egoverse_env"
+
+        # ---------------------------------------------------------- preflight
+        # wandb.init() is not reached until phase 2, i.e. after the pull and
+        # norm stats. A key without access to $WANDB_ENTITY throws all of that
+        # away, so check it up front and fail in seconds.
+        python - <<'PY'
+        import os, sys, wandb
+        entity = os.environ["WANDB_ENTITY"]
+        api = wandb.Api()
+        teams = [t if isinstance(t, str) else getattr(t, "name", str(t))
+                 for t in (getattr(api.viewer, "teams", None) or [])]
+        ents = sorted({e for e in (api.default_entity, *teams) if e})
+        print(f"wandb user={api.viewer.username} default={api.default_entity} entities={ents}")
+        if entity not in ents:
+            sys.exit(f"FATAL: wandb key has no access to entity '{entity}'. Accessible: {ents}")
+        print(f"wandb entity '{entity}' OK")
+        PY
+
+        # Config preflight: instantiates every model config and runs one
+        # forward. Catches act_seq/action_horizon mismatches and evaluator
+        # init_mode typos here, in seconds, rather than after the data pull.
+        python -m pytest tests/test_control_mode_configs.py -q
+        python -m pytest tests/test_ar_action_decoder.py -q
+        # Composes the FULL config with the real overrides. Strictly stronger
+        # than the per-file tests above, which load YAML by path and so cannot
+        # see a missing config-GROUP prefix.
+        python -m pytest tests/test_hydra_composition.py -q
+
+        mkdir -p "$DATASET_DIR"
+
+        # ------------------------------------------------ checkpoint persistence
+        # ModelCheckpoint writes inside /workspace, which is node-local and
+        # ephemeral, and this workflow declares no outputs — checkpoints die
+        # with the container unless they are pushed out continuously.
+        cat > /tmp/ckpt_sync.sh <<'CSEOF'
+        #!/bin/bash
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        DEST="s3://rldb/staged/pushshapes_control_modes/$1"
+        # NUL-delimited, not `for d in $(find ...)`. Lightning's run directory
+        # is named after the run DESCRIPTION, which contains spaces — an
+        # unquoted command substitution word-splits that path into fragments and
+        # every sync fails into a log nobody reads. Checkpoints then silently
+        # never leave the container, which is exactly how two completed 20h runs
+        # were lost before.
+        while true; do
+          find /workspace/EgoVerse/logs -type d -name checkpoints -print0 2>/dev/null |
+            while IFS= read -r -d '' d; do
+              s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 sync "$d/" "$DEST/checkpoints/" >>/tmp/ckpt_sync.log 2>&1
+            done
+          find /workspace/EgoVerse/logs -name norm_stats.json -print0 2>/dev/null |
+            while IFS= read -r -d '' f; do
+              s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp "$f" "$DEST/norm_stats.json" >>/tmp/ckpt_sync.log 2>&1
+            done
+          sleep 420
+        done
+        CSEOF
+        chmod +x /tmp/ckpt_sync.sh
+        (setsid nohup /tmp/ckpt_sync.sh "$JOB_NAME" >/dev/null 2>&1 &)
+
+        ulimit -n 65536 || true
+
+        # ------------------------------------------------- stage control modes
+        # s3://rldb is CLOUDFLARE R2, not AWS S3. It needs $R2_ENDPOINT_URL and
+        # the R2 key pair; pointing valid AWS credentials at an AWS endpoint
+        # returns AccessDenied and looks exactly like a permissions problem.
+        # AWS_SESSION_TOKEN from the secret is stale and makes R2 return
+        # InvalidArgument, so it must be unset.
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        unset AWS_SESSION_TOKEN
+
+        TRAIN_DIR="$PUSHSHAPES_ROOT/train/gripper/T"
+        mkdir -p "$TRAIN_DIR"
+        for mode in $SEEN_MODES; do
+          STAGE="/tmp/stage_$mode"
+          mkdir -p "$STAGE"
+          s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 48 \
+            cp "${DATA_PREFIX}/${mode}/gripper/T/*" "$STAGE/"
+          # Cap per mode ON DISK. A loader kwarg that is silently ignored is
+          # worse than no cap, because the run still looks correct.
+          ls -1 "$STAGE" | sort | tail -n +$((N_PER_MODE + 1)) | while read -r ep; do
+            rm -rf "$STAGE/$ep"
+          done
+          # PREFIX with the mode: episode names are identical across cells, so
+          # an unprefixed move keeps only the last mode.
+          for ep in "$STAGE"/*; do
+            [ -e "$ep" ] || continue
+            mv "$ep" "$TRAIN_DIR/${mode}__$(basename "$ep")"
+          done
+          rmdir "$STAGE" || true
+          echo "staged $mode: $(ls -1 "$TRAIN_DIR" | grep -c "^${mode}__") episodes"
+        done
+
+        echo "TOTAL staged: $(ls -1 "$TRAIN_DIR" | wc -l) episodes"
+        du -sh "$PUSHSHAPES_ROOT"
+
+        # No episode may come from a mode that is not in SEEN_MODES. A stray
+        # directory would silently rejoin training through a glob and turn the
+        # generalization result into an in-distribution one. Checked by
+        # enumerating what is actually on disk rather than by naming the
+        # holdouts, so adding a mode cannot outgrow the guard.
+        for ep in $(ls -1 "$TRAIN_DIR"); do
+          m="${ep%%__*}"
+          case " $SEEN_MODES " in
+            *" $m "*) ;;
+            *) echo "FATAL: episode from non-training mode '$m' in $TRAIN_DIR: $ep"; exit 1 ;;
+          esac
+        done
+        # Every mode must land EXACTLY N_PER_MODE episodes. Checking for
+        # non-zero is not enough: a partially-written or partially-pulled cell
+        # yields a short mode that still trains, still logs, and silently
+        # reweights the mixture the whole comparison rests on.
+        for mode in $SEEN_MODES; do
+          n=$(ls -1 "$TRAIN_DIR" | grep -c "^${mode}__" || true)
+          if [ "$n" -ne "$N_PER_MODE" ]; then
+            echo "FATAL: mode $mode staged $n episodes, expected $N_PER_MODE"
+            exit 1
+          fi
+        done
+        echo "all $(echo $SEEN_MODES | wc -w) seen modes staged at $N_PER_MODE episodes each"
+
+        # --------------------------------------------- phase 1: norm stats (1 GPU)
+        # trainHydra computes stats unguarded by rank, so letting all ranks do
+        # it would be N-way redundant plus a write race on norm_stats.json.
+        DL_OVERRIDES=""
+        for emb in $EMBODIMENTS; do
+          for split in train valid; do
+            DL_OVERRIDES="$DL_OVERRIDES data.${split}_dataloader_params.${emb}.batch_size=$BATCH_SIZE"
+            DL_OVERRIDES="$DL_OVERRIDES data.${split}_dataloader_params.${emb}.num_workers=$NUM_WORKERS"
+          done
+        done
+        echo "dataloader overrides: $DL_OVERRIDES"
+
+        NORM_DIR="$WORKDIR/norm_stats/${RUN_NAME}"
+        mkdir -p "$NORM_DIR"
+
+        # ~evaluator here is correct: 1 batch, no rollout.
+        CUDA_VISIBLE_DEVICES=0 python egomimic/trainHydra.py \
+          data="$DATA_CFG" \
+          model="$MODEL_CFG" \
+          ~evaluator \
+          paths.dataset_dir="$DATASET_DIR" \
+          launch_params.nodes=1 launch_params.gpus_per_node=1 \
+          norm_stats.save_cache_dir="$NORM_DIR" \
+          trainer.max_epochs=1 trainer.min_epochs=1 \
+          trainer.limit_train_batches=1 trainer.limit_val_batches=0 \
+          ~logger ~callbacks \
+          name="$RUN_NAME" description="${RUN_DESC}_normstats"
+
+        NORM_JSON="$NORM_DIR/norm_stats/norm_stats.json"
+        test -s "$NORM_JSON"
+
+        # ------------------------------------------ phase 2: training (N GPUs)
+        # evaluator= MUST be passed here. Passing ~evaluator in both phases
+        # produces a run that reports loss only, finishes cleanly, and cannot
+        # answer the question it was launched for.
+        #
+        # THREE trainer defaults must be overridden or the evaluator never
+        # produces a number, and the run still exits 0:
+        #
+        #   check_val_every_n_epoch: 200  (trainer/ddp.yaml)
+        #     Greater than max_epochs=100, so the FIRST validation is scheduled
+        #     for an epoch that never arrives. num_sanity_val_steps is 0 too, so
+        #     nothing runs at step 0 either. A run trains all 100 epochs, exits
+        #     COMPLETED, and logs zero success rates. Observed exactly that.
+        #
+        #   limit_val_batches: 80  (trainer/default.yaml, inherited by ddp)
+        #     eval_video.on_validation_step runs the ENTIRE evaluator per batch,
+        #     so 80 batches x 6 evaluators x 10 rollouts = 4,800 rollouts for a
+        #     single validation. One batch is what triggers one full sweep.
+        #
+        #   model_checkpoint.every_n_epochs: 100  (callbacks/checkpoints.yaml)
+        #     Only writes at the very end, so a run in progress shows no
+        #     checkpoint and there is nothing to recover if it dies.
+        python egomimic/trainHydra.py \
+          data="$DATA_CFG" \
+          model="$MODEL_CFG" \
+          evaluator=eval_sim_control_modes \
+          trainer.strategy=ddp_find_unused_parameters_true \
+          norm_stats.precomputed_norm_path="$NORM_JSON" \
+          paths.dataset_dir="$DATASET_DIR" \
+          launch_params.nodes=1 launch_params.gpus_per_node="$NUM_GPU" \
+          $DL_OVERRIDES \
+          logger.wandb.entity="$WANDB_ENTITY" \
+          trainer.limit_train_batches="$LIMIT_TRAIN_BATCHES" \
+          trainer.check_val_every_n_epoch=1 \
+          trainer.limit_val_batches=1 \
+          callbacks.model_checkpoint.every_n_epochs=1 \
+          trainer.max_epochs="$MAX_EPOCHS" trainer.min_epochs="$MAX_EPOCHS" \
+          seed="$SEED" \
+          callbacks=checkpoints_monitored \
+          model.enable_grad_norm=true \
+          name="$RUN_NAME" description="$RUN_DESC"
+
+        # The periodic sync may be mid-sleep when training ends.
+        # Same hazard: a bare glob passes each match as a separate argument and
+        # s5cmd sync takes exactly two, so a run directory with spaces breaks it.
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto
+        find /workspace/EgoVerse/logs -type d -name checkpoints -print0 2>/dev/null |
+          while IFS= read -r -d '' d; do
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
+              sync "$d/" "s3://rldb/staged/pushshapes_control_modes/$JOB_NAME/checkpoints/" || true
+          done
+        echo "final checkpoint flush done"
+
+  # groot-l40s-01 is 4 GPU/node — num_gpu=8 is rejected outright. Storage is
+  # sized far below the cotrain11 launcher because this stages one embodiment
+  # across five gap rows (~3GB) rather than 11 embodiments (~155GB).
+  resources:
+    default:
+      cpu: {{cpu}}
+      gpu: {{num_gpu}}
+      memory: {{memory}}
+      storage: {{storage}}
+
+  timeout:
+    queue_timeout: 1d
