@@ -1068,3 +1068,43 @@ directions -- was reading that variance.
 The common failure: reporting before the sample supported it. Three episodes
 could not distinguish a plateau from a trend; four epochs cannot distinguish an
 arm difference from training noise.
+
+
+---
+
+## RESIDUAL (delta) TARGET: validated at two matched epochs
+
+Tested at BOTH epoch 7 and epoch 11, treating a result as supported only if the
+sign agrees at both — every single-epoch claim in this study has been dominated
+by epoch-to-epoch variance.
+
+| model | fine cos | right | ratio |
+|---|---|---|---|
+| baseline ep7 | 0.120 | 53.8% | 19.1 |
+| residual ep7 | 0.160 | 55.3% | **14.9** |
+| baseline ep11 | 0.182 | 56.2% | 19.5 |
+| residual ep11 | 0.152 | 55.3% | **17.0** |
+
+    ep7:  residual - baseline   cos +0.040   ratio -4.2
+    ep11: residual - baseline   cos -0.030   ratio -2.5
+
+**Direction agreement: INCONCLUSIVE** — the sign flips.
+
+**Overshoot: CONSISTENTLY BETTER at both epochs.** The residual target commands
+14.9x / 17.0x the expert's step where the baseline commands 19.1x / 19.5x. The
+sign agrees at both epochs, so this survives the two-epoch test.
+
+That matters because overshoot is the core failure mode: all arms command 19-29x
+too large in the fine phase, which is what drives the object the wrong way until
+the gripper jams. The residual target attacks exactly that quantity, reducing it
+~15-22%.
+
+**But it is nowhere near sufficient.** 19x -> 17x does not approach the 1.0x the
+task needs. This is consistent with the residual run's own norm stats: the delta
+range came out at 227px, only **1.8x** narrower than the absolute 417px, because
+the delta distribution is heavy-tailed (median <1px but p99 ~280px). Re-anchoring
+the target rescales far less than the median suggested it would.
+
+**Verdict: real, reproducible, and too small to fix the problem alone.** Getting
+overshoot to ~1x needs the loss weighted toward the fine regime directly —
+per-step normalisation or a scale-relative error — not just a re-anchored target.
