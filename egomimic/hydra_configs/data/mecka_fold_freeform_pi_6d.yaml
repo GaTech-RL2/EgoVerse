@@ -1,0 +1,93 @@
+# MECKA_FOLD_FREEFORM_PI_6D — pi0.5 BC on the mecka FREEFORM fold-clothes
+# episodes only, stored under the human_bimanual embodiment. The freeform twin
+# of mecka_fold_flagship_pi_6d (1,607 short flagship episodes): SQL
+# task='folding_clothes', 462 eps / 1.13M frames under
+# processed_v3/mecka/freeform/. "freeform" is only visible in
+# zarr_processed_path, so the filter keys on '/mecka/freeform/' and accepts
+# either fold-clothes task spelling (the flagship 'fold_clothes' rows fail the
+# path check, so this resolves to the 462).
+#
+# WRIST-frame cartesian actions with the continuous 6D rotation (18D =
+# xyz+6D per arm, no gripper): each arm's 100-step chunk is expressed
+# relative to that wrist's current pose, so the world frame and the moving
+# head frame cancel out of the targets; the head-frame proprio ee_pose is
+# 6D-encoded too (it is the only head-frame signal the model sees).
+#
+# Same pipeline knobs as mecka_all_pi_6d: fix_mecka_left_wrist (processed_v3
+# mecka zarrs have the LEFT wrist frame double-mirrored; Rz(180°)-corrected
+# before any frame math), pad_proprio_gripper (18 -> 20-dim proprio so the
+# State: prompt bins align with the robot layout), stride 1 (mecka is
+# recorded at the target rate), prompts from the `annotations` track.
+# Pairs with model=pi0.5_bc_mecka_6d and evaluator=eval_pi_wristframe_6d
+# (+ `+evaluator@train_viz_evaluator=train_viz_pi_wristframe_6d` for the train-set
+# spot-check head). The cam-frame twin is mecka_fold_freeform_pi_cam6d.
+#
+# Norm stats: precompute on a CPU node (scripts/norm_fold_freeform_wrist6d.sbatch) with
+#   precompute_norm_stats.py --data mecka_fold_freeform_pi_6d --model pi0.5_bc_mecka_6d
+# and point training at norm_stats.precomputed_norm_path=<out>/norm_stats.
+#
+# folder_path: shared PACE mirror of processed_v3; all 462 episodes were
+# verified present on 2026-08-28, so the resolver syncs nothing.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        # "_pi" suffix -> PaliGemma-style camera name (base_0_rgb).
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_wristframe_6d
+        stride: 1
+        fix_mecka_left_wrist: true
+        pad_proprio_gripper: true
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
+        - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+
+# Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
+# videos_train_viz/). No shuffle -> same leading slice every val.
+train_viz_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: train
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+
+train_viz_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 2
+    shuffle: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+    shuffle: false
