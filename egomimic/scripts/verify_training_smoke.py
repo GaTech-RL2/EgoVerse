@@ -280,6 +280,11 @@ def verify_training_smoke(
     assert ema_config._target_ == "egomimic.utils.ema_callback.EMACallback"
     assert math.isclose(float(ema_config.decay), 0.9978, abs_tol=1.0e-12)
     assert ema_config.validate_with_ema is True
+    normal_policy_stages = [
+        stage
+        for stage in config.model.robomimic_model.stages
+        if str(stage._target_).endswith("UniteLatentPolicy")
+    ]
     shared_stages = [
         stage
         for stage in config.model.robomimic_model.stages
@@ -290,9 +295,13 @@ def verify_training_smoke(
         for stage in config.model.robomimic_model.stages
         if str(stage._target_).endswith("UnitePerEmbodimentActionDecoder")
     ]
-    assert len(shared_stages) == len(decoder_stages) == 1
-    timestep_shift_alpha = float(shared_stages[0].timestep_shift_alpha)
-    reconstruction_noise_std = float(decoder_stages[0].reconstruction_noise_std)
+    assert len(normal_policy_stages) == 1
+    assert len(shared_stages) == len(decoder_stages) == 0
+    unite_topology = "normal_unite_latent_policy"
+    timestep_shift_alpha = float(normal_policy_stages[0].timestep_shift_alpha)
+    reconstruction_noise_std = float(
+        normal_policy_stages[0].reconstruction_noise_std
+    )
     assert math.isclose(timestep_shift_alpha, 0.5, abs_tol=1.0e-12)
     assert math.isclose(reconstruction_noise_std, 0.7, abs_tol=1.0e-12)
     assert (
@@ -530,6 +539,7 @@ def verify_training_smoke(
             "parameter_count": ema_parameter_count,
             "history": ema_history,
         },
+        "unite_topology": unite_topology,
         "timestep_shift_alpha": timestep_shift_alpha,
         "reconstruction_noise_std": reconstruction_noise_std,
         "dense_training_steps": training_steps,
