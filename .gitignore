@@ -49,3 +49,9 @@ scratch/
 sample_data/
 external_ckpts/
 external/MANO/
+
+# Local agent state and eval-video artifacts (93MB of mp4; not source)
+.DS_Store
+**/.DS_Store
+.claude/
+osmo/
