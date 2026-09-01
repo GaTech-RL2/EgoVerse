@@ -918,6 +918,8 @@ def test_training_smoke_verifier_checks_world2_and_dense_step_history() -> None:
     assert 'parser.add_argument("--expected-strategy"' in verifier
     assert "str(config.trainer.strategy) == expected_strategy" in verifier
     assert '"trainer_strategy": str(config.trainer.strategy)' in verifier
+    assert 'row["trainer_global_step"] + 1 >= minimum_validation_step' in verifier
+    assert '"validation_after_optimizer_steps": validation_after_optimizer_steps' in verifier
     assert "config.trainer.limit_train_batches" in verifier
     assert "config.model.train_metrics_on_step is True" in verifier
     assert 'checkpoint.get("optimizer_states", [])' in verifier

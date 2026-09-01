@@ -398,12 +398,13 @@ def verify_training_smoke(
         assert metrics["log/unite_denoise_grad_norm"] > 0.0, row
         assert -1.000001 <= metrics["log/unite_gradient_cosine"] <= 1.000001, row
 
-    # num_sanity_val_steps=0 plus the requested minimum persisted trainer step
-    # proves this metric came from scheduled validation after optimization began.
+    # Lightning associates validation metrics with the zero-based training step
+    # that triggered validation. The corresponding completed optimizer-step count
+    # (and Energy Score artifact suffix) is therefore trainer_global_step + 1.
     scheduled_history = [
         row
         for row in validation_history
-        if row["trainer_global_step"] >= minimum_validation_step
+        if row["trainer_global_step"] + 1 >= minimum_validation_step
     ]
     assert scheduled_history, validation_history
     qualifying_history = [
@@ -414,6 +415,8 @@ def verify_training_smoke(
     assert qualifying_history, (required_embodiments, scheduled_history)
     selected = qualifying_history[-1]
     metrics = selected["validation_metrics"]
+    validation_after_optimizer_steps = selected["trainer_global_step"] + 1
+    assert validation_after_optimizer_steps <= global_step
 
     for embodiment in required_embodiments:
         prefix = f"Valid/emb{embodiment}_"
@@ -429,7 +432,7 @@ def verify_training_smoke(
         config,
         required_embodiments,
         expected_world_size,
-        selected["trainer_global_step"],
+        validation_after_optimizer_steps,
     )
 
     return {
@@ -456,6 +459,7 @@ def verify_training_smoke(
         "wandb_stream_sha256": _sha256(streams[0]),
         "wandb_exit_code": wandb_exit_code,
         "validation_trainer_global_step": selected["trainer_global_step"],
+        "validation_after_optimizer_steps": validation_after_optimizer_steps,
         "validation_metrics": metrics,
         "energy_score_artifacts": energy_score_artifacts,
         "training_history": training_history,
