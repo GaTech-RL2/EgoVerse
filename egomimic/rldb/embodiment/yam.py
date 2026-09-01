@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+import numpy as np
+
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
@@ -11,10 +13,28 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     InterpolateLinear,
     InterpolatePose,
     NumpyToTensor,
+    PoseCoordinateFrameTransform,
     QuaternionPoseToYPR,
     SplitKeys,
     Transform,
 )
+from egomimic.utils.pose_utils import _matrix_to_xyzwxyz
+from egomimic.utils.viz_utils import _viz_annotations
+
+
+def _flatten_annotations(raw) -> list[str]:
+    """Batch annotation entries -> flat list of non-empty strings."""
+    if raw is None:
+        return []
+    out: list[str] = []
+    stack = list(raw) if isinstance(raw, (list, tuple)) else [raw]
+    while stack:
+        item = stack.pop(0)
+        if isinstance(item, (list, tuple)):
+            stack = list(item) + stack
+        elif isinstance(item, str) and item.strip():
+            out.append(item)
+    return out
 
 
 class Yam(Embodiment):
@@ -26,17 +46,19 @@ class Yam(Embodiment):
     ``obs/cmd_gripper``, a front camera and two wrist cameras -- with three
     differences that matter downstream:
 
-    1. **No extrinsics, and none needed.** ABC's MCAP carries camera
-       *intrinsics* only. That does not block the wrist-frame pipeline: actions
-       are a delta relative to the current EEF pose, so a rigid frame change
+    1. **Extrinsics come from the station model, not the data.** ABC's MCAP
+       carries camera *intrinsics* only; :attr:`EXTRINSICS` is recovered from the
+       published rig (see that attribute) and covers the RealSense D405 station
+       only. So the ``cartesian`` modes, and every overlay that projects through
+       K, work exactly as they do for Eva -- but only on those episodes.
+       The ``cartesian_wristframe_*`` modes need no extrinsics at all: actions
+       are a delta relative to the current EEF pose, and a rigid frame change
        applied to both operands cancels
-       (``(E^-1 T_obs)^-1 (E^-1 T_cmd) == T_obs^-1 T_cmd``). Eva's camera-frame
-       hop is therefore a no-op for the action chunk, and :meth:`get_transform_list`
-       simply skips it and takes the delta in the station world frame.
-       The one real consequence is proprio: Eva feeds a *camera-frame* EEF pose
-       into ``observations.state.ee_pose`` while YAM feeds a station-world-frame
-       one. Both are a fixed frame, but they are not the same frame, which
-       matters when cotraining against Eva.
+       (``(E^-1 T_obs)^-1 (E^-1 T_cmd) == T_obs^-1 T_cmd``), so Eva's
+       camera-frame hop is a no-op for the action chunk. Those are the modes to
+       use on a ZED-X episode, which has no published rig. Note their proprio
+       then differs from Eva's: a station-world-frame EEF pose rather than a
+       camera-frame one, which matters when cotraining against Eva.
     2. **Per-episode intrinsics.** Two station types (RealSense 640x480 and
        ZED-X 1920x1200) with different calibration appear in the dataset, so K
        is read from each episode's ``zarr.attrs["intrinsics"]`` rather than
@@ -53,27 +75,104 @@ class Yam(Embodiment):
 
     # Per-episode; read from zarr.attrs["intrinsics"]["front_1"] (see above).
     INTRINSICS = None
-    # ABC records no camera poses, so there is nothing to put here.
-    EXTRINSICS = None
+
+    # world(left_base) <- top_camera, for the RealSense D405 station.
+    #
+    # ABC's own MCAP records no extrinsics, but the station this data was
+    # collected on is published: i2rt-robotics/i2rt, robot_models/station/
+    # yam_station_{crank,linear}_4310_d405. Composing that MJCF's
+    # top_camera_bracket -> top_camera_body -> top_camera chain reproduces the
+    # extrinsics its README documents, including the stated sanity check (the
+    # optical axis meets the base plane at (0.384, -0.305, 0), 60 degrees below
+    # horizontal). The chain is byte-identical between the crank and linear
+    # stations, so the gripper variant does not matter.
+    #
+    # ABC's world frame is that model's `left_base`: its documented
+    # left_base -> right_base offset of 0.61m matches the arm separation in the
+    # data, and projecting ABC's EE poses through this transform lands them on
+    # the grippers in the top-camera image.
+    #
+    # ONLY VALID FOR THE REALSENSE D405 STATION. ZED-X episodes use a different
+    # camera and rig, and i2rt publishes no model for it; the converter attaches
+    # this only when the episode's metadata reports a D405 top camera.
+    TOP_CAMERA_D405 = np.array(
+        [
+            [-0.000003673, -0.866026618,  0.499997896, -0.166494880],
+            [-1.000000000,  0.000003181, -0.000001837, -0.305000000],
+            [ 0.000000000, -0.499997896, -0.866026618,  0.954320530],
+            [ 0.000000000,  0.000000000,  0.000000000,  1.000000000]
+        ]
+    )
+    EXTRINSICS = {"front_1": TOP_CAMERA_D405}
 
     @staticmethod
     def get_transform_list(
-        mode: Literal["cartesian_wristframe_quat", "cartesian_wristframe_ypr"] = (
-            "cartesian_wristframe_quat"
-        ),
+        mode: Literal[
+            "cartesian",
+            "cartesian_ypr",
+            "cartesian_wristframe_quat",
+            "cartesian_wristframe_ypr",
+        ] = "cartesian",
     ) -> list[Transform]:
+        """Transform pipeline.
+
+        ``cartesian`` / ``cartesian_ypr`` put poses in the TOP-CAMERA frame via
+        :attr:`EXTRINSICS`, the analogue of Eva's ``cartesian``. Use these when
+        you want projectable poses (the ``mode="traj"`` overlays). ``_ypr`` is
+        the 14D layout ``_split_action_pose`` needs.
+
+        ``cartesian_wristframe_*`` express actions as a delta from the current
+        EEF pose. Those are extrinsics-independent, so they work on any station,
+        including ZED-X episodes that carry no published camera transform.
+        """
+        if mode == "cartesian":
+            return _build_yam_bimanual_camframe_transform_list(is_quat=True)
+        if mode == "cartesian_ypr":
+            return _build_yam_bimanual_camframe_transform_list(is_quat=False)
         if mode == "cartesian_wristframe_quat":
             return _build_yam_bimanual_eef_frame_transform_list(is_quat=True)
         if mode == "cartesian_wristframe_ypr":
             return _build_yam_bimanual_eef_frame_transform_list(is_quat=False)
-        raise ValueError(
-            f"Yam supports the wrist-frame modes only, got {mode!r}. There is no "
-            "camera-frame mode: ABC records no extrinsics, so a camera-frame "
-            "proprio/action representation cannot be built for this embodiment."
+        raise ValueError(f"unknown mode {mode!r}")
+
+    @classmethod
+    def viz_wristframe_batch(
+        cls,
+        batch,
+        mode: str = "traj+rotation",
+        annotation_key: str | None = "annotations",
+        is_quat: bool = False,
+        **kwargs,
+    ):
+        """Overlay WRIST-FRAME actions, plus their annotation, on the frame.
+
+        This is the visual check on the training representation itself: it takes
+        the wrist-frame action chunk a policy actually predicts, reverts it onto
+        the current EEF pose, maps it into the top-camera frame and projects it.
+        The ordinary :meth:`viz_transformed_batch` expects camera-frame actions
+        and so only works with the ``cartesian`` modes.
+
+        The base ``viz`` modes are mutually exclusive (``"annotations"``
+        *replaces* the trajectory), so the annotation is drawn as a second pass
+        on top of the rendered trajectory rather than instead of it.
+        """
+        vis = cls.viz_transformed_batch(
+            batch,
+            mode=mode,
+            transform_list=cls.get_revert_transform_list(
+                is_quat=is_quat, to_camera_frame=True
+            ),
+            **kwargs,
         )
+        texts = _flatten_annotations(batch.get(annotation_key) if annotation_key else None)
+        if texts:
+            vis = _viz_annotations(image=vis, annotations=texts)
+        return vis
 
     @staticmethod
-    def get_revert_transform_list(is_quat: bool = False) -> list[Transform]:
+    def get_revert_transform_list(
+        is_quat: bool = False, to_camera_frame: bool = False
+    ) -> list[Transform]:
         """Undo the wrist-frame step, recovering absolute poses for visualization.
 
         Mirrors ``_build_eva_bimanual_revert_eef_frame_transform_list``. Eva's
@@ -86,7 +185,9 @@ class Yam(Embodiment):
         ``Yam.EXTRINSICS = {"front_1": T}`` if you obtain one and the image-space
         overlay becomes available.
         """
-        return _build_yam_bimanual_revert_eef_frame_transform_list(is_quat=is_quat)
+        return _build_yam_bimanual_revert_eef_frame_transform_list(
+            is_quat=is_quat, to_camera_frame=to_camera_frame
+        )
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
@@ -276,11 +377,17 @@ def _build_yam_bimanual_revert_eef_frame_transform_list(
     left_cmd_world: str = "left.cmd_ee_pose_world",
     right_cmd_world: str = "right.cmd_ee_pose_world",
     is_quat: bool = False,
+    to_camera_frame: bool = False,
+    top_camera_pose: str = "top_camera_pose",
 ) -> list[Transform]:
-    """Revert wrist-frame YAM actions back to the station world frame."""
+    """Revert wrist-frame YAM actions back to absolute poses.
+
+    Lands in the station world frame; with ``to_camera_frame`` it is carried on
+    into the top-camera frame via :attr:`Yam.EXTRINSICS` so it can be projected.
+    """
     pose_shape = 7 if is_quat else 6
     mode = "xyzwxyz" if is_quat else "xyzypr"
-    return [
+    out = [
         SplitKeys(
             input_key=obs_key,
             output_key_list=[
@@ -314,14 +421,183 @@ def _build_yam_bimanual_revert_eef_frame_transform_list(
             mode=mode,
             inverse=False,
         ),
+    ]
+
+    left_out, right_out = left_cmd_world, right_cmd_world
+    if to_camera_frame:
+        cam_pose = _matrix_to_xyzwxyz(Yam.EXTRINSICS["front_1"][None, :])[0]
+        extra = {top_camera_pose: cam_pose}
+        left_out, right_out = "left.cmd_ee_pose_camframe", "right.cmd_ee_pose_camframe"
+        out += [
+            ActionChunkCoordinateFrameTransform(
+                target_world=top_camera_pose,
+                chunk_world=left_cmd_world,
+                transformed_key_name=left_out,
+                extra_batch_key=extra,
+                mode=mode,
+            ),
+            ActionChunkCoordinateFrameTransform(
+                target_world=top_camera_pose,
+                chunk_world=right_cmd_world,
+                transformed_key_name=right_out,
+                extra_batch_key=extra,
+                mode=mode,
+            ),
+        ]
+
+    out.append(
         ConcatKeys(
-            key_list=[
-                left_cmd_world,
-                left_cmd_gripper,
-                right_cmd_world,
-                right_cmd_gripper,
-            ],
+            key_list=[left_out, left_cmd_gripper, right_out, right_cmd_gripper],
             new_key_name=action_key,
             delete_old_keys=True,
+        )
+    )
+    return out
+
+
+def _build_yam_bimanual_camframe_transform_list(
+    *,
+    top_camera_pose: str = "top_camera_pose",
+    left_cmd_world: str = "left.cmd_ee_pose",
+    right_cmd_world: str = "right.cmd_ee_pose",
+    left_obs_pose: str = "left.obs_ee_pose",
+    right_obs_pose: str = "right.obs_ee_pose",
+    left_obs_gripper: str = "left.obs_gripper",
+    right_obs_gripper: str = "right.obs_gripper",
+    left_cmd_gripper: str = "left.cmd_gripper",
+    right_cmd_gripper: str = "right.cmd_gripper",
+    left_cmd_camframe: str = "left.cmd_ee_pose_camframe",
+    right_cmd_camframe: str = "right.cmd_ee_pose_camframe",
+    left_obs_camframe: str = "left.obs_ee_pose_camframe",
+    right_obs_camframe: str = "right.obs_ee_pose_camframe",
+    actions_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+    chunk_length: int = 100,
+    stride: int = 1,
+    is_quat: bool = True,
+) -> list[Transform]:
+    """YAM bimanual pipeline with poses in the top-camera frame.
+
+    Mirrors ``_build_eva_bimanual_transform_list``. The one structural
+    difference: Eva has a wrist camera per arm and so keys EXTRINSICS per arm,
+    while YAM's is a single fixed overhead camera, so BOTH arms are referred to
+    the same ``top_camera_pose``. Output poses are in that camera's frame
+    (+X right, +Y down, +Z along the optical axis), so projecting with the
+    episode's K is meaningful.
+    """
+    cam_pose = _matrix_to_xyzwxyz(Yam.EXTRINSICS["front_1"][None, :])[0]
+    extra = {top_camera_pose: cam_pose}
+    # The frame transforms always consume the raw 7D xyzwxyz poses the converter
+    # writes; `is_quat` only selects whether they are converted to YPR at the
+    # END. (Eva's plain builder keys these off is_quat, which is why only its
+    # is_quat=True path works.)
+    mode = "xyzwxyz"
+
+    transform_list = [
+        ActionChunkCoordinateFrameTransform(
+            target_world=top_camera_pose,
+            chunk_world=left_cmd_world,
+            transformed_key_name=left_cmd_camframe,
+            extra_batch_key=extra,
+            mode=mode,
+        ),
+        ActionChunkCoordinateFrameTransform(
+            target_world=top_camera_pose,
+            chunk_world=right_cmd_world,
+            transformed_key_name=right_cmd_camframe,
+            extra_batch_key=extra,
+            mode=mode,
+        ),
+        PoseCoordinateFrameTransform(
+            target_world=top_camera_pose,
+            pose_world=left_obs_pose,
+            transformed_key_name=left_obs_camframe,
+            mode=mode,
+        ),
+        PoseCoordinateFrameTransform(
+            target_world=top_camera_pose,
+            pose_world=right_obs_pose,
+            transformed_key_name=right_obs_camframe,
+            mode=mode,
+        ),
+        InterpolatePose(
+            new_chunk_length=chunk_length,
+            action_key=left_cmd_camframe,
+            output_action_key=left_cmd_camframe,
+            stride=stride,
+            mode="xyzwxyz",
+        ),
+        InterpolatePose(
+            new_chunk_length=chunk_length,
+            action_key=right_cmd_camframe,
+            output_action_key=right_cmd_camframe,
+            stride=stride,
+            mode="xyzwxyz",
+        ),
+        InterpolateLinear(
+            new_chunk_length=chunk_length,
+            action_key=left_cmd_gripper,
+            output_action_key=left_cmd_gripper,
+            stride=stride,
+        ),
+        InterpolateLinear(
+            new_chunk_length=chunk_length,
+            action_key=right_cmd_gripper,
+            output_action_key=right_cmd_gripper,
+            stride=stride,
         ),
     ]
+
+    if not is_quat:
+        transform_list.extend(
+            [
+                BatchQuaternionPoseToYPR(
+                    pose_key=left_cmd_camframe, output_key=left_cmd_camframe
+                ),
+                BatchQuaternionPoseToYPR(
+                    pose_key=right_cmd_camframe, output_key=right_cmd_camframe
+                ),
+                QuaternionPoseToYPR(
+                    pose_key=left_obs_camframe, output_key=left_obs_camframe
+                ),
+                QuaternionPoseToYPR(
+                    pose_key=right_obs_camframe, output_key=right_obs_camframe
+                ),
+            ]
+        )
+
+    transform_list.extend(
+        [
+            ConcatKeys(
+                key_list=[
+                    left_cmd_camframe,
+                    left_cmd_gripper,
+                    right_cmd_camframe,
+                    right_cmd_gripper,
+                ],
+                new_key_name=actions_key,
+                delete_old_keys=True,
+            ),
+            ConcatKeys(
+                key_list=[
+                    left_obs_camframe,
+                    left_obs_gripper,
+                    right_obs_camframe,
+                    right_obs_gripper,
+                ],
+                new_key_name=obs_key,
+                delete_old_keys=True,
+            ),
+            DeleteKeys(
+                keys_to_delete=[
+                    left_cmd_world,
+                    right_cmd_world,
+                    left_obs_pose,
+                    right_obs_pose,
+                    top_camera_pose,
+                ]
+            ),
+            NumpyToTensor(keys=[actions_key, obs_key]),
+        ]
+    )
+    return transform_list

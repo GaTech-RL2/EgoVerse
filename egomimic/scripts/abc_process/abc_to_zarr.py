@@ -37,6 +37,7 @@ import cv2
 import numpy as np
 import simplejpeg
 
+from egomimic.rldb.embodiment.yam import Yam
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 from egomimic.utils.pose_utils import _matrix_to_xyzwxyz
 
@@ -87,6 +88,17 @@ def _read_mcap(path: Path) -> dict[str, list]:
             out.setdefault(channel.topic, []).append((message.log_time, decoded))
     for v in out.values():
         v.sort(key=lambda kv: kv[0])
+    return out
+
+
+def _episode_metadata(path: Path) -> dict[str, str]:
+    """Flatten the MCAP metadata records (camera types, operator, duration...)."""
+    from mcap.reader import make_reader
+
+    out: dict[str, str] = {}
+    with open(path, "rb") as f:
+        for record in make_reader(f).iter_metadata():
+            out.update(record.metadata)
     return out
 
 
@@ -192,6 +204,7 @@ def convert_episode(
     chunk_timesteps: int = 100,
 ) -> Path:
     topics = _read_mcap(episode_dir / "episode.mcap")
+    meta = _episode_metadata(episode_dir / "episode.mcap")
 
     top_topic = next((t for t in TOP_CAMERA_TOPICS if t in topics), None)
     if top_topic is None:
@@ -269,6 +282,20 @@ def convert_episode(
         instr = topics.get(INSTRUCTION_TOPIC)
         task_name = str(instr[0][1].data) if instr else episode_dir.parent.name
 
+    # ABC records no extrinsics, but the rig is published (i2rt-robotics/i2rt,
+    # robot_models/station/...). Attach the top-camera transform only for the
+    # mono RealSense D405 station that model describes -- a ZED-X episode uses a
+    # different camera and rig with no published model.
+    top_cam_type = meta.get("top_camera_type", "")
+    extrinsics = None
+    if top_topic == "/top-camera" and "D405" in top_cam_type:
+        extrinsics = {"front_1": Yam.TOP_CAMERA_D405}
+    else:
+        logger.warning(
+            "%s: top camera is %r on %s, no published extrinsics -- omitting",
+            episode_dir.name, top_cam_type or "unknown", top_topic,
+        )
+
     K = _camera_K(topics, top_topic)
     if K is None:
         raise ValueError(
@@ -292,7 +319,7 @@ def convert_episode(
         annotations=_annotations(episode_dir / "annotation.mcap", frame_ts),
         chunk_timesteps=chunk_timesteps,
         intrinsics={"front_1": K},
-        extrinsics=None,
+        extrinsics=extrinsics,
     )
 
 
