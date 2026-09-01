@@ -1,4 +1,4 @@
-# HYBRID rate-matched: rotation gets its own budget and the token spans min(D/v_trans, D_rot/v_rot). D_rot=0.044 is D times the measured median ratio 0.0044 rad/unit, i.e. Cor 6.9's D_s ~ v_s, so both streams exhaust together and this should behave like translation-only -- the control.
+# HYBRID rotation-limited at D=50 M=16: D_rot=0.07333, 3x tighter than rate-matched, so the rotation budget binds first and truncates the token whenever the effector turns.
 # layout=append -> action_horizon=17, action_dims=5
 # 11-embodiment cotrain; HELD OUT circle_small, suction.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper

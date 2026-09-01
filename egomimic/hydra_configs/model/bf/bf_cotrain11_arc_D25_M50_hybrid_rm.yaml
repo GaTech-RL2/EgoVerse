@@ -1,10 +1,10 @@
-# HYBRID rate-matched: rotation gets its own budget and the token spans min(D/v_trans, D_rot/v_rot). D_rot=0.044 is D times the measured median ratio 0.0044 rad/unit, i.e. Cor 6.9's D_s ~ v_s, so both streams exhaust together and this should behave like translation-only -- the control.
-# layout=append -> action_horizon=17, action_dims=5
+# HYBRID rate-matched at D=25 M=50: D_rot=0.11 = D*0.0044, both budgets exhaust together, so this is the translation-only control at this (D, M).
+# layout=append -> action_horizon=51, action_dims=5
 # 11-embodiment cotrain; HELD OUT circle_small, suction.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.pipeline.algo.PipelineAlgo
-  action_horizon: 17
+  action_horizon: 51
   domains:
   - pushshapes_sim_L
   - pushshapes_sim_chain_gripper
@@ -102,14 +102,14 @@ robomimic_model:
           norm_layer: group
           pool_type: spatial_softmax
   - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
-    action_horizon: 17
+    action_horizon: 51
     latent_dim: 96
   - _target_: egomimic.pipeline.stages_sampler.MultiJActionSampler
     condition_input_dim: 67
     condition_dim: 384
     gradient_accumulation_steps: 1
     schedule_anchor_domain: pushshapes_sim_circle
-    action_horizon: 17
+    action_horizon: 51
     action_dims:
       pushshapes_sim_L: 5
       pushshapes_sim_chain_gripper: 5
@@ -141,7 +141,7 @@ robomimic_model:
       cond_dim: 384
       hidden_dim: 384
       act_dim: 96
-      act_seq: 17
+      act_seq: 51
       n_heads: 8
       dropout: 0.1
       mlp_layers: 4

@@ -28,6 +28,32 @@ VARIANTS = [
   "case where independent budgets differ from one translational clock.", 0.015),
 ]
 
+# ---------------------------------------------------------------- hybrid D x M
+# The hybrid distance function is the axis under test, so sweep it over D and M
+# rather than probing it at a single point. RATE-MATCHED sets D_rot = D * 0.0044
+# (the measured median rad-per-unit), so both budgets exhaust together and the
+# token behaves translation-only -- the control. TIGHT is 3x tighter, so
+# rotation binds and truncates whenever the effector turns -- the treatment.
+# Holding that RATIO fixed while D and M vary is what separates "independent
+# budgets matter" from "this particular D_rot happened to matter".
+RATE = 0.0044
+for _D in (10, 25, 50):
+    for _M in (16, 50):
+        if (_D, _M) == (10, 16):
+            continue                      # already defined above, both arms
+        rm = round(_D * RATE, 5)
+        tt = round(rm / 3.0, 5)
+        VARIANTS.append((
+            f"arc_D{_D}_M{_M}_hybrid_rm", _D, _M, 0.0, "append",
+            f"HYBRID rate-matched at D={_D} M={_M}: D_rot={rm} = D*{RATE}, both "
+            "budgets exhaust together, so this is the translation-only control "
+            "at this (D, M).", rm))
+        VARIANTS.append((
+            f"arc_D{_D}_M{_M}_hybrid_tight", _D, _M, 0.0, "append",
+            f"HYBRID rotation-limited at D={_D} M={_M}: D_rot={tt}, 3x tighter "
+            "than rate-matched, so the rotation budget binds first and truncates "
+            "the token whenever the effector turns.", tt))
+
 def data_cfg(name, D, M, rr, lay, hyb=None):
     hybline = f"        hybrid_rotation_unit: {float(hyb)}\n" if hyb is not None else ""
     def block(e, mode):
