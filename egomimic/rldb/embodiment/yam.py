@@ -12,6 +12,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     InterpolatePose,
     NumpyToTensor,
     QuaternionPoseToYPR,
+    SplitKeys,
     Transform,
 )
 
@@ -70,6 +71,22 @@ class Yam(Embodiment):
             "camera-frame mode: ABC records no extrinsics, so a camera-frame "
             "proprio/action representation cannot be built for this embodiment."
         )
+
+    @staticmethod
+    def get_revert_transform_list(is_quat: bool = False) -> list[Transform]:
+        """Undo the wrist-frame step, recovering absolute poses for visualization.
+
+        Mirrors ``_build_eva_bimanual_revert_eef_frame_transform_list``. Eva's
+        version lands in the camera frame because Eva's proprio is camera-frame;
+        YAM proprio is station-world-frame, so this lands in the station world
+        frame. Those absolute poses are what the 3D trajectory plots use.
+
+        Projecting them into the top-camera image needs a world<-cam transform,
+        which ABC does not record (see :attr:`EXTRINSICS`). Set
+        ``Yam.EXTRINSICS = {"front_1": T}`` if you obtain one and the image-space
+        overlay becomes available.
+        """
+        return _build_yam_bimanual_revert_eef_frame_transform_list(is_quat=is_quat)
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
@@ -242,3 +259,69 @@ def _build_yam_bimanual_eef_frame_transform_list(
         ]
     )
     return transform_list
+
+
+def _build_yam_bimanual_revert_eef_frame_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+    left_cmd_wristframe: str = "left.cmd_ee_pose_wristframe",
+    right_cmd_wristframe: str = "right.cmd_ee_pose_wristframe",
+    left_cmd_gripper: str = "left.cmd_gripper",
+    right_cmd_gripper: str = "right.cmd_gripper",
+    left_obs_world: str = "left.obs_ee_pose_world",
+    right_obs_world: str = "right.obs_ee_pose_world",
+    left_obs_gripper: str = "left.obs_gripper",
+    right_obs_gripper: str = "right.obs_gripper",
+    left_cmd_world: str = "left.cmd_ee_pose_world",
+    right_cmd_world: str = "right.cmd_ee_pose_world",
+    is_quat: bool = False,
+) -> list[Transform]:
+    """Revert wrist-frame YAM actions back to the station world frame."""
+    pose_shape = 7 if is_quat else 6
+    mode = "xyzwxyz" if is_quat else "xyzypr"
+    return [
+        SplitKeys(
+            input_key=obs_key,
+            output_key_list=[
+                (left_obs_world, pose_shape),
+                (left_obs_gripper, 1),
+                (right_obs_world, pose_shape),
+                (right_obs_gripper, 1),
+            ],
+        ),
+        SplitKeys(
+            input_key=action_key,
+            output_key_list=[
+                (left_cmd_wristframe, pose_shape),
+                (left_cmd_gripper, 1),
+                (right_cmd_wristframe, pose_shape),
+                (right_cmd_gripper, 1),
+            ],
+        ),
+        # inverse=False: target_se3 @ chunk_se3, i.e. re-compose onto the obs pose
+        ActionChunkCoordinateFrameTransform(
+            target_world=left_obs_world,
+            chunk_world=left_cmd_wristframe,
+            transformed_key_name=left_cmd_world,
+            mode=mode,
+            inverse=False,
+        ),
+        ActionChunkCoordinateFrameTransform(
+            target_world=right_obs_world,
+            chunk_world=right_cmd_wristframe,
+            transformed_key_name=right_cmd_world,
+            mode=mode,
+            inverse=False,
+        ),
+        ConcatKeys(
+            key_list=[
+                left_cmd_world,
+                left_cmd_gripper,
+                right_cmd_world,
+                right_cmd_gripper,
+            ],
+            new_key_name=action_key,
+            delete_old_keys=True,
+        ),
+    ]
