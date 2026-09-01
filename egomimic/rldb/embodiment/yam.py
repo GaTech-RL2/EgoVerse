@@ -7,19 +7,15 @@ import numpy as np
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
-    BatchQuaternionPoseTo6D,
-    BatchQuaternionPoseToYPR,
     ConcatKeys,
     DeleteKeys,
     InterpolateLinear,
     InterpolatePose,
     NumpyToTensor,
     PoseCoordinateFrameTransform,
-    QuaternionPoseTo6D,
-    QuaternionPoseToYPR,
     SplitKeys,
     Transform,
-    XYZWXYZ_to_XYZYPR,
+    transforms_for_rotation_mode,
 )
 from egomimic.utils.pose_utils import _matrix_to_xyzwxyz
 from egomimic.utils.viz_utils import _viz_annotations
@@ -52,9 +48,9 @@ class Yam(Embodiment):
     1. **Extrinsics come from the station model, not the data.** ABC's MCAP
        carries camera *intrinsics* only; :attr:`EXTRINSICS` is recovered from the
        published rig (see that attribute) and covers the RealSense D405 station
-       only. So the ``cartesian`` modes, and every overlay that projects through
-       K, work exactly as they do for Eva -- but only on those episodes.
-       The ``cartesian_wristframe_*`` modes need no extrinsics at all: actions
+       only. So the ``camframe`` modes, and every overlay that projects
+       through K, work exactly as they do for Eva -- but only on those episodes.
+       The ``eef_frame`` modes need no extrinsics at all: actions
        are a delta relative to the current EEF pose, and a rigid frame change
        applied to both operands cancels
        (``(E^-1 T_obs)^-1 (E^-1 T_cmd) == T_obs^-1 T_cmd``), so Eva's
@@ -123,52 +119,54 @@ class Yam(Embodiment):
 
     @staticmethod
     def get_transform_list(
-        mode: Literal[
+        action_mode: Literal[
             "cartesian",
-            "cartesian_ypr",
-            "cartesian_world",
-            "cartesian_wristframe_ypr",
-            "cartesian_wristframe_quat",
-            "cartesian_wrist_6D",
         ] = "cartesian",
+        coord_frame: Literal[
+            "camframe",
+            "world",
+            "eef_frame",
+        ] = "camframe",
+        rotation_mode: Literal[
+            "euler",
+            "quat",
+            "6D",
+        ] = "euler",
     ) -> list[Transform]:
-        """Transform pipeline. Mode-for-mode the same set Eva exposes.
+        """``action_mode`` is the action layout; ``coord_frame`` is where poses
+        live; ``rotation_mode`` is how rotation is stored.
 
-        ``cartesian`` / ``cartesian_ypr`` put poses in the TOP-CAMERA frame via
-        :attr:`EXTRINSICS`, the analogue of Eva's ``cartesian``. Use these when
-        you want projectable poses (the ``mode="traj"`` overlays). ``_ypr`` is
-        the 14D layout ``_split_action_pose`` needs.
+        ``camframe`` puts poses in the TOP-CAMERA frame via :attr:`EXTRINSICS`,
+        the analogue of Eva's cam-frame mode. Use this when you want
+        projectable poses (the ``mode="traj"`` overlays).
 
-        ``cartesian_world`` keeps poses in the raw station base frame. NOTE the
-        difference from Eva: on Eva the base IS the front camera, so its world
-        mode is still projectable with the front K. On YAM the top camera sits
+        ``world`` keeps poses in the raw station base frame. NOTE the
+        difference from Eva: on Eva the base IS the front camera, so cam-frame
+        is still projectable with the front K. On YAM the top camera sits
         ~0.95m above the base and 60 degrees off horizontal, so world-frame
         poses are NOT projectable without going through EXTRINSICS -- use
-        ``cartesian`` for anything that draws on the image.
+        ``camframe`` for anything that draws on the image.
 
-        ``cartesian_wristframe_*`` express actions as a delta from the current
-        EEF pose. Those are extrinsics-independent, so they work on any station,
-        including the wide-camera episodes that carry no published rig.
+        ``eef_frame`` expresses actions as a delta from the current EEF pose.
+        That is extrinsics-independent, so it works on any station, including
+        the wide-camera episodes that carry no published rig.
+
+        Geometric hops always run in xyz+quat; ``rotation_mode`` then converts
+        rotation to euler (xyz+ypr, 14D), quat (16D), or Zhou 6D (20D).
         """
-        if mode == "cartesian":
-            return _build_yam_bimanual_camframe_transform_list(is_quat=True)
-        if mode == "cartesian_ypr":
-            # Alias of "cartesian". Kept because the viz notebook names it
-            # explicitly; both emit the 14D ypr layout the viz helpers expect.
-            return _build_yam_bimanual_camframe_transform_list(is_quat=True)
-        if mode == "cartesian_world":
+        if action_mode != "cartesian":
+            raise ValueError(f"unknown action_mode {action_mode!r}")
+        if coord_frame == "camframe":
             return _build_yam_bimanual_camframe_transform_list(
-                is_quat=True, to_camera_frame=False
+                rotation_mode=rotation_mode, to_camera_frame=True
             )
-        if mode == "cartesian_wristframe_quat":
-            return _build_yam_bimanual_eef_frame_transform_list(is_quat=True)
-        if mode == "cartesian_wristframe_ypr":
-            return _build_yam_bimanual_eef_frame_transform_list(is_quat=False)
-        if mode == "cartesian_wrist_6D":
-            return _build_yam_bimanual_eef_frame_transform_list(
-                is_quat=True, to_6d=True
+        if coord_frame == "world":
+            return _build_yam_bimanual_camframe_transform_list(
+                rotation_mode=rotation_mode, to_camera_frame=False
             )
-        raise ValueError(f"unknown mode {mode!r}")
+        if coord_frame == "eef_frame":
+            return _build_yam_bimanual_eef_frame_transform_list(rotation_mode=rotation_mode)
+        raise ValueError(f"unknown coord_frame {coord_frame!r}")
 
     @classmethod
     def viz_wristframe_batch(
@@ -330,8 +328,7 @@ def _build_yam_bimanual_eef_frame_transform_list(
     obs_key: str = "observations.state.ee_pose",
     chunk_length: int = 100,
     stride: int = 1,
-    is_quat: bool = True,
-    to_6d: bool = False,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
 ) -> list[Transform]:
     """YAM bimanual pipeline: actions relative to the current EEF pose (wrist frame).
 
@@ -384,32 +381,17 @@ def _build_yam_bimanual_eef_frame_transform_list(
         ),
     ]
 
-    if to_6d:
-        transform_list.extend(
-            [
-                BatchQuaternionPoseTo6D(
-                    pose_key=left_cmd_wristframe, output_key=left_cmd_wristframe
-                ),
-                BatchQuaternionPoseTo6D(
-                    pose_key=right_cmd_wristframe, output_key=right_cmd_wristframe
-                ),
-                QuaternionPoseTo6D(pose_key=left_obs_pose, output_key=left_obs_pose),
-                QuaternionPoseTo6D(pose_key=right_obs_pose, output_key=right_obs_pose),
-            ]
+    transform_list.extend(
+        transforms_for_rotation_mode(
+            keys=[
+                left_cmd_wristframe,
+                right_cmd_wristframe,
+                left_obs_pose,
+                right_obs_pose,
+            ],
+            rotation_mode=rotation_mode,
         )
-    elif not is_quat:
-        transform_list.extend(
-            [
-                BatchQuaternionPoseToYPR(
-                    pose_key=left_cmd_wristframe, output_key=left_cmd_wristframe
-                ),
-                BatchQuaternionPoseToYPR(
-                    pose_key=right_cmd_wristframe, output_key=right_cmd_wristframe
-                ),
-                QuaternionPoseToYPR(pose_key=left_obs_pose, output_key=left_obs_pose),
-                QuaternionPoseToYPR(pose_key=right_obs_pose, output_key=right_obs_pose),
-            ]
-        )
+    )
 
     transform_list.extend(
         [
@@ -552,13 +534,13 @@ def _build_yam_bimanual_camframe_transform_list(
     obs_key: str = "observations.state.ee_pose",
     chunk_length: int = 100,
     stride: int = 1,
-    is_quat: bool = True,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
     to_camera_frame: bool = True,
 ) -> list[Transform]:
     """YAM bimanual pipeline with poses in the top-camera frame.
 
     With ``to_camera_frame=False`` the extrinsic step is skipped and poses stay
-    in the raw station base frame -- the analogue of Eva's ``cartesian_world``.
+    in the raw station base frame (``coord_frame="world"``).
     Unlike Eva, that output is NOT projectable with the front K, because YAM's
     top camera is not co-located with the base.
 
@@ -577,11 +559,6 @@ def _build_yam_bimanual_camframe_transform_list(
         # just the raw ones and ConcatKeys consumes them directly.
         left_cmd_camframe, right_cmd_camframe = left_cmd_world, right_cmd_world
         left_obs_camframe, right_obs_camframe = left_obs_pose, right_obs_pose
-    # The frame transforms always consume the raw 7D xyzwxyz poses the converter
-    # writes; `is_quat` only selects whether they are converted to YPR at the
-    # END. (Eva's plain builder keys these off is_quat, which is why only its
-    # is_quat=True path works.)
-    mode = "xyzwxyz"
 
     frame_steps = (
         [
@@ -590,26 +567,26 @@ def _build_yam_bimanual_camframe_transform_list(
                 chunk_world=left_cmd_world,
                 transformed_key_name=left_cmd_camframe,
                 extra_batch_key=extra,
-                mode=mode,
+                mode="xyzwxyz",
             ),
             ActionChunkCoordinateFrameTransform(
                 target_world=top_camera_pose,
                 chunk_world=right_cmd_world,
                 transformed_key_name=right_cmd_camframe,
                 extra_batch_key=extra,
-                mode=mode,
+                mode="xyzwxyz",
             ),
             PoseCoordinateFrameTransform(
                 target_world=top_camera_pose,
                 pose_world=left_obs_pose,
                 transformed_key_name=left_obs_camframe,
-                mode=mode,
+                mode="xyzwxyz",
             ),
             PoseCoordinateFrameTransform(
                 target_world=top_camera_pose,
                 pose_world=right_obs_pose,
                 transformed_key_name=right_obs_camframe,
-                mode=mode,
+                mode="xyzwxyz",
             ),
         ]
         if to_camera_frame
@@ -645,21 +622,17 @@ def _build_yam_bimanual_camframe_transform_list(
         ),
     ]
 
-    # Eva's convention, kept verbatim so the two embodiments emit the same
-    # shapes: `is_quat` describes the INPUT (the converter writes xyzwxyz), and
-    # the pipeline converts to YPR at the end. So this path is 14D
-    # [L xyz ypr g, R xyz ypr g], matching Eva's "cartesian".
-    if is_quat:
-        transform_list.append(
-            XYZWXYZ_to_XYZYPR(
-                keys=[
-                    left_cmd_camframe,
-                    right_cmd_camframe,
-                    left_obs_camframe,
-                    right_obs_camframe,
-                ]
-            )
+    transform_list.extend(
+        transforms_for_rotation_mode(
+            keys=[
+                left_cmd_camframe,
+                right_cmd_camframe,
+                left_obs_camframe,
+                right_obs_camframe,
+            ],
+            rotation_mode=rotation_mode,
         )
+    )
 
     transform_list.extend(
         [
