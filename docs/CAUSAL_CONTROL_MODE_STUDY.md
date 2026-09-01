@@ -998,3 +998,73 @@ A prediction in an earlier revision -- "loss should be ~1.1e-3 if fine error is
 ~7px" -- was wrong by 13x. The loss covers the whole 17x5 token and is dominated
 by the distant waypoints; the 7px figure is row-0 xy only. They are not
 comparable.
+
+
+---
+
+# CONCLUSION: the study cannot resolve its own question at this sample size
+
+Fine-bucket direction agreement (`cos`), the only metric comparable across arms
+(all arms emit decoded actions in the same space; LOSS is NOT comparable because
+the arms predict different targets -- state+action, state-only, or a denoising
+objective):
+
+| arm | ep7 | ep11 | ep25 | ep30 | mean | range |
+|---|---|---|---|---|---|---|
+| arm1 dp_flow | -0.004 | 0.058 | 0.161 | -- | 0.072 | 0.165 |
+| arm2 causal_bidir | 0.120 | 0.182 | 0.208 | 0.233 | **0.186** | **0.113** |
+| arm3 state_action_ar | **0.202** | -0.016 | 0.183 | 0.052 | 0.105 | **0.218** |
+| arm4 state_idm | 0.008 | -0.062 | 0.105 | -- | 0.017 | 0.167 |
+
+**`arm3 - arm2` FLIPS SIGN with epoch:**
+
+    ep7:  +0.083  causal better
+    ep11: -0.198  bidirectional better
+    ep25: -0.026  tie
+    ep30: -0.181  bidirectional better
+
+**The epoch-to-epoch spread (arm3: 0.218) exceeds the between-arm difference at
+any single epoch.** Every arm ranking produced during this study -- in both
+directions -- was reading that variance.
+
+## What is defensible
+
+1. **No arm ranking is supported.** Not "causal helps", not "causal hurts". The
+   measurement is underpowered relative to its noise.
+2. **arm2 is the most stable** (monotone 0.120 -> 0.233, range 0.113); **arm3 is
+   the least** (non-monotone, range 0.218). Consistent with
+   `enable_grad_norm: false` destabilising a 17-pass sequential unroll — a
+   training-config problem, not a property of causal generation.
+3. **All arms sit near chance** (cos 0.0-0.23, ~50-57% correct direction) and
+   overshoot fine commands by **19-29x**. That ceiling is common to every arm and
+   is why closed-loop success is exactly zero everywhere.
+
+## What would be needed for a real answer
+
+- multiple seeds per arm (epoch-to-epoch variance currently dominates)
+- `enable_grad_norm: true` (arm3's instability is plausibly unclipped gradients)
+- `monitor` set on ModelCheckpoint, so checkpoints are chosen by held-out loss
+  rather than by recency; arms reach their held-out minimum at DIFFERENT epochs
+  (arm1 ep25, arm2 ep11, arm3 ep7, arm4 ep7)
+- an action representation that can express sub-pixel corrections; the residual
+  (delta) target is the cheapest candidate and is training now
+
+## Full list of claims retracted during this study
+
+| claim | killed by |
+|---|---|
+| replan_every was the root cause | fix applied, coverage unchanged |
+| arm3 - arm2 = +0.044, causal generalises better | convergence-rate confound |
+| the eval is broken / sim is wedged | 9/32 directions escape; sim is fine |
+| over-commanding trips the contact guard | larger steps push the object BETTER |
+| an absorbing fixed point where the policy commands its own position | the policy commands 5.5px away; the sim refuses |
+| a limit cycle sampled at t%50 | 33 consecutive identical rows |
+| training longer does not help | 3-episode artefact |
+| training longer DOES help | plateau at n=1282 |
+| fine \|err\| shows causal better by 1.13px | metric rewards commanding nothing |
+| held-out loss rose 48% since epoch 7 | did not replicate at a different sample |
+| arm3 is mildly hurting | sign flips with epoch |
+
+The common failure: reporting before the sample supported it. Three episodes
+could not distinguish a plateau from a trend; four epochs cannot distinguish an
+arm difference from training noise.
