@@ -1108,3 +1108,46 @@ the target rescales far less than the median suggested it would.
 **Verdict: real, reproducible, and too small to fix the problem alone.** Getting
 overshoot to ~1x needs the loss weighted toward the fine regime directly —
 per-step normalisation or a scale-relative error — not just a re-anchored target.
+
+
+---
+
+## RETRACTION: the residual result does not survive a third epoch
+
+The previous section reported the residual target's overshoot improvement as
+"real, reproducible" on the strength of two matched epochs agreeing. **A third
+matched epoch flips the sign.**
+
+| | cos delta | ratio delta |
+|---|---|---|
+| ep7 | +0.040 | -4.2 |
+| ep11 | -0.030 | -2.5 |
+| ep13 | **+0.220** | **+2.1** |
+
+Both metrics now flip sign across the three epochs. **The residual result is
+inconclusive**, not established.
+
+### The baseline is also unstable
+
+| | cos | ratio |
+|---|---|---|
+| baseline ep7 | 0.120 | 19.1 |
+| baseline ep11 | 0.182 | 19.5 |
+| baseline ep13 | **0.040** | **12.4** |
+
+arm2 swings as much as arm3 does. That weakens the earlier explanation that
+arm3's instability comes from its 17-pass sequential unroll plus
+`enable_grad_norm: false` — the bidirectional control has no such unroll and
+swings anyway.
+
+### The standard this establishes
+
+**Nothing in this experiment is measurable from single-seed, few-epoch
+snapshots** — not the arm ranking, not the residual target, not the
+training-stability story. Two agreeing epochs is not evidence; it took three to
+catch this one, and three may not be enough for the next.
+
+The only result that has survived every additional measurement: **all arms
+overshoot the fine-phase command by roughly an order of magnitude (12-29x) and
+sit near chance on direction (cos 0.04-0.26)**. That effect is large enough to
+see through the noise. Everything finer-grained needs multiple seeds.
