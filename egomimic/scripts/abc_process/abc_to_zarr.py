@@ -222,11 +222,23 @@ def convert_episode(
         ts = np.asarray([t for t, _ in entries], dtype=np.int64)
         idx = _nearest(ts, frame_ts)
         joints = np.stack([np.asarray(m.position, np.float64) for _, m in entries])
-        poses = np.stack(
-            [np.asarray(m.pose, np.float64).reshape(4, 4) for _, m in entries]
-        )
         numeric_data[joint_key] = joints[idx]
-        numeric_data[pose_key] = _matrix_to_xyzwxyz(poses[idx])
+
+        # RobotState.pose is documented as always present, but a real slice of
+        # ABC ships it empty on every message of an episode (joints only). Write
+        # the key only when the whole stream has it, rather than emitting zeros
+        # or a half-populated pose track.
+        if all(len(m.pose) == 16 for _, m in entries):
+            poses = np.stack(
+                [np.asarray(m.pose, np.float64).reshape(4, 4) for _, m in entries]
+            )
+            numeric_data[pose_key] = _matrix_to_xyzwxyz(poses[idx])
+        else:
+            n_empty = sum(1 for _, m in entries if len(m.pose) != 16)
+            logger.warning(
+                "%s: %s has no EE pose on %d/%d messages, skipping %s",
+                episode_dir.name, topic, n_empty, len(entries), pose_key,
+            )
 
     for topic, key in GRIPPER_TOPICS.items():
         entries = topics.get(topic)
@@ -238,6 +250,14 @@ def convert_episode(
             [[float(m.position[0])] for _, m in entries], dtype=np.float64
         )
         numeric_data[key] = vals[_nearest(ts, frame_ts)]
+
+    pose_keys = [k for k in numeric_data if k.endswith("ee_pose")]
+    if not pose_keys:
+        raise ValueError(
+            f"{episode_dir.name}: no EE pose on any arm stream (joints only). "
+            "The Yam cartesian pipeline needs left/right obs+cmd ee_pose; this "
+            "episode would need FK from the YAM MJCF to be usable."
+        )
 
     if task_name is None:
         instr = topics.get(INSTRUCTION_TOPIC)
