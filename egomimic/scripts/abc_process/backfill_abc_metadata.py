@@ -64,17 +64,19 @@ MONO_TOP_INFO = "/top-camera-info"
 
 # Which top cameras may take the published D405 extrinsics.
 #
-# Neither the topic nor the resolution is a sufficient gate. `/top-camera` is
-# mono on every RealSense station, and D405 runs at several capture modes
-# (640x480, 848x480 and 1280x720 all appear) whose mount pose is identical --
-# only K changes, and K is read per episode and rescaled. But the same topic
-# ALSO carries a second, much wider camera: across the fold-and-stack family the
-# normalised focal length splits into two clean clusters with a wide gap,
-#   fx/W ~ 0.678  (2761 eps, ~70 deg HFOV, D405)
-#   fx/W ~ 0.445  ( 382 eps, ~97 deg HFOV, a different camera)
-# Different camera hardware means a different bracket, so the published D405
-# pose must NOT be applied to the wide one. Gate on the optics.
-D405_FX_OVER_WIDTH = (0.62, 0.74)
+# Gate on horizontal FOV, computed from the CORRECTED K. Nothing else survives
+# contact with the data: `/top-camera` is mono on every RealSense station, and
+# neither the declared resolution nor fx/width identifies the lens, because the
+# same D405 appears in two capture modes -- 640x480 as a centre crop (fx/W~0.68)
+# and 848x480 resized to 640 (fx/W~0.51). Those have very different fx yet the
+# identical mount. FOV is invariant to both capture mode and resize, and it
+# separates cleanly with a wide empty gap:
+#     72-73 deg  D405, 640x480 crop
+#     88-89 deg  D405, 848x480 full frame  (~87 deg native, matches the part)
+#     96-97 deg  a genuinely wider camera, no published rig
+# An fx/width gate put the 88-89 group on BOTH sides of the line depending on
+# whether the cx inconsistency below had shifted fx.
+D405_MAX_HFOV_DEG = 92.0
 
 _local = threading.local()
 
@@ -138,6 +140,15 @@ def read_calibration(hf_path: str, nbytes: int = PREFIX_BYTES) -> dict:
     return out
 
 
+def _true_extent(centre: float, declared: int, tol: float = 0.05) -> float:
+    """The image extent K is really calibrated for, along one axis."""
+    if not declared:
+        return 2.0 * centre if centre else 0.0
+    if abs(centre / declared - 0.5) > tol:
+        return 2.0 * centre
+    return float(declared)
+
+
 def build_metadata(calib: dict, stored_hw: tuple[int, int]) -> tuple[dict, dict | None, str]:
     """-> (intrinsics, extrinsics|None, station tag). Scales K to the stored size."""
     top = next(
@@ -148,20 +159,34 @@ def build_metadata(calib: dict, stored_hw: tuple[int, int]) -> tuple[dict, dict 
     c = calib[top]
     K = np.asarray(c["K"], dtype=np.float64).reshape(3, 3).copy()
     h, w = stored_hw
-    if c["width"] and c["height"]:
-        K[0] *= w / c["width"]
-        K[1] *= h / c["height"]
+
+    # ABC's CameraCalibration is internally inconsistent on a large minority of
+    # episodes: the width field reads 640 while K is still the one for the 848
+    # wide capture it was resized from (cx ~ 425 = 848/2, fx unscaled). Trusting
+    # `width` there leaves the principal point ~105px off and the overlay misses
+    # the gripper by about that much -- checked by projecting the EE with both
+    # candidate K's and looking at which lands on it.
+    #
+    # So derive the true capture size from the principal point rather than the
+    # declared one: a calibrated centre sits near the middle, so 2*c is the width
+    # K actually belongs to. Only override when the declared size disagrees
+    # clearly; cx/W is sharply bimodal (~0.49 vs ~0.66, nothing between).
+    true_w = _true_extent(K[0, 2], c["width"])
+    true_h = _true_extent(K[1, 2], c["height"])
+    if true_w:
+        K[0] *= w / true_w
+    if true_h:
+        K[1] *= h / true_h
     intr = {"front_1": np.hstack([K, np.zeros((3, 1))]).tolist()}
 
-    fx_over_w = K[0, 0] / w
-    lo, hi = D405_FX_OVER_WIDTH
-    is_d405 = top == MONO_TOP_INFO and lo < fx_over_w < hi
+    hfov = 2.0 * np.degrees(np.arctan(w / (2.0 * K[0, 0]))) if K[0, 0] else 0.0
+    is_d405 = top == MONO_TOP_INFO and hfov <= D405_MAX_HFOV_DEG
     if top != MONO_TOP_INFO:
         station = f"stereo_zedx({c['width']}x{c['height']})"
     elif is_d405:
-        station = f"realsense_d405({c['width']}x{c['height']})"
+        station = f"realsense_d405(hfov={hfov:.0f})"
     else:
-        station = f"wide_angle_unknown_rig(fx/W={fx_over_w:.3f})"
+        station = f"wide_angle_unknown_rig(hfov={hfov:.0f})"
     extr = {"front_1": Yam.TOP_CAMERA_D405.tolist()} if is_d405 else None
     return intr, extr, station
 
@@ -199,7 +224,8 @@ def process(job: tuple) -> dict:
         attrs["intrinsics"] = intr
         attrs["extrinsics"] = extr
         rec.update(station=station, has_extrinsics=extr is not None,
-                   fx=round(intr["front_1"][0][0], 3))
+                   fx=round(intr["front_1"][0][0], 3),
+                   cx=round(intr["front_1"][0][2], 3))
 
         if apply_changes:
             s3.put_object(
