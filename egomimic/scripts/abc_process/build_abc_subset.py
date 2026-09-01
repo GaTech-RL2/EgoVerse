@@ -19,6 +19,7 @@ is incremental: already-converted episodes count toward the budget and are skipp
 import argparse
 import json
 import logging
+import math
 import os
 import shutil
 import time
@@ -36,6 +37,9 @@ logger = logging.getLogger("build_abc_subset")
 # egomimic/hydra_configs/data/mecka_foldclothes_*: embodiment=human_bimanual,
 # lab=mecka, task=fold_clothes, not deleted, has a zarr -- 1607 episodes.
 MECKA_FOLDCLOTHES_FRAMES = 316_068
+
+# fold_and_stack_the_t_shirts: 291.7h over 11009 episodes at 30fps (meta/train_report.txt).
+DEFAULT_FRAMES_PER_EPISODE = 2861
 
 
 def _episode_frames(zarr_path: Path) -> int:
@@ -129,9 +133,23 @@ def main() -> None:
     submitted = 0
 
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
+        def _window() -> int:
+            """How many episodes to keep in flight.
+
+            A running future cannot be cancelled, so everything in flight when
+            the budget is met runs to completion. Near the end that is pure
+            waste, so the window shrinks to the number of episodes still needed
+            (estimated from the mean length seen so far).
+            """
+            got = [r["frames"] for r in results if r["ok"] and r["frames"] > 0]
+            avg = (sum(got) / len(got)) if got else DEFAULT_FRAMES_PER_EPISODE
+            needed = max(1, math.ceil((args.target_frames - frames) / max(avg, 1)))
+            # A third or so of episodes fail to convert, so ask for a few extra.
+            return int(min(args.workers * 2, math.ceil(needed * 1.5)))
+
         def _fill():
             nonlocal submitted
-            while len(inflight) < args.workers * 2 and frames < args.target_frames:
+            while len(inflight) < _window() and frames < args.target_frames:
                 try:
                     ep = next(it)
                 except StopIteration:
