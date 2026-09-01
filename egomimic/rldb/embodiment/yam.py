@@ -7,6 +7,7 @@ import numpy as np
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
+    BatchQuaternionPoseTo6D,
     BatchQuaternionPoseToYPR,
     ConcatKeys,
     DeleteKeys,
@@ -14,6 +15,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     InterpolatePose,
     NumpyToTensor,
     PoseCoordinateFrameTransform,
+    QuaternionPoseTo6D,
     QuaternionPoseToYPR,
     SplitKeys,
     Transform,
@@ -127,6 +129,7 @@ class Yam(Embodiment):
             "cartesian_world",
             "cartesian_wristframe_ypr",
             "cartesian_wristframe_quat",
+            "cartesian_wrist_6D",
         ] = "cartesian",
     ) -> list[Transform]:
         """Transform pipeline. Mode-for-mode the same set Eva exposes.
@@ -161,6 +164,10 @@ class Yam(Embodiment):
             return _build_yam_bimanual_eef_frame_transform_list(is_quat=True)
         if mode == "cartesian_wristframe_ypr":
             return _build_yam_bimanual_eef_frame_transform_list(is_quat=False)
+        if mode == "cartesian_wrist_6D":
+            return _build_yam_bimanual_eef_frame_transform_list(
+                is_quat=True, to_6d=True
+            )
         raise ValueError(f"unknown mode {mode!r}")
 
     @classmethod
@@ -324,6 +331,7 @@ def _build_yam_bimanual_eef_frame_transform_list(
     chunk_length: int = 100,
     stride: int = 1,
     is_quat: bool = True,
+    to_6d: bool = False,
 ) -> list[Transform]:
     """YAM bimanual pipeline: actions relative to the current EEF pose (wrist frame).
 
@@ -376,7 +384,20 @@ def _build_yam_bimanual_eef_frame_transform_list(
         ),
     ]
 
-    if not is_quat:
+    if to_6d:
+        transform_list.extend(
+            [
+                BatchQuaternionPoseTo6D(
+                    pose_key=left_cmd_wristframe, output_key=left_cmd_wristframe
+                ),
+                BatchQuaternionPoseTo6D(
+                    pose_key=right_cmd_wristframe, output_key=right_cmd_wristframe
+                ),
+                QuaternionPoseTo6D(pose_key=left_obs_pose, output_key=left_obs_pose),
+                QuaternionPoseTo6D(pose_key=right_obs_pose, output_key=right_obs_pose),
+            ]
+        )
+    elif not is_quat:
         transform_list.extend(
             [
                 BatchQuaternionPoseToYPR(
