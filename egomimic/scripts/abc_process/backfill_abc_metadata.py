@@ -34,6 +34,7 @@ import io
 import json
 import logging
 import os
+import random
 import re
 import threading
 import time
@@ -111,16 +112,35 @@ def _session():
     return _local.sess
 
 
+def _ranged_get(url: str, nbytes: int, attempts: int = 6):
+    """Ranged GET that backs off on HTTP 429.
+
+    The Hub rate-limits hard at this fan-out: a first full pass over 18.5k
+    episodes lost 10248 of them to 429 with no retry. Honour Retry-After when
+    the response carries it, otherwise exponential backoff with jitter so the
+    workers do not resynchronise into another burst.
+    """
+    delay = 2.0
+    for attempt in range(attempts):
+        r = _session().get(url, headers={"Range": f"bytes=0-{nbytes - 1}"}, timeout=180)
+        if r.status_code != 429:
+            r.raise_for_status()
+            return r
+        if attempt == attempts - 1:
+            r.raise_for_status()
+        wait = float(r.headers.get("Retry-After") or 0) or delay
+        time.sleep(wait + random.uniform(0, 1.5))
+        delay = min(delay * 2, 60.0)
+    raise RuntimeError("unreachable")
+
+
 def read_calibration(hf_path: str, nbytes: int = PREFIX_BYTES) -> dict:
     """{topic: {K, width, height}} from the head of an episode.mcap.
 
     Parsed with the raw StreamReader: NonSeekingReader.iter_messages() sorts the
     whole stream before yielding, so it only ever raises EndOfFile on a prefix.
     """
-    r = _session().get(
-        f"{HF_BASE}/{hf_path}", headers={"Range": f"bytes=0-{nbytes - 1}"}, timeout=120
-    )
-    r.raise_for_status()
+    r = _ranged_get(f"{HF_BASE}/{hf_path}", nbytes)
     schemas, channels, out = {}, {}, {}
     fac = DecoderFactory()
     try:
@@ -255,7 +275,9 @@ def main() -> None:
     p.add_argument(
         "--workers",
         type=int,
-        default=min(32, (int(os.environ.get("SLURM_CPUS_PER_TASK", 0)) or os.cpu_count() or 8) * 2),
+        # Kept well below cpu*2: the ceiling here is the Hub's rate limit, not
+        # local CPU. 32 workers produced a 55% 429 rate on the first full pass.
+        default=min(12, (int(os.environ.get("SLURM_CPUS_PER_TASK", 0)) or 8)),
     )
     args = p.parse_args()
 
