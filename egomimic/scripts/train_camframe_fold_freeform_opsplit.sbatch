@@ -6,7 +6,11 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=250G
 #SBATCH --gres=gpu:h200:2
-#SBATCH --time=24:00:00
+#SBATCH --time=72:00:00
+# atl1-1-02-012-16-0 GPU-1776d65d and atl1-1-02-014-9-0 GPU-8375b1cd were
+# thermally throttled (93 C, SM ~350-420 MHz) on 2026-09-01 and clamped the
+# first-round runs to ~3 eps/h; keep the sweep off those nodes.
+#SBATCH --exclude=atl1-1-02-012-16-0,atl1-1-02-014-9-0
 #SBATCH --job-name=camframe_fold_freeform_opsplit
 #SBATCH --output=/storage/project/r-dxu345-0/agao81/EgoVerse/logs/camframe_fold_clothes_freeform_fit_test_flat5e-5_opsplit_%j.log
 
