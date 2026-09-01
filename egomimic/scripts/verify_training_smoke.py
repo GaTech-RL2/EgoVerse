@@ -248,6 +248,7 @@ def verify_training_smoke(
     output_dir: Path,
     required_embodiments: list[int],
     expected_head: str,
+    expected_strategy: str = "ddp",
     expected_world_size: int = 1,
     expected_steps: int = 2,
     expected_val_check_interval: int = 1,
@@ -268,7 +269,7 @@ def verify_training_smoke(
     assert int(config.trainer.num_sanity_val_steps) == 0
     assert int(config.trainer.log_every_n_steps) == 1
     assert str(config.trainer.precision) == "bf16"
-    assert str(config.trainer.strategy) == "ddp"
+    assert str(config.trainer.strategy) == expected_strategy
     assert int(config.launch_params.gpus_per_node) == expected_world_size
     assert int(config.launch_params.nodes) == 1
     assert int(config.trainer.devices) == expected_world_size
@@ -450,6 +451,7 @@ def verify_training_smoke(
         "optimizer_lrs": optimizer_lrs,
         "scheduler_last_epoch": scheduler_last_epoch,
         "required_embodiments": required_embodiments,
+        "trainer_strategy": str(config.trainer.strategy),
         "wandb_stream": str(streams[0]),
         "wandb_stream_sha256": _sha256(streams[0]),
         "wandb_exit_code": wandb_exit_code,
@@ -474,6 +476,7 @@ def main() -> None:
     parser.add_argument("output_dir", type=Path)
     parser.add_argument("--required-embodiments", required=True)
     parser.add_argument("--expected-head", required=True)
+    parser.add_argument("--expected-strategy", default="ddp")
     parser.add_argument("--expected-world-size", type=int, default=1)
     parser.add_argument("--expected-steps", type=int, default=2)
     parser.add_argument("--expected-val-check-interval", type=int, default=1)
@@ -489,6 +492,7 @@ def main() -> None:
         args.output_dir,
         required_embodiments,
         args.expected_head,
+        args.expected_strategy,
         args.expected_world_size,
         args.expected_steps,
         args.expected_val_check_interval,
