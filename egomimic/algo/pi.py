@@ -202,8 +202,44 @@ class PI(Algo):
             )
         else:
             logger.warning("No pytorch_weight_path specified — training from scratch")
+        # Non-32 action widths (e.g. the 138-D wrist-first MANO keypoint
+        # action padded to 140): the vendored openpi PyTorch port hard-codes
+        # 32-wide action projections regardless of ``Pi0Config.action_dim``,
+        # so swap them for ``action_dim``-wide ones AFTER the (strict)
+        # base-weight load. Only these two layers start fresh;
+        # ``sample_actions`` already draws its noise at ``config.action_dim``.
+        action_dim = int(self.config.model.action_dim)
+        if action_dim != 32:
+            self._resize_action_projections(action_dim)
         self.nets = nn.ModuleDict()
         self.nets["policy"] = self.model
+
+    def _resize_action_projections(self, action_dim: int) -> None:
+        target = (
+            self.model.module
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else self.model
+        )
+        old_in, old_out = target.action_in_proj, target.action_out_proj
+        width = old_in.out_features
+        new_in = nn.Linear(action_dim, width).to(
+            dtype=old_in.weight.dtype, device=old_in.weight.device
+        )
+        new_out = nn.Linear(width, action_dim).to(
+            dtype=old_out.weight.dtype, device=old_out.weight.device
+        )
+        target.action_in_proj = new_in
+        target.action_out_proj = new_out
+        logger.warning(
+            "action_dim=%d != 32: re-initialized action_in_proj (%d->%d) and "
+            "action_out_proj (%d->%d); the pretrained 32-wide projections are "
+            "discarded, everything else is loaded from the base checkpoint.",
+            action_dim,
+            action_dim,
+            width,
+            width,
+            action_dim,
+        )
 
     def _control_mode_for(self, emb_name: str | None) -> str:
         if self.control_mode and emb_name is not None:
