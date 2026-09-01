@@ -10,7 +10,9 @@ Two station variants exist and differ only in cameras, so the top camera topic i
 auto-detected rather than assumed:
   * RealSense -- mono `/top-camera`, all streams H.264, 640x480
   * ZED-X     -- stereo `/top-left-camera` + `/top-right-camera`, H.265 top /
-                 H.264 wrists, 1920x1200.  The left eye is used as `images.front_1`.
+                 H.264 wrists, 1920x1200. The left eye is `images.front_1`; a ZED-X
+                 episode ALSO carries a `/top-camera` preview with both eyes
+                 composited in, which must not be picked.
 
 Video frames define the episode clock; joint/gripper streams poll at a few hundred
 Hz on independent clocks and are matched onto the front-camera timestamps by
@@ -40,8 +42,12 @@ from egomimic.utils.pose_utils import _matrix_to_xyzwxyz
 
 logger = logging.getLogger(__name__)
 
-# Top-camera candidates in priority order: mono RealSense, then the ZED-X left eye.
-TOP_CAMERA_TOPICS = ("/top-camera", "/top-left-camera")
+# Top-camera candidates in priority order. The stereo eyes come FIRST: on a
+# ZED-X episode `/top-camera` also exists but is a 640x400 preview with the
+# left/right insets baked into it, so preferring it would train on a composited
+# thumbnail. Mono RealSense episodes have only the clean `/top-camera`.
+# (Matches the rule in the dataset's own export_mcap.py.)
+TOP_CAMERA_TOPICS = ("/top-left-camera", "/top-right-camera", "/top-camera")
 VIDEO_TOPICS = {
     "/left-wrist-camera": "images.left_wrist",
     "/right-wrist-camera": "images.right_wrist",
