@@ -78,6 +78,19 @@ class Yam(Embodiment):
 
     # world(left_base) <- top_camera, for the RealSense D405 station.
     #
+    # The translation's y and z are REFINED from the published nominal by
+    # +0.0413 m and +0.0133 m (4.3 cm total). Projecting with the nominal values
+    # put the EE about 18 px left of the gripper in the top-camera image,
+    # consistently for both arms and at every arm pose -- the signature of a
+    # small rigid mount offset, which is expected: the bracket is bolted to a
+    # gantry crossbar and the model gives design intent, not per-station
+    # calibration. The refinement was fit to two hand-marked gripper positions
+    # and cuts the reprojection residual from ~18 px to ~4 px. Rotation is
+    # untouched; it reproduces the published values exactly.
+    #
+    # This is therefore a per-station correction. A different D405 station may
+    # need a different one, and re-fitting is the way to get it.
+    #
     # ABC's own MCAP records no extrinsics, but the station this data was
     # collected on is published: i2rt-robotics/i2rt, robot_models/station/
     # yam_station_{crank,linear}_4310_d405. Composing that MJCF's
@@ -98,8 +111,8 @@ class Yam(Embodiment):
     TOP_CAMERA_D405 = np.array(
         [
             [-0.000003673, -0.866026618,  0.499997896, -0.166494880],
-            [-1.000000000,  0.000003181, -0.000001837, -0.305000000],
-            [ 0.000000000, -0.499997896, -0.866026618,  0.954320530],
+            [-1.000000000,  0.000003181, -0.000001837, -0.263749126],
+            [ 0.000000000, -0.499997896, -0.866026618,  0.967579819],
             [ 0.000000000,  0.000000000,  0.000000000,  1.000000000]
         ]
     )
