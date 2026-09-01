@@ -1,0 +1,26 @@
+defaults:
+  - viz@viz_func: pi_keypoints_lang_wrist
+  - _self_
+
+_target_: egomimic.eval.eval_pi.PIEvalVideo
+
+# Render the val viz video only when (current_epoch + 1) is a multiple of
+# this (see eval_pi.yaml).
+viz_every_n_epochs: 100
+# Same render cap as eval_pi_wristframe_6d; the train_viz wrapper inherits it.
+viz_max_batches: 10
+
+# Wrist-frame KEYPOINT variant: use with a data config that applies the
+# `keypoints_wristframe_pi` (or keypoints_wristframe_ypr) transform mode. The
+# model predicts the 138-D wrist-first action [wrist pose (6) | 21 keypoints
+# (63)] x 2 in each hand's wrist frame; the revert projects the two 63-D
+# keypoint chunks back to head (camera) frame via the head-frame wrist pose in
+# `observations.state.keypoints`, giving a 126-D head-frame `actions_keypoints`
+# for the cam-frame keypoint MSE and the overlay video (the 6-D wrist slices
+# are consumed by the revert, not scored separately). Native-frame metrics
+# (paired/final MSE, Frechet, DTW, reverse-KL family) run on the full 138-D.
+# The xyz/ypr split and geodesic-rotation metrics are skipped (unknown width).
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_eef_frame_transform_list
+    is_quat: false

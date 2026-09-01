@@ -1,0 +1,9 @@
+# Keypoint twin of pi_cartesian_lang_wrist: MANO keypoint overlay on the pi
+# camera key with the sampled prompt drawn on the frame.
+defaults:
+  - keypoints_wrist
+  - _self_
+
+human_bimanual:
+  image_key: base_0_rgb
+  annotation_key: sampled_prompt
