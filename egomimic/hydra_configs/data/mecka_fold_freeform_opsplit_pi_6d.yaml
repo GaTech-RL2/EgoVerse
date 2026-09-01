@@ -1,23 +1,19 @@
 # MECKA_FOLD_FREEFORM_OPSPLIT_PI_6D — pi0.5 BC on the mecka FREEFORM fold-clothes
-# episodes (fold_clothes-derivative task names, 492 eps / 11.21 h under
+# episodes (SQL task='folding_clothes', 462 eps / 1.13M frames under
 # processed_v3/mecka/freeform/; "freeform" is only visible in
-# zarr_processed_path, so the filter keys on '/mecka/freeform/'), stored under
-# the human_bimanual embodiment, with the held-out-OPERATOR train/val split.
+# zarr_processed_path, so the filter keys on '/mecka/freeform/' and accepts
+# either fold-clothes task spelling), stored under the human_bimanual
+# embodiment, with the held-out-OPERATOR train/val split.
 #
-# DATASET v2 (Aidan, 2026-09-01): every freeform task whose NAME contains a
-# fold_clothes derivative — 'fold' AND 'clothes' in the lowercased task name,
-# 'packag*' excluded, non-clothes folding (boxes/paper/napkins/fabric/...)
-# excluded by the 'clothes' requirement. Resolves today to 8 tasks
-# (cleaning_and_folding_clothes, dishwashing_and_folding_clothes, folding_and_bagging_clothes, folding_and_ironing_clothes, folding_and_packing_clothes, folding_clothes, ironing_and_folding_clothes, lint_rolling_and_folding_clothes)
-# = 492 eps / 1,211,002 frames / 11.21 h / 184 operators.
-#
-# OPERATOR SPLIT v2 (shared by every *_opsplit_* config — keep the lists byte-
-# identical across them): validation = 27 operators held out ENTIRELY, so
-# no val episode shares an operator with training. Same recipe as v1: skip the
-# 10 largest operators, random.Random(42) shuffle of the rest, accumulate
-# until >= 8 % of frames -> 27 operators, 43 episodes, 105,311 frames
-# (8.7 %) held out; train = 157 operators, 449 episodes,
-# 1,105,691 frames. Both sides use mode: total; the lists ARE the split.
+# OPERATOR SPLIT (shared by every *_opsplit_* config — keep the lists byte-
+# identical across them): validation = 25 operators held out ENTIRELY, so no
+# val episode shares an operator with training. Chosen deterministically on
+# 2026-09-01 from SQL app.episodes (462 freeform fold eps / 178 operators):
+# skip the 10 largest operators (their data stays in train), seeded shuffle
+# (random.Random(42)) of the remaining operator ids, accumulate until >= 8 %
+# of frames -> 25 operators, 39 episodes, 91,550 frames (8.1 %) held out;
+# train = 153 operators, 423 episodes, 1,037,351 frames. Both sides use
+# mode: total (no random episode split); the lists ARE the split.
 #
 # WRIST-frame cartesian actions with the continuous 6D rotation (18D =
 # xyz+6D per arm, no gripper): each arm's 100-step chunk is expressed
@@ -59,10 +55,10 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
-        - "lambda row: (lambda t: ('fold' in t) and ('clothes' in t) and ('packag' not in t))(str(row.get('task', '')).lower())"
+        - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
         - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
         # OPERATOR SPLIT — train = every operator NOT in the held-out set.
-        - "lambda row: str(row.get('operator', '')) not in {'68dfa6f8c33a1abcb8fc3b9e', '6931020e6e496b45b1e149e7', '693b9530c67c9e4814b20ab2', '6943d2ada2a8b5aee76632f9', '694911c05c0479a0fb834ccb', '6954f57320b100982d8134b8', '695d0b0983a9fdf2d84d9fc8', '6961c50f83a9fdf2d85ec95d', '6961ea0983a9fdf2d85f103c', '6964eced83a9fdf2d866a2d9', '6968e698567cdf8c87361404', '698021997c6b5a6b3c8b7367', '698daed99c7041a3a331d2e5', '6995a2c20f66510c389aec76', '699a5eab6fe91711a3b1c9bf', '699a63ba6fe91711a3b1cf8b', '699ba5ed6fe91711a3b368ba', '699e57006fe91711a3b74b88', '699f2e580aa6425a245d2e6f', '69a13ebca685e8b8b57a6e4a', '69a39ec9c4216c3e3ce49734', '69a4c3afc4216c3e3ce57305', '69a64691e72179bdc05f5df6', '69a84eed47e12c9b339208fd', '69ab87207bf9cbce29a3cb36', '69ae2463d22d99655253f287', '69ae24a6d22d99655253f2ba'}"
+        - "lambda row: str(row.get('operator', '')) not in {'68a8e70d1ffcf0417e08f0e5', '68e2fc680b158ea94ab4f5bc', '6930bf8a6e496b45b1e1122e', '6931784c6e496b45b1e1b1cd', '693a399ec67c9e4814b0c09f', '693b9530c67c9e4814b20ab2', '6948d23b5c0479a0fb8302b3', '69529a85c0d9448524bc7880', '6954f0b720b100982d812ed8', '6957464720b100982d83b76c', '695d07d783a9fdf2d84d9371', '695d084183a9fdf2d84d955a', '6961c50f83a9fdf2d85ec95d', '69624a8683a9fdf2d86013c0', '69842643f8ca4464d9920799', '698937a5f8ca4464d99dce94', '6996d5eded1708063b2fe419', '6999d17c8f173e14271f9890', '69a24256c4216c3e3ce33834', '69a39ec9c4216c3e3ce49734', '69a57a78c4216c3e3ce6323c', '69a725a347e12c9b3390ba33', '69a7943547e12c9b33911c02', '69a84eed47e12c9b339208fd', '69ab87207bf9cbce29a3cb36'}"
     mode: total
 
 valid_datasets:
@@ -73,10 +69,10 @@ valid_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
-        - "lambda row: (lambda t: ('fold' in t) and ('clothes' in t) and ('packag' not in t))(str(row.get('task', '')).lower())"
+        - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
         - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
         # OPERATOR SPLIT — valid = the 25 held-out operators only.
-        - "lambda row: str(row.get('operator', '')) in {'68dfa6f8c33a1abcb8fc3b9e', '6931020e6e496b45b1e149e7', '693b9530c67c9e4814b20ab2', '6943d2ada2a8b5aee76632f9', '694911c05c0479a0fb834ccb', '6954f57320b100982d8134b8', '695d0b0983a9fdf2d84d9fc8', '6961c50f83a9fdf2d85ec95d', '6961ea0983a9fdf2d85f103c', '6964eced83a9fdf2d866a2d9', '6968e698567cdf8c87361404', '698021997c6b5a6b3c8b7367', '698daed99c7041a3a331d2e5', '6995a2c20f66510c389aec76', '699a5eab6fe91711a3b1c9bf', '699a63ba6fe91711a3b1cf8b', '699ba5ed6fe91711a3b368ba', '699e57006fe91711a3b74b88', '699f2e580aa6425a245d2e6f', '69a13ebca685e8b8b57a6e4a', '69a39ec9c4216c3e3ce49734', '69a4c3afc4216c3e3ce57305', '69a64691e72179bdc05f5df6', '69a84eed47e12c9b339208fd', '69ab87207bf9cbce29a3cb36', '69ae2463d22d99655253f287', '69ae24a6d22d99655253f2ba'}"
+        - "lambda row: str(row.get('operator', '')) in {'68a8e70d1ffcf0417e08f0e5', '68e2fc680b158ea94ab4f5bc', '6930bf8a6e496b45b1e1122e', '6931784c6e496b45b1e1b1cd', '693a399ec67c9e4814b0c09f', '693b9530c67c9e4814b20ab2', '6948d23b5c0479a0fb8302b3', '69529a85c0d9448524bc7880', '6954f0b720b100982d812ed8', '6957464720b100982d83b76c', '695d07d783a9fdf2d84d9371', '695d084183a9fdf2d84d955a', '6961c50f83a9fdf2d85ec95d', '69624a8683a9fdf2d86013c0', '69842643f8ca4464d9920799', '698937a5f8ca4464d99dce94', '6996d5eded1708063b2fe419', '6999d17c8f173e14271f9890', '69a24256c4216c3e3ce33834', '69a39ec9c4216c3e3ce49734', '69a57a78c4216c3e3ce6323c', '69a725a347e12c9b3390ba33', '69a7943547e12c9b33911c02', '69a84eed47e12c9b339208fd', '69ab87207bf9cbce29a3cb36'}"
     mode: total
 
 # Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
