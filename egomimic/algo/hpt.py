@@ -1287,6 +1287,7 @@ class HPT(Algo):
         - 7: 6DoF + gripper (single arm)
         - 12: 2 arms × 6DoF
         - 14: 2 arms × (6DoF + gripper)
+        - 20: 2 arms × (xyz + Zhou 6D rotation + gripper)
 
         Returns:
             xyz: Tensor with only xyz per arm (shape: ..., 3) or (..., 6) for dual-arm.
@@ -1312,5 +1313,10 @@ class HPT(Algo):
             return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat(
                 [rot_right, rot_left], dim=-1
             )
+        elif x.shape[-1] == 20:
+            # [L xyz(3) rot6d(6) g(1), R xyz(3) rot6d(6) g(1)]
+            xyz = torch.cat([x[..., :3], x[..., 10:13]], dim=-1)
+            rot = torch.cat([x[..., 3:9], x[..., 13:19]], dim=-1)
+            return xyz, rot
         else:
             raise ValueError(f"Unexpected shape for 6DoF input: {x.shape}")
