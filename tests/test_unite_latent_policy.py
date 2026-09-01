@@ -255,8 +255,33 @@ def test_unite_model_config_is_additive_and_uses_val01_experiment_data():
     assert policy.generative_encoder.denoising_module.act_dim == 128
     assert policy.num_inference_steps == 8
     assert policy.reconstruction_noise_std == 0.1
-    assert policy.timestep_shift_alpha == 1.0
+    assert policy.get("timestep_shift_alpha", 1.0) == 1.0
     assert stages[4].generated_action_weight == 0.0
 
     defaults = [str(value) for value in experiment.defaults]
     assert any("newdata_val01_h16" in value for value in defaults)
+
+
+def test_normal_unite_b_paper_recipe_config_has_no_temporal_codec():
+    from omegaconf import OmegaConf
+
+    root = Path(__file__).resolve().parents[1]
+    model = OmegaConf.load(
+        root
+        / "egomimic/hydra_configs/model/bf/"
+        / "bf_pipeline_unite_usocket_chain_points_unite_b_per_emb_proprio_h16.yaml"
+    )
+    stages = model.robomimic_model.stages
+    assert [stage._target_.rsplit(".", 1)[-1] for stage in stages] == [
+        "EmbodimentProprioProjection",
+        "FusedObsEncoder",
+        "GaussianLatentNoise",
+        "UniteLatentPolicy",
+        "UniteObjective",
+    ]
+    assert not any("TemporalConv" in str(stage) for stage in stages)
+    assert stages[2].num_tokens == 16
+    assert stages[2].latent_dim == 128
+    assert stages[3].num_inference_steps == 32
+    assert stages[3].reconstruction_noise_std == 0.7
+    assert stages[3].timestep_shift_alpha == 0.5
