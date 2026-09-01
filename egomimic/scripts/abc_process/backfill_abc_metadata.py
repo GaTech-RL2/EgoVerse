@@ -60,9 +60,21 @@ TARGET_EMBODIMENT = "yam_bimanual"
 # The first MCAP chunk is ~1.0 MB and holds the calibration; take a little more.
 PREFIX_BYTES = 1_200_000
 PREFIX_RETRY = 4_000_000
-# Mono RealSense stations only -- the published rig model covers no other.
-D405_TOP_TOPIC = "/top-camera"
-D405_RES = (640, 480)
+MONO_TOP_INFO = "/top-camera-info"
+
+# Which top cameras may take the published D405 extrinsics.
+#
+# Neither the topic nor the resolution is a sufficient gate. `/top-camera` is
+# mono on every RealSense station, and D405 runs at several capture modes
+# (640x480, 848x480 and 1280x720 all appear) whose mount pose is identical --
+# only K changes, and K is read per episode and rescaled. But the same topic
+# ALSO carries a second, much wider camera: across the fold-and-stack family the
+# normalised focal length splits into two clean clusters with a wide gap,
+#   fx/W ~ 0.678  (2761 eps, ~70 deg HFOV, D405)
+#   fx/W ~ 0.445  ( 382 eps, ~97 deg HFOV, a different camera)
+# Different camera hardware means a different bracket, so the published D405
+# pose must NOT be applied to the wide one. Gate on the optics.
+D405_FX_OVER_WIDTH = (0.62, 0.74)
 
 _local = threading.local()
 
@@ -141,8 +153,15 @@ def build_metadata(calib: dict, stored_hw: tuple[int, int]) -> tuple[dict, dict 
         K[1] *= h / c["height"]
     intr = {"front_1": np.hstack([K, np.zeros((3, 1))]).tolist()}
 
-    is_d405 = top == f"{D405_TOP_TOPIC}-info" and (c["width"], c["height"]) == D405_RES
-    station = "realsense_d405" if is_d405 else f"other({top},{c['width']}x{c['height']})"
+    fx_over_w = K[0, 0] / w
+    lo, hi = D405_FX_OVER_WIDTH
+    is_d405 = top == MONO_TOP_INFO and lo < fx_over_w < hi
+    if top != MONO_TOP_INFO:
+        station = f"stereo_zedx({c['width']}x{c['height']})"
+    elif is_d405:
+        station = f"realsense_d405({c['width']}x{c['height']})"
+    else:
+        station = f"wide_angle_unknown_rig(fx/W={fx_over_w:.3f})"
     extr = {"front_1": Yam.TOP_CAMERA_D405.tolist()} if is_d405 else None
     return intr, extr, station
 
