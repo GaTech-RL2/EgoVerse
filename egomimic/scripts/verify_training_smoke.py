@@ -275,6 +275,26 @@ def verify_training_smoke(
     assert int(config.trainer.devices) == expected_world_size
     assert int(config.trainer.num_nodes) == 1
     assert config.model.train_metrics_on_step is True
+    ema_config = OmegaConf.select(config, "callbacks.ema", default=None)
+    assert ema_config is not None
+    assert ema_config._target_ == "egomimic.utils.ema_callback.EMACallback"
+    assert math.isclose(float(ema_config.decay), 0.9978, abs_tol=1.0e-12)
+    assert ema_config.validate_with_ema is True
+    shared_stages = [
+        stage
+        for stage in config.model.robomimic_model.stages
+        if str(stage._target_).endswith("UniteSharedDenoiser")
+    ]
+    decoder_stages = [
+        stage
+        for stage in config.model.robomimic_model.stages
+        if str(stage._target_).endswith("UnitePerEmbodimentActionDecoder")
+    ]
+    assert len(shared_stages) == len(decoder_stages) == 1
+    timestep_shift_alpha = float(shared_stages[0].timestep_shift_alpha)
+    reconstruction_noise_std = float(decoder_stages[0].reconstruction_noise_std)
+    assert math.isclose(timestep_shift_alpha, 0.5, abs_tol=1.0e-12)
+    assert math.isclose(reconstruction_noise_std, 0.7, abs_tol=1.0e-12)
     assert (
         config.evaluator._target_
         == "egomimic.eval.human_robot_overlay_eval.HumanRobotOverlayEval"
@@ -300,6 +320,18 @@ def verify_training_smoke(
     assert scheduler_last_epoch == global_step, scheduler_states[0]
     hyper_parameters = checkpoint.get("hyper_parameters", {})
     assert hyper_parameters.get("train_metrics_on_step") is True
+    ema_state_dict = checkpoint.get("ema_state_dict")
+    assert ema_state_dict, "Smoke checkpoint has no EMA state"
+    assert math.isclose(float(checkpoint["ema_decay"]), 0.9978, abs_tol=1.0e-12)
+    ema_num_updates = int(checkpoint["ema_num_updates"])
+    assert ema_num_updates == global_step
+    assert checkpoint.get("ema_validate_with_ema") is True
+    ema_tensor_count = len(ema_state_dict)
+    ema_parameter_count = sum(value.numel() for value in ema_state_dict.values())
+    assert ema_parameter_count > 0
+    for name, value in ema_state_dict.items():
+        assert torch.is_tensor(value), name
+        assert bool(torch.isfinite(value).all()), name
     del checkpoint
 
     streams = [
@@ -398,6 +430,26 @@ def verify_training_smoke(
         assert metrics["log/unite_denoise_grad_norm"] > 0.0, row
         assert -1.000001 <= metrics["log/unite_gradient_cosine"] <= 1.000001, row
 
+    ema_history = [
+        {
+            "trainer_global_step": row["trainer_global_step"],
+            "telemetry_metrics": row["telemetry_metrics"],
+        }
+        for row in training_history
+        if {
+            "log/unite_ema_decay",
+            "log/unite_ema_num_updates",
+        }.issubset(row["telemetry_metrics"])
+    ]
+    assert ema_history, training_history
+    for row in ema_history:
+        metrics = row["telemetry_metrics"]
+        assert math.isclose(
+            metrics["log/unite_ema_decay"], 0.9978, abs_tol=1.0e-8
+        ), row
+        assert math.isfinite(metrics["log/unite_ema_num_updates"]), row
+        assert metrics["log/unite_ema_num_updates"] >= 1.0, row
+
     # Lightning associates validation metrics with the zero-based training step
     # that triggered validation. The corresponding completed optimizer-step count
     # (and Energy Score artifact suffix) is therefore trainer_global_step + 1.
@@ -470,6 +522,16 @@ def verify_training_smoke(
             "history": schedule_history,
         },
         "unite_gradient_telemetry": telemetry_history,
+        "ema": {
+            "decay": 0.9978,
+            "num_updates": ema_num_updates,
+            "validation_uses_ema": True,
+            "tensor_count": ema_tensor_count,
+            "parameter_count": ema_parameter_count,
+            "history": ema_history,
+        },
+        "timestep_shift_alpha": timestep_shift_alpha,
+        "reconstruction_noise_std": reconstruction_noise_std,
         "dense_training_steps": training_steps,
         "validation_history": validation_history,
     }

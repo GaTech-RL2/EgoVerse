@@ -44,7 +44,10 @@ def _generative_encoder() -> UniteGenerativeEncoder:
     )
 
 
-def _policy(num_inference_steps: int = 3) -> UniteLatentPolicy:
+def _policy(
+    num_inference_steps: int = 3,
+    timestep_shift_alpha: float = 1.0,
+) -> UniteLatentPolicy:
     return UniteLatentPolicy(
         generative_encoder=_generative_encoder(),
         decoders={
@@ -53,6 +56,7 @@ def _policy(num_inference_steps: int = 3) -> UniteLatentPolicy:
         },
         num_inference_steps=num_inference_steps,
         reconstruction_noise_std=0.1,
+        timestep_shift_alpha=timestep_shift_alpha,
     )
 
 
@@ -185,6 +189,18 @@ def test_unite_rollout_starts_from_noise_and_excludes_training_objective():
     assert not any(key.startswith("loss/") for key in batch)
 
 
+def test_unite_policy_uses_paper_timestep_shift_exactly():
+    policy = _policy(timestep_shift_alpha=0.5)
+    raw = torch.tensor([0.0, 0.25, 0.5, 0.75, 1.0])
+    shifted = policy.shift_time(raw)
+    expected = 0.5 * raw / (1.0 - 0.5 * raw)
+
+    torch.testing.assert_close(shifted, expected)
+    assert shifted[0].item() == 0.0
+    assert shifted[-1].item() == 1.0
+    assert bool(torch.all(shifted[1:-1] < raw[1:-1]))
+
+
 def test_unite_teacher_forced_eval_keeps_losses_and_uses_full_sampler():
     policy = _policy(num_inference_steps=3).eval()
     objective = UniteObjective().eval()
@@ -239,6 +255,7 @@ def test_unite_model_config_is_additive_and_uses_val01_experiment_data():
     assert policy.generative_encoder.denoising_module.act_dim == 128
     assert policy.num_inference_steps == 8
     assert policy.reconstruction_noise_std == 0.1
+    assert policy.timestep_shift_alpha == 1.0
     assert stages[4].generated_action_weight == 0.0
 
     defaults = [str(value) for value in experiment.defaults]

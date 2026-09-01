@@ -60,10 +60,9 @@ robomimic_model:
     num_tokens: 16
     latent_dim: 128
   - _target_: egomimic.pipeline.stages_unite.UniteLatentPolicy
-    num_inference_steps: 8
-    # Action latents are lower-dimensional than UNITE's image latents. Keep
-    # this explicit so the paper's 0.7 setting can be tested as an ablation.
-    reconstruction_noise_std: 0.1
+    num_inference_steps: 32
+    reconstruction_noise_std: 0.7
+    timestep_shift_alpha: 0.5
     generative_encoder:
       _target_: egomimic.pipeline.stages_unite.UniteGenerativeEncoder
       action_dims:

@@ -88,6 +88,7 @@ def load_algo_from_ckpt(
 
     # Strip "nets." prefix or "model.nets." prefix when loading.
     state_dict = ckpt["state_dict"]
+    ema = None
     if use_ema:
         ema = ckpt.get("ema_state_dict")
         if ema is None:
@@ -95,18 +96,25 @@ def load_algo_from_ckpt(
                 "--use-ema: checkpoint has no ema_state_dict "
                 "(was the run trained with EMACallback?)"
             )
-        state_dict = dict(state_dict)
-        state_dict.update(ema)  # float params/buffers -> EMA; int buffers stay live
         print(f"[load] using EMA weights ({len(ema)} tensors)")
-    new_sd = {}
-    for k, v in state_dict.items():
-        for prefix in ("nets.", "model.nets."):
-            if k.startswith(prefix):
-                new_sd[k[len(prefix) :]] = v
-                break
-        else:
-            # keep as-is
-            new_sd[k] = v
+
+    def strip_wrapper_prefix(source):
+        stripped = {}
+        for k, v in source.items():
+            for prefix in ("nets.", "model.nets."):
+                if k.startswith(prefix):
+                    stripped[k[len(prefix) :]] = v
+                    break
+            else:
+                stripped[k] = v
+        return stripped
+
+    new_sd = strip_wrapper_prefix(state_dict)
+    if ema is not None:
+        # Apply EMA after prefix normalization. ModelWrapper registers aliases
+        # under both ``model.nets`` and ``nets``; normalizing first guarantees
+        # that a later live alias cannot overwrite an averaged tensor.
+        new_sd.update(strip_wrapper_prefix(ema))
     missing, unexpected = algo.nets.load_state_dict(new_sd, strict=False)
     if missing:
         print(f"[load] missing keys ({len(missing)}): {missing[:5]}")

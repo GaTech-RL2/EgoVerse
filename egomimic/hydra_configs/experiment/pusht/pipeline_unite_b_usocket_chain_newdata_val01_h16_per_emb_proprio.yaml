@@ -8,8 +8,8 @@ defaults:
 # Configuration only. A gated launcher must still bind immutable 1% split
 # manifests, train-only normalization, source identity, and unique W&B/output
 # paths before a smoke or full run is allowed.
-name: flow_transfer_unite_b_w128_transformer_h16
-description: unite_b_216m_xstart_shared_ge_u_rotvec4_chain_points6_w128_h16
+name: flow_transfer_unite_b_normal_paper_recipe_h16
+description: unite_b_normal_shift05_ema9978_flow14r1_sigma07_action_mse
 model:
   enable_grad_norm: false
   # One 15-step cycle: 14 latent-flow-only optimizer updates, followed by one
@@ -52,6 +52,19 @@ run_provenance:
     total_optimizer_steps: 240000
     expected_flow_updates: 224000
     expected_reconstruction_updates: 16000
+  paper_recipe_translation:
+    architecture: normal_action_domain_unite_b_no_temporal_compression
+    timestep_shift:
+      alpha: 0.5
+      formula: alpha_t_over_1_plus_alpha_minus_1_times_t
+      applied_to: [training_corruption, inference_integration_grid]
+    reconstruction_noise_std: 0.7
+    ema:
+      decay: 0.9978
+      validation_uses_ema: true
+      checkpoint_key: ema_state_dict
+    reconstruction_loss: normalized_action_mse
+    denoising_loss: clean_latent_mse
   unite_gradient_telemetry:
     cadence_optimizer_steps: 100
     parameter_set: shared_denoising_module_output_norm_and_domain_embeddings
@@ -69,6 +82,8 @@ run_provenance:
     - log/unite_gradient_cosine
     - log/unite_recon_grad_norm
     - log/unite_denoise_grad_norm
+    - log/unite_ema_decay
+    - log/unite_ema_num_updates
     - Train/MSE
     - Train/MSE/pushshapes_sim_u_socket
     - Train/MSE/pushshapes_sim_chain_gripper
@@ -89,6 +104,10 @@ norm_stats:
 callbacks:
   model_checkpoint:
     filename: "epoch-{epoch}-step-{step}"
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9978
+    validate_with_ema: true
 evaluator:
   deterministic_seed: 420042
   energy_score:
@@ -109,7 +128,7 @@ evaluator:
     provenance:
       action_representations: ${run_provenance.action_contract.representations}
       prediction_horizon: 16
-      flow_inference_steps: 8
+      flow_inference_steps: 32
       precision: bf16
     distance_blocks:
       pushshapes_sim_u_socket:

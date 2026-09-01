@@ -294,6 +294,7 @@ class UniteLatentPolicy(Stage):
         decoders: Dict[str, nn.Module],
         num_inference_steps: int = 8,
         reconstruction_noise_std: float = 0.1,
+        timestep_shift_alpha: float = 1.0,
     ):
         super().__init__()
         if not isinstance(generative_encoder, UniteGenerativeEncoder):
@@ -302,10 +303,15 @@ class UniteLatentPolicy(Stage):
         self.action_decoder = PerEmbodimentActionDecoder(decoders)
         self.num_inference_steps = int(num_inference_steps)
         self.reconstruction_noise_std = float(reconstruction_noise_std)
+        self.timestep_shift_alpha = float(timestep_shift_alpha)
         if self.num_inference_steps <= 0:
             raise ValueError("num_inference_steps must be positive")
         if self.reconstruction_noise_std < 0.0:
             raise ValueError("reconstruction_noise_std must be non-negative")
+        if not torch.isfinite(torch.tensor(self.timestep_shift_alpha)):
+            raise ValueError("timestep_shift_alpha must be finite")
+        if self.timestep_shift_alpha <= 0.0:
+            raise ValueError("timestep_shift_alpha must be positive")
         if set(self.generative_encoder.domains) != set(self.action_decoder.domains):
             raise ValueError("UNITE encoder and decoder embodiments must match exactly")
         if self.generative_encoder.latent_dim != self.action_decoder.latent_dim:
@@ -335,6 +341,15 @@ class UniteLatentPolicy(Stage):
                 f"{tuple(noise.shape)}"
             )
 
+    def shift_time(self, time: torch.Tensor) -> torch.Tensor:
+        """Apply the paper's monotone rational timestep shift."""
+        alpha = torch.as_tensor(
+            self.timestep_shift_alpha,
+            device=time.device,
+            dtype=time.dtype,
+        )
+        return alpha * time / (1.0 + (alpha - 1.0) * time)
+
     def sample(
         self,
         noise: torch.Tensor,
@@ -346,13 +361,14 @@ class UniteLatentPolicy(Stage):
         self._validate_noise(noise)
         batch_size = int(noise.shape[0])
         latent = noise
-        grid = torch.linspace(
+        raw_grid = torch.linspace(
             0.0,
             1.0,
             self.num_inference_steps + 1,
             device=noise.device,
             dtype=torch.float32,
         )
+        grid = self.shift_time(raw_grid)
         for index in range(self.num_inference_steps):
             current_t = grid[index]
             next_t = grid[index + 1]
@@ -378,9 +394,10 @@ class UniteLatentPolicy(Stage):
         clean_latent = self.generative_encoder.tokenize(target, embodiment)
         detached_clean = clean_latent.detach()
         flow_noise = batch["sampler/noise"].to(detached_clean)
-        time = torch.rand(
+        raw_time = torch.rand(
             int(target.shape[0]), device=target.device, dtype=torch.float32
         )
+        time = self.shift_time(raw_time)
         latent_time = time.reshape(int(target.shape[0]), 1, 1).to(detached_clean)
         corrupted_latent = (
             latent_time * detached_clean + (1.0 - latent_time) * flow_noise
@@ -413,7 +430,9 @@ class UniteLatentPolicy(Stage):
         batch["log/sampler_unroll_steps"] = float(
             1 if self.training else self.num_inference_steps
         )
+        batch["log/unite_raw_time_mean"] = raw_time.detach().mean()
         batch["log/unite_time_mean"] = time.detach().mean()
+        batch["log/unite_timestep_shift_alpha"] = self.timestep_shift_alpha
         return batch
 
     def _forward_rollout(self, batch: dict, embodiment: str) -> dict:
