@@ -16,8 +16,9 @@
 # on the mecka FREEFORM fold-clothes episodes (423 train eps / 39 val eps from
 # 25 held-out operators), from the pi05 base weights. Flat lr 5e-5
 # (scheduler=null), 64/GPU x 2xH200 = global 128. Cadence (epoch =
-# limit_train_batches = 100 steps): val every 50 epochs, viz every 100 (both
-# heads, <=10 batches), ckpt every 50 epochs (top-3 by step + last).
+# limit_train_batches = 100 steps): val every 20 epochs (Aidan, 2026-09-01), viz
+# every 100 (both heads, <=10 batches; 100 is a multiple of 20 so viz still lands
+# on a val epoch), ckpt every 50 epochs (top-3 by step + last).
 # Eval = eval_pi_wristframe_6d (6D -> ypr, wrist -> cam revert) + train_viz head.
 #
 # Requires the CPU norm job's output (norm_fold_freeform_opsplit_wrist6d.sbatch):
@@ -77,7 +78,7 @@ ARGS=(
   model.scheduler=null
   "norm_stats.precomputed_norm_path=$NORM_PATH"
   model.robomimic_model.config.pytorch_weight_path=/storage/project/r-dxu345-0/agao81/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
-  trainer.check_val_every_n_epoch=50
+  trainer.check_val_every_n_epoch=20
   callbacks.model_checkpoint.every_n_epochs=50
   "name=$LABEL"
   description=bs64x2_flat5e-5_wrist6d_opsplit
