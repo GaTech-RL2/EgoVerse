@@ -28,6 +28,7 @@ Design:
 from __future__ import annotations
 
 import os
+import csv
 import signal as _signal
 from typing import Any, Dict, List, Tuple
 
@@ -147,18 +148,21 @@ class SimRolloutEval(EvalVideo):
         For random/seeds modes, env_init_dict is None.
         """
         if self.init_mode == "random":
+            self._last_seed = int(ep_seed_offset)
             env.reset(seed=ep_seed_offset)
         elif self.init_mode == "seeds":
             if not self.init_seeds:
                 raise ValueError("init_mode='seeds' requires init_seeds")
             seed = self.init_seeds[self._init_counter % len(self.init_seeds)]
             self._init_counter += 1
+            self._last_seed = int(seed)
             env.reset(seed=int(seed))
         else:
             if env_init_dict is None:
                 raise ValueError(
                     "init_mode='replay' requires env_init_dict from batch_to_env_init"
                 )
+            self._last_seed = int(ep_seed_offset)
             env.reset(seed=ep_seed_offset)
             env.set_state(
                 agent_pos=env_init_dict["agent_pos"],
@@ -264,6 +268,8 @@ class SimRolloutEval(EvalVideo):
 
         frames: List[np.ndarray] = []
         action_history: List[np.ndarray] = []
+        coverage_history: List[float] = []
+        term_reason = "max_steps"
         coverage = 0.0
         max_coverage = 0.0  # peak IoU over the rollout (for report_max_coverage)
         # Per-rollout SIGALRM watchdog: a single env.step() can wedge inside the
@@ -291,17 +297,20 @@ class SimRolloutEval(EvalVideo):
                     )
                     coverage = 0.0
                     max_coverage = 0.0
+                    term_reason = "non_finite_action"
                     break
                 action_xy = action[:2]
-                action_history.append(action_xy.copy())
+                action_history.append(action.copy())
                 _, _, terminated, _, info = env.step(action)
                 coverage = float(info.get("coverage", 0.0))
                 max_coverage = max(max_coverage, coverage)
+                coverage_history.append(coverage)
                 frame = env.render()
                 if frame is not None:
                     frame = self._draw_action_overlay(frame, action_xy, action_history)
                     frames.append(np.ascontiguousarray(frame))
                 if terminated and not self.run_full_horizon:
+                    term_reason = "terminated"
                     break
         except _RolloutTimeout:
             print(
@@ -310,11 +319,90 @@ class SimRolloutEval(EvalVideo):
             )
             coverage = 0.0
             max_coverage = 0.0
+            term_reason = "watchdog_timeout"
         finally:
             if self.rollout_timeout_s > 0:
                 _signal.alarm(0)
                 if prev_handler is not None:
                     _signal.signal(_signal.SIGALRM, prev_handler)
+
+        artifact_dir = self.video_dir()
+        os.makedirs(artifact_dir, exist_ok=True)
+        action_dim = int(getattr(env.action_space, "shape", (0,))[0])
+        actions_array = np.asarray(action_history, dtype=np.float32)
+        if actions_array.size == 0:
+            actions_array = np.empty((0, action_dim), dtype=np.float32)
+        elif actions_array.ndim != 2 or actions_array.shape[1] != action_dim:
+            raise RuntimeError(
+                "commanded action trace has unexpected shape "
+                f"{actions_array.shape}; expected (*,{action_dim})"
+            )
+        np.savez_compressed(
+            os.path.join(artifact_dir, f"actions_emb{emb_id}_ep{ep_idx}.npz"),
+            actions=actions_array,
+        )
+
+        coverage_path = os.path.join(
+            artifact_dir, f"coverage_emb{emb_id}_ep{ep_idx}.csv"
+        )
+        with open(coverage_path, "w", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["step", "coverage", "action_x", "action_y"])
+            for step, step_coverage in enumerate(coverage_history):
+                action = actions_array[step]
+                writer.writerow(
+                    [
+                        step,
+                        f"{step_coverage:.6f}",
+                        f"{float(action[0]):.4f}",
+                        f"{float(action[1]):.4f}",
+                    ]
+                )
+
+        invalid_episode = term_reason in {"non_finite_action", "watchdog_timeout"}
+        if invalid_episode or not coverage_history:
+            peak_coverage = 0.0
+            peak_step = 0
+            final_coverage = 0.0
+        else:
+            peak_coverage = float(max(coverage_history))
+            peak_step = int(coverage_history.index(peak_coverage))
+            final_coverage = float(coverage_history[-1])
+        summary_path = os.path.join(artifact_dir, "rollout_summary.csv")
+        summary_exists = os.path.exists(summary_path)
+        with open(summary_path, "a", newline="") as handle:
+            writer = csv.writer(handle)
+            if not summary_exists:
+                writer.writerow(
+                    [
+                        "emb_id",
+                        "ep_idx",
+                        "seed",
+                        "obstacle_level",
+                        "budget_max_steps",
+                        "n_steps",
+                        "peak_coverage",
+                        "peak_step",
+                        "peak_frac_of_episode",
+                        "final_coverage",
+                        "term_reason",
+                    ]
+                )
+            writer.writerow(
+                [
+                    emb_id,
+                    ep_idx,
+                    self._last_seed,
+                    (self.env_kwargs or {}).get("obstacle_level"),
+                    self.max_steps,
+                    len(coverage_history),
+                    f"{peak_coverage:.6f}",
+                    peak_step,
+                    f"{peak_step / max(1, len(coverage_history) - 1):.4f}",
+                    f"{final_coverage:.6f}",
+                    term_reason,
+                ]
+            )
         # report_max_coverage: peak IoU over the rollout ("did it ever align?"),
         # vs the default final-step IoU which penalizes post-alignment overshoot.
         return (max_coverage if self.report_max_coverage else coverage), frames

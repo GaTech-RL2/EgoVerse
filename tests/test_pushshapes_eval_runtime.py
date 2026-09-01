@@ -8,7 +8,9 @@ import torch
 
 from egomimic.eval.core.ckpt_loading import (
     _assert_completed_seed_rollouts,
+    _override_sampler_inference_steps,
     _parse_init_seeds,
+    _strict_state_dict,
 )
 from egomimic.eval.core.eval_sim import SimRolloutEval
 from egomimic.pipeline.algo import PipelineAlgo
@@ -164,6 +166,7 @@ class _FakeEnv:
     def __init__(self):
         self.actions = []
         self.reset_seeds = []
+        self.action_space = SimpleNamespace(shape=(4,))
 
     def reset(self, seed=None):
         self.reset_seeds.append(seed)
@@ -216,12 +219,13 @@ class _FakeChainEval(SimRolloutEval):
         return None
 
 
-def test_sim_evaluator_passes_full_chain_action_to_environment():
+def test_sim_evaluator_passes_full_chain_action_to_environment(tmp_path):
     env = _FakeEnv()
     evaluator = _FakeChainEval(env)
     evaluator.model = _FakeAlgo()
     evaluator.trainer = SimpleNamespace(
-        lightning_module=SimpleNamespace(device=torch.device("cpu"))
+        lightning_module=SimpleNamespace(device=torch.device("cpu")),
+        default_root_dir=str(tmp_path),
     )
 
     coverage, frames = evaluator._rollout_one_impl(None, 20, 0)
@@ -232,7 +236,7 @@ def test_sim_evaluator_passes_full_chain_action_to_environment():
     assert env.actions[0].tolist() == pytest.approx([100.0, 200.0, 0.3, 0.7])
 
 
-def test_seed_mode_rolls_every_seed_even_when_batch_reports_one_episode():
+def test_seed_mode_rolls_every_seed_even_when_batch_reports_one_episode(tmp_path):
     env = _FakeEnv()
     seeds = [2011, 2022, 2033]
     evaluator = _FakeChainEval(
@@ -243,7 +247,8 @@ def test_seed_mode_rolls_every_seed_even_when_batch_reports_one_episode():
     )
     evaluator.model = _FakeAlgo()
     evaluator.trainer = SimpleNamespace(
-        lightning_module=SimpleNamespace(device=torch.device("cpu"))
+        lightning_module=SimpleNamespace(device=torch.device("cpu")),
+        default_root_dir=str(tmp_path),
     )
 
     metrics, _ = evaluator.compute_metrics_and_viz({20: {}})
@@ -259,3 +264,81 @@ def test_completed_seed_rollout_count_assertion_is_strict():
     assert _assert_completed_seed_rollouts(evaluator, [20], 3) == {20: 3}
     with pytest.raises(RuntimeError, match=r"emb20 completed=3 expected=4"):
         _assert_completed_seed_rollouts(evaluator, [20], 4)
+
+
+def _registered_ema_checkpoint():
+    return {
+        "state_dict": {
+            "nets.policy.weight": torch.tensor([1.0]),
+            "nets.policy.bias": torch.tensor([2.0]),
+            "ema_nets.policy.weight": torch.tensor([3.0]),
+            "ema_nets.policy.bias": torch.tensor([4.0]),
+            "ema_optimization_step": torch.tensor(17),
+            "ema_decay": torch.tensor(0.999),
+        }
+    }
+
+
+def test_strict_state_dict_selects_complete_registered_ema_or_online_tree():
+    ckpt = _registered_ema_checkpoint()
+
+    online = _strict_state_dict(ckpt, use_ema=False)
+    ema = _strict_state_dict(ckpt, use_ema=True)
+
+    assert set(online) == {"policy.weight", "policy.bias"}
+    assert set(ema) == set(online)
+    assert online["policy.weight"].item() == pytest.approx(1.0)
+    assert ema["policy.weight"].item() == pytest.approx(3.0)
+
+
+def test_strict_state_dict_rejects_partial_or_foreign_registered_ema_state():
+    ckpt = _registered_ema_checkpoint()
+    del ckpt["state_dict"]["ema_nets.policy.bias"]
+    with pytest.raises(RuntimeError, match="do not exactly match"):
+        _strict_state_dict(ckpt, use_ema=True)
+
+    ckpt = _registered_ema_checkpoint()
+    ckpt["state_dict"]["foreign_buffer"] = torch.tensor(1)
+    with pytest.raises(RuntimeError, match="non-model state keys"):
+        _strict_state_dict(ckpt, use_ema=True)
+
+    ckpt = _registered_ema_checkpoint()
+    del ckpt["state_dict"]["ema_decay"]
+    with pytest.raises(RuntimeError, match="missing wrapper buffers"):
+        _strict_state_dict(ckpt, use_ema=True)
+
+
+def test_sampler_override_finds_selected_nested_domain_policy():
+    chain = SimpleNamespace(num_inference_steps=100)
+    socket = SimpleNamespace(num_inference_steps=100)
+    stage = SimpleNamespace(
+        policies={
+            "pushshapes_sim_chain_gripper": chain,
+            "pushshapes_sim_u_socket": socket,
+        }
+    )
+    algo = SimpleNamespace(policy=SimpleNamespace(stages=[stage]))
+
+    stage_name, original = _override_sampler_inference_steps(
+        algo,
+        32,
+        embodiment_name="pushshapes_sim_chain_gripper",
+    )
+
+    assert stage_name == "SimpleNamespace"
+    assert original == 100
+    assert chain.num_inference_steps == 32
+    assert socket.num_inference_steps == 100
+
+
+def test_sampler_override_rejects_ambiguous_direct_candidates():
+    algo = SimpleNamespace(
+        policy=SimpleNamespace(
+            stages=[
+                SimpleNamespace(num_inference_steps=100),
+                SimpleNamespace(num_inference_steps=100),
+            ]
+        )
+    )
+    with pytest.raises(RuntimeError, match="exactly one"):
+        _override_sampler_inference_steps(algo, 50)
