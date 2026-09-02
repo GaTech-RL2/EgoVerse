@@ -1,0 +1,129 @@
+# Unprompted BPP diffusion transformer as an EgoMimic algo.
+#
+# Same adapter, diffusion head, backbone, optimizer, and augmentations as
+# bpp_prompt_dit.yaml, but the obs encoder is BPP's plain TransformerObsEncoder
+# (their train_network/config/model/diffusion_transformer.yaml) instead of the
+# PairPromptObsEncoder stack. No prompt is built, encoded, or attended to; the
+# adapter detects this via policy.supports_prompting() and skips the prompt
+# path entirely. This is the "same model without prompting" baseline.
+#
+# Kept as a standalone file rather than composing from bpp_prompt_dit: hydra
+# merges nested dicts, so overriding `policy.obs_encoder` would leave the
+# PairPromptObsEncoder-only keys behind and TransformerObsEncoder would reject
+# them.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.bpp.BPP
+  camera_transforms: {}
+
+  ac_keys:
+    human_bimanual: "actions_cartesian"
+
+  # No `prompt:` block — the adapter raises if one is given with a policy
+  # that cannot prompt.
+
+  # BPP-convention shape_meta without the prompt fields. Keys, shapes and
+  # horizons match bpp_prompt_dit.yaml (human cartesian: one front camera,
+  # 12-dim state/action) so the receding-observation path is identical.
+  shape_meta:
+    image_resolution: 224
+    use_prompting: false
+    action:
+      shape: [12]
+      horizon: 100
+    obs:
+      front_img_1:
+        shape: [3, 224, 224]
+        horizon: 1
+        type: rgb
+        ignore_by_policy: false
+      state_ee_pose:
+        shape: [12]
+        horizon: 1
+        type: low_dim
+        ignore_by_policy: false
+
+  policy:
+    _target_: behavior_prompting.train_network.policy.diffusion_transformer_policy.DiffusionTransformerPolicy
+    shape_meta: ${model.robomimic_model.shape_meta}
+    n_emb: 768
+
+    noise_scheduler:
+      _target_: diffusers.DDIMScheduler
+      num_train_timesteps: 50
+      beta_start: 0.0001
+      beta_end: 0.02
+      beta_schedule: squaredcos_cap_v2
+      clip_sample: True
+      set_alpha_to_one: True
+      steps_offset: 0
+      prediction_type: epsilon
+
+    num_inference_steps: 16
+    input_pertub: 0.1
+    diffusion_decoder_n_layer: 7
+    diffusion_decoder_n_head: 8
+    diffusion_encoder_enabled: False
+    diffusion_encoder_n_layer: 4
+    diffusion_encoder_n_head: 8
+    p_drop_attn: 0.1
+
+    obs_encoder:
+      _target_: behavior_prompting.train_network.model.vision.transformer_obs_encoder.TransformerObsEncoder
+      shape_meta: ${model.robomimic_model.shape_meta}
+      global_pool: ""
+      n_emb: 768
+      model_name: "vit_base_patch16_clip_224.openai"
+      pretrained: True
+      frozen: False
+      # `cls` keeps one token per camera, matching the prompted model's
+      # receding path. BPP's own unprompted config uses `null` (all 197 ViT
+      # patch tokens per camera); override here to reproduce that instead.
+      feature_aggregation: cls
+      downsample_ratio: 32
+      # Image geometry/augmentation is owned by the algo-level
+      # train/eval_image_augs below — keep these null so frames are never
+      # doubly augmented. CLIP mean/std still applied via use_vision_norm.
+      train_image_transforms: null
+      non_prompt_train_image_transforms: null
+      eval_image_transforms: null
+      use_group_norm: True
+      share_rgb_model: False
+      use_vision_norm: True
+      # Required by the plain encoder: tokens are concatenated along time so
+      # the policy sees (B, n_tokens, n_emb).
+      concat_time_dimension: True
+
+  # Resize to the CLIP ViT's 224x224 + BPP's UMI color jitter. No Normalize:
+  # the policy applies CLIP mean/std internally (use_vision_norm: True).
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: [224, 224]
+        antialias: true
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.3
+        contrast: 0.4
+        saturation: 0.5
+        hue: 0.08
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: [224, 224]
+        antialias: true
+
+# BPP's UMI diffusion-transformer training hyperparameters.
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5e-5
+  weight_decay: 1e-6
+  betas: [0.95, 0.999]
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 1400
+  eta_min: 1e-6

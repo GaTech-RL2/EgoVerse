@@ -1,0 +1,11 @@
+defaults:
+  - train_zarr_cartesian
+  - override model: bpp_prompt_dit
+  - override data: bpp_overfit_test
+
+# bpp_overfit_test carries no language annotations, so the val-video overlay
+# must not look for the `sampled_prompt` key that viz/cartesian.yaml wires in.
+evaluator:
+  viz_func:
+    human_bimanual:
+      annotation_key: null

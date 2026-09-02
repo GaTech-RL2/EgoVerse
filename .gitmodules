@@ -1,3 +1,6 @@
 [submodule "external/openpi"]
 	path = external/openpi
 	url = https://github.com/GaTech-RL2/openpi.git
+[submodule "external/behavior_prompting"]
+	path = external/behavior_prompting
+	url = https://github.com/real-stanford/behavior_prompting.git
