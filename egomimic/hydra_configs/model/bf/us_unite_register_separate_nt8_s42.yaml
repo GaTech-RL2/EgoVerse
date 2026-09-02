@@ -1,0 +1,152 @@
+# U-Socket UNITE register-sweep candidate: separate, NT8, seed 42.
+_target_: egomimic.pl_utils.pl_model_unite_released.ReleasedUniteModelWrapper
+
+share_encoder_denoiser: false
+latent_dim: 16
+num_latent_tokens: 8
+
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 16
+  domains: [pushshapes_sim_u_socket]
+  ac_keys: {pushshapes_sim_u_socket: actions}
+  rollout_observation_adapters:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketModelStateObservationAdapter
+  rollout_adapters:
+    pushshapes_sim_u_socket:
+      _target_: egomimic.pipeline.pushshapes.USocketRotVecRolloutAdapter
+  stages:
+  - _target_: egomimic.pipeline.stages_sampler.EmbodimentProprioProjection
+    output_dim: 64
+    projections:
+      pushshapes_sim_u_socket:
+        source_dim: 4
+        hidden_dim: 64
+        semantic: x_y_cos_theta_sin_theta
+  - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+    n_obs_steps: 1
+    required_obs_keys: [front_img_1, proprio_condition]
+    encoder:
+      _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+      obs_specs:
+        proprio_condition: {input_dim: 64, input_slice: [0, 64]}
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 84
+          crop_width: 84
+          crop_eval_mode: center
+          crop_sample_mode: v02
+          crop_scope: frame
+          norm_layer: group
+          pool_type: spatial_softmax
+  - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+    num_tokens: 8
+    latent_dim: 16
+  - _target_: egomimic.pipeline.stages_unite_released.ReleasedRecipeUniteLatentPolicy
+    num_inference_steps: 8
+    sampling_method: dopri5
+    condition_dropout_probability: 0.1
+    cfg_scale: 4.0
+    cfg_interval: [0.0, 1.0]
+    cfg_norm_order: norm_first
+    dopri5_num_steps: 50
+    dopri5_atol: 1.0e-6
+    dopri5_rtol: 1.0e-3
+    reconstruction_noise_std: 0.0
+    timestep_shift_alpha: 0.5
+    flow_steps_per_reconstruction: 14
+    flow_mini_batch: 4
+    train_eps: 0.05
+    sample_eps: 0.05
+    lognorm_mu: 0.0
+    lognorm_sigma: 1.0
+    reconstruction_noising_start: 0.7
+    reconstruction_noising_probability: 0.5
+    generative_encoder:
+      _target_: egomimic.pipeline.stages_unite_separate.build_configurable_unite_generative_encoder
+      _recursive_: false
+      share_encoder_denoiser: false
+      action_dims: {pushshapes_sim_u_socket: 4}
+      condition_input_dim: 128
+      condition_dim: 128
+      latent_dim: 16
+      num_latent_tokens: 8
+      denoiser_hidden_dim: 768
+      gradient_checkpointing: true
+      tokenization_time_max: 0.01
+      backbone_config:
+        _target_: egomimic.models.unite_dit.UniteDiTBackbone
+        input_dim: 16
+        output_dim: 16
+        horizon: 8
+        condition_dim: 128
+        max_condition_tokens: 1
+        max_content_tokens: 16
+        hidden_dim: 768
+        depth: 12
+        num_heads: 12
+        mlp_ratio: 4.0
+        qk_norm: true
+        use_rope: true
+        use_rmsnorm: true
+        use_swiglu: true
+        block_norm: true
+        time_fourier_dim: 256
+        context_adaln_summary: false
+        trainable_position_embeddings: false
+        trainable_register_position_embeddings: true
+        trainable_content_position_embeddings: false
+        trainable_condition_position_embeddings: false
+        gradient_checkpointing: true
+    decoders:
+      pushshapes_sim_u_socket:
+        _target_: egomimic.models.unite_action_decoder.UniteActionDecoder
+        latent_dim: 16
+        action_dim: 4
+        num_latent_tokens: 8
+        action_horizon: 16
+        hidden_dim: 768
+        depth: 12
+        num_heads: 12
+        mlp_ratio: 4.0
+        dropout: 0.0
+        gradient_checkpointing: true
+  - _target_: egomimic.pipeline.stages_unite_released.ReleasedRecipeUniteObjective
+    reconstruction_weight: 1.0
+    flow_weight: 1.0
+
+enable_grad_norm: false
+unite_flow_updates_per_reconstruction: 0
+unite_gradient_telemetry_every_n_steps: 0
+optimizer:
+  _target_: egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer
+  _partial_: true
+  lr: 1.0e-4
+  betas: [0.9, 0.999]
+  eps: 1.0e-6
+  adamw_weight_decay: 0.0
+  muon_weight_decay: 0.0
+  muon_momentum: 0.95
+  muon_adjust_lr_fn: match_rms_adamw
+scheduler:
+  _target_: egomimic.utils.unite_optim.released_unite_two_stage_scheduler
+  _partial_: true
+  warmup_steps: 8000
+  decay_start_1_steps: 12000
+  decay_end_1_steps: 20000
+  # Declared robot step-domain adaptation: the released YAML's impossible
+  # 3000->380 ordering cannot be reproduced literally. This 120k->152k window
+  # is fixed across all six rows but is not called a paper epoch conversion.
+  decay_start_2_steps: 120000
+  decay_end_2_steps: 152000
+  base_lr_1: 1.0e-4
+  base_lr_2: 5.0e-5
+  final_lr: 1.0e-5

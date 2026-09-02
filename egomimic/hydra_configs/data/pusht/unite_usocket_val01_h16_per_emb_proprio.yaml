@@ -1,0 +1,54 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# U-Socket-only view for the released-mechanism register sweep. The dataset
+# splitter uses the repository-wide deterministic seed 42. Train and valid
+# therefore resolve complementary episode sets from the same frozen corpus at
+# the mandatory 1% episode-level validation ratio.
+valid_combined_mode: max_size
+
+train_datasets:
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt_per_emb_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_usocket_rotvec_action_state_transform_list
+    mode: train
+    valid_ratio: 0.01
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/u_socket_3000_v2_clean
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt_per_emb_proprio
+        action_horizon: 16
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_usocket_rotvec_action_state_transform_list
+    mode: valid
+    valid_ratio: 0.01
+    bounds_check: false
+
+# Two DDP ranks with 32 samples per rank give the fixed effective batch of 64.
+train_dataloader_params:
+  pushshapes_sim_u_socket:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+
+valid_dataloader_params:
+  pushshapes_sim_u_socket:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true

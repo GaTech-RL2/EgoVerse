@@ -1,0 +1,9 @@
+# Torch and torchvision intentionally remain at the repository's pyproject pins
+# (2.7.1 and 0.22.1). Upstream UNITE requests torch>=2.10 only for
+# torch.optim.Muon; egomimic.utils.unite_optim carries a provenance-pinned
+# backport from PyTorch 2.10.0 commit
+# 449b1768410104d3ed79d3bcfe4ba1d65c7f22c0 instead of changing the runtime.
+#
+# Exact ODE solver version used by released UNITE commit
+# 2389f2c65fedbd43ada851e69b2b810efd23af7d.
+torchdiffeq==0.2.5

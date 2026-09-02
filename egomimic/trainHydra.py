@@ -54,12 +54,37 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     return OmegaConf.create({"model": model_cfg})
 
 
+def _resolve_model_wrapper_class(cfg: DictConfig) -> type[ModelWrapper]:
+    """Resolve the configured Lightning wrapper without instantiating the model.
+
+    Model construction is intentionally deferred until train-only normalization
+    is available, but that must not erase ``model._target_``.  Existing configs
+    continue to resolve to :class:`ModelWrapper`; specialized wrappers can opt in
+    by changing only their Hydra target.
+    """
+
+    target = OmegaConf.select(cfg, "model._target_", default=None)
+    if target is None:
+        return ModelWrapper
+    wrapper_class = hydra.utils.get_class(str(target))
+    if not isinstance(wrapper_class, type) or not issubclass(
+        wrapper_class, ModelWrapper
+    ):
+        raise TypeError(
+            "cfg.model._target_ must resolve to a ModelWrapper subclass; "
+            f"got {target!r}"
+        )
+    return wrapper_class
+
+
 def _instantiate_model_wrapper(cfg: DictConfig, norm_stats: MultiDataset):
     """Construct the Lightning wrapper with every runtime-sensitive model flag."""
-    return ModelWrapper(
+    wrapper_class = _resolve_model_wrapper_class(cfg)
+    return wrapper_class(
         config_tree=_build_model_config_tree(cfg),
         norm_stats_state=norm_stats.to_state(),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
+        scheduler_frequency=int(cfg.model.get("scheduler_frequency", 1)),
         enable_grad_norm=bool(cfg.model.get("enable_grad_norm", True)),
         train_metrics_on_step=bool(cfg.model.get("train_metrics_on_step", False)),
         train_metrics_on_epoch=bool(cfg.model.get("train_metrics_on_epoch", True)),
