@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The locked environment carries the CUDA torch stack (~4 GB of nvidia-*
+      # wheels). The hosted runner fits it only once the preinstalled toolchains
+      # nothing here uses are gone.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                      /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          df -h /
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          # Not cached on purpose: the resolved environment is ~5 GB, which
+          # would consume most of the repository's 10 GB Actions cache quota.
+          enable-cache: false
+
+      # `--locked` is the check that keeps this honest: CI runs the environment
+      # `pyproject.toml` + `uv.lock` describe, the same one developers get from
+      # `uv sync`, and fails if the two have drifted.
+      - name: Sync the locked environment
+        run: uv sync --locked
+
+      - name: Collect tests
+        run: uv run --no-sync pytest --collect-only -q
+
+      - name: Run unit tests
+        run: uv run --no-sync pytest -q
+
+      - name: Lint
+        run: uv run --no-sync ruff check egomimic

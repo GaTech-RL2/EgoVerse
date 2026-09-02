@@ -1,9 +1,17 @@
 # Repo Agent Rules
 
 ## Shell / Command Execution
-to run commands in the interactive shell make sure to source emimic/bin/activate
+The project environment is the uv environment described by `pyproject.toml` +
+`uv.lock`. Create or update it with `uv sync`, and run project Python tooling
+through it — `uv run pytest`, `uv run ruff check egomimic` — or activate it
+(`source .venv/bin/activate`) first. Do not `pip install` into it; add the
+dependency to `pyproject.toml` and re-run `uv sync`, or CI's `uv sync --locked`
+will fail.
 
-Apply this before running project Python tooling (for example: `python`, `pytest`, `pip`).
+If your environment lives under a different name (this machine uses `ev`), set
+`UV_PROJECT_ENVIRONMENT` to it. Point `UV_CACHE_DIR` and `UV_PYTHON_INSTALL_DIR`
+at scratch storage on any machine with a small home quota — the locked
+environment carries the CUDA torch stack and is several GB.
 
 ## Model settings
 use plan mode for anything except extremely simple tasks
