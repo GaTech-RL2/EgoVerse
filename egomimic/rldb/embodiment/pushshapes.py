@@ -1,5 +1,110 @@
 """PushShapes dataset schema for single-observation Pipeline policies."""
 
+from __future__ import annotations
+
+from typing import Any
+
+import cv2
+import numpy as np
+import torch
+
+from egomimic.rldb.embodiment.embodiment import get_embodiment
+from egomimic.utils.viz_utils import draw_dot_on_frame
+
+_IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+_IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+_PUSHSHAPES_WORLD_SIZE = 512.0
+_OVERLAY_UPSCALE = 4
+
+
+def _as_numpy(value: Any) -> np.ndarray:
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu().float().numpy()
+    return np.asarray(value)
+
+
+def _denormalize_imagenet(images: np.ndarray) -> np.ndarray:
+    mean = _IMAGENET_MEAN.reshape((1,) * (images.ndim - 3) + (3, 1, 1))
+    std = _IMAGENET_STD.reshape((1,) * (images.ndim - 3) + (3, 1, 1))
+    restored = np.clip(images * std + mean, 0.0, 1.0)
+    return (np.moveaxis(restored, -3, -1) * 255).astype(np.uint8)
+
+
+def _draw_xy_chunk(
+    frame: np.ndarray,
+    actions: np.ndarray,
+    *,
+    palette: str,
+    alpha: float,
+) -> np.ndarray:
+    values = np.asarray(actions, dtype=np.float32)
+    if values.ndim == 1:
+        values = values[None]
+    if values.ndim != 2 or values.shape[-1] < 2:
+        raise ValueError(
+            "PushShapes XY visualization requires (horizon, action_dim>=2), "
+            f"got {values.shape}"
+        )
+    xy = values[:, :2]
+    if not np.isfinite(xy).all():
+        raise ValueError("PushShapes XY visualization received non-finite actions")
+    pixels = xy * (frame.shape[1] / _PUSHSHAPES_WORLD_SIZE)
+    overlay = draw_dot_on_frame(
+        frame, pixels.tolist(), show=False, palette=palette, dot_size=3
+    )
+    if alpha >= 1.0:
+        return overlay
+    return cv2.addWeighted(overlay, alpha, frame, 1.0 - alpha, 0.0)
+
+
+def viz_gt_preds_xy(
+    predictions: dict,
+    batch: dict,
+    image_key: str = "front_img_1",
+    action_key: str = "actions",
+    gt_alpha: float = 0.6,
+    pred_alpha: float = 1.0,
+    **_unused_kwargs: Any,
+) -> np.ndarray:
+    """Draw physical XY action chunks: target green, prediction red.
+
+    ``HumanRobotOverlayEval`` supplies actions after the checkpoint normalizer's
+    inverse. For PlanarCommon5 this means columns 0 and 1 are already the native
+    512-by-512 PushShapes cursor coordinates; theta and grip are intentionally
+    ignored by this visualization.
+    """
+
+    embodiment_name = get_embodiment(int(batch["embodiment"][0].item())).lower()
+    images = _denormalize_imagenet(_as_numpy(batch[image_key]))
+    targets = _as_numpy(batch[action_key])
+    predicted = _as_numpy(predictions[f"{embodiment_name}_{action_key}"])
+    if images.ndim != 4:
+        raise ValueError(
+            f"Expected evaluator-selected images shaped (B,C,H,W), got {images.shape}"
+        )
+    if targets.shape != predicted.shape or targets.shape[0] != images.shape[0]:
+        raise ValueError(
+            "PushShapes XY overlay batch mismatch: "
+            f"images={images.shape}, targets={targets.shape}, predictions={predicted.shape}"
+        )
+
+    frames = []
+    for index, image in enumerate(images):
+        height, width = image.shape[:2]
+        frame = cv2.resize(
+            image,
+            (width * _OVERLAY_UPSCALE, height * _OVERLAY_UPSCALE),
+            interpolation=cv2.INTER_LINEAR,
+        )
+        frame = _draw_xy_chunk(
+            frame, targets[index], palette="Greens", alpha=float(gt_alpha)
+        )
+        frame = _draw_xy_chunk(
+            frame, predicted[index], palette="Reds", alpha=float(pred_alpha)
+        )
+        frames.append(frame)
+    return np.stack(frames)
+
 
 def get_keymap_hpt(
     action_horizon: int = 16,
