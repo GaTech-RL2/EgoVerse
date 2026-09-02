@@ -162,7 +162,8 @@ class Yam(Embodiment):
         ``arc_tokenizer_cartesian`` runs the cartesian pipeline for the chosen
         frame and then rewrites ``actions_cartesian`` to (M+1, 14) arc-length
         tokens, the same layout Eva and Human emit -- Yam is already 14D with a
-        real gripper, so no padding step is needed.
+        real gripper, so unlike Human it needs no padding step first. It is
+        euler-only, because that is the layout the tokenizer consumes.
         """
         if action_mode not in ("cartesian", "arc_tokenizer_cartesian"):
             raise ValueError(f"unknown action_mode {action_mode!r}")
@@ -187,6 +188,7 @@ class Yam(Embodiment):
                 transform_list,
                 min_distance_unit=min_distance_unit,
                 resampled_vector_length=resampled_vector_length,
+                rotation_mode=rotation_mode,
             )
         return transform_list
 

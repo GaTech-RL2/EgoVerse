@@ -82,7 +82,9 @@ class Eva(Embodiment):
 
         ``arc_tokenizer_cartesian`` runs the cartesian pipeline for the chosen
         frame and then rewrites ``actions_cartesian`` to (M+1, 14) arc-length
-        tokens -- xyz + ypr + grip per arm, rotation always included.
+        tokens -- xyz + ypr + grip per arm, rotation always included. Eva has a
+        real gripper, so unlike Human it needs no padding step first; it is
+        euler-only, because that is the layout the tokenizer consumes.
         """
         if action_mode not in ("cartesian", "arc_tokenizer_cartesian"):
             raise ValueError(f"unknown action_mode {action_mode!r}")
@@ -99,6 +101,7 @@ class Eva(Embodiment):
                 transform_list,
                 min_distance_unit=min_distance_unit,
                 resampled_vector_length=resampled_vector_length,
+                rotation_mode=rotation_mode,
             )
         return transform_list
 
@@ -108,14 +111,25 @@ def _append_arc_tokenizer(
     *,
     min_distance_unit: float,
     resampled_vector_length: int,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
     dt: float | None = None,
     action_key: str = "actions_cartesian",
 ) -> list[Transform]:
     """Splice the arc-length tokenizer in before the final NumpyToTensor.
 
     The tokenizer works on numpy arrays, so it has to run before the cast;
-    NumpyToTensor then converts the (M+1, 8) result to a torch tensor.
+    NumpyToTensor then converts the (M+1, 14) result to a torch tensor.
+
+    ``rotation_mode`` must be ``euler``: the tokenizer's chunk layout is a
+    hard-coded 14D ``[xyz(3), ypr(3), grip(1)] x 2``, and it SLERPs through
+    the ypr slots. quat (16D) and 6D (20D) chunks are rejected here rather
+    than at the first batch, where the shape check fires deep inside a run.
     """
+    if rotation_mode != "euler":
+        raise ValueError(
+            "the arc-length tokenizer only supports rotation_mode='euler' "
+            f"(its chunk layout is 14D [xyz, ypr, grip] x 2); got {rotation_mode!r}"
+        )
     from egomimic.rldb.zarr.arc_length_tokenizer import (
         TokenizeBimanualArcLengthCartesian,
     )
