@@ -7,6 +7,7 @@ import torch.nn as nn
 from omegaconf import OmegaConf
 
 import egomimic.trainHydra as train_hydra
+from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.pl_utils.pl_model_unite_released import ReleasedUniteModelWrapper
 from egomimic.utils.unite_optim import (
@@ -49,6 +50,29 @@ class _TinyAlgo(nn.Module):
     def __init__(self):
         super().__init__()
         self.nets = nn.ModuleDict({"policy": _TinyPolicy()})
+
+
+class _TinyNormStats:
+    def keys_of_type(self, key_type, emb_id):
+        return {
+            "proprio_keys": [],
+            "lang_keys": [],
+            "camera_keys": [],
+            "action_keys": ["actions"],
+        }[key_type]
+
+    def is_key_with_embodiment(self, key, emb_id):
+        return key == "actions"
+
+
+def _tiny_pipeline_algo() -> PipelineAlgo:
+    return PipelineAlgo(
+        stages=[_VisualStage(), _GenerativeStage()],
+        norm_stats=_TinyNormStats(),
+        domains=["pushshapes_sim_u_socket"],
+        ac_keys={"pushshapes_sim_u_socket": "actions"},
+        device=torch.device("cpu"),
+    )
 
 
 def _optimizer(model: nn.Module) -> ReleasedUniteCompositeOptimizer:
@@ -113,8 +137,10 @@ def test_released_wrapper_constructs_optimizer_without_attached_trainer():
 
 
 def test_released_wrapper_constructs_hydra_config_tree_optimizer():
+    pipeline_algo = _tiny_pipeline_algo()
+    assert not isinstance(pipeline_algo, nn.Module)
     wrapper = ReleasedUniteModelWrapper(
-        robomimic_model=_TinyAlgo(),
+        robomimic_model=pipeline_algo,
         optimizer=None,
         scheduler=None,
     )
@@ -133,7 +159,27 @@ def test_released_wrapper_constructs_hydra_config_tree_optimizer():
         }
     )
     configured = wrapper.configure_optimizers()
-    assert isinstance(configured["optimizer"], ReleasedUniteCompositeOptimizer)
+    optimizer = configured["optimizer"]
+    assert isinstance(optimizer, ReleasedUniteCompositeOptimizer)
+    expected_named = tuple(
+        wrapper.nets.named_parameters(prefix="nets", remove_duplicate=True)
+    )
+    expected_names = {name for name, _ in expected_named}
+    expected_ids = {id(parameter) for _, parameter in expected_named}
+    adamw_names = set(optimizer.group_manifest["adamw_parameter_names"])
+    muon_names = set(optimizer.group_manifest["muon_parameter_names"])
+    optimizer_parameters = [
+        parameter
+        for group in optimizer.param_groups
+        for parameter in group["params"]
+    ]
+    assert expected_names == adamw_names | muon_names
+    assert adamw_names.isdisjoint(muon_names)
+    assert len(expected_named) == len(expected_names) == len(expected_ids)
+    assert len(optimizer_parameters) == len({id(p) for p in optimizer_parameters})
+    assert {id(parameter) for parameter in optimizer_parameters} == expected_ids
+    assert "nets.policy.stages.1.content_projection.weight" in adamw_names
+    assert "nets.policy.stages.1.action_projection.weight" in muon_names
 
 
 def test_visual_core_paths_and_non_matrix_weights_are_adamw():

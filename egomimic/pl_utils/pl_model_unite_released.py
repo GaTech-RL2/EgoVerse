@@ -323,7 +323,13 @@ class ReleasedUniteModelWrapper(ModelWrapper):
     def configure_optimizers(self) -> Dict[str, Any]:
         """Instantiate Muon/AdamW from stable model-local parameter names."""
 
-        named_parameters = tuple(self.model.named_parameters())
+        # PipelineAlgo is intentionally not an nn.Module. ModelWrapper registers
+        # its policy ModuleDict as ``self.nets`` so Lightning owns the exact
+        # trainable graph. Keep the historical ``nets.policy...`` names used by
+        # the released optimizer contract while removing shared aliases once.
+        named_parameters = tuple(
+            self.nets.named_parameters(prefix="nets", remove_duplicate=True)
+        )
         config_tree = getattr(self.hparams, "config_tree", None)
         if config_tree is not None:
             cfg = self._as_config(config_tree)

@@ -208,7 +208,18 @@ split/norm subsection checks, durable parameter-manifest byte-identity checks,
 optimizer-group assertions, and the released-smoke verifier path. Its focused
 telemetry/launcher suite passed 12/12 tests, including real shared/separate
 policy forward-optimizer-forward telemetry checks. Ruff, Python compile,
-`bash -n`, YAML parsing, graph lint, and `git diff --check` passed. It did not
-start a smoke, allocate a GPU, or submit a job.
+`bash -n`, YAML parsing, graph lint, and `git diff --check` passed.
 
-No training job or W&B run was started.
+The first real four-row smoke attempt was Slurm array `3741178`. All rows were
+stopped before their first optimizer step because
+`ReleasedUniteModelWrapper.configure_optimizers()` incorrectly called
+`named_parameters()` on `PipelineAlgo`, which intentionally is not an
+`nn.Module`. Consequently, this attempt produced no qualifying smoke evidence,
+checkpoint, or strict checkpoint/EMA reload; its short-lived W&B runs are failed
+attempt records only. The wrapper now enumerates Lightning's registered
+`self.nets` module tree with stable `nets.policy...` names and duplicate removal.
+A real-`PipelineAlgo` regression verifies exact parameter identity coverage,
+disjoint AdamW/Muon groups, and the required content/action projection routing.
+The complete in-scope suite passes `108/108` after this fix. The manifest remains
+`SMOKE_READY / SMOKE_REQUIRED`; all four real smokes must be retried from the
+post-fix commit before any full launch.
