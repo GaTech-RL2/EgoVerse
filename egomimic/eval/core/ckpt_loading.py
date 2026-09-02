@@ -214,9 +214,12 @@ def strict_no_rollout_preflight(
     selected_embodiment_id: int,
     expected_native_action_dim: int,
     use_ema: bool = False,
+    action_chunk_start_index: int = 0,
+    replan_every: int | None = None,
 ) -> dict:
     """Strictly validate checkpoint/config/model binding without an env or inference."""
     from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+    from egomimic.pipeline.algo import _resolve_action_chunk_execution_slice
 
     algo, _ = load_algo_from_ckpt(ckpt_path, config_path, use_ema=use_ema)
     emb_name = str(selected_embodiment_name)
@@ -265,8 +268,14 @@ def strict_no_rollout_preflight(
         raise RuntimeError(
             f"adapter native action width {decoded.shape[-1]} != expected {native_dim}"
         )
-    if int(decoded.shape[1]) <= 0:
+    decoded_horizon = int(decoded.shape[1])
+    if decoded_horizon <= 0:
         raise RuntimeError("adapter decoded an empty action horizon")
+    execution_start, execution_stop = _resolve_action_chunk_execution_slice(
+        decoded_horizon=decoded_horizon,
+        start_index=action_chunk_start_index,
+        replan_every=replan_every,
+    )
 
     report = {
         "status": "audited_strict_no_rollout_ok",
@@ -274,7 +283,10 @@ def strict_no_rollout_preflight(
         "embodiment_name": emb_name,
         "model_token_horizon": token_horizon,
         "model_token_dim": token_dim,
-        "decoded_action_horizon": int(decoded.shape[1]),
+        "decoded_action_horizon": decoded_horizon,
+        "action_chunk_start_index": execution_start,
+        "execution_horizon": execution_stop - execution_start,
+        "execution_stop_index_exclusive": execution_stop,
         "native_action_dim": native_dim,
         "state_tensor_count": len(algo.nets.state_dict()),
         "weights": "ema" if use_ema else "raw",
@@ -457,6 +469,14 @@ def main():
         "1 = re-plan every env step.",
     )
     parser.add_argument(
+        "--action-chunk-start-index",
+        type=int,
+        default=0,
+        help="Zero-based index of the first decoded native action to execute. "
+        "Default: 0. This is an explicit evaluation-time temporal-contract "
+        "setting and is never inferred from the model family.",
+    )
+    parser.add_argument(
         "--sampler-inference-steps",
         type=int,
         default=None,
@@ -479,6 +499,10 @@ def main():
             )
     if args.rollout_timeout < 0:
         parser.error("--rollout-timeout must be >= 0")
+    if args.replan_every is not None and args.replan_every <= 0:
+        parser.error("--replan-every must be positive")
+    if args.action_chunk_start_index < 0:
+        parser.error("--action-chunk-start-index must be >= 0")
     if args.sampler_inference_steps is not None and args.sampler_inference_steps <= 0:
         parser.error("--sampler-inference-steps must be positive")
 
@@ -522,6 +546,14 @@ def main():
     if args.replan_every is not None:
         algo.replan_every = int(args.replan_every)
         print(f"[sim] replan_every override = {algo.replan_every}")
+    if not hasattr(algo, "action_chunk_start_index"):
+        if args.action_chunk_start_index != 0:
+            raise RuntimeError(
+                f"{type(algo).__name__} does not support --action-chunk-start-index"
+            )
+    else:
+        algo.action_chunk_start_index = int(args.action_chunk_start_index)
+        print(f"[sim] action_chunk_start_index = {algo.action_chunk_start_index}")
     import torch as _torch
 
     _torch.manual_seed(int(args.seed))

@@ -74,6 +74,10 @@ class _Condition(Stage):
         return batch
 
 
+class _TwoObsCondition(_Condition):
+    rollout_obs_steps = 2
+
+
 class _BF16Prediction(Stage):
     reads = ["condition", "embodiment"]
     writes = ["pred_action"]
@@ -95,6 +99,26 @@ class _BF16Prediction(Stage):
             dtype=torch.bfloat16,
             device=batch["condition"].device,
         )
+        return batch
+
+
+class _IndexedPrediction(Stage):
+    reads = ["condition", "embodiment"]
+    writes = ["pred_action"]
+
+    def __init__(self, horizon=10):
+        super().__init__()
+        self.horizon = int(horizon)
+        self.calls = 0
+
+    def forward(self, batch):
+        self.calls += 1
+        indices = torch.arange(
+            self.horizon,
+            dtype=torch.float32,
+            device=batch["condition"].device,
+        ).view(1, self.horizon, 1)
+        batch["pred_action"] = indices.expand(-1, -1, 4).clone()
         return batch
 
 
@@ -128,6 +152,77 @@ def test_pipeline_inference_step_keeps_native_width_and_bf16_safe_queue():
     assert second.tolist() == [7.0, 8.0, 9.0, 10.0]
     assert third.tolist() == [1.0, 2.0, 3.0, 4.0]
     assert prediction.calls == 2
+
+
+def _indexed_pipeline(horizon=10):
+    prediction = _IndexedPrediction(horizon=horizon)
+    algo = PipelineAlgo(
+        stages=[_TwoObsCondition(), prediction],
+        norm_stats=_IdentityNormStats(),
+        domains=["pushshapes_sim_chain_gripper"],
+        ac_keys={"pushshapes_sim_chain_gripper": "actions"},
+        rollout_adapter=_NativeFourAdapter(),
+        action_horizon=horizon,
+        device=torch.device("cpu"),
+    )
+    return algo, prediction
+
+
+def test_pipeline_action_chunk_start_one_queues_tokens_one_through_eight():
+    algo, prediction = _indexed_pipeline(horizon=10)
+    algo.action_chunk_start_index = 1
+    algo.replan_every = 8
+    emb_id = get_embodiment_id("pushshapes_sim_chain_gripper")
+    obs = {"state_agent_obj": torch.zeros((1, 6), dtype=torch.float32)}
+
+    executed = [algo.inference_step(obs, t, emb_id)[0] for t in range(8)]
+
+    assert executed == pytest.approx(list(range(1, 9)))
+    assert prediction.calls == 1
+
+    # Exhausting the queue replans from the same explicit start index.
+    assert algo.inference_step(obs, 8, emb_id)[0] == pytest.approx(1.0)
+    assert prediction.calls == 2
+    # A new episode must discard a partially consumed queue and plan afresh.
+    assert algo.inference_step(obs, 0, emb_id)[0] == pytest.approx(1.0)
+    assert prediction.calls == 3
+
+
+def test_pipeline_action_chunk_start_defaults_to_zero_without_family_inference():
+    algo, prediction = _indexed_pipeline(horizon=10)
+    algo.replan_every = 2
+    emb_id = get_embodiment_id("pushshapes_sim_chain_gripper")
+    obs = {"state_agent_obj": torch.zeros((1, 6), dtype=torch.float32)}
+
+    first = algo.inference_step(obs, 0, emb_id)
+    second = algo.inference_step(obs, 1, emb_id)
+
+    assert algo.action_chunk_start_index == 0
+    assert first[0] == pytest.approx(0.0)
+    assert second[0] == pytest.approx(1.0)
+    assert prediction.calls == 1
+
+
+@pytest.mark.parametrize(
+    "start_index,replan_every,message",
+    [
+        (-1, 1, "must be non-negative"),
+        (3, 1, "must be smaller than the decoded horizon"),
+        (1, 3, "exceeds the decoded horizon"),
+        (0, 0, "replan_every must be positive"),
+    ],
+)
+def test_pipeline_action_chunk_slice_validation(
+    start_index, replan_every, message
+):
+    algo, _ = _indexed_pipeline(horizon=3)
+    algo.action_chunk_start_index = start_index
+    algo.replan_every = replan_every
+    emb_id = get_embodiment_id("pushshapes_sim_chain_gripper")
+    obs = {"state_agent_obj": torch.zeros((1, 6), dtype=torch.float32)}
+
+    with pytest.raises(ValueError, match=message):
+        algo.inference_step(obs, 0, emb_id)
 
 
 def _obs():

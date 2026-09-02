@@ -26,6 +26,37 @@ _VIZ_PASSTHROUGH_KEYS = frozenset(
 )
 
 
+def _resolve_action_chunk_execution_slice(
+    decoded_horizon: int,
+    start_index: int = 0,
+    replan_every: int | None = None,
+) -> tuple[int, int]:
+    """Resolve the explicit half-open decoded-action slice to execute."""
+    horizon = int(decoded_horizon)
+    start = int(start_index)
+    if horizon <= 0:
+        raise ValueError(f"decoded action horizon must be positive, got {horizon}")
+    if start < 0:
+        raise ValueError(
+            f"action_chunk_start_index must be non-negative, got {start}"
+        )
+    if start >= horizon:
+        raise ValueError(
+            "action_chunk_start_index must be smaller than the decoded "
+            f"horizon, got start={start} horizon={horizon}"
+        )
+    count = horizon - start if replan_every is None else int(replan_every)
+    if count <= 0:
+        raise ValueError(f"replan_every must be positive, got {count}")
+    stop = start + count
+    if stop > horizon:
+        raise ValueError(
+            "requested action chunk slice exceeds the decoded horizon: "
+            f"start={start} replan_every={count} horizon={horizon}"
+        )
+    return start, stop
+
+
 class PipelineAlgo(Algo):
     """Expose a :class:`Pipeline` through the repository's ``Algo`` contract.
 
@@ -54,6 +85,10 @@ class PipelineAlgo(Algo):
         self.ac_keys = dict(ac_keys)
         self.auxiliary_ac_keys = dict(auxiliary_ac_keys or {})
         self.action_horizon = int(action_horizon)
+        # Runtime-only rollout control. Keep zero as the family-agnostic
+        # default; evaluators must opt in explicitly when their data/action
+        # temporal contract requires dropping decoded prefix tokens.
+        self.action_chunk_start_index = 0
         # Keep the historical singleton as a fallback so old configs and
         # checkpoints reconstruct unchanged. A configured domain entry wins.
         self.rollout_adapter = rollout_adapter
@@ -315,9 +350,10 @@ class PipelineAlgo(Algo):
         ``forward_rollout`` remains the single model/decode path. This wrapper
         only keeps the observation window and consumes a predicted native
         action chunk. Setting ``algo.replan_every`` (the canonical evaluator's
-        ``--replan-every`` flag) limits how many actions are executed before a
-        fresh observation is queried; otherwise the complete decoded chunk is
-        consumed open loop.
+        ``--replan-every`` flag) limits how many actions are executed from
+        ``algo.action_chunk_start_index`` before a fresh observation is
+        queried; otherwise the decoded suffix beginning at that explicit
+        index is consumed open loop.
         """
         del T_max
         if emb_id not in self.domain_by_id:
@@ -364,10 +400,12 @@ class PipelineAlgo(Algo):
                 chunk = [actions[index] for index in range(actions.shape[0])]
 
             replan_every = getattr(self, "replan_every", None)
-            n_keep = len(chunk) if replan_every is None else int(replan_every)
-            if n_keep <= 0:
-                raise ValueError(f"replan_every must be positive, got {n_keep}")
-            self._sim_action_queue = chunk[: min(n_keep, len(chunk))]
+            start_index, end_index = _resolve_action_chunk_execution_slice(
+                decoded_horizon=len(chunk),
+                start_index=getattr(self, "action_chunk_start_index", 0),
+                replan_every=replan_every,
+            )
+            self._sim_action_queue = chunk[start_index:end_index]
             if not self._sim_action_queue:
                 raise RuntimeError("Pipeline rollout decoded an empty action chunk")
 
