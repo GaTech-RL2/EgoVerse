@@ -675,12 +675,18 @@ class ZarrWriter:
         )
 
         n_annotations = len(annotations)
+        # Both the chunk and the SHARD edge must be >= 1 even when there are no
+        # annotations: zarr v3 rejects a zero-length chunk grid, so an episode
+        # written with shards=(0,) cannot be enumerated (group.keys() raises
+        # "integer chunk edge length must be >= 1") even though the array itself
+        # reads back fine. shape=(0,) with a >=1 edge is the correct encoding of
+        # "empty" -- no chunk objects are written either way.
         chunk_shape = (max(1, n_annotations),)
         store.create_array(
             annotation_key,
             shape=encoded.shape,
             chunks=chunk_shape,
-            shards=(n_annotations,),
+            shards=(max(1, n_annotations),),
             dtype=VariableLengthBytes(),
         )
         if n_annotations > 0:

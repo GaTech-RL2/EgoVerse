@@ -44,6 +44,18 @@ class TableRow:
     is_eval: bool = False
     eval_score: float = -1
     eval_success: bool = True
+    # DB-managed timestamps (server-side): created_at is set once on INSERT via a
+    # column DEFAULT now(); updated_at is bumped on every UPDATE by a BEFORE UPDATE
+    # trigger (app.set_updated_at). They are READ-ONLY here — populated when a row
+    # is loaded (episode_hash_to_table_row), but add_episode/update_episode drop
+    # them so the database always owns their values. Do NOT set them by hand.
+    created_at: datetime | None = None  # Time Created (read-only)
+    updated_at: datetime | None = None  # Last Modified (read-only)
+
+
+# Timestamp columns the database maintains itself; the write paths must never
+# send them (created_at is immutable after insert, updated_at is trigger-managed).
+_DB_MANAGED_COLUMNS = ("created_at", "updated_at")
 
 
 def create_default_engine():
@@ -105,6 +117,8 @@ def add_episode(engine, episode) -> bool:
     """
     episodes_tbl = _episodes_table(engine)
     row = asdict(episode)
+    for col in _DB_MANAGED_COLUMNS:
+        row.pop(col, None)  # let the DB set created_at (DEFAULT) / updated_at (trigger)
 
     try:
         with engine.begin() as conn:
@@ -127,6 +141,8 @@ def update_episode(engine, episode: TableRow):
 
     # Create a dict out of episode fields
     row = asdict(episode)
+    for col in _DB_MANAGED_COLUMNS:
+        row.pop(col, None)  # created_at is immutable; updated_at is trigger-managed
     episode_hash = row.pop("episode_hash")  # Remove episode_hash from the update values
 
     stmt = (

@@ -45,6 +45,9 @@ class Uploader:
                 "eval_score",
                 "eval_success",
                 "is_deleted",
+                # DB-managed timestamps — never prompted for / entered by operators.
+                "created_at",
+                "updated_at",
             ]
         ]
 

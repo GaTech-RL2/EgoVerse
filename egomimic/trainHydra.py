@@ -6,7 +6,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import hydra
 import lightning as L
 import torch
+from fsspec.implementations.local import LocalFileSystem
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
+from lightning.fabric.plugins.io.torch_io import TorchCheckpointIO
+from lightning.fabric.utilities.cloud_io import _load as pl_load
+from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
@@ -100,6 +104,43 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
         intfmt=",",
     )
     log.info("Dataset frame counts:\n" + table)
+
+
+class MmapCheckpointIO(TorchCheckpointIO):
+    """``TorchCheckpointIO`` that memory-maps tensor storages instead of reading them.
+
+    Every DDP rank loads the checkpoint independently and with no rank guard
+    (``checkpoint_connector.resume_start``), so a plain read holds N private
+    copies of the file in host RAM at once -- N x (weights + optimizer moments),
+    and the moments are 2x the weights for AdamW. Mapping the file instead lets
+    ranks on a node share page-cache pages, so one physical copy backs them all.
+
+    ``pl_load`` does not forward ``mmap``, hence the reimplementation. Falls back
+    to the normal read for checkpoints that predate torch's zipfile format (they
+    cannot be mapped).
+    """
+
+    def load_checkpoint(
+        self,
+        path: str,
+        map_location: Optional[Any] = lambda storage, loc: storage,
+        weights_only: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        fs = get_filesystem(path)
+        if not fs.exists(path):
+            raise FileNotFoundError(f"Checkpoint file not found: {path}")
+        if not isinstance(fs, LocalFileSystem):
+            # mmap needs a real local file; let pl_load handle fsspec/URL paths.
+            return pl_load(path, map_location=map_location, weights_only=weights_only)
+        try:
+            return torch.load(
+                path, map_location=map_location, weights_only=weights_only, mmap=True
+            )
+        except (RuntimeError, ValueError, NotImplementedError) as e:
+            log.warning(
+                f"mmap load of {path} failed ({e}); falling back to a full read"
+            )
+            return pl_load(path, map_location=map_location, weights_only=weights_only)
 
 
 @task_wrapper
@@ -238,11 +279,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     plugins = []
+    if cfg.get("mmap_checkpoint", True):
+        plugins.append(MmapCheckpointIO())
     if os.environ.get("SLURM_JOB_ID"):
+        # requeue_signal is a single signal, not a list -- SignalConnector passes
+        # it straight to signal.getsignal(), which raises TypeError on a list.
         plugins.append(SLURMEnvironment(requeue_signal=signal.SIGUSR1))
         print("SLURM REQUEUE ENABLED")
     trainer: Trainer = hydra.utils.instantiate(
-        cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins
+        cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )
 
     object_dict = {
