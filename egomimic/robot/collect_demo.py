@@ -651,7 +651,6 @@ def collect_demo(
     # Demo recording state
     demo_data = dict()
 
-    camera_names = robot_interface.recorders.keys()
     cmd_pos = dict()
     cmd_quat = dict()
     cmd_joints = dict()

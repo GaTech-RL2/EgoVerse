@@ -224,8 +224,8 @@ def _build_eva_bimanual_revert_eef_frame_transform_list(
 
 def _build_eva_bimanual_eef_frame_transform_list(
     *,
-    left_target_world: str = "left_extrinsics_pose",
-    right_target_world: str = "right_extrinsics_pose",
+    left_base_T_cam_pose_key: str = "left_base_T_cam_pose",
+    right_base_T_cam_pose_key: str = "right_base_T_cam_pose",
     left_cmd_world: str = "left.cmd_ee_pose",
     right_cmd_world: str = "right.cmd_ee_pose",
     left_obs_pose: str = "left.obs_ee_pose",
@@ -249,35 +249,35 @@ def _build_eva_bimanual_eef_frame_transform_list(
     """EVA bimanual transform pipeline with actions expressed relative to the
     current EEF pose (wrist frame), analogous to keypoints relative to wrist pose."""
     extrinsics = Eva.EXTRINSICS
-    left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
-    right_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
-    left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}
-    right_extra_batch_key = {"right_extrinsics_pose": right_extrinsics_pose}
+    left_base_T_cam_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
+    right_base_T_cam_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
+    left_extra_batch_key = {left_base_T_cam_pose_key: left_base_T_cam_pose}
+    right_extra_batch_key = {right_base_T_cam_pose_key: right_base_T_cam_pose}
 
     # Step 1: transform cmd and obs into camera frame using extrinsics
     transform_list = [
         ActionChunkCoordinateFrameTransform(
-            target_world=left_target_world,
+            target_world=left_base_T_cam_pose_key,
             chunk_world=left_cmd_world,
             transformed_key_name=left_cmd_camframe,
             extra_batch_key=left_extra_batch_key,
             mode="xyzwxyz",
         ),
         ActionChunkCoordinateFrameTransform(
-            target_world=right_target_world,
+            target_world=right_base_T_cam_pose_key,
             chunk_world=right_cmd_world,
             transformed_key_name=right_cmd_camframe,
             extra_batch_key=right_extra_batch_key,
             mode="xyzwxyz",
         ),
         PoseCoordinateFrameTransform(
-            target_world=left_target_world,
+            target_world=left_base_T_cam_pose_key,
             pose_world=left_obs_pose,
             transformed_key_name=left_obs_camframe,
             mode="xyzwxyz",
         ),
         PoseCoordinateFrameTransform(
-            target_world=right_target_world,
+            target_world=right_base_T_cam_pose_key,
             pose_world=right_obs_pose,
             transformed_key_name=right_obs_camframe,
             mode="xyzwxyz",
@@ -375,8 +375,8 @@ def _build_eva_bimanual_eef_frame_transform_list(
                     right_obs_pose,
                     left_cmd_camframe,
                     right_cmd_camframe,
-                    left_target_world,
-                    right_target_world,
+                    left_base_T_cam_pose_key,
+                    right_base_T_cam_pose_key,
                 ]
             ),
             NumpyToTensor(
@@ -392,8 +392,8 @@ def _build_eva_bimanual_eef_frame_transform_list(
 
 def _build_eva_bimanual_transform_list(
     *,
-    left_target_world: str = "left_extrinsics_pose",
-    right_target_world: str = "right_extrinsics_pose",
+    left_base_T_cam_pose_key: str = "left_base_T_cam_pose",
+    right_base_T_cam_pose_key: str = "right_base_T_cam_pose",
     left_cmd_world: str = "left.cmd_ee_pose",
     right_cmd_world: str = "right.cmd_ee_pose",
     left_obs_pose: str = "left.obs_ee_pose",
@@ -412,35 +412,35 @@ def _build_eva_bimanual_transform_list(
 ) -> list[Transform]:
     """Canonical EVA bimanual transform pipeline used by tests and notebooks."""
     extrinsics = Eva.EXTRINSICS
-    left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
-    right_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
-    left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}
-    right_extra_batch_key = {"right_extrinsics_pose": right_extrinsics_pose}
+    left_base_T_cam_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
+    right_base_T_cam_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
+    left_extra_batch_key = {left_base_T_cam_pose_key: left_base_T_cam_pose}
+    right_extra_batch_key = {right_base_T_cam_pose_key: right_base_T_cam_pose}
 
     mode = "xyzwxyz" if is_quat else "xyzypr"
     transform_list = [
         ActionChunkCoordinateFrameTransform(
-            target_world=left_target_world,
+            target_world=left_base_T_cam_pose_key,
             chunk_world=left_cmd_world,
             transformed_key_name=left_cmd_camframe,
             extra_batch_key=left_extra_batch_key,
             mode=mode,
         ),
         ActionChunkCoordinateFrameTransform(
-            target_world=right_target_world,
+            target_world=right_base_T_cam_pose_key,
             chunk_world=right_cmd_world,
             transformed_key_name=right_cmd_camframe,
             extra_batch_key=right_extra_batch_key,
             mode=mode,
         ),
         PoseCoordinateFrameTransform(
-            target_world=left_target_world,
+            target_world=left_base_T_cam_pose_key,
             pose_world=left_obs_pose,
             transformed_key_name=left_obs_pose,
             mode=mode,
         ),
         PoseCoordinateFrameTransform(
-            target_world=right_target_world,
+            target_world=right_base_T_cam_pose_key,
             pose_world=right_obs_pose,
             transformed_key_name=right_obs_pose,
             mode=mode,
@@ -511,8 +511,8 @@ def _build_eva_bimanual_transform_list(
                 keys_to_delete=[
                     left_cmd_world,
                     right_cmd_world,
-                    left_target_world,
-                    right_target_world,
+                    left_base_T_cam_pose_key,
+                    right_base_T_cam_pose_key,
                 ]
             ),
             NumpyToTensor(

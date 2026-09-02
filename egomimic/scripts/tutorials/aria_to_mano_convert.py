@@ -42,9 +42,9 @@ from egomimic.rldb.embodiment.human import (
     ARIA_FINGER_EDGES,
     Human,
 )
-from egomimic.scripts.aria_process.aria_utils import fit_mano_to_aria_batched
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, S3EpisodeResolver
+from egomimic.scripts.aria_process.aria_utils import fit_mano_to_aria_batched
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
 
@@ -182,7 +182,9 @@ def render_side_by_side(rows, mano_left_canonical, mano_right_canonical):
             if im.shape[0] != h:
                 im = cv2.copyMakeBorder(im, 0, h - im.shape[0], 0, 0, cv2.BORDER_CONSTANT)
             return im
-        aria_vis = pad(aria_vis); mano_vis = pad(mano_vis)
+
+        aria_vis = pad(aria_vis)
+        mano_vis = pad(mano_vis)
         aria_vis = _draw_legend(aria_vis.copy())
         mano_vis = _draw_legend(mano_vis.copy())
 

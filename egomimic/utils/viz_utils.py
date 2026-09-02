@@ -3,8 +3,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from egomimic.utils.pose_utils import cam_frame_to_cam_pixels
-from egomimic.utils.pose_utils import _split_action_pose, _split_keypoints
+from egomimic.utils.pose_utils import (
+    _split_action_pose,
+    _split_keypoints,
+    cam_frame_to_cam_pixels,
+    ee_pose_to_cam_frame,
+    get_vector_from_yaw_pitch,
+)
 
 
 class ColorPalette:
@@ -270,7 +275,7 @@ def _viz_gaze(
     image,
     gaze_data,
     intrinsics,
-    t_rgb_cpf,
+    rgb_T_cpf,
     palette="Purples",
     dot_size=8,
     no_gaze_sentinel=-100,
@@ -283,7 +288,7 @@ def _viz_gaze(
         return image.copy()
 
     yaw, pitch, depth = float(gaze[0]), float(gaze[1]), float(gaze[2])
-    endpoint_cam = get_gaze_endpoint(yaw, pitch, depth, t_rgb_cpf)[None, :]
+    endpoint_cam = get_gaze_endpoint(yaw, pitch, depth, rgb_T_cpf)[None, :]
     pixel = cam_frame_to_cam_pixels(endpoint_cam, intrinsics)
     return draw_dot_on_frame(
         image.copy(), pixel, show=False, palette=palette, dot_size=dot_size
@@ -444,9 +449,6 @@ def _viz_annotations(image, annotations: list[str], **kwargs):
 def save_image(image: np.ndarray, path: str) -> None:
     cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
-from egomimic.utils.pose_utils import ee_pose_to_cam_frame, get_vector_from_yaw_pitch
-
-
 # ---- moved from egomimicUtils.py (code unchanged) ----
 
 def draw_actions(
@@ -533,29 +535,29 @@ def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=
 
     return frame
 
-def get_gaze_endpoint(yaw_rads, pitch_rads, depth, T_cam_cpf):
+def get_gaze_endpoint(yaw_rads, pitch_rads, depth, cam_T_cpf):
     """
     Compute the 3D gaze endpoint in camera coordinates.
 
     The gaze originates at the CPF origin, with direction defined by yaw/pitch,
     and length set by depth. The endpoint is transformed from CPF to camera
-    frame using T_cam_cpf.
+    frame using `cam_T_cpf`.
 
     Args:
         yaw_rads: Yaw angle in radians.
         pitch_rads: Pitch angle in radians.
         depth: Gaze vector magnitude.
-        T_cam_cpf: (4, 4) SE(3) homogeneous transform from CPF to camera frame.
+        cam_T_cpf: (4, 4) SE(3) homogeneous transform from CPF to camera frame.
 
     Returns:
         np.ndarray: (3,) gaze endpoint in camera coordinates.
     """
     gaze_vec_cpf = get_vector_from_yaw_pitch(yaw_rads, pitch_rads, depth)
 
-    T_cam_cpf = np.asarray(T_cam_cpf, dtype=np.float64)
-    if T_cam_cpf.shape != (4, 4):
-        raise ValueError(f"T_cam_cpf must be a 4x4 transform, got {T_cam_cpf.shape}")
+    cam_T_cpf = np.asarray(cam_T_cpf, dtype=np.float64)
+    if cam_T_cpf.shape != (4, 4):
+        raise ValueError(f"cam_T_cpf must be a 4x4 transform, got {cam_T_cpf.shape}")
 
     endpoint_cpf_h = np.concatenate([gaze_vec_cpf, np.array([1.0], dtype=np.float64)])
-    endpoint_cam_h = T_cam_cpf @ endpoint_cpf_h
+    endpoint_cam_h = cam_T_cpf @ endpoint_cpf_h
     return endpoint_cam_h[:3]

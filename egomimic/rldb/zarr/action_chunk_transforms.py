@@ -154,10 +154,16 @@ class ActionChunkCoordinateFrameTransform(Transform):
     ):
         """
         args:
-            target_world:
-            chunk_world:
-            transformed_key_name:
-            is_quat: if True, inputs are xyz + quat(wxyz); otherwise xyz + ypr.
+            target_world: Batch key for the target-frame pose in the reference
+                frame (`reference_T_target`).
+            chunk_world: Batch key for the pose chunk. With `inverse=True`, the
+                poses are `reference_T_chunk`; otherwise they are
+                `target_T_chunk`.
+            transformed_key_name: Batch key for the transformed pose chunk.
+            mode: Pose representation used by the chunk.
+            inverse: Compute `target_T_chunk = inv(reference_T_target) @
+                reference_T_chunk` when true. When false, compose
+                `reference_T_chunk = reference_T_target @ target_T_chunk`.
         """
         self.target_world = target_world
         self.chunk_world = chunk_world
@@ -170,26 +176,25 @@ class ActionChunkCoordinateFrameTransform(Transform):
         """
         args:
             batch:
-                if is_quat=False, inputs are xyz + ypr.
-                if is_quat=True, inputs are xyz + quat(wxyz).
+                Inputs use the representation selected by `mode`.
                 Input shape validation is delegated to the selected to-matrix helper.
-                transformed_key_name: str, name of the new key to store the transformed chunk world in
+                transformed_key_name: str, name of the new key to store the
+                    transformed pose chunk in.
 
         returns
-            batch with new key containing transformed chunk world in target frame:
-                if is_quat=False: (T, 6) xyz + ypr
-                if is_quat=True: (T, 7) xyz + quat(wxyz)
+            Batch with a new key containing the transformed pose chunk.
         """
-        # flatten to (T, D)
-        # target world is head pose, chunk world is keypoints
+        # Flatten to (T, D).
         batch.update(self.extra_batch_key or {})
-        target_world = np.asarray(batch[self.target_world])
-        chunk_world = np.asarray(batch[self.chunk_world])
-        chunk_world_shape = None
+        target_world_pose = np.asarray(batch[self.target_world])
+        chunk_world_poses = np.asarray(batch[self.chunk_world])
+        chunk_world_poses_shape = None
 
-        if chunk_world.ndim > 2:
-            chunk_world_shape = chunk_world.shape
-            chunk_world = chunk_world.reshape(-1, chunk_world_shape[-1])
+        if chunk_world_poses.ndim > 2:
+            chunk_world_poses_shape = chunk_world_poses.shape
+            chunk_world_poses = chunk_world_poses.reshape(
+                -1, chunk_world_poses_shape[-1]
+            )
 
         to_matrix_fn = None
         if self.mode == "xyzwxyz":
@@ -201,38 +206,45 @@ class ActionChunkCoordinateFrameTransform(Transform):
         else:
             raise ValueError(f"Invalid mode: {self.mode}")
 
-        target_world_to_matrix_fn = (
-            _xyzwxyz_to_matrix if target_world.shape[-1] == 7 else _xyzypr_to_matrix
+        target_pose_to_matrix_fn = (
+            _xyzwxyz_to_matrix
+            if target_world_pose.shape[-1] == 7
+            else _xyzypr_to_matrix
         )
-        # Convert to SE3 for transformation
-        target_se3 = SE3.from_matrix(
-            target_world_to_matrix_fn(target_world[None, :])[0]
+        # Convert to SE3 for transformation. The target pose is
+        # `reference_T_target` under the repository convention.
+        reference_T_target = SE3.from_matrix(
+            target_pose_to_matrix_fn(target_world_pose[None, :])[0]
         )  # (4, 4)
-        chunk_se3 = SE3.from_matrix(to_matrix_fn(chunk_world))  # (T, 4, 4)
+        chunk_pose_transforms = SE3.from_matrix(
+            to_matrix_fn(chunk_world_poses)
+        )  # (T, 4, 4)
 
         # Compute relative transform and apply to chunk
         if self.inverse:
-            chunk_in_target_frame = target_se3.inverse() @ chunk_se3
+            transformed_pose_transforms = (
+                reference_T_target.inverse() @ chunk_pose_transforms
+            )
         else:
-            chunk_in_target_frame = target_se3 @ chunk_se3
-        chunk_mats = chunk_in_target_frame.to_matrix()
-        if chunk_mats.ndim == 2:
-            chunk_mats = chunk_mats[None, ...]
+            transformed_pose_transforms = reference_T_target @ chunk_pose_transforms
+        transformed_matrices = transformed_pose_transforms.to_matrix()
+        if transformed_matrices.ndim == 2:
+            transformed_matrices = transformed_matrices[None, ...]
 
         if self.mode == "xyzwxyz":
-            chunk_in_target_frame = _matrix_to_xyzwxyz(chunk_mats)
+            transformed_poses = _matrix_to_xyzwxyz(transformed_matrices)
         elif self.mode == "xyzypr":
-            chunk_in_target_frame = _matrix_to_xyzypr(chunk_mats)
+            transformed_poses = _matrix_to_xyzypr(transformed_matrices)
         elif self.mode == "xyz":
-            chunk_in_target_frame = _matrix_to_xyz(chunk_mats)
+            transformed_poses = _matrix_to_xyz(transformed_matrices)
         else:
             raise ValueError(f"Invalid mode: {self.mode}")
 
-        if chunk_world_shape is not None:
-            chunk_in_target_frame = chunk_in_target_frame.reshape(*chunk_world_shape)
+        if chunk_world_poses_shape is not None:
+            transformed_poses = transformed_poses.reshape(*chunk_world_poses_shape)
 
         # Store transformed chunk back in batch
-        batch[self.transformed_key_name] = chunk_in_target_frame
+        batch[self.transformed_key_name] = transformed_poses
 
         return batch
 
@@ -443,23 +455,25 @@ class CartesianWithGripperCoordinateTransform(Transform):
         left_pose_world = chunk_world[:, :6]
         right_pose_world = chunk_world[:, 7:13]
 
-        left_target_se3 = SE3.from_matrix(
+        world_T_left_target = SE3.from_matrix(
             _xyzypr_to_matrix(left_target_world[None, :])[0]
         )
-        right_target_se3 = SE3.from_matrix(
+        world_T_right_target = SE3.from_matrix(
             _xyzypr_to_matrix(right_target_world[None, :])[0]
         )
-        left_target_inv = left_target_se3.inverse()
-        right_target_inv = right_target_se3.inverse()
+        left_target_T_world = world_T_left_target.inverse()
+        right_target_T_world = world_T_right_target.inverse()
 
         left_pose_in_target = _matrix_to_xyzypr(
             (
-                left_target_inv @ SE3.from_matrix(_xyzypr_to_matrix(left_pose_world))
+                left_target_T_world
+                @ SE3.from_matrix(_xyzypr_to_matrix(left_pose_world))
             ).to_matrix()
         )
         right_pose_in_target = _matrix_to_xyzypr(
             (
-                right_target_inv @ SE3.from_matrix(_xyzypr_to_matrix(right_pose_world))
+                right_target_T_world
+                @ SE3.from_matrix(_xyzypr_to_matrix(right_pose_world))
             ).to_matrix()
         )
 

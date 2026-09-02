@@ -287,7 +287,7 @@ def slam_to_rgb(provider, height=480, width=640):
         slam_label,
         slam_calib.get_transform_device_camera(),
     )
-    T_device_slam_camera = (
+    device_T_slam_camera = (
         slam_camera.get_transform_device_camera()
     )  # slam to device frame
 
@@ -297,13 +297,13 @@ def slam_to_rgb(provider, height=480, width=640):
     rgb_camera = calibration.get_linear_camera_calibration(
         height, width, focal_length, rgb_label, rgb_calib.get_transform_device_camera()
     )
-    T_device_rgb_camera = (
+    device_T_rgb_camera = (
         rgb_camera.get_transform_device_camera()
     )  # rgb to device frame
 
-    transform = T_device_rgb_camera.inverse() @ T_device_slam_camera
+    rgb_T_slam = device_T_rgb_camera.inverse() @ device_T_slam_camera
 
-    return transform
+    return rgb_T_slam
 
 
 def compute_coordinate_frame(palm_pose, wrist_pose, palm_normal):
@@ -554,27 +554,27 @@ class AriaVRSExtractor:
             for key, stream_id in stream_ids.items()
         }
 
-        rgb_to_device_T = slam_to_rgb(
+        rgb_T_slam = slam_to_rgb(
             vrs_reader, height=height, width=width
         )  # aria sophus SE3
 
         hand_cartesian_pose = AriaVRSExtractor.get_ee_pose(
-            world_device_T=closed_loop_traj,
+            world_T_device_poses=closed_loop_traj,
             stream_timestamps_ns=stream_timestamps_ns,
             hand_tracking_results=hand_tracking_results,
             arm=arm,
         )
 
         hand_keypoints_pose = AriaVRSExtractor.get_hand_keypoints(
-            world_device_T=closed_loop_traj,
+            world_T_device_poses=closed_loop_traj,
             stream_timestamps_ns=stream_timestamps_ns,
             hand_tracking_results=hand_tracking_results,
             arm=arm,
         )
 
         head_pose = AriaVRSExtractor.get_head_pose(
-            world_device_T=closed_loop_traj,
-            device_rgb_T=rgb_to_device_T.inverse(),
+            world_T_device_poses=closed_loop_traj,
+            device_T_rgb=rgb_T_slam.inverse(),
             stream_timestamps_ns=stream_timestamps_ns,
         )
         if use_eye_gaze:
@@ -768,7 +768,7 @@ class AriaVRSExtractor:
 
     @staticmethod
     def get_hand_keypoints(
-        world_device_T,
+        world_T_device_poses,
         stream_timestamps_ns: dict,
         hand_tracking_results,
         arm: str,
@@ -777,8 +777,8 @@ class AriaVRSExtractor:
         Get Hand Keypoints from VRS
         Parameters
         ----------
-        world_device_T : np.array
-            Transform from world coordinates to ARIA camera frame
+        world_T_device_poses : sequence
+            Timestamped device poses in the world frame.
         stream_timestamps_ns : dict
         hand_tracking_results : dict
         arm : str
@@ -799,9 +799,11 @@ class AriaVRSExtractor:
             hand_tracking_result_t = get_nearest_hand_tracking_result(
                 hand_tracking_results, query_timestamp
             )
-            world_device_T_t = get_nearest_pose(world_device_T, query_timestamp)
-            if world_device_T_t is not None:
-                world_device_T_t = world_device_T_t.transform_world_device
+            world_T_device = get_nearest_pose(
+                world_T_device_poses, query_timestamp
+            )
+            if world_T_device is not None:
+                world_T_device = world_T_device.transform_world_device
 
             right_confidence = getattr(
                 getattr(hand_tracking_result_t, "right_hand", None), "confidence", -1
@@ -813,25 +815,25 @@ class AriaVRSExtractor:
             if (
                 use_left_hand
                 and not left_confidence < 0
-                and world_device_T_t is not None
+                and world_T_device is not None
             ):
                 left_hand_keypoints = np.stack(
                     hand_tracking_result_t.left_hand.landmark_positions_device, axis=0
                 )
-                wrist_T = (
+                device_T_wrist = (
                     hand_tracking_result_t.left_hand.transform_device_wrist
                 )  # Sophus SE3
 
-                world_wrist_T = world_device_T_t @ wrist_T
+                world_T_wrist = world_T_device @ device_T_wrist
                 world_keypoints = (
-                    world_device_T_t @ left_hand_keypoints.T
+                    world_T_device @ left_hand_keypoints.T
                 ).T  # keypoints are in device frame
 
-                world_wrist_T = sp.SE3.from_matrix(
-                    T_rot_orientation(world_wrist_T.to_matrix(), T_ROT_CAM)
+                world_T_wrist = sp.SE3.from_matrix(
+                    T_rot_orientation(world_T_wrist.to_matrix(), T_ROT_CAM)
                 )
                 wrist_quat_and_translation = quat_translation_swap(
-                    world_wrist_T.to_quat_and_translation()
+                    world_T_wrist.to_quat_and_translation()
                 )
                 if wrist_quat_and_translation.ndim == 2:
                     wrist_quat_and_translation = wrist_quat_and_translation[0]
@@ -842,28 +844,28 @@ class AriaVRSExtractor:
             if (
                 use_right_hand
                 and not right_confidence < 0
-                and world_device_T_t is not None
+                and world_T_device is not None
             ):
                 right_hand_keypoints = np.stack(
                     hand_tracking_result_t.right_hand.landmark_positions_device, axis=0
                 )
-                wrist_T = (
+                device_T_wrist = (
                     hand_tracking_result_t.right_hand.transform_device_wrist
                 )  # Sophus SE3
 
-                world_wrist_T = world_device_T_t @ wrist_T
+                world_T_wrist = world_T_device @ device_T_wrist
                 world_keypoints = (
-                    world_device_T_t @ right_hand_keypoints.T
+                    world_T_device @ right_hand_keypoints.T
                 ).T  # keypoints are in device frame
 
-                world_wrist_T = sp.SE3.from_matrix(
+                world_T_wrist = sp.SE3.from_matrix(
                     T_rot_orientation(
-                        world_wrist_T.to_matrix(),
+                        world_T_wrist.to_matrix(),
                         T_ROT_CAM,
                     )
                 )
                 wrist_quat_and_translation = quat_translation_swap(
-                    world_wrist_T.to_quat_and_translation()
+                    world_T_wrist.to_quat_and_translation()
                 )
                 if wrist_quat_and_translation.ndim == 2:
                     wrist_quat_and_translation = wrist_quat_and_translation[0]
@@ -884,16 +886,16 @@ class AriaVRSExtractor:
 
     @staticmethod
     def get_head_pose(
-        world_device_T,
-        device_rgb_T,
+        world_T_device_poses,
+        device_T_rgb,
         stream_timestamps_ns: dict,
     ):
         """
         Get Head Pose from VRS
         Parameters
         ----------
-        world_device_T : np.array
-            Transform from world coordinates to ARIA camera frame
+        world_T_device_poses : sequence
+            Timestamped device poses in the world frame.
         stream_timestamps_ns : dict
             dict that maps sensor keys to a list of nanosecond timestamps in device time
 
@@ -905,20 +907,22 @@ class AriaVRSExtractor:
         head_pose = []
         frame_length = len(stream_timestamps_ns["rgb"])
 
-        rgb_to_rgbprime_rot = np.eye(4)
-        rgb_to_rgbprime_rot[:3, :3] = ROTATION_MATRIX.T
-        rgb_to_rgbprime_T = sp.SE3.from_matrix(rgb_to_rgbprime_rot)
-        rgbprime_to_rgb_T = rgb_to_rgbprime_T.inverse()
+        rgbprime_T_rgb_matrix = np.eye(4)
+        rgbprime_T_rgb_matrix[:3, :3] = ROTATION_MATRIX.T
+        rgbprime_T_rgb = sp.SE3.from_matrix(rgbprime_T_rgb_matrix)
+        rgb_T_rgbprime = rgbprime_T_rgb.inverse()
         for t in range(frame_length):
             query_timestamp = stream_timestamps_ns["rgb"][t]
-            world_device_T_t = get_nearest_pose(world_device_T, query_timestamp)
-            if world_device_T_t is not None:
-                world_device_T_t = world_device_T_t.transform_world_device
+            world_T_device = get_nearest_pose(
+                world_T_device_poses, query_timestamp
+            )
+            if world_T_device is not None:
+                world_T_device = world_T_device.transform_world_device
             head_pose_obs_t = np.full(7, 1e9)
-            if world_device_T_t is not None:
-                world_rgb_T_t = world_device_T_t @ device_rgb_T @ rgbprime_to_rgb_T
+            if world_T_device is not None:
+                world_T_rgbprime = world_T_device @ device_T_rgb @ rgb_T_rgbprime
                 head_pose_quat_and_translation = quat_translation_swap(
-                    world_rgb_T_t.to_quat_and_translation()
+                    world_T_rgbprime.to_quat_and_translation()
                 )
                 if head_pose_quat_and_translation.ndim == 2:
                     head_pose_quat_and_translation = head_pose_quat_and_translation[0]
@@ -946,7 +950,7 @@ class AriaVRSExtractor:
 
     @staticmethod
     def get_ee_pose(
-        world_device_T,
+        world_T_device_poses,
         stream_timestamps_ns: dict,
         hand_tracking_results,
         arm: str,
@@ -955,8 +959,8 @@ class AriaVRSExtractor:
         Get EE Pose from VRS
         Parameters
         ----------
-        world_device_T : np.array
-            Transform from world coordinates to ARIA camera frame
+        world_T_device_poses : sequence
+            Timestamped device poses in the world frame.
         stream_timestamps_ns : dict
             dict that maps sensor keys to a list of nanosecond timestamps in device time
         hand_tracking_results : dict
@@ -980,9 +984,11 @@ class AriaVRSExtractor:
             hand_tracking_result_t = get_nearest_hand_tracking_result(
                 hand_tracking_results, query_timestamp
             )
-            world_device_T_t = get_nearest_pose(world_device_T, query_timestamp)
-            if world_device_T_t is not None:
-                world_device_T_t = world_device_T_t.transform_world_device
+            world_T_device = get_nearest_pose(
+                world_T_device_poses, query_timestamp
+            )
+            if world_T_device is not None:
+                world_T_device = world_T_device.transform_world_device
 
             right_confidence = getattr(
                 getattr(hand_tracking_result_t, "right_hand", None), "confidence", -1
@@ -995,7 +1001,7 @@ class AriaVRSExtractor:
             if (
                 use_left_hand
                 and not left_confidence < 0
-                and world_device_T_t is not None
+                and world_T_device is not None
             ):
                 left_palm_pose = (
                     hand_tracking_result_t.left_hand.get_palm_position_device()
@@ -1010,17 +1016,17 @@ class AriaVRSExtractor:
                     wrist_pose=left_wrist_pose,
                     palm_normal=left_palm_normal,
                 )
-                left_T_t = np.eye(4)
-                left_T_t[:3, :3] = left_rot_matrix
-                left_T_t[:3, 3] = left_palm_pose
-                left_T_t = sp.SE3.from_matrix(left_T_t)
-                left_T_t = world_device_T_t @ left_T_t
-                left_T_t = sp.SE3.from_matrix(
-                    T_rot_orientation(left_T_t.to_matrix(), T_ROT_CAM)
+                device_T_left_hand_matrix = np.eye(4)
+                device_T_left_hand_matrix[:3, :3] = left_rot_matrix
+                device_T_left_hand_matrix[:3, 3] = left_palm_pose
+                device_T_left_hand = sp.SE3.from_matrix(device_T_left_hand_matrix)
+                world_T_left_hand = world_T_device @ device_T_left_hand
+                world_T_left_hand = sp.SE3.from_matrix(
+                    T_rot_orientation(world_T_left_hand.to_matrix(), T_ROT_CAM)
                 )
 
                 left_quat_and_translation = quat_translation_swap(
-                    left_T_t.to_quat_and_translation()
+                    world_T_left_hand.to_quat_and_translation()
                 )
                 if left_quat_and_translation.ndim == 2:
                     left_quat_and_translation = left_quat_and_translation[0]
@@ -1030,7 +1036,7 @@ class AriaVRSExtractor:
             if (
                 use_right_hand
                 and not right_confidence < 0
-                and world_device_T_t is not None
+                and world_T_device is not None
             ):
                 right_palm_pose = (
                     hand_tracking_result_t.right_hand.get_palm_position_device()
@@ -1045,18 +1051,18 @@ class AriaVRSExtractor:
                     wrist_pose=right_wrist_pose,
                     palm_normal=right_palm_normal,
                 )
-                right_T_t = np.eye(4)
-                right_T_t[:3, :3] = right_rot_matrix
-                right_T_t[:3, 3] = right_palm_pose
-                right_T_t = sp.SE3.from_matrix(right_T_t)
-                right_T_t = world_device_T_t @ right_T_t
-                right_T_t = sp.SE3.from_matrix(
+                device_T_right_hand_matrix = np.eye(4)
+                device_T_right_hand_matrix[:3, :3] = right_rot_matrix
+                device_T_right_hand_matrix[:3, 3] = right_palm_pose
+                device_T_right_hand = sp.SE3.from_matrix(device_T_right_hand_matrix)
+                world_T_right_hand = world_T_device @ device_T_right_hand
+                world_T_right_hand = sp.SE3.from_matrix(
                     T_rot_orientation(
-                        right_T_t.to_matrix(), T_ROT_CAM
+                        world_T_right_hand.to_matrix(), T_ROT_CAM
                     )
                 )
                 right_quat_and_translation = quat_translation_swap(
-                    right_T_t.to_quat_and_translation()
+                    world_T_right_hand.to_quat_and_translation()
                 )
                 if right_quat_and_translation.ndim == 2:
                     right_quat_and_translation = right_quat_and_translation[0]

@@ -4,8 +4,8 @@ Moved out of egomimicUtils; code unchanged.
 """
 
 import math
-import torch
 
+import torch
 
 # ---- moved from egomimicUtils.py (code unchanged) ----
 

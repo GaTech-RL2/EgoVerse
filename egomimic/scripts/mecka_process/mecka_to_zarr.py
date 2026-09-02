@@ -116,10 +116,10 @@ def pose_to_transform(pose: np.ndarray) -> np.ndarray:
     x, y, z, qw, qx, qy, qz = pose
     # SciPy from_quat expects (x, y, z, w); pose[3:7] is (w, x, y, z) = WXYZ
     rotation = Rotation.from_quat([qx, qy, qz, qw])
-    T = np.eye(4)
-    T[:3, :3] = rotation.as_matrix()
-    T[:3, 3] = [x, y, z]
-    return T
+    parent_T_child = np.eye(4)
+    parent_T_child[:3, :3] = rotation.as_matrix()
+    parent_T_child[:3, 3] = [x, y, z]
+    return parent_T_child
 
 
 def extract_mecka_metadata(
@@ -159,18 +159,18 @@ def extract_mecka_metadata(
     }
 
 
-def transform_to_pose(T: np.ndarray) -> np.ndarray:
+def transform_to_pose(parent_T_child: np.ndarray) -> np.ndarray:
     """
     Convert 4x4 homogeneous transform matrix to 7DOF pose in WXYZ format.
 
     Args:
-        T: Array of shape (4, 4) representing SE(3) transform.
+        parent_T_child: Array of shape (4, 4) representing an SE(3) transform.
 
     Returns:
         Array of shape (7,) with [x, y, z, qw, qx, qy, qz] (quat in WXYZ).
     """
-    pos = T[:3, 3]
-    rotation = Rotation.from_matrix(T[:3, :3])
+    pos = parent_T_child[:3, 3]
+    rotation = Rotation.from_matrix(parent_T_child[:3, :3])
     quat_xyzw = rotation.as_quat()  # SciPy returns (x, y, z, w)
     quat_wxyz = np.array([quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]])
     return np.concatenate([pos, quat_wxyz])
@@ -373,11 +373,11 @@ class MeckaExtractor:
             frames_df = pd.read_csv(frames_path)
             annotations_df = pd.read_csv(annotations_path)
 
-            # Per-frame camera poses (world-to-camera) for hand transform
-            camera_transforms = MeckaExtractor._extract_camera_transforms(egomotion)
+            # Per-frame camera poses in the world frame.
+            world_T_cams = MeckaExtractor._extract_camera_transforms(egomotion)
             hand_poses_world, hand_keypoints_world, wrist_poses_world = (
                 MeckaExtractor._extract_hand_data(
-                    hands_df, frames_df, arm, camera_transforms
+                    hands_df, frames_df, arm, world_T_cams
                 )
             )
 
@@ -449,7 +449,7 @@ class MeckaExtractor:
 
 
         Returns:
-            List of T 4x4 homogeneous transforms (wTc), one per frame.
+            List of `world_T_cam` 4x4 homogeneous transforms, one per frame.
         """
         transforms = []
 
@@ -461,14 +461,14 @@ class MeckaExtractor:
             q = egomotion[i, 7:11]
 
             # Convert quaternion -> rotation matrix
-            R_mat = Rotation.from_quat(q).as_matrix()
+            world_R_cam = Rotation.from_quat(q).as_matrix()
 
             # Build homogeneous SE(3)
-            T = np.eye(4)
-            T[:3, :3] = R_mat
-            T[:3, 3] = t
+            world_T_cam = np.eye(4)
+            world_T_cam[:3, :3] = world_R_cam
+            world_T_cam[:3, 3] = t
 
-            transforms.append(T)
+            transforms.append(world_T_cam)
 
         return transforms
 
@@ -477,7 +477,7 @@ class MeckaExtractor:
         hands_df: pd.DataFrame,
         frames_df: pd.DataFrame,
         arm: str,
-        camera_transforms: List[np.ndarray],
+        world_T_cams: List[np.ndarray],
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Extract hand poses and keypoints from hands CSV and transform to world frame.
@@ -485,14 +485,15 @@ class MeckaExtractor:
 
         Hands CSV has columns: frame, hand_index (0=left, 1=right), landmark_index,
         world_x, world_y, world_z. Hand poses are computed from keypoints in camera
-        frame via compute_hand_pose_xyzquat, then transformed to world using wTc.
+        frame via `compute_hand_pose_xyzquat`, then transformed to world using
+        `world_T_cam`.
 
 
         Args:
             hands_df: DataFrame with hand landmark positions per frame.
             frames_df: DataFrame defining frame count and sync (used for shape).
             arm: Unused; kept for API compatibility.
-            camera_transforms: List of wTc 4x4 transforms per frame.
+            world_T_cams: List of `world_T_cam` 4x4 transforms per frame.
 
 
         Returns:
@@ -516,26 +517,26 @@ class MeckaExtractor:
                     kp = hand_data[
                         ["world_x", "world_y", "world_z"]
                     ].values  # (21, 3) in camera frame
-                    wTc = camera_transforms[frame_idx]
+                    world_T_cam = world_T_cams[frame_idx]
 
                     # Transform keypoints from camera frame to world frame (same as hand poses)
                     kp_h = np.concatenate([kp, np.ones((21, 1))], axis=1)  # (21, 4)
-                    kp_world = (wTc @ kp_h.T).T[:, :3]  # (21, 3)
+                    kp_world = (world_T_cam @ kp_h.T).T[:, :3]  # (21, 3)
                     hand_keypoints[frame_idx, hand_index] = kp_world
 
-                    # Hand pose in camera frame -> transform to world via wTc
+                    # Hand pose in camera frame -> transform to world.
                     pose_xyzquat, wrist_xyzquat = compute_hand_pose_xyzquat(
                         kp, hand_index
                     )
 
-                    T_hand_cam = pose_to_transform(pose_xyzquat)
-                    T_wrist_cam = pose_to_transform(wrist_xyzquat)
+                    cam_T_hand = pose_to_transform(pose_xyzquat)
+                    cam_T_wrist = pose_to_transform(wrist_xyzquat)
 
-                    T_hand_world = wTc @ T_hand_cam
-                    pose_xyzquat = transform_to_pose(T_hand_world)
+                    world_T_hand = world_T_cam @ cam_T_hand
+                    pose_xyzquat = transform_to_pose(world_T_hand)
 
-                    T_wrist_world = wTc @ T_wrist_cam
-                    wrist_xyzquat = transform_to_pose(T_wrist_world)
+                    world_T_wrist = world_T_cam @ cam_T_wrist
+                    wrist_xyzquat = transform_to_pose(world_T_wrist)
 
                     hand_poses[frame_idx, hand_index * 7 : (hand_index + 1) * 7] = (
                         pose_xyzquat
@@ -597,7 +598,7 @@ class MeckaExtractor:
             Array of shape (T, 7) with [x, y, z, qw, qx, qy, qz] (quat in WXYZ) per frame.
         """
         # Frame remap: (x, y, z) -> (-y, -z, x) to match expected head pose convention
-        R_fix = np.array(
+        adjusted_cam_R_cam = np.array(
             [
                 [0, -1, 0],
                 [0, 0, -1],
@@ -606,33 +607,32 @@ class MeckaExtractor:
             dtype=np.float64,
         )
 
-        T_fix = np.eye(4, dtype=np.float64)
-        T_fix[:3, :3] = R_fix
-
         # Construct inverse SE(3) transform matrix for the rotation remap
-        R_fix_inv = R_fix.T
-        T_fix_inv = np.eye(4, dtype=np.float64)
-        T_fix_inv[:3, :3] = R_fix_inv
+        cam_R_adjusted_cam = adjusted_cam_R_cam.T
+        cam_T_adjusted_cam = np.eye(4, dtype=np.float64)
+        cam_T_adjusted_cam[:3, :3] = cam_R_adjusted_cam
 
         adjusted_head_poses = []
         for i in range(len(egomotion)):
-            # Build camera pose in world frame: wTc
+            # Build the camera pose in the world frame.
             t = np.asarray(egomotion[i, 1:4], dtype=np.float64)  # world translation
             q = np.asarray(egomotion[i, 7:11], dtype=np.float64)  # quat (x, y, z, w)
-            R_wc = Rotation.from_quat(q).as_matrix()
+            world_R_cam = Rotation.from_quat(q).as_matrix()
 
             # Build SE(3) transform matrix from translation and rotation
-            T_wc = np.eye(4, dtype=np.float64)
-            T_wc[:3, :3] = R_wc
-            T_wc[:3, 3] = t
+            world_T_cam = np.eye(4, dtype=np.float64)
+            world_T_cam[:3, :3] = world_R_cam
+            world_T_cam[:3, 3] = t
 
-            # Apply axis remap: wTc' = wTc @ inv(T_fix)
-            T_wc_adj = T_wc @ T_fix_inv
+            # Apply the camera-axis remap.
+            world_T_adjusted_cam = world_T_cam @ cam_T_adjusted_cam
 
             # Output head pose as [x, y, z, qw, qx, qy, qz] (WXYZ)
-            xyz_adj = T_wc_adj[:3, 3]
-            R_wc_adj = Rotation.from_matrix(T_wc_adj[:3, :3])
-            quat_xyzw = R_wc_adj.as_quat()  # SciPy returns (x, y, z, w)
+            xyz_adj = world_T_adjusted_cam[:3, 3]
+            world_R_adjusted_cam = Rotation.from_matrix(
+                world_T_adjusted_cam[:3, :3]
+            )
+            quat_xyzw = world_R_adjusted_cam.as_quat()  # SciPy returns (x, y, z, w)
             quat_wxyz = np.array(
                 [quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]]
             )

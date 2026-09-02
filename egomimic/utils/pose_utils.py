@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
@@ -256,57 +257,54 @@ def _split_keypoints(keypoints, wrist_in_data: bool = False, is_quat: bool = Tru
         right_keypoints = keypoints[..., 63:]
         return left_keypoints, right_keypoints
 
-from scipy.spatial.transform import Rotation
-import scipy
-
-
 # ---- moved from egomimicUtils.py (code unchanged) ----
 
-def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
+def ee_pose_to_cam_frame(ee_pose_base, base_T_cam):
     """
     ee_pose_base: (N, 3)
-    T_cam_base: (4, 4)
+    base_T_cam: (4, 4), the camera pose in the robot base frame.
 
     returns ee_pose_cam: (N, 3)
     """
     N, _ = ee_pose_base.shape
     ee_pose_base = np.concatenate([ee_pose_base, np.ones((N, 1))], axis=1)
 
-    ee_pose_grip_cam = np.linalg.inv(T_cam_base) @ ee_pose_base.T
+    ee_pose_grip_cam = np.linalg.inv(base_T_cam) @ ee_pose_base.T
     return ee_pose_grip_cam.T[:, :3]
 
-def base_frame_to_cam_frame(base_frame, T_cam_base):
+
+def base_frame_to_cam_frame(base_frame, base_T_cam):
     """
     base_frame: (N, 6) (x, y, z, yaw, pitch, roll)
-    T_cam_base: (4, 4)
+    base_T_cam: (4, 4), the camera pose in the robot base frame.
 
     returns cam_frame: (N, 6) (x, y, z, yaw, pitch, roll)
     """
     N, _ = base_frame.shape
     se3 = np.zeros((N, 4, 4))
-    se3[:, :3, :3] = Rotation.from_euler("ZYX", base_frame[:, 3:6]).as_matrix()
+    se3[:, :3, :3] = R.from_euler("ZYX", base_frame[:, 3:6]).as_matrix()
     se3[:, :3, 3] = base_frame[:, :3]
     se3[:, 3, 3] = 1
-    cam_frame = np.linalg.inv(T_cam_base) @ se3
+    cam_frame = np.linalg.inv(base_T_cam) @ se3
     xyz = cam_frame[:, :3, 3]
-    ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
+    ypr = R.from_matrix(cam_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
 
-def cam_frame_to_base_frame(cam_frame, T_cam_base):
+def cam_frame_to_base_frame(cam_frame, base_T_cam):
     """
     cam_frame: (N, 6) (x, y, z, yaw, pitch, roll)
-    T_cam_base: (4, 4)
+    base_T_cam: (4, 4), the camera pose in the robot base frame.
 
     returns base_frame: (N, 6) (x, y, z, yaw, pitch, roll)
     """
     N, _ = cam_frame.shape
     se3 = np.zeros((N, 4, 4))
-    se3[:, :3, :3] = Rotation.from_euler("ZYX", cam_frame[:, 3:6]).as_matrix()
+    se3[:, :3, :3] = R.from_euler("ZYX", cam_frame[:, 3:6]).as_matrix()
     se3[:, :3, 3] = cam_frame[:, :3]
     se3[:, 3, 3] = 1
-    base_frame = T_cam_base @ se3
+    base_frame = base_T_cam @ se3
     xyz = base_frame[:, :3, 3]
-    ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
+    ypr = R.from_matrix(base_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
 
 def pose_to_transform(pose):
@@ -332,33 +330,34 @@ def pose_to_transform(pose):
     )
 
     # Combined rotation: note the multiplication order
-    R = Rz @ Ry @ Rx
+    parent_R_child = Rz @ Ry @ Rx
 
     # Assemble homogeneous transformation matrix
-    T = np.eye(4)
-    T[:3, :3] = R
-    T[:3, 3] = [x, y, z]
-    return T
+    parent_T_child = np.eye(4)
+    parent_T_child[:3, :3] = parent_R_child
+    parent_T_child[:3, 3] = [x, y, z]
+    return parent_T_child
 
-def transform_to_pose(T):
+
+def transform_to_pose(parent_T_child):
     """
     Convert a 4x4 homogeneous transform back to a 6D pose [x, y, z, yaw, pitch, roll].
     Uses the ZYX (yaw-pitch-roll) convention.
     """
-    x, y, z = T[:3, 3]
-    R = T[:3, :3]
+    x, y, z = parent_T_child[:3, 3]
+    parent_R_child = parent_T_child[:3, :3]
 
-    # Extract pitch from the (3,1) element of R
-    pitch = np.arcsin(-R[2, 0])
+    # Extract pitch from the (3,1) element of the rotation matrix.
+    pitch = np.arcsin(-parent_R_child[2, 0])
     # To avoid numerical issues, check for gimbal lock:
     cos_pitch = np.cos(pitch)
     if np.abs(cos_pitch) > 1e-6:
-        yaw = np.arctan2(R[1, 0], R[0, 0])
-        roll = np.arctan2(R[2, 1], R[2, 2])
+        yaw = np.arctan2(parent_R_child[1, 0], parent_R_child[0, 0])
+        roll = np.arctan2(parent_R_child[2, 1], parent_R_child[2, 2])
     else:
         # Gimbal lock: arbitrarily set yaw=0
         yaw = 0
-        roll = np.arctan2(-R[0, 1], R[1, 1])
+        roll = np.arctan2(-parent_R_child[0, 1], parent_R_child[1, 1])
     return np.array([x, y, z, yaw, pitch, roll])
 
 def cam_frame_to_cam_pixels(ee_pose_cam, intrinsics):

@@ -1,7 +1,7 @@
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import time
 import numpy as np
 import yaml
 from scipy.spatial.transform import Rotation as R

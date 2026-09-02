@@ -39,17 +39,8 @@ from functools import lru_cache
 
 import numpy as np
 
-from .images import (
-    _bytes_from_zarr_element,
-    _candidate_image_keys,
-    _resolve_zarr_path,
-    open_zarr_for_hash,
-)
-from .language import annotation_intervals, interval_for_frame
-from .views import ACCENT, BORDER, CANVAS, CARD_STYLE, LABEL_STYLE, MUTED, PANEL, TEXT
-
 # Canonical overlay path. The head-frame convention (head IS the camera, no
-# per-arm extrinsic) is built locally in `_head_T_world` / `_intrinsics_from_zarr`
+# per-arm extrinsic) is built locally in `_world_T_head` / `_intrinsics_from_zarr`
 # below; the cam-frame inputs assembled here are then handed to the EMBODIMENT
 # CLASS's `viz` method (e.g. `Human.viz` for `human_bimanual`, `Eva.viz` for
 # `eva_*`), so the trajectory / orientation-axes / keypoint rendering lives in
@@ -63,6 +54,15 @@ from .views import ACCENT, BORDER, CANVAS, CARD_STYLE, LABEL_STYLE, MUTED, PANEL
 # the egomimic env (skynet) but optional in the standalone viz venv, so the import
 # is guarded — if it's unavailable the overlay falls back to the badge.
 from egomimic.utils.pose_utils import ee_pose_to_cam_frame
+
+from .images import (
+    _bytes_from_zarr_element,
+    _candidate_image_keys,
+    _resolve_zarr_path,
+    open_zarr_for_hash,
+)
+from .language import annotation_intervals, interval_for_frame
+from .views import ACCENT, BORDER, CARD_STYLE, LABEL_STYLE, MUTED, PANEL, TEXT
 
 logger = logging.getLogger(__name__)
 
@@ -320,14 +320,16 @@ def _intrinsics_from_zarr(grp):
 
 def _extrinsics_from_zarr(grp):
     """Per-episode EVA (robot) camera extrinsics from zarr.json metadata
-    (`attrs["extrinsics"]`), a per-arm 4x4 `T_cam_base` mapping the robot BASE
-    frame to the camera frame. Returns `{"left": 4x4, "right": 4x4}` (only the
-    arms actually present) or None if the attr is absent/unparseable.
+    (`attrs["extrinsics"]`), one `base_T_cam` per arm: the camera pose in that
+    robot arm's base frame. Returns `{"left": 4x4, "right": 4x4}` (only the
+    arms actually present) or None if the attribute is absent or unparseable.
 
-    These are the `cam_T_base` matrices that `Eva.EXTRINSICS` hardcodes and that
+    These are the `base_T_cam` matrices that `Eva.EXTRINSICS` hardcodes and that
     `_build_eva_bimanual_transform_list` feeds (as xyzwxyz) into
-    `PoseCoordinateFrameTransform(target_world=extrinsic, pose_world=ee_pose)`
-    to express a base-frame ee_pose in the camera frame."""
+    `PoseCoordinateFrameTransform(target_world=base_T_cam_pose_key,
+    pose_world=base_T_ee_pose_key)`
+    to compute `inv(base_T_cam) @ base_T_ee`, expressing the end-effector pose
+    in the camera frame."""
     try:
         extr = dict(grp.attrs).get("extrinsics")
         if not extr:
@@ -348,8 +350,8 @@ def _extrinsics_from_zarr(grp):
     return out or None
 
 
-def _head_T_world(grp, frame: int):
-    """`T_world_head` (4x4) for `frame` from `obs_head_pose` (xyz + quat wxyz).
+def _world_T_head(grp, frame: int):
+    """`world_T_head` (4x4) for `frame` from `obs_head_pose` (xyz + quat wxyz).
     Returns None if the head pose is missing/malformed. Built with scipy only
     (same math as egomimicUtils' xyzwxyz->matrix: wxyz quat reordered to xyzw)
     to keep the overlay free of heavyweight egomimic imports."""
@@ -364,20 +366,20 @@ def _head_T_world(grp, frame: int):
             return None
         quat_wxyz = pose[3:7]
         quat_xyzw = np.array([quat_wxyz[1], quat_wxyz[2], quat_wxyz[3], quat_wxyz[0]])
-        T = np.eye(4)
-        T[:3, :3] = R.from_quat(quat_xyzw).as_matrix()
-        T[:3, 3] = pose[:3]
-        return T
+        world_T_head = np.eye(4)
+        world_T_head[:3, :3] = R.from_quat(quat_xyzw).as_matrix()
+        world_T_head[:3, 3] = pose[:3]
+        return world_T_head
     except Exception:
         return None
 
 
-def _world_pose_to_cam_cartesian(seq, T_world_head):
-    """`[N,7]` world poses (xyz + quat wxyz) -> `[N,6]` CAMERA-frame
+def _reference_pose_to_cam_cartesian(seq, ref_T_cam):
+    """`[N,7]` reference-frame poses (xyz + quat wxyz) -> `[N,6]` camera-frame
     `[xyz, ypr]` (ZYX-euler), matching egomimic's `actions_cartesian` per-arm
-    layout that `_split_action_pose` consumes. The head IS the camera, so the
-    transform is `inv(T_world_head) @ pose` (same convention as
-    `egomimicUtils.base_frame_to_cam_frame` / `ee_pose_to_cam_frame`)."""
+    layout that `_split_action_pose` consumes. The transform is
+    `inv(ref_T_cam) @ ref_T_pose`, matching `base_frame_to_cam_frame` and
+    `ee_pose_to_cam_frame`."""
     from scipy.spatial.transform import Rotation as R
 
     seq = np.asarray(seq, dtype=float).reshape(-1, 7)
@@ -386,17 +388,17 @@ def _world_pose_to_cam_cartesian(seq, T_world_head):
     se3 = np.tile(np.eye(4), (n, 1, 1))
     se3[:, :3, :3] = R.from_quat(quat_xyzw).as_matrix()
     se3[:, :3, 3] = seq[:, :3]
-    cam = np.linalg.inv(T_world_head) @ se3
+    cam = np.linalg.inv(ref_T_cam) @ se3
     xyz = cam[:, :3, 3]
     ypr = R.from_matrix(cam[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
 
 
-def _world_keypoints_to_cam(seq, T_world_head):
+def _world_keypoints_to_cam(seq, world_T_head):
     """`[63]` (21x3) world keypoints for one arm -> flat `[63]` CAMERA-frame
-    xyz (head IS the camera). `ee_pose_to_cam_frame(pts, T)` applies inv(T)."""
+    xyz (head IS the camera)."""
     pts = np.asarray(seq, dtype=float).reshape(-1, 3)
-    cam = ee_pose_to_cam_frame(pts, T_world_head)
+    cam = ee_pose_to_cam_frame(pts, world_T_head)
     return cam.reshape(-1)
 
 
@@ -642,18 +644,17 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
 
     # Cam-frame transform source, branched by what the episode carries:
     #   - human (`obs_head_pose` present): the head IS the camera, so each world
-    #     pose is transformed world -> head via the per-FRAME `T_world_head`
+    #     pose is transformed world -> head via the per-frame `world_T_head`
     #     (one shared transform for both arms).
     #   - eva (`extrinsics` present, no head pose): each arm's base-frame ee_pose
     #     is transformed base -> cam via that arm's STATIC 4x4 extrinsic, mirroring
-    #     `_build_eva_bimanual_transform_list`'s
-    #     `PoseCoordinateFrameTransform(target_world=extrinsic, pose_world=ee_pose)`
+    #     `_build_eva_bimanual_transform_list`'s directed base/camera pose keys.
     #     (inverse=True default -> inv(extrinsic) @ ee_pose, then xyz+ypr ZYX).
-    #     `_world_pose_to_cam_cartesian` computes exactly that inv(T) @ pose + ZYX
-    #     euler, so we reuse it per-arm with T = extrinsic[arm].
-    T_world_head = _head_T_world(grp, frame)
+    #     `_reference_pose_to_cam_cartesian` computes exactly that
+    #     `inv(base_T_cam) @ base_T_pose` plus ZYX Euler conversion.
+    world_T_head = _world_T_head(grp, frame)
     extr = _extrinsics_from_zarr(grp)
-    if T_world_head is None and not extr:
+    if world_T_head is None and not extr:
         return _badge(img_rgb.copy(),
                       f"overlay {overlay}: no head pose / extrinsics"), False, "no cam"
 
@@ -672,8 +673,12 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
                 None (drawn as off-screen no-op)."""
                 if seq is None:
                     return None
-                T = T_world_head if T_world_head is not None else (extr or {}).get(arm)
-                if T is None:
+                ref_T_cam = (
+                    world_T_head
+                    if world_T_head is not None
+                    else (extr or {}).get(arm)
+                )
+                if ref_T_cam is None:
                     return None
                 seq = np.asarray(seq)
                 if overlay == "orientation":
@@ -683,7 +688,7 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
                     win = seq[lo:hi, :7]
                 if win.shape[0] < 1:
                     return None
-                return _world_pose_to_cam_cartesian(win, T)
+                return _reference_pose_to_cam_cartesian(win, ref_T_cam)
 
             lc, rc = _chunk(left, "left"), _chunk(right, "right")
             n = max(lc.shape[0] if lc is not None else 0,
@@ -704,7 +709,7 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
             if not hasattr(emb_cls, "viz"):
                 return _badge(img_rgb.copy(), "keypoint: viz unavailable"), False, "no viz"
             # Keypoints are a head-frame (human) concept; eva has none -> badge.
-            if T_world_head is None:
+            if world_T_head is None:
                 return _badge(img_rgb.copy(), "keypoint: no keypoints"), False, "no kp"
             parts = []
             for arm in ("left", "right"):
@@ -713,7 +718,7 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
                 if a is None:
                     parts.append(np.zeros(63))
                     continue
-                parts.append(_world_keypoints_to_cam(a[frame], T_world_head))
+                parts.append(_world_keypoints_to_cam(a[frame], world_T_head))
             if all(np.allclose(p, 0) for p in parts):
                 return _badge(img_rgb.copy(), "keypoint: no pts"), False, "off"
             # canonical keypoints (wrist_in_data=False) layout: [L 63, R 63];

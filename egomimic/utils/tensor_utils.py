@@ -5,9 +5,12 @@ of numpy arrays and torch tensors.
 
 # from robomimic
 import collections
+import math
 
+import einops
 import numpy as np
 import torch
+import torch.nn as nn
 
 
 def recursive_dict_list_tuple_apply(x, type_func_dict):
@@ -986,11 +989,6 @@ def time_distributed(
         outputs, begin_axis=0, end_axis=0, target_dims=(batch_size, seq_len)
     )
     return outputs
-
-import einops
-import math
-import torch.nn as nn
-
 
 # ---- moved from egomimicUtils.py (code unchanged) ----
 

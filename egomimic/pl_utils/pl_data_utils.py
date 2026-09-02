@@ -1,14 +1,8 @@
 import logging
-import random
-from typing import Literal
 
-import numpy as np
-import torch
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
-from termcolor import cprint
 from torch.utils.data import DataLoader, default_collate
-from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
 

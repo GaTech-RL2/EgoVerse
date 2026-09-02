@@ -332,10 +332,12 @@ class ZarrWriter:
                 "intrinsics" key in zarr.json metadata. Optional in this low-level
                 constructor; create_and_write requires it.
             extrinsics: Optional camera extrinsics. None (egocentric human data) or
-                a dict mapping a key to its transform matrix; robots key per-arm
-                (e.g. {"left": world<-cam, "right": world<-cam}). Stored under the
-                "extrinsics" key in zarr.json metadata. create_and_write enforces
-                the None-or-non-empty-dict contract.
+                a dict mapping a key to `ref_T_cam`, the camera pose in the declared
+                reference frame. Robots key per-arm (for example,
+                {"left": left_base_T_cam, "right": right_base_T_cam}). Stored
+                under the "extrinsics" key in zarr.json metadata.
+                `create_and_write` enforces the None-or-non-empty-dict contract.
+                See `docs/CONVENTIONS.md`.
         """
         self.episode_path = Path(episode_path)
 
@@ -777,9 +779,11 @@ class ZarrWriter:
             intrinsics: REQUIRED {camera_key: 3x4 K matrix} dict (single-camera =
                 one entry, e.g. {"front_1": K}). Stored in zarr.json metadata.
             extrinsics: Optional camera extrinsics. Either None (e.g. egocentric
-                human data) or a non-empty dict mapping a key to its transform
-                matrix (robots key per-arm, e.g. {"left": T, "right": T}). Stored
-                in zarr.json metadata.
+                human data) or a non-empty dict mapping a key to `ref_T_cam`, the
+                camera pose in the declared reference frame. Robots key per-arm
+                (for example, {"left": left_base_T_cam,
+                "right": right_base_T_cam}). Stored in zarr.json metadata. See
+                `docs/CONVENTIONS.md`.
             metadata_override: Optional metadata overrides.
 
         Returns:
@@ -828,15 +832,16 @@ class ZarrWriter:
                 '"right": T}). See CONTRIBUTING_DATA.md §6.3.'
             )
         if extrinsics is not None:
-            for ext_key, T in extrinsics.items():
+            for ext_key, ref_T_cam in extrinsics.items():
                 try:
-                    T_arr = np.asarray(T, dtype=np.float64)
+                    ref_T_cam_arr = np.asarray(ref_T_cam, dtype=np.float64)
                 except (TypeError, ValueError):
-                    T_arr = None
-                if T_arr is None or T_arr.shape != (4, 4):
+                    ref_T_cam_arr = None
+                if ref_T_cam_arr is None or ref_T_cam_arr.shape != (4, 4):
                     raise ValueError(
                         f"extrinsics[{ext_key!r}] must be a 4x4 transform matrix, "
-                        f"got {getattr(T_arr, 'shape', type(T).__name__)}. "
+                        "named and directed as ref_T_cam; got "
+                        f"{getattr(ref_T_cam_arr, 'shape', type(ref_T_cam).__name__)}. "
                         "See CONTRIBUTING_DATA.md §6.3."
                     )
         writer = ZarrWriter(
