@@ -23,7 +23,7 @@ r = LocalEpisodeResolver(
     Path("/storage/project/r-dxu345-0/shared/arc_tests"),
     key_map=Human.get_keymap(keymap_mode="arc_tokenizer_cartesian"),
     transform_list=Human.get_transform_list(
-        action_mode="arc_tokenizer_cartesian",
+        action_mode="arc_tokenizer_cartesian_gripper_padded",
         coord_frame="camframe",
         rotation_mode="euler",
         stride=3,
