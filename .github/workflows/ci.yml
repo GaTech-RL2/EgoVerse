@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Remove unused toolchains before uv installs approximately 4 GB of
+      # NVIDIA wheels.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                      /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          df -h /
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          # Disable caching. The uv cache is approximately 5 GB, and the
+          # repository has a 10 GB Actions cache quota.
+          enable-cache: false
+
+      # Install the versions in uv.lock. Fail if pyproject.toml and uv.lock do
+      # not agree.
+      - name: Sync the locked environment
+        run: uv sync --locked
+
+      - name: Collect tests
+        run: uv run --no-sync pytest --collect-only -q
+
+      - name: Run unit tests
+        run: uv run --no-sync pytest -q
+
+      - name: Lint
+        run: uv run --no-sync ruff check egomimic

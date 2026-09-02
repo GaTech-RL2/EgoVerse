@@ -17,22 +17,11 @@ import torch
 import torchvision.io as tvio
 from omegaconf import DictConfig, OmegaConf
 
-from egomimic.rldb.embodiment.embodiment import Embodiment
-from egomimic.rldb.embodiment.eva import Eva
-from egomimic.rldb.embodiment.human import Human
+from egomimic.rldb.embodiment import Embodiment, get_embodiment_class
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.viz_utils import _prepare_viz_image
 
 OmegaConf.register_new_resolver("eval", eval)
-
-_EMBODIMENT_CLASSES: dict[str, type[Embodiment]] = {
-    "eva_bimanual": Eva,
-    "eva_right_arm": Eva,
-    "eva_left_arm": Eva,
-    "human_bimanual": Human,
-    "human_right_arm": Human,
-    "human_left_arm": Human,
-}
 
 
 def _extract_annotation(batch: dict, annotation_key: str) -> list[str]:
@@ -163,7 +152,7 @@ def _run_viz_for_datasets(
     frames_per_file: int,
 ) -> None:
     for embodiment_name, dataset in datasets.items():
-        embodiment_cls = _EMBODIMENT_CLASSES.get(embodiment_name.lower())
+        embodiment_cls = get_embodiment_class(embodiment_name)
         if embodiment_cls is None:
             print(f"[warn] No embodiment class for '{embodiment_name}', skipping.")
             continue

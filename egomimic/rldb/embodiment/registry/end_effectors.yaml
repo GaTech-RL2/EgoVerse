@@ -1,0 +1,34 @@
+# Define the end-effector types that a platform can use on each arm.
+#
+# `action_space` selects the policy output layout.
+#   cartesian: [L xyz ypr gripper, R xyz ypr gripper] (14 values)
+#   keypoints: [L wrist pose, L kp21, R wrist pose, R kp21]
+#              (138 values with YPR or 140 values with quaternions)
+#
+# `keypoints.valid` lists the MANO slots that exist on the end-effector. Use
+# `all` to select all 21 slots. This static list is different from the `1e9`
+# value that marks a failed estimate in one frame.
+#
+# Fields
+#   class          parallel_jaw | human_hand | dexterous_hand
+#   dof            number of actuated joints, or null for no joint chain
+#   action_space   cartesian | keypoints
+#   keypoints      {topology, valid}
+#   joint_names    optional names in joint order; length must equal dof
+#   joint_limits   optional [lower, upper] pairs; length must equal dof
+#   urdf           optional URDF path for joint-to-keypoint kinematics
+#   dead_dims      optional indices of joint dimensions that contain no signal
+
+eva_parallel_jaw:
+  class: parallel_jaw
+  dof: 1
+  action_space: cartesian
+  # Slots 0, 4, and 8 represent the wrist and two jaw tips. The distance
+  # between the tips gives the jaw aperture.
+  keypoints: {topology: mano21, valid: [0, 4, 8]}
+
+mano_hand:
+  class: human_hand
+  dof: null
+  action_space: keypoints
+  keypoints: {topology: mano21, valid: all}

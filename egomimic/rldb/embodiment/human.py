@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import Literal
 
 import numpy as np
@@ -25,7 +24,6 @@ from egomimic.utils.viz_utils import (
     _viz_gaze,
     _viz_keypoints,
 )
-
 
 ARIA_INTRINSICS = np.array(
     [
@@ -67,7 +65,7 @@ LIGHTWHEEL_INTRINSICS = np.array(
     ]
 )
 
-ARIA_T_RGB_CPF = np.array(
+ARIA_RGB_T_CPF = np.array(
     [
         [-0.99989084, 0.01251132, -0.00786028, 0.05686918],
         [-0.01132842, -0.99067146, -0.13580032, 0.00922798],
@@ -108,7 +106,7 @@ class Human(Embodiment):
     # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
     # Pi's _fill_missing_images auto-duplicates the absent wrist keys.
     PI_FRONT_KEY = "base_0_rgb"
-    T_RGB_CPF = ARIA_T_RGB_CPF  # for the opt-in aria gaze viz
+    RGB_T_CPF = ARIA_RGB_T_CPF  # `viz` uses this matrix for Aria gaze data.
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
         (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
@@ -152,7 +150,7 @@ class Human(Embodiment):
                 image=image,
                 gaze_data=viz_data,
                 intrinsics=K,
-                t_rgb_cpf=cls.T_RGB_CPF,
+                rgb_T_cpf=cls.RGB_T_CPF,
                 **kwargs,
             )
         if mode == "keypoints":

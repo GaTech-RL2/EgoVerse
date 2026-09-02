@@ -1,0 +1,39 @@
+# Define the robot or human platform that produced an episode.
+#
+# A platform entry defines its joint chains, cameras, and calibration reference
+# frame. `end_effectors.yaml` defines the end-effector for each side.
+#
+# Fields
+#   kind                 robot | human
+#   embodiment_prefix    prefix for names derived from each arity value
+#   arity                supported arm configurations
+#   arm_dof              number of joints per arm, or null for observed poses
+#   aux                  non-arm joint chain, or null
+#   cameras              names of the `images.*` streams
+#   reference_frame      robot_base, slam_world, or camera:<camera-name>
+#   default_end_effector end-effector to use when morphology is not present
+#   embodiment_class     dotted path to an existing Embodiment subclass
+
+eva_x5:
+  kind: robot
+  embodiment_prefix: eva
+  arity: [left_arm, right_arm, bimanual]
+  arm_dof: 6
+  aux: null
+  cameras: [front_1, left_wrist, right_wrist]
+  # EVA episodes store one `base_T_cam` matrix per arm for the front camera.
+  reference_frame: camera:front_1
+  default_end_effector: eva_parallel_jaw
+  embodiment_class: egomimic.rldb.embodiment.eva.Eva
+
+human_body:
+  kind: human
+  embodiment_prefix: human
+  arity: [left_arm, right_arm, bimanual]
+  # Human episodes contain observed wrist poses and MANO keypoints.
+  arm_dof: null
+  aux: null
+  cameras: [front_1]
+  reference_frame: slam_world
+  default_end_effector: mano_hand
+  embodiment_class: egomimic.rldb.embodiment.human.Human

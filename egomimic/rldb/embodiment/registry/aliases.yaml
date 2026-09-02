@@ -1,0 +1,20 @@
+# Map deprecated embodiment names to current names.
+#
+# Do not remove an existing mapping. Stored `zarr.json` files can contain a
+# deprecated name. Before this table existed, `get_embodiment_id` raised
+# `KeyError: 'ARIA_BIMANUAL'` for cached episodes after the 2026-07-08 rename.
+#
+# Add a mapping only for a name that the project previously stored. Do not map
+# `eve_*`. Eve identifies a different robot, not a deprecated name.
+
+# On 2026-07-08, vendor-specific human names changed to `human_*`. The SQL
+# `lab` field now stores the data source.
+aria_left_arm: human_left_arm
+aria_right_arm: human_right_arm
+aria_bimanual: human_bimanual
+mecka_left_arm: human_left_arm
+mecka_right_arm: human_right_arm
+mecka_bimanual: human_bimanual
+scale_left_arm: human_left_arm
+scale_right_arm: human_right_arm
+scale_bimanual: human_bimanual

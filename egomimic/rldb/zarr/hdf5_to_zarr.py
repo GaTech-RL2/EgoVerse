@@ -20,9 +20,9 @@ from pathlib import Path
 
 import numpy as np
 
+from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr import ZarrWriter
 from egomimic.scripts.eva_process.zarr_utils import EvaHD5Extractor
-from egomimic.rldb.embodiment.eva import Eva
 
 
 def is_image_array(arr) -> bool:

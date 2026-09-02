@@ -26,11 +26,9 @@ Usage (on aria-head-node, Ray cluster up):
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
 
 from sqlalchemy import text
 
@@ -92,7 +90,8 @@ def read_batch(prefixes, folder, cfg):
     worker regardless of whether egomimic / ~/.egoverse_env are present there."""
     import json as _json
     import re as _re
-    from datetime import datetime as _dt, timezone as _tz
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
 
     import boto3
 

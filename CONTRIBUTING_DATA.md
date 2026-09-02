@@ -421,8 +421,9 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
     "intrinsics":        dict,  # MANDATORY: {camera_key: 3x4 K matrix} dict (single-camera =
                                 #   one entry, e.g. {"front_1": K}; 3x4 = the 3x3 pinhole K
                                 #   with a zero last column). Projection uses the "front" entry.
-    "extrinsics":  dict | None, # None, or a non-empty dict of 4x4 world<-cam transforms.
-                                #   Robots key per-arm, e.g. {"left": T, "right": T}.
+    "extrinsics":  dict | None, # None, or a non-empty dict of 4x4 ref_T_cam transforms.
+                                #   Robots key per-arm, e.g. {"left": left_base_T_cam,
+                                #   "right": right_base_T_cam}.
                                 #   Egocentric human contributors omit it (None).
     "features": {
         "<key>": {
@@ -445,7 +446,13 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
 - `features` must have one entry per array key present in the store.
 - `embodiment` and `task_name` must exactly match the values in the DB row for this episode.
 - `intrinsics` is **mandatory** and is always a `{camera_key: 3×4 K matrix}` dict in `zarr.attrs` (single-camera = one entry, e.g. `{"front_1": K}`). `ZarrWriter.create_and_write` raises if it is not a non-empty dict.
-- `extrinsics` is **either `None` or a non-empty `dict`** of 4×4 world↔cam transforms (robots key per-arm, e.g. `{"left": T, "right": T}`); egocentric human contributors omit it (`None`). `ZarrWriter.create_and_write` raises if it is anything other than `None` or a non-empty dict.
+- `extrinsics` must be `None` or a non-empty dictionary of 4×4 `ref_T_cam`
+  transforms. Each matrix gives the camera pose in its reference frame. See
+  [Coordinate conventions](docs/CONVENTIONS.md). Robot episodes use the arm
+  names as keys. For example, use
+  `{"left": left_base_T_cam, "right": right_base_T_cam}`. Egocentric human
+  episodes use `None`.
+  `ZarrWriter.create_and_write` rejects all other values.
 
 ### 6.4 Storage / Chunking
 
@@ -466,7 +473,13 @@ Do **not** hand-write these into `zarr.attrs` yourself. Pass them to `ZarrWriter
 - **`intrinsics` is a REQUIRED `dict`** of the form `{camera_key: 3x4 K matrix}` — `create_and_write` raises a `ValueError` if it is not a non-empty dict. **Single-camera setups still use a dict — just one entry**, e.g. `{"front_1": K}`. (Always a dict, so downstream code has one clear structure to handle.)
 - Each value is a **3×4** K matrix: the standard 3×3 pinhole matrix with an appended **zero column** (i.e. `[K | 0]`). A bare 3×3 is rejected on the projection path — pad it with `np.hstack([K_3x3, np.zeros((3, 1))])`.
 - **Multi-camera rigs:** add one entry per camera, e.g. `{"front_1": K_front, "left_wrist": K_lw, "right_wrist": K_rw}`. The training/viz projection uses the **front-camera** entry (the key containing `front`), so make sure that one is present and correct.
-- **`extrinsics`** is **`None` or a non-empty `dict`** of 4×4 world↔cam transforms — `create_and_write` raises on anything else. **Robots** key it **per-arm**, e.g. `{"left": T_left, "right": T_right}`; egocentric **human** contributors pass `None` (omit it).
+- `extrinsics` must be `None` or a non-empty dictionary of 4×4 `ref_T_cam`
+  transforms. Each matrix gives the camera pose in its reference frame. See
+  [Coordinate conventions](docs/CONVENTIONS.md). Robot episodes use the arm
+  names as keys. For example, use
+  `{"left": left_base_T_cam, "right": right_base_T_cam}`. Egocentric human
+  episodes pass `None`.
+  `create_and_write` rejects all other values.
 
 ```python
 import numpy as np
