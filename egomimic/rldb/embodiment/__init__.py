@@ -1,14 +1,9 @@
-"""Embodiment package — the one place that says which embodiments exist.
+"""Expose embodiment identifiers, classes, and registry lookup functions.
 
-``EMBODIMENT_CLASSES`` maps an episode's ``embodiment`` attribute to the class
-that owns its keymap, transform pipeline and overlays. The same six-entry dict
-used to be pasted into ``egomimic/scripts/viz_language.py`` and into
-``egomimic/scripts/data_visualization/inspector_lib/dataset_view.py``, the
-second copy carrying a comment asking a future editor to keep it in sync with
-the first. Both callers now import from here, and the dict itself is *derived*
-from ``registry/platforms.yaml`` rather than typed out: a registry the code does
-not actually read would be a fifth source of truth beside the four it replaces,
-so the registry is the only place an embodiment can be declared.
+``EMBODIMENT_CLASSES`` maps each canonical embodiment name to its configured
+``Embodiment`` subclass. The module builds this mapping from
+``registry/platforms.yaml``. It omits platforms that do not specify an
+``embodiment_class``.
 """
 
 from egomimic.rldb.embodiment.embodiment import (
@@ -27,11 +22,12 @@ from egomimic.rldb.embodiment.registry import load_platforms
 
 
 def _build_embodiment_classes() -> dict[str, type[Embodiment]]:
-    """Embodiment name -> class, from each platform's ``embodiment_class:``.
+    """Build the embodiment class mapping from the platform registry.
 
-    A platform that declares none is skipped: it has no hand-written pipeline
-    yet, and `Embodiment.resolve` raises a pointed error rather than handing
-    back a class that does not fit.
+    Returns:
+        A mapping from each canonical embodiment name to an ``Embodiment``
+        subclass. The mapping excludes platforms without an
+        ``embodiment_class`` value.
     """
     classes: dict[str, type[Embodiment]] = {}
     for platform in load_platforms().values():
@@ -49,12 +45,16 @@ EMBODIMENT_CLASSES: dict[str, type[Embodiment]] = _build_embodiment_classes()
 def get_embodiment_class(
     embodiment_name: str | None, default: type[Embodiment] | None = None
 ) -> type[Embodiment] | None:
-    """Resolve an embodiment name to its class, case-insensitively.
+    """Return the class for a current or deprecated embodiment name.
 
-    Deprecated names resolve through the alias table, so an episode written
-    before a rename still gets its real overlay rather than the fallback.
-    Returns ``default`` for a missing, empty or unknown name — callers read this
-    name out of an episode's attrs and want a fallback, not a ``KeyError``.
+    Args:
+        embodiment_name: An embodiment name. The lookup ignores letter case and
+            applies aliases from ``registry/aliases.yaml``.
+        default: The value to return if the name is empty or unknown.
+
+    Returns:
+        The configured ``Embodiment`` subclass, or ``default`` if no class
+        matches the name.
     """
     if not embodiment_name:
         return default

@@ -536,21 +536,19 @@ def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=
     return frame
 
 def get_gaze_endpoint(yaw_rads, pitch_rads, depth, cam_T_cpf):
-    """
-    Compute the 3D gaze endpoint in camera coordinates.
-
-    The gaze originates at the CPF origin, with direction defined by yaw/pitch,
-    and length set by depth. The endpoint is transformed from CPF to camera
-    frame using `cam_T_cpf`.
+    """Return the gaze endpoint in camera-frame coordinates.
 
     Args:
         yaw_rads: Yaw angle in radians.
         pitch_rads: Pitch angle in radians.
-        depth: Gaze vector magnitude.
-        cam_T_cpf: (4, 4) SE(3) homogeneous transform from CPF to camera frame.
+        depth: Distance from the central-pupil-frame origin to the endpoint.
+        cam_T_cpf: A 4×4 central-pupil-frame pose in the camera frame.
 
     Returns:
-        np.ndarray: (3,) gaze endpoint in camera coordinates.
+        A ``(3,)`` ``float64`` array of camera-frame XYZ coordinates.
+
+    Raises:
+        ValueError: If ``cam_T_cpf`` does not have shape ``(4, 4)``.
     """
     gaze_vec_cpf = get_vector_from_yaw_pitch(yaw_rads, pitch_rads, depth)
 

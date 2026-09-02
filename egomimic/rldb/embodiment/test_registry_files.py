@@ -1,10 +1,4 @@
-"""Tests for the declarative registry (`egomimic/rldb/embodiment/registry/`).
-
-Two things are being defended here. First, that the YAML actually describes the
-embodiments the code has: a registry the code does not agree with is worse than
-the dicts it replaces. Second, that a malformed block fails at load — a typo'd
-field silently ignored is exactly how four sources of truth drifted apart.
-"""
+"""Test registry consistency and reject invalid registry entries."""
 
 import importlib
 
@@ -43,7 +37,6 @@ def test_platforms_claim_no_embodiment_that_does_not_exist() -> None:
 
 
 def test_embodiment_class_escape_hatch_resolves() -> None:
-    """`embodiment_class:` is a dotted path; a typo must not survive to runtime."""
     for platform in load_platforms().values():
         if platform.embodiment_class is None:
             continue
@@ -52,7 +45,6 @@ def test_embodiment_class_escape_hatch_resolves() -> None:
 
 
 def test_registry_agrees_with_the_class_dict() -> None:
-    """Both halves of the registry must name the same class for an embodiment."""
     for embodiment, platform in load_embodiment_platforms().items():
         if embodiment not in EMBODIMENT_CLASSES or platform.embodiment_class is None:
             continue
@@ -70,7 +62,7 @@ def test_default_end_effectors_and_action_spaces_exist() -> None:
 def test_declared_end_effector_masks() -> None:
     end_effectors = load_end_effectors()
     assert end_effectors["mano_hand"].keypoints.is_complete
-    # A jaw is exactly representable: wrist + two tips, aperture = ||tip - tip||.
+    # MANO slots 0, 4, and 8 represent the wrist and the two jaw tips.
     jaw = end_effectors["eva_parallel_jaw"].keypoints
     assert jaw.valid == (0, 4, 8)
     assert not jaw.is_complete

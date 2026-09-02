@@ -152,18 +152,20 @@ class ActionChunkCoordinateFrameTransform(Transform):
         mode: Literal["xyz", "xyzwxyz", "xyzypr"] = "xyzwxyz",
         inverse: bool = True,
     ):
-        """
-        args:
+        """Configure a coordinate transform for a batch of poses.
+
+        Args:
             target_world: Batch key for the target-frame pose in the reference
-                frame (`reference_T_target`).
-            chunk_world: Batch key for the pose chunk. With `inverse=True`, the
-                poses are `reference_T_chunk`; otherwise they are
-                `target_T_chunk`.
-            transformed_key_name: Batch key for the transformed pose chunk.
-            mode: Pose representation used by the chunk.
-            inverse: Compute `target_T_chunk = inv(reference_T_target) @
-                reference_T_chunk` when true. When false, compose
-                `reference_T_chunk = reference_T_target @ target_T_chunk`.
+                frame. This pose represents ``reference_T_target``.
+            chunk_world: Batch key for the input poses.
+            transformed_key_name: Batch key for the output poses.
+            extra_batch_key: Values to add to the batch before the transform.
+            mode: Input and output layout. Use ``"xyz"``, ``"xyzypr"``, or
+                ``"xyzwxyz"``.
+            inverse: If true, compute ``target_T_chunk`` from
+                ``reference_T_target`` and ``reference_T_chunk``. If false,
+                compute ``reference_T_chunk`` from ``reference_T_target`` and
+                ``target_T_chunk``.
         """
         self.target_world = target_world
         self.chunk_world = chunk_world
@@ -173,18 +175,21 @@ class ActionChunkCoordinateFrameTransform(Transform):
         self.inverse = inverse
 
     def transform(self, batch):
-        """
-        args:
-            batch:
-                Inputs use the representation selected by `mode`.
-                Input shape validation is delegated to the selected to-matrix helper.
-                transformed_key_name: str, name of the new key to store the
-                    transformed pose chunk in.
+        """Transform the configured pose chunk and store it in the batch.
 
-        returns
-            Batch with a new key containing the transformed pose chunk.
+        Args:
+            batch: A mutable mapping that contains ``target_world`` and
+                ``chunk_world``. The last input dimension must match ``mode``.
+
+        Returns:
+            The input mapping with ``transformed_key_name`` added. The output
+            has the same shape as the input pose chunk.
+
+        Raises:
+            KeyError: If the batch does not contain a configured input key.
+            ValueError: If ``mode`` is not a supported pose layout.
         """
-        # Flatten to (T, D).
+        # Flatten the leading chunk dimensions into one pose dimension.
         batch.update(self.extra_batch_key or {})
         target_world_pose = np.asarray(batch[self.target_world])
         chunk_world_poses = np.asarray(batch[self.chunk_world])
@@ -211,8 +216,7 @@ class ActionChunkCoordinateFrameTransform(Transform):
             if target_world_pose.shape[-1] == 7
             else _xyzypr_to_matrix
         )
-        # Convert to SE3 for transformation. The target pose is
-        # `reference_T_target` under the repository convention.
+        # Convert the target pose from `reference_T_target` to an SE(3) value.
         reference_T_target = SE3.from_matrix(
             target_pose_to_matrix_fn(target_world_pose[None, :])[0]
         )  # (4, 4)
@@ -220,7 +224,7 @@ class ActionChunkCoordinateFrameTransform(Transform):
             to_matrix_fn(chunk_world_poses)
         )  # (T, 4, 4)
 
-        # Compute relative transform and apply to chunk
+        # Express each chunk pose in the selected output frame.
         if self.inverse:
             transformed_pose_transforms = (
                 reference_T_target.inverse() @ chunk_pose_transforms

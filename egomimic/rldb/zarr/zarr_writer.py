@@ -294,12 +294,7 @@ class _IncrementalHandle:
 
 
 class ZarrWriter:
-    """
-    General-purpose writer for Zarr v3 episode stores.
-
-    Creates episodes compatible with the ZarrEpisode reader, handling both
-    numeric and image data with intelligent chunking and optional sharding.
-    """
+    """Write numeric arrays and JPEG image arrays to a Zarr v3 episode store."""
 
     JPEG_QUALITY = 85  # Fixed JPEG quality for image compression
 
@@ -316,28 +311,22 @@ class ZarrWriter:
         extrinsics: dict | None = None,
         verbose: bool = False,
     ):
-        """
-        Initialize ZarrWriter.
+        """Configure a writer for one Zarr v3 episode.
 
         Args:
-            episode_path: Path to episode .zarr directory.
-            embodiment: Robot type identifier (e.g., "eva_bimanual").
-            fps: Frames per second for playback (default: 30).
-            task_name: Task name.
-            task_description: Task description.
-            annotations: List of (text, start_idx, end_idx) tuples describing language annotations.
-            chunk_timesteps: Number of timesteps per chunk for numeric arrays (default: 100).
-            intrinsics: Camera intrinsics as a {camera_key: 3x4 K matrix} dict
-                (single-camera = one entry, e.g. {"front_1": K}). Stored under the
-                "intrinsics" key in zarr.json metadata. Optional in this low-level
-                constructor; create_and_write requires it.
-            extrinsics: Optional camera extrinsics. None (egocentric human data) or
-                a dict mapping a key to `ref_T_cam`, the camera pose in the declared
-                reference frame. Robots key per-arm (for example,
-                {"left": left_base_T_cam, "right": right_base_T_cam}). Stored
-                under the "extrinsics" key in zarr.json metadata.
-                `create_and_write` enforces the None-or-non-empty-dict contract.
-                See `docs/CONVENTIONS.md`.
+            episode_path: Path of the output ``.zarr`` directory.
+            embodiment: Embodiment identifier, such as ``"eva_bimanual"``.
+            fps: Capture rate in frames per second.
+            task_name: Task identifier stored in episode metadata.
+            task_description: Trial description stored in episode metadata.
+            annotations: ``(text, start_idx, end_idx)`` annotation tuples.
+            chunk_timesteps: Number of frames in each numeric-array chunk.
+            intrinsics: A mapping from camera keys to 3×4 camera matrices. This
+                low-level constructor permits ``None``.
+            extrinsics: ``None`` or a mapping from keys to 4×4 ``ref_T_cam``
+                matrices. Robot episodes use arm names as keys. See
+                ``docs/CONVENTIONS.md``.
+            verbose: If true, print progress information during writes.
         """
         self.episode_path = Path(episode_path)
 
@@ -761,39 +750,39 @@ class ZarrWriter:
         extrinsics: dict | None = None,
         metadata_override: dict[str, Any] | None = None,
     ) -> Path:
-        """
-        Convenience method: create writer and write in one call.
+        """Validate episode metadata and write one Zarr v3 episode.
 
         Args:
-            episode_path: Path to episode .zarr directory.
-            numeric_data: Dictionary of numeric arrays (state, actions, etc.).
-            image_data: Dictionary of image arrays with shape (T, H, W, 3).
-            pre_encoded_image_data: Dict mapping key to (encoded_array, image_shape).
-                Skips internal JPEG encoding for these keys.
-            embodiment: Robot type identifier.
-            fps: Frames per second (default: 30).
-            task_name: Task name.
-            task_description: Task description.
-            annotations: List of (text, start_idx, end_idx) tuples describing language annotations.
-            chunk_timesteps: Number of timesteps per chunk for numeric arrays (default: 100).
-            intrinsics: REQUIRED {camera_key: 3x4 K matrix} dict (single-camera =
-                one entry, e.g. {"front_1": K}). Stored in zarr.json metadata.
-            extrinsics: Optional camera extrinsics. Either None (e.g. egocentric
-                human data) or a non-empty dict mapping a key to `ref_T_cam`, the
-                camera pose in the declared reference frame. Robots key per-arm
-                (for example, {"left": left_base_T_cam,
-                "right": right_base_T_cam}). Stored in zarr.json metadata. See
-                `docs/CONVENTIONS.md`.
-            metadata_override: Optional metadata overrides.
+            episode_path: Path of the output ``.zarr`` directory.
+            numeric_data: Numeric arrays. Each array uses its first dimension
+                for frames.
+            image_data: RGB image arrays with shape ``(T, H, W, 3)``.
+            pre_encoded_image_data: A mapping from keys to
+                ``(jpeg_byte_array, [H, W, 3])`` tuples.
+            embodiment: A current ``EMBODIMENT`` name. Validation ignores
+                letter case.
+            fps: Capture rate in frames per second.
+            task_name: Task identifier stored in episode metadata.
+            task_description: Trial description stored in episode metadata.
+            annotations: ``(text, start_idx, end_idx)`` annotation tuples.
+            chunk_timesteps: Number of frames in each numeric-array chunk.
+            intrinsics: A non-empty mapping from camera keys to 3×4 camera
+                matrices.
+            extrinsics: ``None`` or a non-empty mapping from keys to 4×4
+                ``ref_T_cam`` matrices. Robot episodes use arm names as keys.
+                See ``docs/CONVENTIONS.md``.
+            metadata_override: Additional episode metadata. This mapping cannot
+                replace ``intrinsics`` or ``extrinsics``.
 
         Returns:
-            Path to created episode.
+            The path of the created ``.zarr`` directory.
 
         Raises:
-            ValueError: If no data is provided, if embodiment is not a valid
-                identifier (see §9), if intrinsics is not a non-empty
-                {camera_key: 3x4 K matrix} dict, or if extrinsics is neither None
-                nor a non-empty {key: 4x4 transform} dict.
+            ValueError: If no data is present or frame counts do not agree.
+            ValueError: If ``embodiment`` is not a current identifier.
+            ValueError: If ``intrinsics`` is empty or contains a non-3×4 value.
+            ValueError: If ``extrinsics`` is not ``None`` or a non-empty mapping
+                of 4×4 matrices.
         """
         # Validate the embodiment up front (it is guaranteed to be consumed by
         # the reader via get_embodiment_id) so a bad/empty/typo'd value fails

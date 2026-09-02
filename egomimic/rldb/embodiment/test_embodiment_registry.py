@@ -1,4 +1,4 @@
-"""Tests for the single embodiment registry (`egomimic.rldb.embodiment`)."""
+"""Test embodiment class lookup and deprecated-name aliases."""
 
 import pytest
 
@@ -15,11 +15,6 @@ from egomimic.rldb.embodiment.registry import load_aliases
 
 
 def test_every_enum_member_has_a_class() -> None:
-    """The registry is the single answer to "what embodiments are there".
-
-    An enum member with no class is the drift the two mirrored dicts used to
-    hide: the name loads, the overlay silently falls back to `Human`.
-    """
     missing = [
         m.name.lower() for m in EMBODIMENT if m.name.lower() not in EMBODIMENT_CLASSES
     ]
@@ -43,7 +38,6 @@ def test_get_embodiment_class_is_case_insensitive() -> None:
 
 
 def test_get_embodiment_class_falls_back_instead_of_raising() -> None:
-    """Readers pull this name out of an episode's attrs; a miss is a fallback."""
     assert get_embodiment_class("not_an_embodiment") is None
     assert get_embodiment_class("") is None
     assert get_embodiment_class(None) is None
@@ -51,7 +45,6 @@ def test_get_embodiment_class_falls_back_instead_of_raising() -> None:
 
 
 def test_aliases_resolve_to_live_ids() -> None:
-    """The 07/08/2026 collapse hard-crashed on cached episodes; it must not now."""
     for old, new in load_aliases().items():
         assert get_embodiment_id(old) == get_embodiment_id(new), old
 
@@ -64,7 +57,6 @@ def test_alias_targets_are_canonical_names() -> None:
 
 
 def test_no_alias_shadows_a_live_name() -> None:
-    """A live name always wins, so a re-used name can never be silently rerouted."""
     known = {m.name.lower() for m in EMBODIMENT}
     shadowing = sorted(set(load_aliases()) & known)
     assert not shadowing, f"aliases.yaml keys collide with live names: {shadowing}"
@@ -73,7 +65,6 @@ def test_no_alias_shadows_a_live_name() -> None:
 
 
 def test_aliases_are_not_chained() -> None:
-    """One hop only: an alias target must not itself be an alias."""
     aliases = load_aliases()
     chained = sorted(t for t in aliases.values() if t in aliases)
     assert not chained, f"aliases.yaml has chained entries: {chained}"
@@ -85,17 +76,11 @@ def test_alias_resolves_to_the_right_class() -> None:
 
 
 def test_unknown_name_still_fails_loudly() -> None:
-    """An alias table is a compatibility shim, not a way to swallow typos."""
     with pytest.raises(KeyError):
         get_embodiment_id("eva_bimanualll")
 
 
 def test_aliases_are_a_read_shim_only(tmp_path) -> None:
-    """Old episodes load under an alias; new ones may not be *written* under one.
-
-    The table exists so a rename costs nothing at load. Letting a producer write
-    a deprecated name would turn the shim into a second live spelling.
-    """
     import numpy as np
 
     from egomimic.rldb.zarr.zarr_writer import ZarrWriter

@@ -1,19 +1,10 @@
-"""Declarative embodiment registry.
+"""Load and validate the embodiment registry YAML files.
 
-The YAML files beside this module are data, not code: adding an embodiment, a
-platform or an end-effector should be a diffable block here rather than an edit
-spread across an enum, two class dicts and a hydra config.
-
-The registry is factorized along the two axes that are actually combinatorial —
-``platforms.yaml`` (arm chain, aux chain, camera set, reference frame) and
-``end_effectors.yaml`` (DOF, keypoint topology, action space) — so a new hand on
-a known robot is one block in one file. Calibration is deliberately absent: it
-is per-episode data, not a specification, and centralizing it is the failure
-mode the schema exists to avoid.
-
-This module imports nothing from ``egomimic.rldb.embodiment``. It is a leaf, so
-the parent package (and ``embodiment.py`` itself) can read the registry without
-an import cycle. Anything needing the ``EMBODIMENT`` enum belongs one level up.
+``platforms.yaml`` defines arm chains, auxiliary chains, cameras, and reference
+frames. ``end_effectors.yaml`` defines joints, keypoint slots, and action
+spaces. ``aliases.yaml`` maps deprecated embodiment names to current names.
+Episode metadata stores calibration, so this registry does not define
+calibration values.
 """
 
 from __future__ import annotations
@@ -24,13 +15,14 @@ from pathlib import Path
 
 import yaml
 
+# Do not import the parent embodiment package here. The parent package imports
+# this module when it builds ``EMBODIMENT_CLASSES``.
 REGISTRY_DIR = Path(__file__).parent
 
 PLATFORM_KINDS = frozenset({"robot", "human"})
 END_EFFECTOR_CLASSES = frozenset({"parallel_jaw", "human_hand", "dexterous_hand"})
 ACTION_SPACES = frozenset({"cartesian", "keypoints"})
-#: Keypoint topology -> number of slots. A topology is a superset; an
-#: end-effector declares which of its slots are valid.
+#: Number of keypoint slots in each supported topology.
 TOPOLOGY_SLOTS = {"mano21": 21}
 
 _PLATFORM_FIELDS = frozenset(
@@ -63,24 +55,25 @@ _KEYPOINT_FIELDS = frozenset({"topology", "valid"})
 
 
 class RegistryError(ValueError):
-    """A registry file is malformed.
-
-    Raised at load, not at use: a stale or typo'd registry must break the
-    embodiment that depends on it immediately, otherwise the YAML becomes a
-    fifth place to drift instead of the one place that replaces the other four.
-    """
+    """Report invalid data in a registry YAML file."""
 
 
 @dataclass(frozen=True)
 class KeypointSpec:
-    """Which slots of a keypoint topology an end-effector actually has."""
+    """Identify a keypoint topology and the end-effector's valid slots.
+
+    Attributes:
+        topology: A key in ``TOPOLOGY_SLOTS``.
+        valid: Zero-based indices of valid slots in the topology. The registry
+            loader sorts these indices.
+    """
 
     topology: str
     valid: tuple[int, ...]
 
     @property
     def n_slots(self) -> int:
-        """Total slots in the topology, valid or not."""
+        """Return the total number of slots in the topology."""
         return TOPOLOGY_SLOTS[self.topology]
 
     @property
@@ -90,7 +83,12 @@ class KeypointSpec:
 
 @dataclass(frozen=True)
 class AuxChainSpec:
-    """A platform's non-arm joint chain (torso / lift / head)."""
+    """Describe the non-arm joints of a platform.
+
+    Attributes:
+        dof: The number of joints in the auxiliary chain.
+        joint_names: The joint names in chain order. This tuple can be empty.
+    """
 
     dof: int
     joint_names: tuple[str, ...] = ()
@@ -98,6 +96,13 @@ class AuxChainSpec:
 
 @dataclass(frozen=True)
 class EndEffectorSpec:
+    """Store one validated entry from ``end_effectors.yaml``.
+
+    ``keypoints`` defines the common topology and the slots that this
+    end-effector supports. The optional fields store joint metadata and a URDF
+    path.
+    """
+
     name: str
     ee_class: str
     dof: int | None
@@ -111,6 +116,12 @@ class EndEffectorSpec:
 
 @dataclass(frozen=True)
 class PlatformSpec:
+    """Store one validated entry from ``platforms.yaml``.
+
+    The entry defines the arm configurations, joint counts, image streams,
+    reference frame, and default end-effector for a platform.
+    """
+
     name: str
     kind: str
     embodiment_prefix: str
@@ -124,7 +135,7 @@ class PlatformSpec:
 
     @property
     def embodiments(self) -> tuple[str, ...]:
-        """The EMBODIMENT names this platform owns, e.g. ``eva_bimanual``."""
+        """Return ``<embodiment_prefix>_<arity>`` for each supported arity."""
         return tuple(f"{self.embodiment_prefix}_{a}" for a in self.arity)
 
 
@@ -134,7 +145,7 @@ def _load_yaml(file_name: str) -> dict:
 
 
 def _check_fields(block: dict, allowed: frozenset[str], where: str) -> None:
-    """Reject unknown keys — a typo'd field would otherwise be silently ignored."""
+    """Raise ``RegistryError`` if a mapping contains an unknown field."""
     unknown = sorted(set(block) - allowed)
     if unknown:
         raise RegistryError(
@@ -329,10 +340,11 @@ def _parse_platform(name: str, block: dict, end_effectors: dict[str, EndEffector
 
 @functools.lru_cache(maxsize=None)
 def load_aliases() -> dict[str, str]:
-    """Deprecated embodiment name -> current name, lowercased both sides.
+    """Load the deprecated-to-current embodiment name mapping.
 
-    See ``aliases.yaml``: the table is append-only, and it is what keeps a
-    rename from being a fleet-wide re-download.
+    Returns:
+        A dictionary from lowercase deprecated names to lowercase current
+        names.
     """
     raw = _load_yaml("aliases.yaml")
     return {str(old).lower(): str(new).lower() for old, new in raw.items()}
@@ -340,7 +352,14 @@ def load_aliases() -> dict[str, str]:
 
 @functools.lru_cache(maxsize=None)
 def load_end_effectors() -> dict[str, EndEffectorSpec]:
-    """End-effector name -> spec, from ``end_effectors.yaml``."""
+    """Load and validate ``end_effectors.yaml``.
+
+    Returns:
+        A dictionary from end-effector names to validated specifications.
+
+    Raises:
+        RegistryError: If an entry has an unknown field or an invalid value.
+    """
     return {
         name: _parse_end_effector(name, block)
         for name, block in _load_yaml("end_effectors.yaml").items()
@@ -349,7 +368,15 @@ def load_end_effectors() -> dict[str, EndEffectorSpec]:
 
 @functools.lru_cache(maxsize=None)
 def load_platforms() -> dict[str, PlatformSpec]:
-    """Platform name -> spec, from ``platforms.yaml``."""
+    """Load and validate ``platforms.yaml``.
+
+    Returns:
+        A dictionary from platform names to validated specifications.
+
+    Raises:
+        RegistryError: If an entry is invalid or two platforms produce the
+            same embodiment name.
+    """
     end_effectors = load_end_effectors()
     platforms = {
         name: _parse_platform(name, block, end_effectors)
@@ -369,7 +396,11 @@ def load_platforms() -> dict[str, PlatformSpec]:
 
 @functools.lru_cache(maxsize=None)
 def load_embodiment_platforms() -> dict[str, PlatformSpec]:
-    """Embodiment name -> the platform that owns it, aliases included."""
+    """Map current and deprecated embodiment names to platform specifications.
+
+    The result includes an alias only if its current target identifies a
+    platform.
+    """
     by_embodiment = {
         embodiment: platform
         for platform in load_platforms().values()

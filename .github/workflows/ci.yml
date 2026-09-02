@@ -15,9 +15,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # The locked environment carries the CUDA torch stack (~4 GB of nvidia-*
-      # wheels). The hosted runner fits it only once the preinstalled toolchains
-      # nothing here uses are gone.
+      # Remove unused toolchains before uv installs approximately 4 GB of
+      # NVIDIA wheels.
       - name: Free disk space
         run: |
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
@@ -27,13 +26,12 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
-          # Not cached on purpose: the resolved environment is ~5 GB, which
-          # would consume most of the repository's 10 GB Actions cache quota.
+          # Disable caching. The uv cache is approximately 5 GB, and the
+          # repository has a 10 GB Actions cache quota.
           enable-cache: false
 
-      # `--locked` is the check that keeps this honest: CI runs the environment
-      # `pyproject.toml` + `uv.lock` describe, the same one developers get from
-      # `uv sync`, and fails if the two have drifted.
+      # Install the versions in uv.lock. Fail if pyproject.toml and uv.lock do
+      # not agree.
       - name: Sync the locked environment
         run: uv sync --locked
 

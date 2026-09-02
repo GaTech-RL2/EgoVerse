@@ -160,14 +160,14 @@ def extract_mecka_metadata(
 
 
 def transform_to_pose(parent_T_child: np.ndarray) -> np.ndarray:
-    """
-    Convert 4x4 homogeneous transform matrix to 7DOF pose in WXYZ format.
+    """Convert a homogeneous transform to a translation and quaternion.
 
     Args:
-        parent_T_child: Array of shape (4, 4) representing an SE(3) transform.
+        parent_T_child: A 4×4 matrix that gives the child pose in the parent
+            frame.
 
     Returns:
-        Array of shape (7,) with [x, y, z, qw, qx, qy, qz] (quat in WXYZ).
+        A ``(7,)`` array with ``[x, y, z, qw, qx, qy, qz]``.
     """
     pos = parent_T_child[:3, 3]
     rotation = Rotation.from_matrix(parent_T_child[:3, :3])
@@ -437,33 +437,27 @@ class MeckaExtractor:
 
     @staticmethod
     def _extract_camera_transforms(egomotion: np.ndarray) -> List[np.ndarray]:
-        """
-        Parse egomotion array into per-frame camera poses in world frame.
-
-        Egomotion format: each row has columns [?, X, Y, Z, ?, ?, ?, qx, qy, qz, qw].
-        Quaternion is XYZW (SciPy); used internally, not exposed.
-
+        """Convert Mecka egomotion rows to world-frame camera poses.
 
         Args:
-            egomotion: Array of shape (T, 11+), one row per frame.
-
+            egomotion: A ``(T, D)`` array where ``D >= 11``. Columns 1 through
+                3 contain XYZ translation. Columns 7 through 10 contain an
+                ``[qx, qy, qz, qw]`` quaternion.
 
         Returns:
-            List of `world_T_cam` 4x4 homogeneous transforms, one per frame.
+            A list of ``T`` 4×4 ``world_T_cam`` matrices.
         """
         transforms = []
 
         for i in range(len(egomotion)):
-            # Translation in world frame (columns 1-3)
-            t = egomotion[i, 1:4]  # X, Y, Z
+            # Columns 1 through 3 give the camera translation in the world frame.
+            t = egomotion[i, 1:4]
 
-            # Quaternion (columns 7-10): SciPy expects (x, y, z, w)
+            # Columns 7 through 10 use SciPy's `[x, y, z, w]` order.
             q = egomotion[i, 7:11]
 
-            # Convert quaternion -> rotation matrix
             world_R_cam = Rotation.from_quat(q).as_matrix()
 
-            # Build homogeneous SE(3)
             world_T_cam = np.eye(4)
             world_T_cam[:3, :3] = world_R_cam
             world_T_cam[:3, 3] = t
@@ -479,27 +473,22 @@ class MeckaExtractor:
         arm: str,
         world_T_cams: List[np.ndarray],
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Extract hand poses and keypoints from hands CSV and transform to world frame.
-
-
-        Hands CSV has columns: frame, hand_index (0=left, 1=right), landmark_index,
-        world_x, world_y, world_z. Hand poses are computed from keypoints in camera
-        frame via `compute_hand_pose_xyzquat`, then transformed to world using
-        `world_T_cam`.
-
+        """Convert Mecka hand landmarks to world-frame poses and keypoints.
 
         Args:
-            hands_df: DataFrame with hand landmark positions per frame.
-            frames_df: DataFrame defining frame count and sync (used for shape).
-            arm: Unused; kept for API compatibility.
-            world_T_cams: List of `world_T_cam` 4x4 transforms per frame.
-
+            hands_df: A table with ``frame``, ``hand_index``,
+                ``landmark_index``, ``world_x``, ``world_y``, and ``world_z``
+                columns. ``hand_index`` is 0 for the left hand and 1 for the
+                right hand.
+            frames_df: A table whose row count sets ``T``.
+            arm: An unused compatibility argument.
+            world_T_cams: A list of ``T`` 4×4 camera poses in the world frame.
 
         Returns:
-            Tuple of (hand_poses_world, hand_keypoints_world):
-                - hand_poses_world: (T, 14) [left_7dof, right_7dof] xyz+quat(WXYZ) in world frame.
-                - hand_keypoints_world: (T, 2, 21, 3) [left_21kp, right_21kp] in world.
+            Three arrays: hand poses with shape ``(T, 14)``, hand keypoints with
+            shape ``(T, 2, 21, 3)``, and wrist poses with shape ``(T, 14)``.
+            Each pose uses ``[x, y, z, qw, qx, qy, qz]``. All values use the
+            world frame. Missing hands retain zero values.
         """
         num_frames = len(frames_df)
         hand_poses = np.zeros((num_frames, 14))
@@ -519,12 +508,12 @@ class MeckaExtractor:
                     ].values  # (21, 3) in camera frame
                     world_T_cam = world_T_cams[frame_idx]
 
-                    # Transform keypoints from camera frame to world frame (same as hand poses)
+                    # Transform the keypoints from the camera frame to the world frame.
                     kp_h = np.concatenate([kp, np.ones((21, 1))], axis=1)  # (21, 4)
                     kp_world = (world_T_cam @ kp_h.T).T[:, :3]  # (21, 3)
                     hand_keypoints[frame_idx, hand_index] = kp_world
 
-                    # Hand pose in camera frame -> transform to world.
+                    # Transform the hand and wrist poses to the world frame.
                     pose_xyzquat, wrist_xyzquat = compute_hand_pose_xyzquat(
                         kp, hand_index
                     )

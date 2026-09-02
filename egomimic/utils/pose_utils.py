@@ -260,11 +260,15 @@ def _split_keypoints(keypoints, wrist_in_data: bool = False, is_quat: bool = Tru
 # ---- moved from egomimicUtils.py (code unchanged) ----
 
 def ee_pose_to_cam_frame(ee_pose_base, base_T_cam):
-    """
-    ee_pose_base: (N, 3)
-    base_T_cam: (4, 4), the camera pose in the robot base frame.
+    """Convert XYZ points from the robot base frame to the camera frame.
 
-    returns ee_pose_cam: (N, 3)
+    Args:
+        ee_pose_base: An ``(N, 3)`` array of base-frame XYZ points.
+        base_T_cam: A 4×4 camera pose in the robot base frame.
+
+    Returns:
+        An ``(N, 3)`` array of camera-frame XYZ points. The function applies
+        ``inv(base_T_cam)`` to each input point.
     """
     N, _ = ee_pose_base.shape
     ee_pose_base = np.concatenate([ee_pose_base, np.ones((N, 1))], axis=1)
@@ -274,11 +278,16 @@ def ee_pose_to_cam_frame(ee_pose_base, base_T_cam):
 
 
 def base_frame_to_cam_frame(base_frame, base_T_cam):
-    """
-    base_frame: (N, 6) (x, y, z, yaw, pitch, roll)
-    base_T_cam: (4, 4), the camera pose in the robot base frame.
+    """Convert Cartesian poses from the robot base frame to the camera frame.
 
-    returns cam_frame: (N, 6) (x, y, z, yaw, pitch, roll)
+    Args:
+        base_frame: An ``(N, 6)`` array of base-frame
+            ``[x, y, z, yaw, pitch, roll]`` poses.
+        base_T_cam: A 4×4 camera pose in the robot base frame.
+
+    Returns:
+        An ``(N, 6)`` array of camera-frame poses. Euler angles use ZYX order
+        and radians.
     """
     N, _ = base_frame.shape
     se3 = np.zeros((N, 4, 4))
@@ -291,11 +300,16 @@ def base_frame_to_cam_frame(base_frame, base_T_cam):
     return np.concatenate([xyz, ypr], axis=1)
 
 def cam_frame_to_base_frame(cam_frame, base_T_cam):
-    """
-    cam_frame: (N, 6) (x, y, z, yaw, pitch, roll)
-    base_T_cam: (4, 4), the camera pose in the robot base frame.
+    """Convert Cartesian poses from the camera frame to the robot base frame.
 
-    returns base_frame: (N, 6) (x, y, z, yaw, pitch, roll)
+    Args:
+        cam_frame: An ``(N, 6)`` array of camera-frame
+            ``[x, y, z, yaw, pitch, roll]`` poses.
+        base_T_cam: A 4×4 camera pose in the robot base frame.
+
+    Returns:
+        An ``(N, 6)`` array of robot-base-frame poses. Euler angles use ZYX
+        order and radians.
     """
     N, _ = cam_frame.shape
     se3 = np.zeros((N, 4, 4))

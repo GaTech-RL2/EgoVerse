@@ -27,9 +27,8 @@ from egomimic.utils.viz_utils import (
 
 
 class EMBODIMENT(Enum):
-    # All human demonstration data is one embodiment (HUMAN_*); the robot Eva is
-    # the only non-human embodiment. There is NO vendor/source notion at the
-    # embodiment level — the data source is recorded only in the SQL `lab` field.
+    # IDs 1 through 3 identify human data. IDs 4 through 6 identify EVA data.
+    # The SQL `lab` field identifies the data source.
     HUMAN_RIGHT_ARM = 1
     HUMAN_LEFT_ARM = 2
     HUMAN_BIMANUAL = 3
@@ -62,11 +61,14 @@ def get_embodiment(index):
 
 
 def canonical_embodiment_name(embodiment_name: str) -> str:
-    """Lowercase an embodiment name and resolve it through `aliases.yaml`.
+    """Return the lowercase canonical form of an embodiment name.
 
-    A name that is already an `EMBODIMENT` member is returned unchanged, so the
-    alias table can never shadow a live name. An unknown name is returned as-is
-    and left to fail at the caller, where the error names the actual input.
+    Args:
+        embodiment_name: A current, deprecated, or unknown embodiment name.
+
+    Returns:
+        The current name for a configured alias. A current name takes priority
+        over an alias. The function returns an unknown name in lowercase.
     """
     name = str(embodiment_name).lower()
     if name.upper() in EMBODIMENT.__members__:
@@ -75,17 +77,22 @@ def canonical_embodiment_name(embodiment_name: str) -> str:
 
 
 def get_embodiment_id(embodiment_name):
-    """Map an embodiment name to its stable integer id.
+    """Return the stable integer ID for an embodiment name.
 
-    Deprecated names resolve through `registry/aliases.yaml` first: the name is
-    baked into every episode's `zarr.json`, so without this fallback a rename
-    turns every cached episode into a `KeyError` at load (README, 07/08/2026).
+    Args:
+        embodiment_name: A current name or an alias in
+            ``registry/aliases.yaml``. The lookup ignores letter case.
+
+    Returns:
+        The integer value of the matching ``EMBODIMENT`` member.
+
+    Raises:
+        KeyError: If the canonical name is not an ``EMBODIMENT`` member.
     """
     return EMBODIMENT[canonical_embodiment_name(embodiment_name).upper()].value
 
 
-#: The sides an end-effector can be declared for. End-effectors vary per side:
-#: a one-handed rig or two different hands are both legal.
+#: Valid keys for ``ResolvedEmbodiment.end_effectors``.
 SIDES = ("left", "right")
 
 
@@ -98,12 +105,14 @@ def _import_embodiment_class(path: str) -> type["Embodiment"]:
 
 @dataclass(frozen=True)
 class ResolvedEmbodiment:
-    """One platform plus one end-effector per side, composed from the registry.
+    """Store a platform and its selected end-effectors.
 
-    This is the shape that keeps the head count off the platform count: the
-    platform selects the stem and the key widths, the end-effectors select
-    `action_space`, and `action_space` selects the head. A new hand on a known
-    platform changes only `end_effectors`.
+    Attributes:
+        platform: The selected platform specification.
+        end_effectors: A mapping from ``"left"`` or ``"right"`` to the
+            end-effector specification for that side.
+        embodiment_name: The canonical embodiment name, if resolution started
+            from a name.
     """
 
     platform: PlatformSpec
@@ -112,11 +121,11 @@ class ResolvedEmbodiment:
 
     @property
     def action_space(self) -> str:
-        """The canonical action space, derived from the end-effector classes.
+        """Return the action space shared by all selected end-effectors.
 
-        Mixed sides are refused rather than silently resolved: an episode whose
-        two hands want different heads has no single training interface, and
-        picking one here would hide that.
+        Raises:
+            ValueError: If the selected end-effectors specify different action
+                spaces.
         """
         spaces = {ee.action_space for ee in self.end_effectors.values()}
         if len(spaces) != 1:
@@ -128,12 +137,11 @@ class ResolvedEmbodiment:
 
     @property
     def embodiment_class(self) -> type["Embodiment"]:
-        """The hand-written `Embodiment` subclass for this platform.
+        """Import and return the platform's configured ``Embodiment`` class.
 
-        `Human` and `Eva` encode real subtlety (head-frame vs extrinsics-frame,
-        wrist-frame variants, interpolation strides) and are reached through the
-        registry's `embodiment_class:` escape hatch rather than rewritten. A
-        platform without one has no derived pipeline yet, and says so.
+        Raises:
+            NotImplementedError: If the platform does not specify an
+                ``embodiment_class`` value.
         """
         path = self.platform.embodiment_class
         if path is None:
@@ -145,7 +153,14 @@ class ResolvedEmbodiment:
         return _import_embodiment_class(path)
 
     def keypoints(self, side: str):
-        """The end-effector's keypoint spec (topology + validity mask) for a side."""
+        """Return the keypoint topology and valid slots for one side.
+
+        Args:
+            side: The ``"left"`` or ``"right"`` end-effector key.
+
+        Raises:
+            KeyError: If ``side`` is not in ``end_effectors``.
+        """
         return self.end_effectors[side].keypoints
 
     def get_keymap(self, *args, **kwargs):
@@ -162,7 +177,7 @@ class ResolvedEmbodiment:
 
 
 class Embodiment(ABC):
-    """Base embodiment class. An embodiment is responsible for defining the transform pipeline that converts between the raw data in the dataset and the canonical representation used by the model."""
+    """Define dataset transforms and visualization for an embodiment."""
 
     INTRINSICS = None
     EXTRINSICS = None
@@ -170,18 +185,26 @@ class Embodiment(ABC):
 
     @classmethod
     def resolve(cls, spec) -> ResolvedEmbodiment:
-        """Compose an embodiment from the registry.
+        """Resolve an embodiment name or morphology mapping.
 
-        `spec` is either an embodiment name (`"eva_bimanual"`, aliases included)
-        or a `morphology` block::
+        A name selects its platform and the platform's default end-effector for
+        both sides. A morphology mapping has this form::
 
             {"platform": "eva_x5",
              "end_effector": {"left": "eva_parallel_jaw",
                               "right": "eva_parallel_jaw"}}
 
-        The name form is the backward-compatible path: no episode carries a
-        `morphology` block yet, so the platform's `default_end_effector` fills
-        both sides. `end_effector` may also be a bare string, meaning both sides.
+        Args:
+            spec: A current or deprecated embodiment name, or a morphology
+                mapping. In a morphology mapping, ``end_effector`` can be one
+                name for both sides or a mapping of side names to end-effectors.
+
+        Returns:
+            The selected platform and end-effector specifications.
+
+        Raises:
+            TypeError: If ``spec`` is not a string or mapping.
+            ValueError: If a platform, side, or end-effector name is invalid.
         """
         if isinstance(spec, Mapping):
             return cls._resolve_morphology(spec)

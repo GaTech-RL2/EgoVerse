@@ -106,7 +106,7 @@ class Human(Embodiment):
     # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
     # Pi's _fill_missing_images auto-duplicates the absent wrist keys.
     PI_FRONT_KEY = "base_0_rgb"
-    RGB_T_CPF = ARIA_RGB_T_CPF  # for the opt-in Aria gaze viz
+    RGB_T_CPF = ARIA_RGB_T_CPF  # `viz` uses this matrix for Aria gaze data.
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
         (0, 1), (1, 2), (2, 3), (3, 4),         # thumb

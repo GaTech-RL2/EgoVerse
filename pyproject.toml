@@ -69,7 +69,7 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 
-# The embodiment registry is data that ships with the package.
+# Include the registry YAML files in built distributions.
 [tool.setuptools.package-data]
 "egomimic.rldb.embodiment.registry" = ["*.yaml"]
 

@@ -1,9 +1,4 @@
-"""Tests for `Embodiment.resolve` — the composition path.
-
-The property under test is the design's acceptance test: swapping the
-end-effector must change `action_space` and nothing else, and swapping the
-platform must change the platform and nothing about the hand.
-"""
+"""Test name-based and morphology-based ``Embodiment.resolve`` inputs."""
 
 from dataclasses import replace
 
@@ -14,7 +9,6 @@ from egomimic.rldb.embodiment.registry import load_end_effectors, load_platforms
 
 
 def test_resolve_by_name_uses_the_platform_default_end_effector() -> None:
-    """No episode carries a `morphology` block yet, so the name must still work."""
     eva = Embodiment.resolve("eva_bimanual")
     assert eva.platform is load_platforms()["eva_x5"]
     assert eva.platform.arm_dof == 6
@@ -63,12 +57,6 @@ def test_morphology_end_effector_may_be_a_bare_string() -> None:
 
 
 def test_a_new_hand_on_a_known_platform_costs_no_code() -> None:
-    """The design's acceptance test, run against the registry as it stands.
-
-    Swapping the declared end-effector re-routes the head with no change to the
-    platform, the stem inputs or any Python. Here the jaw is swapped for a
-    five-finger hand on the same EVA arms.
-    """
     jaws = Embodiment.resolve(
         {"platform": "eva_x5", "end_effector": "eva_parallel_jaw"}
     )
@@ -82,7 +70,6 @@ def test_a_new_hand_on_a_known_platform_costs_no_code() -> None:
 
 
 def test_mixed_action_spaces_are_refused() -> None:
-    """Two hands wanting different heads has no single training interface."""
     mixed = Embodiment.resolve(
         {
             "platform": "eva_x5",
@@ -124,7 +111,6 @@ def test_platform_without_a_class_says_so() -> None:
     ],
 )
 def test_a_bad_identifier_is_a_hard_error(spec, match) -> None:
-    """Identifiers plus a registry: a typo fails at resolve, not silently later."""
     with pytest.raises(ValueError, match=match):
         Embodiment.resolve(spec)
 
@@ -135,7 +121,6 @@ def test_resolve_rejects_the_wrong_type() -> None:
 
 
 def test_resolve_delegates_to_the_hand_written_pipeline() -> None:
-    """`Human`/`Eva` are reached through the registry, not rewritten."""
     eva = Embodiment.resolve("eva_bimanual")
     assert eva.get_keymap("cartesian") == Eva.get_keymap("cartesian")
     assert len(eva.get_transform_list("cartesian")) == len(

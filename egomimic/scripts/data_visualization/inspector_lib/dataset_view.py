@@ -39,20 +39,10 @@ from functools import lru_cache
 
 import numpy as np
 
-# Canonical overlay path. The head-frame convention (head IS the camera, no
-# per-arm extrinsic) is built locally in `_world_T_head` / `_intrinsics_from_zarr`
-# below; the cam-frame inputs assembled here are then handed to the EMBODIMENT
-# CLASS's `viz` method (e.g. `Human.viz` for `human_bimanual`, `Eva.viz` for
-# `eva_*`), so the trajectory / orientation-axes / keypoint rendering lives in
-# exactly one place and the browser is embodiment-generic. `<EmbClass>.viz`
-# performs the projection internally (it takes `intrinsics`), so this module
-# hands it CAM-FRAME viz_data and never projects to pixels itself.
-# `ee_pose_to_cam_frame` (from `egomimicUtils`, NOT the viz helpers module) is reused for the
-# world -> head-frame point transform (it applies inv(T)).
-#
-# The embodiment classes pull in the `projectaria_tools` stack; that's present in
-# the egomimic env (skynet) but optional in the standalone viz venv, so the import
-# is guarded — if it's unavailable the overlay falls back to the badge.
+# Convert source poses to the camera frame in this module. The selected
+# `Embodiment.viz` method projects the poses and draws the overlay.
+# `projectaria_tools` is optional in the standalone visualization environment.
+# If an embodiment import fails, the browser shows an unavailable badge.
 from egomimic.utils.pose_utils import ee_pose_to_cam_frame
 
 from .images import (
@@ -82,10 +72,11 @@ except Exception as _e:  # pragma: no cover - optional heavy dep
 
 
 def _embodiment_class(grp):
-    """Resolve the embodiment CLASS for an episode from `grp.attrs["embodiment"]`
-    (e.g. `"human_bimanual"` -> `Human`, `"eva_*"` -> `Eva`). Falls back to
-    `Human` if the attr is missing/unknown. Returns None only if the embodiment
-    classes failed to import."""
+    """Return the class identified by ``grp.attrs["embodiment"]``.
+
+    The function returns ``Human`` if the attribute is absent or unknown. It
+    returns ``None`` if the embodiment package did not import.
+    """
     if Human is None:
         return None
     try:
@@ -311,17 +302,13 @@ def _intrinsics_from_zarr(grp):
 
 
 def _extrinsics_from_zarr(grp):
-    """Per-episode EVA (robot) camera extrinsics from zarr.json metadata
-    (`attrs["extrinsics"]`), one `base_T_cam` per arm: the camera pose in that
-    robot arm's base frame. Returns `{"left": 4x4, "right": 4x4}` (only the
-    arms actually present) or None if the attribute is absent or unparseable.
+    """Read per-arm ``base_T_cam`` matrices from episode metadata.
 
-    These are the `base_T_cam` matrices that `Eva.EXTRINSICS` hardcodes and that
-    `_build_eva_bimanual_transform_list` feeds (as xyzwxyz) into
-    `PoseCoordinateFrameTransform(target_world=base_T_cam_pose_key,
-    pose_world=base_T_ee_pose_key)`
-    to compute `inv(base_T_cam) @ base_T_ee`, expressing the end-effector pose
-    in the camera frame."""
+    Returns:
+        A dictionary with valid ``"left"`` and ``"right"`` 4×4 matrices.
+        The function returns ``None`` if no valid matrix is present. It ignores
+        missing, non-numeric, and incorrectly shaped values.
+    """
     try:
         extr = dict(grp.attrs).get("extrinsics")
         if not extr:
@@ -343,10 +330,17 @@ def _extrinsics_from_zarr(grp):
 
 
 def _world_T_head(grp, frame: int):
-    """`world_T_head` (4x4) for `frame` from `obs_head_pose` (xyz + quat wxyz).
-    Returns None if the head pose is missing/malformed. Built with scipy only
-    (same math as egomimicUtils' xyzwxyz->matrix: wxyz quat reordered to xyzw)
-    to keep the overlay free of heavyweight egomimic imports."""
+    """Read one ``world_T_head`` matrix from ``obs_head_pose``.
+
+    Args:
+        grp: An episode Zarr group.
+        frame: The zero-based frame index.
+
+    Returns:
+        A 4×4 matrix. The source pose uses
+        ``[x, y, z, qw, qx, qy, qz]``. The function returns ``None`` if the
+        value is absent, malformed, or outside the array.
+    """
     arr = _resolve_zarr_path(grp, "obs_head_pose")
     if arr is None:
         return None
@@ -367,11 +361,18 @@ def _world_T_head(grp, frame: int):
 
 
 def _reference_pose_to_cam_cartesian(seq, ref_T_cam):
-    """`[N,7]` reference-frame poses (xyz + quat wxyz) -> `[N,6]` camera-frame
-    `[xyz, ypr]` (ZYX-euler), matching egomimic's `actions_cartesian` per-arm
-    layout that `_split_action_pose` consumes. The transform is
-    `inv(ref_T_cam) @ ref_T_pose`, matching `base_frame_to_cam_frame` and
-    `ee_pose_to_cam_frame`."""
+    """Convert reference-frame poses to camera-frame Cartesian poses.
+
+    Args:
+        seq: An ``(N, 7)`` array of
+            ``[x, y, z, qw, qx, qy, qz]`` reference-frame poses.
+        ref_T_cam: A 4×4 camera pose in the reference frame.
+
+    Returns:
+        An ``(N, 6)`` array of camera-frame ``[x, y, z, yaw, pitch, roll]``
+        poses. The Euler angles use ZYX order and radians. The transform is
+        ``inv(ref_T_cam) @ ref_T_pose``.
+    """
     from scipy.spatial.transform import Rotation as R
 
     seq = np.asarray(seq, dtype=float).reshape(-1, 7)
@@ -387,8 +388,16 @@ def _reference_pose_to_cam_cartesian(seq, ref_T_cam):
 
 
 def _world_keypoints_to_cam(seq, world_T_head):
-    """`[63]` (21x3) world keypoints for one arm -> flat `[63]` CAMERA-frame
-    xyz (head IS the camera)."""
+    """Convert 21 world-frame keypoints to a flat camera-frame array.
+
+    Args:
+        seq: An array with 63 XYZ values.
+        world_T_head: The 4×4 head pose in the world frame. The head frame is
+            the camera frame.
+
+    Returns:
+        A flat array with 63 camera-frame XYZ values.
+    """
     pts = np.asarray(seq, dtype=float).reshape(-1, 3)
     cam = ee_pose_to_cam_frame(pts, world_T_head)
     return cam.reshape(-1)
@@ -634,16 +643,9 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
     if intr is None:
         return _badge(img_rgb.copy(), f"overlay {overlay}: no intrinsics"), False, "no K"
 
-    # Cam-frame transform source, branched by what the episode carries:
-    #   - human (`obs_head_pose` present): the head IS the camera, so each world
-    #     pose is transformed world -> head via the per-frame `world_T_head`
-    #     (one shared transform for both arms).
-    #   - eva (`extrinsics` present, no head pose): each arm's base-frame ee_pose
-    #     is transformed base -> cam via that arm's STATIC 4x4 extrinsic, mirroring
-    #     `_build_eva_bimanual_transform_list`'s directed base/camera pose keys.
-    #     (inverse=True default -> inv(extrinsic) @ ee_pose, then xyz+ypr ZYX).
-    #     `_reference_pose_to_cam_cartesian` computes exactly that
-    #     `inv(base_T_cam) @ base_T_pose` plus ZYX Euler conversion.
+    # Select the transform that locates the camera in the pose reference frame.
+    # Human episodes use one `world_T_head` for both arms at each frame.
+    # EVA episodes use one static `base_T_cam` matrix for each arm.
     world_T_head = _world_T_head(grp, frame)
     extr = _extrinsics_from_zarr(grp)
     if world_T_head is None and not extr:
@@ -658,11 +660,12 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
                 return _badge(img_rgb.copy(), f"{overlay}: no ee_pose"), False, "no pose"
 
             def _chunk(seq, arm):
-                """Per-arm cam-frame [H,6] (xyz+ypr). For orientation only the
-                single current frame; for cartesian the [frame, frame+horizon]
-                window. The cam transform is the per-frame head pose (human) or
-                this arm's static extrinsic (eva). Missing arm/transform ->
-                None (drawn as off-screen no-op)."""
+                """Return camera-frame poses for one arm and display window.
+
+                Orientation mode returns one pose. Cartesian mode returns at
+                most ``horizon`` poses. The function returns ``None`` if the
+                source poses or camera transform are absent.
+                """
                 if seq is None:
                     return None
                 ref_T_cam = (

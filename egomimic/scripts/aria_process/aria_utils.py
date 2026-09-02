@@ -773,20 +773,25 @@ class AriaVRSExtractor:
         hand_tracking_results,
         arm: str,
     ):
-        """
-        Get Hand Keypoints from VRS
-        Parameters
-        ----------
-        world_T_device_poses : sequence
-            Timestamped device poses in the world frame.
-        stream_timestamps_ns : dict
-        hand_tracking_results : dict
-        arm : str
-            arm to get hand keypoints for
-        Returns
-        -------
-        hand_keypoints : np.array
-            hand_keypoints
+        """Sample wrist poses and hand keypoints at the RGB timestamps.
+
+        Args:
+            world_T_device_poses: Timestamped MPS device poses in the world
+                frame.
+            stream_timestamps_ns: Stream timestamps in device-time nanoseconds.
+                The ``"rgb"`` entry sets the output length and sample times.
+            hand_tracking_results: Timestamped MPS hand-tracking results.
+            arm: ``"left"``, ``"right"``, or ``"both"``.
+
+        Returns:
+            A ``(T, 70)`` array for one hand or a ``(T, 140)`` array for both
+            hands. Each hand contains a seven-value world-frame wrist pose and
+            21 world-frame XYZ keypoints. Poses use
+            ``[x, y, z, qw, qx, qy, qz]``. Missing samples contain ``1e9``.
+
+        Raises:
+            ValueError: If ``arm`` is not ``"left"``, ``"right"``, or
+                ``"both"``.
         """
         frame_length = len(stream_timestamps_ns["rgb"])
 
@@ -890,19 +895,19 @@ class AriaVRSExtractor:
         device_T_rgb,
         stream_timestamps_ns: dict,
     ):
-        """
-        Get Head Pose from VRS
-        Parameters
-        ----------
-        world_T_device_poses : sequence
-            Timestamped device poses in the world frame.
-        stream_timestamps_ns : dict
-            dict that maps sensor keys to a list of nanosecond timestamps in device time
+        """Sample the RGB camera pose at each RGB timestamp.
 
-        Returns
-        -------
-        head_pose : np.array
-            head_pose
+        Args:
+            world_T_device_poses: Timestamped MPS device poses in the world
+                frame.
+            device_T_rgb: The RGB camera pose in the device frame.
+            stream_timestamps_ns: Stream timestamps in device-time nanoseconds.
+                The ``"rgb"`` entry sets the output length and sample times.
+
+        Returns:
+            A ``(T, 7)`` array of world-frame RGB camera poses. Each pose uses
+            ``[x, y, z, qw, qx, qy, qz]``. A missing pose contains ``1e9`` in
+            all seven fields.
         """
         head_pose = []
         frame_length = len(stream_timestamps_ns["rgb"])
@@ -955,23 +960,24 @@ class AriaVRSExtractor:
         hand_tracking_results,
         arm: str,
     ):
-        """
-        Get EE Pose from VRS
-        Parameters
-        ----------
-        world_T_device_poses : sequence
-            Timestamped device poses in the world frame.
-        stream_timestamps_ns : dict
-            dict that maps sensor keys to a list of nanosecond timestamps in device time
-        hand_tracking_results : dict
-            dict that maps sensor keys to a list of hand tracking results
-        arm : str
-            arm to get hand keypoints for
-        Returns
-        -------
-        ee_pose : np.array
-            ee_pose (6D per arm)
-            -1 if no hand tracking data is available
+        """Sample canonical hand poses at the RGB timestamps.
+
+        Args:
+            world_T_device_poses: Timestamped MPS device poses in the world
+                frame.
+            stream_timestamps_ns: Stream timestamps in device-time nanoseconds.
+                The ``"rgb"`` entry sets the output length and sample times.
+            hand_tracking_results: Timestamped MPS hand-tracking results.
+            arm: ``"left"``, ``"right"``, or ``"both"``.
+
+        Returns:
+            A ``(T, 7)`` array for one hand or a ``(T, 14)`` array for both
+            hands. Each world-frame pose uses
+            ``[x, y, z, qw, qx, qy, qz]``. Missing samples contain ``1e9``.
+
+        Raises:
+            ValueError: If ``arm`` is not ``"left"``, ``"right"``, or
+                ``"both"``.
         """
         ee_pose = []
         frame_length = len(stream_timestamps_ns["rgb"])
