@@ -43,7 +43,7 @@ train_datasets:
         keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        action_mode: arc_tokenizer_cartesian
+        action_mode: arc_tokenizer_cartesian_gripper_padded
         coord_frame: camframe
         rotation_mode: euler
         stride: 1
@@ -93,7 +93,7 @@ valid_datasets:
         keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        action_mode: arc_tokenizer_cartesian
+        action_mode: arc_tokenizer_cartesian_gripper_padded
         coord_frame: camframe
         rotation_mode: euler
         stride: 1

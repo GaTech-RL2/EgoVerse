@@ -373,6 +373,7 @@ class Human(Embodiment):
             "cartesian",
             "cartesian_gripper_padded",
             "arc_tokenizer_cartesian",
+            "arc_tokenizer_cartesian_gripper_padded",
             "keypoints",
             "arc_tokenizer_keypoints",
         ] = "cartesian",
@@ -402,17 +403,31 @@ class Human(Embodiment):
 
         Human cartesian has no gripper. ``cartesian_gripper_padded`` inserts a
         zero gripper per arm so the layout matches Eva/Yam (14D euler, 16D quat,
-        20D Zhou 6D). ``arc_tokenizer_cartesian`` is that padded layout plus the
-        arc-length tokenizer, so human and Eva arc tokens are the same 14-dim
-        [Lxyz, Lypr, L_grip, Rxyz, Rypr, R_grip] rows -- the gripper padding is
-        an intentional embodiment-level transform (aria has no gripper signal)
-        and survives the tokenizer, which routes gripper into slot 6 per arm. ``arc_tokenizer_keypoints`` is the
-        keypoint layout arc-tokenized the same way, (T, 138) -> (M+1, 138).
+        20D Zhou 6D).
+
+        ``arc_tokenizer_cartesian_gripper_padded`` is that padded layout plus
+        the arc-length tokenizer, so human and Eva arc tokens are the same
+        14-dim [Lxyz, Lypr, L_grip, Rxyz, Rypr, R_grip] rows. The gripper
+        padding is an intentional embodiment-level transform (aria has no
+        gripper signal) and survives the tokenizer, which routes gripper into
+        slot 6 per arm. It is the only valid cartesian arc mode for Human:
+        unpadded human cartesian is 12D and the tokenizer needs 14, so bare
+        ``arc_tokenizer_cartesian`` is rejected here rather than at the first
+        batch.
+
+        ``arc_tokenizer_keypoints`` is the keypoint layout arc-tokenized the
+        same way, (T, 138) -> (M+1, 138).
         """
+        if action_mode == "arc_tokenizer_cartesian":
+            raise ValueError(
+                f"{cls.__name__} cartesian has no gripper column, so the "
+                "arc-length tokenizer's 14D layout cannot be built from it; "
+                "use action_mode='arc_tokenizer_cartesian_gripper_padded'"
+            )
         if action_mode in (
             "cartesian",
             "cartesian_gripper_padded",
-            "arc_tokenizer_cartesian",
+            "arc_tokenizer_cartesian_gripper_padded",
         ):
             builders = {
                 "camframe": _build_human_cartesian_bimanual_transform_list,
@@ -435,7 +450,10 @@ class Human(Embodiment):
         transform_list = builders[coord_frame](
             stride=stride, rotation_mode=rotation_mode
         )
-        if action_mode in ("cartesian_gripper_padded", "arc_tokenizer_cartesian"):
+        if action_mode in (
+            "cartesian_gripper_padded",
+            "arc_tokenizer_cartesian_gripper_padded",
+        ):
             transform_list = _pad_human_cartesian_gripper(
                 transform_list, rotation_mode=rotation_mode
             )
@@ -458,7 +476,7 @@ class Human(Embodiment):
                     lambda_rot=float(lambda_rot),
                 )
             ]
-        if action_mode == "arc_tokenizer_cartesian":
+        if action_mode == "arc_tokenizer_cartesian_gripper_padded":
             from egomimic.rldb.embodiment.eva import _append_arc_tokenizer
 
             # dt MUST reflect the stride: the action chunk is subsampled by
@@ -473,6 +491,7 @@ class Human(Embodiment):
                 transform_list,
                 min_distance_unit=min_distance_unit,
                 resampled_vector_length=resampled_vector_length,
+                rotation_mode=rotation_mode,
                 dt=float(stride) / 30.0,
             )
         return transform_list
