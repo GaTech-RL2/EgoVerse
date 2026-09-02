@@ -131,6 +131,25 @@ def test_launcher_uses_schema2_four_rows_and_direct_row_selection():
     assert "unite_usocket_register_sweep_val01_h16" in source
     assert "model.unite_flow_updates_per_reconstruction=0" in source
     assert "ddp_find_unused_parameters_true" in source
+    assert "TELEMETRY_CADENCE=3" in source
+    assert (
+        "trainer.max_steps=3 trainer.limit_train_batches=3 "
+        "trainer.val_check_interval=3" in source
+    )
+    assert "callbacks.model_checkpoint.every_n_train_steps=3" in source
+    assert (
+        "--expected-steps 3 --expected-val-check-interval 3 "
+        "--minimum-validation-step 3" in source
+    )
+    assert "TELEMETRY_CADENCE=2" not in source
+    assert "TELEMETRY_CADENCE=100" in source
+    assert "trainer.max_steps=240000" in source
+    assert source.count("CUDA_VISIBLE_DEVICES=") == 2
+    assert 'CUDA_VISIBLE_DEVICES= "${PYTHON_COMMAND[@]}" "$VERIFIER"' in source
+    assert (
+        'CUDA_VISIBLE_DEVICES= "${PYTHON_COMMAND[@]}" - '
+        '"$RUN_DIR/checkpoints/last.ckpt"' in source
+    )
     assert '{"SMOKE_READY", "LAUNCH_READY"}' in source
     assert '{"SMOKE_REQUIRED", "READY"}' in source
     assert 'cfg.artifact_status == "LAUNCH_READY"' in source

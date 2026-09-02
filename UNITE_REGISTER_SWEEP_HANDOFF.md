@@ -85,16 +85,19 @@ optimizer loss and uses read-only `autograd.grad` calls on that same forward
 graph at telemetry cadence. These calls do not populate or modify
 `parameter.grad`. Shared rows emit finite cosine and component norms; separate
 rows emit disjoint tokenizer-reconstruction and denoiser-flow norms without
-fabricating a cosine. The two-step smoke uses cadence 2 so telemetry is measured
-after the first optimizer update. A real two-rank optimizer-plus-validation
-smoke is still required before a full run.
+fabricating a cosine. The smoke uses three optimizer steps and cadence 3. This
+preserves the released AdaLN-Zero and zero-start warmup boundary: update 1 uses
+LR 0, update 2 is the first positive-LR reconstruction-driven update, and
+forward 3 must recover finite nonzero topology gradients. Zero or non-finite
+norms still hard-fail. A real two-rank optimizer-plus-validation smoke is still
+required before a full run.
 
 ## Corrected artifacts
 
 - Sweep manifest:
   `unite_usocket_register_sweep_manifest.yaml`
   - SHA-256:
-    `75a7a081734ae585c0672399caaeb9913f03e1564f150b0fcffe5f385d482f19`
+    `af14080f107194db2238aec6e56e309f08793e78c78943443ceaba99e11ba878`
   - Gate state: `artifact_status=SMOKE_READY`,
     `launch_status=SMOKE_REQUIRED`
 - Four-active-row train/rollout graph artifact:
@@ -139,7 +142,7 @@ parameter manifests. `total` equals `trainable` in every row.
   `artifacts/unite_register_sweep_20260902/parameter_manifests/`; the launcher
   SHA-checks it, regenerates the resolved-stage payload, requires byte-identical
   content, and preserves both copies in run provenance. Its SHA-256 is
-  `1c8a0ffcf144b1e13dbe7040518255709e7dd27af271aaa6492084be2ee040bd`.
+  `acbe1b8f793ccb41de5f6b8da37ac7dea154071d370193a7f4ba42fa814f25f9`.
   The preceding pre-readiness-identity version is archived at
   `/coc/flash7/paphiwetsa3/backups/flow_transfer_unite_skynet_x2_v20.pre_readiness_identity_20260902.sbatch`.
   Its pre-schema-2 version is archived at
@@ -153,7 +156,14 @@ parameter manifests. `total` equals `trainable` in every row.
   No stale content was merged. The canonical external launcher was restored
   byte-for-byte to its guarded schema-2 version, then advanced deliberately to
   SHA-256 `1c8a0ffcf144b1e13dbe7040518255709e7dd27af271aaa6492084be2ee040bd`
-  with a fail-closed smoke-to-full source-identity check.
+  with a fail-closed smoke-to-full source-identity check. That pre-smoke-3 copy
+  is preserved at
+  `/coc/flash7/paphiwetsa3/scripts/train/backups/flow_transfer_unite_skynet_x2_v20.20260902T032532Z.pre_smoke3.sha1c8a0ffc.sbatch`.
+  The current launcher is SHA-256
+  `acbe1b8f793ccb41de5f6b8da37ac7dea154071d370193a7f4ba42fa814f25f9`;
+  it advances only the smoke gate to three steps and preserves the concurrent
+  GPU-hidden verifier/reload calls. The exact combined copy is also archived at
+  `/coc/flash7/paphiwetsa3/scripts/train/backups/flow_transfer_unite_skynet_x2_v20.20260902T033238Z.raced_cuda_hide.shaacbe1b8f.sbatch`.
 - One support experiment,
   `egomimic/hydra_configs/experiment/pusht/unite_usocket_register_sweep_val01_h16.yaml`,
   composes the U-Socket-only data and evaluator contract. Row selection remains
@@ -188,7 +198,7 @@ Skynet access procedure required the `sky2` fallback. The current combined
 review recorded:
 
 - Python syntax/import checks, Ruff, and YAML parsing.
-- `108/108` in-scope tests across the released-policy, fidelity,
+- `109/109` in-scope tests across the released-policy, fidelity,
   training-entry, telemetry, launcher, and normalization-path suites. These
   include real H16 clean-action
   materialized tokenize/denoise/backward coverage for shared/separate x
@@ -206,9 +216,11 @@ The launch-plumbing follow-up added topology-aware joint-update telemetry,
 schema-2 launcher parsing, the U-only EnergyScore support experiment, combined
 split/norm subsection checks, durable parameter-manifest byte-identity checks,
 optimizer-group assertions, and the released-smoke verifier path. Its focused
-telemetry/launcher suite passed 12/12 tests, including real shared/separate
-policy forward-optimizer-forward telemetry checks. Ruff, Python compile,
-`bash -n`, YAML parsing, graph lint, and `git diff --check` passed.
+telemetry/launcher suite passed 18/18 tests, including real shared/separate
+policy forward-optimizer-forward telemetry checks and the zero-start scheduler
+recovery boundary. The exact in-job launcher suite passed 95/95 and the
+GPU-hidden verifier/reload suite passed 15/15. Ruff, Python compile, `bash -n`,
+YAML parsing, graph lint, and `git diff --check` passed.
 
 The first real four-row smoke attempt was Slurm array `3741178`. All rows were
 stopped before their first optimizer step because
@@ -220,6 +232,30 @@ attempt records only. The wrapper now enumerates Lightning's registered
 `self.nets` module tree with stable `nets.policy...` names and duplicate removal.
 A real-`PipelineAlgo` regression verifies exact parameter identity coverage,
 disjoint AdamW/Muon groups, and the required content/action projection routing.
-The complete in-scope suite passes `108/108` after this fix. The manifest remains
-`SMOKE_READY / SMOKE_REQUIRED`; all four real smokes must be retried from the
-post-fix commit before any full launch.
+The complete in-scope suite passed `108/108` after this fix.
+
+The second real four-row attempt was Slurm array `3741266`, launched from exact
+source commit `ad38c105e0680b0e7b40e65aeccf245973c753e1`. Every row validated its
+source, launcher, manifest, dataset, split, normalization, EnergyScore seed bank,
+and parameter manifest, then completed one LR-0 optimizer/EMA update. All four
+recorded exactly zero flow loss and failed the cadence-2 topology check before
+scheduled validation. No row produced a checkpoint, strict/EMA reload evidence,
+or `SMOKE_RESULT.json`; task 3 was externally canceled after logging the same
+two-rank failure as the other rows. This is the released initialization boundary,
+not a topology-specific discrepancy: the official encoder zero-initializes its
+output, and the official warmup makes update 1 a no-op. A real released-scheduler
+regression now proves zero flow on forwards 1 and 2 and requires finite nonzero
+shared gradients on forward 3 after the first positive-LR update. The smoke-only
+launcher/verifier contract now measures both shared and separate rows at step 3;
+full-run cadence remains 100.
+
+| Array task | Row | Scheduler result | Preserved run and provenance paths | Runtime result and missing gate evidence |
+|---:|---|---|---|---|
+| 0 | shared N4 (`us_unite_register_shared_nt4_s42`) | job `3741267`, `FAILED 15:0` | Run: `/coc/flash7/paphiwetsa3/experiments/usocket_unite_register_sweep_20260902/a40x2/smokes/us_unite_register_shared_nt4_s42/job_3741267`<br>Provenance: `/coc/flash7/paphiwetsa3/experiments/usocket_unite_register_sweep_20260902/a40x2/provenance/smoke/us_unite_register_shared_nt4_s42/job_3741267` | Shared zero-gradient failure. Provenance and failed W&B attempt preserved; no scheduled validation prediction, checkpoint, strict/EMA reload, or `SMOKE_RESULT.json`. |
+| 1 | shared N8 (`us_unite_register_shared_nt8_s42`) | job `3741268`, `FAILED 1:0` | Run: `/coc/flash7/paphiwetsa3/experiments/usocket_unite_register_sweep_20260902/a40x2/smokes/us_unite_register_shared_nt8_s42/job_3741268`<br>Provenance: `/coc/flash7/paphiwetsa3/experiments/usocket_unite_register_sweep_20260902/a40x2/provenance/smoke/us_unite_register_shared_nt8_s42/job_3741268` | Shared zero-gradient failure. Provenance and failed W&B attempt preserved; no scheduled validation prediction, checkpoint, strict/EMA reload, or `SMOKE_RESULT.json`. |
+| 2 | separate N4 (`us_unite_register_separate_nt4_s42`) | job `3741269`, `FAILED 15:0` | Run: `/coc/flash7/paphiwetsa3/experiments/usocket_unite_register_sweep_20260902/a40x2/smokes/us_unite_register_separate_nt4_s42/job_3741269`<br>Provenance: `/coc/flash7/paphiwetsa3/experiments/usocket_unite_register_sweep_20260902/a40x2/provenance/smoke/us_unite_register_separate_nt4_s42/job_3741269` | Separate zero/non-finite-gradient failure. Provenance and failed W&B attempt preserved; no scheduled validation prediction, checkpoint, strict/EMA reload, or `SMOKE_RESULT.json`. |
+| 3 | separate N8 (`us_unite_register_separate_nt8_s42`) | array/job `3741266`, `CANCELLED 0:0` after the same two-rank runtime failure was logged | Run: `/coc/flash7/paphiwetsa3/experiments/usocket_unite_register_sweep_20260902/a40x2/smokes/us_unite_register_separate_nt8_s42/job_3741266`<br>Provenance: `/coc/flash7/paphiwetsa3/experiments/usocket_unite_register_sweep_20260902/a40x2/provenance/smoke/us_unite_register_separate_nt8_s42/job_3741266` | Separate zero/non-finite-gradient failure. Provenance and failed W&B attempt preserved; no scheduled validation prediction, checkpoint, strict/EMA reload, or `SMOKE_RESULT.json`. |
+
+The complete in-scope suite passes `109/109` after this correction. The manifest
+remains `SMOKE_READY / SMOKE_REQUIRED`; all four real smokes must be retried from
+the next clean post-fix commit before any full launch.

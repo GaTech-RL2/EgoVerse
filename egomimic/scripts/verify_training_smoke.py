@@ -309,14 +309,14 @@ def _verify_released_sweep_smoke(
     split_manifest: Path,
     normalization_artifact: Path,
 ) -> dict[str, Any]:
-    """Strict two-step joint-update gate for one register-sweep row."""
+    """Strict three-step joint-update gate for one register-sweep row."""
 
     assert topology in {"shared", "separate"}
     assert latent_dim == 16
     assert num_latent_tokens in {4, 8}
-    assert expected_steps == expected_val_check_interval == minimum_validation_step == 2
-    assert int(config.trainer.max_steps) == int(config.trainer.limit_train_batches) == 2
-    assert int(config.trainer.val_check_interval) == 2
+    assert expected_steps == expected_val_check_interval == minimum_validation_step == 3
+    assert int(config.trainer.max_steps) == int(config.trainer.limit_train_batches) == 3
+    assert int(config.trainer.val_check_interval) == 3
     assert int(config.trainer.limit_val_batches) == 1
     assert int(config.trainer.num_sanity_val_steps) == 0
     assert str(config.trainer.precision) == "bf16"
@@ -329,7 +329,7 @@ def _verify_released_sweep_smoke(
     assert int(config.model.latent_dim) == 16
     assert int(config.model.num_latent_tokens) == num_latent_tokens
     assert int(config.model.unite_flow_updates_per_reconstruction) == 0
-    assert int(config.model.unite_gradient_telemetry_every_n_steps) == 2
+    assert int(config.model.unite_gradient_telemetry_every_n_steps) == 3
     assert set(config.data.train_datasets) == {"pushshapes_sim_u_socket"}
     assert set(config.data.valid_datasets) == {"pushshapes_sim_u_socket"}
     energy = config.evaluator.energy_score
@@ -359,7 +359,7 @@ def _verify_released_sweep_smoke(
     assert checkpoint_path.is_file(), checkpoint_path
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     global_step = int(checkpoint["global_step"])
-    assert global_step == 2
+    assert global_step == 3
     optimizer_states = checkpoint.get("optimizer_states", [])
     assert len(optimizer_states) == 1
     composite = optimizer_states[0]
@@ -414,7 +414,7 @@ def _verify_released_sweep_smoke(
                 row["optimizer_metrics"][key] > 0 for key in optimizer_required
             )
             optimizer_rows.append(row)
-    assert len(dense) == 2, training_history
+    assert len(dense) == 3, training_history
     assert optimizer_rows, training_history
 
     if topology == "shared":

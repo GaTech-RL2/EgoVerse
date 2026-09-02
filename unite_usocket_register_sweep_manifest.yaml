@@ -105,7 +105,7 @@ fixed_contract:
   validation_every_steps: 10000
   checkpoint_every_steps: 20000
   gradient_telemetry_every_steps: 100
-  gradient_telemetry_smoke_every_steps: 2
+  gradient_telemetry_smoke_every_steps: 3
   gradient_telemetry_status: enabled_joint_update_safe_read_only_autograd
   energy_score_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
 common_required_metrics:
@@ -229,7 +229,7 @@ known_blockers:
   - no_row_has_passed_the_required_real_optimizer_validation_reload_smoke
 validated_review_checks:
   evidence_scope: current_combined_review
-  related_tests: 108_passed
+  related_tests: 109_passed
   h16_materialized_row_forward_backward: 4_of_4_passed
   configured_wrapper_and_optimizer_state_tests: passed
   yaml_files_parsed: 7
@@ -239,9 +239,9 @@ validated_review_checks:
   config_graph_artifact_path: artifacts/unite_register_sweep_20260902/config_graphs/four_active_rows_train_rollout.json
   config_graph_json_sha256: c850d6146fb6bf9bc84e7332f9988d9bd446f34f89c291f4d7670f271fa29e20
   active_parameter_manifests: 4_of_4_canonical_byte_schema_verified
-  launch_plumbing_unit_and_real_tiny_policy_tests: 12_passed
+  launch_plumbing_unit_and_real_tiny_policy_tests: 18_passed
   canonical_launcher_schema: 2
   canonical_launcher_row_selection: direct_model_config_four_active_rows_n4_n8
   canonical_launcher_ddp_strategy: ddp_find_unused_parameters_true
-  canonical_launcher_sha256: 1c8a0ffcf144b1e13dbe7040518255709e7dd27af271aaa6492084be2ee040bd
+  canonical_launcher_sha256: acbe1b8f793ccb41de5f6b8da37ac7dea154071d370193a7f4ba42fa814f25f9
   support_experiment: egomimic/hydra_configs/experiment/pusht/unite_usocket_register_sweep_val01_h16.yaml
