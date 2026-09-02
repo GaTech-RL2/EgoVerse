@@ -79,7 +79,7 @@ class InterpolatePose(Transform):
         if self.mode == "xyzwxyz":
             if actions.ndim != 2 or actions.shape[-1] != 7:
                 raise ValueError(
-                    f"InterpolatePose expects (T, 7) when is_quat=True, got "
+                    f"InterpolatePose expects (T, 7) when mode='xyzwxyz', got "
                     f"{actions.shape} for key '{self.action_key}'"
                 )
             batch[self.output_action_key] = _interpolate_quat_wxyz(

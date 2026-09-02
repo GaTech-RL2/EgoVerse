@@ -23,6 +23,7 @@ import pandas as pd
 from scipy.spatial.transform import Rotation
 
 from egomimic.rldb.embodiment.embodiment import EMBODIMENT
+from egomimic.rldb.embodiment.human import MECKA_INTRINSICS
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
 logging.basicConfig(level=logging.INFO)
@@ -669,11 +670,11 @@ class MeckaDatasetConverter:
         self.task_description = task_description
 
         if arm == "both":
-            emb = EMBODIMENT.MECKA_BIMANUAL
+            emb = EMBODIMENT.HUMAN_BIMANUAL
         elif arm == "left":
-            emb = EMBODIMENT.MECKA_LEFT_ARM
+            emb = EMBODIMENT.HUMAN_LEFT_ARM
         else:
-            emb = EMBODIMENT.MECKA_RIGHT_ARM
+            emb = EMBODIMENT.HUMAN_RIGHT_ARM
 
         self.embodiment = emb.name
 
@@ -729,6 +730,9 @@ class MeckaDatasetConverter:
             fps=self.fps,
             embodiment=self.embodiment,
             task_description=self.task_description,
+            # Mecka frames are stored at 640x360; MECKA_INTRINSICS is the
+            # 1920x1080 calibration rescaled to that size.
+            intrinsics={"front_1": MECKA_INTRINSICS},
             metadata_override=self.mecka_metadata,
         )
         mp4_path = self.output_dir / f"{self.episode_meta['id']}.mp4"
