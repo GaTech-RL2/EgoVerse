@@ -28,6 +28,12 @@ export PATH="/storage/home/hcoda1/5/agao81/r-dxu345-0/EgoVerse/emimic/bin:$PATH"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 if grep -q api.wandb.ai ~/.netrc 2>/dev/null; then export WANDB_MODE=online; else export WANDB_MODE=offline; fi
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+# Private compile caches: two same-user jobs autotuning on one node with the
+# shared /tmp/torchinductor_agao81 raced and both died in a compile-worker
+# subprocess (2026-09-02, jobs 12752435/36 on atl1-1-03-020-18-0).
+export TORCHINDUCTOR_CACHE_DIR="${TMPDIR:-/tmp}/torchinductor_${USER}_${SLURM_JOB_ID}"
+export TRITON_CACHE_DIR="${TMPDIR:-/tmp}/triton_${USER}_${SLURM_JOB_ID}"
+mkdir -p "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR"
 
 FRAME="${FRAME:?cam|wrist}"; CKPT="${CKPT:?}"; LABEL="${LABEL:?}"
 if [[ "$FRAME" == "cam" ]]; then DATA=mecka_fold_freeform_opsplit_pi_cam6d; EV=eval_pi_camframe_6d; NORM=cam6d; EXTRA="+evaluator.viz_max_batches=0"
