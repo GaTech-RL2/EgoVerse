@@ -23,7 +23,9 @@ r = LocalEpisodeResolver(
     Path("/storage/project/r-dxu345-0/shared/arc_tests"),
     key_map=Human.get_keymap(keymap_mode="arc_tokenizer_cartesian"),
     transform_list=Human.get_transform_list(
-        mode="arc_tokenizer_cartesian",
+        action_mode="arc_tokenizer_cartesian",
+        coord_frame="camframe",
+        rotation_mode="euler",
         stride=3,
         min_distance_unit=0.20,
         resampled_vector_length=15,
