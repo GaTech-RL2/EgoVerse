@@ -5,9 +5,12 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=120G
-#SBATCH -p gpu-h200,gpu-h100
-#SBATCH --gres=gpu:1
-#SBATCH --time=03:00:00
+# Typed gres: an untyped --gres=gpu:1 over -p gpu-h200,gpu-h100 landed on a
+# V100 node (atl1-1-03-006-35-0) on 2026-09-02 - no bf16, compiled sampler
+# fell back to eager at ~2.6 min/batch.
+#SBATCH -p gpu-h200
+#SBATCH --gres=gpu:h200:1
+#SBATCH --time=01:30:00
 #SBATCH --exclude=atl1-1-02-012-16-0,atl1-1-02-014-9-0
 #SBATCH --job-name=eval_palm_kp49
 #SBATCH --output=/storage/project/r-dxu345-0/agao81/EgoVerse/logs/eval_palm_kp49_%j.log
