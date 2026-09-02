@@ -18,7 +18,9 @@ train_datasets:
         keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian_padded
+        action_mode: cartesian_gripper_padded
+        coord_frame: camframe
+        rotation_mode: euler
         stride: 1
       debug: 290
     filters:
@@ -39,7 +41,9 @@ train_datasets:
         keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
       debug: 290
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
@@ -60,7 +64,9 @@ valid_datasets:
         keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian_padded
+        action_mode: cartesian_gripper_padded
+        coord_frame: camframe
+        rotation_mode: euler
         stride: 1
       debug: 290
     filters:
@@ -80,7 +86,9 @@ valid_datasets:
         keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
       debug: 290
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter

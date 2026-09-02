@@ -23,7 +23,9 @@ train_datasets:
         keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: arc_tokenizer_cartesian
+        action_mode: arc_tokenizer_cartesian
+        coord_frame: camframe
+        rotation_mode: euler
         stride: 1
         min_distance_unit: 0.20
         resampled_vector_length: 15
@@ -46,7 +48,9 @@ valid_datasets:
         keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: arc_tokenizer_cartesian
+        action_mode: arc_tokenizer_cartesian
+        coord_frame: camframe
+        rotation_mode: euler
         stride: 1
         min_distance_unit: 0.20
         resampled_vector_length: 15

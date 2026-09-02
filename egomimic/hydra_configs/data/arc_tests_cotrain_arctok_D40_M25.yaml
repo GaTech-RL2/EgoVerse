@@ -54,7 +54,9 @@ train_datasets:
         keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: arc_tokenizer_cartesian
+        action_mode: arc_tokenizer_cartesian
+        coord_frame: camframe
+        rotation_mode: euler
         stride: 1
         min_distance_unit: 0.40
         resampled_vector_length: 25
@@ -76,7 +78,9 @@ train_datasets:
         keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: arc_tokenizer_cartesian
+        action_mode: arc_tokenizer_cartesian
+        coord_frame: camframe
+        rotation_mode: euler
         min_distance_unit: 0.40
         resampled_vector_length: 25
     filters:
@@ -100,7 +104,9 @@ valid_datasets:
         keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: arc_tokenizer_cartesian
+        action_mode: arc_tokenizer_cartesian
+        coord_frame: camframe
+        rotation_mode: euler
         stride: 1
         min_distance_unit: 0.40
         resampled_vector_length: 25
@@ -121,7 +127,9 @@ valid_datasets:
         keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: arc_tokenizer_cartesian
+        action_mode: arc_tokenizer_cartesian
+        coord_frame: camframe
+        rotation_mode: euler
         min_distance_unit: 0.40
         resampled_vector_length: 25
     filters:
