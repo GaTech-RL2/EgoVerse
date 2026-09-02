@@ -218,8 +218,8 @@ def strict_no_rollout_preflight(
     replan_every: int | None = None,
 ) -> dict:
     """Strictly validate checkpoint/config/model binding without an env or inference."""
-    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
     from egomimic.pipeline.algo import _resolve_action_chunk_execution_slice
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
     algo, _ = load_algo_from_ckpt(ckpt_path, config_path, use_ema=use_ema)
     emb_name = str(selected_embodiment_name)
