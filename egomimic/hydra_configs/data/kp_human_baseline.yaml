@@ -19,7 +19,9 @@ train_datasets:
         keymap_mode: keypoints
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: keypoints_wristframe_ypr
+        action_mode: keypoints
+        coord_frame: eef_frame
+        rotation_mode: euler
         stride: 1
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
@@ -40,7 +42,9 @@ valid_datasets:
         keymap_mode: keypoints
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: keypoints_wristframe_ypr
+        action_mode: keypoints
+        coord_frame: eef_frame
+        rotation_mode: euler
         stride: 1
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
