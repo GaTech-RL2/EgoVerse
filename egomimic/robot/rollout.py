@@ -254,7 +254,11 @@ class PolicyRollout(Rollout):
         self.debug_actions = None
         self.resampled_action_len = resampled_action_len
         self.debug = debug
-        self.transform_list = Eva.get_transform_list(mode="cartesian_wristframe_ypr")
+        self.transform_list = Eva.get_transform_list(
+            action_mode="cartesian",
+            coord_frame="eef_frame",
+            rotation_mode="euler",
+        )
         self.annotation = None
         self._tokenizer = None
         self.collate_fn = default_collate

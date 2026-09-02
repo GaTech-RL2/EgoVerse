@@ -26,6 +26,7 @@ from egomimic.utils.pose_utils import (
     _interpolate_quat_wxyz,
     _interpolate_xyz,
     _matrix_to_xyz,
+    _matrix_to_xyzrot6d,
     _matrix_to_xyzwxyz,
     _matrix_to_xyzypr,
     _xyz_to_matrix,
@@ -366,6 +367,27 @@ class DeleteKeys(Transform):
         return batch
 
 
+class XYZWXYZ_to_XYZRot6D(Transform):
+    """Convert listed keys from xyz+quat(wxyz) to xyz+rot6d in-place."""
+
+    def __init__(self, keys: list[str]):
+        self.keys = list(keys)
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            value = np.asarray(batch[key])
+            if value.ndim == 1 and value.shape[0] == 7:
+                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value[None, :]))[0]
+            elif value.ndim == 2 and value.shape[1] == 7:
+                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value))
+            else:
+                raise ValueError(
+                    f"XYZWXYZ_to_XYZRot6D expects key '{key}' to have shape (7,) "
+                    f"or (T, 7), got {value.shape}"
+                )
+        return batch
+
+
 class XYZWXYZ_to_XYZYPR(Transform):
     """Convert listed keys from xyz+quat(wxyz) to xyz+ypr in-place."""
 
@@ -385,6 +407,25 @@ class XYZWXYZ_to_XYZYPR(Transform):
                     f"or (T, 7), got {value.shape}"
                 )
         return batch
+
+
+def transforms_for_rotation_mode(
+    keys: list[str],
+    rotation_mode: Literal["euler", "quat", "6D"],
+) -> list[Transform]:
+    """Convert xyz+quat(wxyz) poses to the requested rotation representation.
+
+    Geometric frame hops always run in quaternion form. This is the last step
+    that turns those 7D poses into what the policy sees: ``euler`` -> xyz+ypr
+    (6), ``quat`` -> leave 7D, ``6D`` -> Zhou 6D (xyz + first two columns of R).
+    """
+    if rotation_mode == "quat":
+        return []
+    if rotation_mode == "euler":
+        return [XYZWXYZ_to_XYZYPR(keys=keys)]
+    if rotation_mode == "6D":
+        return [XYZWXYZ_to_XYZRot6D(keys=keys)]
+    raise ValueError(f"unknown rotation_mode {rotation_mode!r}")
 
 
 class CartesianWithGripperCoordinateTransform(Transform):
@@ -513,30 +554,31 @@ class ConcatKeys(Transform):
 
 
 class PadGripperZeros(Transform):
-    """Pad a 12D bimanual cartesian action chunk to 14D by inserting a zero
-    gripper slot at position 6 (end of left arm) and position 13 (end of right
-    arm), matching the canonical [L xyz ypr g, R xyz ypr g] layout used by Eva.
+    """Insert a zero gripper slot after each arm's pose.
 
-    Used so aria (which has no gripper signal) can share an FM denoiser head
-    sized for 14D actions without needing in-model padding branches.
+    Default ``pose_dim=6`` (xyz+ypr) pads 12D -> 14D. ``pose_dim=9``
+    (xyz+Zhou 6D) pads 18D -> 20D so human can share a 20D head with Eva/Yam.
     """
 
-    def __init__(self, action_key: str = "actions_cartesian"):
+    def __init__(self, action_key: str = "actions_cartesian", pose_dim: int = 6):
         self.action_key = action_key
+        self.pose_dim = int(pose_dim)
 
     def transform(self, batch: dict) -> dict:
         actions = batch[self.action_key]
         is_tensor = isinstance(actions, torch.Tensor)
         arr = actions.cpu().numpy() if is_tensor else np.asarray(actions)
-        if arr.shape[-1] != 12:
+        expected = 2 * self.pose_dim
+        if arr.shape[-1] != expected:
             raise ValueError(
-                f"PadGripperZeros expects last-dim 12, got {arr.shape} for "
-                f"'{self.action_key}'"
+                f"PadGripperZeros expects last-dim {expected} (2 x pose_dim="
+                f"{self.pose_dim}), got {arr.shape} for '{self.action_key}'"
             )
         pad_shape = (*arr.shape[:-1], 1)
         pad = np.zeros(pad_shape, dtype=arr.dtype)
+        half = self.pose_dim
         padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
+            (arr[..., :half], pad, arr[..., half:], pad), axis=-1
         )
         batch[self.action_key] = (
             torch.from_numpy(padded) if is_tensor else padded

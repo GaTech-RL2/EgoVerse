@@ -34,7 +34,12 @@ def main() -> None:
     print(f"Using mecka episode: {episode_hash} (of {len(mecka_df)} candidates)")
 
     key_map = Human.get_keymap(keymap_mode="keypoints")
-    transform_list = Human.get_transform_list(mode="keypoints_headframe_ypr", stride=1)
+    transform_list = Human.get_transform_list(
+        action_mode="keypoints",
+        coord_frame="camframe",
+        rotation_mode="euler",
+        stride=1,
+    )
 
     resolver = S3EpisodeResolver(
         str(CACHE_DIR), key_map=key_map, transform_list=transform_list

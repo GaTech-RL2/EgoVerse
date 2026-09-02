@@ -15,6 +15,9 @@ train_datasets:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -30,6 +33,9 @@ train_datasets:
         has_head_pose: false
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
         stride: 1
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter

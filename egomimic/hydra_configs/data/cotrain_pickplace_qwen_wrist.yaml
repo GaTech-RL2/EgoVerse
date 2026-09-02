@@ -1,5 +1,5 @@
 # Wristframe variant of cotrain_pickplace_qwen.yaml.
-# Transform list uses cartesian_wristframe_ypr — actions are in each EEF wrist
+# Transform list uses cartesian + eef_frame + euler — actions are in each EEF
 # frame instead of head/base frame. Action chunk key + dim unchanged
 # (actions_cartesian, 14D for eva). Pair with viz=cartesian_wrist_lang.
 
@@ -17,7 +17,9 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian_wristframe_ypr
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: dense-language
@@ -35,7 +37,9 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian_wristframe_ypr
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
         stride: 3
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
@@ -56,7 +60,9 @@ valid_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian_wristframe_ypr
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: dense-language

@@ -8,10 +8,14 @@ train_datasets:
       key_map:
         keymap_mode: cartesian_wristframe_ypr
       transform_list:
-        mode: cartesian_wristframe_ypr
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
   human_bimanual:
     resolver:
       key_map:
         keymap_mode: cartesian
       transform_list:
-        mode: cartesian_wristframe_ypr
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler

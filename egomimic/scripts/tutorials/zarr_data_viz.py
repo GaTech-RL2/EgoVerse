@@ -19,7 +19,12 @@ TEMP_DIR = "/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/temp_data"  #
 load_env()
 
 key_map = Human.get_keymap(keymap_mode="cartesian")
-transform_list = Human.get_transform_list(mode="cartesian", stride=3)
+transform_list = Human.get_transform_list(
+    action_mode="cartesian",
+    coord_frame="camframe",
+    rotation_mode="euler",
+    stride=3,
+)
 
 resolver = S3EpisodeResolver(TEMP_DIR, key_map=key_map, transform_list=transform_list)
 filters = DatasetFilter(

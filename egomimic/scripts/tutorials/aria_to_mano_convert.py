@@ -3,7 +3,7 @@
 Pipeline:
 1. Pull first aria episode via SQL.
 2. Build MultiDataset with Aria.get_keymap("keypoints") + transform_list
-   "keypoints_headframe_ypr" -> "actions_keypoints" (left wrist+kp, right wrist+kp).
+   keypoints + camframe + euler -> "actions_keypoints" (left wrist+kp, right wrist+kp).
 3. For the first N frames, stack aria keypoints into a batched tensor and fit
    MANO_RIGHT / MANO_LEFT to them in parallel (batched Adam).
 4. Permute MANO's otaheri joint order (wrist, index*3, middle*3, pinky*3,
@@ -78,7 +78,12 @@ def fetch_episode_loader():
     print(f"Aria episode: {episode_hash} (of {len(aria_df)})")
 
     key_map = Human.get_keymap(keymap_mode="keypoints")
-    transform_list = Human.get_transform_list(mode="keypoints_headframe_ypr", stride=3)
+    transform_list = Human.get_transform_list(
+        action_mode="keypoints",
+        coord_frame="camframe",
+        rotation_mode="euler",
+        stride=3,
+    )
     resolver = S3EpisodeResolver(
         str(CACHE_DIR), key_map=key_map, transform_list=transform_list
     )
@@ -94,7 +99,7 @@ def fetch_episode_loader():
 def gather_aria_keypoints(loader, n_frames):
     """Collect first n_frames worth of (image, left_kp, right_kp, batch) tuples.
 
-    Aria's batched actions_keypoints layout (after keypoints_headframe_ypr):
+    Aria's batched actions_keypoints layout (after keypoints + camframe + euler):
       [left_wrist_xyz(3), left_wrist_ypr(3), left_kp(63), right_wrist_xyz(3),
        right_wrist_ypr(3), right_kp(63)] = 138 per timestep, shape (T_chunk, 138).
     We take chunk[0] (current timestep).
