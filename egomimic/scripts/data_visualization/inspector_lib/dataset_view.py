@@ -67,25 +67,17 @@ from .views import ACCENT, BORDER, CARD_STYLE, LABEL_STYLE, MUTED, PANEL, TEXT
 logger = logging.getLogger(__name__)
 
 try:
-    from egomimic.rldb.embodiment.embodiment import Embodiment
-    from egomimic.rldb.embodiment.eva import Eva
-    from egomimic.rldb.embodiment.human import Human
-
-    # Mirror `egomimic/scripts/viz_language.py`'s `_EMBODIMENT_CLASSES` so the
-    # browser resolves the same class for an episode's `embodiment` attr.
-    _EMBODIMENT_CLASSES: dict[str, type] = {
-        "eva_bimanual": Eva,
-        "eva_right_arm": Eva,
-        "eva_left_arm": Eva,
-        "human_bimanual": Human,
-        "human_right_arm": Human,
-        "human_left_arm": Human,
-    }
+    from egomimic.rldb.embodiment import (
+        Embodiment,
+        Eva,
+        Human,
+        get_embodiment_class,
+    )
 except Exception as _e:  # pragma: no cover - optional heavy dep
     Embodiment = None
     Eva = None
     Human = None
-    _EMBODIMENT_CLASSES = {}
+    get_embodiment_class = None
     logger.warning("Embodiment classes unavailable, overlays disabled: %s", _e)
 
 
@@ -97,10 +89,10 @@ def _embodiment_class(grp):
     if Human is None:
         return None
     try:
-        emb = str(dict(grp.attrs).get("embodiment", "")).lower()
+        emb = str(dict(grp.attrs).get("embodiment", ""))
     except Exception:
         emb = ""
-    return _EMBODIMENT_CLASSES.get(emb, Human)
+    return get_embodiment_class(emb, default=Human)
 
 # ---- render cache + prefetch (so scrubbing/playback don't re-render) -------
 # Rendered JPEG bytes keyed by (root, ep, frame, overlay, annotate).

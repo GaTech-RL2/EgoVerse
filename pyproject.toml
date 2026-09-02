@@ -69,5 +69,9 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 
+# The embodiment registry is data that ships with the package.
+[tool.setuptools.package-data]
+"egomimic.rldb.embodiment.registry" = ["*.yaml"]
+
 [tool.pytest.ini_options]
-testpaths = ["egomimic/rldb/zarr"]
+testpaths = ["egomimic/rldb/embodiment", "egomimic/rldb/zarr"]

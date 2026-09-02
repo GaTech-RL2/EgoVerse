@@ -1,0 +1,43 @@
+# Platforms — what robot (or human) produced an episode.
+#
+# A platform fixes the arm chain, the auxiliary chain, the camera set and the
+# frame that calibration is expressed in. It deliberately says nothing about the
+# end-effector: that is a separate axis, declared per side in
+# `end_effectors.yaml`, so a new hand on a known robot costs zero lines here.
+#
+# Fields
+#   kind                 robot | human
+#   embodiment_prefix    with `arity`, derives the EMBODIMENT names this
+#                        platform owns (`eva` + `bimanual` -> `eva_bimanual`)
+#   arity                which arm configurations exist
+#   arm_dof              joints per arm; null when poses are observed directly
+#   aux                  torso / lift / head chain, or null
+#   cameras              the declared `images.*` streams
+#   reference_frame      what calibration is relative to: `robot_base`,
+#                        `slam_world`, or `camera:<one of cameras>`
+#   default_end_effector used when an episode carries no `morphology` block
+#   embodiment_class     escape hatch — a hand-written Embodiment subclass
+
+eva_x5:
+  kind: robot
+  embodiment_prefix: eva
+  arity: [left_arm, right_arm, bimanual]
+  arm_dof: 6
+  aux: null
+  cameras: [front_1, left_wrist, right_wrist]
+  # EVA extrinsics are stored per arm as `base_T_cam` against the front camera.
+  reference_frame: camera:front_1
+  default_end_effector: eva_parallel_jaw
+  embodiment_class: egomimic.rldb.embodiment.eva.Eva
+
+human_body:
+  kind: human
+  embodiment_prefix: human
+  arity: [left_arm, right_arm, bimanual]
+  # No joint chain: wrist poses and MANO keypoints are observed, not FK'd.
+  arm_dof: null
+  aux: null
+  cameras: [front_1]
+  reference_frame: slam_world
+  default_end_effector: mano_hand
+  embodiment_class: egomimic.rldb.embodiment.human.Human

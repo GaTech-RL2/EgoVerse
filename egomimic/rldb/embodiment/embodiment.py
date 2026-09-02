@@ -1,10 +1,21 @@
+import importlib
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
 import numpy as np
 import torch
 
+from egomimic.rldb.embodiment.registry import (
+    EndEffectorSpec,
+    PlatformSpec,
+    load_aliases,
+    load_embodiment_platforms,
+    load_end_effectors,
+    load_platforms,
+)
 from egomimic.rldb.zarr.action_chunk_transforms import Transform
 from egomimic.utils.type_utils import _to_numpy
 from egomimic.utils.viz_utils import (
@@ -50,8 +61,104 @@ def get_embodiment(index):
     return EMBODIMENT_ID_TO_KEY.get(index, None)
 
 
+def canonical_embodiment_name(embodiment_name: str) -> str:
+    """Lowercase an embodiment name and resolve it through `aliases.yaml`.
+
+    A name that is already an `EMBODIMENT` member is returned unchanged, so the
+    alias table can never shadow a live name. An unknown name is returned as-is
+    and left to fail at the caller, where the error names the actual input.
+    """
+    name = str(embodiment_name).lower()
+    if name.upper() in EMBODIMENT.__members__:
+        return name
+    return load_aliases().get(name, name)
+
+
 def get_embodiment_id(embodiment_name):
-    return EMBODIMENT[embodiment_name.upper()].value
+    """Map an embodiment name to its stable integer id.
+
+    Deprecated names resolve through `registry/aliases.yaml` first: the name is
+    baked into every episode's `zarr.json`, so without this fallback a rename
+    turns every cached episode into a `KeyError` at load (README, 07/08/2026).
+    """
+    return EMBODIMENT[canonical_embodiment_name(embodiment_name).upper()].value
+
+
+#: The sides an end-effector can be declared for. End-effectors vary per side:
+#: a one-handed rig or two different hands are both legal.
+SIDES = ("left", "right")
+
+
+def _import_embodiment_class(path: str) -> type["Embodiment"]:
+    module_name, _, attr = path.rpartition(".")
+    if not module_name:
+        raise ValueError(f"embodiment_class {path!r} is not a dotted path")
+    return getattr(importlib.import_module(module_name), attr)
+
+
+@dataclass(frozen=True)
+class ResolvedEmbodiment:
+    """One platform plus one end-effector per side, composed from the registry.
+
+    This is the shape that keeps the head count off the platform count: the
+    platform selects the stem and the key widths, the end-effectors select
+    `action_space`, and `action_space` selects the head. A new hand on a known
+    platform changes only `end_effectors`.
+    """
+
+    platform: PlatformSpec
+    end_effectors: Mapping[str, EndEffectorSpec]
+    embodiment_name: str | None = None
+
+    @property
+    def action_space(self) -> str:
+        """The canonical action space, derived from the end-effector classes.
+
+        Mixed sides are refused rather than silently resolved: an episode whose
+        two hands want different heads has no single training interface, and
+        picking one here would hide that.
+        """
+        spaces = {ee.action_space for ee in self.end_effectors.values()}
+        if len(spaces) != 1:
+            raise ValueError(
+                f"{self.describe()}: end-effectors disagree on action_space "
+                f"({sorted(spaces)}); an episode trains through exactly one head"
+            )
+        return spaces.pop()
+
+    @property
+    def embodiment_class(self) -> type["Embodiment"]:
+        """The hand-written `Embodiment` subclass for this platform.
+
+        `Human` and `Eva` encode real subtlety (head-frame vs extrinsics-frame,
+        wrist-frame variants, interpolation strides) and are reached through the
+        registry's `embodiment_class:` escape hatch rather than rewritten. A
+        platform without one has no derived pipeline yet, and says so.
+        """
+        path = self.platform.embodiment_class
+        if path is None:
+            raise NotImplementedError(
+                f"{self.describe()}: platform {self.platform.name!r} declares no "
+                "`embodiment_class:` and there is no derived transform pipeline "
+                "yet — add one to platforms.yaml"
+            )
+        return _import_embodiment_class(path)
+
+    def keypoints(self, side: str):
+        """The end-effector's keypoint spec (topology + validity mask) for a side."""
+        return self.end_effectors[side].keypoints
+
+    def get_keymap(self, *args, **kwargs):
+        return self.embodiment_class.get_keymap(*args, **kwargs)
+
+    def get_transform_list(self, *args, **kwargs):
+        return self.embodiment_class.get_transform_list(*args, **kwargs)
+
+    def describe(self) -> str:
+        sides = ", ".join(
+            f"{s}={self.end_effectors[s].name}" for s in sorted(self.end_effectors)
+        )
+        return f"{self.embodiment_name or self.platform.name} ({sides})"
 
 
 class Embodiment(ABC):
@@ -60,6 +167,89 @@ class Embodiment(ABC):
     INTRINSICS = None
     EXTRINSICS = None
     VIZ_IMAGE_KEY = "observations.images.front_img_1"
+
+    @classmethod
+    def resolve(cls, spec) -> ResolvedEmbodiment:
+        """Compose an embodiment from the registry.
+
+        `spec` is either an embodiment name (`"eva_bimanual"`, aliases included)
+        or a `morphology` block::
+
+            {"platform": "eva_x5",
+             "end_effector": {"left": "eva_parallel_jaw",
+                              "right": "eva_parallel_jaw"}}
+
+        The name form is the backward-compatible path: no episode carries a
+        `morphology` block yet, so the platform's `default_end_effector` fills
+        both sides. `end_effector` may also be a bare string, meaning both sides.
+        """
+        if isinstance(spec, Mapping):
+            return cls._resolve_morphology(spec)
+        if isinstance(spec, str):
+            return cls._resolve_name(spec)
+        raise TypeError(
+            "resolve() takes an embodiment name or a morphology mapping, got "
+            f"{type(spec).__name__}"
+        )
+
+    @classmethod
+    def _resolve_name(cls, embodiment_name: str) -> ResolvedEmbodiment:
+        name = canonical_embodiment_name(embodiment_name)
+        platform = load_embodiment_platforms().get(name)
+        if platform is None:
+            raise ValueError(
+                f"embodiment {embodiment_name!r} is not owned by any platform in "
+                "registry/platforms.yaml; known: "
+                f"{sorted(load_embodiment_platforms())}"
+            )
+        end_effectors = load_end_effectors()
+        default = end_effectors[platform.default_end_effector]
+        return ResolvedEmbodiment(
+            platform=platform,
+            end_effectors={side: default for side in SIDES},
+            embodiment_name=name,
+        )
+
+    @classmethod
+    def _resolve_morphology(cls, morphology: Mapping) -> ResolvedEmbodiment:
+        platforms = load_platforms()
+        platform_name = morphology.get("platform")
+        platform = platforms.get(platform_name)
+        if platform is None:
+            raise ValueError(
+                f"morphology.platform {platform_name!r} is not in "
+                f"registry/platforms.yaml; known: {sorted(platforms)}"
+            )
+
+        end_effectors = load_end_effectors()
+        declared = morphology.get("end_effector", platform.default_end_effector)
+        if isinstance(declared, str):
+            declared = {side: declared for side in SIDES}
+        if not isinstance(declared, Mapping) or not declared:
+            raise ValueError(
+                "morphology.end_effector must be an end-effector name or a "
+                f"{{side: name}} mapping, got {declared!r}"
+            )
+
+        resolved = {}
+        for side, ee_name in declared.items():
+            if side not in SIDES:
+                raise ValueError(
+                    f"morphology.end_effector has unknown side {side!r}; "
+                    f"expected one of {list(SIDES)}"
+                )
+            if ee_name not in end_effectors:
+                raise ValueError(
+                    f"morphology.end_effector[{side!r}] = {ee_name!r} is not in "
+                    f"registry/end_effectors.yaml; known: {sorted(end_effectors)}"
+                )
+            resolved[side] = end_effectors[ee_name]
+
+        return ResolvedEmbodiment(
+            platform=platform,
+            end_effectors=resolved,
+            embodiment_name=morphology.get("embodiment"),
+        )
 
     @staticmethod
     def get_transform_list() -> list[Transform]:

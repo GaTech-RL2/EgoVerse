@@ -1,0 +1,37 @@
+# End-effectors — what is on the end of each arm, declared per side.
+#
+# `action_space` is the load-bearing field: it selects the policy head, and it
+# takes two values, not one per (platform, end-effector) pair.
+#
+#   cartesian  [L xyz ypr g, R xyz ypr g]                            (14)
+#   keypoints  [L wrist_pose, L kp21, R wrist_pose, R kp21]     (138 / 140)
+#
+# `keypoints.valid` is a validity mask over the 21 MANO slots: the topology is a
+# superset, and an end-effector declares which slots it actually has. `all` is
+# the five-finger case. A mask says "this hand has no pinky"; it is not the same
+# thing as the `1e9` sentinel, which says "this frame's estimate failed".
+#
+# Fields
+#   class          parallel_jaw | human_hand | dexterous_hand
+#   dof            actuated joints, or null when there is no joint chain
+#   action_space   cartesian | keypoints
+#   keypoints      {topology, valid}
+#   joint_names    optional, len == dof
+#   joint_limits   optional [[lo, hi], ...], len == dof
+#   urdf           optional, for FK: joints -> keypoints
+#   dead_dims      structurally dead joint indices; declared, never silently zero
+
+eva_parallel_jaw:
+  class: parallel_jaw
+  dof: 1
+  action_space: cartesian
+  # Exactly representable as keypoints (aperture = ||tip_a - tip_b||) so a jaw
+  # episode *can* join a dexterous batch. It is not obliged to: jaws train
+  # through `cartesian`, as they do today.
+  keypoints: {topology: mano21, valid: [0, 4, 8]}
+
+mano_hand:
+  class: human_hand
+  dof: null
+  action_space: keypoints
+  keypoints: {topology: mano21, valid: all}

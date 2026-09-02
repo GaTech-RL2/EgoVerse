@@ -1,0 +1,24 @@
+# Deprecated embodiment name -> current name.
+#
+# Append-only. A row here is the promise that an episode written under the old
+# name keeps loading; deleting one re-creates exactly the failure this table
+# exists to prevent. The 07/08/2026 human-embodiment collapse cost a fleet-wide
+# "⚠️ Action required — RE-DOWNLOAD your data" (README) purely because
+# `get_embodiment_id` had no fallback: the name is baked into every episode's
+# `zarr.json`, so the rename hard-crashed with `KeyError: 'ARIA_BIMANUAL'`.
+#
+# Only names that were once real belong here. `eve_*` is deliberately absent:
+# Eve was a different robot, not a renamed one, and silently loading its
+# episodes as some other platform is worse than the KeyError.
+
+# 07/08/2026 — human embodiment collapse: the per-vendor names became `human_*`.
+# The data source now lives only in the SQL `lab` field.
+aria_left_arm: human_left_arm
+aria_right_arm: human_right_arm
+aria_bimanual: human_bimanual
+mecka_left_arm: human_left_arm
+mecka_right_arm: human_right_arm
+mecka_bimanual: human_bimanual
+scale_left_arm: human_left_arm
+scale_right_arm: human_right_arm
+scale_bimanual: human_bimanual
