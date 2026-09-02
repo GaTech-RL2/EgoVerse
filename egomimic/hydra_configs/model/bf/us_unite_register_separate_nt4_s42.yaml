@@ -82,6 +82,8 @@ robomimic_model:
       denoiser_hidden_dim: 768
       gradient_checkpointing: true
       tokenization_time_max: 0.01
+      in_context_start: 4
+      in_context_len: 32
       backbone_config:
         _target_: egomimic.models.unite_dit.UniteDiTBackbone
         input_dim: 16
@@ -101,10 +103,13 @@ robomimic_model:
         block_norm: true
         time_fourier_dim: 256
         context_adaln_summary: false
+        in_context_start: 4
+        in_context_len: 32
         trainable_position_embeddings: false
         trainable_register_position_embeddings: true
         trainable_content_position_embeddings: false
         trainable_condition_position_embeddings: false
+        trainable_in_context_position_embeddings: true
         gradient_checkpointing: true
     decoders:
       pushshapes_sim_u_socket:
@@ -125,7 +130,7 @@ robomimic_model:
 
 enable_grad_norm: false
 unite_flow_updates_per_reconstruction: 0
-unite_gradient_telemetry_every_n_steps: 0
+unite_gradient_telemetry_every_n_steps: 100
 optimizer:
   _target_: egomimic.utils.unite_optim.ReleasedUniteCompositeOptimizer
   _partial_: true
@@ -142,11 +147,11 @@ scheduler:
   warmup_steps: 8000
   decay_start_1_steps: 12000
   decay_end_1_steps: 20000
-  # Declared robot step-domain adaptation: the released YAML's impossible
-  # 3000->380 ordering cannot be reproduced literally. This 120k->152k window
-  # is fixed across all six rows but is not called a paper epoch conversion.
-  decay_start_2_steps: 120000
-  decay_end_2_steps: 152000
+  # Preserve the released executable schedule: warmup_2=3000 epochs lies past
+  # the 600-epoch run and decay_end_2 is clamped to it. At a 240k-step mapping,
+  # both boundaries are therefore 3000/600 * 240000 = 1,200,000.
+  decay_start_2_steps: 1200000
+  decay_end_2_steps: 1200000
   base_lr_1: 1.0e-4
   base_lr_2: 5.0e-5
   final_lr: 1.0e-5

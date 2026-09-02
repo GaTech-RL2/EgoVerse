@@ -2,24 +2,98 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
 
 
+class _ReleasedDecoderLayer(nn.Module):
+    """Released UNITE decoder block over the translated action-token sequence."""
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        num_heads: int,
+        intermediate_dim: int,
+        dropout: float,
+    ):
+        super().__init__()
+        self.num_heads = int(num_heads)
+        self.head_dim = int(hidden_dim) // self.num_heads
+        self.attention_dropout = float(dropout)
+        self.layernorm_before = nn.LayerNorm(hidden_dim, eps=1.0e-12)
+        self.qkv = nn.Linear(hidden_dim, 3 * hidden_dim, bias=True)
+        self.attn_proj = nn.Linear(hidden_dim, hidden_dim)
+        self.proj_drop = nn.Dropout(dropout)
+        self.layernorm_after = nn.LayerNorm(hidden_dim, eps=1.0e-12)
+        self.ffn_up = nn.Linear(hidden_dim, intermediate_dim)
+        self.ffn_down = nn.Linear(intermediate_dim, hidden_dim)
+        self.ffn_drop = nn.Dropout(dropout)
+
+    def forward(self, hidden: torch.Tensor) -> torch.Tensor:
+        residual = hidden
+        value = self.layernorm_before(hidden)
+        batch_size, sequence_length, hidden_dim = value.shape
+        qkv = self.qkv(value).reshape(
+            batch_size,
+            sequence_length,
+            3,
+            self.num_heads,
+            self.head_dim,
+        )
+        query, key, content = qkv.permute(2, 0, 3, 1, 4).unbind(0)
+        value = F.scaled_dot_product_attention(
+            query,
+            key,
+            content,
+            dropout_p=self.attention_dropout if self.training else 0.0,
+        )
+        value = value.transpose(1, 2).reshape(
+            batch_size, sequence_length, hidden_dim
+        )
+        hidden = residual + self.proj_drop(self.attn_proj(value))
+        value = self.layernorm_after(hidden)
+        value = self.ffn_down(F.gelu(self.ffn_up(value)))
+        return hidden + self.ffn_drop(value)
+
+
+class _IndependentTransformerEncoder(nn.Module):
+    """Container whose Transformer blocks are initialized independently."""
+
+    def __init__(
+        self,
+        *,
+        hidden_dim: int,
+        depth: int,
+        num_heads: int,
+        mlp_ratio: float,
+        dropout: float,
+    ):
+        super().__init__()
+        self.layers = nn.ModuleList(
+            _ReleasedDecoderLayer(
+                hidden_dim=hidden_dim,
+                num_heads=num_heads,
+                intermediate_dim=int(hidden_dim * mlp_ratio),
+                dropout=dropout,
+            )
+            for _ in range(depth)
+        )
+        self.norm = nn.LayerNorm(hidden_dim, eps=1.0e-12)
+
+
 def _sincos_positions(length: int, width: int) -> torch.Tensor:
-    position = torch.arange(int(length), dtype=torch.float32).unsqueeze(1)
-    frequency = torch.exp(
-        torch.arange(0, int(width), 2, dtype=torch.float32)
-        * (-math.log(10_000.0) / float(width))
-    )
-    table = torch.zeros(int(length), int(width), dtype=torch.float32)
-    table[:, 0::2] = torch.sin(position * frequency)
-    odd_width = table[:, 1::2].shape[1]
-    table[:, 1::2] = torch.cos(position * frequency[:odd_width])
-    return table.unsqueeze(0)
+    length = int(length)
+    width = int(width)
+    if length <= 0 or width <= 0 or width % 2:
+        raise ValueError("position-table dimensions must be positive and width even")
+    position = torch.arange(length, dtype=torch.float64).unsqueeze(1)
+    frequency = torch.arange(width // 2, dtype=torch.float64)
+    frequency = 1.0 / (10_000.0 ** (frequency / float(width // 2)))
+    angle = position * frequency.unsqueeze(0)
+    table = torch.cat((angle.sin(), angle.cos()), dim=1)
+    return table.float().unsqueeze(0)
 
 
 class UniteActionDecoder(nn.Module):
@@ -97,20 +171,12 @@ class UniteActionDecoder(nn.Module):
             _sincos_positions(self.action_horizon, self.hidden_dim),
             persistent=True,
         )
-        layer = nn.TransformerEncoderLayer(
-            d_model=self.hidden_dim,
-            nhead=self.num_heads,
-            dim_feedforward=int(self.hidden_dim * self.mlp_ratio),
+        self.decoder = _IndependentTransformerEncoder(
+            hidden_dim=self.hidden_dim,
+            depth=self.depth,
+            num_heads=self.num_heads,
+            mlp_ratio=self.mlp_ratio,
             dropout=self.dropout,
-            activation="gelu",
-            batch_first=True,
-            norm_first=True,
-        )
-        self.decoder = nn.TransformerEncoder(
-            layer,
-            num_layers=self.depth,
-            norm=nn.LayerNorm(self.hidden_dim),
-            enable_nested_tensor=False,
         )
         self.action_projection = nn.Linear(self.hidden_dim, self.action_dim)
         self._initialize_weights()

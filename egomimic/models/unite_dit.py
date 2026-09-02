@@ -21,15 +21,16 @@ def _sincos_positions(length: int, width: int) -> torch.Tensor:
 
     if length <= 0 or width <= 0:
         raise ValueError("position-table dimensions must be positive")
-    position = torch.arange(length, dtype=torch.float32).unsqueeze(1)
+    if width % 2:
+        raise ValueError("released UNITE position width must be even")
+    position = torch.arange(length, dtype=torch.float64).unsqueeze(1)
     frequency = torch.exp(
-        torch.arange(0, width, 2, dtype=torch.float32)
+        torch.arange(width // 2, dtype=torch.float64)
         * (-math.log(10_000.0) / float(width))
+        * 2.0
     )
-    table = torch.zeros(length, width, dtype=torch.float32)
-    table[:, 0::2] = torch.sin(position * frequency)
-    odd_width = table[:, 1::2].shape[1]
-    table[:, 1::2] = torch.cos(position * frequency[:odd_width])
+    angle = position * frequency
+    table = torch.cat((angle.sin(), angle.cos()), dim=-1).float()
     return table.unsqueeze(0)
 
 
@@ -108,7 +109,11 @@ class _SelfAttention(nn.Module):
         self.k_norm = _RMSNorm(self.head_dim) if qk_norm else nn.Identity()
         self.projection = nn.Linear(self.hidden_dim, self.hidden_dim)
 
-    def _apply_rope(self, value: torch.Tensor) -> torch.Tensor:
+    def _apply_rope(
+        self,
+        value: torch.Tensor,
+        positions: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         sequence_length = int(value.shape[-2])
         frequency = 1.0 / (
             10_000.0
@@ -123,16 +128,28 @@ class _SelfAttention(nn.Module):
                 / float(self.head_dim)
             )
         )
-        position = torch.arange(
-            sequence_length, device=value.device, dtype=torch.float32
-        )
+        if positions is None:
+            position = torch.arange(
+                sequence_length, device=value.device, dtype=torch.float32
+            )
+        else:
+            if positions.ndim != 1 or int(positions.shape[0]) != sequence_length:
+                raise ValueError(
+                    "RoPE positions must have shape "
+                    f"({sequence_length},), got {tuple(positions.shape)}"
+                )
+            position = positions.to(device=value.device, dtype=torch.float32)
         angle = torch.einsum("i,j->ij", position, frequency)
         angle = torch.repeat_interleave(angle, 2, dim=-1)
         cosine = angle.cos().to(value.dtype).reshape(1, 1, sequence_length, -1)
         sine = angle.sin().to(value.dtype).reshape(1, 1, sequence_length, -1)
         return value * cosine + _rotate_half(value) * sine
 
-    def forward(self, value: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        value: torch.Tensor,
+        rope_positions: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         batch_size, sequence_length, _ = value.shape
         qkv = self.qkv(value).reshape(
             batch_size, sequence_length, 3, self.num_heads, self.head_dim
@@ -141,8 +158,8 @@ class _SelfAttention(nn.Module):
         query = self.q_norm(query)
         key = self.k_norm(key)
         if self.use_rope:
-            query = self._apply_rope(query)
-            key = self._apply_rope(key)
+            query = self._apply_rope(query, rope_positions)
+            key = self._apply_rope(key, rope_positions)
         attended = F.scaled_dot_product_attention(
             query.to(content.dtype),
             key.to(content.dtype),
@@ -219,7 +236,12 @@ class _AdaLNBlock(nn.Module):
             nn.SiLU(), nn.Linear(hidden_dim, 6 * hidden_dim)
         )
 
-    def forward(self, value: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        value: torch.Tensor,
+        conditioning: torch.Tensor,
+        rope_positions: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         (
             shift_attention,
             scale_attention,
@@ -229,7 +251,8 @@ class _AdaLNBlock(nn.Module):
             gate_mlp,
         ) = self.adaln_modulation(conditioning).chunk(6, dim=-1)
         value = value + gate_attention.unsqueeze(1) * self.attention(
-            _modulate(self.norm1(value), shift_attention, scale_attention)
+            _modulate(self.norm1(value), shift_attention, scale_attention),
+            rope_positions,
         )
         value = value + gate_mlp.unsqueeze(1) * self.mlp(
             _modulate(self.norm2(value), shift_mlp, scale_mlp)
@@ -259,9 +282,10 @@ class UniteDiTBackbone(nn.Module):
 
     ``value`` always contains exactly ``horizon`` register slots. During the
     tokenizer pass, projected clean-action content is appended to those slots
-    with ``content_tokens``. During denoising, observations are supplied via
-    ``condition`` and summarized into AdaLN conditioning; they are never used
-    as tokenizer content. Only the register-prefix outputs are returned.
+    with ``content_tokens`` while a learned null condition drives AdaLN. During
+    denoising, pooled observations drive AdaLN. In both modes the same condition
+    is also injected as released-style in-context self-attention tokens at the
+    configured block. Only the register-prefix outputs are returned.
     """
 
     def __init__(
@@ -282,11 +306,14 @@ class UniteDiTBackbone(nn.Module):
         block_norm: bool = True,
         time_fourier_dim: int = 256,
         context_adaln_summary: bool = False,
+        in_context_start: int | None = 4,
+        in_context_len: int = 32,
         max_content_tokens: int | None = None,
         trainable_position_embeddings: bool = False,
         trainable_register_position_embeddings: bool = True,
         trainable_content_position_embeddings: bool = False,
         trainable_condition_position_embeddings: bool = False,
+        trainable_in_context_position_embeddings: bool = True,
         dropout: float = 0.0,
         gradient_checkpointing: bool = False,
     ):
@@ -303,6 +330,10 @@ class UniteDiTBackbone(nn.Module):
         self.depth = int(depth)
         self.num_heads = int(num_heads)
         self.context_adaln_summary = bool(context_adaln_summary)
+        self.in_context_start = (
+            None if in_context_start is None else int(in_context_start)
+        )
+        self.in_context_len = int(in_context_len)
         self.gradient_checkpointing = bool(gradient_checkpointing)
         self.time_conditioning = "additive"
         if (
@@ -322,6 +353,15 @@ class UniteDiTBackbone(nn.Module):
             raise ValueError("UNITE backbone dimensions must be positive")
         if self.hidden_dim % self.num_heads:
             raise ValueError("hidden_dim must be divisible by num_heads")
+        if self.in_context_len < 0:
+            raise ValueError("in_context_len must be non-negative")
+        if self.in_context_len > 0 and (
+            self.in_context_start is None
+            or not 0 <= self.in_context_start < self.depth
+        ):
+            raise ValueError(
+                "in_context_start must select a block when in_context_len is positive"
+            )
         if not 0.0 <= float(dropout) < 1.0:
             raise ValueError("dropout must be in [0, 1)")
 
@@ -335,8 +375,11 @@ class UniteDiTBackbone(nn.Module):
         )
         register_positions = _sincos_positions(self.horizon, self.hidden_dim)
         content_positions = _sincos_positions(self.max_content_tokens, self.hidden_dim)
-        condition_positions = _sincos_positions(
-            self.max_condition_tokens, self.hidden_dim
+        condition_positions = torch.zeros(
+            1,
+            self.max_condition_tokens,
+            self.hidden_dim,
+            dtype=torch.float32,
         )
         register_trainable = bool(
             trainable_position_embeddings or trainable_register_position_embeddings
@@ -365,6 +408,23 @@ class UniteDiTBackbone(nn.Module):
             self.context_summary_gate = nn.Linear(self.hidden_dim, 1)
         else:
             self.context_summary_gate = None
+        if self.in_context_len > 0:
+            in_context_positions = torch.zeros(
+                1, self.in_context_len, self.hidden_dim, dtype=torch.float32
+            )
+            if trainable_in_context_position_embeddings:
+                in_context_positions.normal_(std=0.02)
+                self.in_context_pos_emb = nn.Parameter(in_context_positions)
+            else:
+                self.register_buffer(
+                    "in_context_pos_emb", in_context_positions, persistent=True
+                )
+        else:
+            self.register_buffer(
+                "in_context_pos_emb",
+                torch.zeros(1, 0, self.hidden_dim, dtype=torch.float32),
+                persistent=True,
+            )
         self.blocks = nn.ModuleList(
             _AdaLNBlock(
                 self.hidden_dim,
@@ -391,6 +451,8 @@ class UniteDiTBackbone(nn.Module):
         for block in self.blocks:
             nn.init.zeros_(block.adaln_modulation[-1].weight)
             nn.init.zeros_(block.adaln_modulation[-1].bias)
+        nn.init.normal_(self.time_embedder.mlp[0].weight, std=0.02)
+        nn.init.normal_(self.time_embedder.mlp[2].weight, std=0.02)
         nn.init.zeros_(self.final_layer.adaln_modulation[-1].weight)
         nn.init.zeros_(self.final_layer.adaln_modulation[-1].bias)
         nn.init.zeros_(self.proj_d.weight)
@@ -429,12 +491,12 @@ class UniteDiTBackbone(nn.Module):
         positions = position_embedding[:, :token_count].to(projected)
         return projected + positions
 
-    def _condition_summary(
+    def _condition_components(
         self, time: torch.Tensor, condition: torch.Tensor | None
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         summary = self.time_embedder(time)
         if condition is None:
-            return summary
+            return summary, None
         projected = self._project_context(
             condition,
             self.condition_projection,
@@ -447,17 +509,20 @@ class UniteDiTBackbone(nn.Module):
         else:
             weights = self.context_summary_gate(projected).softmax(dim=1)
             context_summary = (weights * projected).sum(dim=1)
-        return summary + context_summary
+        in_context = None
+        if self.in_context_len > 0:
+            in_context = context_summary.unsqueeze(1).expand(
+                -1, self.in_context_len, -1
+            )
+            in_context = in_context + self.in_context_pos_emb.to(in_context)
+        return summary + context_summary, in_context
 
     def shared_core_named_parameters(self):
         """Parameters traversed by both tokenization and denoising paths."""
 
         excluded = (
             "content_projection.",
-            "condition_projection.",
             "content_pos_emb",
-            "condition_pos_emb",
-            "context_summary_gate.",
         )
         return tuple(
             (name, parameter)
@@ -481,10 +546,6 @@ class UniteDiTBackbone(nn.Module):
             raise ValueError(
                 f"time must have shape ({batch_size},), got {tuple(time.shape)}"
             )
-        if condition is not None and content_tokens is not None:
-            raise ValueError(
-                "observation conditioning and clean content tokens are exclusive"
-            )
         hidden = self.proj_u(value) + self.pos_emb.to(value)
         if content_tokens is not None:
             content = self._project_context(
@@ -499,16 +560,48 @@ class UniteDiTBackbone(nn.Module):
             hidden = torch.cat((hidden, content), dim=1)
         if condition is not None and int(condition.shape[0]) != batch_size:
             raise ValueError("condition batch does not match registers")
-        conditioning = self._condition_summary(time, condition).to(hidden.dtype)
-        for block in self.blocks:
+        conditioning, in_context = self._condition_components(time, condition)
+        conditioning = conditioning.to(hidden.dtype)
+        original_sequence_length = int(hidden.shape[1])
+        rope_positions = None
+        inserted_in_context = False
+        for block_index, block in enumerate(self.blocks):
+            if (
+                in_context is not None
+                and block_index == self.in_context_start
+            ):
+                hidden = torch.cat((in_context.to(hidden.dtype), hidden), dim=1)
+                rope_positions = torch.cat(
+                    (
+                        torch.zeros(
+                            self.in_context_len,
+                            device=hidden.device,
+                            dtype=torch.float32,
+                        ),
+                        torch.arange(
+                            original_sequence_length,
+                            device=hidden.device,
+                            dtype=torch.float32,
+                        ),
+                    )
+                )
+                inserted_in_context = True
             if (
                 self.gradient_checkpointing
                 and self.training
                 and torch.is_grad_enabled()
             ):
-                hidden = checkpoint(block, hidden, conditioning, use_reentrant=False)
+                hidden = checkpoint(
+                    block,
+                    hidden,
+                    conditioning,
+                    rope_positions,
+                    use_reentrant=False,
+                )
             else:
-                hidden = block(hidden, conditioning)
+                hidden = block(hidden, conditioning, rope_positions)
+        if inserted_in_context:
+            hidden = hidden[:, self.in_context_len :]
         registers = hidden[:, : self.horizon]
         # proj_d is deliberately kept as the public released-style output layer.
         return self.proj_d(self.final_layer(registers, conditioning))

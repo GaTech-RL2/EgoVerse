@@ -1,26 +1,23 @@
 schema_version: 2
-artifact_status: WIP_NOT_LAUNCH_READY
+artifact_status: SMOKE_READY
+launch_status: SMOKE_REQUIRED
 group: usocket_unite_register_sweep_shared_separate_s42_20260902
-label: WIP U-Socket clean-action-token and latent-register-count adaptation
+label: Pre-smoke U-Socket clean-action-token N4/N8 register sweep
 reference_source:
   repository: https://github.com/ShivamDuggal4/UNITE-tokenization-generation
   commit: 2389f2c65fedbd43ada851e69b2b810efd23af7d
-  relationship: design_reference_only_not_an_exact_mechanism_replication
+  relationship: source_faithful_ge_core_with_deliberate_robot_action_observation_adaptation_verified_for_smoke
 active_config_set:
-  logical_row_count: 6
+  logical_row_count: 4
   row_configs:
     - task_id: us_unite_register_shared_nt4_s42
       path: egomimic/hydra_configs/model/bf/us_unite_register_shared_nt4_s42.yaml
     - task_id: us_unite_register_shared_nt8_s42
       path: egomimic/hydra_configs/model/bf/us_unite_register_shared_nt8_s42.yaml
-    - task_id: us_unite_register_shared_nt16_s42
-      path: egomimic/hydra_configs/model/bf/us_unite_register_shared_nt16_s42.yaml
     - task_id: us_unite_register_separate_nt4_s42
       path: egomimic/hydra_configs/model/bf/us_unite_register_separate_nt4_s42.yaml
     - task_id: us_unite_register_separate_nt8_s42
       path: egomimic/hydra_configs/model/bf/us_unite_register_separate_nt8_s42.yaml
-    - task_id: us_unite_register_separate_nt16_s42
-      path: egomimic/hydra_configs/model/bf/us_unite_register_separate_nt16_s42.yaml
 wandb:
   entity: rl2-group
   project: pushshapes-flow-transfer
@@ -36,13 +33,15 @@ split:
   expected_valid_episodes: 29
   train_list_sha256: ceb588f2132f9ff9cdb2c2ebe754a4797228acb884eb18351589242866ee84a1
   valid_list_sha256: b34193949ac8d76ea27c6f5c307229798064d16367d7ce2efac00a48f63bfb93
-  artifact_path: REQUIRED_BEFORE_SMOKE
-  u_only_manifest_sha256: REQUIRED_BEFORE_SMOKE
+  artifact_path: /coc/flash7/paphiwetsa3/experiments/flow_transfer_dp_transformer_val01_l40sx2_20260831/source_artifacts/splits/seed42_val01_skynet.json
+  sha256: 672f0f519bb7bff5b6b956d1b709abf1a1d387dd6b88b20a7c37536799bce0cd
+  artifact_scope: canonical_combined_manifest_usocket_subsection_only
 normalization:
   source: train_only
   expected_train_frames: 516610
-  artifact_path: REQUIRED_BEFORE_SMOKE
-  sha256: REQUIRED_BEFORE_SMOKE
+  artifact_path: /coc/flash7/paphiwetsa3/experiments/flow_transfer_dp_transformer_val01_l40sx2_20260831/source_artifacts/norm/norm_stats.json
+  sha256: 3559aca1ac1279cbdd37de8e5b2da9bb350fbc0f1177d4c669aa590011fd0203
+  artifact_scope: canonical_combined_norm_embodiment_19_subsection_only
 fixed_contract:
   domains: [pushshapes_sim_u_socket]
   action: x_y_cos_theta_sin_theta
@@ -57,14 +56,16 @@ fixed_contract:
     reconstruction_target: normalized_action_sequence
     image_patch_tokens: none
   latent_registers:
-    count_sweep: [4, 8, 16]
+    count_sweep: [4, 8]
     register_dim: 16
     implementation_count_field: num_latent_tokens
     semantic_role: latent_registers_produced_from_clean_action_tokens
   denoising_condition:
     representation: pooled_observation_embedding
-    role: adaln_conditioning_only
-    token_geometry: none
+    role: adaln_every_block_plus_repeated_in_context_self_attention
+    token_geometry: 32_learned_position_nonspatial_repetitions
+    in_context_tokens: 32
+    insertion_block: 4
     enters_tokenization: false
     reconstructed: false
     sweep_variable: false
@@ -89,7 +90,11 @@ fixed_contract:
     method: euler
     inference_steps: 8
     invocation: sample(..., sampling_method="euler", cfg_scale=1.0)
-  precision: bf16
+  precision:
+    model_autocast: bf16
+    dopri5_state: fp32
+    dopri5_derivative: fp32
+    dopri5_error_control: fp32
   gradient_clip_norm: 3.0
   ema_decay: 0.9978
   batch_per_rank: 32
@@ -99,8 +104,9 @@ fixed_contract:
   optimizer_steps: 240000
   validation_every_steps: 10000
   checkpoint_every_steps: 20000
-  gradient_telemetry_every_steps: 0
-  gradient_telemetry_status: disabled_pending_joint_update_safe_implementation
+  gradient_telemetry_every_steps: 100
+  gradient_telemetry_smoke_every_steps: 2
+  gradient_telemetry_status: enabled_joint_update_safe_read_only_autograd
   energy_score_seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
 common_required_metrics:
   train:
@@ -132,27 +138,28 @@ common_required_metrics:
     - Optimizer/LR/Muon
 topology_metric_contracts:
   current_runtime:
-    status: LAUNCH_BLOCKED_NO_GRADIENT_TELEMETRY_EMISSION
+    status: IMPLEMENTED_PENDING_REAL_DDP_SMOKE
     reason: >-
-      The only current UNITE telemetry call is inside the alternating-update
-      branch, which is disabled when unite_flow_updates_per_reconstruction is 0.
+      The released wrapper measures topology-aware diagnostic gradients with
+      autograd.grad on the same joint forward graph while returning the exact
+      reconstruction-plus-flow loss for the optimizer backward pass.
     unite_flow_updates_per_reconstruction: 0
-    unite_gradient_telemetry_every_n_steps: 0
+    unite_gradient_telemetry_every_n_steps: 100
     joint_update_semantics_must_be_preserved: true
     prohibited_workaround: >-
       Do not set unite_flow_updates_per_reconstruction above 0 merely to emit
       telemetry; that changes the optimizer-step objective to alternating
       reconstruction-only and flow-only updates.
   shared:
-    implementation_status: REQUIRED_BEFORE_LAUNCH_NOT_IMPLEMENTED
-    gradient_cosine_status: required_finite_after_implementation
+    implementation_status: IMPLEMENTED_PENDING_REAL_DDP_SMOKE
+    gradient_cosine_status: required_finite
     required_before_launch_metrics:
       - log/unite_gradient_cosine
       - log/unite_recon_grad_norm
       - log/unite_denoise_grad_norm
   separate:
     gradient_cosine_status: not_applicable_no_shared_parameters
-    implementation_status: REQUIRED_BEFORE_LAUNCH_NOT_IMPLEMENTED
+    implementation_status: IMPLEMENTED_PENDING_REAL_DDP_SMOKE
     required_before_launch_metrics:
       - log/unite_tokenizer_recon_grad_norm
       - log/unite_denoiser_flow_grad_norm
@@ -163,6 +170,7 @@ topology_metric_contracts:
     - verifier_accepts_joint_update_mode_and_rejects_missing_metrics
 rows:
   - task_id: us_unite_register_shared_nt4_s42
+    launch_selection: active
     model_config_path: egomimic/hydra_configs/model/bf/us_unite_register_shared_nt4_s42.yaml
     topology: shared
     share_encoder_denoiser: true
@@ -170,10 +178,12 @@ rows:
     latent_register_count: 4
     latent_dim: 16
     wandb_id_template: us_unite_reg_shared_n4_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
-    expected_backbone_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_manifest_sha256: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
+    parameter_manifest_path: artifacts/unite_register_sweep_20260902/parameter_manifests/us_unite_register_shared_nt4_s42.json
+    expected_backbone_parameter_count: 129999376
+    expected_parameter_count: 226292820
+    expected_parameter_manifest_sha256: 4f5b58f0e8174a3faf43c86aef4746c3531ef423d86d4efac9978a84bc45466a
   - task_id: us_unite_register_shared_nt8_s42
+    launch_selection: active
     model_config_path: egomimic/hydra_configs/model/bf/us_unite_register_shared_nt8_s42.yaml
     topology: shared
     share_encoder_denoiser: true
@@ -181,21 +191,12 @@ rows:
     latent_register_count: 8
     latent_dim: 16
     wandb_id_template: us_unite_reg_shared_n8_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
-    expected_backbone_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_manifest_sha256: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-  - task_id: us_unite_register_shared_nt16_s42
-    model_config_path: egomimic/hydra_configs/model/bf/us_unite_register_shared_nt16_s42.yaml
-    topology: shared
-    share_encoder_denoiser: true
-    num_latent_tokens: 16
-    latent_register_count: 16
-    latent_dim: 16
-    wandb_id_template: us_unite_reg_shared_n16_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
-    expected_backbone_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_manifest_sha256: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
+    parameter_manifest_path: artifacts/unite_register_sweep_20260902/parameter_manifests/us_unite_register_shared_nt8_s42.json
+    expected_backbone_parameter_count: 130002448
+    expected_parameter_count: 226295892
+    expected_parameter_manifest_sha256: b73d91410658f0d4cf4c0e6aee378471dfc61ddaaba1a8346d67b9f19354027d
   - task_id: us_unite_register_separate_nt4_s42
+    launch_selection: active
     model_config_path: egomimic/hydra_configs/model/bf/us_unite_register_separate_nt4_s42.yaml
     topology: separate
     share_encoder_denoiser: false
@@ -203,10 +204,12 @@ rows:
     latent_register_count: 4
     latent_dim: 16
     wandb_id_template: us_unite_reg_separate_n4_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
-    expected_backbone_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_manifest_sha256: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
+    parameter_manifest_path: artifacts/unite_register_sweep_20260902/parameter_manifests/us_unite_register_separate_nt4_s42.json
+    expected_backbone_parameter_count: 259998752
+    expected_parameter_count: 356308996
+    expected_parameter_manifest_sha256: 939ffee43c81e31792d838b73a4c8e01086e1dd0b5114932e435cb24c957b795
   - task_id: us_unite_register_separate_nt8_s42
+    launch_selection: active
     model_config_path: egomimic/hydra_configs/model/bf/us_unite_register_separate_nt8_s42.yaml
     topology: separate
     share_encoder_denoiser: false
@@ -214,40 +217,31 @@ rows:
     latent_register_count: 8
     latent_dim: 16
     wandb_id_template: us_unite_reg_separate_n8_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
-    expected_backbone_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_manifest_sha256: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-  - task_id: us_unite_register_separate_nt16_s42
-    model_config_path: egomimic/hydra_configs/model/bf/us_unite_register_separate_nt16_s42.yaml
-    topology: separate
-    share_encoder_denoiser: false
-    num_latent_tokens: 16
-    latent_register_count: 16
-    latent_dim: 16
-    wandb_id_template: us_unite_reg_separate_n16_ld16_w768d12h12_h16_dopri5cfg4_s42_{GPU_TAG}_20260902
-    expected_backbone_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_count: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
-    expected_parameter_manifest_sha256: REQUIRED_AFTER_REGISTER_CFG_PARAMETER_MANIFEST
+    parameter_manifest_path: artifacts/unite_register_sweep_20260902/parameter_manifests/us_unite_register_separate_nt8_s42.json
+    expected_backbone_parameter_count: 260004896
+    expected_parameter_count: 356315140
+    expected_parameter_manifest_sha256: dd9a59125d5ad2eec5721019c93cee9ca509e0f5bf29ec37ea1648d79a1e367b
 fairness:
   shared_vs_separate_same_register_count: FAIR_WITH_CAVEATS_SEPARATE_DOUBLES_GE_CAPACITY
   register_count_within_same_topology: FAIR_SINGLE_VARIABLE_AFTER_VERIFICATION
   cross_topology_cross_register_count: NOT_FAIR_AS_SINGLE_VARIABLE
 known_blockers:
-  - canonical_launcher_v20_uses_schema_v1_and_stale_obs33tok_collaborator_tagging
-  - all_row_parameter_counts_and_parameter_manifest_hashes_are_unverified
-  - split_and_train_only_normalization_artifacts_are_unresolved
-  - joint_update_safe_shared_gradient_telemetry_is_not_implemented
-  - separate_topology_gradient_norm_telemetry_has_no_emitter
-  - training_smoke_verifier_still_requires_alternating_update_mode
   - no_row_has_passed_the_required_real_optimizer_validation_reload_smoke
 validated_review_checks:
   evidence_scope: current_combined_review
-  related_tests: 31_passed
-  h16_materialized_row_forward_backward: 6_of_6_passed
+  related_tests: 108_passed
+  h16_materialized_row_forward_backward: 4_of_4_passed
   configured_wrapper_and_optimizer_state_tests: passed
-  yaml_files_parsed: 8
+  yaml_files_parsed: 7
   ruff: passed
   shared_separate_register_shape_matrix: passed
-  config_graph_train_rollout: 12_of_12_clean
-  config_graph_json_sha256: 47d2b8747d62a6df680624a25ac5ecaa5cff58ca8fef7e4cfe585b855178a1ff
-launch_status: WIP_NOT_LAUNCH_READY_DO_NOT_SUBMIT
+  config_graph_train_rollout: 8_of_8_clean
+  config_graph_artifact_path: artifacts/unite_register_sweep_20260902/config_graphs/four_active_rows_train_rollout.json
+  config_graph_json_sha256: c850d6146fb6bf9bc84e7332f9988d9bd446f34f89c291f4d7670f271fa29e20
+  active_parameter_manifests: 4_of_4_canonical_byte_schema_verified
+  launch_plumbing_unit_and_real_tiny_policy_tests: 12_passed
+  canonical_launcher_schema: 2
+  canonical_launcher_row_selection: direct_model_config_four_active_rows_n4_n8
+  canonical_launcher_ddp_strategy: ddp_find_unused_parameters_true
+  canonical_launcher_sha256: 1c8a0ffcf144b1e13dbe7040518255709e7dd27af271aaa6492084be2ee040bd
+  support_experiment: egomimic/hydra_configs/experiment/pusht/unite_usocket_register_sweep_val01_h16.yaml

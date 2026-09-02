@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Literal
 
 import torch
-import torch.nn as nn
 
 from egomimic.pipeline.core import Stage
 from egomimic.pipeline.stages_unite import UniteLatentPolicy
@@ -71,10 +70,6 @@ class ReleasedRecipeUniteLatentPolicy(UniteLatentPolicy):
         self.dopri5_num_steps = int(dopri5_num_steps)
         self.dopri5_atol = float(dopri5_atol)
         self.dopri5_rtol = float(dopri5_rtol)
-        self.null_observation_condition = nn.Parameter(
-            torch.empty(1, 1, self.generative_encoder.condition_input_dim)
-        )
-        nn.init.normal_(self.null_observation_condition, mean=0.0, std=0.02)
         self._last_sampler_nfe = 0
         if self.flow_steps_per_reconstruction <= 0:
             raise ValueError("flow_steps_per_reconstruction must be positive")
@@ -110,21 +105,9 @@ class ReleasedRecipeUniteLatentPolicy(UniteLatentPolicy):
             raise ValueError("dopri5 tolerances must be positive")
 
     def _null_condition_like(self, condition: torch.Tensor) -> torch.Tensor:
-        """Expand the learned null condition without changing token geometry."""
+        """Expand the GE-owned null input shared with tokenization."""
 
-        if condition.ndim == 2:
-            expected = self.generative_encoder.condition_input_dim
-            if int(condition.shape[-1]) != expected:
-                raise ValueError("UNITE condition width does not match the encoder")
-            return (
-                self.null_observation_condition[:, 0].to(condition).expand_as(condition)
-            )
-        if condition.ndim == 3:
-            expected = self.generative_encoder.condition_input_dim
-            if int(condition.shape[-1]) != expected:
-                raise ValueError("UNITE condition width does not match the encoder")
-            return self.null_observation_condition.to(condition).expand_as(condition)
-        raise ValueError("UNITE condition must have shape (B, D) or (B, C, D)")
+        return self.generative_encoder.null_condition_like(condition)
 
     def _condition_with_dropout(
         self, condition: torch.Tensor
@@ -168,14 +151,15 @@ class ReleasedRecipeUniteLatentPolicy(UniteLatentPolicy):
         return torch.where(active, guided, conditioned)
 
     def _sample_flow_time(self, batch_size: int, device: torch.device) -> torch.Tensor:
-        # Official Transport samples a logit-normal, maps it to [eps, 1-eps],
-        # then applies the rational timestep shift.  Torch RNG is used here so
+        # Official Transport samples a logit-normal over the full open unit
+        # interval, then applies the rational timestep shift. ``train_eps`` is
+        # used only to clamp the x-start velocity denominator; it does not
+        # truncate the training-time distribution. Torch RNG is used here so
         # DDP seed/provenance is controlled by the robot training stack.
         normal = torch.randn(batch_size, device=device, dtype=torch.float32)
         normal = self.lognorm_mu + self.lognorm_sigma * normal
         unit_time = torch.sigmoid(normal)
-        raw_time = self.train_eps + (1.0 - 2.0 * self.train_eps) * unit_time
-        return self.shift_time(raw_time)
+        return self.shift_time(unit_time)
 
     def separate_reconstruction_denoising_named_parameters(self, embodiments=None):
         """Expose disjoint parameter sets for the released separate ablation."""
@@ -325,8 +309,8 @@ class ReleasedRecipeUniteLatentPolicy(UniteLatentPolicy):
         batch_size = int(noise.shape[0])
         latent = noise
         raw_grid = torch.linspace(
-            self.sample_eps,
-            1.0 - self.sample_eps,
+            0.0,
+            1.0,
             self.num_inference_steps + 1,
             device=noise.device,
             dtype=torch.float32,
@@ -358,6 +342,10 @@ class ReleasedRecipeUniteLatentPolicy(UniteLatentPolicy):
             ) from exc
 
         batch_size = int(noise.shape[0])
+        # torchdiffeq accumulates adaptive error estimates in the state dtype.
+        # Keep the ODE state and vector field in FP32 under Lightning BF16
+        # autocast; model matmuls inside the guided prediction remain autocast.
+        ode_state = noise.float()
         raw_grid = torch.linspace(
             0.0,
             1.0,
@@ -376,11 +364,14 @@ class ReleasedRecipeUniteLatentPolicy(UniteLatentPolicy):
                 latent, time, condition, cfg_scale
             )
             denominator = (1.0 - time_scalar).clamp_min(self.sample_eps)
-            return (clean_prediction - latent) / denominator.to(latent)
+            derivative = (
+                clean_prediction.float() - latent.float()
+            ) / denominator.float()
+            return derivative
 
         trajectory = odeint(
             velocity,
-            noise,
+            ode_state,
             grid,
             method="dopri5",
             atol=self.dopri5_atol,

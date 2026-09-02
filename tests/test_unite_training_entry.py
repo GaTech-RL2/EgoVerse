@@ -34,6 +34,9 @@ class _GenerativeStage(nn.Module):
         super().__init__()
         self.blocks = nn.ModuleList([nn.Linear(2, 2)])
         self.final_layer = nn.Linear(2, 2)
+        self.content_projection = nn.Linear(2, 2)
+        self.condition_projection = nn.Linear(2, 2)
+        self.action_projection = nn.Linear(2, 2)
 
 
 class _TinyPolicy(nn.Module):
@@ -144,6 +147,12 @@ def test_visual_core_paths_and_non_matrix_weights_are_adamw():
     # would incorrectly send this real VisualCore path to Muon.
     assert f"{visual_prefix}.projection.weight" in adamw_names
     assert "nets.policy.stages.1.final_layer.weight" in adamw_names
+    # Clean-action content is the robot patch stem and follows patch_embed.
+    assert "nets.policy.stages.1.content_projection.weight" in adamw_names
+    # Pooled observation projection is an explicit modality-adapter exception.
+    assert "nets.policy.stages.1.condition_projection.weight" in adamw_names
+    # The final action matrix follows released decoder_pred and remains Muon-eligible.
+    assert "nets.policy.stages.1.action_projection.weight" in muon_names
     assert "nets.policy.stages.1.blocks.0.weight" in muon_names
     assert adamw_names.isdisjoint(muon_names)
 

@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import math
+import time
 from pathlib import Path
 from typing import Any
 
@@ -244,6 +245,294 @@ def _load_training_config(config_path: Path):
     return OmegaConf.load(config_path)
 
 
+def _require_finite(metrics: dict[str, float], keys: set[str]) -> None:
+    missing = keys.difference(metrics)
+    assert not missing, ("missing metrics", sorted(missing), sorted(metrics))
+    invalid = {
+        key: metrics[key]
+        for key in keys
+        if not math.isfinite(float(metrics[key]))
+    }
+    assert not invalid, ("non-finite metrics", invalid)
+
+
+def _verify_wandb_visibility(run_path: str, required: set[str]) -> None:
+    """Fail closed unless every required metric is visible in the exact run."""
+
+    import wandb
+
+    assert run_path.count("/") == 2, run_path
+    missing = set(required)
+    last_error = None
+    for attempt in range(6):
+        try:
+            run = wandb.Api(timeout=30).run(run_path)
+            assert run.path[-3:] == run_path.split("/"), (run.path, run_path)
+            for row in run.scan_history(keys=sorted(required), page_size=1000):
+                for key in tuple(missing):
+                    value = row.get(key)
+                    if value is None:
+                        continue
+                    try:
+                        numeric = float(value)
+                    except (TypeError, ValueError):
+                        continue
+                    if math.isfinite(numeric):
+                        missing.discard(key)
+            if not missing:
+                return
+        except Exception as error:
+            last_error = repr(error)
+        if attempt < 5:
+            time.sleep(5)
+    raise AssertionError(
+        ("metrics not visible in exact W&B run", run_path, sorted(missing), last_error)
+    )
+
+
+def _verify_released_sweep_smoke(
+    output_dir: Path,
+    config: Any,
+    required_embodiments: list[int],
+    expected_head: str,
+    expected_strategy: str,
+    expected_world_size: int,
+    expected_steps: int,
+    expected_val_check_interval: int,
+    minimum_validation_step: int,
+    topology: str,
+    sweep_task_id: str,
+    latent_dim: int,
+    num_latent_tokens: int,
+    wandb_run_path: str,
+    parameter_manifest: Path,
+    split_manifest: Path,
+    normalization_artifact: Path,
+) -> dict[str, Any]:
+    """Strict two-step joint-update gate for one register-sweep row."""
+
+    assert topology in {"shared", "separate"}
+    assert latent_dim == 16
+    assert num_latent_tokens in {4, 8}
+    assert expected_steps == expected_val_check_interval == minimum_validation_step == 2
+    assert int(config.trainer.max_steps) == int(config.trainer.limit_train_batches) == 2
+    assert int(config.trainer.val_check_interval) == 2
+    assert int(config.trainer.limit_val_batches) == 1
+    assert int(config.trainer.num_sanity_val_steps) == 0
+    assert str(config.trainer.precision) == "bf16"
+    assert str(config.trainer.strategy) == expected_strategy
+    assert expected_strategy == "ddp_find_unused_parameters_true"
+    assert int(config.trainer.devices) == expected_world_size == 2
+    assert int(config.trainer.num_nodes) == 1
+    assert int(config.trainer.accumulate_grad_batches) == 1
+    assert config.model.share_encoder_denoiser is (topology == "shared")
+    assert int(config.model.latent_dim) == 16
+    assert int(config.model.num_latent_tokens) == num_latent_tokens
+    assert int(config.model.unite_flow_updates_per_reconstruction) == 0
+    assert int(config.model.unite_gradient_telemetry_every_n_steps) == 2
+    assert set(config.data.train_datasets) == {"pushshapes_sim_u_socket"}
+    assert set(config.data.valid_datasets) == {"pushshapes_sim_u_socket"}
+    energy = config.evaluator.energy_score
+    assert energy.enabled is True and int(energy.sample_count) == 32
+    assert str(energy.seed_bank_sha256) == (
+        "88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6"
+    )
+    assert set(energy.action_dims) == {"pushshapes_sim_u_socket"}
+    provenance = config.run_provenance
+    assert str(provenance.sweep_task_id) == sweep_task_id
+    assert str(provenance.topology) == topology
+    assert int(provenance.num_latent_tokens) == num_latent_tokens
+    assert int(provenance.latent_dim) == 16
+
+    parameter_manifest = parameter_manifest.resolve()
+    split_manifest = split_manifest.resolve()
+    normalization_artifact = normalization_artifact.resolve()
+    for path in (parameter_manifest, split_manifest, normalization_artifact):
+        assert path.is_file(), path
+    parameter_payload = json.loads(parameter_manifest.read_text())
+    assert parameter_payload["topology"] == topology
+    assert parameter_payload["num_latent_tokens"] == num_latent_tokens
+    assert parameter_payload["latent_dim"] == 16
+    assert parameter_payload["action_horizon"] == 16
+
+    checkpoint_path = output_dir / "checkpoints" / "last.ckpt"
+    assert checkpoint_path.is_file(), checkpoint_path
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    global_step = int(checkpoint["global_step"])
+    assert global_step == 2
+    optimizer_states = checkpoint.get("optimizer_states", [])
+    assert len(optimizer_states) == 1
+    composite = optimizer_states[0]
+    assert {"adamw", "muon", "group_manifest"}.issubset(composite)
+    optimizer_lrs = {
+        "AdamW": [
+            float(group["lr"]) for group in composite["adamw"]["param_groups"]
+        ],
+        "Muon": [
+            float(group["lr"]) for group in composite["muon"]["param_groups"]
+        ],
+    }
+    assert all(
+        values and all(math.isfinite(value) and value > 0 for value in values)
+        for values in optimizer_lrs.values()
+    )
+    schedulers = checkpoint.get("lr_schedulers", [])
+    assert len(schedulers) == 1 and int(schedulers[0]["last_epoch"]) == global_step
+    ema = checkpoint.get("ema_state_dict")
+    assert ema and all(torch.isfinite(value).all() for value in ema.values())
+    assert math.isclose(float(checkpoint["ema_decay"]), 0.9978, abs_tol=1.0e-12)
+    assert int(checkpoint["ema_num_updates"]) == global_step
+    assert checkpoint["ema_validate_with_ema"] is True
+    del checkpoint
+
+    streams = [
+        *output_dir.glob("wandb/offline-run-*/run-*.wandb"),
+        *output_dir.glob("wandb/run-*/run-*.wandb"),
+    ]
+    assert len(streams) == 1, streams
+    training_history, validation_history, wandb_exit_code = read_wandb_history(
+        streams[0]
+    )
+    train_required = {
+        "Train/UNITE/TotalLoss",
+        "Train/UNITE/ReconstructionLoss",
+        "Train/UNITE/FlowLoss",
+        "Train/UNITE/ReconstructionL1",
+        "Train/MSE",
+        "Train/MSE/pushshapes_sim_u_socket",
+    }
+    optimizer_required = {"Optimizer/LR/AdamW", "Optimizer/LR/Muon"}
+    dense = []
+    optimizer_rows = []
+    for row in training_history:
+        if train_required.issubset(row["train_metrics"]):
+            _require_finite(row["train_metrics"], train_required)
+            dense.append(row)
+        if optimizer_required.issubset(row["optimizer_metrics"]):
+            _require_finite(row["optimizer_metrics"], optimizer_required)
+            assert all(
+                row["optimizer_metrics"][key] > 0 for key in optimizer_required
+            )
+            optimizer_rows.append(row)
+    assert len(dense) == 2, training_history
+    assert optimizer_rows, training_history
+
+    if topology == "shared":
+        telemetry_required = {
+            "log/unite_gradient_cosine",
+            "log/unite_recon_grad_norm",
+            "log/unite_denoise_grad_norm",
+        }
+        telemetry_forbidden = {
+            "log/unite_tokenizer_recon_grad_norm",
+            "log/unite_denoiser_flow_grad_norm",
+        }
+        gradient_cosine_status = "required_finite"
+    else:
+        telemetry_required = {
+            "log/unite_tokenizer_recon_grad_norm",
+            "log/unite_denoiser_flow_grad_norm",
+        }
+        telemetry_forbidden = {
+            "log/unite_gradient_cosine",
+            "log/unite_recon_grad_norm",
+            "log/unite_denoise_grad_norm",
+        }
+        gradient_cosine_status = "not_applicable_no_shared_parameters"
+    telemetry_rows = []
+    for row in training_history:
+        metrics = row["telemetry_metrics"]
+        assert telemetry_forbidden.isdisjoint(metrics), (topology, metrics)
+        if telemetry_required.issubset(metrics):
+            _require_finite(metrics, telemetry_required)
+            norm_keys = {
+                key for key in telemetry_required if key.endswith("grad_norm")
+            }
+            assert all(metrics[key] > 0 for key in norm_keys)
+            if topology == "shared":
+                assert -1.000001 <= metrics["log/unite_gradient_cosine"] <= 1.000001
+            telemetry_rows.append(row)
+    assert telemetry_rows, training_history
+
+    valid_required = {
+        "Valid/UNITE/TotalLoss",
+        "Valid/UNITE/ReconstructionLoss",
+        "Valid/UNITE/FlowLoss",
+        "Valid/UNITE/ReconstructionL1",
+        "Valid/UNITE/ReconstructionNativeMSE",
+        "Valid/UNITE/ReconstructionNativeL1",
+        "Valid/MSE",
+        "Valid/MSE/pushshapes_sim_u_socket",
+        "Valid/Native_MSE",
+        "Valid/Native_MSE/pushshapes_sim_u_socket",
+        "Valid/EnergyScore@32",
+        "Valid/EnergyScore@32/pushshapes_sim_u_socket",
+        "Valid/EnergyScoreAccuracy@32",
+        "Valid/EnergyScoreAccuracy@32/pushshapes_sim_u_socket",
+        "Valid/EnergyScoreDiversity@32",
+        "Valid/EnergyScoreDiversity@32/pushshapes_sim_u_socket",
+    }
+    candidates = [
+        row
+        for row in validation_history
+        if row["trainer_global_step"] + 1 >= minimum_validation_step
+        and valid_required.issubset(row["validation_metrics"])
+    ]
+    assert candidates, validation_history
+    selected = candidates[-1]
+    _require_finite(selected["validation_metrics"], valid_required)
+    completed_steps = selected["trainer_global_step"] + 1
+    energy_artifacts = _validate_energy_score_artifacts(
+        output_dir,
+        config,
+        required_embodiments,
+        expected_world_size,
+        completed_steps,
+    )
+    all_required = (
+        train_required | optimizer_required | valid_required | telemetry_required
+    )
+    _verify_wandb_visibility(wandb_run_path, all_required)
+
+    return {
+        "status": "passed",
+        "repo_head": expected_head,
+        "output": str(output_dir),
+        "config": str(output_dir / ".hydra" / "config.yaml"),
+        "config_sha256": _sha256(output_dir / ".hydra" / "config.yaml"),
+        "checkpoint": str(checkpoint_path),
+        "checkpoint_sha256": _sha256(checkpoint_path),
+        "global_step": global_step,
+        "precision": str(config.trainer.precision),
+        "world_size": expected_world_size,
+        "trainer_strategy": str(config.trainer.strategy),
+        "required_embodiments": required_embodiments,
+        "sweep_task_id": sweep_task_id,
+        "unite_topology": topology,
+        "num_latent_tokens": num_latent_tokens,
+        "latent_dim": 16,
+        "action_horizon": 16,
+        "gradient_cosine_status": gradient_cosine_status,
+        "gradient_telemetry": telemetry_rows,
+        "optimizer_lrs": optimizer_lrs,
+        "validation_metrics": selected["validation_metrics"],
+        "energy_score_artifacts": energy_artifacts,
+        "parameter_manifest": str(parameter_manifest),
+        "parameter_manifest_sha256": _sha256(parameter_manifest),
+        "split_manifest": str(split_manifest),
+        "split_manifest_sha256": _sha256(split_manifest),
+        "normalization_artifact": str(normalization_artifact),
+        "normalization_sha256": _sha256(normalization_artifact),
+        "wandb_run_path": wandb_run_path,
+        "wandb_visibility": "passed",
+        "wandb_stream": str(streams[0]),
+        "wandb_stream_sha256": _sha256(streams[0]),
+        "wandb_exit_code": wandb_exit_code,
+        "training_history": training_history,
+        "validation_history": validation_history,
+    }
+
+
 def verify_training_smoke(
     output_dir: Path,
     required_embodiments: list[int],
@@ -253,11 +542,47 @@ def verify_training_smoke(
     expected_steps: int = 2,
     expected_val_check_interval: int = 1,
     minimum_validation_step: int = 1,
+    released_sweep_topology: str | None = None,
+    expected_sweep_task_id: str | None = None,
+    expected_latent_dim: int | None = None,
+    expected_num_latent_tokens: int | None = None,
+    expected_wandb_run_path: str | None = None,
+    parameter_manifest: Path | None = None,
+    split_manifest: Path | None = None,
+    normalization_artifact: Path | None = None,
 ) -> dict[str, Any]:
     output_dir = output_dir.resolve()
     config_path = output_dir / ".hydra" / "config.yaml"
     assert config_path.is_file(), config_path
     config = _load_training_config(config_path)
+
+    if released_sweep_topology is not None:
+        assert expected_sweep_task_id
+        assert expected_latent_dim is not None
+        assert expected_num_latent_tokens is not None
+        assert expected_wandb_run_path
+        assert parameter_manifest is not None
+        assert split_manifest is not None
+        assert normalization_artifact is not None
+        return _verify_released_sweep_smoke(
+            output_dir,
+            config,
+            required_embodiments,
+            expected_head,
+            expected_strategy,
+            expected_world_size,
+            expected_steps,
+            expected_val_check_interval,
+            minimum_validation_step,
+            released_sweep_topology,
+            expected_sweep_task_id,
+            expected_latent_dim,
+            expected_num_latent_tokens,
+            expected_wandb_run_path,
+            parameter_manifest,
+            split_manifest,
+            normalization_artifact,
+        )
 
     assert expected_steps > 0
     assert expected_val_check_interval > 0
@@ -557,6 +882,16 @@ def main() -> None:
     parser.add_argument("--expected-steps", type=int, default=2)
     parser.add_argument("--expected-val-check-interval", type=int, default=1)
     parser.add_argument("--minimum-validation-step", type=int, default=1)
+    parser.add_argument(
+        "--released-sweep-topology", choices=("shared", "separate")
+    )
+    parser.add_argument("--expected-sweep-task-id")
+    parser.add_argument("--expected-latent-dim", type=int)
+    parser.add_argument("--expected-num-latent-tokens", type=int)
+    parser.add_argument("--expected-wandb-run-path")
+    parser.add_argument("--parameter-manifest", type=Path)
+    parser.add_argument("--split-manifest", type=Path)
+    parser.add_argument("--normalization-artifact", type=Path)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -573,6 +908,14 @@ def main() -> None:
         args.expected_steps,
         args.expected_val_check_interval,
         args.minimum_validation_step,
+        args.released_sweep_topology,
+        args.expected_sweep_task_id,
+        args.expected_latent_dim,
+        args.expected_num_latent_tokens,
+        args.expected_wandb_run_path,
+        args.parameter_manifest,
+        args.split_manifest,
+        args.normalization_artifact,
     )
     if not args.dry_run:
         result_path = args.output_dir.resolve() / "SMOKE_RESULT.json"

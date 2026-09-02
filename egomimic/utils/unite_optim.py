@@ -28,7 +28,13 @@ _MUON_NS_STEPS = 5
 # The first four entries are the released ImageNet exceptions. The remaining
 # names are their explicit robot-policy counterparts. Canonical VisualCore
 # parameters live below ``...encoder.img_encoders.<camera>...``; matching only
-# ``visual_encoder`` misses every real path.
+# ``visual_encoder`` misses every real path. ``content_projection`` is the
+# clean-action analogue of released ``patch_embed`` and stays in AdamW.
+# ``condition_projection`` also remains an AdamW input-adapter exception by
+# design: it translates pooled robot observations into the released encoder's
+# conditioning width, analogous to a modality stem. The action decoder's final
+# matrix is intentionally *not* an exception; it corresponds to the released
+# ``decoder_pred`` matrix and is therefore eligible for Muon.
 _ADAMW_NAME_MARKERS = (
     "patch_embed",
     "final_layer",
@@ -39,12 +45,12 @@ _ADAMW_NAME_MARKERS = (
     "visual_token_projection",
     "proprio_token_projection",
     "action_context_projections",
+    "content_projection",
     "condition_projection",
-    "null_observation_condition",
+    "null_condition_inputs",
     "token_identity",
     "pos_emb",
     "proj_d",
-    "action_projection",
 )
 
 

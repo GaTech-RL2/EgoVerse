@@ -32,6 +32,8 @@ class ConfigurableUniteGenerativeEncoder(UniteGenerativeEncoder):
         denoiser_hidden_dim: int,
         gradient_checkpointing: bool = True,
         tokenization_time_max: float = 0.01,
+        in_context_start: int = 4,
+        in_context_len: int = 32,
     ):
         super().__init__(
             denoising_module=denoising_module,
@@ -44,6 +46,8 @@ class ConfigurableUniteGenerativeEncoder(UniteGenerativeEncoder):
         )
         self.num_latent_tokens = int(num_latent_tokens)
         self.tokenization_time_max = float(tokenization_time_max)
+        self.in_context_start = int(in_context_start)
+        self.in_context_len = int(in_context_len)
         if self.num_latent_tokens <= 0:
             raise ValueError("num_latent_tokens must be positive")
         if not 0.0 <= self.tokenization_time_max <= 1.0:
@@ -58,6 +62,14 @@ class ConfigurableUniteGenerativeEncoder(UniteGenerativeEncoder):
             {
                 domain: nn.Linear(action_dim, self.condition_dim)
                 for domain, action_dim in self.action_dims.items()
+            }
+        )
+        self.null_condition_inputs = nn.ParameterDict(
+            {
+                domain: nn.Parameter(
+                    torch.empty(self.condition_input_dim).normal_(std=0.02)
+                )
+                for domain in self.domains
             }
         )
 
@@ -80,6 +92,17 @@ class ConfigurableUniteGenerativeEncoder(UniteGenerativeEncoder):
             raise ValueError(
                 "UNITE backbone gradient_checkpointing="
                 f"{actual_checkpointing}, expected {self.gradient_checkpointing}"
+            )
+        actual_context_start = getattr(module, "in_context_start", None)
+        actual_context_len = int(getattr(module, "in_context_len", -1))
+        if (
+            actual_context_start != self.in_context_start
+            or actual_context_len != self.in_context_len
+        ):
+            raise ValueError(
+                "UNITE backbone in-context contract is "
+                f"start={actual_context_start}, len={actual_context_len}; expected "
+                f"start={self.in_context_start}, len={self.in_context_len}"
             )
 
     def _resolve_domain(self, embodiment: str | None) -> str:
@@ -106,6 +129,29 @@ class ConfigurableUniteGenerativeEncoder(UniteGenerativeEncoder):
     def _denoising_domain_embedding(self, embodiment: str) -> torch.Tensor:
         return self.domain_embeddings[embodiment]
 
+    def _tokenization_condition_projection(self) -> nn.Module:
+        return self.condition_projection
+
+    def _tokenization_null_input(self, embodiment: str) -> torch.Tensor:
+        return self.null_condition_inputs[embodiment]
+
+    def null_condition_like(
+        self,
+        condition: torch.Tensor,
+        embodiment: str | None = None,
+    ) -> torch.Tensor:
+        """Expand the same learned null input used by the denoising path."""
+
+        embodiment = self._resolve_domain(embodiment)
+        if condition.ndim not in {2, 3} or int(condition.shape[-1]) != self.condition_input_dim:
+            raise ValueError(
+                "UNITE condition must have shape "
+                f"(B, {self.condition_input_dim}) or (B, C, {self.condition_input_dim})"
+            )
+        null = self.null_condition_inputs[embodiment].to(condition)
+        shape = (1,) * (condition.ndim - 1) + (self.condition_input_dim,)
+        return null.reshape(shape).expand_as(condition)
+
     def _register_noise(self, actions: torch.Tensor) -> torch.Tensor:
         return torch.randn(
             int(actions.shape[0]),
@@ -127,9 +173,12 @@ class ConfigurableUniteGenerativeEncoder(UniteGenerativeEncoder):
             raise ValueError("clean action content must contain at least one token")
         content = self.action_context_projections[embodiment](actions)
         domain = self._tokenization_domain_embedding(embodiment).to(content)
-        content = content + domain.reshape(1, 1, -1)
+        null_input = self._tokenization_null_input(embodiment).to(content)
+        tokenization_condition = self._tokenization_condition_projection()(null_input)
+        tokenization_condition = (tokenization_condition + domain).reshape(1, 1, -1)
         registers = self._register_noise(actions)
         batch_size = int(actions.shape[0])
+        tokenization_condition = tokenization_condition.expand(batch_size, -1, -1)
         time = (
             torch.rand(batch_size, device=actions.device, dtype=torch.float32)
             * self.tokenization_time_max
@@ -137,6 +186,7 @@ class ConfigurableUniteGenerativeEncoder(UniteGenerativeEncoder):
         encoded = self._tokenization_backbone()(
             registers,
             time,
+            condition=tokenization_condition,
             content_tokens=content,
         )
         expected = (batch_size, self.num_latent_tokens, self.latent_dim)
@@ -215,6 +265,14 @@ class ConfigurableUniteGenerativeEncoder(UniteGenerativeEncoder):
             for name, parameter in self.output_norm.named_parameters()
         )
         named.extend(
+            (f"condition_projection.{name}", parameter)
+            for name, parameter in self.condition_projection.named_parameters()
+        )
+        named.extend(
+            (f"null_condition_inputs.{domain}", self.null_condition_inputs[domain])
+            for domain in selected_domains
+        )
+        named.extend(
             (f"domain_embeddings.{domain}", self.domain_embeddings[domain])
             for domain in selected_domains
         )
@@ -240,6 +298,8 @@ class SeparateUniteGenerativeEncoder(ConfigurableUniteGenerativeEncoder):
         denoiser_hidden_dim: int,
         gradient_checkpointing: bool = True,
         tokenization_time_max: float = 0.01,
+        in_context_start: int = 4,
+        in_context_len: int = 32,
     ):
         if tokenization_module is denoising_module:
             raise ValueError("separate UNITE requires distinct backbone objects")
@@ -253,6 +313,8 @@ class SeparateUniteGenerativeEncoder(ConfigurableUniteGenerativeEncoder):
             denoiser_hidden_dim=denoiser_hidden_dim,
             gradient_checkpointing=gradient_checkpointing,
             tokenization_time_max=tokenization_time_max,
+            in_context_start=in_context_start,
+            in_context_len=in_context_len,
         )
         tokenizer = self.denoising_module
         del self.denoising_module
@@ -260,6 +322,17 @@ class SeparateUniteGenerativeEncoder(ConfigurableUniteGenerativeEncoder):
         self.denoising_module = denoising_module
         self._validate_backbone_contract(self.denoising_module)
         self.denoising_output_norm = nn.LayerNorm(self.latent_dim)
+        self.tokenization_condition_projection = nn.Linear(
+            self.condition_input_dim, self.condition_dim
+        )
+        self.tokenization_null_condition_inputs = nn.ParameterDict(
+            {
+                domain: nn.Parameter(
+                    torch.empty(self.condition_input_dim).normal_(std=0.02)
+                )
+                for domain in self.domains
+            }
+        )
         self.denoising_domain_embeddings = nn.ParameterDict(
             {
                 domain: nn.Parameter(torch.empty(self.condition_dim).normal_(std=0.02))
@@ -275,6 +348,12 @@ class SeparateUniteGenerativeEncoder(ConfigurableUniteGenerativeEncoder):
 
     def _denoising_domain_embedding(self, embodiment: str) -> torch.Tensor:
         return self.denoising_domain_embeddings[embodiment]
+
+    def _tokenization_condition_projection(self) -> nn.Module:
+        return self.tokenization_condition_projection
+
+    def _tokenization_null_input(self, embodiment: str) -> torch.Tensor:
+        return self.tokenization_null_condition_inputs[embodiment]
 
     def shared_reconstruction_denoising_named_parameters(
         self, embodiments: Iterable[str] | None = None
@@ -306,14 +385,33 @@ class SeparateUniteGenerativeEncoder(ConfigurableUniteGenerativeEncoder):
             for name, parameter in self.action_context_projections.named_parameters()
         )
         tokenizer.extend(
+            (f"tokenization_condition_projection.{name}", parameter)
+            for name, parameter in self.tokenization_condition_projection.named_parameters()
+        )
+        tokenizer.extend(
+            (
+                f"tokenization_null_condition_inputs.{domain}",
+                self.tokenization_null_condition_inputs[domain],
+            )
+            for domain in selected_domains
+        )
+        tokenizer.extend(
             (f"domain_embeddings.{domain}", self.domain_embeddings[domain])
             for domain in selected_domains
         )
 
-        denoiser: list[tuple[str, nn.Parameter]] = list(
-            (f"denoising_module.{name}", parameter)
-            for name, parameter in self.denoising_module.named_parameters()
+        denoiser_core_method = getattr(
+            self.denoising_module, "shared_core_named_parameters", None
         )
+        denoiser_core = (
+            denoiser_core_method()
+            if denoiser_core_method is not None
+            else tuple(self.denoising_module.named_parameters())
+        )
+        denoiser: list[tuple[str, nn.Parameter]] = [
+            (f"denoising_module.{name}", parameter)
+            for name, parameter in denoiser_core
+        ]
         denoiser.extend(
             (f"denoising_output_norm.{name}", parameter)
             for name, parameter in self.denoising_output_norm.named_parameters()
@@ -321,6 +419,10 @@ class SeparateUniteGenerativeEncoder(ConfigurableUniteGenerativeEncoder):
         denoiser.extend(
             (f"condition_projection.{name}", parameter)
             for name, parameter in self.condition_projection.named_parameters()
+        )
+        denoiser.extend(
+            (f"null_condition_inputs.{domain}", self.null_condition_inputs[domain])
+            for domain in selected_domains
         )
         denoiser.extend(
             (
@@ -366,6 +468,8 @@ def build_configurable_unite_generative_encoder(
     denoiser_hidden_dim: int,
     gradient_checkpointing: bool = True,
     tokenization_time_max: float = 0.01,
+    in_context_start: int = 4,
+    in_context_len: int = 32,
 ) -> ConfigurableUniteGenerativeEncoder:
     """Hydra factory used by every row of the 2x3 register sweep."""
 
@@ -380,6 +484,8 @@ def build_configurable_unite_generative_encoder(
         denoiser_hidden_dim=denoiser_hidden_dim,
         gradient_checkpointing=gradient_checkpointing,
         tokenization_time_max=tokenization_time_max,
+        in_context_start=in_context_start,
+        in_context_len=in_context_len,
     )
     if bool(share_encoder_denoiser):
         return ConfigurableUniteGenerativeEncoder(
