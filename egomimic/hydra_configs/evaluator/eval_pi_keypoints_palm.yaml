@@ -1,0 +1,20 @@
+# Offline / eval-only evaluator for the keypoint-action runs: everything
+# eval_pi_keypoints_wristframe computes, plus the palm-origin cam-frame MSE
+# derived from the reverted 21 keypoints with the mecka ee_pose definition
+# (centroid of MANO 0, 5, 9, 13, 17), so the run can be compared to the
+# cartesian runs' cam_xyz metric on the same target. Metrics only (no viz).
+defaults:
+  - viz@viz_func: pi_keypoints_lang_wrist
+  - _self_
+
+_target_: egomimic.eval.eval_pi_palm.PIEvalKeypointPalm
+
+viz_every_n_epochs: 1000000
+viz_max_batches: 0
+palm_idx: [0, 5, 9, 13, 17]
+save_dir: ${hydra:runtime.output_dir}/palm_eval
+
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_eef_frame_transform_list
+    is_quat: false
