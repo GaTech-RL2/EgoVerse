@@ -36,6 +36,19 @@ calibration.arm_bases[side]        ref_T_armbase, the arm base pose in it
 The camera that defines the reference frame needs no `ref_T_cam`. It is the
 identity by definition.
 
+Each camera also declares its projection model and distortion coefficients.
+
+```text
+calibration.cameras[c].model        PINHOLE | OPENCV | KANNALA_BRANDT
+calibration.cameras[c].distortion   coefficients in that model's order
+calibration.cameras[c].rectified    whether the stored frames are rectified
+```
+
+A camera that declares no model is `PINHOLE` with no coefficients. No
+projection site honors a non-pinhole model yet. Collect the declaration anyway:
+it measures a vendor's rig, and a rig that has moved cannot be recalibrated
+after the fact.
+
 `Calibration.base_T_cam(side)` composes the two and returns what the EVA
 transform pipeline consumes. An episode that predates the block reaches the
 same value through the shim in `egomimic/rldb/zarr/calibration.py`: its

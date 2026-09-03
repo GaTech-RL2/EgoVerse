@@ -130,6 +130,54 @@ def test_parse_rejects_malformed_blocks(block, message) -> None:
         parse_calibration(block)
 
 
+def test_a_camera_declares_pinhole_and_no_distortion_by_default() -> None:
+    calibration = parse_calibration(
+        {
+            "reference_frame": "robot_base",
+            "cameras": {"front_1": {"K": K_FRONT.tolist()}},
+        }
+    )
+    camera = calibration.cameras["front_1"]
+    assert (camera.model, camera.distortion) == ("PINHOLE", ())
+    assert calibration.to_jsonable()["cameras"]["front_1"]["model"] == "PINHOLE"
+
+
+def test_a_declared_lens_model_round_trips() -> None:
+    block = {
+        "reference_frame": "robot_base",
+        "cameras": {
+            "front_1": {
+                "K": K_FRONT.tolist(),
+                "model": "KANNALA_BRANDT",
+                "distortion": [0.1, -0.02, 0.003, -0.0004],
+                "rectified": False,
+            }
+        },
+    }
+    camera = parse_calibration(block).cameras["front_1"]
+    assert camera.model == "KANNALA_BRANDT"
+    assert camera.distortion == (0.1, -0.02, 0.003, -0.0004)
+    reparsed = parse_calibration(parse_calibration(block).to_jsonable())
+    assert reparsed.cameras["front_1"].distortion == camera.distortion
+
+
+@pytest.mark.parametrize(
+    "camera, message",
+    [
+        ({"model": "FISHEYE"}, "unknown camera model"),
+        ({"distortion": [0.1, 0.2]}, "model PINHOLE takes"),
+        ({"model": "KANNALA_BRANDT", "distortion": [0.1]}, "takes"),
+        ({"distortion": "0.1"}, "expected a list"),
+        ({"model": "OPENCV", "distortion": [0.1, 0.2, 0.3, "x"]}, "non-numeric"),
+    ],
+)
+def test_a_camera_model_and_its_coefficients_must_agree(camera, message) -> None:
+    with pytest.raises(CalibrationError, match=message):
+        parse_calibration(
+            {"reference_frame": "robot_base", "cameras": {"front_1": camera}}
+        )
+
+
 def test_a_bare_3x3_camera_matrix_is_padded() -> None:
     calibration = parse_calibration(
         {

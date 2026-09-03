@@ -48,7 +48,22 @@ CAMERA_FRAME_PREFIX = "camera:"
 #: `images.front_1`. The text after it is the camera name.
 IMAGE_KEY_PREFIX = "images."
 
-_CAMERA_FIELDS = frozenset({"K", "resolution", "rectified", "ref_T_cam"})
+#: Projection model of a camera, and the distortion coefficient counts it
+#: accepts. Nothing projects a non-pinhole model yet. The declaration is
+#: collected now because it measures a vendor's rig: if we discover later that
+#: we need it, the rig has moved and the episodes cannot be recalibrated.
+CAMERA_MODELS = {
+    "PINHOLE": frozenset({0}),
+    "OPENCV": frozenset({4, 5, 8, 12, 14}),
+    "KANNALA_BRANDT": frozenset({4}),
+}
+
+#: Projection model assumed for a camera that declares none.
+DEFAULT_CAMERA_MODEL = "PINHOLE"
+
+_CAMERA_FIELDS = frozenset(
+    {"K", "model", "distortion", "resolution", "rectified", "ref_T_cam"}
+)
 _CALIBRATION_FIELDS = frozenset({"reference_frame", "cameras", "arm_bases"})
 
 
@@ -97,6 +112,10 @@ class CameraCalibration:
         name: The camera name. It matches the ``images.<name>`` array key.
         K: The 3×4 camera matrix, or ``None`` for a declared but uncalibrated
             camera.
+        model: A key in ``CAMERA_MODELS``. No projection site honors a
+            non-pinhole model yet.
+        distortion: The distortion coefficients of ``model``, in that model's
+            order. Empty for a pinhole camera.
         resolution: ``(width, height)`` in pixels, or ``None``.
         rectified: Whether the stored frames are already rectified.
         ref_T_cam: The 4×4 camera pose in the episode reference frame, or
@@ -105,15 +124,22 @@ class CameraCalibration:
 
     name: str
     K: np.ndarray | None = None
+    model: str = DEFAULT_CAMERA_MODEL
+    distortion: tuple[float, ...] = ()
     resolution: tuple[int, int] | None = None
     rectified: bool = True
     ref_T_cam: np.ndarray | None = None
 
     def to_jsonable(self) -> dict[str, Any]:
         """Return this camera as JSON-serializable episode metadata."""
-        out: dict[str, Any] = {"rectified": bool(self.rectified)}
+        out: dict[str, Any] = {
+            "model": self.model,
+            "rectified": bool(self.rectified),
+        }
         if self.K is not None:
             out["K"] = self.K.tolist()
+        if self.distortion:
+            out["distortion"] = [float(c) for c in self.distortion]
         if self.resolution is not None:
             out["resolution"] = [int(self.resolution[0]), int(self.resolution[1])]
         if self.ref_T_cam is not None:
@@ -311,6 +337,31 @@ def _parse_reference_frame(value: Any, cameras, where: str) -> str:
     )
 
 
+def _parse_distortion(raw: Any, model: str, where: str) -> tuple[float, ...]:
+    """Validate the distortion coefficients declared for one camera model."""
+    if raw is None:
+        raw = ()
+    if isinstance(raw, (str, bytes)) or not isinstance(raw, (list, tuple, np.ndarray)):
+        raise CalibrationError(
+            f"{where}.distortion: expected a list of coefficients, got {raw!r}"
+        )
+    try:
+        coefficients = tuple(float(c) for c in raw)
+    except (TypeError, ValueError) as exc:
+        raise CalibrationError(
+            f"{where}.distortion: contains a non-numeric coefficient ({exc})"
+        ) from exc
+    if not all(np.isfinite(coefficients)):
+        raise CalibrationError(f"{where}.distortion: contains a non-finite value")
+    allowed = CAMERA_MODELS[model]
+    if len(coefficients) not in allowed:
+        raise CalibrationError(
+            f"{where}.distortion: model {model} takes "
+            f"{sorted(allowed)} coefficients, got {len(coefficients)}"
+        )
+    return coefficients
+
+
 def _parse_camera(name: str, block: Any, where: str) -> CameraCalibration:
     if not isinstance(block, Mapping):
         raise CalibrationError(f"{where}: must be a mapping, got {block!r}")
@@ -322,6 +373,15 @@ def _parse_camera(name: str, block: Any, where: str) -> CameraCalibration:
         )
 
     K = block.get("K")
+
+    model = block.get("model", DEFAULT_CAMERA_MODEL)
+    if model not in CAMERA_MODELS:
+        raise CalibrationError(
+            f"{where}.model: unknown camera model {model!r}; expected one of "
+            f"{sorted(CAMERA_MODELS)}"
+        )
+    distortion = _parse_distortion(block.get("distortion"), model, where)
+
     resolution = block.get("resolution")
     if resolution is not None:
         if (
@@ -345,6 +405,8 @@ def _parse_camera(name: str, block: Any, where: str) -> CameraCalibration:
     return CameraCalibration(
         name=name,
         K=None if K is None else _camera_matrix(K, f"{where}.K"),
+        model=model,
+        distortion=distortion,
         resolution=resolution,
         rectified=rectified,
         ref_T_cam=(
@@ -509,6 +571,8 @@ def read_calibration(attrs: Mapping[str, Any]) -> Calibration | None:
 
 __all__ = [
     "CAMERA_FRAME_PREFIX",
+    "CAMERA_MODELS",
+    "DEFAULT_CAMERA_MODEL",
     "IMAGE_KEY_PREFIX",
     "LEGACY_REFERENCE_CAMERA",
     "STATIC_REFERENCE_FRAMES",
