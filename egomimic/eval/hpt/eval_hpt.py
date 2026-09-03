@@ -68,7 +68,13 @@ def keypoint_mse(pred, gt, mse):
     )
 
 
-def arc_matched_resample(traj: np.ndarray, distance: float, num_points: int):
+def arc_matched_resample(
+    traj: np.ndarray,
+    distance: float,
+    num_points: int,
+    *,
+    include_rotation: bool = False,
+):
     """Resample one (T, 14) cartesian chunk to ``num_points`` samples spaced
     uniformly in ARC LENGTH over the first ``distance`` metres of travel.
 
@@ -87,12 +93,19 @@ def arc_matched_resample(traj: np.ndarray, distance: float, num_points: int):
     being padded with a held endpoint.
 
     Returns (num_points, 8): [Lxyz, Lgrip, Rxyz, Rgrip].
+
+    With ``include_rotation=True`` the SLERPed rotation is carried through as
+    well and the return is (num_points, 14): [Lxyz, Lypr, Lgrip, Rxyz, Rypr,
+    Rgrip] -- the same per-arm layout as a 14-dim cartesian chunk. Position and
+    gripper columns are bit-identical to the 8-dim form, so a caller can slice
+    them back out and get the same numbers. Rotation never influences the arc
+    parameterisation either way: ``cum`` is built from position alone.
     """
     traj = np.asarray(traj, dtype=np.float64)
     slots = _ARM_SLOTS_BY_DIM.get(traj.shape[-1])
     if slots is None:
         return None
-    out = np.zeros((num_points, 8), dtype=np.float64)
+    out = np.zeros((num_points, 14 if include_rotation else 8), dtype=np.float64)
     for arm, (xs, ys, gi) in enumerate(slots):
         pos = traj[:, xs : xs + 3]
         ypr = traj[:, ys : ys + 3]
@@ -105,11 +118,17 @@ def arc_matched_resample(traj: np.ndarray, distance: float, num_points: int):
         )
         cum = cumulative_arc_length(pos)
         end_s = float(min(distance, cum[-1]))
-        p, _, g = resample_by_distance(
+        p, y, g = resample_by_distance(
             pos, ypr, grip, cum, 0.0, end_s, num_points, start_idx=0
         )
-        out[:, arm * 4 : arm * 4 + 3] = p
-        out[:, arm * 4 + 3] = g[:, 0]
+        if include_rotation:
+            o = arm * 7
+            out[:, o : o + 3] = p
+            out[:, o + 3 : o + 6] = y
+            out[:, o + 6] = g[:, 0]
+        else:
+            out[:, arm * 4 : arm * 4 + 3] = p
+            out[:, arm * 4 + 3] = g[:, 0]
     return out
 
 

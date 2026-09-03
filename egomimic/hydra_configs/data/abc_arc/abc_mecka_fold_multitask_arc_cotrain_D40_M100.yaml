@@ -1,0 +1,276 @@
+# ALL EPISODES INCLUDED. Images are resized to a per-embodiment common size via
+# `image_hw` on each resolver, and each episode's intrinsics are rescaled by the
+# same per-axis factors (ZarrDataset._scale_intrinsics), so overlays stay exact.
+# This replaces the earlier 26-episode drop: a batch cannot mix image sizes, and
+# this data does (640x480 / 640x360 / 1280x720 / 848x480). All 26 were verified
+# through the real viz func first -- drawn-vs-expected 2.4-3.4 px on every one.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/arc-training
+      # every episode resized to this (H, W); K rescaled to match
+      image_hw: [360, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: arc_tokenizer_cartesian_gripper_padded
+        coord_frame: eef_frame
+        rotation_mode: euler
+        stride: 1
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - >-
+          lambda row: row['episode_hash'] in {
+          '692de240996d7b24ba715c0f', '2026-04-30-10-17-51-809429', '2026-05-01-03-32-11-104427', '2026-05-01-03-33-21-066557', '2026-05-01-03-34-58-568110', '2026-05-01-03-36-16-725784', '2026-05-01-03-37-26-030043', '2026-05-01-03-39-05-615278', '2026-05-01-03-40-00-693562', '2026-05-01-03-40-58-546479', '2026-05-01-03-43-32-679720', '2026-05-01-03-44-44-299099', '2026-05-01-03-47-33-308269', '2026-05-01-03-49-25-213637', '2026-05-01-03-51-03-593016', '2026-05-01-03-51-40-423876', '2026-05-01-03-52-54-450443', '2026-05-01-03-54-03-098124', '2026-05-01-03-54-39-396170', '2026-05-01-03-56-43-346636', '2026-05-01-03-57-29-122354', '2026-05-01-03-57-33-046437', '696a1b1176b41c2326097747', '696ba3b9a491d5abbd79528b', '696ba3f375020a567fd375b4',
+          '696bc11770d628f8b0742337', '696bc17eed8ed158122ec6a3', '696bc7e021d8e8ab8ddc8380', '696bcbe0e13d37dd4293f58b',
+          '696bcbe86377d0871b6a9253', '696bcc71ed8ed158122ec794', '696bcd7c1376c8db5e3154a4', '696bce8dcd29fb97fb107f44',
+          '696bcebfd3cc9dc76c561899', '696bd14770d628f8b074249e', '696bd1efd99e01dc631f3f13', '696bd310a907c8962e22a9fa',
+          '696bd324d1a6773989721fd3', '696bd3fac426c607c88b2fa0', '696bd77693818b7b258ec43b', '696bd78eb0b2b22cc0d1f867',
+          '696bd7fc8688d0ceb96d3e76', '696bdafd476e9a6e777fffde', '696bdc47cfb39c7ef2d48e64', '2026-04-19-06-34-10-755495', '2026-04-20-08-23-31-628161', '2026-04-20-08-23-56-674828', '2026-04-20-08-24-37-194612',
+          '2026-04-20-08-25-00-939612', '2026-04-20-08-25-19-916278', '2026-04-20-08-25-25-917945', '2026-04-20-08-25-46-396278',
+          '2026-04-20-08-26-04-337704', '2026-04-23-21-30-59-659756', '2026-05-06-07-42-57-283393', '2026-05-07-16-00-09-613594',
+          '2026-05-08-13-55-59-596418', '2026-05-08-19-40-28-116411', '2026-05-08-19-40-45-659745', '2026-05-08-19-40-57-431411',
+          '2026-05-08-19-41-06-703078', '2026-05-08-19-41-21-976411', '2026-05-08-19-41-29-414054', '2026-05-18-16-39-52-459341',
+          '2026-05-20-06-44-47-960856', '2026-05-20-06-45-13-504156', '2026-05-20-06-48-46-673418', '2026-05-20-06-50-12-952281',
+          '2026-05-20-06-50-26-070896', '2026-05-20-06-50-34-563296', '2026-05-24-00-05-00-392352', '2026-05-27-07-17-52-017500',
+          '2026-06-01-19-50-27-884405', '2026-06-02-09-48-16-538412', '2026-06-02-09-49-27-196979', '2026-06-02-09-49-39-335312',
+          '2026-06-02-09-52-58-670412', '2026-06-02-09-53-10-007079', '2026-06-02-09-53-43-918830', '2026-06-02-09-54-26-300497',
+          '2026-06-02-09-54-33-203830', '2026-06-02-09-54-42-573830', '2026-06-02-09-54-51-943830', '2026-06-02-09-55-01-012164',
+          '2026-06-04-01-40-22-277441', '2026-06-07-05-07-08-573756', '2026-06-07-05-07-29-854240', '2026-06-07-05-17-08-392908',
+          '2026-06-07-05-17-14-096241', '2026-06-07-05-17-33-675411', '2026-06-07-05-22-19-844150', '2026-06-07-05-26-10-947058',
+          '2026-06-07-05-26-17-952058', '2026-06-12-21-09-10-073549', '2026-06-12-21-09-48-653964', '2026-06-12-21-10-17-764545',
+          '2026-06-12-21-10-26-000656', '2026-06-15-19-31-35-029317', '2026-06-15-19-34-09-885969', '2026-06-15-19-34-28-659302',
+          '2026-06-15-19-35-32-014845', '2026-06-15-19-35-42-151512', '2026-06-15-19-35-52-121512', '2026-06-15-19-36-17-829845',
+          '2026-06-15-19-36-46-641512', '2026-06-15-19-37-12-016512', '2026-06-15-19-40-51-025933', '2026-06-15-19-43-10-308373',
+          '2026-06-15-19-43-37-018633', '2026-06-15-19-44-53-311967', '2026-06-15-19-45-06-015300', '2026-06-15-19-45-37-194216',
+          '2026-06-15-19-46-16-607550', '2026-06-15-19-46-43-015883', '2026-06-15-19-47-24-464589', '2026-06-15-19-48-30-021256',
+          '2026-06-15-19-48-40-057923', '2026-06-15-19-48-52-962923', '2026-06-15-19-49-35-776878', '2026-06-15-19-49-58-151878',
+          }
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/arc-training
+      # every episode resized to this (H, W); K rescaled to match
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: arc_tokenizer_cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - >-
+          lambda row: row['episode_hash'] in {
+          '005b8d62-8122-4491-9e79-cc906f124b3d', '01e15bb8-9327-4eeb-a29b-d6c7ec9846dc', '08b66bc5-6e01-4309-84a5-be27e986a4f2', '0cfd7e41-7e40-45ce-ba69-0ece1209ec26', '04158fbd-15a0-4649-94a1-55ebff4f8190', '0419ada0-2423-41bb-be49-fdcb2c7bfe6f', '0558ac9b-f5d1-4b24-a908-3ea6de8aa7b2',
+          '05c20284-72ce-4d0d-9001-be0ac6e6b3b2', '0683bd04-c4fe-4fef-b351-46f3445937be', '075c3325-7f3d-4d37-859e-4f1213cfae63', '07b8adfb-8e37-4509-8696-ead563ce48f3',
+          '07c4bb9c-2ca9-4f97-a78c-7c7507c8c486', '09002751-5f58-486d-bfe2-d9de2e578bab', '0a00c35d-575e-4259-b009-5b989582d19b', '0d271b71-0733-42b7-8ffa-f822a924a7ac',
+          '0e4be14d-cdca-4a70-98e0-45e0dc6fec6a', '0f3421cb-0087-494d-9b74-a9676dc54657', '10c26e97-34fa-4d72-957c-37a8f4c932df', '116afd4b-324f-4a54-985f-7578bc703ed7',
+          '11806d45-19a7-477c-9100-a57d4b188b66', '11ce5385-4d26-4497-bdc6-48fcc0920a54', '123ab50c-08e7-4dd4-8f0c-4aaba841ba39', '12d3858f-b3ea-417e-81c5-122387a09211',
+          '12edfd68-5d08-4b23-a8b9-76e22d3708b1', '14981aea-6750-431c-8e8b-03486ea99392', '14ec0e41-0c98-4538-9b89-e425a8079f4a', '16615a53-9a56-4c16-8120-fc1f0d3f6aaa',
+          '171b781b-b7f7-473e-aca3-d3458ed7e73e', '1788f453-d7aa-4b2c-a65d-a96c034c6657', '1a6c0425-909b-4bdb-bbe2-6910c1584bb3', '1d5f2024-6d68-4b41-b779-5a8cf9c0ca02',
+          '1dcb1889-abd1-46c3-8af5-86b4a84027ca', '1f2ae049-ef5b-4972-be4f-8e1989bbc97d', '20396e29-835f-44bc-8cb8-6b2bc48e139a', '21ad6ee9-434a-407a-aa7d-b265bdbe178d',
+          '21c0325a-aa20-424b-9bbb-529126144175', '21c5ca92-6075-4053-96e4-d3516fd04df1', '2206b8bf-8979-44e1-9aee-7ec2ffe4a9b1', '22216482-8d8c-4c1d-8a6f-0b42dd926cdf',
+          '005ff299-5012-4f56-9290-822b501bd18c', '0084c6b0-5f54-447d-89a7-a8128dbb575f', '00ccfc76-556f-4d42-8373-d5a39a4ea0d2', '00d173bd-ec51-4218-94fc-e08f47f0f3ef',
+          '01483d98-7b89-4c36-af98-97f8a0992389', '01e88264-4270-4829-a815-bf8adbf57f77', '0201935a-d547-40d9-9cb9-9260b0f0e413', '0219e207-a103-4784-abf0-4f9b65f53593',
+          '0267c40b-090f-45eb-b662-f9c62523f922', '027cf255-f44c-4910-99dc-199420aa1fdd', '0287245c-2de3-45cf-97e0-4a6b38cdbf1a', '029bef4e-582d-42cc-9f61-c1cedc93aece',
+          '02f7a953-ee93-4681-a65d-46531be15ce4', '03848beb-808a-46a1-a234-21da46c053e9', '03a424f6-ccf1-4004-af79-c121f880f599', '03bebf21-3efb-4e1e-b723-a88bffa4fe39',
+          '045e3b7e-49fd-47b5-a527-62fc285fd1cc', '047dea08-d523-4234-bb80-412d22a3647b', '049afbd9-f7d9-4e1f-b8f8-f8bc75f4b03a', '04a442e5-eb0a-42b0-ab51-581323d39e8f',
+          '05660db0-30d7-4235-bda6-22b87ffee4c3', '0602ef77-f0db-4a0f-b823-225714f0ae8a', '062e29bb-d4fb-44c9-be7f-7f7b884e87c1', '06629b3f-1fc3-48f7-899b-7110d26a711f',
+          '06a1047a-9ccf-45e6-bce0-5de0f17dc92a', '06cc66dd-1147-4da9-933c-6041e764e806', '06e1238a-adbe-4ea0-b597-61e88b188202', '06e25b3a-60cf-4bf7-8c76-b4ae70188288',
+          '071cab6e-71fc-4150-b4df-2f2a4fec0dad', '08168afa-d892-4dba-87cc-f0859af6c356', '081d42cd-e10f-4655-8913-4e647b2a1dac', '085b7277-aaad-4a54-8461-39f1b3b2f7cc',
+          '090823db-2130-4b19-bbff-323a752bc372', '092bf193-df96-44ba-a2be-8ad15349eadc', '0931f2ac-e1bf-46d1-8ca9-d94cf7b91347', '0964575e-5ca7-4dd8-83f9-a38386cfda5f',
+          '097fd189-2775-4be1-b020-02a86202c9f3', '09b560b4-dd35-4a3a-8c2f-11cf3bc3e0cb', '09ef77a2-e31f-412d-b545-1f1ea1f5d939', '0a3a9111-4c40-4bb9-9ceb-fb8702a7c3e9',
+          '0af57436-ae9e-4098-84e3-cfdceeddd0de', '0b04b286-75be-4fe9-b935-4c752210686c', '0b090f06-a780-4c45-b4de-3cc446d679b0', '0b0d74c0-fc2d-4a8b-b8f6-34031f4647ab',
+          '0b186c80-622b-4bb3-8871-b3d59e9b2d68', '0bfbe66b-0337-4bc9-9473-a9a42c729ba0', '0c735b2e-55b0-42a8-86b5-6a483eea5ce1', '0d55e601-ce45-42d1-b348-a782a3c3a8b9',
+          '0d8cae15-3ac2-472a-8992-b0bbd660b660', '0d9f6e41-a272-420d-aa47-d8bd97fdafc9', '0da12dea-c9fd-4ed4-a72f-a834b22f955b', '0dad872b-ff31-4592-9899-a86e30ac3878',
+          '0e887fa4-e4cd-4138-a4e1-7f9bd8eb18f6', '0e8d78f8-18f2-41e6-8750-7634863d208c', '0f058936-5a78-4fb9-9fba-7696f8793751', '0f6d3f93-627c-444c-8178-0c7ebcaf2284',
+          '0f791244-bbb7-408d-a462-ee259ec963f1', '0ff6752f-3250-4bed-9490-6edca1638d22', '1028cb45-1524-4987-834b-97cf1054b1df', '0135c570-18f2-40dd-a5d4-da1750834d7f',
+          '0171a007-e6cc-44d5-8cfd-6b04540b22e0', '03271802-f5b0-4423-8168-66eeabf5855f', '034ad89c-5109-4f28-8e35-08b149e51b09',
+          '034d0623-80c9-4399-9c08-9c014dfbcb3c', '0408ca94-16cd-467e-b525-c953cac16d4f', '046f29c3-f8fe-42d0-92ed-9ff5ccd02789', '04989df0-b8e5-4db7-a9c3-2bd86673e785',
+          '04a69a6b-9eea-42b6-9502-649ab5dcf79d', '061e3d43-d0af-42bb-9f9e-807d1d26430a', '07d6b807-86bd-4358-883d-75287159610d', '0847e183-5897-4bb2-8d4f-9f96bbfa4d4c',
+          '09423a34-d358-42f3-83bd-053d6a8b5050', '0a0baf09-8357-4cb4-b38f-3d902885acb5', '0c632be4-be45-4326-a768-5f37581fc51a',
+          }
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+# Duplicated (not interpolated) so hydra.utils.instantiate can resolve without
+# needing to walk up to `train_datasets` after it's been mutated in place.
+#
+# GROUPED shape: {group: {embodiment: dataset}}. Each group is a separate val
+# loop, run in the order written here. The group named `valid` is the default
+# one -- its metrics stay `Valid/...` and its videos stay in
+# videos/epoch_N/{embodiment}/, so this run overlays on charts from runs that
+# predate val groups. Every other group is namespaced.
+#
+# valid_ratio: 1.0 takes the WHOLE allowlist as validation (split_dataset_names
+# puts int(len * 1.0) == len names in the valid set). These episodes are
+# excluded from the train allowlists above, so there is nothing to hold back.
+valid_datasets:
+
+  # IN-DOMAIN: held-out trajectories of the tasks the model trains on. This is
+  # the control -- if these do not come down, the transfer number below means
+  # nothing.
+  valid:
+    human_bimanual:
+      # 2 held-out episodes each from mecka/folding_clothes,
+      # scale/freeform_folding_clothes and microagi fold*shorts.
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /coc/flash7/scratch/arc-training
+        # every episode resized to this (H, W); K rescaled to match
+        image_hw: [360, 640]
+        key_map:
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: arc_tokenizer_cartesian
+        transform_list:
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          action_mode: arc_tokenizer_cartesian_gripper_padded
+          coord_frame: eef_frame
+          rotation_mode: euler
+          stride: 1
+          min_distance_unit: 0.40
+          resampled_vector_length: 100
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+            - >-
+              lambda row: row['episode_hash'] in {
+              '69b4ae0a7b8718172195a07c', '2026-05-01-06-56-31-406083', '2026-05-01-22-31-17-295310', '69b9e68cd8d59e6ae34c0e1b', '2026-06-16-09-35-29-246427', '2026-06-16-17-51-19-724900',
+              }
+      mode: valid
+      valid_ratio: 1.0
+      bounds_check: false
+
+    yam_bimanual:
+      # 2 held-out episodes each from trousers, skirts and
+      # long sleeve shirts.
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /coc/flash7/scratch/arc-training
+        # every episode resized to this (H, W); K rescaled to match
+        image_hw: [480, 640]
+        key_map:
+          _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+          keymap_mode: arc_tokenizer_cartesian
+        transform_list:
+          _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+          action_mode: arc_tokenizer_cartesian
+          coord_frame: eef_frame
+          rotation_mode: euler
+          min_distance_unit: 0.40
+          resampled_vector_length: 100
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+            - >-
+              lambda row: row['episode_hash'] in {
+              '4da9408d-bea0-44f1-9165-5ebdb042587b', 'd879954a-d7b6-4b8c-9f15-baede5104617', 'da1fa91b-b5a6-473b-bae9-208b6336dcf3', 'c5d349ea-20e9-4988-a971-10c332c916ad', '9b23163c-09b8-4c4f-94fa-f26e6b1679d8', 'b14d4545-cef1-4d7a-b6f2-3ff9a843bb87',
+              }
+      mode: valid
+      valid_ratio: 1.0
+      bounds_check: false
+
+  # HELD-OUT TASKS: neither appears in any train split. Logs under
+  # `Valid_newtask/...` with videos in videos/epoch_N/newtask/{embodiment}/.
+  newtask:
+    human_bimanual:
+      # mecka / 'fold_clothes' -- 6 of 1,607 eps, 1,170 frames.
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /coc/flash7/scratch/arc-training
+        # every episode resized to this (H, W); K rescaled to match
+        image_hw: [360, 640]
+        key_map:
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: arc_tokenizer_cartesian
+        transform_list:
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          action_mode: arc_tokenizer_cartesian_gripper_padded
+          coord_frame: eef_frame
+          rotation_mode: euler
+          stride: 1
+          min_distance_unit: 0.40
+          resampled_vector_length: 100
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+            - >-
+              lambda row: row['episode_hash'] in {
+              '692e8585aec602a46af10263', '692e8586aec602a46af1026c', '692e90f07641010d043544f3', '692ea0ee3019385fbbf5674e',
+              '692ea2a9ba0400c70689fe66', '692ea7ccc609aae267b2796b',
+              }
+      mode: valid
+      valid_ratio: 1.0
+      bounds_check: false
+
+    yam_bimanual:
+      # 'fold and stack the shorts' -- the headline transfer
+      # metric. 6 of 547 eps, 6,943 frames.
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /coc/flash7/scratch/arc-training
+        # every episode resized to this (H, W); K rescaled to match
+        image_hw: [480, 640]
+        key_map:
+          _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+          keymap_mode: arc_tokenizer_cartesian
+        transform_list:
+          _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+          action_mode: arc_tokenizer_cartesian
+          coord_frame: eef_frame
+          rotation_mode: euler
+          min_distance_unit: 0.40
+          resampled_vector_length: 100
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+            - >-
+              lambda row: row['episode_hash'] in {
+              '68d315af-385c-49db-84b8-32bb30dcfe4a', '2cf9c1ae-411f-4aad-a5f0-28edb5ec82f2', '9d32a6b6-ddf9-43ff-9af7-a87e3c47ad73', 'b9b381ef-1fcd-4e61-9b8c-febd46275b91', 'ddee867c-e895-4013-b49c-f8c9daccffcc', '7d89688c-dced-4e93-82f9-cc311b514253', }
+      mode: valid
+      valid_ratio: 1.0
+      bounds_check: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 6
+
+# Keyed by embodiment, not by group, so both val groups share these. Key by
+# group name instead ({group: {embodiment: params}}) to differ per group.
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 6

@@ -1,0 +1,69 @@
+# Arc-matched EEF-frame validation at D = 0.40 m, M = 100.
+#
+# Accepts BOTH arc-tokenized and time-indexed runs -- arc detection is by
+# sequence length, so a baseline chunk passes straight through instead of being
+# detokenized. Every metric is arc-matched (clip to the first D metres of
+# travel, resample to N points spaced uniformly in arc length), and the names
+# carry no hint of the action space, so an arc run and a baseline run emit
+# identically named numbers that overlay on one chart:
+#
+#   Valid/{emb}_actions_cartesian_arcmatch_paired_mse_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_xyz_mse_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_final_xyz_l2_m_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_rot_geodesic_deg_avg
+#
+# The rotation metric is GEODESIC -- the angle of the single rotation carrying
+# gt to pred -- not a per-axis ypr difference. ypr differences are frame
+# dependent and break at wraparound and gimbal lock, so they cannot be compared
+# across runs; the geodesic angle is frame invariant and reads in degrees.
+#
+# Metrics are EEF-frame only, which loses nothing: the camera revert is a rigid
+# transform applied to prediction and ground truth alike, and the resampled
+# vector is positions + gripper, so the values are frame-invariant (measured
+# agreement ~2e-11).
+defaults:
+  - viz@viz_func: cartesian/base
+  - _self_
+
+_target_: egomimic.eval.eval_eef_arcmatch.EefArcMatchEval
+
+# arc-tok data carries no annotations; viz_gt_preds would try to read
+# `sampled_prompt` and crash at the first validation step.
+viz_func:
+  yam_bimanual:
+    annotation_key: null
+  eva_bimanual:
+    annotation_key: null
+  human_bimanual:
+    annotation_key: null
+  human_right_arm:
+    annotation_key: null
+  human_left_arm:
+    annotation_key: null
+
+# The arc grid the metrics are scored on. Two runs are comparable only if they
+# share these, so they are pinned here rather than left to the caller.
+arc_match_distance: 0.40
+arc_match_points: 100
+
+# Detokenizer settings, consulted only when the run IS arc. They must match what
+# the data pipeline tokenized with (D40 / M100) or the reconstruction runs at
+# the wrong speed.
+min_distance_unit: 0.40
+resampled_vector_length: 100
+rollout_horizon: 100
+
+# Used for the val VIDEO, not for metrics: the overlay projects through K and
+# needs camera-frame poses to sit on the hands/grippers. Human trains on
+# *_gripper_padded (14D [L pose, L grip, R pose, R grip]), so gripper_padded
+# must be true or the split reads L-grip plus the first 5 columns of R-pose as
+# the right arm.
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
+    is_quat: false
+    gripper_padded: true
+  yam_bimanual:
+    _target_: egomimic.rldb.embodiment.yam._build_yam_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+    to_camera_frame: true
