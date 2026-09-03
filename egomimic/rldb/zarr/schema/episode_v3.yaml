@@ -1,19 +1,26 @@
 # The declarative portion of the episode contract.
 #
 # This file selects fields and named checks, supplies their parameters, and
-# assigns failure severity. `validate.py` implements the schema interpreter and
-# the named check predicates referenced here.
+# assigns each rule a severity class. `validate.py` implements the schema
+# interpreter and the named check predicates referenced here.
 #
 # Run it with:
-#   python -m egomimic.rldb.zarr.validate <episode.zarr> [--strict]
+#   python -m egomimic.rldb.zarr.validate <episode.zarr> [RULE FLAGS]
 #
 # ---------------------------------------------------------------------------
 # attributes
-#   required   true | false | strict
-#              For a missing attribute or array, `true` emits an error, `false`
-#              emits no finding, and `strict` emits a warning unless --strict
-#              promotes it to an error. Present attributes and arrays must meet
-#              their declared type and shape regardless of this setting.
+#   required   true | false. A missing required attribute or array emits a
+#              finding. An optional field emits no finding when absent.
+#   severity   integrity | adoption | coverage
+#              Integrity findings are always errors. Adoption and coverage
+#              findings are errors unless their named rule is waived for this
+#              invocation. Present fields must meet their declared type and
+#              shape even when their presence requirement is waived.
+#   name       Stable rule name when the attribute or key is not the desired
+#              CLI flag stem. Dashes replace underscores in CLI flags.
+#   why        User-facing reason for a waivable rule. This is required because
+#              the schema generates CLI help and must explain what accepting a
+#              gap gives up without relying on a separate rollout document.
 #   type       str | int | bool | mapping
 #   min        smallest accepted value for an int
 #   choices    the accepted values
@@ -21,14 +28,16 @@
 #
 # checks
 #   name       a predicate implemented in `validate.py`
-#   required   controls the severity of a predicate failure as described above
+#   required   whether a predicate failure emits a finding
+#   severity   controls whether that finding can be waived, as described above
 #   <other>    predicate-specific parameters
 #
 # arrays
 #   key        an array key. `{side}` expands over arity-derived candidates,
 #              filtered by resolved end-effectors; `*` selects stored matches.
-#   required   true | false | strict, as above. A wildcard key is never
-#              required.
+#   required   true | false, as above. A wildcard key is never required.
+#   severity   controls missing-key severity. Shape and dtype failures are
+#              integrity errors for every array, including a waived one.
 #   when       conditions on the resolved embodiment; skip the rule when any
 #              condition does not hold
 #   shape      expected dimensions, see below
@@ -57,48 +66,69 @@ known_versions: [v3.0, v3.1]
 attributes:
   embodiment:
     required: true
+    severity: integrity
     type: str
     check: embodiment_name
   total_frames:
     required: true
+    severity: integrity
     type: int
     min: 1
   fps:
     required: true
+    severity: integrity
     type: int
     min: 1
-  # `complete` or `structural_sample`. An episode written before this
-  # attribute existed reads as complete, so it is required only under --strict.
   data_status:
-    required: strict
+    required: true
+    severity: adoption
+    why: >-
+      Require an explicit data status so an incomplete structural sample
+      cannot inherit the legacy "complete" default and enter training.
     type: str
     choices: [complete, structural_sample]
   task_name:
     required: true
+    severity: integrity
     type: str
   task_description:
     required: false
+    severity: integrity
     type: str
   features:
     required: true
+    severity: integrity
     type: mapping
   schema_version:
-    required: strict
+    required: true
+    severity: adoption
+    why: >-
+      Require a schema version so readers can select the episode contract
+      explicitly instead of inferring it from whichever fields are present.
     type: str
     check: schema_version
   morphology:
     required: false
+    severity: integrity
     type: mapping
     check: morphology
   calibration:
-    required: strict
+    name: calibration_block
+    required: true
+    severity: adoption
+    why: >-
+      Require the calibration block so camera models, distortion, resolution,
+      and frame relationships are explicit; waive only when legacy calibration
+      attributes contain enough information for the compatibility reader.
     type: mapping
     check: calibration
   intrinsics:
     required: false
+    severity: integrity
     type: mapping
   extrinsics:
     required: false
+    severity: integrity
     type: mapping
 
 checks:
@@ -106,16 +136,22 @@ checks:
   # block or lifted from the legacy attributes.
   - name: calibration_present
     required: true
+    severity: integrity
 
   # Match each stored `images.<camera>` stream to a camera entry carrying K.
-  # This remains a warning without --strict during the compatibility rollout.
   - name: camera_coverage
-    required: strict
+    required: true
+    severity: coverage
+    why: >-
+      Require a camera matrix for every image stream because projection and
+      reprojection checks cannot interpret an uncalibrated view; waive only
+      after explicitly accepting that physical calibration gap.
 
   # For a listed 7D pose track with at least two retained rows, reject identical
   # rows or more than 1% exact +identity/-identity quaternions.
   - name: pose_degeneracy
     required: true
+    severity: integrity
     suffixes: [obs_ee_pose, cmd_ee_pose, obs_head_pose]
     identity_rotation_fraction: 0.01
 
@@ -123,24 +159,32 @@ checks:
   # numerically identity `base_T_cam` composed for an arm and the default camera.
   - name: calibration_degeneracy
     required: true
+    severity: integrity
 
   # Reject the exact synthetic-intrinsics signature `fx == fy == width`,
   # `cx == width / 2`, and `cy == height / 2`.
   - name: intrinsics_signature
     required: true
+    severity: integrity
 
   # Reject non-increasing retained timestamps, stored keys containing
   # `relative_timestamp`, and a power-of-two step GCD of at least 64 ns (the
   # heuristic signature of float seconds converted to integer nanoseconds).
   - name: timestamps
     required: true
+    severity: integrity
     key: obs_rgb_timestamps_ns
     banned_key_substrings: [relative_timestamp]
 
   # Valid annotation intervals must jointly cover at least 90% of
-  # `[0, total_frames)`. Keep this transitional rule strict-only.
+  # `[0, total_frames)`.
   - name: annotation_coverage
-    required: strict
+    required: true
+    severity: coverage
+    why: >-
+      Require annotations to cover at least 90% of retained frames because an
+      unlabelled tail gives those frames no reliable language target; waive
+      only after accepting the gap instead of annotating or trimming the tail.
     key: annotations
     minimum: 0.9
 
@@ -148,12 +192,14 @@ checks:
   # structured metadata needs a separate schema field.
   - name: annotation_text
     required: true
+    severity: integrity
     key: annotations
     banned_delimiters: [" | "]
 
 arrays:
   - key: "{side}.obs_ee_pose"
     required: true
+    severity: integrity
     shape: [T, 7]
     dtype: float
     # Observed end-effector-root pose. Require one for every resolved side,
@@ -161,58 +207,72 @@ arrays:
 
   - key: "{side}.cmd_ee_pose"
     required: false
+    severity: integrity
     shape: [T, 7]
     dtype: float
 
   - key: "{side}.obs_joints"
     when: {has_arm_chain: true}
     required: false
+    severity: integrity
     shape: [T, arm_dof]
     dtype: float
 
   - key: "{side}.cmd_joints"
     when: {has_arm_chain: true}
     required: false
+    severity: integrity
     shape: [T, arm_dof]
     dtype: float
 
   - key: "{side}.obs_gripper"
     when: {end_effector_class: parallel_jaw}
     required: true
+    severity: integrity
     shape: [T, 1]
     dtype: float
 
   - key: "{side}.cmd_gripper"
     when: {end_effector_class: parallel_jaw}
     required: true
+    severity: integrity
     shape: [T, 1]
     dtype: float
 
   - key: "{side}.obs_keypoints"
     when: {end_effector_class: human_hand}
     required: true
+    severity: integrity
     shape: [T, kp3]
     dtype: float
 
   - key: obs_head_pose
     when: {platform_kind: human}
     required: true
+    severity: integrity
     shape: [T, 7]
     dtype: float
 
   # Canonical RGB timestamp array. When present it must be one-dimensional,
-  # integer-valued, and at least `total_frames` long. Presence is strict-only.
+  # integer-valued, and at least `total_frames` long.
   - key: obs_rgb_timestamps_ns
-    required: strict
+    name: rgb_timestamps
+    required: true
+    severity: coverage
+    why: >-
+      Require integer UTC-nanosecond RGB timestamps so streams can be aligned
+      without reconstructing the capture clock after the recording is over.
     shape: [T]
     dtype: int
 
   - key: "images.*"
     required: false
+    severity: integrity
     shape: [T]
     dtype: object
 
   - key: annotations
     required: false
+    severity: integrity
     shape: ["*"]
     dtype: object

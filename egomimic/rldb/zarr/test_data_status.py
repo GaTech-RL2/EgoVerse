@@ -87,17 +87,19 @@ def test_the_validator_reads_and_checks_the_status(tmp_path) -> None:
     _write(tmp_path / "legacy.zarr")
     store = zarr.open_group(str(tmp_path / "legacy.zarr"), mode="a")
     del store.attrs["data_status"]
-    lenient = validate_episode(tmp_path / "legacy.zarr")
-    strict = validate_episode(tmp_path / "legacy.zarr", strict=True)
+    required = validate_episode(tmp_path / "legacy.zarr")
+    waived = validate_episode(
+        tmp_path / "legacy.zarr", requirements={"data_status": False}
+    )
     statuses = {
-        "lenient": next(
-            f.level for f in lenient.findings if f.check == "attrs.data_status"
+        "required": next(
+            f.level for f in required.findings if f.check == "attrs.data_status"
         ),
-        "strict": next(
-            f.level for f in strict.findings if f.check == "attrs.data_status"
+        "waived": next(
+            f.level for f in waived.findings if f.check == "attrs.data_status"
         ),
     }
-    assert statuses == {"lenient": WARNING, "strict": ERROR}
+    assert statuses == {"required": ERROR, "waived": WARNING}
 
 
 def test_the_validator_rejects_an_unknown_status(tmp_path) -> None:
@@ -105,7 +107,9 @@ def test_the_validator_rejects_an_unknown_status(tmp_path) -> None:
     store = zarr.open_group(str(tmp_path / "odd.zarr"), mode="a")
     store.attrs["data_status"] = "in_review"
 
-    report = validate_episode(tmp_path / "odd.zarr")
+    report = validate_episode(
+        tmp_path / "odd.zarr", requirements={"data_status": False}
+    )
 
     finding = next(f for f in report.findings if f.check == "attrs.data_status")
     assert finding.level == ERROR

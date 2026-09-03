@@ -249,9 +249,7 @@ def test_uncalibrated_cameras_lists_streams_without_a_matrix() -> None:
     assert uncalibrated_cameras(["left.obs_gripper"], None) == []
 
 
-def test_coverage_is_a_warning_by_default_and_an_error_under_strict(
-    tmp_path, caplog
-) -> None:
+def test_writer_camera_coverage_can_be_required_explicitly(tmp_path, caplog) -> None:
     images = {
         "images.front_1": np.zeros((4, 8, 8, 3), dtype=np.uint8),
         "images.left_wrist": np.zeros((4, 8, 8, 3), dtype=np.uint8),
@@ -266,14 +264,16 @@ def test_coverage_is_a_warning_by_default_and_an_error_under_strict(
 
     with pytest.raises(ValueError, match=r"no camera matrix.*left_wrist"):
         _write_episode(
-            tmp_path / "strict.zarr",
+            tmp_path / "required.zarr",
             image_data=images,
             intrinsics={"front_1": K_FRONT},
-            strict=True,
+            require_camera_coverage=True,
         )
 
 
-def test_full_coverage_passes_under_strict(tmp_path, caplog) -> None:
+def test_full_coverage_passes_when_camera_coverage_is_required(
+    tmp_path, caplog
+) -> None:
     with caplog.at_level("WARNING"):
         _write_episode(
             tmp_path / "covered.zarr",
@@ -282,7 +282,7 @@ def test_full_coverage_passes_under_strict(tmp_path, caplog) -> None:
                 "reference_frame": "camera:front_1",
                 "cameras": {"front_1": {"K": K_FRONT.tolist()}},
             },
-            strict=True,
+            require_camera_coverage=True,
         )
     assert "no camera matrix" not in caplog.text
 

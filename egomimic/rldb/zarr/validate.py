@@ -2,13 +2,13 @@
 
 Run it with::
 
-    python -m egomimic.rldb.zarr.validate <episode.zarr> [--strict]
+    python -m egomimic.rldb.zarr.validate <episode.zarr> [RULE FLAGS]
 
-The schema declares attributes, arrays, conditions, thresholds, and severity.
-This module interprets those declarations and implements the named predicates.
-``--strict`` promotes failures marked ``required: strict`` from warnings to
-errors; validation of a present attribute or array is always an error when its
-declared type or shape is wrong.
+The schema declares attributes, arrays, conditions, thresholds, and severity
+classes. Integrity failures are always errors. Adoption and coverage failures
+are errors by default, and each such rule supplies a matched ``--<rule>`` /
+``--no-<rule>`` CLI pair. Validation of a present attribute or array is always
+an error when its declared type or shape is wrong.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import functools
 import json
+import re
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -46,8 +47,10 @@ ERROR = "error"
 WARNING = "warning"
 OK = "ok"
 
-#: Accepted values for a schema rule's ``required`` field.
-_REQUIRED_VALUES = (True, False, "strict")
+#: Accepted values for a schema rule's ``severity`` class.
+_SEVERITY_VALUES = ("integrity", "adoption", "coverage")
+_INTEGRITY = "integrity"
+_RULE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
 _TYPE_NAMES = {
     "str": str,
@@ -87,13 +90,13 @@ class Report:
         path: The episode directory.
         findings: Findings in validation order. A schema rule may emit zero,
             one, or multiple findings after key expansion.
-        strict: Whether ``required: strict`` failures are errors instead of
-            warnings.
+        requirements: Whether each waivable rule is required. A false value
+            means that the invocation reports that rule's failures as warnings.
     """
 
     path: Path
     findings: list[Finding] = field(default_factory=list)
-    strict: bool = False
+    requirements: dict[str, bool] = field(default_factory=dict)
 
     def add(self, level: str, check: str, message: str) -> None:
         self.findings.append(Finding(level, check, message))
@@ -132,7 +135,7 @@ class Report:
     def to_jsonable(self) -> dict[str, Any]:
         return {
             "path": str(self.path),
-            "strict": self.strict,
+            "requirements": self.requirements,
             "ok": self.ok,
             "findings": [
                 {"level": f.level, "check": f.check, "message": f.message}
@@ -143,36 +146,103 @@ class Report:
 
 @functools.lru_cache(maxsize=1)
 def load_schema() -> dict:
-    """Load the schema and validate every declared ``required`` value.
+    """Load the schema and validate its requirement declarations.
 
     Returns:
         The parsed schema.
 
     Raises:
-        SchemaError: If a rule declares an unsupported ``required`` value.
+        SchemaError: If a rule has an invalid requirement or severity class.
     """
     with SCHEMA_FILE.open("r") as f:
         schema = yaml.safe_load(f) or {}
-    rules = list(schema.get("attributes", {}).items())
-    rules += [(r.get("name"), r) for r in schema.get("checks", [])]
-    rules += [(r.get("key"), r) for r in schema.get("arrays", [])]
-    for name, rule in rules:
+    waivable_names = set()
+    for default_name, rule in _schema_rules(schema):
         required = rule.get("required", False)
-        if required not in _REQUIRED_VALUES:
+        if not isinstance(required, bool):
             raise SchemaError(
-                f"{name!r}: `required` must be one of "
-                f"{list(_REQUIRED_VALUES)}, got {required!r}"
+                f"{default_name!r}: `required` must be true or false, got {required!r}"
+            )
+        severity = rule.get("severity")
+        if severity not in _SEVERITY_VALUES:
+            raise SchemaError(
+                f"{default_name!r}: `severity` must be one of "
+                f"{list(_SEVERITY_VALUES)}, got {severity!r}"
+            )
+        if severity == _INTEGRITY:
+            continue
+        if not required:
+            raise SchemaError(
+                f"{default_name!r}: a waivable rule must be required by default"
+            )
+        name = _rule_name(default_name, rule)
+        if not _RULE_NAME.fullmatch(name):
+            raise SchemaError(
+                f"{default_name!r}: rule name {name!r} must use snake_case"
+            )
+        if name in waivable_names:
+            raise SchemaError(f"duplicate waivable rule name {name!r}")
+        waivable_names.add(name)
+        if not isinstance(rule.get("why"), str) or not rule["why"].strip():
+            raise SchemaError(
+                f"{default_name!r}: a waivable rule needs a non-empty `why`"
             )
     return schema
 
 
-def _level(required, strict: bool) -> str | None:
-    """Return a requirement failure's severity, or ``None`` when optional."""
-    if required is True:
+def _schema_rules(schema: Mapping):
+    """Yield ``(default_name, rule)`` pairs in schema order."""
+    yield from schema.get("attributes", {}).items()
+    yield from ((rule.get("name"), rule) for rule in schema.get("checks", []))
+    yield from ((rule.get("key"), rule) for rule in schema.get("arrays", []))
+
+
+def _rule_name(default_name: str, rule: Mapping) -> str:
+    """Return the stable name used by requirement overrides and CLI flags."""
+    return rule.get("name", default_name)
+
+
+def waivable_rules(schema: Mapping | None = None) -> dict[str, dict]:
+    """Return the schema rules whose failure severity callers may lower.
+
+    The schema owns the rule names and explanations so the validator cannot add
+    a waivable rule without also exposing a documented CLI flag for it.
+    """
+    schema = load_schema() if schema is None else schema
+    return {
+        _rule_name(default_name, rule): rule
+        for default_name, rule in _schema_rules(schema)
+        if rule.get("severity") != _INTEGRITY
+    }
+
+
+def _requirements(
+    schema: Mapping, overrides: Mapping[str, bool] | None
+) -> dict[str, bool]:
+    """Build one explicit error-or-warning decision per waivable rule."""
+    requirements = dict.fromkeys(waivable_rules(schema), True)
+    for name, required in (overrides or {}).items():
+        if name not in requirements:
+            raise SchemaError(
+                f"unknown waivable rule {name!r}; expected one of "
+                f"{sorted(requirements)}"
+            )
+        if not isinstance(required, bool):
+            raise SchemaError(
+                f"requirement for {name!r} must be a bool, got {required!r}"
+            )
+        requirements[name] = required
+    return requirements
+
+
+def _level(rule: Mapping, report: Report, default_name: str) -> str | None:
+    """Return a missing or failed requirement's invocation-specific level."""
+    if not rule.get("required", False):
+        return None
+    if rule["severity"] == _INTEGRITY:
         return ERROR
-    if required == "strict":
-        return ERROR if strict else WARNING
-    return None
+    name = _rule_name(default_name, rule)
+    return ERROR if report.requirements[name] else WARNING
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +266,7 @@ def _check_type(value, type_name: str | None) -> str | None:
 
 def _check_attribute(name: str, rule: dict, attrs: Mapping, report, context) -> None:
     if name not in attrs:
-        level = _level(rule.get("required", False), report.strict)
+        level = _level(rule, report, name)
         if level is not None:
             report.add(level, f"attrs.{name}", "missing")
         return
@@ -276,7 +346,7 @@ _ATTRIBUTE_CHECKS = {
 
 def _check_calibration_present(rule, context, report) -> None:
     calibration = context.get("calibration")
-    level = _level(rule.get("required", False), report.strict)
+    level = _level(rule, report, "calibration_present")
     if calibration is None or not calibration.intrinsics():
         if level is not None:
             report.add(
@@ -296,7 +366,7 @@ def _check_calibration_present(rule, context, report) -> None:
 
 def _check_camera_coverage(rule, context, report) -> None:
     missing = uncalibrated_cameras(context["array_keys"], context.get("calibration"))
-    level = _level(rule.get("required", False), report.strict)
+    level = _level(rule, report, "camera_coverage")
     if missing:
         if level is not None:
             report.add(
@@ -328,7 +398,7 @@ def _report_problems(rule, report, check: str, problems, passed: str) -> None:
     if not problems:
         report.add(OK, check, passed)
         return
-    level = _level(rule.get("required", False), report.strict)
+    level = _level(rule, report, check)
     if level is not None:
         report.add(level, check, "; ".join(problems))
 
@@ -611,7 +681,7 @@ def _dtype_kind(dtype) -> str:
 
 def _check_array(key: str, rule: dict, arrays: Mapping, report, context, side) -> None:
     if key not in arrays:
-        level = _level(rule.get("required", False), report.strict)
+        level = _level(rule, report, key)
         if level is not None:
             report.add(level, key, "missing")
         return
@@ -683,28 +753,32 @@ def _expand_key(template: str, arrays: Mapping, sides) -> list[tuple[str, str | 
 # ---------------------------------------------------------------------------
 
 
-def validate_episode(path: str | Path, *, strict: bool = False) -> Report:
+def validate_episode(
+    path: str | Path, *, requirements: Mapping[str, bool] | None = None
+) -> Report:
     """Validate one Zarr episode against ``schema/episode_v3.yaml``.
+
     Args:
         path: The episode ``.zarr`` directory.
-        strict: If true, treat ``required: strict`` failures as errors rather
-            than warnings.
+        requirements: Per-rule severity decisions. ``True`` reports a failure
+            as an error; ``False`` waives it to a warning. Omitted rules remain
+            required. Integrity rules cannot be overridden.
 
     Returns:
         The findings emitted while validating the episode.
 
     Raises:
-        SchemaError: If the schema contains an unsupported declaration.
+        SchemaError: If the schema or a requirement override is invalid.
     """
     path = Path(path)
-    report = Report(path=path, strict=strict)
+    schema = load_schema()
+    report = Report(path=path, requirements=_requirements(schema, requirements))
     try:
         store = zarr.open_group(str(path), mode="r")
     except Exception as exc:
         report.add(ERROR, "episode", f"cannot open as a zarr group: {exc}")
         return report
 
-    schema = load_schema()
     attrs = dict(store.attrs)
     arrays = {name: store[name] for name in store.array_keys()}
 
@@ -771,22 +845,26 @@ def _resolve(attrs: Mapping, report: Report) -> ResolvedEmbodiment | None:
     return None
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Validate CLI paths and return an exit status.
-
-    Returns:
-        ``0`` if every report has no errors, otherwise ``1``.
-    """
+def _build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser from the schema's waivable rules."""
     parser = argparse.ArgumentParser(
         prog="python -m egomimic.rldb.zarr.validate",
         description=__doc__.splitlines()[0],
     )
     parser.add_argument("paths", nargs="+", type=Path, help="episode .zarr paths")
-    parser.add_argument(
-        "--strict",
-        action="store_true",
-        help="promote the rules the corpus does not meet yet to errors",
-    )
+    for name, rule in waivable_rules().items():
+        flag = name.replace("_", "-")
+        # argparse performs %-interpolation on help text. Schema rationales are
+        # ordinary prose and may contain percentages such as the 90% coverage
+        # threshold, so escape them before handing the text to argparse.
+        help_text = rule["why"].replace("%", "%%")
+        parser.add_argument(
+            f"--{flag}",
+            dest=f"require_{name}",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help=f"[{rule['severity']}] {help_text} (default: required)",
+        )
     parser.add_argument(
         "-v",
         "--verbose",
@@ -796,9 +874,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--json", action="store_true", help="print one JSON report per episode"
     )
-    args = parser.parse_args(argv)
+    return parser
 
-    reports = [validate_episode(p, strict=args.strict) for p in args.paths]
+
+def main(argv: list[str] | None = None) -> int:
+    """Validate CLI paths and return an exit status.
+
+    Returns:
+        ``0`` if every report has no errors, otherwise ``1``.
+    """
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    requirements = {name: getattr(args, f"require_{name}") for name in waivable_rules()}
+    reports = [validate_episode(p, requirements=requirements) for p in args.paths]
     if args.json:
         print(json.dumps([r.to_jsonable() for r in reports], indent=2))
     else:

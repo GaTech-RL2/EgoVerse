@@ -327,7 +327,7 @@ class ZarrWriter:
         extrinsics: dict | None = None,
         calibration: Calibration | dict | None = None,
         data_status: str = DATA_STATUS_COMPLETE,
-        strict: bool = False,
+        require_camera_coverage: bool = False,
         verbose: bool = False,
     ):
         """Configure a writer for one Zarr v3 episode.
@@ -349,8 +349,9 @@ class ZarrWriter:
             data_status: Initial episode status. The staging path and dataset
                 resolvers accept only ``complete`` and exclude
                 ``structural_sample``.
-            strict: If true, reject an image stream with no matching camera
-                matrix; otherwise log a warning.
+            require_camera_coverage: If true, reject an image stream with no
+                matching camera matrix; otherwise log a warning. Coverage is
+                named explicitly because this option changes no other check.
             verbose: If true, print progress information during writes.
         """
         self.episode_path = Path(episode_path)
@@ -373,7 +374,7 @@ class ZarrWriter:
                 f"{data_status!r}"
             )
         self.data_status = data_status
-        self.strict = strict
+        self.require_camera_coverage = require_camera_coverage
         self.verbose = verbose
         # Track image shapes for metadata
         self._features: dict[str, dict[str, Any]] = {}
@@ -741,7 +742,8 @@ class ZarrWriter:
             image_keys: The episode's image array keys.
 
         Raises:
-            ValueError: If ``strict`` is set and a stream carries no ``K``.
+            ValueError: If camera coverage is required and a stream carries no
+                ``K``.
         """
         calibration = self.calibration or lift_legacy_calibration(
             self.intrinsics, self.extrinsics
@@ -754,9 +756,11 @@ class ZarrWriter:
             f"{missing}. Every `images.<camera>` array needs a K in "
             "`calibration.cameras`. See CONTRIBUTING_DATA.md §6.4."
         )
-        if self.strict:
+        if self.require_camera_coverage:
             raise ValueError(message)
-        logger.warning("%s Pass strict=True to make this an error.", message)
+        logger.warning(
+            "%s Pass require_camera_coverage=True to make this an error.", message
+        )
 
     def _build_metadata(
         self, metadata_override: dict[str, Any] | None = None
@@ -818,7 +822,7 @@ class ZarrWriter:
         extrinsics: dict | None = None,
         calibration: Calibration | dict | None = None,
         data_status: str = DATA_STATUS_COMPLETE,
-        strict: bool = False,
+        require_camera_coverage: bool = False,
         metadata_override: dict[str, Any] | None = None,
     ) -> Path:
         """Validate episode metadata and write one Zarr v3 episode.
@@ -846,8 +850,9 @@ class ZarrWriter:
                 ``intrinsics`` or ``extrinsics`` value for older readers.
             data_status: ``complete`` or ``structural_sample``. The staging path
                 and dataset resolvers accept only ``complete`` episodes.
-            strict: If true, reject an image stream with no matching camera
-                matrix; otherwise log a warning.
+            require_camera_coverage: If true, reject an image stream with no
+                matching camera matrix; otherwise log a warning. Coverage is
+                named explicitly because this option changes no other check.
             metadata_override: Additional episode metadata. This mapping cannot
                 replace ``calibration``, ``intrinsics``, or ``extrinsics``.
 
@@ -861,8 +866,8 @@ class ZarrWriter:
             ValueError: If ``extrinsics`` is not ``None`` or a non-empty mapping
                 of 4×4 matrices.
             ValueError: If ``data_status`` is not a supported value.
-            ValueError: If ``strict`` is set and an image stream carries no
-                camera matrix.
+            ValueError: If camera coverage is required and an image stream
+                carries no camera matrix.
             CalibrationError: If ``calibration`` is malformed.
         """
         # Validate the embodiment up front (it is guaranteed to be consumed by
@@ -936,7 +941,7 @@ class ZarrWriter:
             extrinsics=extrinsics,
             calibration=calibration,
             data_status=data_status,
-            strict=strict,
+            require_camera_coverage=require_camera_coverage,
         )
 
         writer.write(
