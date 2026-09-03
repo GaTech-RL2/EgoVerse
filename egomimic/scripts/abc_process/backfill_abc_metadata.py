@@ -193,10 +193,30 @@ def build_metadata(calib: dict, stored_hw: tuple[int, int]) -> tuple[dict, dict 
     # clearly; cx/W is sharply bimodal (~0.49 vs ~0.66, nothing between).
     true_w = _true_extent(K[0, 2], c["width"])
     true_h = _true_extent(K[1, 2], c["height"])
-    if true_w:
+
+    # A size mismatch is either a RESIZE or a CROP, and they touch K differently:
+    # a resize scales focal length and principal point together, a crop keeps the
+    # focal length and only shifts the principal point. Scaling one axis while
+    # leaving the other produces an anamorphic K (fx != fy) that no single sensor
+    # can have -- that bug put fx=325.03 next to fy=431.83 on 21 episodes and
+    # squashed their overlays 25% in x.
+    #
+    # Tell them apart by aspect: a true resize changes both axes in proportion,
+    # while the 848x480 -> 640x480 case here keeps the height, so it is a crop.
+    resize = (
+        true_w and true_h
+        and abs((w / true_w) - (h / true_h)) < 0.01
+    )
+    if resize:
         K[0] *= w / true_w
-    if true_h:
         K[1] *= h / true_h
+    else:
+        # Crop: focal length is a property of the lens and does not change.
+        # Re-centre the principal point into the cropped window.
+        if true_w and true_w != w:
+            K[0, 2] -= (true_w - w) / 2.0
+        if true_h and true_h != h:
+            K[1, 2] -= (true_h - h) / 2.0
     intr = {"front_1": np.hstack([K, np.zeros((3, 1))]).tolist()}
 
     hfov = 2.0 * np.degrees(np.arctan(w / (2.0 * K[0, 0]))) if K[0, 0] else 0.0

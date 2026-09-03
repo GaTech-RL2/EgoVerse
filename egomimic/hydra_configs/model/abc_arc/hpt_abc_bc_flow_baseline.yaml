@@ -1,0 +1,110 @@
+# ABC-ONLY (no cotraining) time-indexed BC model.
+#
+# This IS hpt/bc_flow_eva with the domain swapped from eva_bimanual to
+# yam_bimanual. Trunk, shared front_img_1 stem, encoders, image augs, optimizer
+# and LR schedule all come from that config untouched -- see the note at the
+# bottom about how that differs from the cotrain runs.
+#
+# Predicts a 100-step time-parameterized chunk. act_dim is 14
+# ([xyz(3) ypr(3) grip(1)] x 2).
+#
+# Its arc twin is hpt_abc_bc_flow_arc_D40_M100.
+defaults:
+  - /model/hpt/bc_flow_eva@_here_
+
+robomimic_model:
+  # Swap the single domain eva_bimanual -> yam_bimanual. HPT builds stems and
+  # heads by iterating `self.domains` (algo.py:879-883), so the eva entries
+  # below are never looked up; they are set to null anyway to state the intent,
+  # and because `if self.stem_specs[domain]` treats null as absent.
+  domains: ["yam_bimanual"]
+
+  ac_keys:
+    yam_bimanual: "actions_cartesian"
+    eva_bimanual: null
+
+  stem_specs:
+    yam_bimanual:
+      # yam proprio is `observations.state.ee_pose` = 14D: per arm xyz(3) +
+      # ypr(3) + gripper(1) -- same width as eva's, so this stem is eva's
+      # state_ee_pose stem unchanged.
+      state_ee_pose:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 14
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      # Wrist cameras, exactly as bc_flow_eva has them. The ABC conversion
+      # writes /left-wrist-camera and /right-wrist-camera to
+      # images.left_wrist / images.right_wrist (abc_to_zarr.py VIDEO_TOPICS),
+      # frame-matched to the front camera, and the yam keymap exposes them as
+      # left_wrist_img / right_wrist_img. front_img_1 reaches the trunk through
+      # shared_stem_specs.
+      left_wrist_img:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 256
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      right_wrist_img:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 256
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+    eva_bimanual: null
+
+  head_specs:
+    # Per-domain head, exactly as bc_flow_eva has it -- no shared head. Copied
+    # verbatim from the eva head; only infer_ac_dims and the sequence length
+    # change.
+    yam_bimanual:
+      _target_: egomimic.models.heads.fm_policy.FMPolicy
+      action_horizon: 100
+      num_inference_steps: 50
+      pooling: null
+      time_dist: "beta"
+      infer_ac_dims:
+        yam_bimanual: 14
+      model:
+        _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 14
+        act_seq: 100
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+    eva_bimanual: null
+
+# NOTE ON THE OPTIMIZER: inherited from bc_flow_eva as-is, which means
+# lr = 1e-4 with CosineAnnealingLR(T_max=1400), while the cotrain runs use
+# lr = 3e-4 constant. If this pair is meant to be a controlled cotrain ablation,
+# that difference confounds it -- uncomment below to match the cotrain runs.
+#
+# optimizer:
+#   lr: 3e-4
+# scheduler: null
