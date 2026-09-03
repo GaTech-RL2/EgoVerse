@@ -3,7 +3,10 @@
 import numpy as np
 import pytest
 
-from egomimic.rldb.embodiment.eva import Eva
+from egomimic.rldb.embodiment.eva import Eva, _build_eva_bimanual_transform_list
+from egomimic.rldb.zarr.action_chunk_transforms import (
+    ActionChunkCoordinateFrameTransform,
+)
 from egomimic.rldb.zarr.calibration import (
     Calibration,
     CalibrationError,
@@ -14,7 +17,7 @@ from egomimic.rldb.zarr.calibration import (
     read_calibration,
     uncalibrated_cameras,
 )
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrEpisode
+from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset, ZarrEpisode
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
 K_FRONT = np.array(
@@ -281,3 +284,111 @@ def test_a_legacy_episode_reads_through_the_shim(tmp_path) -> None:
 def test_the_writer_rejects_an_episode_with_no_camera_matrix(tmp_path) -> None:
     with pytest.raises(ValueError, match="Camera intrinsics"):
         _write_episode(tmp_path / "blank.zarr")
+
+
+# --------------------------------------------------------------------------
+# The training path reads the rig the episode declares
+# --------------------------------------------------------------------------
+
+_EVA_KEY_MAP = {
+    "left.obs_ee_pose": {"zarr_key": "left.obs_ee_pose"},
+    "right.obs_ee_pose": {"zarr_key": "right.obs_ee_pose"},
+    "left.obs_gripper": {"zarr_key": "left.obs_gripper"},
+    "right.obs_gripper": {"zarr_key": "right.obs_gripper"},
+    "left.cmd_ee_pose": {"zarr_key": "left.cmd_ee_pose", "horizon": 4},
+    "right.cmd_ee_pose": {"zarr_key": "right.cmd_ee_pose", "horizon": 4},
+    "left.cmd_gripper": {"zarr_key": "left.cmd_gripper", "horizon": 4},
+    "right.cmd_gripper": {"zarr_key": "right.cmd_gripper", "horizon": 4},
+}
+
+
+def _pose_sequence(length: int, *, x_offset: float = 0.0) -> np.ndarray:
+    poses = np.zeros((length, 7))
+    poses[:, 0] = x_offset + np.arange(length) * 0.01
+    poses[:, 3] = 1.0
+    return poses
+
+
+def _eva_numeric_data(length: int) -> dict:
+    return {
+        "left.obs_ee_pose": _pose_sequence(length),
+        "right.obs_ee_pose": _pose_sequence(length, x_offset=0.2),
+        "left.obs_gripper": np.full((length, 1), 0.25),
+        "right.obs_gripper": np.full((length, 1), 0.75),
+        "left.cmd_ee_pose": _pose_sequence(length, x_offset=0.1),
+        "right.cmd_ee_pose": _pose_sequence(length, x_offset=0.3),
+        "left.cmd_gripper": np.linspace(0.0, 1.0, length)[:, None],
+        "right.cmd_gripper": np.linspace(1.0, 0.0, length)[:, None],
+    }
+
+
+def _other_rig() -> dict:
+    """Return a rig displaced from `Eva.EXTRINSICS` by a measurable amount."""
+    rig = {}
+    for side, base_T_cam in Eva.EXTRINSICS.items():
+        moved = base_T_cam.copy()
+        moved[:3, 3] += np.array([0.05, -0.11, 0.07])
+        rig[side] = moved
+    return rig
+
+
+def _eva_actions(episode_path, extrinsics) -> np.ndarray:
+    """Write one EVA episode and return its transformed action chunk."""
+    ZarrWriter.create_and_write(
+        episode_path=episode_path,
+        numeric_data=_eva_numeric_data(5),
+        embodiment="eva_bimanual",
+        intrinsics={"front_1": K_FRONT},
+        extrinsics=extrinsics,
+        chunk_timesteps=4,
+    )
+    dataset = ZarrDataset(
+        Episode_path=episode_path,
+        key_map=dict(_EVA_KEY_MAP),
+        transform_list=_build_eva_bimanual_transform_list(
+            chunk_length=6, stride=1, is_quat=True
+        ),
+    )
+    return dataset[1]["actions_cartesian"].numpy()
+
+
+def test_reading_the_episode_is_a_no_op_on_the_current_corpus(tmp_path) -> None:
+    stored = _eva_actions(tmp_path / "stored.zarr", Eva.EXTRINSICS)
+    absent = _eva_actions(tmp_path / "absent.zarr", None)
+    # Every EVA episode in the corpus stores exactly the class constant, so
+    # reading the episode instead of the constant changes no number today.
+    np.testing.assert_allclose(stored, absent, atol=1e-9)
+
+
+def test_the_pipeline_follows_the_rig_the_episode_declares(tmp_path) -> None:
+    on_eva_rig = _eva_actions(tmp_path / "eva_rig.zarr", Eva.EXTRINSICS)
+    on_other_rig = _eva_actions(tmp_path / "other_rig.zarr", _other_rig())
+    assert not np.allclose(on_eva_rig, on_other_rig, atol=1e-6)
+
+
+def test_a_second_rig_matches_what_that_rig_predicts(tmp_path, monkeypatch) -> None:
+    other = _other_rig()
+    declared = _eva_actions(tmp_path / "declared.zarr", other)
+
+    # An episode without extrinsics falls back to the class constant, so
+    # pointing the constant at the second rig must reproduce the same numbers.
+    monkeypatch.setattr(Eva, "EXTRINSICS", other)
+    fallback = _eva_actions(tmp_path / "fallback.zarr", None)
+    np.testing.assert_allclose(declared, fallback, atol=1e-9)
+
+
+def test_a_transform_fallback_never_overrides_a_batch_value() -> None:
+    identity_pose = np.array([1.0, 2.0, 3.0, 1.0, 0.0, 0.0, 0.0])
+    transform = ActionChunkCoordinateFrameTransform(
+        target_world="target",
+        chunk_world="chunk",
+        transformed_key_name="out",
+        extra_batch_key={"target": np.array([9.0, 9.0, 9.0, 1.0, 0.0, 0.0, 0.0])},
+        mode="xyzwxyz",
+    )
+    batch = {"target": identity_pose, "chunk": np.tile(identity_pose, (2, 1))}
+
+    out = transform.transform(batch)
+
+    np.testing.assert_array_equal(out["target"], identity_pose)
+    np.testing.assert_allclose(out["out"][:, :3], 0.0, atol=1e-12)

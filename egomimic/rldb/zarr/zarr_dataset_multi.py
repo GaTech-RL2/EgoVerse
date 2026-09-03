@@ -43,12 +43,14 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.zarr.action_chunk_transforms import base_T_cam_pose_key
 from egomimic.rldb.zarr.calibration import Calibration, read_calibration
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_table_to_df,
 )
+from egomimic.utils.pose_utils import _matrix_to_xyzwxyz
 
 if TYPE_CHECKING:
     # Annotation-only import — avoids a runtime circular import with
@@ -1559,11 +1561,37 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()
+        self._extrinsic_poses = self._build_extrinsic_poses()
 
     @property
     def calibration(self) -> Calibration | None:
         """Pass-through to ZarrEpisode.calibration (read from zarr metadata)."""
         return self.episode_reader.calibration
+
+    def _build_extrinsic_poses(self) -> dict[str, np.ndarray]:
+        """Return this episode's per-arm ``base_T_cam`` poses for the batch.
+
+        The transform pipeline expresses actions in the camera frame, so it
+        needs the rig that recorded this episode. Two vendors on one platform
+        have two rigs, and an embodiment class constant cannot tell them apart.
+        An episode that declares no extrinsics contributes nothing here and the
+        transform falls back to its embodiment default.
+
+        Returns:
+            A mapping from ``<side>_base_T_cam_pose`` to a 7-value
+            ``[xyz, qw, qx, qy, qz]`` pose.
+        """
+        calibration = self.calibration
+        if calibration is None:
+            return {}
+        poses = {}
+        for side in ("left", "right"):
+            base_T_cam = calibration.base_T_cam(side)
+            if base_T_cam is not None:
+                poses[base_T_cam_pose_key(side)] = _matrix_to_xyzwxyz(
+                    base_T_cam[None, :]
+                )[0]
+        return poses
 
     @property
     def intrinsics(self) -> np.ndarray | dict[str, np.ndarray] | None:
@@ -1730,6 +1758,11 @@ class ZarrDataset(torch.utils.data.Dataset):
                         data[k] = self._decode_json_entry(data[k])
             if retry:
                 continue
+
+            # Per-episode extrinsics travel with the sample so the pipeline
+            # transforms into the frame of the rig that recorded this episode.
+            for key, pose in self._extrinsic_poses.items():
+                data[key] = pose.copy()
 
             if self.transform:
                 for transform in self.transform or []:
