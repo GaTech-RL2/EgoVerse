@@ -881,7 +881,10 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
     right_obs_headframe: str = "right.obs_ee_pose_headframe",
     left_action_headframe: str = "left.action_ee_pose_headframe",
     right_action_headframe: str = "right.action_ee_pose_headframe",
+    left_grip: str = "left.action_gripper_pad",
+    right_grip: str = "right.action_gripper_pad",
     is_quat: bool = False,
+    gripper_padded: bool = False,
 ) -> list[Transform]:
     """Revert wrist-frame ARIA cartesian actions back to head (camera) frame.
 
@@ -892,21 +895,41 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
     """
     pose_shape = 7 if is_quat else 6
     mode = "xyzwxyz" if is_quat else "xyzypr"
+
+    # `*_gripper_padded` action modes pad a gripper channel onto each arm, so
+    # the chunk is [L pose, L grip, R pose, R grip] rather than [L pose, R pose].
+    # Splitting that as two poses would read L-grip plus the first 5 columns of
+    # R-pose as the right arm and silently drop both grippers, so the split has
+    # to know. Same for the proprio vector, which is padded identically.
+    if gripper_padded:
+        obs_split = [
+            (left_obs_headframe, pose_shape),
+            ("left.obs_gripper_pad", 1),
+            (right_obs_headframe, pose_shape),
+            ("right.obs_gripper_pad", 1),
+        ]
+        act_split = [
+            (left_action_wristframe, pose_shape),
+            (left_grip, 1),
+            (right_action_wristframe, pose_shape),
+            (right_grip, 1),
+        ]
+        concat_keys = [left_action_headframe, left_grip,
+                       right_action_headframe, right_grip]
+    else:
+        obs_split = [
+            (left_obs_headframe, pose_shape),
+            (right_obs_headframe, pose_shape),
+        ]
+        act_split = [
+            (left_action_wristframe, pose_shape),
+            (right_action_wristframe, pose_shape),
+        ]
+        concat_keys = [left_action_headframe, right_action_headframe]
+
     transform_list = [
-        SplitKeys(
-            input_key=obs_key,
-            output_key_list=[
-                (left_obs_headframe, pose_shape),
-                (right_obs_headframe, pose_shape),
-            ],
-        ),
-        SplitKeys(
-            input_key=action_key,
-            output_key_list=[
-                (left_action_wristframe, pose_shape),
-                (right_action_wristframe, pose_shape),
-            ],
-        ),
+        SplitKeys(input_key=obs_key, output_key_list=obs_split),
+        SplitKeys(input_key=action_key, output_key_list=act_split),
         ActionChunkCoordinateFrameTransform(
             target_world=left_obs_headframe,
             chunk_world=left_action_wristframe,
@@ -922,7 +945,7 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
             inverse=False,
         ),
         ConcatKeys(
-            key_list=[left_action_headframe, right_action_headframe],
+            key_list=concat_keys,
             new_key_name=action_key,
             delete_old_keys=True,
         ),
