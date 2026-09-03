@@ -8,9 +8,11 @@ from egomimic.rldb.zarr.calibration import (
     Calibration,
     CalibrationError,
     CameraCalibration,
+    camera_name,
     lift_legacy_calibration,
     parse_calibration,
     read_calibration,
+    uncalibrated_cameras,
 )
 from egomimic.rldb.zarr.zarr_dataset_multi import ZarrEpisode
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
@@ -171,7 +173,14 @@ def test_read_calibration_prefers_the_block_over_the_legacy_pair() -> None:
     assert read_calibration({}) is None
 
 
-def test_uncalibrated_lists_cameras_without_a_matrix() -> None:
+def test_camera_name_reads_the_stream_out_of_an_array_key() -> None:
+    assert camera_name("images.front_1") == "front_1"
+    assert camera_name("observations.images.left_wrist") == "left_wrist"
+    assert camera_name("left.obs_ee_pose") is None
+    assert camera_name("images.") is None
+
+
+def test_uncalibrated_cameras_lists_streams_without_a_matrix() -> None:
     calibration = Calibration(
         reference_frame="robot_base",
         cameras={
@@ -179,10 +188,52 @@ def test_uncalibrated_lists_cameras_without_a_matrix() -> None:
             "left_wrist": CameraCalibration(name="left_wrist"),
         },
     )
-    assert calibration.uncalibrated(["front_1", "left_wrist", "right_wrist"]) == [
+    keys = ["images.front_1", "images.left_wrist", "images.right_wrist"]
+    assert uncalibrated_cameras(keys, calibration) == ["left_wrist", "right_wrist"]
+    assert uncalibrated_cameras(keys, None) == [
+        "front_1",
         "left_wrist",
         "right_wrist",
     ]
+    assert uncalibrated_cameras(["left.obs_gripper"], None) == []
+
+
+def test_coverage_is_a_warning_by_default_and_an_error_under_strict(
+    tmp_path, caplog
+) -> None:
+    images = {
+        "images.front_1": np.zeros((4, 8, 8, 3), dtype=np.uint8),
+        "images.left_wrist": np.zeros((4, 8, 8, 3), dtype=np.uint8),
+    }
+    with caplog.at_level("WARNING"):
+        _write_episode(
+            tmp_path / "partial.zarr",
+            image_data=images,
+            intrinsics={"front_1": K_FRONT},
+        )
+    assert "left_wrist" in caplog.text
+
+    with pytest.raises(ValueError, match=r"no camera matrix.*left_wrist"):
+        _write_episode(
+            tmp_path / "strict.zarr",
+            image_data=images,
+            intrinsics={"front_1": K_FRONT},
+            strict=True,
+        )
+
+
+def test_full_coverage_passes_under_strict(tmp_path, caplog) -> None:
+    with caplog.at_level("WARNING"):
+        _write_episode(
+            tmp_path / "covered.zarr",
+            image_data={"images.front_1": np.zeros((4, 8, 8, 3), dtype=np.uint8)},
+            calibration={
+                "reference_frame": "camera:front_1",
+                "cameras": {"front_1": {"K": K_FRONT.tolist()}},
+            },
+            strict=True,
+        )
+    assert "no camera matrix" not in caplog.text
 
 
 def _write_episode(episode_path, **kwargs) -> None:

@@ -44,6 +44,10 @@ STATIC_REFERENCE_FRAMES = frozenset({"robot_base", "slam_world"})
 #: Prefix that makes a camera the reference frame, as in `camera:front_1`.
 CAMERA_FRAME_PREFIX = "camera:"
 
+#: Prefix of the array key that stores one camera stream, as in
+#: `images.front_1`. The text after it is the camera name.
+IMAGE_KEY_PREFIX = "images."
+
 _CAMERA_FIELDS = frozenset({"K", "resolution", "rectified", "ref_T_cam"})
 _CALIBRATION_FIELDS = frozenset({"reference_frame", "cameras", "arm_bases"})
 
@@ -229,10 +233,6 @@ class Calibration:
                 out[side] = base_T_cam
         return out
 
-    def uncalibrated(self, cameras) -> list[str]:
-        """Return the given camera names that carry no ``K``, in order."""
-        return [name for name in cameras if self.K(name) is None]
-
     def to_jsonable(self) -> dict[str, Any]:
         """Return this calibration as JSON-serializable episode metadata."""
         out: dict[str, Any] = {
@@ -247,6 +247,49 @@ class Calibration:
                 for side, T in self.arm_bases.items()
             }
         return out
+
+
+def camera_name(image_key: str) -> str | None:
+    """Return the camera that one stored image array belongs to.
+
+    Args:
+        image_key: An array key such as ``"images.front_1"``.
+
+    Returns:
+        The camera name, or ``None`` if the key names no image stream.
+    """
+    marker = IMAGE_KEY_PREFIX
+    index = image_key.rfind(marker)
+    if index == -1:
+        return None
+    return image_key[index + len(marker) :] or None
+
+
+def uncalibrated_cameras(image_keys, calibration: Calibration | None) -> list[str]:
+    """Return the image streams that no camera matrix covers.
+
+    Coverage is the rule that makes per-episode calibration real: an episode
+    that stores three image streams and one ``K`` calibrates one camera in
+    three, and nothing downstream can tell.
+
+    Args:
+        image_keys: The episode's image array keys.
+        calibration: The episode calibration, or ``None``.
+
+    Returns:
+        The camera names, in the order the keys give them and without
+        duplicates, that carry no ``K``.
+    """
+    missing: list[str] = []
+    seen: set[str] = set()
+    for key in image_keys:
+        name = camera_name(key)
+        if name is None or name in seen:
+            continue
+        seen.add(name)
+        if calibration is None or calibration.K(name) is None:
+            missing.append(name)
+    return missing
 
 
 def _parse_reference_frame(value: Any, cameras, where: str) -> str:
@@ -466,12 +509,15 @@ def read_calibration(attrs: Mapping[str, Any]) -> Calibration | None:
 
 __all__ = [
     "CAMERA_FRAME_PREFIX",
+    "IMAGE_KEY_PREFIX",
     "LEGACY_REFERENCE_CAMERA",
     "STATIC_REFERENCE_FRAMES",
     "Calibration",
     "CalibrationError",
     "CameraCalibration",
+    "camera_name",
     "lift_legacy_calibration",
     "parse_calibration",
     "read_calibration",
+    "uncalibrated_cameras",
 ]

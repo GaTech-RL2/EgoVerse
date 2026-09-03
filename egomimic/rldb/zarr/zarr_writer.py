@@ -6,6 +6,7 @@ compatible with the ZarrEpisode reader.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Literal
 
@@ -16,8 +17,12 @@ from zarr.core.dtype import VariableLengthBytes
 
 from egomimic.rldb.zarr.calibration import (
     Calibration,
+    lift_legacy_calibration,
     parse_calibration,
+    uncalibrated_cameras,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _intrinsics_to_jsonable(
@@ -287,6 +292,8 @@ class _IncrementalHandle:
                     padding[:] = last_jpeg
                     self._store[key][self._total_frames : padded] = padding
 
+        self._writer._check_camera_coverage(self._image_info)
+
         # Write language annotations
         if self._writer.annotations is not None:
             self._writer._write_annotations(self._store, self._writer.annotations)
@@ -315,6 +322,7 @@ class ZarrWriter:
         intrinsics: dict | None = None,
         extrinsics: dict | None = None,
         calibration: Calibration | dict | None = None,
+        strict: bool = False,
         verbose: bool = False,
     ):
         """Configure a writer for one Zarr v3 episode.
@@ -335,6 +343,8 @@ class ZarrWriter:
             calibration: ``None`` or the per-episode calibration to store under
                 the ``calibration`` attribute. A ``Calibration`` or the mapping
                 form of one.
+            strict: If true, an image stream that no camera matrix covers is an
+                error instead of a warning.
             verbose: If true, print progress information during writes.
         """
         self.episode_path = Path(episode_path)
@@ -351,6 +361,7 @@ class ZarrWriter:
         self.calibration = (
             None if calibration is None else parse_calibration(calibration)
         )
+        self.strict = strict
         self.verbose = verbose
         # Track image shapes for metadata
         self._features: dict[str, dict[str, Any]] = {}
@@ -430,6 +441,10 @@ class ZarrWriter:
             self._write_pre_encoded_image_array(
                 store, key, enc_arr, img_shape, padded_frames
             )
+
+        self._check_camera_coverage(
+            list(image_data) + list(pre_encoded_image_data)
+        )
 
         # Write language annotations if provided
         if self.annotations is not None:
@@ -703,6 +718,34 @@ class ZarrWriter:
             "format": "annotation_v1",
         }
 
+    def _check_camera_coverage(self, image_keys) -> None:
+        """Check that every stored image stream has a camera matrix.
+
+        `intrinsics` only has to be non-empty, so an episode that writes three
+        image streams and calibrates one passes. Coverage closes that: it is
+        checked against the image keys the episode actually stores.
+
+        Args:
+            image_keys: The episode's image array keys.
+
+        Raises:
+            ValueError: If ``strict`` is set and a stream carries no ``K``.
+        """
+        calibration = self.calibration or lift_legacy_calibration(
+            self.intrinsics, self.extrinsics
+        )
+        missing = uncalibrated_cameras(image_keys, calibration)
+        if not missing:
+            return
+        message = (
+            f"{self.episode_path.name}: no camera matrix for image stream(s) "
+            f"{missing}. Every `images.<camera>` array needs a K in "
+            "`calibration.cameras`. See CONTRIBUTING_DATA.md §6.4."
+        )
+        if self.strict:
+            raise ValueError(message)
+        logger.warning("%s Pass strict=True to make this an error.", message)
+
     def _build_metadata(
         self, metadata_override: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -764,6 +807,7 @@ class ZarrWriter:
         intrinsics: dict | None = None,
         extrinsics: dict | None = None,
         calibration: Calibration | dict | None = None,
+        strict: bool = False,
         metadata_override: dict[str, Any] | None = None,
     ) -> Path:
         """Validate episode metadata and write one Zarr v3 episode.
@@ -792,6 +836,9 @@ class ZarrWriter:
                 writer derives ``intrinsics`` and ``extrinsics`` from it for any
                 of the two that the caller omits, so readers that predate the
                 block keep working.
+            strict: If true, an image stream that no camera matrix covers is an
+                error instead of a warning. It stays opt-in because every EVA
+                episode in the corpus stores three streams and calibrates one.
             metadata_override: Additional episode metadata. This mapping cannot
                 replace ``calibration``, ``intrinsics``, or ``extrinsics``.
 
@@ -804,6 +851,8 @@ class ZarrWriter:
             ValueError: If ``intrinsics`` is empty or contains a non-3×4 value.
             ValueError: If ``extrinsics`` is not ``None`` or a non-empty mapping
                 of 4×4 matrices.
+            ValueError: If ``strict`` is set and an image stream carries no
+                camera matrix.
             CalibrationError: If ``calibration`` is malformed.
         """
         # Validate the embodiment up front (it is guaranteed to be consumed by
@@ -877,6 +926,7 @@ class ZarrWriter:
             intrinsics=intrinsics,
             extrinsics=extrinsics,
             calibration=calibration,
+            strict=strict,
         )
 
         writer.write(
