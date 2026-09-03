@@ -8,6 +8,8 @@ defaults:
 # pipeline doesn't produce annotations, so leaving it wired crashes
 # validation at the first step.
 viz_func:
+  yam_bimanual:
+    annotation_key: null
   eva_bimanual:
     annotation_key: null
   human_bimanual:

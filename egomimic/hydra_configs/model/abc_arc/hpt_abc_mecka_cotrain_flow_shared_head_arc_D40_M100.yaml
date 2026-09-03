@@ -1,0 +1,119 @@
+defaults:
+  - hpt_cotrain_enc_dec_base
+
+robomimic_model:
+  domains: ["yam_bimanual", "human_bimanual"]
+
+  ac_keys:
+    yam_bimanual: "actions_cartesian"
+    human_bimanual: "actions_cartesian"
+  shared_ac_key: "actions_cartesian"
+
+  camera_transforms: {}
+
+  6dof: true
+  diffusion: true
+  stem_specs:
+    # HPT does `self.stem_specs[domain]` for every entry in `domains`, so every
+    # domain needs a key here or it raises ConfigKeyError at model init.
+    # yam proprio is `observations.state.ee_pose` = 14D: per arm xyz(3) + ypr(3)
+    # + gripper(1). Human is 12D because it has no gripper channel.
+    yam_bimanual:
+      state_ee_pose:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 14
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      # Wrist cameras. ABC episodes carry images.left_wrist/right_wrist
+      # frame-matched to the front camera; mecka human episodes do NOT, which is
+      # why these stems are on the yam domain only and front_img_1 stays the
+      # single shared_obs_key.
+      left_wrist_img:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 256
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      right_wrist_img:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 256
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+    human_bimanual:
+      state_ee_pose:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        # 14, not 12: the human transform runs
+        # action_mode=arc_tokenizer_cartesian_gripper_padded, which pads a
+        # gripper channel onto each arm, so proprio is per arm
+        # xyz(3) + ypr(3) + grip(1) = 14 -- same as yam. With 12 the run dies at
+        # the first optimizer step with
+        # "mat1 and mat2 shapes cannot be multiplied (32x14 and 12x256)".
+        input_dim: 14
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+
+  head_specs:
+    human_bimanual: null
+    yam_bimanual: null
+    shared:
+      _target_: egomimic.models.heads.fm_policy.FMPolicy
+      action_horizon: 101
+      num_inference_steps: 50
+      pooling: null
+      padding: "zero"
+      time_dist: "beta"
+      infer_ac_dims:
+        yam_bimanual: 14
+        human_bimanual: 14
+      model:
+        _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 14
+        act_seq: 101
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3e-4
+  weight_decay: 0.0001
+
+# Constant LR — no scheduler (pl_model.configure_optimizers skips scheduling
+# when `scheduler` is absent/null).
+scheduler: null

@@ -1,0 +1,92 @@
+# @package _global_
+# Multitask cotrain: ABC fold-family tasks (yam_bimanual) + mecka free-fold
+# (human_bimanual), arc-tokenized at D=0.40 m / M=100, on the 300M model.
+#
+# Uses the 300M-parameter trunk (embed_dim 840, 19 blocks; 299.4M total),
+# NOT the ~56M model the fstshirt runs use -- so this is not comparable to
+# those; it is only comparable to its own baseline twin.
+#
+# The multitask twin of abc_fstshirt_mecka_freefold_cotrain_arcD40M100, which
+# trains the single ABC task fold_and_stack_the_t_shirts. Everything below is
+# identical to that run; the only intended difference is the ABC task mix,
+# which lives in the data config.
+#
+# Its time-indexed counterpart is abc_mecka_fold_multitask_cotrain_baseline.
+#
+# Launch:
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_mecka_fold_multitask_cotrain_arcD40M100
+#
+# `-m` is required: the submitit launcher only engages in multirun mode.
+defaults:
+  - override /model: abc_arc/hpt_abc_mecka_cotrain_flow_shared_head_300M_arc_D40_M100
+  - override /data: abc_arc/abc_mecka_fold_multitask_arc_cotrain_D40_M100
+
+
+  # The SAME evaluator the baseline twin uses. Every metric is arc-matched and
+  # no metric name mentions the action space, so this run and the time-indexed
+  # baseline emit identically named numbers that overlay on one chart:
+  #
+  #   Valid/{emb}_actions_cartesian_arcmatch_paired_mse_avg
+  #   Valid/{emb}_actions_cartesian_arcmatch_xyz_mse_avg
+  #   Valid/{emb}_actions_cartesian_arcmatch_final_xyz_l2_m_avg
+  #   Valid/{emb}_actions_cartesian_arcmatch_rot_geodesic_deg_avg
+  #
+  # Scoring is in the EEF frame, which the data config should also train in
+  # (coord_frame=eef_frame, actions as deltas from the current EEF pose), and
+  # every metric above is frame invariant: position error survives a rigid
+  # transform, and rotation error is the geodesic angle rather than a per-axis
+  # ypr difference. The evaluator still reverts to the top-camera frame for the
+  # val VIDEO, which is what makes the overlay track the grippers.
+  - override /evaluator: eval_eef_arcmatch_D40_M100
+  - override /trainer: ddp/base
+  - override /logger: wandb/base
+  - override /hydra/launcher: submitit_skynet_a40
+  - _self_
+
+name: abc_mecka_fold_multitask_cotrain_arcD40M100
+description: arcD40M100
+
+# The default paths.dataset_dir (/coc/flash7/scratch/egoverseS3ZarrDataset) is
+# owned by another user and mode drwxr-xr-x, so s5cmd's mkdir fails with
+# "permission denied" for any episode not already cached there. This directory
+# is writable and already holds all 250 mecka episodes, so the human split
+# needs no download. ABC episodes outside fold_and_stack_the_t_shirts are NOT
+# cached here yet and will be pulled from R2 on first use.
+paths:
+  dataset_dir: /coc/flash7/scratch/arc-training
+
+# ddp/base sets `strategy: ddp`, which asserts every parameter gets a gradient
+# each step. This is a COTRAIN model with a per-embodiment stem: a given batch
+# routes through one embodiment's stem and leaves the other's untouched, so
+# plain ddp aborts with "Expected to have finished reduction in the prior
+# iteration".
+trainer:
+  strategy: ddp_find_unused_parameters_true
+  # Run 2 validation batches BEFORE epoch 0. Validation otherwise first executes
+  # at epoch 200, so a fault in the evaluator or viz path (as happened with the
+  # baseline hitting the arc detokenizer) costs hours before it surfaces. This
+  # exercises the whole val path -- forward, arc-matched metrics, video overlay
+  # -- in seconds at startup.
+  num_sanity_val_steps: 2
+
+# Norm stats over 1% of frames. The full pass reads every frame of every
+# episode before training starts, which on the multitask ABC mix is the bulk of
+# startup time.
+norm_stats:
+  sample_frac: 0.01
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+logger:
+  wandb:
+    # entity comes from logger/wandb/base.yaml; project pinned here so the run
+    # does not silently follow a change to that shared default.
+    project: "arc"
+    tags:
+      - abc
+      - multitask
+      - 300M
+      - arc

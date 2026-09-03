@@ -1,0 +1,69 @@
+# @package _global_
+# Time-indexed BASELINE twin of abc_fstshirt_mecka_freefold_cotrain_arcD40M100.
+#
+# Same episodes, same limits, same trunk/stems/head, same writable cache. The
+# only difference is the action space: a 100-step time-parameterized chunk
+# instead of (M+1, 14) arc-length tokens. That is what makes the two runs a
+# controlled comparison.
+#
+# Evaluator is the SAME one the arc run uses. It accepts both action spaces --
+# arc detection is by sequence length, so this time-indexed chunk passes
+# straight through instead of being detokenized -- and every metric is
+# arc-matched (clipped to the first 0.40 m of travel, resampled to 100 points
+# spaced uniformly in arc length), so the two runs emit identically named
+# numbers that overlay on one chart:
+#
+#   Valid/{emb}_actions_cartesian_arcmatch_paired_mse_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_xyz_mse_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_final_xyz_l2_m_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_rot_geodesic_deg_avg
+#
+# The rotation metric is geodesic, not a per-axis ypr difference, so it stays
+# comparable across the two runs. The per-embodiment reverts the evaluator
+# needs come from _frame_arcmatch_base, so nothing is duplicated here.
+#
+# Launch:
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_fstshirt_mecka_freefold_cotrain_baseline
+defaults:
+  - override /model: abc_arc/hpt_abc_mecka_cotrain_flow_shared_head_baseline
+  - override /data: abc_arc/abc_fstshirt_mecka_freefold_baseline_cotrain
+  - override /evaluator: eval_eef_arcmatch_D40_M100
+  - override /trainer: ddp/base
+  - override /logger: wandb/base
+  - override /hydra/launcher: submitit_skynet_a40
+  - _self_
+
+name: abc_fstshirt_mecka_freefold_cotrain_baseline
+description: baseline
+
+# The default paths.dataset_dir is owned by another user and mode drwxr-xr-x, so
+# s5cmd's mkdir fails for any episode not already cached there. This one is ours
+# and already holds every episode both splits need.
+paths:
+  dataset_dir: /coc/flash7/scratch/arc-training
+
+# ddp/base sets `strategy: ddp`, which asserts every parameter gets a gradient
+# each step. This is a COTRAIN model with a per-embodiment stem: a given batch
+# routes through one embodiment's stem and leaves the other's untouched, so
+# plain ddp aborts with "Expected to have finished reduction in the prior
+# iteration". ddp/debug set this for the same reason; carry it over.
+trainer:
+  strategy: ddp_find_unused_parameters_true
+  # Run 2 validation batches BEFORE epoch 0. Validation otherwise first executes
+  # at epoch 200, so a fault in the evaluator or viz path (as happened with the
+  # baseline hitting the arc detokenizer) costs hours before it surfaces. This
+  # exercises the whole val path -- forward, arc-matched metrics, video overlay
+  # -- in seconds at startup.
+  num_sanity_val_steps: 2
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+logger:
+  wandb:
+    project: "arc"
+    tags:
+      - abc
+      - baseline

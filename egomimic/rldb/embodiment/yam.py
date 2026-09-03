@@ -285,7 +285,10 @@ class Yam(Embodiment):
             right_wrist_key = "observations.images.right_wrist_img"
             left_wrist_key = "observations.images.left_wrist_img"
 
-        horizon = 45
+        # Arc-tokenizer mode needs a wider raw window so per-arm arc length can
+        # reach ``min_distance_unit`` (D) before the padded tail kicks in.
+        # 200 raw frames is ~6.7s at 30fps, matching Eva.
+        horizon = 200 if keymap_mode == "arc_tokenizer_cartesian" else 45
 
         return {
             front_key: {"key_type": "camera_keys", "zarr_key": "images.front_1"},
