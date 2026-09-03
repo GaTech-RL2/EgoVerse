@@ -268,6 +268,50 @@ class BaseActionConverter:
         )
 
 
+
+class HumanBimanualKeypoints(BaseActionConverter):
+    """138-D wrist-first MANO keypoint action, per hand
+    ``[wrist xyz+ypr in its own wrist frame (6) | 21 keypoints in that wrist
+    frame (63)]`` x {left, right} (see
+    ``Human.get_transform_list("keypoints_wristframe_pi")``), packed
+    identity-first into the model's ``action_dim``-wide vector with zero
+    trailing pad. Pairs with the ``legacy_normalized_ypr_rot6d`` encoding,
+    which just calls ``to32`` / ``from32`` on the norm-stats-normalized
+    action — no rotation math here (the 6 wrist-ypr dims stay ypr).
+
+    ``action_dim`` must match ``model.config.model.action_dim`` (PI resizes
+    openpi's action projections to it).
+    """
+
+    def __init__(self, action_dim: int = 140, native_dim: int = 138):
+        if action_dim < native_dim:
+            raise ValueError(
+                f"HumanBimanualKeypoints: action_dim {action_dim} < native {native_dim}"
+            )
+        self.action_dim = int(action_dim)
+        self.native_dim = int(native_dim)
+
+    def to32(self, actions: torch.Tensor) -> torch.Tensor:
+        actions = _ensure_bsd(actions)
+        D = actions.shape[-1]
+        if D != self.native_dim:
+            raise ValueError(
+                f"HumanBimanualKeypoints: expected {self.native_dim}-dim, got {D}"
+            )
+        if D == self.action_dim:
+            return actions
+        pad = torch.zeros(
+            *actions.shape[:-1],
+            self.action_dim - D,
+            dtype=actions.dtype,
+            device=actions.device,
+        )
+        return torch.cat([actions, pad], dim=-1)
+
+    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
+        actions32 = _ensure_bsd(actions32)
+        return actions32[..., : self.native_dim]
+
 # ============================================================
 #                     ROBOT CONVERTERS
 # ============================================================

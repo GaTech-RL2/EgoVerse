@@ -1,0 +1,15 @@
+# Keypoint twin of train_viz_pi_wristframe_6d: wraps eval_pi_keypoints_wristframe
+# so the same forward/metric/viz logic runs a second time against the
+# `train_viz` dataloader (metrics `train_viz/`, videos `videos_train_viz/`).
+# The M-sample (reverse-KL) metrics are forced off for this pass.
+#
+# Enable via `+evaluator@train_viz_evaluator=train_viz_pi_keypoints_wristframe`
+# with a data config that defines `train_viz_datasets`.
+
+defaults:
+  - /evaluator@base: eval_pi_keypoints_wristframe
+  - _self_
+
+_target_: egomimic.eval.eval_train_viz.TrainVizEvalVideo
+
+limit_val_batches: 50

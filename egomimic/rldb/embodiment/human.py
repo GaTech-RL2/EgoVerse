@@ -228,6 +228,7 @@ class Human(Embodiment):
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
         include_grip_keypoints: bool = False,
+        include_ee_pose: bool = False,
         norm_mode: bool = False,
         annotation_key: str = None,
         high_annotation_key=None,
@@ -243,6 +244,7 @@ class Human(Embodiment):
             has_head_pose=has_head_pose,
             include_aria_keypoints=include_aria_keypoints,
             include_grip_keypoints=include_grip_keypoints,
+            include_ee_pose=include_ee_pose,
         )
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
@@ -275,6 +277,7 @@ class Human(Embodiment):
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
         include_grip_keypoints: bool = False,
+        include_ee_pose: bool = False,
     ):
         """Canonical MANO keymap. A ``_pi`` suffix swaps the front image key to
         ``PI_FRONT_KEY``; ``include_aria_keypoints`` additionally exposes the raw
@@ -368,6 +371,23 @@ class Human(Embodiment):
                     "zarr_key": "right.obs_wrist_pose",
                 },
             }
+            if include_ee_pose:
+                # Palm-origin ee_pose alongside the keypoints: lets the
+                # ``keypoints_wristframe_pi`` transform build the SAME
+                # head-frame ``observations.state.ee_pose`` proprio the
+                # cartesian pi runs put in the prompt (left-wrist fix, 6D,
+                # grip-padded), so a keypoint-action run differs from them
+                # only in the action space.
+                for side in ("left", "right"):
+                    key_map[f"{side}.action_ee_pose"] = {
+                        "key_type": "action_keys",
+                        "zarr_key": f"{side}.obs_ee_pose",
+                        "horizon": horizon,
+                    }
+                    key_map[f"{side}.obs_ee_pose"] = {
+                        "key_type": "proprio_keys",
+                        "zarr_key": f"{side}.obs_ee_pose",
+                    }
             if include_aria_keypoints:
                 # Raw Aria-layout keypoints exposed alongside the canonical MANO
                 # ones (proprio, no horizon: no transform consumes them).
@@ -402,6 +422,7 @@ class Human(Embodiment):
             "keypoints_headframe_quat",
             "keypoints_wristframe_ypr",
             "keypoints_wristframe_quat",
+            "keypoints_wristframe_pi",
         ],
         stride: int = 3,
         fix_mecka_left_wrist: bool = False,
@@ -456,7 +477,7 @@ class Human(Embodiment):
 
         prefix: list[Transform] = list(grip_prefix)
         if fix_mecka_left_wrist:
-            if mode.startswith("keypoints"):
+            if mode.startswith("keypoints") and mode != "keypoints_wristframe_pi":
                 raise ValueError(
                     "fix_mecka_left_wrist only applies to cartesian modes "
                     "(keypoints modes never read the constructed wrist pose)"
@@ -522,6 +543,33 @@ class Human(Embodiment):
                     else []
                 )
                 + grip_suffix
+            )
+        if mode == "keypoints_wristframe_pi":
+            # pi0.5 keypoint-action recipe: the 138-D wrist-first wrist-frame
+            # keypoint action (exactly ``keypoints_wristframe_ypr``) PLUS the
+            # cartesian pipeline's head-frame palm-origin
+            # ``observations.state.ee_pose`` (left-wrist fix via ``prefix``,
+            # 6D-encoded, grip-padded like ``cartesian_6d``) as the prompt
+            # proprio, so the run shares its prompt / proprio with the
+            # cartesian pi runs and differs only in the action space. The
+            # cartesian builder keeps ``obs_head_pose`` alive for the keypoint
+            # builder (delete_target_world=False); its ``actions_cartesian``
+            # by-product is dropped.
+            return (
+                prefix
+                + _build_human_cartesian_bimanual_transform_list(
+                    stride=stride, delete_target_world=False
+                )
+                + [CartesianYPRToRot6D(action_key="observations.state.ee_pose")]
+                + (
+                    [PadGripperZeros(action_key="observations.state.ee_pose")]
+                    if pad_proprio_gripper
+                    else []
+                )
+                + [DeleteKeys(keys_to_delete=["actions_cartesian"])]
+                + _build_human_keypoints_eef_frame_transform_list(
+                    stride=stride, is_quat=False
+                )
             )
         if mode == "keypoints_headframe_ypr":
             return _build_human_keypoints_bimanual_transform_list(

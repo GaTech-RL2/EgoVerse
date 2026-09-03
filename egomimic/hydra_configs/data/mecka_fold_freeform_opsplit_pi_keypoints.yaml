@@ -1,0 +1,113 @@
+# MECKA_FOLD_FREEFORM_OPSPLIT_PI_KEYPOINTS — pi0.5 BC on the mecka FREEFORM fold-clothes
+# episodes (SQL task='folding_clothes', 462 eps / 1.13M frames under
+# processed_v3/mecka/freeform/; "freeform" is only visible in
+# zarr_processed_path, so the filter keys on '/mecka/freeform/' and accepts
+# either fold-clothes task spelling), stored under the human_bimanual
+# embodiment, with the held-out-OPERATOR train/val split.
+#
+# OPERATOR SPLIT (shared by every *_opsplit_* config — keep the lists byte-
+# identical across them): validation = 31 operators held out ENTIRELY, so no
+# val episode shares an operator with training. Chosen deterministically on
+# 2026-09-01 from SQL app.episodes (462 freeform fold eps / 178 operators):
+# skip the 10 largest operators (their data stays in train), seeded shuffle
+# (random.Random(42)) of the remaining operator ids, accumulate until >= 10 %
+# of frames (Aidan: a full 10 %, raised from 8 % the same evening) ->
+# 31 operators, 50 episodes, 115,681 frames (10.2 %) held out;
+# train = 147 operators, 412 episodes, 1,013,220 frames. Both sides use
+# mode: total (no random episode split); the lists ARE the split.
+#
+# KEYPOINT actions in WRIST frame: 138-D wrist-first `actions_keypoints` =
+# per hand [wrist pose in its own current wrist frame (xyz+ypr, 6) | 21 MANO
+# keypoints in that wrist frame (63)] x {left, right}, 100-step chunks.
+# The `keypoints_wristframe_pi` transform ALSO builds the cartesian runs'
+# head-frame palm-origin `observations.state.ee_pose` (left-wrist fix, 6D,
+# grip-padded to 20) as the prompt proprio, so this run shares its prompt /
+# proprio with the cartesian twins and differs only in the action space.
+# Pairs with model=pi0.5_bc_mecka_keypoints (action_dim 140 = 138 + 2 pad).
+#
+# Shared pipeline knobs (same as mecka_all_pi_6d): fix_mecka_left_wrist
+# (processed_v3 mecka zarrs have the LEFT wrist frame double-mirrored;
+# Rz(180°)-corrected before any frame math), pad_proprio_gripper (18 -> 20-dim
+# proprio so the State: prompt bins align with the robot layout), stride 1,
+# prompts from the `annotations` track. Pairs with evaluator=eval_pi_keypoints_wristframe
+# (+ `+evaluator@train_viz_evaluator=train_viz_pi_keypoints_wristframe`). Twins: mecka_fold_freeform_opsplit_pi_6d (wrist-frame cartesian), mecka_fold_freeform_opsplit_pi_cam6d (cam-frame cartesian).
+# Also in the batch: `observations.state.keypoints` (138-D: wrist pose in head
+# frame + keypoints in wrist frame, per hand) — consumed by the eval revert
+# (wrist -> head frame), NOT binned into the prompt (proprio_keys_for_prompt
+# on the model config keeps the prompt to the 20-D ee_pose).
+#
+# Norm stats: precompute on a CPU node (scripts/norm_fold_freeform_opsplit_kp.sbatch) and point
+# training at norm_stats.precomputed_norm_path=<out>/norm_stats.
+#
+# folder_path: shared PACE mirror of processed_v3; all 462 episodes present.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        # "_pi" suffix -> PaliGemma-style camera name (base_0_rgb).
+        keymap_mode: keypoints_pi
+        annotation_key: annotations
+        # keypoints keymap + the ee_pose keys the transform needs for the prompt proprio
+        include_ee_pose: true
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: keypoints_wristframe_pi
+        stride: 1
+        fix_mecka_left_wrist: true
+        pad_proprio_gripper: true
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
+        - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
+        # OPERATOR SPLIT — train = every operator NOT in the held-out set.
+        - "lambda row: str(row.get('operator', '')) not in {'68a8e70d1ffcf0417e08f0e5', '68e2fc680b158ea94ab4f5bc', '6930bf8a6e496b45b1e1122e', '6931784c6e496b45b1e1b1cd', '693a399ec67c9e4814b0c09f', '693b9530c67c9e4814b20ab2', '693c78165cb6c2828a4c2087', '694604945c0479a0fb7f48a4', '6948d23b5c0479a0fb8302b3', '69529a85c0d9448524bc7880', '6954f0b720b100982d812ed8', '6957464720b100982d83b76c', '695d07d783a9fdf2d84d9371', '695d084183a9fdf2d84d955a', '6961c50f83a9fdf2d85ec95d', '69624a8683a9fdf2d86013c0', '6973c3ae89fa4bc311d1bbe5', '69842643f8ca4464d9920799', '698937a5f8ca4464d99dce94', '6992b19ab9d55c9c2d48432c', '699429e18ef0252970048624', '6996d5eded1708063b2fe419', '6999d17c8f173e14271f9890', '69a24256c4216c3e3ce33834', '69a39ec9c4216c3e3ce49734', '69a57a78c4216c3e3ce6323c', '69a725a347e12c9b3390ba33', '69a7943547e12c9b33911c02', '69a84eed47e12c9b339208fd', '69ab87207bf9cbce29a3cb36', '69ae2463d22d99655253f287'}"
+    mode: total
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
+        - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
+        # OPERATOR SPLIT — valid = the 25 held-out operators only.
+        - "lambda row: str(row.get('operator', '')) in {'68a8e70d1ffcf0417e08f0e5', '68e2fc680b158ea94ab4f5bc', '6930bf8a6e496b45b1e1122e', '6931784c6e496b45b1e1b1cd', '693a399ec67c9e4814b0c09f', '693b9530c67c9e4814b20ab2', '693c78165cb6c2828a4c2087', '694604945c0479a0fb7f48a4', '6948d23b5c0479a0fb8302b3', '69529a85c0d9448524bc7880', '6954f0b720b100982d812ed8', '6957464720b100982d83b76c', '695d07d783a9fdf2d84d9371', '695d084183a9fdf2d84d955a', '6961c50f83a9fdf2d85ec95d', '69624a8683a9fdf2d86013c0', '6973c3ae89fa4bc311d1bbe5', '69842643f8ca4464d9920799', '698937a5f8ca4464d99dce94', '6992b19ab9d55c9c2d48432c', '699429e18ef0252970048624', '6996d5eded1708063b2fe419', '6999d17c8f173e14271f9890', '69a24256c4216c3e3ce33834', '69a39ec9c4216c3e3ce49734', '69a57a78c4216c3e3ce6323c', '69a725a347e12c9b3390ba33', '69a7943547e12c9b33911c02', '69a84eed47e12c9b339208fd', '69ab87207bf9cbce29a3cb36', '69ae2463d22d99655253f287'}"
+    mode: total
+
+# Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
+# videos_train_viz/): same operators as train, no shuffle -> same slice every val.
+train_viz_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: total
+
+train_viz_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 2
+    shuffle: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+    shuffle: false
