@@ -85,9 +85,13 @@ def find_zarr_prefixes(s3, base):
 
 
 def read_batch(prefixes, folder, cfg):
-    """Read the zarr.json for a batch of prefixes -> list[row dict]. FULLY
-    self-contained (only stdlib + boto3, imported inside) so it runs on any Ray
-    worker regardless of whether egomimic / ~/.egoverse_env are present there."""
+    """Build staging rows from the episode metadata under each S3 prefix.
+
+    The function imports its dependencies locally so a Ray worker needs neither
+    the ``egomimic`` package nor ``~/.egoverse_env``. It omits every episode
+    whose status is not exactly ``complete``; a missing or falsey status
+    defaults to ``complete`` for compatibility with older episodes.
+    """
     import json as _json
     import re as _re
     from datetime import datetime as _dt
@@ -121,6 +125,10 @@ def read_batch(prefixes, folder, cfg):
                 ).replace(tzinfo=_tz.utc).isoformat()
             except ValueError:
                 created_at = None
+        # Keep the literal aligned with ``DATA_STATUS_COMPLETE`` without
+        # importing the package on a bare Ray worker.
+        if (attrs.get("data_status") or "complete") != "complete":
+            continue
         feats = attrs.get("features")
         out.append({
             "episode_hash": episode_hash,

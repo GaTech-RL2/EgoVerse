@@ -69,9 +69,10 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 
-# Include the registry YAML files in built distributions.
+# Include the registry and schema YAML files in built distributions.
 [tool.setuptools.package-data]
 "egomimic.rldb.embodiment.registry" = ["*.yaml"]
+"egomimic.rldb.zarr" = ["schema/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["egomimic/rldb/embodiment", "egomimic/rldb/zarr"]

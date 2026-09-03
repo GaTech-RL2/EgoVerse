@@ -136,6 +136,36 @@ class ResolvedEmbodiment:
         return spaces.pop()
 
     @property
+    def arity(self) -> str | None:
+        """Return the arity suffix encoded in ``embodiment_name``.
+
+        Returns:
+            The text after ``<platform embodiment_prefix>_``, or ``None`` when
+            the resolved value has no matching embodiment name.
+        """
+        if self.embodiment_name is None:
+            return None
+        prefix = f"{self.platform.embodiment_prefix}_"
+        if self.embodiment_name.startswith(prefix):
+            return self.embodiment_name[len(prefix) :]
+        return None
+
+    @property
+    def sides(self) -> tuple[str, ...]:
+        """Return side candidates implied by the encoded arity.
+
+        ``left_arm`` and ``right_arm`` select one side. All other values return
+        both candidates; callers resolving a morphology mapping must still
+        filter candidates not present in ``end_effectors``.
+        """
+        arity = self.arity
+        if arity == "left_arm":
+            return ("left",)
+        if arity == "right_arm":
+            return ("right",)
+        return SIDES
+
+    @property
     def embodiment_class(self) -> type["Embodiment"]:
         """Import and return the platform's configured ``Embodiment`` class.
 

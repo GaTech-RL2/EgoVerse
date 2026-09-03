@@ -43,11 +43,15 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.zarr.action_chunk_transforms import base_T_cam_pose_key
+from egomimic.rldb.zarr.calibration import Calibration, read_calibration
+from egomimic.rldb.zarr.episode_attrs import data_status, is_complete
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_table_to_df,
 )
+from egomimic.utils.pose_utils import _matrix_to_xyzwxyz
 
 if TYPE_CHECKING:
     # Annotation-only import — avoids a runtime circular import with
@@ -231,6 +235,16 @@ class EpisodeResolver:
                     key_map=self.key_map,
                     transform_list=self.transform_list,
                 )
+                # Resolver-based loading accepts only the exact ``complete``
+                # status; structural samples and unknown statuses are skipped.
+                if not is_complete(ds_obj.metadata):
+                    logger.warning(
+                        "Skipping %s: data_status is %r, not 'complete'",
+                        p,
+                        ds_obj.data_status,
+                    )
+                    skipped.append(p.name)
+                    continue
                 datasets[name] = ds_obj
             except Exception as e:
                 logger.error(f"Failed to load dataset at {p}: {e}")
@@ -1558,6 +1572,41 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()
+        self._extrinsic_poses = self._build_extrinsic_poses()
+
+    @property
+    def data_status(self) -> str:
+        """Return the episode status, including the legacy default."""
+        return self.episode_reader.data_status
+
+    @property
+    def calibration(self) -> Calibration | None:
+        """Return parsed current or legacy episode calibration."""
+        return self.episode_reader.calibration
+
+    def _build_extrinsic_poses(self) -> dict[str, np.ndarray]:
+        """Build transform-input poses for the calibration's default camera.
+
+        For each arm with enough calibration to compose ``base_T_cam``, convert
+        the matrix to the pose layout consumed by the transform pipeline.
+        Missing calibration leaves the sample key absent so the configured
+        transform may supply its compatibility fallback.
+
+        Returns:
+            A mapping from ``<side>_base_T_cam_pose`` to a 7-value
+            ``[xyz, qw, qx, qy, qz]`` pose.
+        """
+        calibration = self.calibration
+        if calibration is None:
+            return {}
+        poses = {}
+        for side in ("left", "right"):
+            base_T_cam = calibration.base_T_cam(side)
+            if base_T_cam is not None:
+                poses[base_T_cam_pose_key(side)] = _matrix_to_xyzwxyz(
+                    base_T_cam[None, :]
+                )[0]
+        return poses
 
     @property
     def intrinsics(self) -> np.ndarray | dict[str, np.ndarray] | None:
@@ -1725,6 +1774,11 @@ class ZarrDataset(torch.utils.data.Dataset):
             if retry:
                 continue
 
+            # Inject episode-derived poses before transforms run. Transform
+            # fallbacks use ``setdefault`` and therefore preserve these values.
+            for key, pose in self._extrinsic_poses.items():
+                data[key] = pose.copy()
+
             if self.transform:
                 for transform in self.transform or []:
                     data = transform.transform(data)
@@ -1734,29 +1788,16 @@ class ZarrDataset(torch.utils.data.Dataset):
                     data[k] = torch.from_numpy(v).to(torch.float32)
 
             data["embodiment"] = get_embodiment_id(self.embodiment)
-            # Per-episode camera intrinsics travel with the batch so a single
-            # data-driven embodiment can project without a hardcoded class const.
-            # Single-camera -> (3,4) K matrix; no/multi-camera -> NaN sentinel,
-            # which _intrinsics_from_batch treats as "fall back to cls.INTRINSICS".
-            K = self.intrinsics
-            if isinstance(K, dict):
-                # Multi-camera rig: project against the front camera (viz/projection
-                # target the front image). Prefer a "front"-keyed entry, else the
-                # first available camera.
-                K = next(
-                    (v for k, v in K.items() if "front" in str(k).lower()),
-                    next(iter(K.values()), None) if K else None,
-                )
-            if K is not None:
-                K = np.asarray(K, dtype=np.float32)
-                if K.shape == (3, 3):
-                    # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
-                    # some contributors store 3x3 (e.g. microagi).
-                    K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
-                    K = np.full((3, 4), np.nan, dtype=np.float32)
-            else:
+            # ``Calibration.K()`` applies the default-camera selection and the
+            # parser has already normalized a 3x3 K to 3x4. A missing matrix is
+            # represented by NaNs, which ``_intrinsics_from_batch`` interprets
+            # as a request for the embodiment-class fallback.
+            calibration = self.calibration
+            K = None if calibration is None else calibration.K()
+            if K is None:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
+            else:
+                K = np.asarray(K, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
             data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
@@ -1829,6 +1870,7 @@ class ZarrEpisode:
         "_store",
         "metadata",
         "keys",
+        "_calibration",
     )
 
     def __init__(self, path: str | Path):
@@ -1841,6 +1883,21 @@ class ZarrEpisode:
         self._store = zarr.open_group(str(self._path), mode="r")
         self.metadata = dict(self._store.attrs)
         self.keys = self.metadata["features"]
+        self._calibration = read_calibration(self.metadata)
+
+    @property
+    def data_status(self) -> str:
+        """Return the status, defaulting a missing or falsey value to ``complete``."""
+        return data_status(self.metadata)
+
+    @property
+    def calibration(self) -> Calibration | None:
+        """Return calibration normalized by :func:`read_calibration`.
+
+        The result comes from the current block or a lifted legacy attribute
+        pair. It is ``None`` when neither representation is present.
+        """
+        return self._calibration
 
     @property
     def intrinsics(self) -> np.ndarray | dict[str, np.ndarray] | None:
@@ -1848,16 +1905,12 @@ class ZarrEpisode:
         Camera intrinsics persisted in zarr metadata, deserialized to ndarray(s).
 
         Returns:
-            - np.ndarray for a single-camera episode,
-            - dict[str, np.ndarray] for multi-camera episodes,
-            - None if no intrinsics were written.
+            - dict[str, np.ndarray] keyed by camera name,
+            - None if the episode carries no calibrated camera.
         """
-        raw = self.metadata.get("intrinsics")
-        if raw is None:
+        if self._calibration is None:
             return None
-        if isinstance(raw, dict):
-            return {k: np.asarray(v) for k, v in raw.items()}
-        return np.asarray(raw)
+        return self._calibration.intrinsics() or None
 
     def read(
         self, keys_with_ranges: dict[str, tuple[int, int | None]]

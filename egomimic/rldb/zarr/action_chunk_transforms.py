@@ -35,6 +35,18 @@ from egomimic.utils.pose_utils import (
     xyzw_to_wxyz,
 )
 
+
+def base_T_cam_pose_key(side: str) -> str:
+    """Return the sample key for ``base_T_cam`` as ``[xyz, qw, qx, qy, qz]``."""
+    return f"{side}_base_T_cam_pose"
+
+
+def _apply_fallbacks(batch, extra_batch_key) -> None:
+    """Add fallback values for absent keys without replacing sample values."""
+    for key, value in (extra_batch_key or {}).items():
+        batch.setdefault(key, value)
+
+
 # ---------------------------------------------------------------------------
 # Base Transform
 # ---------------------------------------------------------------------------
@@ -159,7 +171,9 @@ class ActionChunkCoordinateFrameTransform(Transform):
                 frame. This pose represents ``reference_T_target``.
             chunk_world: Batch key for the input poses.
             transformed_key_name: Batch key for the output poses.
-            extra_batch_key: Values to add to the batch before the transform.
+            extra_batch_key: Fallback values for keys the batch does not
+                already carry. A per-episode value in the batch wins, so a
+                class constant here is a default and not an override.
             mode: Input and output layout. Use ``"xyz"``, ``"xyzypr"``, or
                 ``"xyzwxyz"``.
             inverse: If true, compute ``target_T_chunk`` from
@@ -190,7 +204,7 @@ class ActionChunkCoordinateFrameTransform(Transform):
             ValueError: If ``mode`` is not a supported pose layout.
         """
         # Flatten the leading chunk dimensions into one pose dimension.
-        batch.update(self.extra_batch_key or {})
+        _apply_fallbacks(batch, self.extra_batch_key)
         target_world_pose = np.asarray(batch[self.target_world])
         chunk_world_poses = np.asarray(batch[self.chunk_world])
         chunk_world_poses_shape = None
@@ -437,7 +451,7 @@ class CartesianWithGripperCoordinateTransform(Transform):
         returns
             batch with new key containing transformed chunk world in target frame: (T, 14)
         """
-        batch.update(self.extra_batch_key or {})
+        _apply_fallbacks(batch, self.extra_batch_key)
         left_target_world = batch[self.left_target_world]
         right_target_world = batch[self.right_target_world]
         chunk_world = batch[self.chunk_world]

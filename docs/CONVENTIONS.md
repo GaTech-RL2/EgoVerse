@@ -22,6 +22,39 @@ EVA episode extrinsics store one `base_T_cam` matrix for each arm. Human
 episodes store the head pose as `world_T_head`. The head frame and the camera
 frame are the same frame for egocentric human data.
 
+### The calibration block
+
+An episode written after the `calibration` attribute existed names one
+reference frame and expresses every pose in it.
+
+```text
+calibration.reference_frame        robot_base | slam_world | camera:<name>
+calibration.cameras[c].ref_T_cam   camera c's pose in the reference frame
+calibration.arm_bases[side]        ref_T_armbase, the arm base pose in it
+```
+
+The camera that defines the reference frame needs no `ref_T_cam`. It is the
+identity by definition.
+
+Each camera also declares its projection model and distortion coefficients.
+
+```text
+calibration.cameras[c].model        PINHOLE | OPENCV | KANNALA_BRANDT
+calibration.cameras[c].distortion   coefficients in that model's order
+calibration.cameras[c].rectified    whether the stored frames are rectified
+```
+
+A camera that declares no model is `PINHOLE` with no coefficients. No
+projection site honors a non-pinhole model yet. Collect the declaration anyway:
+it measures a vendor's rig, and a rig that has moved cannot be recalibrated
+after the fact.
+
+`Calibration.base_T_cam(side)` composes the two and returns what the EVA
+transform pipeline consumes. An episode that predates the block reaches the
+same value through the shim in `egomimic/rldb/zarr/calibration.py`: its
+reference frame is `camera:front_1`, so `arm_bases[side]` is the inverse of
+the stored `extrinsics[side]`.
+
 ### Existing episodes need no migration
 
 The `ref_T_cam` naming records the direction the code already used. It changes
