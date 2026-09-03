@@ -1,31 +1,27 @@
-"""Episode attribute vocabulary shared by the writer, the reader and the validator.
+"""Shared names and normalization helpers for episode attributes.
 
-Keeping the vocabulary here rather than in any one of them means the writer
-does not import the reader, and nobody restates a literal.
+The writer and readers depend on this module without depending on each other.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-#: A finished recording. Only these episodes get a database row and reach a
-#: dataset.
+#: A finished recording eligible for staging and resolver-based loading.
 DATA_STATUS_COMPLETE = "complete"
 
-#: A sample sent to show the shape of a delivery. It is real data in the schema
-#: sense and not real data in the training sense, and nothing downstream could
-#: previously tell the two apart.
+#: A delivery-format example that staging and dataset resolvers must exclude.
 DATA_STATUS_STRUCTURAL_SAMPLE = "structural_sample"
 
 DATA_STATUS_VALUES = (DATA_STATUS_COMPLETE, DATA_STATUS_STRUCTURAL_SAMPLE)
 
 
 def data_status(attrs: Mapping) -> str:
-    """Return one episode's data status.
+    """Return the stored status, defaulting a missing or falsey value to complete.
 
-    An episode written before the attribute existed is ``complete``: the
-    corpus predates the distinction and every episode in it was delivered as
-    finished data.
+    The default preserves the behavior of episodes written before
+    ``data_status`` was introduced. This helper does not validate a non-empty
+    stored value; the writer and schema validator do that separately.
 
     Args:
         attrs: The episode's Zarr attributes.
@@ -35,7 +31,7 @@ def data_status(attrs: Mapping) -> str:
 
 
 def is_complete(attrs: Mapping) -> bool:
-    """Return whether one episode is a finished recording."""
+    """Return whether the normalized status is exactly ``complete``."""
     return data_status(attrs) == DATA_STATUS_COMPLETE
 
 

@@ -235,9 +235,8 @@ class EpisodeResolver:
                     key_map=self.key_map,
                     transform_list=self.transform_list,
                 )
-                # A structural sample is real data in the schema sense and not
-                # real data in the training sense. Refuse it here so it cannot
-                # reach a training run through any resolver.
+                # Resolver-based loading accepts only the exact ``complete``
+                # status; structural samples and unknown statuses are skipped.
                 if not is_complete(ds_obj.metadata):
                     logger.warning(
                         "Skipping %s: data_status is %r, not 'complete'",
@@ -1577,22 +1576,21 @@ class ZarrDataset(torch.utils.data.Dataset):
 
     @property
     def data_status(self) -> str:
-        """Pass-through to ZarrEpisode.data_status (read from zarr metadata)."""
+        """Return the episode status, including the legacy default."""
         return self.episode_reader.data_status
 
     @property
     def calibration(self) -> Calibration | None:
-        """Pass-through to ZarrEpisode.calibration (read from zarr metadata)."""
+        """Return parsed current or legacy episode calibration."""
         return self.episode_reader.calibration
 
     def _build_extrinsic_poses(self) -> dict[str, np.ndarray]:
-        """Return this episode's per-arm ``base_T_cam`` poses for the batch.
+        """Build transform-input poses for the calibration's default camera.
 
-        The transform pipeline expresses actions in the camera frame, so it
-        needs the rig that recorded this episode. Two vendors on one platform
-        have two rigs, and an embodiment class constant cannot tell them apart.
-        An episode that declares no extrinsics contributes nothing here and the
-        transform falls back to its embodiment default.
+        For each arm with enough calibration to compose ``base_T_cam``, convert
+        the matrix to the pose layout consumed by the transform pipeline.
+        Missing calibration leaves the sample key absent so the configured
+        transform may supply its compatibility fallback.
 
         Returns:
             A mapping from ``<side>_base_T_cam_pose`` to a 7-value
@@ -1776,8 +1774,8 @@ class ZarrDataset(torch.utils.data.Dataset):
             if retry:
                 continue
 
-            # Per-episode extrinsics travel with the sample so the pipeline
-            # transforms into the frame of the rig that recorded this episode.
+            # Inject episode-derived poses before transforms run. Transform
+            # fallbacks use ``setdefault`` and therefore preserve these values.
             for key, pose in self._extrinsic_poses.items():
                 data[key] = pose.copy()
 
@@ -1790,11 +1788,10 @@ class ZarrDataset(torch.utils.data.Dataset):
                     data[k] = torch.from_numpy(v).to(torch.float32)
 
             data["embodiment"] = get_embodiment_id(self.embodiment)
-            # Per-episode camera intrinsics travel with the batch so a single
-            # data-driven embodiment can project without a hardcoded class const.
-            # The calibration shim picks the front camera and normalizes a bare
-            # 3x3 K; an episode without one gets the NaN sentinel, which
-            # _intrinsics_from_batch treats as "fall back to cls.INTRINSICS".
+            # ``Calibration.K()`` applies the default-camera selection and the
+            # parser has already normalized a 3x3 K to 3x4. A missing matrix is
+            # represented by NaNs, which ``_intrinsics_from_batch`` interprets
+            # as a request for the embodiment-class fallback.
             calibration = self.calibration
             K = None if calibration is None else calibration.K()
             if K is None:
@@ -1890,16 +1887,15 @@ class ZarrEpisode:
 
     @property
     def data_status(self) -> str:
-        """Return ``complete`` or ``structural_sample`` for this episode."""
+        """Return the status, defaulting a missing or falsey value to ``complete``."""
         return data_status(self.metadata)
 
     @property
     def calibration(self) -> Calibration | None:
-        """Per-episode calibration, read through the one shim.
+        """Return calibration normalized by :func:`read_calibration`.
 
-        Returns the ``calibration`` attribute block, or the same information
-        lifted from the legacy ``intrinsics``/``extrinsics`` pair, or ``None``
-        when the episode states neither.
+        The result comes from the current block or a lifted legacy attribute
+        pair. It is ``None`` when neither representation is present.
         """
         return self._calibration
 

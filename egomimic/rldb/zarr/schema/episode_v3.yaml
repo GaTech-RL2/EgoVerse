@@ -1,7 +1,8 @@
-# The episode contract, as data.
+# The declarative portion of the episode contract.
 #
-# `egomimic/rldb/zarr/validate.py` reads this file and holds no rules of its
-# own. A rule that lives here is one a contributor can read, diff and review.
+# This file selects fields and named checks, supplies their parameters, and
+# assigns failure severity. `validate.py` implements the schema interpreter and
+# the named check predicates referenced here.
 #
 # Run it with:
 #   python -m egomimic.rldb.zarr.validate <episode.zarr> [--strict]
@@ -9,22 +10,27 @@
 # ---------------------------------------------------------------------------
 # attributes
 #   required   true | false | strict
-#              `strict` means the attribute is an error only under --strict and
-#              a warning otherwise. Use it for a rule the corpus does not meet
-#              yet: flipping such a rule to `true` before the corpus is fixed
-#              turns a good check into an outage.
+#              For a missing attribute or array, `true` emits an error, `false`
+#              emits no finding, and `strict` emits a warning unless --strict
+#              promotes it to an error. Present attributes and arrays must meet
+#              their declared type and shape regardless of this setting.
 #   type       str | int | bool | mapping
 #   min        smallest accepted value for an int
 #   choices    the accepted values
-#   check      a named check that needs more than a type; see `validate.py`
+#   check      an attribute predicate implemented in `validate.py`
+#
+# checks
+#   name       a predicate implemented in `validate.py`
+#   required   controls the severity of a predicate failure as described above
+#   <other>    predicate-specific parameters
 #
 # arrays
-#   key        an array key. `{side}` expands over the episode's arms, and `*`
-#              matches any suffix among the keys the episode stores.
+#   key        an array key. `{side}` expands over arity-derived candidates,
+#              filtered by resolved end-effectors; `*` selects stored matches.
 #   required   true | false | strict, as above. A wildcard key is never
 #              required.
-#   when       conditions on the resolved embodiment; the rule is skipped when
-#              they do not hold
+#   when       conditions on the resolved embodiment; skip the rule when any
+#              condition does not hold
 #   shape      expected dimensions, see below
 #   dtype      int | float | object | any
 #
@@ -96,53 +102,50 @@ attributes:
     type: mapping
 
 checks:
-  # Every episode must state the rig that recorded it, through the current
-  # `calibration` block or the legacy pair.
+  # Require at least one camera matrix, read from the current `calibration`
+  # block or lifted from the legacy attributes.
   - name: calibration_present
     required: true
 
-  # One camera matrix per stored image stream. `eva_to_zarr.py` calibrates one
-  # camera of three, so every EVA episode in the corpus fails this today.
+  # Match each stored `images.<camera>` stream to a camera entry carrying K.
+  # This remains a warning without --strict during the compatibility rollout.
   - name: camera_coverage
     required: strict
 
-  # A pose track that never moves, or that holds an exact identity rotation on
-  # more than a slice of its frames, is a placeholder rather than a
-  # measurement. Nothing downstream can tell the two apart.
+  # For a listed 7D pose track with at least two retained rows, reject identical
+  # rows or more than 1% exact +identity/-identity quaternions.
   - name: pose_degeneracy
     required: true
     suffixes: [obs_ee_pose, cmd_ee_pose, obs_head_pose]
     identity_rotation_fraction: 0.01
 
-  # An exactly-identity extrinsic places the camera at the arm base. It is the
-  # signature of a rig that was never measured, and it survives every other
-  # check because the projection it produces still looks plausible.
+  # Reject an exact identity pose stored for a non-reference camera, or a
+  # numerically identity `base_T_cam` composed for an arm and the default camera.
   - name: calibration_degeneracy
     required: true
 
-  # `fx == fy == W` with the principal point at the exact image centre is a
-  # synthesized camera, not a calibrated one. The `fx == W` conjunct is what
-  # keeps our own rectified Aria K (fx 266.5, W 640) out of the net.
+  # Reject the exact synthetic-intrinsics signature `fx == fy == width`,
+  # `cx == width / 2`, and `cy == height / 2`.
   - name: intrinsics_signature
     required: true
 
-  # One clock per episode, in integer UTC nanoseconds, strictly increasing. A
-  # relative time base is derived on read, never stored.
+  # Reject non-increasing retained timestamps, stored keys containing
+  # `relative_timestamp`, and a power-of-two step GCD of at least 64 ns (the
+  # heuristic signature of float seconds converted to integer nanoseconds).
   - name: timestamps
     required: true
     key: obs_rgb_timestamps_ns
     banned_key_substrings: [relative_timestamp]
 
-  # Annotations cover the retained frames or the tail is trimmed. EVA episodes
-  # pass no annotations at all today, so this is opt-in.
+  # Valid annotation intervals must jointly cover at least 90% of
+  # `[0, total_frames)`. Keep this transitional rule strict-only.
   - name: annotation_coverage
     required: strict
     key: annotations
     minimum: 0.9
 
-  # A vendor who wants a skill taxonomy encodes one in the text, as in
-  # `pick up the cup | Skill: pick`. Ban the delimiter now and add a field when
-  # a second vendor asks for it.
+  # Forbid the exact substring ` | ` in annotation text and task_description;
+  # structured metadata needs a separate schema field.
   - name: annotation_text
     required: true
     key: annotations
@@ -153,8 +156,8 @@ arrays:
     required: true
     shape: [T, 7]
     dtype: float
-    # The hand root or palm pose. It is the only key human, parallel-jaw and
-    # dexterous episodes share, so every embodiment owes it.
+    # Observed end-effector-root pose. Require one for every resolved side,
+    # independent of the end-effector class.
 
   - key: "{side}.cmd_ee_pose"
     required: false
@@ -197,8 +200,8 @@ arrays:
     shape: [T, 7]
     dtype: float
 
-  # One clock per episode, in integer UTC nanoseconds. EVA episodes do not
-  # write it yet, so it is required only under --strict.
+  # Canonical RGB timestamp array. When present it must be one-dimensional,
+  # integer-valued, and at least `total_frames` long. Presence is strict-only.
   - key: obs_rgb_timestamps_ns
     required: strict
     shape: [T]

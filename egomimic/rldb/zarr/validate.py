@@ -1,14 +1,14 @@
-"""Validate one zarr episode against the rules in schema/episode_v3.yaml.
+"""Validate a Zarr episode against ``schema/episode_v3.yaml``.
 
 Run it with::
 
     python -m egomimic.rldb.zarr.validate <episode.zarr> [--strict]
 
-The rules live in the schema file, not here. This module reads them, resolves
-the episode's embodiment through the registry, and reports one finding per
-rule. ``--strict`` promotes the rules the corpus does not meet yet from
-warnings to errors, so a rule can land, be measured across the corpus, and
-only then become the default.
+The schema declares attributes, arrays, conditions, thresholds, and severity.
+This module interprets those declarations and implements the named predicates.
+``--strict`` promotes failures marked ``required: strict`` from warnings to
+errors; validation of a present attribute or array is always an error when its
+declared type or shape is wrong.
 """
 
 from __future__ import annotations
@@ -46,8 +46,7 @@ ERROR = "error"
 WARNING = "warning"
 OK = "ok"
 
-#: `required: strict` rules are warnings until `--strict` promotes them. They
-#: exist so a rule can land before the corpus meets it.
+#: Accepted values for a schema rule's ``required`` field.
 _REQUIRED_VALUES = (True, False, "strict")
 
 _TYPE_NAMES = {
@@ -59,16 +58,16 @@ _TYPE_NAMES = {
 
 
 class SchemaError(ValueError):
-    """Report an invalid rule in ``episode_v3.yaml``."""
+    """Raised when ``episode_v3.yaml`` contains an unsupported declaration."""
 
 
 @dataclass(frozen=True)
 class Finding:
-    """One rule's result.
+    """One validation result emitted for an episode.
 
     Attributes:
         level: ``ok``, ``warning``, or ``error``.
-        check: The rule that produced this finding.
+        check: The attribute, array key, or named predicate being reported.
         message: What the rule found, in one line.
     """
 
@@ -82,12 +81,14 @@ class Finding:
 
 @dataclass
 class Report:
-    """Every finding for one episode.
+    """Validation findings for one episode.
 
     Attributes:
         path: The episode directory.
-        findings: One finding per rule that ran, in schema order.
-        strict: Whether the strict rules were promoted to errors.
+        findings: Findings in validation order. A schema rule may emit zero,
+            one, or multiple findings after key expansion.
+        strict: Whether ``required: strict`` failures are errors instead of
+            warnings.
     """
 
     path: Path
@@ -116,7 +117,7 @@ class Report:
         )
 
     def text(self, verbose: bool = False) -> str:
-        """Render the report.
+        """Format this report for terminal output.
 
         Args:
             verbose: If true, list the rules that passed as well.
@@ -142,13 +143,13 @@ class Report:
 
 @functools.lru_cache(maxsize=1)
 def load_schema() -> dict:
-    """Load and check ``schema/episode_v3.yaml``.
+    """Load the schema and validate every declared ``required`` value.
 
     Returns:
         The parsed schema.
 
     Raises:
-        SchemaError: If a rule declares an unusable ``required`` value.
+        SchemaError: If a rule declares an unsupported ``required`` value.
     """
     with SCHEMA_FILE.open("r") as f:
         schema = yaml.safe_load(f) or {}
@@ -166,7 +167,7 @@ def load_schema() -> dict:
 
 
 def _level(required, strict: bool) -> str | None:
-    """Return the level a failed rule reports at, or ``None`` if it is optional."""
+    """Return a requirement failure's severity, or ``None`` when optional."""
     if required is True:
         return ERROR
     if required == "strict":
@@ -317,13 +318,13 @@ _IDENTITY_QUATERNIONS = (
 
 
 def _read(array, total_frames: int | None) -> np.ndarray:
-    """Read an array up to `total_frames`, which is the authoritative length."""
+    """Read the available prefix, capped at the authoritative frame count."""
     end = array.shape[0] if total_frames is None else min(total_frames, array.shape[0])
     return np.asarray(array[:end])
 
 
 def _report_problems(rule, report, check: str, problems, passed: str) -> None:
-    """Record one finding for a named check."""
+    """Record a named check's pass or its requirement-level failure."""
     if not problems:
         report.add(OK, check, passed)
         return
@@ -368,8 +369,8 @@ def _check_calibration_degeneracy(rule, context, report) -> None:
         return
     problems = []
     for name, camera in calibration.cameras.items():
-        # The reference camera is the identity by definition, so only a stored
-        # pose can be degenerate.
+        # Identity is implicit for the reference camera; only an explicitly
+        # stored pose for another camera is subject to this branch.
         if (
             camera.ref_T_cam is not None
             and name != calibration.reference_camera
@@ -389,7 +390,7 @@ def _check_calibration_degeneracy(rule, context, report) -> None:
 
 
 def _resolution(camera, context) -> tuple[int, int] | None:
-    """Return one camera's ``(width, height)``, from the block or the stream."""
+    """Return ``(width, height)`` from calibration or image feature metadata."""
     if camera.resolution is not None:
         return camera.resolution
     feature = context["features"].get(f"{IMAGE_KEY_PREFIX}{camera.name}") or {}
@@ -574,7 +575,7 @@ def _condition_holds(when: Mapping, resolved: ResolvedEmbodiment, side) -> bool:
 
 
 def _dimension(token, context, side) -> int | None:
-    """Resolve one schema shape token to a length, or ``None`` for unknown."""
+    """Resolve a shape token; return ``None`` for a wildcard or absent spec."""
     if isinstance(token, int):
         return token
     if token == "*":
@@ -629,7 +630,7 @@ def _check_array(key: str, rule: dict, arrays: Mapping, report, context, side) -
                 want = _dimension(token, context, side)
                 if want is None:
                     continue
-                # `total_frames` is the sole authoritative length and a stored
+                # ``total_frames`` is the authoritative length and a stored
                 # array may carry a padded tail, so axis 0 is a lower bound.
                 if axis == 0:
                     if shape[0] < want:
@@ -654,11 +655,10 @@ def _check_array(key: str, rule: dict, arrays: Mapping, report, context, side) -
 
 
 def _expand_key(template: str, arrays: Mapping, sides) -> list[tuple[str, str | None]]:
-    """Expand one schema key into the concrete keys it names.
+    """Expand a schema key into the concrete array keys it selects.
 
-    ``{side}`` expands over the episode's arms. ``*`` matches the keys the
-    episode stores, so a wildcard rule checks what is there and never demands
-    a key.
+    ``{side}`` expands over the resolved side candidates. ``*`` selects stored
+    keys only, so a wildcard rule never creates a missing-key finding.
     """
     if "{side}" in template:
         candidates = [(template.format(side=side), side) for side in sides]
@@ -684,16 +684,17 @@ def _expand_key(template: str, arrays: Mapping, sides) -> list[tuple[str, str | 
 
 
 def validate_episode(path: str | Path, *, strict: bool = False) -> Report:
-    """Validate one zarr episode against ``schema/episode_v3.yaml``.
-
-
+    """Validate one Zarr episode against ``schema/episode_v3.yaml``.
     Args:
         path: The episode ``.zarr`` directory.
-        strict: If true, promote the rules the corpus does not meet yet from
-            warnings to errors.
+        strict: If true, treat ``required: strict`` failures as errors rather
+            than warnings.
 
     Returns:
-        A report holding one finding per rule that ran.
+        The findings emitted while validating the episode.
+
+    Raises:
+        SchemaError: If the schema contains an unsupported declaration.
     """
     path = Path(path)
     report = Report(path=path, strict=strict)
@@ -736,8 +737,8 @@ def validate_episode(path: str | Path, *, strict: bool = False) -> Report:
     resolved = _resolve(attrs, report)
     if resolved is None:
         return report
-    # Say which platform and end-effectors the array rules ran against, so a
-    # report explains itself without a second lookup.
+    # Record the resolved platform and end-effectors used by subsequent array
+    # conditions and dimensions.
     report.add(OK, "embodiment", resolved.describe())
     context["resolved"] = resolved
 
@@ -754,7 +755,7 @@ def validate_episode(path: str | Path, *, strict: bool = False) -> Report:
 
 
 def _resolve(attrs: Mapping, report: Report) -> ResolvedEmbodiment | None:
-    """Resolve the episode's embodiment, preferring its morphology block."""
+    """Resolve morphology first, then fall back to the embodiment name."""
     for spec in (attrs.get("morphology"), attrs.get("embodiment")):
         if not spec:
             continue
@@ -771,10 +772,10 @@ def _resolve(attrs: Mapping, report: Report) -> ResolvedEmbodiment | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the validator over one or more episodes.
+    """Validate CLI paths and return an exit status.
 
     Returns:
-        ``0`` if every episode passed, ``1`` otherwise.
+        ``0`` if every report has no errors, otherwise ``1``.
     """
     parser = argparse.ArgumentParser(
         prog="python -m egomimic.rldb.zarr.validate",

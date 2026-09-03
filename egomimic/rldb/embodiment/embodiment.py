@@ -137,11 +137,11 @@ class ResolvedEmbodiment:
 
     @property
     def arity(self) -> str | None:
-        """Return the arm configuration this embodiment name selects.
+        """Return the arity suffix encoded in ``embodiment_name``.
 
         Returns:
-            One of the platform's ``arity`` values, or ``None`` when
-            resolution started from a morphology block with no name.
+            The text after ``<platform embodiment_prefix>_``, or ``None`` when
+            the resolved value has no matching embodiment name.
         """
         if self.embodiment_name is None:
             return None
@@ -152,10 +152,11 @@ class ResolvedEmbodiment:
 
     @property
     def sides(self) -> tuple[str, ...]:
-        """Return the arms this embodiment carries.
+        """Return side candidates implied by the encoded arity.
 
-        A single-arm arity carries one side. Anything else carries both, which
-        is what a morphology block with no name resolves to.
+        ``left_arm`` and ``right_arm`` select one side. All other values return
+        both candidates; callers resolving a morphology mapping must still
+        filter candidates not present in ``end_effectors``.
         """
         arity = self.arity
         if arity == "left_arm":

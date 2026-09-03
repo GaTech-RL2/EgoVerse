@@ -26,19 +26,15 @@ from egomimic.utils.pose_utils import (
 
 
 class Eva(Embodiment):
-    """EVA X5 bimanual platform with a parallel jaw on each arm.
+    """Dataset transforms and visualization for the EVA X5 platform.
 
-    ``INTRINSICS`` and ``EXTRINSICS`` are fallbacks for an episode that
-    declares no calibration of its own. Calibration measures the rig that
-    recorded one episode, so the episode's own values win: ``ZarrDataset``
-    puts them in every sample and the transform pipeline reads them from
-    there. Two vendors on one platform have two rigs, and a class constant
-    cannot tell them apart.
+    ``EXTRINSICS`` is used only when a sample has no episode-specific
+    ``base_T_cam`` poses. ``INTRINSICS`` is the visualization fallback when a
+    sample has no camera matrix. Both constants describe the original EVA rig.
     """
 
     INTRINSICS = ARIA_INTRINSICS
-    #: Fallback rig: `base_T_cam` per arm, the camera pose in that arm's base
-    #: frame. See `docs/CONVENTIONS.md`.
+    #: Compatibility fallback: one ``base_T_cam`` pose per arm.
     EXTRINSICS = {
         "left": np.array(
             [
@@ -260,8 +256,7 @@ def _build_eva_bimanual_eef_frame_transform_list(
 ) -> list[Transform]:
     """EVA bimanual transform pipeline with actions expressed relative to the
     current EEF pose (wrist frame), analogous to keypoints relative to wrist pose."""
-    # A fallback for an episode that declares no extrinsics. `ZarrDataset`
-    # puts the episode's own rig in the sample, and that value wins.
+    # Supply class-default poses only for sample keys absent at transform time.
     extrinsics = Eva.EXTRINSICS
     left_base_T_cam_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
     right_base_T_cam_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
@@ -425,8 +420,7 @@ def _build_eva_bimanual_transform_list(
     is_quat: bool = True,
 ) -> list[Transform]:
     """Canonical EVA bimanual transform pipeline used by tests and notebooks."""
-    # A fallback for an episode that declares no extrinsics. `ZarrDataset`
-    # puts the episode's own rig in the sample, and that value wins.
+    # Supply class-default poses only for sample keys absent at transform time.
     extrinsics = Eva.EXTRINSICS
     left_base_T_cam_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
     right_base_T_cam_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]

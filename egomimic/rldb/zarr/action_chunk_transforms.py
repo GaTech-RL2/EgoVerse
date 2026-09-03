@@ -35,26 +35,14 @@ from egomimic.utils.pose_utils import (
     xyzw_to_wxyz,
 )
 
-# ---------------------------------------------------------------------------
-# Per-episode calibration
-# ---------------------------------------------------------------------------
 
-
-#: Batch key holding one arm's ``base_T_cam`` pose, the camera pose in that
-#: arm's base frame. ``ZarrDataset`` fills it from the episode calibration; a
-#: transform's ``extra_batch_key`` supplies an embodiment default when the
-#: episode declares none.
 def base_T_cam_pose_key(side: str) -> str:
-    """Return the batch key that carries one arm's ``base_T_cam`` pose."""
+    """Return the sample key for ``base_T_cam`` as ``[xyz, qw, qx, qy, qz]``."""
     return f"{side}_base_T_cam_pose"
 
 
 def _apply_fallbacks(batch, extra_batch_key) -> None:
-    """Fill batch keys that the sample does not already carry.
-
-    Calibration is per-episode, so a value the dataset read from the episode
-    must outrank the embodiment constant a transform was built with.
-    """
+    """Add fallback values for absent keys without replacing sample values."""
     for key, value in (extra_batch_key or {}).items():
         batch.setdefault(key, value)
 

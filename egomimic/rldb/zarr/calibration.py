@@ -1,4 +1,4 @@
-"""Read and write the per-episode ``calibration`` metadata block.
+"""Parse and serialize per-episode camera and arm-base calibration.
 
 Calibration is a physical measurement of the rig that recorded one episode, so
 it travels with the episode instead of living in a class constant. An episode
@@ -9,6 +9,8 @@ stores it under one ``calibration`` attribute::
         "cameras": {
             "front_1": {
                 "K": [[fx, 0, cx, 0], [0, fy, cy, 0], [0, 0, 1, 0]],
+                "model": "PINHOLE",
+                "distortion": [],
                 "resolution": [W, H],
                 "rectified": true,
                 "ref_T_cam": [[...]],
@@ -17,10 +19,10 @@ stores it under one ``calibration`` attribute::
         "arm_bases": {"left": [[...]], "right": [[...]]},
     }
 
-Every matrix follows ``docs/CONVENTIONS.md``: ``A_T_B`` maps coordinates from
-frame ``B`` to frame ``A``. ``ref_T_cam`` is the camera pose in the reference
-frame, and ``arm_bases[side]`` is ``ref_T_armbase``, the arm base pose in the
-reference frame.
+Every rigid transform follows ``docs/CONVENTIONS.md``: ``A_T_B`` maps
+coordinates from frame ``B`` to frame ``A``. ``ref_T_cam`` is the camera pose
+in the reference frame, and ``arm_bases[side]`` is ``ref_T_armbase``, the arm
+base pose in the reference frame.
 
 Episodes written before this block existed store ``intrinsics`` and
 ``extrinsics`` at the top level instead. :func:`read_calibration` reads either
@@ -35,30 +37,26 @@ from typing import Any
 
 import numpy as np
 
-#: Camera that legacy episodes calibrate and express `extrinsics` against.
+#: Conventional camera name assigned to bare legacy intrinsics and extrinsics.
 LEGACY_REFERENCE_CAMERA = "front_1"
 
-#: Reference frames that do not name a camera.
+#: Supported reference frames that do not name a camera.
 STATIC_REFERENCE_FRAMES = frozenset({"robot_base", "slam_world"})
 
-#: Prefix that makes a camera the reference frame, as in `camera:front_1`.
+#: Prefix for a camera reference frame, as in ``camera:front_1``.
 CAMERA_FRAME_PREFIX = "camera:"
 
-#: Prefix of the array key that stores one camera stream, as in
-#: `images.front_1`. The text after it is the camera name.
+#: Prefix of an image-array key; the suffix is its camera name.
 IMAGE_KEY_PREFIX = "images."
 
-#: Projection model of a camera, and the distortion coefficient counts it
-#: accepts. Nothing projects a non-pinhole model yet. The declaration is
-#: collected now because it measures a vendor's rig: if we discover later that
-#: we need it, the rig has moved and the episodes cannot be recalibrated.
+#: Supported projection models mapped to accepted distortion-vector lengths.
 CAMERA_MODELS = {
     "PINHOLE": frozenset({0}),
     "OPENCV": frozenset({4, 5, 8, 12, 14}),
     "KANNALA_BRANDT": frozenset({4}),
 }
 
-#: Projection model assumed for a camera that declares none.
+#: Projection model used when a camera omits ``model``.
 DEFAULT_CAMERA_MODEL = "PINHOLE"
 
 _CAMERA_FIELDS = frozenset(
@@ -68,11 +66,11 @@ _CALIBRATION_FIELDS = frozenset({"reference_frame", "cameras", "arm_bases"})
 
 
 class CalibrationError(ValueError):
-    """Report an invalid ``calibration`` block or legacy calibration attribute."""
+    """Raised when current or legacy calibration metadata is malformed."""
 
 
 def _matrix(value: Any, shape: tuple[int, ...], where: str) -> np.ndarray:
-    """Return ``value`` as a finite float64 array of the given shape."""
+    """Convert ``value`` to a finite float64 array with exactly ``shape``."""
     try:
         arr = np.asarray(value, dtype=np.float64)
     except (TypeError, ValueError) as exc:
@@ -87,7 +85,7 @@ def _matrix(value: Any, shape: tuple[int, ...], where: str) -> np.ndarray:
 
 
 def _camera_matrix(value: Any, where: str) -> np.ndarray:
-    """Return a 3×4 camera matrix, padding a bare 3×3 with a zero column."""
+    """Return finite ``[K_3x3 | 0]``; append a zero column to a 3×3 input."""
     try:
         arr = np.asarray(value, dtype=np.float64)
     except (TypeError, ValueError) as exc:
@@ -106,16 +104,16 @@ def _camera_matrix(value: Any, where: str) -> np.ndarray:
 
 @dataclass(frozen=True)
 class CameraCalibration:
-    """Store the calibration of one camera stream.
+    """Normalized calibration metadata for one camera stream.
 
     Attributes:
         name: The camera name. It matches the ``images.<name>`` array key.
-        K: The 3×4 camera matrix, or ``None`` for a declared but uncalibrated
-            camera.
-        model: A key in ``CAMERA_MODELS``. No projection site honors a
-            non-pinhole model yet.
-        distortion: The distortion coefficients of ``model``, in that model's
-            order. Empty for a pinhole camera.
+        K: The 3×4 ``[K_3x3 | 0]`` matrix, or ``None`` when undeclared.
+        model: A key in ``CAMERA_MODELS``. Current projection code does not
+            branch on this value.
+        distortion: The model-specific distortion vector. Its length is
+            validated against ``CAMERA_MODELS``; current projection code does
+            not consume it.
         resolution: ``(width, height)`` in pixels, or ``None``.
         rectified: Whether the stored frames are already rectified.
         ref_T_cam: The 4×4 camera pose in the episode reference frame, or
@@ -131,7 +129,7 @@ class CameraCalibration:
     ref_T_cam: np.ndarray | None = None
 
     def to_jsonable(self) -> dict[str, Any]:
-        """Return this camera as JSON-serializable episode metadata."""
+        """Serialize this camera to plain values accepted by Zarr attributes."""
         out: dict[str, Any] = {
             "model": self.model,
             "rectified": bool(self.rectified),
@@ -149,12 +147,12 @@ class CameraCalibration:
 
 @dataclass(frozen=True)
 class Calibration:
-    """Store the calibration of every camera and arm base in one episode.
+    """Normalized calibration metadata for one episode.
 
     Attributes:
         reference_frame: ``robot_base``, ``slam_world``, or
-            ``camera:<camera name>``. Every pose in this block is expressed in
-            this frame.
+            ``camera:<camera name>``. Every rigid pose in this block is
+            expressed in this frame.
         cameras: A mapping from camera name to its calibration.
         arm_bases: A mapping from ``"left"`` or ``"right"`` to a 4×4
             ``ref_T_armbase`` matrix. Human episodes leave this empty.
@@ -175,12 +173,11 @@ class Calibration:
         return None
 
     def default_camera(self) -> str | None:
-        """Return the camera to project against when a caller names none.
+        """Select a camera when the caller does not name one.
 
-        The reference camera wins, then ``front_1``, then any camera whose name
-        contains ``front``, then the first declared camera. Projection and
-        visualization target the front image, so a front camera outranks a
-        wrist camera that happens to be declared first.
+        Selection order is the declared reference camera, ``front_1``, the
+        first name containing ``front`` (case-insensitive), and finally the
+        first declared camera.
         """
         reference = self.reference_camera
         if reference is not None and reference in self.cameras:
@@ -193,7 +190,7 @@ class Calibration:
         return next(iter(self.cameras), None)
 
     def K(self, camera: str | None = None) -> np.ndarray | None:
-        """Return the 3×4 camera matrix of one camera.
+        """Return one camera's normalized 3×4 ``[K_3x3 | 0]`` matrix.
 
         Args:
             camera: A camera name. ``None`` selects :meth:`default_camera`.
@@ -209,10 +206,10 @@ class Calibration:
         return None if entry is None else entry.K
 
     def ref_T_cam(self, camera: str | None = None) -> np.ndarray | None:
-        """Return the pose of one camera in the reference frame.
+        """Return one camera's pose in the episode reference frame.
 
-        The reference camera is the identity by definition, so an episode that
-        references a camera need not state that camera's pose.
+        A missing pose for the reference camera is synthesized as identity;
+        another missing pose returns ``None``.
         """
         name = camera if camera is not None else self.default_camera()
         if name is None:
@@ -225,7 +222,7 @@ class Calibration:
         return None
 
     def base_T_cam(self, side: str, camera: str | None = None) -> np.ndarray | None:
-        """Return one camera's pose in the frame of one arm base.
+        """Compose one camera's pose in the selected arm-base frame.
 
         This is the quantity the EVA transform pipeline consumes, and it is
         what the ``extrinsics`` attribute of a legacy episode stores directly.
@@ -235,8 +232,8 @@ class Calibration:
             camera: A camera name. ``None`` selects :meth:`default_camera`.
 
         Returns:
-            A 4×4 ``armbase_T_cam`` matrix, or ``None`` when the episode
-            states no arm base or no camera pose.
+            A 4×4 ``base_T_cam`` matrix, or ``None`` when the selected arm base
+            or camera pose is unavailable.
         """
         ref_T_armbase = self.arm_bases.get(side)
         ref_T_cam = self.ref_T_cam(camera)
@@ -245,13 +242,13 @@ class Calibration:
         return np.linalg.inv(ref_T_armbase) @ ref_T_cam
 
     def intrinsics(self) -> dict[str, np.ndarray]:
-        """Return ``{camera: K}`` for every camera that carries a ``K``."""
+        """Return ``{camera_name: K}`` for cameras with intrinsic matrices."""
         return {
             name: cam.K for name, cam in self.cameras.items() if cam.K is not None
         }
 
     def extrinsics(self, camera: str | None = None) -> dict[str, np.ndarray]:
-        """Return ``{side: base_T_cam}`` in the legacy attribute layout."""
+        """Return composable ``{side: base_T_cam}`` values in legacy layout."""
         out = {}
         for side in self.arm_bases:
             base_T_cam = self.base_T_cam(side, camera)
@@ -260,7 +257,7 @@ class Calibration:
         return out
 
     def to_jsonable(self) -> dict[str, Any]:
-        """Return this calibration as JSON-serializable episode metadata."""
+        """Serialize this calibration to plain values accepted by Zarr attributes."""
         out: dict[str, Any] = {
             "reference_frame": self.reference_frame,
             "cameras": {
@@ -276,7 +273,7 @@ class Calibration:
 
 
 def camera_name(image_key: str) -> str | None:
-    """Return the camera that one stored image array belongs to.
+    """Extract the camera name after the final ``images.`` in an array key.
 
     Args:
         image_key: An array key such as ``"images.front_1"``.
@@ -292,11 +289,7 @@ def camera_name(image_key: str) -> str | None:
 
 
 def uncalibrated_cameras(image_keys, calibration: Calibration | None) -> list[str]:
-    """Return the image streams that no camera matrix covers.
-
-    Coverage is the rule that makes per-episode calibration real: an episode
-    that stores three image streams and one ``K`` calibrates one camera in
-    three, and nothing downstream can tell.
+    """Return unique image-stream camera names without a declared ``K``.
 
     Args:
         image_keys: The episode's image array keys.
@@ -338,7 +331,7 @@ def _parse_reference_frame(value: Any, cameras, where: str) -> str:
 
 
 def _parse_distortion(raw: Any, model: str, where: str) -> tuple[float, ...]:
-    """Validate the distortion coefficients declared for one camera model."""
+    """Return a finite distortion vector whose length is valid for ``model``."""
     if raw is None:
         raw = ()
     if isinstance(raw, (str, bytes)) or not isinstance(raw, (list, tuple, np.ndarray)):
@@ -418,7 +411,7 @@ def _parse_camera(name: str, block: Any, where: str) -> CameraCalibration:
 
 
 def parse_calibration(block: Any, where: str = "calibration") -> Calibration:
-    """Validate one ``calibration`` attribute block.
+    """Validate and normalize one ``calibration`` attribute block.
 
     Args:
         block: The mapping stored under ``zarr.attrs["calibration"]``.
@@ -479,11 +472,11 @@ def lift_legacy_calibration(
 ) -> Calibration | None:
     """Build a :class:`Calibration` from the legacy attribute pair.
 
-    ``intrinsics`` maps a camera name to its ``K``. A bare matrix is read as
-    the ``front_1`` camera, which is the only camera any legacy writer
-    calibrated. ``extrinsics`` maps an arm side to ``base_T_cam``, the front
-    camera's pose in that arm's base frame, so the reference frame is the front
-    camera and ``arm_bases[side]`` is the inverse of the stored matrix.
+    ``intrinsics`` maps camera names to their ``K`` matrices. A bare matrix is
+    assigned to ``front_1``. ``extrinsics`` maps each arm side to
+    ``base_T_cam`` for ``front_1``; lifting therefore uses
+    ``camera:front_1`` as the reference frame and stores the inverse matrix as
+    ``arm_bases[side]``.
 
     Args:
         intrinsics: The ``intrinsics`` attribute, or ``None``.
@@ -523,9 +516,8 @@ def lift_legacy_calibration(
             matrix = _matrix(base_T_cam, (4, 4), f"extrinsics[{side!r}]")
             arm_bases[str(side)] = np.linalg.inv(matrix)
 
-    # The legacy `extrinsics` values are per-arm poses of the front camera, so
-    # that camera is the reference frame. Declare it even when the episode
-    # calibrated no camera, otherwise `base_T_cam` has no pose to compose.
+    # Legacy extrinsics are poses of ``front_1`` in each arm base. Declare that
+    # camera even without intrinsics so ``base_T_cam`` remains composable.
     if arm_bases and LEGACY_REFERENCE_CAMERA not in cameras:
         cameras[LEGACY_REFERENCE_CAMERA] = CameraCalibration(
             name=LEGACY_REFERENCE_CAMERA
@@ -545,12 +537,11 @@ def lift_legacy_calibration(
 
 
 def read_calibration(attrs: Mapping[str, Any]) -> Calibration | None:
-    """Return the calibration of one episode from its Zarr attributes.
+    """Parse current or legacy calibration from one episode's attributes.
 
-    This is the one reader every consumer goes through. It prefers the
-    ``calibration`` block and falls back to the legacy ``intrinsics`` and
-    ``extrinsics`` attributes, so episodes written before the block existed
-    stay readable without a rewrite.
+    A non-empty ``calibration`` block takes precedence. Otherwise the legacy
+    ``intrinsics`` and ``extrinsics`` attributes are lifted into the same
+    representation.
 
     Args:
         attrs: The episode's Zarr attributes.

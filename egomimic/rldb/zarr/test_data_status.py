@@ -1,4 +1,4 @@
-"""Test that a structural sample is refused everywhere a complete episode lands."""
+"""Test status writing, legacy defaults, validation, and resolver filtering."""
 
 import numpy as np
 import pytest

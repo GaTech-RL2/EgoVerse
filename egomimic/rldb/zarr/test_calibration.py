@@ -371,7 +371,7 @@ def _eva_numeric_data(length: int) -> dict:
 
 
 def _other_rig() -> dict:
-    """Return a rig displaced from `Eva.EXTRINSICS` by a measurable amount."""
+    """Translate each fallback camera pose by ``[0.05, -0.11, 0.07]`` metres."""
     rig = {}
     for side, base_T_cam in Eva.EXTRINSICS.items():
         moved = base_T_cam.copy()
@@ -403,8 +403,8 @@ def _eva_actions(episode_path, extrinsics) -> np.ndarray:
 def test_reading_the_episode_is_a_no_op_on_the_current_corpus(tmp_path) -> None:
     stored = _eva_actions(tmp_path / "stored.zarr", Eva.EXTRINSICS)
     absent = _eva_actions(tmp_path / "absent.zarr", None)
-    # Every EVA episode in the corpus stores exactly the class constant, so
-    # reading the episode instead of the constant changes no number today.
+    # Storing the class-default rig and omitting it must exercise the same
+    # transform because omission selects that fallback.
     np.testing.assert_allclose(stored, absent, atol=1e-9)
 
 

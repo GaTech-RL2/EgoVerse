@@ -23,7 +23,7 @@ def _levels(report) -> dict[str, str]:
 
 
 def _poses(x_offset: float = 0.0) -> np.ndarray:
-    """Return a moving pose track: xyz plus a rotating [qw, qx, qy, qz]."""
+    """Return a moving ``[x, y, z, qw, qx, qy, qz]`` pose track."""
     angles = np.linspace(0.1, 0.4, LENGTH)
     poses = np.zeros((LENGTH, 7))
     poses[:, 0] = x_offset + np.arange(LENGTH) * 0.01
@@ -192,9 +192,10 @@ def test_a_human_episode_owes_keypoints_and_a_head_pose(tmp_path) -> None:
     levels = _levels(report)
     assert levels["left.obs_keypoints"] == OK
     assert levels["obs_head_pose"] == OK
-    # 21 MANO slots at three coordinates each.
+    # The registry declares 21 MANO slots with three coordinates per slot.
     assert levels["right.obs_keypoints"] == ERROR
-    # A human platform has no arm chain and no jaw, so neither rule runs.
+    # The human platform has neither an arm chain nor a parallel jaw, so those
+    # conditional rules do not run.
     assert "left.obs_gripper" not in levels
     assert "left.obs_joints" not in levels
 
@@ -359,7 +360,7 @@ def test_a_synthesized_camera_matrix_is_an_error(tmp_path) -> None:
 
 
 def test_a_rectified_aria_camera_matrix_stays_out_of_the_net(tmp_path) -> None:
-    # fx is 266.5 at W 640, so the `fx == W` conjunct is what saves it.
+    # ``fx`` is 266.5 at width 640, so the full synthetic signature is false.
     aria = np.array(
         [[266.5, 0.0, 320.0, 0.0], [0.0, 266.5, 240.0, 0.0], [0.0, 0.0, 1.0, 0.0]]
     )

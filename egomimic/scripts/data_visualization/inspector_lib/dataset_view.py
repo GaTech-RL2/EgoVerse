@@ -286,13 +286,12 @@ def _badge(img_rgb, text: str):
 
 
 def _calibration_from_zarr(grp):
-    """Read the episode calibration through the one shim.
+    """Read current or legacy calibration without breaking the inspector.
 
     Returns:
-        A ``Calibration``, or ``None`` if the episode states none or the stored
-        calibration is malformed. The inspector renders episodes that a
-        validator would reject, so a bad block degrades the overlay rather than
-        raising.
+        The normalized calibration, or ``None`` if metadata access fails, no
+        calibration is present, or its stored representation is malformed.
+        Invalid calibration disables the overlay instead of the episode view.
     """
     try:
         return read_calibration(dict(grp.attrs))
@@ -301,20 +300,21 @@ def _calibration_from_zarr(grp):
 
 
 def _intrinsics_from_zarr(grp):
-    """Per-episode 3x4 camera matrix K for the front camera.
+    """Return the default camera's normalized 3×4 ``[K_3x3 | 0]`` matrix.
 
-    Returns None if the episode declares no calibrated camera.
+    Return ``None`` if the episode has no valid calibration or if the selected
+    camera has no matrix.
     """
     calibration = _calibration_from_zarr(grp)
     return None if calibration is None else calibration.K()
 
 
 def _extrinsics_from_zarr(grp):
-    """Read per-arm ``base_T_cam`` matrices from episode metadata.
+    """Compose per-arm poses of the calibration's default camera.
 
     Returns:
-        A dictionary with valid ``"left"`` and ``"right"`` 4×4 matrices.
-        The function returns ``None`` if no valid matrix is present.
+        A dictionary mapping available ``"left"`` and ``"right"`` arms to
+        4×4 ``base_T_cam`` matrices, or ``None`` if none can be composed.
     """
     calibration = _calibration_from_zarr(grp)
     if calibration is None:
