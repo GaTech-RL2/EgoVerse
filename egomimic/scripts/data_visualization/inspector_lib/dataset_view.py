@@ -20,8 +20,9 @@ so browsing + annotations always work even on datasets the projection
 can't handle yet.
 
 Projection convention (human egocentric `human_bimanual`): the head IS the
-camera. Per-episode intrinsics are read from `zarr.json`
-(`grp.attrs["intrinsics"]["front_1"]`, a 3x4 K); poses in `*.obs_ee_pose`
+camera. Per-episode intrinsics are read from `zarr.json` through
+`read_calibration` (the `calibration` block, or the legacy `intrinsics`
+attribute of an older episode); poses in `*.obs_ee_pose`
 (xyz + quat wxyz, SLAM-world) are transformed world → head frame using
 `obs_head_pose` (same xyz+wxyz layout) and projected with that K. There is
 no per-arm extrinsic. (This matches the validated `Human.viz` path; the old
@@ -43,6 +44,7 @@ import numpy as np
 # `Embodiment.viz` method projects the poses and draws the overlay.
 # `projectaria_tools` is optional in the standalone visualization environment.
 # If an embodiment import fails, the browser shows an unavailable badge.
+from egomimic.rldb.zarr.calibration import read_calibration
 from egomimic.utils.pose_utils import ee_pose_to_cam_frame
 
 from .images import (
@@ -283,22 +285,28 @@ def _badge(img_rgb, text: str):
     return img_rgb
 
 
-def _intrinsics_from_zarr(grp):
-    """Per-episode 3x4 camera matrix K from zarr.json metadata
-    (`attrs["intrinsics"]["front_1"]`). A 3x3 K is normalized to 3x4 by
-    appending a zero column. Returns None if absent/unparseable."""
+def _calibration_from_zarr(grp):
+    """Read the episode calibration through the one shim.
+
+    Returns:
+        A ``Calibration``, or ``None`` if the episode states none or the stored
+        calibration is malformed. The inspector renders episodes that a
+        validator would reject, so a bad block degrades the overlay rather than
+        raising.
+    """
     try:
-        intr = dict(grp.attrs).get("intrinsics")
-        if not intr:
-            return None
-        K = np.asarray(intr["front_1"], dtype=float)
+        return read_calibration(dict(grp.attrs))
     except Exception:
         return None
-    if K.shape == (3, 4):
-        return K
-    if K.shape == (3, 3):
-        return np.hstack([K, np.zeros((3, 1))])
-    return None
+
+
+def _intrinsics_from_zarr(grp):
+    """Per-episode 3x4 camera matrix K for the front camera.
+
+    Returns None if the episode declares no calibrated camera.
+    """
+    calibration = _calibration_from_zarr(grp)
+    return None if calibration is None else calibration.K()
 
 
 def _extrinsics_from_zarr(grp):
@@ -306,26 +314,16 @@ def _extrinsics_from_zarr(grp):
 
     Returns:
         A dictionary with valid ``"left"`` and ``"right"`` 4×4 matrices.
-        The function returns ``None`` if no valid matrix is present. It ignores
-        missing, non-numeric, and incorrectly shaped values.
+        The function returns ``None`` if no valid matrix is present.
     """
-    try:
-        extr = dict(grp.attrs).get("extrinsics")
-        if not extr:
-            return None
-    except Exception:
+    calibration = _calibration_from_zarr(grp)
+    if calibration is None:
         return None
     out = {}
     for arm in ("left", "right"):
-        m = extr.get(arm)
-        if m is None:
-            continue
-        try:
-            M = np.asarray(m, dtype=float)
-        except Exception:
-            continue
-        if M.shape == (4, 4):
-            out[arm] = M
+        base_T_cam = calibration.base_T_cam(arm)
+        if base_T_cam is not None:
+            out[arm] = base_T_cam
     return out or None
 
 

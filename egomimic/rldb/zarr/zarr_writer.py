@@ -14,6 +14,11 @@ import simplejpeg
 import zarr
 from zarr.core.dtype import VariableLengthBytes
 
+from egomimic.rldb.zarr.calibration import (
+    Calibration,
+    parse_calibration,
+)
+
 
 def _intrinsics_to_jsonable(
     intrinsics: np.ndarray | list | dict,
@@ -309,6 +314,7 @@ class ZarrWriter:
         chunk_timesteps: int = 100,
         intrinsics: dict | None = None,
         extrinsics: dict | None = None,
+        calibration: Calibration | dict | None = None,
         verbose: bool = False,
     ):
         """Configure a writer for one Zarr v3 episode.
@@ -326,6 +332,9 @@ class ZarrWriter:
             extrinsics: ``None`` or a mapping from keys to 4×4 ``ref_T_cam``
                 matrices. Robot episodes use arm names as keys. See
                 ``docs/CONVENTIONS.md``.
+            calibration: ``None`` or the per-episode calibration to store under
+                the ``calibration`` attribute. A ``Calibration`` or the mapping
+                form of one.
             verbose: If true, print progress information during writes.
         """
         self.episode_path = Path(episode_path)
@@ -339,6 +348,9 @@ class ZarrWriter:
         self.chunk_timesteps = chunk_timesteps
         self.intrinsics = intrinsics
         self.extrinsics = extrinsics
+        self.calibration = (
+            None if calibration is None else parse_calibration(calibration)
+        )
         self.verbose = verbose
         # Track image shapes for metadata
         self._features: dict[str, dict[str, Any]] = {}
@@ -712,6 +724,9 @@ class ZarrWriter:
             "features": self._features,
         }
 
+        if self.calibration is not None:
+            metadata["calibration"] = self.calibration.to_jsonable()
+
         if self.intrinsics is not None:
             metadata["intrinsics"] = _intrinsics_to_jsonable(self.intrinsics)
 
@@ -719,15 +734,15 @@ class ZarrWriter:
             metadata["extrinsics"] = _intrinsics_to_jsonable(self.extrinsics)
 
         # Apply overrides — but NEVER let them clobber the validated camera
-        # metadata. intrinsics/extrinsics are validated in create_and_write; a
-        # converter's metadata_override that happens to carry a stale or empty
-        # "intrinsics"/"extrinsics" key must not silently overwrite the validated
+        # metadata. calibration/intrinsics/extrinsics are validated in
+        # create_and_write; a converter's metadata_override that happens to
+        # carry a stale or empty key must not silently overwrite the validated
         # values (this was the Mecka clobber bug → empty intrinsics in zarr.json).
         if metadata_override:
             override = {
                 k: v
                 for k, v in metadata_override.items()
-                if k not in ("intrinsics", "extrinsics")
+                if k not in ("calibration", "intrinsics", "extrinsics")
             }
             metadata.update(override)
 
@@ -746,8 +761,9 @@ class ZarrWriter:
         annotations: list[tuple[str, int, int]] | None = None,
         chunk_timesteps: int = 100,
         *,
-        intrinsics: dict,
+        intrinsics: dict | None = None,
         extrinsics: dict | None = None,
+        calibration: Calibration | dict | None = None,
         metadata_override: dict[str, Any] | None = None,
     ) -> Path:
         """Validate episode metadata and write one Zarr v3 episode.
@@ -767,12 +783,17 @@ class ZarrWriter:
             annotations: ``(text, start_idx, end_idx)`` annotation tuples.
             chunk_timesteps: Number of frames in each numeric-array chunk.
             intrinsics: A non-empty mapping from camera keys to 3×4 camera
-                matrices.
+                matrices. Optional only when ``calibration`` supplies them.
             extrinsics: ``None`` or a non-empty mapping from keys to 4×4
                 ``ref_T_cam`` matrices. Robot episodes use arm names as keys.
                 See ``docs/CONVENTIONS.md``.
+            calibration: ``None`` or the per-episode calibration described in
+                ``egomimic/rldb/zarr/calibration.py``. When it is present the
+                writer derives ``intrinsics`` and ``extrinsics`` from it for any
+                of the two that the caller omits, so readers that predate the
+                block keep working.
             metadata_override: Additional episode metadata. This mapping cannot
-                replace ``intrinsics`` or ``extrinsics``.
+                replace ``calibration``, ``intrinsics``, or ``extrinsics``.
 
         Returns:
             The path of the created ``.zarr`` directory.
@@ -783,6 +804,7 @@ class ZarrWriter:
             ValueError: If ``intrinsics`` is empty or contains a non-3×4 value.
             ValueError: If ``extrinsics`` is not ``None`` or a non-empty mapping
                 of 4×4 matrices.
+            CalibrationError: If ``calibration`` is malformed.
         """
         # Validate the embodiment up front (it is guaranteed to be consumed by
         # the reader via get_embodiment_id) so a bad/empty/typo'd value fails
@@ -795,11 +817,22 @@ class ZarrWriter:
                 f"{[m.name.lower() for m in EMBODIMENT]}, got {embodiment!r}. "
                 "See CONTRIBUTING_DATA.md §9."
             )
+        # `calibration` is the current form; `intrinsics`/`extrinsics` are the
+        # legacy pair. Writing both keeps every reader working, so derive
+        # whichever the caller left out.
+        if calibration is not None:
+            calibration = parse_calibration(calibration)
+            if intrinsics is None:
+                intrinsics = calibration.intrinsics()
+            if extrinsics is None:
+                extrinsics = calibration.extrinsics() or None
+
         if not isinstance(intrinsics, dict) or not intrinsics:
             raise ValueError(
                 "Camera intrinsics must be a non-empty {camera_key: 3x4 K matrix} "
                 'dict for a contributed zarr episode, e.g. {"front_1": K}. '
-                "See CONTRIBUTING_DATA.md §6.4."
+                "Pass `intrinsics=` or a `calibration=` block that carries a K "
+                "for at least one camera. See CONTRIBUTING_DATA.md §6.4."
             )
         for cam_key, K in intrinsics.items():
             try:
@@ -843,6 +876,7 @@ class ZarrWriter:
             chunk_timesteps=chunk_timesteps,
             intrinsics=intrinsics,
             extrinsics=extrinsics,
+            calibration=calibration,
         )
 
         writer.write(

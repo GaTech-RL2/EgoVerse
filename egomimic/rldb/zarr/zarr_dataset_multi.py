@@ -43,6 +43,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.zarr.calibration import Calibration, read_calibration
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -1560,6 +1561,11 @@ class ZarrDataset(torch.utils.data.Dataset):
         self._json_keys = self._detect_json_keys()
 
     @property
+    def calibration(self) -> Calibration | None:
+        """Pass-through to ZarrEpisode.calibration (read from zarr metadata)."""
+        return self.episode_reader.calibration
+
+    @property
     def intrinsics(self) -> np.ndarray | dict[str, np.ndarray] | None:
         """Pass-through to ZarrEpisode.intrinsics (read from zarr metadata)."""
         return self.episode_reader.intrinsics
@@ -1736,27 +1742,15 @@ class ZarrDataset(torch.utils.data.Dataset):
             data["embodiment"] = get_embodiment_id(self.embodiment)
             # Per-episode camera intrinsics travel with the batch so a single
             # data-driven embodiment can project without a hardcoded class const.
-            # Single-camera -> (3,4) K matrix; no/multi-camera -> NaN sentinel,
-            # which _intrinsics_from_batch treats as "fall back to cls.INTRINSICS".
-            K = self.intrinsics
-            if isinstance(K, dict):
-                # Multi-camera rig: project against the front camera (viz/projection
-                # target the front image). Prefer a "front"-keyed entry, else the
-                # first available camera.
-                K = next(
-                    (v for k, v in K.items() if "front" in str(k).lower()),
-                    next(iter(K.values()), None) if K else None,
-                )
-            if K is not None:
-                K = np.asarray(K, dtype=np.float32)
-                if K.shape == (3, 3):
-                    # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
-                    # some contributors store 3x3 (e.g. microagi).
-                    K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
-                    K = np.full((3, 4), np.nan, dtype=np.float32)
-            else:
+            # The calibration shim picks the front camera and normalizes a bare
+            # 3x3 K; an episode without one gets the NaN sentinel, which
+            # _intrinsics_from_batch treats as "fall back to cls.INTRINSICS".
+            calibration = self.calibration
+            K = None if calibration is None else calibration.K()
+            if K is None:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
+            else:
+                K = np.asarray(K, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
             data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
@@ -1829,6 +1823,7 @@ class ZarrEpisode:
         "_store",
         "metadata",
         "keys",
+        "_calibration",
     )
 
     def __init__(self, path: str | Path):
@@ -1841,6 +1836,17 @@ class ZarrEpisode:
         self._store = zarr.open_group(str(self._path), mode="r")
         self.metadata = dict(self._store.attrs)
         self.keys = self.metadata["features"]
+        self._calibration = read_calibration(self.metadata)
+
+    @property
+    def calibration(self) -> Calibration | None:
+        """Per-episode calibration, read through the one shim.
+
+        Returns the ``calibration`` attribute block, or the same information
+        lifted from the legacy ``intrinsics``/``extrinsics`` pair, or ``None``
+        when the episode states neither.
+        """
+        return self._calibration
 
     @property
     def intrinsics(self) -> np.ndarray | dict[str, np.ndarray] | None:
@@ -1848,16 +1854,12 @@ class ZarrEpisode:
         Camera intrinsics persisted in zarr metadata, deserialized to ndarray(s).
 
         Returns:
-            - np.ndarray for a single-camera episode,
-            - dict[str, np.ndarray] for multi-camera episodes,
-            - None if no intrinsics were written.
+            - dict[str, np.ndarray] keyed by camera name,
+            - None if the episode carries no calibrated camera.
         """
-        raw = self.metadata.get("intrinsics")
-        if raw is None:
+        if self._calibration is None:
             return None
-        if isinstance(raw, dict):
-            return {k: np.asarray(v) for k, v in raw.items()}
-        return np.asarray(raw)
+        return self._calibration.intrinsics() or None
 
     def read(
         self, keys_with_ranges: dict[str, tuple[int, int | None]]
