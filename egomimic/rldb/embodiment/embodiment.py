@@ -136,6 +136,35 @@ class ResolvedEmbodiment:
         return spaces.pop()
 
     @property
+    def arity(self) -> str | None:
+        """Return the arm configuration this embodiment name selects.
+
+        Returns:
+            One of the platform's ``arity`` values, or ``None`` when
+            resolution started from a morphology block with no name.
+        """
+        if self.embodiment_name is None:
+            return None
+        prefix = f"{self.platform.embodiment_prefix}_"
+        if self.embodiment_name.startswith(prefix):
+            return self.embodiment_name[len(prefix) :]
+        return None
+
+    @property
+    def sides(self) -> tuple[str, ...]:
+        """Return the arms this embodiment carries.
+
+        A single-arm arity carries one side. Anything else carries both, which
+        is what a morphology block with no name resolves to.
+        """
+        arity = self.arity
+        if arity == "left_arm":
+            return ("left",)
+        if arity == "right_arm":
+            return ("right",)
+        return SIDES
+
+    @property
     def embodiment_class(self) -> type["Embodiment"]:
         """Import and return the platform's configured ``Embodiment`` class.
 

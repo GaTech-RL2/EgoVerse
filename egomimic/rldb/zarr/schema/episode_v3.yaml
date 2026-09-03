@@ -1,0 +1,166 @@
+# The episode contract, as data.
+#
+# `egomimic/rldb/zarr/validate.py` reads this file and holds no rules of its
+# own. A rule that lives here is one a contributor can read, diff and review.
+#
+# Run it with:
+#   python -m egomimic.rldb.zarr.validate <episode.zarr> [--strict]
+#
+# ---------------------------------------------------------------------------
+# attributes
+#   required   true | false | strict
+#              `strict` means the attribute is an error only under --strict and
+#              a warning otherwise. Use it for a rule the corpus does not meet
+#              yet: flipping such a rule to `true` before the corpus is fixed
+#              turns a good check into an outage.
+#   type       str | int | bool | mapping
+#   min        smallest accepted value for an int
+#   choices    the accepted values
+#   check      a named check that needs more than a type; see `validate.py`
+#
+# arrays
+#   key        an array key. `{side}` expands over the episode's arms, and `*`
+#              matches any suffix among the keys the episode stores.
+#   required   true | false | strict, as above. A wildcard key is never
+#              required.
+#   when       conditions on the resolved embodiment; the rule is skipped when
+#              they do not hold
+#   shape      expected dimensions, see below
+#   dtype      int | float | object | any
+#
+# shape dimensions
+#   T          `total_frames`. Axis 0 may be longer, because a stored array may
+#              carry a padded tail; every other axis is exact.
+#   arm_dof    the platform's joints per arm
+#   aux_dof    the platform's auxiliary chain
+#   ee_dof     the side's end-effector joints
+#   kp3        three coordinates per slot in the side's keypoint topology
+#   <int>      exactly that many
+#   "*"        any
+#
+# when conditions
+#   platform_kind        robot | human
+#   has_arm_chain        the platform declares `arm_dof`
+#   has_aux_chain        the platform declares `aux`
+#   end_effector_class   parallel_jaw | human_hand | dexterous_hand
+# ---------------------------------------------------------------------------
+
+version: v3.1
+known_versions: [v3.0, v3.1]
+
+attributes:
+  embodiment:
+    required: true
+    type: str
+    check: embodiment_name
+  total_frames:
+    required: true
+    type: int
+    min: 1
+  fps:
+    required: true
+    type: int
+    min: 1
+  task_name:
+    required: true
+    type: str
+  task_description:
+    required: false
+    type: str
+  features:
+    required: true
+    type: mapping
+  schema_version:
+    required: strict
+    type: str
+    check: schema_version
+  morphology:
+    required: false
+    type: mapping
+    check: morphology
+  calibration:
+    required: strict
+    type: mapping
+    check: calibration
+  intrinsics:
+    required: false
+    type: mapping
+  extrinsics:
+    required: false
+    type: mapping
+
+checks:
+  # Every episode must state the rig that recorded it, through the current
+  # `calibration` block or the legacy pair.
+  - name: calibration_present
+    required: true
+  # One camera matrix per stored image stream. `eva_to_zarr.py` calibrates one
+  # camera of three, so every EVA episode in the corpus fails this today.
+  - name: camera_coverage
+    required: strict
+
+arrays:
+  - key: "{side}.obs_ee_pose"
+    required: true
+    shape: [T, 7]
+    dtype: float
+    # The hand root or palm pose. It is the only key human, parallel-jaw and
+    # dexterous episodes share, so every embodiment owes it.
+
+  - key: "{side}.cmd_ee_pose"
+    required: false
+    shape: [T, 7]
+    dtype: float
+
+  - key: "{side}.obs_joints"
+    when: {has_arm_chain: true}
+    required: false
+    shape: [T, arm_dof]
+    dtype: float
+
+  - key: "{side}.cmd_joints"
+    when: {has_arm_chain: true}
+    required: false
+    shape: [T, arm_dof]
+    dtype: float
+
+  - key: "{side}.obs_gripper"
+    when: {end_effector_class: parallel_jaw}
+    required: true
+    shape: [T, 1]
+    dtype: float
+
+  - key: "{side}.cmd_gripper"
+    when: {end_effector_class: parallel_jaw}
+    required: true
+    shape: [T, 1]
+    dtype: float
+
+  - key: "{side}.obs_keypoints"
+    when: {end_effector_class: human_hand}
+    required: true
+    shape: [T, kp3]
+    dtype: float
+
+  - key: obs_head_pose
+    when: {platform_kind: human}
+    required: true
+    shape: [T, 7]
+    dtype: float
+
+  # One clock per episode, in integer UTC nanoseconds. EVA episodes do not
+  # write it yet, so it is required only under --strict.
+  - key: obs_rgb_timestamps_ns
+    required: strict
+    shape: [T]
+    dtype: int
+
+  - key: "images.*"
+    required: false
+    shape: [T]
+    dtype: object
+
+  - key: annotations
+    required: false
+    shape: ["*"]
+    dtype: object
