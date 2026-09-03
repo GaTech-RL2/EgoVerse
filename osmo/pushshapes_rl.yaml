@@ -231,7 +231,8 @@ workflow:
           EMB="${REST%%:*}"; GAP="${REST##*:}"
           TAG="${ALGO}_${EMB}_${GAP}"
           echo "launching $TAG  steps=$RL_STEPS horizon=$RL_HORIZON nenv=$RL_NENV"
-          ( SDL_VIDEODRIVER=dummy python -m Tsimulation.sim_v2.rl.train \
+          ( SDL_VIDEODRIVER=dummy OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+            OPENBLAS_NUM_THREADS=1 python -u -m Tsimulation.sim_v2.rl.train \
               "$ALGO" "$EMB" "$GAP" "$RL_STEPS" "$RL_HORIZON" "$RL_NENV" \
               > "$RL_OUT/${TAG}.log" 2>&1 ) &
           PIDS="$PIDS $!"

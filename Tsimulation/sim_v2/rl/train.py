@@ -6,6 +6,13 @@ experience, so a node runs it with no R2 pull at all.
 import os, sys, time, warnings, numpy as np
 warnings.filterwarnings("ignore")
 os.environ.setdefault("SDL_VIDEODRIVER","dummy")
+import torch
+# One torch thread per process. The policy is a tiny MLP, but SB3 defaults to
+# many intra-op threads; with several trainers x N SubprocVecEnv workers on one
+# node they fight over cores. Observed: 4 jobs each pinning ~14 cores, load 110
+# on 128 CPUs, and throughput of ~105 steps/s against 1100 steps/s for a single
+# 8-env job on a 10-core laptop.
+torch.set_num_threads(1)
 from stable_baselines3 import SAC, PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 from Tsimulation.sim_v2.rl.env import PushShapesRLEnv
@@ -43,10 +50,13 @@ if __name__ == "__main__":
                     n_epochs=10, gae_lambda=0.95, gamma=0.99, ent_coef=0.005,
                     learning_rate=3e-4, clip_range=0.2, device="cpu")
     t0=time.time()
-    for c in range(4):
-        model.learn(total_timesteps=STEPS//4, reset_num_timesteps=False, progress_bar=False)
+    CHUNKS = 12          # evaluate often: a 4-chunk cadence meant no output at
+                         # all for 750k steps, indistinguishable from a hang
+    for c in range(CHUNKS):
+        model.learn(total_timesteps=STEPS//CHUNKS, reset_num_timesteps=False,
+                    progress_bar=False)
         mc,xc,sr,ln = evaluate(model, venv)
-        print(f"  {ALGO} h{HORIZON} steps={(c+1)*STEPS//4:>8} mean_cov={mc:.4f} "
+        print(f"  {ALGO} h{HORIZON} steps={(c+1)*STEPS//CHUNKS:>8} mean_cov={mc:.4f} "
               f"max_cov={xc:.4f} SR={sr:.2f} ep_len={ln:.0f} ({time.time()-t0:.0f}s)", flush=True)
     out = os.environ.get("RL_OUT", "/tmp")
     os.makedirs(out, exist_ok=True)
