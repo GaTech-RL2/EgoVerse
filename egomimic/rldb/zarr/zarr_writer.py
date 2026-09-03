@@ -21,6 +21,10 @@ from egomimic.rldb.zarr.calibration import (
     parse_calibration,
     uncalibrated_cameras,
 )
+from egomimic.rldb.zarr.episode_attrs import (
+    DATA_STATUS_COMPLETE,
+    DATA_STATUS_VALUES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -322,6 +326,7 @@ class ZarrWriter:
         intrinsics: dict | None = None,
         extrinsics: dict | None = None,
         calibration: Calibration | dict | None = None,
+        data_status: str = DATA_STATUS_COMPLETE,
         strict: bool = False,
         verbose: bool = False,
     ):
@@ -343,6 +348,10 @@ class ZarrWriter:
             calibration: ``None`` or the per-episode calibration to store under
                 the ``calibration`` attribute. A ``Calibration`` or the mapping
                 form of one.
+            data_status: ``complete`` for a finished recording, or
+                ``structural_sample`` for one sent to show the shape of a
+                delivery. Only a complete episode gets a database row and
+                reaches a dataset.
             strict: If true, an image stream that no camera matrix covers is an
                 error instead of a warning.
             verbose: If true, print progress information during writes.
@@ -361,6 +370,12 @@ class ZarrWriter:
         self.calibration = (
             None if calibration is None else parse_calibration(calibration)
         )
+        if data_status not in DATA_STATUS_VALUES:
+            raise ValueError(
+                f"data_status must be one of {list(DATA_STATUS_VALUES)}, got "
+                f"{data_status!r}"
+            )
+        self.data_status = data_status
         self.strict = strict
         self.verbose = verbose
         # Track image shapes for metadata
@@ -760,6 +775,7 @@ class ZarrWriter:
         """
         metadata = {
             "embodiment": self.embodiment,
+            "data_status": self.data_status,
             "total_frames": self.total_frames,
             "fps": self.fps,
             "task_name": self.task_name,
@@ -807,6 +823,7 @@ class ZarrWriter:
         intrinsics: dict | None = None,
         extrinsics: dict | None = None,
         calibration: Calibration | dict | None = None,
+        data_status: str = DATA_STATUS_COMPLETE,
         strict: bool = False,
         metadata_override: dict[str, Any] | None = None,
     ) -> Path:
@@ -836,6 +853,10 @@ class ZarrWriter:
                 writer derives ``intrinsics`` and ``extrinsics`` from it for any
                 of the two that the caller omits, so readers that predate the
                 block keep working.
+            data_status: ``complete`` for a finished recording, or
+                ``structural_sample`` for one sent to show the shape of a
+                delivery. Only a complete episode gets a database row and
+                reaches a dataset.
             strict: If true, an image stream that no camera matrix covers is an
                 error instead of a warning. It stays opt-in because every EVA
                 episode in the corpus stores three streams and calibrates one.
@@ -926,6 +947,7 @@ class ZarrWriter:
             intrinsics=intrinsics,
             extrinsics=extrinsics,
             calibration=calibration,
+            data_status=data_status,
             strict=strict,
         )
 

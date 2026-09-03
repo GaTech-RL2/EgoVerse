@@ -1,4 +1,4 @@
-"""Validate one zarr episode against the schema in ``schema/episode_v3.yaml``.
+"""Validate one zarr episode against the rules in schema/episode_v3.yaml.
 
 Run it with::
 
@@ -685,6 +685,7 @@ def _expand_key(template: str, arrays: Mapping, sides) -> list[tuple[str, str | 
 
 def validate_episode(path: str | Path, *, strict: bool = False) -> Report:
     """Validate one zarr episode against ``schema/episode_v3.yaml``.
+
 
     Args:
         path: The episode ``.zarr`` directory.

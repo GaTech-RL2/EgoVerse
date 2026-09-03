@@ -61,6 +61,12 @@ attributes:
     required: true
     type: int
     min: 1
+  # `complete` or `structural_sample`. An episode written before this
+  # attribute existed reads as complete, so it is required only under --strict.
+  data_status:
+    required: strict
+    type: str
+    choices: [complete, structural_sample]
   task_name:
     required: true
     type: str

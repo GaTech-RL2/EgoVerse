@@ -45,6 +45,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.action_chunk_transforms import base_T_cam_pose_key
 from egomimic.rldb.zarr.calibration import Calibration, read_calibration
+from egomimic.rldb.zarr.episode_attrs import data_status, is_complete
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -234,6 +235,17 @@ class EpisodeResolver:
                     key_map=self.key_map,
                     transform_list=self.transform_list,
                 )
+                # A structural sample is real data in the schema sense and not
+                # real data in the training sense. Refuse it here so it cannot
+                # reach a training run through any resolver.
+                if not is_complete(ds_obj.metadata):
+                    logger.warning(
+                        "Skipping %s: data_status is %r, not 'complete'",
+                        p,
+                        ds_obj.data_status,
+                    )
+                    skipped.append(p.name)
+                    continue
                 datasets[name] = ds_obj
             except Exception as e:
                 logger.error(f"Failed to load dataset at {p}: {e}")
@@ -1564,6 +1576,11 @@ class ZarrDataset(torch.utils.data.Dataset):
         self._extrinsic_poses = self._build_extrinsic_poses()
 
     @property
+    def data_status(self) -> str:
+        """Pass-through to ZarrEpisode.data_status (read from zarr metadata)."""
+        return self.episode_reader.data_status
+
+    @property
     def calibration(self) -> Calibration | None:
         """Pass-through to ZarrEpisode.calibration (read from zarr metadata)."""
         return self.episode_reader.calibration
@@ -1870,6 +1887,11 @@ class ZarrEpisode:
         self.metadata = dict(self._store.attrs)
         self.keys = self.metadata["features"]
         self._calibration = read_calibration(self.metadata)
+
+    @property
+    def data_status(self) -> str:
+        """Return ``complete`` or ``structural_sample`` for this episode."""
+        return data_status(self.metadata)
 
     @property
     def calibration(self) -> Calibration | None:
