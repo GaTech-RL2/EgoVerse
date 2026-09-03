@@ -23,9 +23,12 @@ def _levels(report) -> dict[str, str]:
 
 
 def _poses(x_offset: float = 0.0) -> np.ndarray:
+    """Return a moving pose track: xyz plus a rotating [qw, qx, qy, qz]."""
+    angles = np.linspace(0.1, 0.4, LENGTH)
     poses = np.zeros((LENGTH, 7))
     poses[:, 0] = x_offset + np.arange(LENGTH) * 0.01
-    poses[:, 3] = 1.0
+    poses[:, 3] = np.cos(angles / 2)
+    poses[:, 6] = np.sin(angles / 2)
     return poses
 
 
@@ -51,6 +54,7 @@ def _write_eva(path, *, numeric=None, images=None, **kwargs) -> None:
         },
     })
     kwargs.setdefault("metadata_override", {"schema_version": "v3.1"})
+    kwargs.setdefault("annotations", [("fold the towel", 0, LENGTH)])
     ZarrWriter.create_and_write(
         episode_path=path,
         numeric_data=_eva_numeric() if numeric is None else numeric,
@@ -103,6 +107,7 @@ def test_a_padded_tail_is_not_an_error(tmp_path) -> None:
         numeric_data=_eva_numeric(),
         embodiment="eva_bimanual",
         chunk_timesteps=3,  # 4 frames pad out to 6
+        annotations=[("fold the towel", 0, LENGTH)],
         intrinsics={"front_1": K},
         extrinsics=Eva.EXTRINSICS,
     )
@@ -135,6 +140,7 @@ def test_strict_promotes_the_rules_the_corpus_does_not_meet_yet(tmp_path) -> Non
         },
         embodiment="eva_bimanual",
         chunk_timesteps=LENGTH,
+        annotations=[("fold the towel", 0, LENGTH)],
         intrinsics={"front_1": K},
         extrinsics=Eva.EXTRINSICS,
     )
@@ -176,6 +182,7 @@ def test_a_human_episode_owes_keypoints_and_a_head_pose(tmp_path) -> None:
         numeric_data=numeric,
         embodiment="human_bimanual",
         chunk_timesteps=LENGTH,
+        annotations=[("wave", 0, LENGTH)],
         intrinsics={"front_1": K},
         metadata_override={"schema_version": "v3.1"},
     )
@@ -273,3 +280,177 @@ def test_every_schema_rule_declares_a_usable_requirement(section) -> None:
     assert entries
     for rule in entries:
         assert rule.get("required", False) in (True, False, "strict")
+
+
+# --------------------------------------------------------------------------
+# Degeneracy, timestamps and annotations
+# --------------------------------------------------------------------------
+
+
+def _finding(report, check: str) -> str:
+    return next(f.message for f in report.findings if f.check == check)
+
+
+def test_a_pose_track_that_never_moves_is_an_error(tmp_path) -> None:
+    numeric = _eva_numeric()
+    numeric["left.obs_ee_pose"] = np.tile(_poses()[0], (LENGTH, 1))
+    _write_eva(tmp_path / "still.zarr", numeric=numeric)
+
+    report = validate_episode(tmp_path / "still.zarr")
+
+    assert _levels(report)["pose_degeneracy"] == ERROR
+    assert "constant across all 4 frames" in _finding(report, "pose_degeneracy")
+
+
+def test_identity_rotations_beyond_the_limit_are_an_error(tmp_path) -> None:
+    numeric = _eva_numeric()
+    identity = numeric["left.obs_ee_pose"].copy()
+    identity[:, 3:7] = [1.0, 0.0, 0.0, 0.0]
+    numeric["left.obs_ee_pose"] = identity
+    _write_eva(tmp_path / "identity.zarr", numeric=numeric)
+
+    report = validate_episode(tmp_path / "identity.zarr")
+
+    assert _levels(report)["pose_degeneracy"] == ERROR
+    assert "identity rotation on 100% of frames" in _finding(report, "pose_degeneracy")
+
+
+def test_an_identity_extrinsic_is_an_error(tmp_path) -> None:
+    path = tmp_path / "identity_rig.zarr"
+    ZarrWriter.create_and_write(
+        episode_path=path,
+        numeric_data=_eva_numeric(),
+        embodiment="eva_bimanual",
+        chunk_timesteps=LENGTH,
+        annotations=[("fold the towel", 0, LENGTH)],
+        intrinsics={"front_1": K},
+        extrinsics={"left": np.eye(4), "right": np.eye(4)},
+    )
+
+    report = validate_episode(path)
+
+    assert _levels(report)["calibration_degeneracy"] == ERROR
+    assert "left arm base" in _finding(report, "calibration_degeneracy")
+
+
+def test_a_synthesized_camera_matrix_is_an_error(tmp_path) -> None:
+    width = height = 480
+    synthetic = np.array(
+        [
+            [width, 0.0, width / 2, 0.0],
+            [0.0, width, height / 2, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+        ]
+    )
+    _write_eva(
+        tmp_path / "synthetic.zarr",
+        calibration={
+            "reference_frame": "camera:front_1",
+            "cameras": {
+                "front_1": {"K": synthetic.tolist(), "resolution": [width, height]}
+            },
+        },
+    )
+
+    report = validate_episode(tmp_path / "synthetic.zarr")
+
+    assert _levels(report)["intrinsics_signature"] == ERROR
+    assert "synthesized centred pinhole" in _finding(report, "intrinsics_signature")
+
+
+def test_a_rectified_aria_camera_matrix_stays_out_of_the_net(tmp_path) -> None:
+    # fx is 266.5 at W 640, so the `fx == W` conjunct is what saves it.
+    aria = np.array(
+        [[266.5, 0.0, 320.0, 0.0], [0.0, 266.5, 240.0, 0.0], [0.0, 0.0, 1.0, 0.0]]
+    )
+    _write_eva(
+        tmp_path / "aria.zarr",
+        calibration={
+            "reference_frame": "camera:front_1",
+            "cameras": {"front_1": {"K": aria.tolist(), "resolution": [640, 480]}},
+        },
+    )
+
+    report = validate_episode(tmp_path / "aria.zarr")
+
+    assert _levels(report)["intrinsics_signature"] == OK
+
+
+def test_a_stalled_clock_is_an_error(tmp_path) -> None:
+    numeric = _eva_numeric()
+    numeric["obs_rgb_timestamps_ns"] = np.array(
+        [1_000, 2_000, 2_000, 1_500], dtype=np.int64
+    )
+    _write_eva(tmp_path / "clock.zarr", numeric=numeric)
+
+    report = validate_episode(tmp_path / "clock.zarr")
+
+    assert _levels(report)["timestamps"] == ERROR
+    assert "does not increase on 2 of 3 steps" in _finding(report, "timestamps")
+
+
+def test_a_float64_quantized_clock_is_an_error(tmp_path) -> None:
+    numeric = _eva_numeric()
+    numeric["obs_rgb_timestamps_ns"] = (
+        np.int64(1_700_000_000_000_000_000) + np.arange(LENGTH, dtype=np.int64) * 256
+    )
+    _write_eva(tmp_path / "quantized.zarr", numeric=numeric)
+
+    report = validate_episode(tmp_path / "quantized.zarr")
+
+    assert "quantized to 256 ns" in _finding(report, "timestamps")
+
+
+def test_a_second_time_base_is_an_error(tmp_path) -> None:
+    numeric = _eva_numeric()
+    numeric["relative_timestamp_s"] = np.linspace(0.0, 0.1, LENGTH)[:, None]
+    _write_eva(tmp_path / "two_clocks.zarr", numeric=numeric)
+
+    report = validate_episode(tmp_path / "two_clocks.zarr")
+
+    assert _levels(report)["timestamps"] == ERROR
+    assert "one clock per episode" in _finding(report, "timestamps")
+
+
+def test_annotation_coverage_below_the_minimum_is_reported(tmp_path) -> None:
+    _write_eva(
+        tmp_path / "thin.zarr", annotations=[("fold the towel", 0, LENGTH - 2)]
+    )
+
+    lenient = validate_episode(tmp_path / "thin.zarr")
+    strict = validate_episode(tmp_path / "thin.zarr", strict=True)
+
+    assert _levels(lenient)["annotation_coverage"] == WARNING
+    assert _levels(strict)["annotation_coverage"] == ERROR
+    assert "cover 50% of the episode" in _finding(strict, "annotation_coverage")
+
+
+def test_an_annotation_span_past_the_episode_is_reported(tmp_path) -> None:
+    _write_eva(tmp_path / "over.zarr", annotations=[("fold", 0, LENGTH + 5)])
+
+    report = validate_episode(tmp_path / "over.zarr", strict=True)
+
+    assert "outside [0, 4)" in _finding(report, "annotation_coverage")
+
+
+def test_delimiter_encoded_metadata_is_an_error(tmp_path) -> None:
+    _write_eva(
+        tmp_path / "skill.zarr",
+        annotations=[("pick up the cup | Skill: pick", 0, LENGTH)],
+    )
+
+    report = validate_episode(tmp_path / "skill.zarr")
+
+    assert _levels(report)["annotation_text"] == ERROR
+    assert "Skill: pick" in _finding(report, "annotation_text")
+
+
+def test_delimiter_encoded_metadata_in_the_task_description_is_an_error(
+    tmp_path,
+) -> None:
+    _write_eva(tmp_path / "desc.zarr", task_description="fold | Skill: fold")
+
+    report = validate_episode(tmp_path / "desc.zarr")
+
+    assert _levels(report)["annotation_text"] == ERROR
+    assert "task_description" in _finding(report, "annotation_text")

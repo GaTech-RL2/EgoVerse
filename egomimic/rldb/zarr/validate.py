@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import yaml
 import zarr
 
@@ -32,6 +33,7 @@ from egomimic.rldb.embodiment.embodiment import (
 )
 from egomimic.rldb.embodiment.registry import load_embodiment_platforms
 from egomimic.rldb.zarr.calibration import (
+    IMAGE_KEY_PREFIX,
     CalibrationError,
     read_calibration,
     uncalibrated_cameras,
@@ -305,9 +307,246 @@ def _check_camera_coverage(rule, context, report) -> None:
     report.add(OK, "camera_coverage", "every image stream has a camera matrix")
 
 
+_IDENTITY = np.eye(4)
+
+#: Quaternion layout is `[qw, qx, qy, qz]`; both signs are the same rotation.
+_IDENTITY_QUATERNIONS = (
+    np.array([1.0, 0.0, 0.0, 0.0]),
+    np.array([-1.0, 0.0, 0.0, 0.0]),
+)
+
+
+def _read(array, total_frames: int | None) -> np.ndarray:
+    """Read an array up to `total_frames`, which is the authoritative length."""
+    end = array.shape[0] if total_frames is None else min(total_frames, array.shape[0])
+    return np.asarray(array[:end])
+
+
+def _report_problems(rule, report, check: str, problems, passed: str) -> None:
+    """Record one finding for a named check."""
+    if not problems:
+        report.add(OK, check, passed)
+        return
+    level = _level(rule.get("required", False), report.strict)
+    if level is not None:
+        report.add(level, check, "; ".join(problems))
+
+
+def _check_pose_degeneracy(rule, context, report) -> None:
+    suffixes = tuple(rule.get("suffixes") or ())
+    threshold = float(rule.get("identity_rotation_fraction", 0.01))
+    total_frames = context.get("total_frames")
+    problems = []
+    checked = 0
+    for key, array in context["arrays"].items():
+        if not key.endswith(suffixes) or len(array.shape) != 2:
+            continue
+        poses = _read(array, total_frames)
+        if poses.shape[0] < 2 or poses.shape[1] != 7:
+            continue
+        checked += 1
+        if len(np.unique(poses, axis=0)) == 1:
+            problems.append(f"{key} is constant across all {poses.shape[0]} frames")
+        rotations = poses[:, 3:7]
+        identity = np.zeros(len(rotations), dtype=bool)
+        for quaternion in _IDENTITY_QUATERNIONS:
+            identity |= np.all(rotations == quaternion, axis=1)
+        fraction = float(identity.mean())
+        if fraction > threshold:
+            problems.append(
+                f"{key} holds an exact identity rotation on "
+                f"{fraction:.0%} of frames (limit {threshold:.0%})"
+            )
+    _report_problems(
+        rule, report, "pose_degeneracy", problems, f"{checked} pose track(s) move"
+    )
+
+
+def _check_calibration_degeneracy(rule, context, report) -> None:
+    calibration = context.get("calibration")
+    if calibration is None:
+        return
+    problems = []
+    for name, camera in calibration.cameras.items():
+        # The reference camera is the identity by definition, so only a stored
+        # pose can be degenerate.
+        if (
+            camera.ref_T_cam is not None
+            and name != calibration.reference_camera
+            and np.array_equal(camera.ref_T_cam, _IDENTITY)
+        ):
+            problems.append(f"cameras[{name!r}].ref_T_cam is exactly the identity")
+    for side in calibration.arm_bases:
+        base_T_cam = calibration.base_T_cam(side)
+        if base_T_cam is not None and np.allclose(base_T_cam, _IDENTITY, atol=0.0):
+            problems.append(
+                f"the camera sits exactly at the {side} arm base "
+                "(base_T_cam is the identity)"
+            )
+    _report_problems(
+        rule, report, "calibration_degeneracy", problems, "no identity extrinsic"
+    )
+
+
+def _resolution(camera, context) -> tuple[int, int] | None:
+    """Return one camera's ``(width, height)``, from the block or the stream."""
+    if camera.resolution is not None:
+        return camera.resolution
+    feature = context["features"].get(f"{IMAGE_KEY_PREFIX}{camera.name}") or {}
+    shape = feature.get("shape") or []
+    if len(shape) >= 2:
+        return int(shape[1]), int(shape[0])
+    return None
+
+
+def _check_intrinsics_signature(rule, context, report) -> None:
+    calibration = context.get("calibration")
+    if calibration is None:
+        return
+    problems = []
+    checked = 0
+    for name, camera in calibration.cameras.items():
+        resolution = _resolution(camera, context)
+        if camera.K is None or resolution is None:
+            continue
+        checked += 1
+        width, height = resolution
+        fx, fy = camera.K[0, 0], camera.K[1, 1]
+        cx, cy = camera.K[0, 2], camera.K[1, 2]
+        if fx == fy == width and cx == width / 2 and cy == height / 2:
+            problems.append(
+                f"cameras[{name!r}].K is a synthesized centred pinhole "
+                f"(fx = fy = {fx:g} = W, principal point at the image centre)"
+            )
+    _report_problems(
+        rule,
+        report,
+        "intrinsics_signature",
+        problems,
+        f"{checked} camera matri(ces) carry a measured focal length",
+    )
+
+
+def _check_timestamps(rule, context, report) -> None:
+    problems = []
+    for substring in rule.get("banned_key_substrings") or ():
+        stored = [k for k in context["arrays"] if substring in k]
+        if stored:
+            problems.append(
+                f"{stored} store a second time base; keep one clock per episode "
+                "and derive a relative base on read"
+            )
+
+    key = rule.get("key", "obs_rgb_timestamps_ns")
+    array = context["arrays"].get(key)
+    if array is None:
+        _report_problems(rule, report, "timestamps", problems, "no clock stored")
+        return
+
+    stamps = _read(array, context.get("total_frames"))
+    if stamps.ndim != 1 or stamps.shape[0] < 2:
+        _report_problems(rule, report, "timestamps", problems, "one stamp")
+        return
+
+    steps = np.diff(stamps.astype(np.int64))
+    stalled = int(np.count_nonzero(steps <= 0))
+    if stalled:
+        problems.append(f"{key} does not increase on {stalled} of {len(steps)} steps")
+
+    quantum = int(np.gcd.reduce(np.abs(steps))) if steps.size else 0
+    if quantum >= 64 and quantum & (quantum - 1) == 0:
+        problems.append(
+            f"{key} is quantized to {quantum} ns, the signature of float64 "
+            "seconds converted to nanoseconds; compute the clock in integers"
+        )
+
+    _report_problems(
+        rule,
+        report,
+        "timestamps",
+        problems,
+        f"{len(stamps)} stamps increase strictly",
+    )
+
+
+def _annotations(context, key: str) -> list[dict]:
+    array = context["arrays"].get(key)
+    if array is None:
+        return []
+    out = []
+    for entry in np.asarray(array[:]):
+        if isinstance(entry, (bytes, bytearray, memoryview)):
+            entry = bytes(entry).decode("utf-8")
+        if isinstance(entry, str):
+            try:
+                entry = json.loads(entry)
+            except json.JSONDecodeError:
+                continue
+        if isinstance(entry, Mapping):
+            out.append(dict(entry))
+    return out
+
+
+def _check_annotation_coverage(rule, context, report) -> None:
+    key = rule.get("key", "annotations")
+    total_frames = context.get("total_frames") or 0
+    annotations = _annotations(context, key)
+    problems = []
+    covered = np.zeros(max(total_frames, 0), dtype=bool)
+    for annotation in annotations:
+        start = int(annotation.get("start_idx", -1))
+        end = int(annotation.get("end_idx", -1))
+        if start < 0 or end > total_frames or end <= start:
+            problems.append(
+                f"span [{start}, {end}) is outside [0, {total_frames}) or empty"
+            )
+            continue
+        covered[start:end] = True
+    fraction = float(covered.mean()) if covered.size else 0.0
+    minimum = float(rule.get("minimum", 0.9))
+    if fraction < minimum:
+        problems.append(
+            f"{len(annotations)} annotation(s) cover {fraction:.0%} of the "
+            f"episode (minimum {minimum:.0%}); trim the tail or annotate it"
+        )
+    _report_problems(
+        rule,
+        report,
+        "annotation_coverage",
+        problems,
+        f"{len(annotations)} annotation(s) cover {fraction:.0%}",
+    )
+
+
+def _check_annotation_text(rule, context, report) -> None:
+    delimiters = tuple(rule.get("banned_delimiters") or ())
+    texts = [
+        (f"annotation {i}", a.get("text", ""))
+        for i, a in enumerate(_annotations(context, rule.get("key", "annotations")))
+    ]
+    texts.append(("task_description", context["attrs"].get("task_description") or ""))
+    problems = []
+    for where, text in texts:
+        for delimiter in delimiters:
+            if delimiter in str(text):
+                problems.append(
+                    f"{where} encodes metadata after {delimiter!r}: {text!r}"
+                )
+                break
+    _report_problems(
+        rule, report, "annotation_text", problems, "no delimiter-encoded metadata"
+    )
+
+
 _NAMED_CHECKS = {
     "calibration_present": _check_calibration_present,
     "camera_coverage": _check_camera_coverage,
+    "pose_degeneracy": _check_pose_degeneracy,
+    "calibration_degeneracy": _check_calibration_degeneracy,
+    "intrinsics_signature": _check_intrinsics_signature,
+    "timestamps": _check_timestamps,
+    "annotation_coverage": _check_annotation_coverage,
+    "annotation_text": _check_annotation_text,
 }
 
 
@@ -467,7 +706,13 @@ def validate_episode(path: str | Path, *, strict: bool = False) -> Report:
     attrs = dict(store.attrs)
     arrays = {name: store[name] for name in store.array_keys()}
 
-    context: dict[str, Any] = {"array_keys": list(arrays)}
+    context: dict[str, Any] = {
+        "array_keys": list(arrays),
+        "arrays": arrays,
+        "attrs": attrs,
+        "features": attrs.get("features") or {},
+        "total_frames": attrs.get("total_frames"),
+    }
     embodiment = attrs.get("embodiment")
     if embodiment:
         context["named_platform"] = load_embodiment_platforms().get(
@@ -494,7 +739,6 @@ def validate_episode(path: str | Path, *, strict: bool = False) -> Report:
     # report explains itself without a second lookup.
     report.add(OK, "embodiment", resolved.describe())
     context["resolved"] = resolved
-    context["total_frames"] = attrs.get("total_frames")
 
     for rule in schema.get("arrays", []):
         for key, side in _expand_key(rule["key"], arrays, resolved.sides):
