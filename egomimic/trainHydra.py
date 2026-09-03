@@ -187,8 +187,39 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # transform_list aliasing trap.
     for ds in datamodule.train_datasets.values():
         ds.set_norm_stats_from(norm_stats)
-    for ds in datamodule.valid_datasets.values():
-        ds.set_norm_stats_from(norm_stats)
+    # EVERY val group, via the datamodule's own iterator. Do not iterate
+    # `datamodule.valid_datasets` here: it is a back-compat alias for a single
+    # group (the default if present, else the first), so it silently skips the
+    # rest. That is how `newtask` shipped unnormalised -- its datasets never got
+    # norm stats, the evaluator unnormalised them anyway, and both its overlays
+    # and its `Valid/*` metrics were computed on doubly-unnormalised actions.
+    for _group, _emb, _ds in datamodule.iter_valid_datasets():
+        _ds.set_norm_stats_from(norm_stats)
+
+    # Fail loudly rather than silently mis-normalising a split: every train and
+    # val dataset must now share the stats object by reference.
+    _unwired = [
+        f"train/{name}"
+        for name, ds in datamodule.train_datasets.items()
+        if getattr(ds, "norm_stats", None) is not norm_stats.norm_stats
+    ] + [
+        f"{group}/{emb}"
+        for group, emb, ds in datamodule.iter_valid_datasets()
+        if getattr(ds, "norm_stats", None) is not norm_stats.norm_stats
+    ]
+    if _unwired:
+        raise RuntimeError(
+            "norm stats were not wired to every dataset; these would emit "
+            f"unnormalised samples that the evaluator then unnormalises again: {_unwired}"
+        )
+    # f-string, not %-args: the pylogger wrapper consumes a positional arg for its
+    # rank prefix, so %-style placeholders come up short and logging raises.
+    log.info(
+        f"norm stats wired to {len(datamodule.train_datasets)} train and "
+        f"{sum(1 for _ in datamodule.iter_valid_datasets())} valid datasets "
+        f"across {len(datamodule.valid_groups)} val group(s): "
+        f"{list(datamodule.valid_groups)}"
+    )
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = ModelWrapper(

@@ -13,6 +13,27 @@ import egomimic.utils.tensor_utils as TensorUtils
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
+def _unwrap_combined_loader_batch(batch):
+    """Undo the extra tuple Lightning leaks when val groups are NESTED.
+
+    ``MultiDataModuleWrapper.val_dataloader`` returns one CombinedLoader per val
+    group. With a single group it returns that loader bare, Lightning iterates it
+    directly and unpacks its ``(batch, batch_idx, dataloader_idx)`` yield, so
+    ``batch`` arrives as the ``{embodiment: data}`` dict this expects.
+
+    With two or more groups it returns a LIST of CombinedLoaders. Lightning wraps
+    that list in a sequential CombinedLoader of its own, which treats each inner
+    CombinedLoader as a plain iterable -- so the inner loader's 3-tuple is passed
+    through as the batch and one unpack is not enough. The outer loop still hands
+    us the correct batch_idx and dataloader_idx (the group index), so the inner
+    pair is redundant and dropped. Without this the run dies at the first val
+    step with "'tuple' object has no attribute 'items'".
+    """
+    while isinstance(batch, tuple) and len(batch) == 3:
+        batch = batch[0]
+    return batch
+
+
 class ModelWrapper(LightningModule):
     """
     Wrapper class around robomimic models to ensure compatibility with Pytorch Lightning.
@@ -208,6 +229,7 @@ class ModelWrapper(LightningModule):
         """
         if self.evaluator is None:
             return
+        batch = _unwrap_combined_loader_batch(batch)
         batch = self.model.process_batch_for_training(batch)
         print(
             f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}",
