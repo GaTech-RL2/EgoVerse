@@ -44,3 +44,13 @@ callbacks:
 norm_stats:
   sample_frac: 0.25
   num_workers: 8
+
+# The E1 pipeline zero-pads the gripper slot on the proprio key too
+# (PadGripperZeros on observations.state.ee_pose -> 14-D), while the lab's
+# mecka model configs declare the state stem at 12. Match the data.
+model:
+  robomimic_model:
+    stem_specs:
+      human_bimanual:
+        state_ee_pose:
+          input_dim: 14
