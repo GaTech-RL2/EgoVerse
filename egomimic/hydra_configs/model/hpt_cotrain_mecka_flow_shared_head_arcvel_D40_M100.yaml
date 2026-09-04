@@ -1,11 +1,11 @@
 defaults:
-  - /model/hpt_cotrain_mecka_flow_shared_head_arc
+  - hpt_cotrain_mecka_flow_shared_head_arc
 
 # Arc+Vel row of the E1 fold speed-spread sweep: (M, 16) per sample — the
 # M = 100 arc-length waypoints in the canonical 14-dim layout plus, per row,
 # the left and right arm's speed at that waypoint (m/s). No trailing velocity
 # token; timing is reconstructed with the integral clock (see
-# egomimic/rldb/zarr/e1_arc_tokenizer.py).
+# egomimic/rldb/zarr/e1_arc_tokenizer.py, velocity_mode="profile").
 robomimic_model:
   head_specs:
     shared:

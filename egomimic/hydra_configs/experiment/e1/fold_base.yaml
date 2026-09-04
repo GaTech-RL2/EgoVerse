@@ -39,7 +39,7 @@ trainer:
 callbacks:
   model_checkpoint:
     every_n_epochs: 50
-    save_top_k: 2
+    save_top_k: 1  # no monitored metric: Lightning only allows -1 / 0 / 1 here; last.ckpt is kept too
 
 norm_stats:
   sample_frac: 0.25
