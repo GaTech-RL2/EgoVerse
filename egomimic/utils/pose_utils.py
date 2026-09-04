@@ -212,6 +212,37 @@ def _matrix_to_xyz(mats: np.ndarray) -> np.ndarray:
     return mats[:, :3, 3].astype(dtype, copy=False)
 
 
+def _split_action_pose_xyz_quat(actions):
+    """Split a 16D ``[L xyz quat g, R xyz quat g]`` tensor into xyz and YPR.
+
+    An embodiment whose transform list keeps quaternions, such as Eva's
+    ``cartesian_wristframe_quat`` mode, emits this layout. ``_split_action_pose``
+    stays at the 12 and 14 widths the shared cartesian space uses; a platform
+    that emits this one reaches this helper from its own
+    ``split_action_pose`` override.
+
+    Args:
+        actions: A ``(..., 16)`` array.
+
+    Returns:
+        ``(left_xyz, left_ypr, right_xyz, right_ypr)``, with the rotations
+        converted to the ``ZYX`` yaw-pitch-roll the visualizers draw.
+
+    Raises:
+        ValueError: If the last axis is not 16 wide.
+    """
+    actions = np.asarray(actions)
+    if actions.shape[-1] != 16:
+        raise ValueError(f"Unsupported action dim {actions.shape[-1]}, expected 16")
+    flat = actions.reshape(-1, 16)
+    out = []
+    for start in (0, 8):
+        pose = _matrix_to_xyzypr(_xyzwxyz_to_matrix(flat[:, start : start + 7]))
+        shape = actions.shape[:-1]
+        out += [pose[:, :3].reshape(*shape, 3), pose[:, 3:].reshape(*shape, 3)]
+    return tuple(out)
+
+
 def _split_action_pose(actions):
     # 14D layout: [L xyz ypr g, R xyz ypr g]
     # 12D layout: [L xyz ypr, R xyz ypr]

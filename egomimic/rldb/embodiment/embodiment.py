@@ -17,6 +17,7 @@ from egomimic.rldb.embodiment.registry import (
     load_platforms,
 )
 from egomimic.rldb.zarr.action_chunk_transforms import Transform
+from egomimic.utils.pose_utils import _split_action_pose
 from egomimic.utils.type_utils import _to_numpy
 from egomimic.utils.viz_utils import (
     _viz_annotations,
@@ -304,6 +305,27 @@ class Embodiment(ABC):
             embodiment_name=morphology.get("embodiment"),
         )
 
+    @classmethod
+    def split_action_pose(cls, actions):
+        """Split a cartesian action tensor into per-side position and rotation.
+
+        The base implementation reads the shared cartesian layouts, ``[L xyz
+        ypr g, R xyz ypr g]`` at 14 and ``[L xyz ypr, R xyz ypr]`` at 12. A
+        platform whose transform list emits a different width overrides this
+        rather than widening the shared function, because only the platform
+        knows what its own extra columns mean.
+
+        Args:
+            actions: A cartesian action tensor.
+
+        Returns:
+            ``(left_xyz, left_ypr, right_xyz, right_ypr)``.
+
+        Raises:
+            ValueError: If the width is not one this embodiment emits.
+        """
+        return _split_action_pose(actions)
+
     @staticmethod
     def get_transform_list() -> list[Transform]:
         """Returns the list of transforms that convert between the raw data in the dataset and the canonical representation used by the model."""
@@ -351,11 +373,14 @@ class Embodiment(ABC):
         **kwargs,
     ):
         K = intrinsics if intrinsics is not None else cls.INTRINSICS
+        # The visualizers read whichever layout this embodiment emits.
+        split_pose = cls.split_action_pose
         if mode == "traj":
             return _viz_traj(
                 image=image,
                 actions=viz_data,
                 intrinsics=K,
+                split_pose=split_pose,
                 **kwargs,
             )
         if mode == "traj+rotation":
@@ -363,11 +388,13 @@ class Embodiment(ABC):
                 image=image,
                 actions=viz_data,
                 intrinsics=K,
+                split_pose=split_pose,
                 **kwargs,
             )
             return _viz_rotation_txt(
                 image=vis,
                 actions=viz_data,
+                split_pose=split_pose,
                 **kwargs,
             )
         if mode == "axes":
@@ -375,6 +402,7 @@ class Embodiment(ABC):
                 image=image,
                 actions=viz_data,
                 intrinsics=K,
+                split_pose=split_pose,
                 **kwargs,
             )
         if mode == "annotations":

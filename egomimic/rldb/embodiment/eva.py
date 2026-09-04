@@ -22,6 +22,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 )
 from egomimic.utils.pose_utils import (
     _matrix_to_xyzwxyz,
+    _split_action_pose_xyz_quat,
 )
 
 
@@ -53,6 +54,24 @@ class Eva(Embodiment):
             ]
         ),
     }
+
+    @classmethod
+    def split_action_pose(cls, actions):
+        """Read Eva's cartesian widths, including its quaternion wrist frame.
+
+        ``cartesian`` and ``cartesian_wristframe_ypr`` emit the shared 14 wide
+        layout. ``cartesian_wristframe_quat`` keeps the quaternion and emits 16,
+        which the shared function does not read.
+
+        Args:
+            actions: A cartesian action tensor 14 or 16 wide.
+
+        Returns:
+            ``(left_xyz, left_ypr, right_xyz, right_ypr)``.
+        """
+        if getattr(actions, "shape", (0,))[-1] == 16:
+            return _split_action_pose_xyz_quat(actions)
+        return super().split_action_pose(actions)
 
     @staticmethod
     def get_transform_list(

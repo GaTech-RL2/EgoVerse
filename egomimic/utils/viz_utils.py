@@ -55,18 +55,19 @@ def _format_rotation_values(rot):
     return ", ".join(f"{value:.2f}" for value in rot)
 
 
-def _extract_rotation_for_txt(actions):
+def _extract_rotation_for_txt(actions, split_pose=None):
     actions = np.asarray(actions)
     while actions.ndim > 1:
         actions = actions[0]
 
-    _, left_ypr, _, right_ypr = _split_action_pose(actions)
+    split_pose = split_pose or _split_action_pose
+    _, left_ypr, _, right_ypr = split_pose(actions)
     return np.asarray(left_ypr).reshape(-1), np.asarray(right_ypr).reshape(-1)
 
 
-def _viz_rotation_txt(image, actions, **kwargs):
+def _viz_rotation_txt(image, actions, split_pose=None, **kwargs):
     vis = _prepare_viz_image(image).copy()
-    left_rot, right_rot = _extract_rotation_for_txt(actions)
+    left_rot, right_rot = _extract_rotation_for_txt(actions, split_pose)
 
     h, w = vis.shape[:2]
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -140,14 +141,20 @@ def _viz_rotation_txt(image, actions, **kwargs):
     return vis
 
 
-def _viz_traj(image, actions, intrinsics, **kwargs):
+def _viz_traj(image, actions, intrinsics, split_pose=None, **kwargs):
+    """Draw the per-side position trajectory.
+
+    Args:
+        split_pose: The embodiment's ``split_action_pose``, or None to read the
+            shared 12 and 14 wide cartesian layouts.
+    """
     color = kwargs.get("color", "Blues")
     alpha = kwargs.get("alpha", 1.0)
     if not ColorPalette.is_valid(color):
         raise ValueError(f"Invalid color palette: {color}")
 
     image = _prepare_viz_image(image)
-    left_xyz, _, right_xyz, _ = _split_action_pose(actions)
+    left_xyz, _, right_xyz, _ = (split_pose or _split_action_pose)(actions)
 
     base = image.copy()
     overlay = draw_actions(
@@ -175,10 +182,18 @@ def _viz_traj(image, actions, intrinsics, **kwargs):
     return vis
 
 
-def _viz_axes(image, actions, intrinsics, axis_len_m=0.04, **kwargs):
+def _viz_axes(image, actions, intrinsics, axis_len_m=0.04, split_pose=None, **kwargs):
+    """Draw a coordinate frame at each per-side pose.
+
+    Args:
+        split_pose: The embodiment's ``split_action_pose``, or None to read the
+            shared 12 and 14 wide cartesian layouts.
+    """
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
-    left_xyz, left_ypr, right_xyz, right_ypr = _split_action_pose(actions)
+    left_xyz, left_ypr, right_xyz, right_ypr = (split_pose or _split_action_pose)(
+        actions
+    )
     base = image.copy()
     vis = base.copy()
 
