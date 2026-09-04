@@ -47,10 +47,14 @@ _END_EFFECTOR_FIELDS = frozenset(
         "joint_names",
         "joint_limits",
         "urdf",
+        "keypoint_links",
+        "fk_tolerance_m",
         "dead_dims",
+        "tactile",
     }
 )
 _AUX_FIELDS = frozenset({"dof", "joint_names"})
+_TACTILE_FIELDS = frozenset({"taxels", "channels", "units", "taxel_links"})
 _KEYPOINT_FIELDS = frozenset({"topology", "valid"})
 
 
@@ -95,12 +99,35 @@ class AuxChainSpec:
 
 
 @dataclass(frozen=True)
+class TactileSpec:
+    """Describe the tactile array an end-effector stores.
+
+    Attributes:
+        taxels: The number of sensing sites.
+        channels: The values each site reports per frame.
+        units: The physical unit of one value, such as ``N`` or ``kPa``.
+        taxel_links: The URDF link each site sits on, in array order. This
+            tuple can be empty.
+    """
+
+    taxels: int
+    channels: int
+    units: str
+    taxel_links: tuple[str, ...] = ()
+
+    @property
+    def width(self) -> int:
+        """Return the stored width of one tactile frame."""
+        return self.taxels * self.channels
+
+
+@dataclass(frozen=True)
 class EndEffectorSpec:
     """Store one validated entry from ``end_effectors.yaml``.
 
     ``keypoints`` defines the common topology and the slots that this
-    end-effector supports. The optional fields store joint metadata and a URDF
-    path.
+    end-effector supports. The optional fields store joint metadata, a URDF and
+    its keypoint link mapping, and the tactile layout.
     """
 
     name: str
@@ -111,7 +138,28 @@ class EndEffectorSpec:
     joint_names: tuple[str, ...] = ()
     joint_limits: tuple[tuple[float, float], ...] = ()
     urdf: str | None = None
+    keypoint_links: tuple[tuple[int, str], ...] = ()
+    fk_tolerance_m: float | None = None
     dead_dims: tuple[int, ...] = ()
+    tactile: TactileSpec | None = None
+
+    @property
+    def urdf_path(self) -> Path | None:
+        """Return the URDF file, resolved against ``registry/urdf/``.
+
+        Returns:
+            The absolute path, or ``None`` when the entry declares no URDF. An
+            absolute ``urdf:`` value is returned unchanged.
+        """
+        if self.urdf is None:
+            return None
+        path = Path(self.urdf)
+        return path if path.is_absolute() else REGISTRY_DIR / "urdf" / path
+
+    @property
+    def keypoint_link_map(self) -> dict[int, str]:
+        """Return the slot-to-link mapping used by forward kinematics."""
+        return dict(self.keypoint_links)
 
 
 @dataclass(frozen=True)
@@ -210,6 +258,80 @@ def _parse_aux(raw, where: str) -> AuxChainSpec | None:
     return AuxChainSpec(dof=dof, joint_names=joint_names)
 
 
+def _parse_keypoint_links(raw, keypoints: KeypointSpec, where: str):
+    """Parse the slot-to-link mapping that forward kinematics reads.
+
+    Args:
+        raw: The ``keypoint_links`` mapping, or ``None``.
+        keypoints: The end-effector's topology and valid slots.
+        where: The registry location used in error messages.
+
+    Returns:
+        ``(slot, link)`` pairs sorted by slot.
+
+    Raises:
+        RegistryError: If the mapping is malformed or does not name exactly the
+            valid slots. A partial mapping is rejected because a slot with no
+            link would silently drop out of the residual it is meant to check.
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, dict) or not raw:
+        raise RegistryError(
+            f"{where}: `keypoint_links` must be a non-empty {{slot: link}} "
+            f"mapping, got {raw!r}"
+        )
+    pairs = {}
+    for slot, link in raw.items():
+        if not isinstance(slot, int) or isinstance(slot, bool):
+            raise RegistryError(f"{where}.keypoint_links: slot {slot!r} is not an int")
+        if not isinstance(link, str) or not link:
+            raise RegistryError(
+                f"{where}.keypoint_links[{slot}]: link must be a non-empty string, "
+                f"got {link!r}"
+            )
+        pairs[slot] = link
+    if set(pairs) != set(keypoints.valid):
+        raise RegistryError(
+            f"{where}.keypoint_links: maps slots {sorted(pairs)}, but the valid "
+            f"slots are {list(keypoints.valid)}; map every valid slot and no other"
+        )
+    return tuple(sorted(pairs.items()))
+
+
+def _parse_tactile(raw, where: str) -> TactileSpec | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise RegistryError(f"{where}: `tactile` must be null or a mapping, got {raw!r}")
+    _check_fields(raw, _TACTILE_FIELDS, f"{where}.tactile")
+    taxels = _require(raw, "taxels", f"{where}.tactile")
+    if not isinstance(taxels, int) or isinstance(taxels, bool) or taxels <= 0:
+        raise RegistryError(
+            f"{where}.tactile: `taxels` must be a positive int, got {taxels!r}"
+        )
+    channels = raw.get("channels", 1)
+    if not isinstance(channels, int) or isinstance(channels, bool) or channels <= 0:
+        raise RegistryError(
+            f"{where}.tactile: `channels` must be a positive int, got {channels!r}"
+        )
+    units = _require(raw, "units", f"{where}.tactile")
+    if not isinstance(units, str) or not units.strip():
+        raise RegistryError(
+            f"{where}.tactile: `units` must name the physical unit of one value, "
+            f"got {units!r}; an undeclared unit is what made the sample's 250x "
+            "inter-hand range gap unreadable"
+        )
+    taxel_links = tuple(raw.get("taxel_links") or ())
+    if taxel_links and len(taxel_links) != taxels:
+        raise RegistryError(
+            f"{where}.tactile: {len(taxel_links)} taxel_links for {taxels} taxels"
+        )
+    return TactileSpec(
+        taxels=taxels, channels=channels, units=units, taxel_links=taxel_links
+    )
+
+
 def _parse_end_effector(name: str, block: dict) -> EndEffectorSpec:
     where = f"end_effectors.yaml[{name}]"
     if not isinstance(block, dict):
@@ -260,16 +382,59 @@ def _parse_end_effector(name: str, block: dict) -> EndEffectorSpec:
         if dof is None or not 0 <= dim < dof:
             raise RegistryError(f"{where}: dead dim {dim} out of range for dof {dof!r}")
 
+    keypoints = _parse_keypoints(_require(block, "keypoints", where), where)
+    keypoint_links = _parse_keypoint_links(
+        block.get("keypoint_links"), keypoints, where
+    )
+    urdf = block.get("urdf")
+    tolerance = block.get("fk_tolerance_m")
+    if urdf is not None:
+        # The residual gate reads the joint array through `joint_names`, maps
+        # links to slots through `keypoint_links`, and fails above
+        # `fk_tolerance_m`. A URDF without all three cannot be evaluated, and a
+        # declared-but-dormant gate is worse than no gate.
+        if not joint_names:
+            raise RegistryError(
+                f"{where}: `urdf` needs `joint_names` to say which column of the "
+                "stored joint array drives which URDF joint"
+            )
+        if not keypoint_links:
+            raise RegistryError(
+                f"{where}: `urdf` needs `keypoint_links` to say which link holds "
+                "each keypoint slot"
+            )
+        if not isinstance(tolerance, (int, float)) or isinstance(tolerance, bool):
+            raise RegistryError(
+                f"{where}: `urdf` needs `fk_tolerance_m`, the metres of "
+                f"forward-kinematics residual this hand may show, got {tolerance!r}"
+            )
+        if tolerance <= 0:
+            raise RegistryError(
+                f"{where}: `fk_tolerance_m` must be positive, got {tolerance}"
+            )
+    elif tolerance is not None:
+        raise RegistryError(
+            f"{where}: `fk_tolerance_m` has no effect without a `urdf` to run "
+            "forward kinematics over"
+        )
+    elif keypoint_links:
+        raise RegistryError(
+            f"{where}: `keypoint_links` has no effect without a `urdf`"
+        )
+
     return EndEffectorSpec(
         name=name,
         ee_class=ee_class,
         dof=dof,
         action_space=action_space,
-        keypoints=_parse_keypoints(_require(block, "keypoints", where), where),
+        keypoints=keypoints,
         joint_names=joint_names,
         joint_limits=tuple(limits),
-        urdf=block.get("urdf"),
+        urdf=urdf,
+        keypoint_links=keypoint_links,
+        fk_tolerance_m=None if tolerance is None else float(tolerance),
         dead_dims=dead_dims,
+        tactile=_parse_tactile(block.get("tactile"), where),
     )
 
 
@@ -423,6 +588,7 @@ __all__ = [
     "KeypointSpec",
     "PlatformSpec",
     "RegistryError",
+    "TactileSpec",
     "load_aliases",
     "load_embodiment_platforms",
     "load_end_effectors",

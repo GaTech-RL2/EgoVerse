@@ -32,7 +32,9 @@ from egomimic.rldb.embodiment.embodiment import (
     ResolvedEmbodiment,
     canonical_embodiment_name,
 )
+from egomimic.rldb.embodiment.hand_kinematics import keypoint_residuals
 from egomimic.rldb.embodiment.registry import load_embodiment_platforms
+from egomimic.rldb.embodiment.urdf import UrdfError
 from egomimic.rldb.zarr.calibration import (
     IMAGE_KEY_PREFIX,
     CalibrationError,
@@ -589,6 +591,92 @@ def _check_annotation_coverage(rule, context, report) -> None:
     )
 
 
+def _sample_indices(count: int, limit: int) -> np.ndarray:
+    """Return up to ``limit`` evenly spaced indices covering ``[0, count)``."""
+    if limit <= 0 or count <= limit:
+        return np.arange(count)
+    return np.unique(np.linspace(0, count - 1, limit).astype(int))
+
+
+def _check_fk_residual(rule, context, report) -> None:
+    resolved: ResolvedEmbodiment | None = context.get("resolved")
+    if resolved is None:
+        return
+    arrays = context["arrays"]
+    total_frames = context.get("total_frames")
+    problems = []
+    passed = []
+    for side, end_effector in sorted(resolved.end_effectors.items()):
+        if end_effector.urdf_path is None:
+            continue
+        tracks = [
+            arrays.get(f"{side}.{rule[name]}")
+            for name in ("joints_suffix", "keypoints_suffix", "pose_suffix")
+        ]
+        if any(track is None for track in tracks):
+            # Each of the three arrays carries its own required-key rule, so a
+            # missing one is already an error and needs no second finding.
+            continue
+        joints, keypoints, poses = (_read(t, total_frames) for t in tracks)
+        rows = min(len(joints), len(keypoints), len(poses))
+        if rows == 0:
+            continue
+        frames = _sample_indices(rows, int(rule.get("sample_frames", 64)))
+        try:
+            residuals = keypoint_residuals(
+                end_effector, joints[frames], keypoints[frames], poses[frames]
+            )
+        except (UrdfError, ValueError, np.linalg.LinAlgError) as exc:
+            problems.append(f"{side}: {exc}")
+            continue
+        worst = float(residuals.max())
+        tolerance = float(end_effector.fk_tolerance_m)
+        if worst > tolerance:
+            slot = list(end_effector.keypoints.valid)[
+                int(np.unravel_index(residuals.argmax(), residuals.shape)[1])
+            ]
+            problems.append(
+                f"{side}: forward kinematics over {end_effector.urdf} disagrees "
+                f"with {side}.{rule['keypoints_suffix']} by {worst:.4f} m at slot "
+                f"{slot} (tolerance {tolerance:g} m); check joint order, units, "
+                "handedness and the root frame"
+            )
+        else:
+            passed.append(f"{side} within {worst:.4f} m")
+    if not problems and not passed:
+        return
+    _report_problems(rule, report, "fk_residual", problems, "; ".join(passed))
+
+
+def _check_tactile_declaration(rule, context, report) -> None:
+    resolved: ResolvedEmbodiment | None = context.get("resolved")
+    if resolved is None:
+        return
+    suffix = rule.get("suffix", "obs_tactile")
+    problems = []
+    declared = 0
+    for side, end_effector in sorted(resolved.end_effectors.items()):
+        if f"{side}.{suffix}" not in context["arrays"]:
+            continue
+        if end_effector.tactile is None:
+            problems.append(
+                f"{side}.{suffix} is stored, but end-effector "
+                f"{end_effector.name!r} declares no `tactile:` block; a taxel "
+                "count without a unit cannot be compared across hands"
+            )
+        else:
+            declared += 1
+    if not problems and not declared:
+        return
+    _report_problems(
+        rule,
+        report,
+        "tactile_declaration",
+        problems,
+        f"{declared} tactile array(s) match a registry declaration",
+    )
+
+
 def _check_annotation_text(rule, context, report) -> None:
     delimiters = tuple(rule.get("banned_delimiters") or ())
     texts = [
@@ -617,6 +705,8 @@ _NAMED_CHECKS = {
     "intrinsics_signature": _check_intrinsics_signature,
     "timestamps": _check_timestamps,
     "annotation_coverage": _check_annotation_coverage,
+    "fk_residual": _check_fk_residual,
+    "tactile_declaration": _check_tactile_declaration,
     "annotation_text": _check_annotation_text,
 }
 
@@ -665,6 +755,11 @@ def _dimension(token, context, side) -> int | None:
         if end_effector is None:
             return None
         return 3 * end_effector.keypoints.n_slots
+    if token == "tactile":
+        end_effector = resolved.end_effectors.get(side) if side else None
+        if end_effector is None or end_effector.tactile is None:
+            return None
+        return end_effector.tactile.width
     raise SchemaError(f"unknown shape dimension {token!r} in the schema")
 
 
@@ -802,19 +897,22 @@ def validate_episode(
     for name, rule in schema.get("attributes", {}).items():
         _check_attribute(name, rule, attrs, report, context)
 
+    # Resolve before the named checks. The platform and end-effectors decide
+    # array conditions and dimensions, and the kinematic and tactile checks
+    # read the end-effector registry entry for the side they are checking.
+    resolved = _resolve(attrs, report)
+    context["resolved"] = resolved
+    if resolved is not None:
+        report.add(OK, "embodiment", resolved.describe())
+
     for rule in schema.get("checks", []):
         check = _NAMED_CHECKS.get(rule.get("name"))
         if check is None:
             raise SchemaError(f"unknown check {rule.get('name')!r} in the schema")
         check(rule, context, report)
 
-    resolved = _resolve(attrs, report)
     if resolved is None:
         return report
-    # Record the resolved platform and end-effectors used by subsequent array
-    # conditions and dimensions.
-    report.add(OK, "embodiment", resolved.describe())
-    context["resolved"] = resolved
 
     for rule in schema.get("arrays", []):
         for key, side in _expand_key(rule["key"], arrays, resolved.sides):

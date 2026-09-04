@@ -50,6 +50,7 @@
 #   aux_dof    the platform's auxiliary chain
 #   ee_dof     the side's end-effector joints
 #   kp3        three coordinates per slot in the side's keypoint topology
+#   tactile    the side's declared taxels times its declared channels
 #   <int>      exactly that many
 #   "*"        any
 #
@@ -188,6 +189,26 @@ checks:
     key: annotations
     minimum: 0.9
 
+  # Run forward kinematics over the end-effector's registry URDF and compare
+  # against the keypoints the vendor shipped, in the hand-root frame that
+  # `obs_ee_pose` defines. A wrong joint order, a degrees-for-radians slip, a
+  # mirrored hand and a wrong root frame all surface as this one number.
+  - name: fk_residual
+    required: true
+    severity: integrity
+    joints_suffix: obs_hand_joints
+    keypoints_suffix: obs_hand_keypoints
+    pose_suffix: obs_ee_pose
+    sample_frames: 64
+
+  # A stored tactile array needs a `tactile:` block on the side's registry
+  # end-effector. Per §4.1 the layout is a specification, so it lives in the
+  # registry rather than being repeated in every episode.
+  - name: tactile_declaration
+    required: true
+    severity: integrity
+    suffix: obs_tactile
+
   # Forbid the exact substring ` | ` in annotation text and task_description;
   # structured metadata needs a separate schema field.
   - name: annotation_text
@@ -239,12 +260,62 @@ arrays:
     shape: [T, 1]
     dtype: float
 
+  - key: "{side}.obs_hand_joints"
+    when: {end_effector_class: dexterous_hand}
+    required: true
+    severity: integrity
+    shape: [T, ee_dof]
+    dtype: float
+    # Radians, in the registry `joint_names` order. This is the vector the
+    # controller consumed and it is never discarded for a derived one.
+
+  - key: "{side}.cmd_hand_joints"
+    when: {end_effector_class: dexterous_hand}
+    required: true
+    severity: integrity
+    shape: [T, ee_dof]
+    dtype: float
+
+  - key: "{side}.obs_hand_keypoints"
+    when: {end_effector_class: dexterous_hand}
+    required: true
+    severity: integrity
+    shape: [T, kp3]
+    dtype: float
+    # The vendor's own keypoints, in MANO topology and the human keypoint
+    # frame. Distinct from `obs_keypoints`, which is the human demonstration a
+    # retarget started from; conflating them hides how good that retarget is.
+
   - key: "{side}.obs_keypoints"
     when: {end_effector_class: human_hand}
     required: true
     severity: integrity
     shape: [T, kp3]
     dtype: float
+
+  - key: obs_aux_joints
+    when: {has_aux_chain: true}
+    required: true
+    severity: integrity
+    shape: [T, aux_dof]
+    dtype: float
+    # The torso, lift, or head chain. A head joint belongs here, not in a
+    # tracked-device pose.
+
+  - key: cmd_aux_joints
+    when: {has_aux_chain: true}
+    required: true
+    severity: integrity
+    shape: [T, aux_dof]
+    dtype: float
+
+  - key: "{side}.obs_tactile"
+    required: false
+    severity: integrity
+    shape: [T, tactile]
+    dtype: float
+    # Optional, but a stored array needs a declared width and unit; see the
+    # `tactile_declaration` check.
 
   - key: obs_head_pose
     when: {platform_kind: human}

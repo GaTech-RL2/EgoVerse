@@ -16,8 +16,14 @@
 #   keypoints      {topology, valid}
 #   joint_names    optional names in joint order; length must equal dof
 #   joint_limits   optional [lower, upper] pairs; length must equal dof
-#   urdf           optional URDF path for joint-to-keypoint kinematics
 #   dead_dims      optional indices of joint dimensions that contain no signal
+#   tactile        optional {taxels, channels, units, taxel_links}
+#
+# A dexterous hand declares its kinematics so that ingest can check the joints
+# it shipped against the keypoints it shipped. Declare all three together:
+#   urdf           file under `registry/urdf/`, read for link poses only
+#   keypoint_links {slot: link} for every valid slot, and no other slot
+#   fk_tolerance_m metres of residual this hand may show before ingest fails
 
 eva_parallel_jaw:
   class: parallel_jaw
