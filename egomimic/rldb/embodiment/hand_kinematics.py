@@ -1,15 +1,12 @@
-"""Compare the joints a vendor shipped against the keypoints they shipped.
+"""Validate stored dexterous-hand keypoints against forward kinematics.
 
-A dexterous end-effector stores both representations (`DEXTEROUS_EMBODIMENT_
-DESIGN_V2.md` §2.4): ``obs_hand_joints`` is what the controller consumed, and
-``obs_hand_keypoints`` is the MANO-topology tensor that trains through the
-shared head. Neither one can check the other on its own. With the registry URDF
-alongside them, "did the vendor wire this up correctly" becomes a scalar: run
-forward kinematics on the joints and measure the distance to the keypoints.
-
-The comparison happens in the hand-root frame, which ``obs_ee_pose`` defines,
-so it does not depend on whether the episode expresses keypoints in a camera
-frame or a base frame.
+``obs_hand_joints`` stores the observed joint configuration in registry
+``joint_names`` order. ``obs_hand_keypoints`` stores all slots in the declared
+topology in the same episode coordinate frame as ``obs_ee_pose``. The registry
+URDF and ``keypoint_links`` mapping convert the joint configuration into
+hand-root-frame positions for the valid slots. This module transforms the
+stored keypoints into that frame and returns their Euclidean distance from the
+forward-kinematics positions.
 """
 
 from __future__ import annotations
@@ -25,7 +22,7 @@ from egomimic.utils.pose_utils import _xyzwxyz_to_matrix
 
 @functools.lru_cache(maxsize=8)
 def _chain(path: str) -> UrdfChain:
-    """Load and cache one URDF; a registry URDF is shared by many episodes."""
+    """Load a URDF and cache the parsed chain by path."""
     return load_urdf(path)
 
 
@@ -39,7 +36,8 @@ def load_chain(spec: EndEffectorSpec) -> UrdfChain:
         The parsed kinematic tree.
 
     Raises:
-        UrdfError: If the entry declares no URDF, or the file is unreadable.
+        UrdfError: If the entry declares no URDF or the file cannot be parsed
+            as a supported kinematic tree.
     """
     path = spec.urdf_path
     if path is None:
@@ -57,12 +55,12 @@ def fk_keypoints(spec: EndEffectorSpec, joints: np.ndarray) -> np.ndarray:
             the entry's ``joint_names`` order.
 
     Returns:
-        A ``(T, n_valid, 3)`` array of root-frame positions, ordered by the
-        entry's valid keypoint slots.
+        A ``(T, n_valid, 3)`` array of hand-root-frame positions. Axis 1 follows
+        ``keypoint_links``, which the registry loader sorts by slot index.
 
     Raises:
-        UrdfError: If the URDF cannot be read, or names no joint or link the
-            entry declares.
+        UrdfError: If the URDF is invalid, a declared joint is not actuated, or
+            a declared keypoint link is not reachable from the URDF root.
         ValueError: If ``joints`` does not have the declared width.
     """
     chain = load_chain(spec)
@@ -91,10 +89,11 @@ def keypoint_residuals(
     keypoints: np.ndarray,
     ee_poses: np.ndarray,
 ) -> np.ndarray:
-    """Return the per-frame, per-slot distance between the two representations.
+    """Return FK residuals for every frame and valid keypoint slot.
 
     Args:
-        spec: The registry entry for this end-effector.
+        spec: The end-effector registry entry. It declares the topology, valid
+            slots, joint order, URDF, and slot-to-link mapping.
         joints: A ``(T, dof)`` joint array in ``joint_names`` order.
         keypoints: A ``(T, 3 * n_slots)`` array of the vendor's keypoints, in
             the same frame as ``ee_poses``.
@@ -102,12 +101,12 @@ def keypoint_residuals(
             poses in that frame.
 
     Returns:
-        A ``(T, n_valid)`` array of metres. Each entry is the distance between
-        the vendor's keypoint and the one forward kinematics places there.
+        A ``(T, n_valid)`` array of Euclidean distances in metres. Axis 1 is in
+        increasing valid-slot order.
 
     Raises:
         UrdfError: If the URDF cannot be read or does not match the entry.
-        ValueError: If an array does not have the shape the entry implies.
+        ValueError: If an input does not have the required rank or width.
     """
     keypoints = np.asarray(keypoints, dtype=float)
     ee_poses = np.asarray(ee_poses, dtype=float)
@@ -126,8 +125,7 @@ def keypoint_residuals(
     root_T_world = np.linalg.inv(_xyzwxyz_to_matrix(ee_poses))
     valid = list(spec.keypoints.valid)
     stored = keypoints.reshape(-1, n_slots, 3)[:, valid, :]
-    # Map the vendor's keypoints out of the episode frame and into the hand
-    # root, which is the frame forward kinematics reports.
+    # Convert episode-frame points to the hand-root frame returned by FK.
     stored_root = np.einsum("tij,tkj->tki", root_T_world[:, :3, :3], stored)
     stored_root += root_T_world[:, None, :3, 3]
     return np.linalg.norm(fk_keypoints(spec, joints) - stored_root, axis=-1)

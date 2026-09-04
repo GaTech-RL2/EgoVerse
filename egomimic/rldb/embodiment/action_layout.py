@@ -1,16 +1,11 @@
-"""Locate each end-effector's keypoint slots inside a canonical action tensor.
+"""Locate static keypoint validity slots in fixed-width action tensors.
 
-The ``keypoints`` action space lays out one fixed-width block per side:
-``[xyz(3), rot(3|4), keypoints(3 * n_slots)]``. Every end-effector writes the
-full block, because a shared head has one width. A hand that has no pinky, or a
-parallel jaw that has three meaningful slots at all, therefore writes slots it
-does not own.
-
-`DEXTEROUS_EMBODIMENT_DESIGN_V2.md` §2.3 calls those slots masked, and they are
-not the same thing as the ``1e9`` sentinel the corpus already uses. A sentinel
-says one frame's estimate failed; a mask says this hand has no pinky on any
-frame. The loss must ignore the second kind, which is what this module's mask
-feeds.
+A recognized keypoint layout concatenates one block per resolved side. Each
+block contains zero or one wrist pose followed by three coordinates for every
+slot in a shared topology. ``keypoint_action_mask`` marks wrist coordinates and
+registry-valid slots true and structurally absent slots false. The validity
+list applies to every frame; it does not encode a failed estimate in an
+individual frame.
 """
 
 from __future__ import annotations
@@ -19,24 +14,22 @@ import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment, ResolvedEmbodiment
 
-#: Wrist block widths a side may carry before its keypoints: none, xyz + ypr,
-#: or xyz + quaternion. See ``_split_keypoints``.
+#: Accepted per-side prefixes: no wrist, XYZ plus YPR, or XYZ plus quaternion.
 WRIST_WIDTHS = (0, 6, 7)
 
 
 def keypoint_layout(action_dim: int, n_slots: int, n_sides: int = 2):
-    """Split a canonical action width into its per-side blocks.
+    """Infer equal per-side keypoint blocks from an action width.
 
     Args:
         action_dim: The width of one action vector.
-        n_slots: Slots in the keypoint topology, the same for every side.
-        n_sides: Sides the tensor concatenates.
+        n_slots: Number of keypoint slots in each side's topology.
+        n_sides: Number of side blocks concatenated in the action.
 
     Returns:
-        ``(per_side, wrist)``: the width of one side's block and the width of
-        the pose that precedes its keypoints. ``None`` when ``action_dim`` is
-        not a keypoint layout, which is the ordinary answer for a ``cartesian``
-        tensor.
+        ``(per_side_width, wrist_width)`` when the action divides evenly across
+        the sides and each block has a 0-, 6-, or 7-column wrist prefix before
+        ``3 * n_slots`` coordinates. Otherwise, ``None``.
     """
     if n_sides <= 0 or action_dim % n_sides:
         return None
@@ -48,7 +41,7 @@ def keypoint_layout(action_dim: int, n_slots: int, n_sides: int = 2):
 
 
 def keypoint_action_mask(spec, action_dim: int) -> np.ndarray | None:
-    """Return which dimensions of an action tensor the end-effectors populate.
+    """Build a static validity mask for a resolved keypoint action layout.
 
     Args:
         spec: An embodiment name, a morphology mapping, or a
@@ -56,14 +49,16 @@ def keypoint_action_mask(spec, action_dim: int) -> np.ndarray | None:
         action_dim: The width of one action vector.
 
     Returns:
-        A ``(action_dim,)`` boolean array, ``True`` where the dimension carries
-        a slot the end-effector owns. ``None`` when nothing is masked, so a
-        caller can take its existing unmasked path unchanged. That is the
-        answer for every embodiment in the corpus today.
+        A boolean array of shape ``(action_dim,)``. Wrist coordinates and
+        coordinates for registry-valid slots are true; coordinates for absent
+        slots are false. Sides are ordered left, then right. Returns ``None``
+        when every selected end-effector has a complete topology or when
+        ``action_dim`` is not a recognized keypoint layout.
 
     Raises:
-        ValueError: If the sides disagree on keypoint topology, because one
-            action tensor cannot hold two layouts.
+        TypeError: If ``spec`` is not a supported resolver input.
+        ValueError: If ``spec`` cannot be resolved or its sides declare
+            different keypoint topologies.
     """
     resolved = spec if isinstance(spec, ResolvedEmbodiment) else Embodiment.resolve(spec)
     sides = [side for side in ("left", "right") if side in resolved.end_effectors]
@@ -95,16 +90,15 @@ def keypoint_action_mask(spec, action_dim: int) -> np.ndarray | None:
 
 
 def action_masks(infer_ac_dims) -> dict[str, np.ndarray]:
-    """Build one mask per embodiment a head serves.
+    """Build masks for resolvable entries with structurally absent slots.
 
     Args:
         infer_ac_dims: The head's ``{embodiment name: action width}`` mapping.
 
     Returns:
-        A mapping from embodiment name to its mask, holding only the
-        embodiments that actually mask something. An embodiment the registry
-        does not know is skipped rather than failing head construction, which
-        keeps an unrelated checkpoint loadable.
+        A mapping from embodiment name to boolean mask. Entries are omitted if
+        their name or width cannot be resolved, their width is not a recognized
+        keypoint layout, or all selected keypoint slots are valid.
     """
     masks = {}
     for name, action_dim in (infer_ac_dims or {}).items():

@@ -56,6 +56,7 @@ def _format_rotation_values(rot):
 
 
 def _extract_rotation_for_txt(actions, split_pose=None):
+    """Return the first action's left and right YPR vectors for text display."""
     actions = np.asarray(actions)
     while actions.ndim > 1:
         actions = actions[0]
@@ -66,6 +67,7 @@ def _extract_rotation_for_txt(actions, split_pose=None):
 
 
 def _viz_rotation_txt(image, actions, split_pose=None, **kwargs):
+    """Overlay the first action's left and right YPR values on an image."""
     vis = _prepare_viz_image(image).copy()
     left_rot, right_rot = _extract_rotation_for_txt(actions, split_pose)
 
@@ -142,11 +144,14 @@ def _viz_rotation_txt(image, actions, split_pose=None, **kwargs):
 
 
 def _viz_traj(image, actions, intrinsics, split_pose=None, **kwargs):
-    """Draw the per-side position trajectory.
+    """Project and draw the left and right XYZ trajectories.
 
     Args:
-        split_pose: The embodiment's ``split_action_pose``, or None to read the
-            shared 12 and 14 wide cartesian layouts.
+        image: Image frame on which to draw.
+        actions: Cartesian action sequence accepted by ``split_pose``.
+        intrinsics: Camera projection matrix for the XYZ coordinates.
+        split_pose: Callable returning ``(left_xyz, left_ypr, right_xyz,
+            right_ypr)``. ``None`` selects the 12- and 14-column splitter.
     """
     color = kwargs.get("color", "Blues")
     alpha = kwargs.get("alpha", 1.0)
@@ -183,11 +188,15 @@ def _viz_traj(image, actions, intrinsics, split_pose=None, **kwargs):
 
 
 def _viz_axes(image, actions, intrinsics, axis_len_m=0.04, split_pose=None, **kwargs):
-    """Draw a coordinate frame at each per-side pose.
+    """Project and draw a coordinate frame at every left and right pose.
 
     Args:
-        split_pose: The embodiment's ``split_action_pose``, or None to read the
-            shared 12 and 14 wide cartesian layouts.
+        image: Image frame on which to draw.
+        actions: Cartesian action sequence accepted by ``split_pose``.
+        intrinsics: Camera projection matrix for the pose coordinates.
+        axis_len_m: Length in metres of each rendered coordinate axis.
+        split_pose: Callable returning ``(left_xyz, left_ypr, right_xyz,
+            right_ypr)``. ``None`` selects the 12- and 14-column splitter.
     """
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
@@ -326,18 +335,18 @@ def _viz_keypoints(
 
     Args:
         image: The frame to draw on.
-        actions: A bimanual keypoint tensor, with or without a wrist pose per
-            side.
+        actions: An array whose last axis contains left then right blocks. Each
+            block contains ``3 * n_kp`` keypoint coordinates, optionally
+            preceded by XYZ plus YPR or XYZ plus a quaternion.
         intrinsics: The camera matrix that projects camera-frame points.
         edges: Skeleton edges as ``(i, j)`` slot pairs.
         colors: A colour per finger name.
         edge_ranges: ``(finger, start, end)`` ranges over ``edges``.
-        dot_color: One colour for both hands, or None to colour them apart.
-        n_kp: Slots in the keypoint topology. The default is MANO's 21; the
-            end-effector spec supplies the value for any other topology.
-        valid_slots: Slots the end-effector owns, or None when it owns all of
-            them. A masked slot is a structural absence, not a failed estimate,
-            so it is not drawn and neither are its edges.
+        dot_color: One color for both sides. ``None`` selects a different
+            default color for each side.
+        n_kp: Number of slots in each side's keypoint block.
+        valid_slots: Slot indices to draw on both sides. ``None`` selects every
+            slot. Edges incident to an unselected slot are also omitted.
     """
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
@@ -373,8 +382,8 @@ def _viz_keypoints(
             dot_color if dot_color is not None else _default_dot_colors[hand]
         )
         kps_cam = keypoints[hand]
-        # Camera frame -> pixels
-        kps_px = cam_frame_to_cam_pixels(kps_cam, intrinsics)  # (42, 3+) 21 per arm
+        # Project this side's ``(n_kp, 3)`` camera-frame points to pixels.
+        kps_px = cam_frame_to_cam_pixels(kps_cam, intrinsics)
 
         # Identify drawable keypoints: owned by this end-effector, in front of
         # the camera, and inside the image.
@@ -383,7 +392,7 @@ def _viz_keypoints(
         valid &= (kps_px[:, 1] >= 0) & (kps_px[:, 1] < h)
         valid &= owned[: len(valid)]
 
-        # Draw skeleton edges (colored by finger)
+        # Draw skeleton edges whose endpoints are both drawable.
         for finger, start, end in edge_ranges:
             color = colors[finger]
             for edge_idx in range(start, min(end, len(edges))):
@@ -400,7 +409,7 @@ def _viz_keypoints(
                 cv2.circle(vis, center, 4, hand_dot_color, -1)
                 cv2.circle(vis, center, 4, (255, 255, 255), 1)  # white border
 
-        # Label wrist
+        # Label topology slot 0 with the side initial.
         if valid[0]:
             wrist_px = (int(kps_px[0, 0]) + 6, int(kps_px[0, 1]) - 6)
             cv2.putText(

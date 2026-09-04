@@ -213,13 +213,10 @@ def _matrix_to_xyz(mats: np.ndarray) -> np.ndarray:
 
 
 def _split_action_pose_xyz_quat(actions):
-    """Split a 16D ``[L xyz quat g, R xyz quat g]`` tensor into xyz and YPR.
+    """Split ``[L xyz qw qx qy qz g, R xyz qw qx qy qz g]`` into XYZ and YPR.
 
-    An embodiment whose transform list keeps quaternions, such as Eva's
-    ``cartesian_wristframe_quat`` mode, emits this layout. ``_split_action_pose``
-    stays at the 12 and 14 widths the shared cartesian space uses; a platform
-    that emits this one reaches this helper from its own
-    ``split_action_pose`` override.
+    The two gripper columns are omitted. Quaternion rotations are converted to
+    ZYX yaw-pitch-roll angles in radians.
 
     Args:
         actions: A ``(..., 16)`` array.
@@ -229,7 +226,7 @@ def _split_action_pose_xyz_quat(actions):
         converted to the ``ZYX`` yaw-pitch-roll the visualizers draw.
 
     Raises:
-        ValueError: If the last axis is not 16 wide.
+        ValueError: If the last axis is not 16 columns wide.
     """
     actions = np.asarray(actions)
     if actions.shape[-1] != 16:
@@ -267,9 +264,10 @@ def _split_keypoints(
     """Split a bimanual keypoint tensor into its per-side blocks.
 
     Args:
-        keypoints: A ``[L block, R block]`` tensor. With ``wrist_in_data`` each
-            block is ``[xyz(3), rot(4|3), keypoints(3 * n_kp)]``; without it
-            each block is the keypoints alone.
+        keypoints: An array whose last axis concatenates left and right blocks.
+            With ``wrist_in_data``, each block is ``[xyz(3), rot(4|3),
+            keypoints(3 * n_kp)]``. Otherwise each block contains only the
+            flattened keypoint coordinates.
         wrist_in_data: Whether each side carries a wrist pose before its
             keypoints.
         is_quat: Whether that pose's rotation is a quaternion rather than YPR.
@@ -277,7 +275,10 @@ def _split_keypoints(
             end-effector spec supplies the value for any other topology.
 
     Returns:
-        Six blocks with a wrist, two without.
+        With ``wrist_in_data``, ``(left_xyz, left_rot, left_keypoints,
+        right_xyz, right_rot, right_keypoints)``. Otherwise,
+        ``(left_keypoints, right_keypoints)``. Every result preserves the input
+        leading dimensions.
     """
     kp_size = n_kp * 3
     if wrist_in_data:

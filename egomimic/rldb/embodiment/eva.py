@@ -57,17 +57,22 @@ class Eva(Embodiment):
 
     @classmethod
     def split_action_pose(cls, actions):
-        """Read Eva's cartesian widths, including its quaternion wrist frame.
+        """Split EVA Cartesian actions into per-side XYZ and YPR.
 
-        ``cartesian`` and ``cartesian_wristframe_ypr`` emit the shared 14 wide
-        layout. ``cartesian_wristframe_quat`` keeps the quaternion and emits 16,
-        which the shared function does not read.
+        A 16-column input has layout ``[L xyz qw qx qy qz gripper, R xyz qw qx
+        qy qz gripper]``; this method converts each quaternion to ZYX
+        yaw-pitch-roll and omits the gripper columns. Inputs with 12 or 14
+        columns use ``Embodiment.split_action_pose``.
 
         Args:
-            actions: A cartesian action tensor 14 or 16 wide.
+            actions: An array with 12, 14, or 16 columns on its final axis.
 
         Returns:
-            ``(left_xyz, left_ypr, right_xyz, right_ypr)``.
+            ``(left_xyz, left_ypr, right_xyz, right_ypr)``. Each block preserves
+            the input's leading dimensions and has a final width of three.
+
+        Raises:
+            ValueError: If the final axis is not 12, 14, or 16 columns wide.
         """
         if getattr(actions, "shape", (0,))[-1] == 16:
             return _split_action_pose_xyz_quat(actions)

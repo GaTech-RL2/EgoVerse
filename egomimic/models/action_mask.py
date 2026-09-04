@@ -1,13 +1,14 @@
-"""Drop the action dimensions an end-effector structurally does not own.
+"""Exclude structurally absent keypoint coordinates from action losses.
 
-A shared policy head has one width, so a three-finger hand and a parallel jaw
-write the same keypoint block a five-finger hand does. The slots they do not
-own carry no signal, and training a head to reproduce them teaches it a fiction.
-``egomimic.rldb.embodiment.action_layout`` says which dimensions those are; this
-module carries the answer onto a head and applies it to a loss.
+Fixed-width keypoint actions retain three coordinates for every topology slot,
+including slots that an end-effector does not have. Registry-derived boolean
+masks mark those coordinates as false while keeping wrist-pose coordinates and
+present keypoint slots true. ``ActionMaskMixin`` registers the masks by
+embodiment ID, and ``masked_loss`` removes false elements from the loss
+reduction without changing tensor widths.
 
-The unmasked path is preserved exactly: when nothing is masked, the loss call is
-the original one, so an existing run's numbers do not move.
+When no mask applies, ``masked_loss`` calls the supplied loss function without
+a ``reduction`` argument and returns that result directly.
 """
 
 from __future__ import annotations
@@ -19,18 +20,21 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 
 def masked_loss(loss_fn, pred, target, mask):
-    """Average ``loss_fn`` over the unmasked action dimensions.
+    """Compute the weighted mean of an elementwise loss.
 
     Args:
-        loss_fn: A loss taking ``(pred, target)`` and a ``reduction`` keyword.
-        pred: Predicted actions.
+        loss_fn: A loss callable accepting ``(pred, target)`` and, when a mask
+            is present, ``reduction="none"``.
+        pred: Predicted actions with the same shape as ``target``.
         target: Target actions, the same shape as ``pred``.
-        mask: A tensor broadcastable to ``pred`` that is nonzero on the
-            dimensions to keep, or ``None``.
+        mask: Boolean or numeric weights broadcastable to ``pred``. Registry
+            masks are boolean; false elements receive zero weight. ``None``
+            disables masking.
 
     Returns:
-        The scalar loss. With ``mask`` of ``None`` this is ``loss_fn(pred,
-        target)`` itself, not an equivalent rewriting of it.
+        With ``mask=None``, the direct result of ``loss_fn(pred, target)``.
+        Otherwise, the weighted sum divided by the sum of expanded weights;
+        an all-zero mask returns a differentiable scalar zero.
     """
     if mask is None:
         return loss_fn(pred, target)
@@ -38,21 +42,22 @@ def masked_loss(loss_fn, pred, target, mask):
     weights = mask.to(per_element.dtype).expand_as(per_element)
     total = weights.sum()
     if total == 0:
-        # Every dimension is masked. Return a zero that still carries a
-        # gradient path, so a misconfigured mask fails loudly in the metrics
-        # rather than detaching part of the graph.
+        # Preserve a gradient path even when the expanded mask selects no
+        # elements.
         return (per_element * weights).sum()
     return (per_element * weights).sum() / total
 
 
 class ActionMaskMixin:
-    """Give an ``nn.Module`` head one keypoint validity mask per embodiment."""
+    """Register and select static action masks by integer embodiment ID."""
 
     def init_action_masks(self, infer_ac_dims) -> None:
-        """Register a mask for each embodiment in ``infer_ac_dims``.
+        """Register masks derived from ``infer_ac_dims`` and the registry.
 
-        Masks are non-persistent buffers, so they follow the module across
-        devices without entering a checkpoint or changing its state dict.
+        Only entries that resolve to an incomplete keypoint topology and a
+        recognized keypoint action width produce a mask. The masks are
+        non-persistent buffers: module device moves include them, while
+        ``state_dict`` and checkpoints do not.
 
         Args:
             infer_ac_dims: The head's ``{embodiment name: action width}``
@@ -77,21 +82,23 @@ class ActionMaskMixin:
         mask = getattr(self, f"_action_mask_{int(embodiment_id)}", None)
         if mask is None or mask.shape[-1] < width:
             return None
-        # A head may compare only the leading dimensions the two tensors share,
-        # so trim from the front the way the tensors themselves were trimmed.
+        # Loss callers retain the leading common action columns, so discard any
+        # trailing mask columns beyond that common width.
         return mask[:width]
 
     def action_mask(self, data, target):
-        """Return the mask for this batch, shaped to broadcast over ``target``.
+        """Return an embodiment-selected mask broadcastable over ``target``.
 
         Args:
-            data: The batch. ``data["embodiment"]`` holds one integer ID per
-                sample; without it no mask applies.
+            data: A mapping whose optional ``embodiment`` value contains one
+                integer ID per batch sample.
             target: The target action tensor, whose last axis is the width.
 
         Returns:
-            A boolean tensor broadcastable to ``target``, or ``None`` when
-            nothing in this batch masks anything.
+            For one unique masked ID, a boolean tensor with singleton leading
+            axes. For mixed IDs, a tensor with one mask row per sample and
+            singleton intermediate axes. Returns ``None`` if no registered mask
+            applies or ``data`` has no ``embodiment`` value.
         """
         if not getattr(self, "_action_mask_ids", ()):
             return None

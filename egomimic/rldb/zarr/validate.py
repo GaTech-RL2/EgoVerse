@@ -592,7 +592,12 @@ def _check_annotation_coverage(rule, context, report) -> None:
 
 
 def _sample_indices(count: int, limit: int) -> np.ndarray:
-    """Return up to ``limit`` evenly spaced indices covering ``[0, count)``."""
+    """Return all indices if ``limit <= 0``; otherwise sample up to ``limit``.
+
+    Sampling is unnecessary when ``count <= limit``. A sampled result includes
+    indices 0 and ``count - 1`` and spaces the remaining integer indices as
+    evenly as possible.
+    """
     if limit <= 0 or count <= limit:
         return np.arange(count)
     return np.unique(np.linspace(0, count - 1, limit).astype(int))
@@ -614,8 +619,8 @@ def _check_fk_residual(rule, context, report) -> None:
             for name in ("joints_suffix", "keypoints_suffix", "pose_suffix")
         ]
         if any(track is None for track in tracks):
-            # Each of the three arrays carries its own required-key rule, so a
-            # missing one is already an error and needs no second finding.
+            # Array-presence rules report required tracks separately. The FK
+            # check compares only complete joints/keypoints/pose triples.
             continue
         joints, keypoints, poses = (_read(t, total_frames) for t in tracks)
         rows = min(len(joints), len(keypoints), len(poses))
@@ -897,9 +902,8 @@ def validate_episode(
     for name, rule in schema.get("attributes", {}).items():
         _check_attribute(name, rule, attrs, report, context)
 
-    # Resolve before the named checks. The platform and end-effectors decide
-    # array conditions and dimensions, and the kinematic and tactile checks
-    # read the end-effector registry entry for the side they are checking.
+    # Named FK and tactile checks need the same resolved platform and
+    # end-effector specifications used later for array conditions and widths.
     resolved = _resolve(attrs, report)
     context["resolved"] = resolved
     if resolved is not None:

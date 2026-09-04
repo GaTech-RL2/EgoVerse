@@ -235,7 +235,7 @@ def _draw(actions, **kwargs):
 
 
 def _spread_keypoints(n_kp: int) -> np.ndarray:
-    """Return a 138-wide tensor whose slots project to distinct pixels."""
+    """Return two 6D-wrist blocks whose keypoints project to distinct pixels."""
     actions = np.zeros(2 * (6 + 3 * n_kp))
     for side in range(2):
         base = side * (6 + 3 * n_kp)

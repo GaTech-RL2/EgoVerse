@@ -1,9 +1,9 @@
 # Define the end-effector types that a platform can use on each arm.
 #
-# `action_space` selects the policy output layout.
-#   cartesian: [L xyz ypr gripper, R xyz ypr gripper] (14 values)
-#   keypoints: [L wrist pose, L kp21, R wrist pose, R kp21]
-#              (138 values with YPR or 140 values with quaternions)
+# `action_space` selects the policy output layout. Each resolved side contributes
+# one block; bimanual layouts concatenate the left block before the right block.
+#   cartesian: [xyz(3), ypr(3), gripper(1)] per side
+#   keypoints: [wrist xyz(3), wrist rot(3|4), keypoints(3 * n_slots)] per side
 #
 # `keypoints.valid` lists the MANO slots that exist on the end-effector. Use
 # `all` to select all 21 slots. This static list is different from the `1e9`
@@ -17,13 +17,15 @@
 #   joint_names    optional names in joint order; length must equal dof
 #   joint_limits   optional [lower, upper] pairs; length must equal dof
 #   dead_dims      optional indices of joint dimensions that contain no signal
-#   tactile        optional {taxels, channels, units, taxel_links}
+#   tactile        optional {taxels, channels, units, taxel_links}; stored width
+#                  is taxels * channels
 #
-# A dexterous hand declares its kinematics so that ingest can check the joints
-# it shipped against the keypoints it shipped. Declare all three together:
-#   urdf           file under `registry/urdf/`, read for link poses only
+# A URDF declaration enables validation of stored observed joints against
+# stored observed keypoints. Declare all three fields together:
+#   urdf           absolute path or path relative to `registry/urdf/`; only the
+#                  kinematic tree is read
 #   keypoint_links {slot: link} for every valid slot, and no other slot
-#   fk_tolerance_m metres of residual this hand may show before ingest fails
+#   fk_tolerance_m maximum accepted Euclidean FK residual, in metres
 
 eva_parallel_jaw:
   class: parallel_jaw

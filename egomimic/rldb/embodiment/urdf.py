@@ -1,16 +1,9 @@
-"""Read a URDF and compute link poses from joint values.
+"""Parse the kinematic subset of URDF and compute root-relative link poses.
 
-An end-effector registry entry may declare a ``urdf:`` file and a
-``keypoint_links:`` mapping. Together they define the transform from the joint
-vector a controller consumed to the keypoint positions a vendor shipped, which
-is what makes the two representations checkable against each other.
-
-This module reads the kinematic tree only: joint types, axes, origins, and
-mimic couplings. It loads no meshes, no inertias, and no collision geometry, so
-a vendor URDF that references mesh files it did not ship still resolves. The
-declared ``pytorch-kinematics`` and ``mujoco`` dependencies both carry a heavier
-runtime than an ingest-time check needs, and ``MinkKinematicsSolver`` raises
-``NotImplementedError`` for a URDF path today.
+The parser reads link and joint names, joint types, origins, axes, and mimic
+couplings. It evaluates fixed, revolute, continuous, and prismatic joints.
+Visual, collision, and inertial elements are ignored, and referenced mesh files
+are never opened.
 """
 
 from __future__ import annotations
@@ -57,7 +50,7 @@ def _rpy_to_matrix(roll: float, pitch: float, yaw: float) -> np.ndarray:
 
 
 def _origin(element: ET.Element | None) -> np.ndarray:
-    """Return the 4x4 transform declared by an ``<origin>`` child."""
+    """Return the joint's zero-position ``parent_T_child`` transform."""
     transform = np.eye(4)
     child = None if element is None else element.find("origin")
     if child is None:
@@ -70,7 +63,7 @@ def _origin(element: ET.Element | None) -> np.ndarray:
 
 
 def _axis_transform(joint: "UrdfJoint", value: float) -> np.ndarray:
-    """Return the transform a joint applies at ``value``."""
+    """Return a joint's motion transform at radians or metres of displacement."""
     transform = np.eye(4)
     if joint.joint_type == "prismatic":
         transform[:3, 3] = joint.axis * value
@@ -93,7 +86,8 @@ class UrdfJoint:
         joint_type: ``revolute``, ``continuous``, ``prismatic``, or ``fixed``.
         parent: The parent link name.
         child: The child link name.
-        origin: The 4x4 parent-to-joint transform at value zero.
+        origin: The 4x4 pose of the child link in the parent-link frame at a
+            joint value of zero.
         axis: The unit joint axis in the joint frame.
         mimic: ``(source joint, multiplier, offset)``, or ``None``.
     """
@@ -114,7 +108,7 @@ class UrdfJoint:
 
 @dataclass(frozen=True)
 class UrdfChain:
-    """A URDF kinematic tree evaluated by ``link_transforms``.
+    """A single-rooted URDF kinematic tree.
 
     Attributes:
         root: The link that is no joint's child.
@@ -137,11 +131,12 @@ class UrdfChain:
         """Return every link's 4x4 pose in the root frame.
 
         Args:
-            joint_values: Values in radians or metres for actuated joints. An
-                omitted joint takes the value zero.
+            joint_values: Revolute and continuous values in radians and
+                prismatic values in metres. Omitted actuated joints use zero.
 
         Returns:
-            A mapping from link name to its 4x4 pose in the root link frame.
+            A mapping from each reachable link name to its 4x4
+            ``root_T_link`` pose.
 
         Raises:
             UrdfError: If a mimic joint names a source that does not exist.
@@ -257,8 +252,9 @@ def load_urdf(path: str | Path) -> UrdfChain:
         The parsed chain.
 
     Raises:
-        UrdfError: If the file is unreadable, is not a single-rooted tree, or
-            contains a joint type this module does not evaluate.
+        UrdfError: If the file cannot be read or parsed, or if its joint
+            declarations cannot be represented as one connected tree using the
+            supported joint types.
     """
     path = Path(path)
     try:

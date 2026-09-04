@@ -100,14 +100,15 @@ class AuxChainSpec:
 
 @dataclass(frozen=True)
 class TactileSpec:
-    """Describe the tactile array an end-effector stores.
+    """Describe a flattened per-frame tactile array.
 
     Attributes:
         taxels: The number of sensing sites.
-        channels: The values each site reports per frame.
-        units: The physical unit of one value, such as ``N`` or ``kPa``.
-        taxel_links: The URDF link each site sits on, in array order. This
-            tuple can be empty.
+        channels: The number of values stored per taxel per frame.
+        units: The physical unit shared by the stored values, such as ``N`` or
+            ``kPa``.
+        taxel_links: The URDF link associated with each taxel, in taxel order.
+            An empty tuple means that link associations were not declared.
     """
 
     taxels: int
@@ -125,9 +126,9 @@ class TactileSpec:
 class EndEffectorSpec:
     """Store one validated entry from ``end_effectors.yaml``.
 
-    ``keypoints`` defines the common topology and the slots that this
-    end-effector supports. The optional fields store joint metadata, a URDF and
-    its keypoint link mapping, and the tactile layout.
+    ``keypoints`` defines the topology and the slots present on this
+    end-effector. The remaining optional fields define joint columns, FK
+    validation, structurally inactive joint columns, and tactile-array shape.
     """
 
     name: str
@@ -145,11 +146,11 @@ class EndEffectorSpec:
 
     @property
     def urdf_path(self) -> Path | None:
-        """Return the URDF file, resolved against ``registry/urdf/``.
+        """Resolve the registry's ``urdf`` value to a filesystem path.
 
         Returns:
-            The absolute path, or ``None`` when the entry declares no URDF. An
-            absolute ``urdf:`` value is returned unchanged.
+            ``None`` when no URDF is declared. Absolute values are returned
+            unchanged; relative values are resolved below ``registry/urdf``.
         """
         if self.urdf is None:
             return None
@@ -319,8 +320,8 @@ def _parse_tactile(raw, where: str) -> TactileSpec | None:
     if not isinstance(units, str) or not units.strip():
         raise RegistryError(
             f"{where}.tactile: `units` must name the physical unit of one value, "
-            f"got {units!r}; an undeclared unit is what made the sample's 250x "
-            "inter-hand range gap unreadable"
+            f"got {units!r}; values without units cannot be interpreted or "
+            "compared across end-effectors"
         )
     taxel_links = tuple(raw.get("taxel_links") or ())
     if taxel_links and len(taxel_links) != taxels:
@@ -389,10 +390,8 @@ def _parse_end_effector(name: str, block: dict) -> EndEffectorSpec:
     urdf = block.get("urdf")
     tolerance = block.get("fk_tolerance_m")
     if urdf is not None:
-        # The residual gate reads the joint array through `joint_names`, maps
-        # links to slots through `keypoint_links`, and fails above
-        # `fk_tolerance_m`. A URDF without all three cannot be evaluated, and a
-        # declared-but-dormant gate is worse than no gate.
+        # FK validation needs a joint-column mapping, a link for every valid
+        # keypoint slot, and a numeric threshold for the maximum residual.
         if not joint_names:
             raise RegistryError(
                 f"{where}: `urdf` needs `joint_names` to say which column of the "

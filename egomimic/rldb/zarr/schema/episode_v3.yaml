@@ -189,10 +189,11 @@ checks:
     key: annotations
     minimum: 0.9
 
-  # Run forward kinematics over the end-effector's registry URDF and compare
-  # against the keypoints the vendor shipped, in the hand-root frame that
-  # `obs_ee_pose` defines. A wrong joint order, a degrees-for-radians slip, a
-  # mirrored hand and a wrong root frame all surface as this one number.
+  # For each side whose registry entry declares a URDF, sample at most 64
+  # evenly spaced retained rows. Transform `obs_hand_keypoints` from the
+  # episode frame into the hand-root frame defined by `obs_ee_pose`, compare
+  # the valid slots with FK over `obs_hand_joints`, and reject a maximum
+  # Euclidean distance above the registry's `fk_tolerance_m`.
   - name: fk_residual
     required: true
     severity: integrity
@@ -201,9 +202,8 @@ checks:
     pose_suffix: obs_ee_pose
     sample_frames: 64
 
-  # A stored tactile array needs a `tactile:` block on the side's registry
-  # end-effector. Per §4.1 the layout is a specification, so it lives in the
-  # registry rather than being repeated in every episode.
+  # A stored tactile array requires the side's end-effector registry entry to
+  # declare its taxel count, channel count, and physical unit.
   - name: tactile_declaration
     required: true
     severity: integrity
@@ -266,8 +266,8 @@ arrays:
     severity: integrity
     shape: [T, ee_dof]
     dtype: float
-    # Radians, in the registry `joint_names` order. This is the vector the
-    # controller consumed and it is never discarded for a derived one.
+    # Observed joint values in registry `joint_names` order. Revolute and
+    # continuous joints use radians; prismatic joints use metres.
 
   - key: "{side}.cmd_hand_joints"
     when: {end_effector_class: dexterous_hand}
@@ -275,6 +275,8 @@ arrays:
     severity: integrity
     shape: [T, ee_dof]
     dtype: float
+    # Commanded joint values use the same column order and units as
+    # `obs_hand_joints`.
 
   - key: "{side}.obs_hand_keypoints"
     when: {end_effector_class: dexterous_hand}
@@ -282,9 +284,8 @@ arrays:
     severity: integrity
     shape: [T, kp3]
     dtype: float
-    # The vendor's own keypoints, in MANO topology and the human keypoint
-    # frame. Distinct from `obs_keypoints`, which is the human demonstration a
-    # retarget started from; conflating them hides how good that retarget is.
+    # Observed robot-hand XYZ positions, flattened in the registry topology's
+    # slot order and expressed in the same episode frame as `obs_ee_pose`.
 
   - key: "{side}.obs_keypoints"
     when: {end_effector_class: human_hand}
@@ -299,8 +300,8 @@ arrays:
     severity: integrity
     shape: [T, aux_dof]
     dtype: float
-    # The torso, lift, or head chain. A head joint belongs here, not in a
-    # tracked-device pose.
+    # Observed platform auxiliary-chain joints. Columns follow the registry's
+    # `aux.joint_names` order when names are declared.
 
   - key: cmd_aux_joints
     when: {has_aux_chain: true}
@@ -308,14 +309,16 @@ arrays:
     severity: integrity
     shape: [T, aux_dof]
     dtype: float
+    # Commanded auxiliary-chain joints use the same column order as
+    # `obs_aux_joints`.
 
   - key: "{side}.obs_tactile"
     required: false
     severity: integrity
     shape: [T, tactile]
     dtype: float
-    # Optional, but a stored array needs a declared width and unit; see the
-    # `tactile_declaration` check.
+    # Flattened taxel channels. The registry supplies the expected width and
+    # physical unit.
 
   - key: obs_head_pose
     when: {platform_kind: human}

@@ -42,8 +42,8 @@ class DenoisingPolicy(ActionMaskMixin, nn.Module):
         if not infer_ac_dims:
             raise ValueError("infer_ac_dims must be a non-empty dict")
 
-        # Keypoint slots an embodiment's end-effectors do not own are dropped
-        # from the loss; see `egomimic.rldb.embodiment.action_layout`.
+        # Register static masks that exclude absent keypoint-slot coordinates
+        # from this head's loss reduction.
         self.init_action_masks(infer_ac_dims)
 
         for name, param in self.model.named_parameters():
@@ -96,13 +96,16 @@ class DenoisingPolicy(ActionMaskMixin, nn.Module):
         raise NotImplementedError
 
     def loss_fn(self, pred, target, mask=None):
-        """
-        Computes loss, function to override for stuff like adaptive loss weighting
+        """Compute mean-squared error over the selected action elements.
 
         Args:
-            pred: Predicted actions.
+            pred: Predicted actions with the same shape as ``target``.
             target: Target actions.
-            mask: Action dimensions to keep, or None to weight them equally.
+            mask: Boolean mask broadcastable to ``target``. True elements
+                contribute to the mean. ``None`` uses ordinary unmasked MSE.
+
+        Returns:
+            A scalar loss.
         """
         return masked_loss(F.mse_loss, pred, target, mask)
 

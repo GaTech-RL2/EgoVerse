@@ -1,11 +1,10 @@
-"""Fixtures for a dexterous end-effector that no vendor has delivered yet.
+"""Fixtures for dexterous-hand schema and kinematics tests.
 
-`DEXTEROUS_EMBODIMENT_DESIGN_V2.md` §7 defers PR-20, the real
-``sharpa_hand_v1`` and ``dexmate_vega_1`` registry entries, until Sharpa ships
-the hand URDF, joint names and limits. The dexterous schema rules and the
-forward-kinematics gate land before that, so they are exercised here against a
-generated 20-degree-of-freedom hand rather than against a placeholder committed
-to the registry.
+The fixtures generate a 20-degree-of-freedom hand URDF and matching registry
+entry at runtime. ``dexterous_registry`` temporarily makes the existing
+``eva_bimanual`` identifier resolve to those generated specifications because
+``ZarrWriter`` accepts only names in ``EMBODIMENT``. No synthetic hardware
+entry is added to the production registry.
 """
 
 from __future__ import annotations
@@ -19,24 +18,23 @@ from egomimic.rldb.embodiment.registry import (
     load_end_effectors,
 )
 
-#: Five fingers of four joints each, matching the width measured on the Sharpa
-#: sample (§5.3) without claiming to be that hand.
+#: Five serial finger chains with four revolute joints each produce 20 columns.
 FINGERS = 5
 JOINTS_PER_FINGER = 4
 HAND_DOF = FINGERS * JOINTS_PER_FINGER
-#: Joint order for the stored ``(T, 20)`` array.
+#: Column order for the generated ``(T, HAND_DOF)`` joint arrays.
 HAND_JOINT_NAMES = [
     f"j_{finger}_{link}"
     for finger in range(FINGERS)
     for link in range(JOINTS_PER_FINGER)
 ]
-#: Slot 0 is the wrist and sits on the root link; the rest follow MANO order.
+#: MANO-21 slot 0 maps to the palm; slots 1 through 20 map to ``kp1``–``kp20``.
 HAND_KEYPOINT_LINKS = {0: "palm"} | {slot: f"kp{slot}" for slot in range(1, 21)}
 HAND_TOLERANCE_M = 1e-6
 
 
 def _hand_urdf() -> str:
-    """Return a URDF for a five-finger hand with one revolute joint per link."""
+    """Return a URDF with five four-joint serial chains rooted at the palm."""
     parts = ['<robot name="test_hand">', '  <link name="palm"/>']
     for finger in range(FINGERS):
         parent = "palm"
@@ -88,11 +86,10 @@ def hand_spec(hand_urdf):
 
 @pytest.fixture
 def dexterous_registry(monkeypatch, hand_spec):
-    """Resolve ``eva_bimanual`` to a dexterous platform for one test.
+    """Make ``eva_bimanual`` resolve to the generated dexterous specifications.
 
-    ``ZarrWriter.create_and_write`` accepts only a current ``EMBODIMENT`` name,
-    so the fixture rebinds an existing name rather than inventing one. It
-    returns the platform specification.
+    The monkeypatch covers every module that imported a registry loader by
+    name. The fixture returns the generated platform specification.
     """
     end_effectors = load_end_effectors() | {hand_spec.name: hand_spec}
     platform = _parse_platform(
@@ -125,10 +122,12 @@ def dexterous_registry(monkeypatch, hand_spec):
 
 @pytest.fixture
 def hand_track(hand_spec):
-    """Return a consistent ``(joints, keypoints, ee_poses)`` triple.
+    """Return a factory for mutually consistent hand tracks.
 
-    The keypoints are what forward kinematics places, expressed in a moving
-    episode frame, so the residual gate sees agreement.
+    The factory returns ``(joints, keypoints, ee_poses)``. It computes
+    root-frame keypoints with forward kinematics, then applies each
+    ``ee_poses`` transform so the keypoints and hand-root poses use the same
+    episode coordinate frame.
     """
     from egomimic.rldb.embodiment.hand_kinematics import fk_keypoints
     from egomimic.utils.pose_utils import _xyzwxyz_to_matrix

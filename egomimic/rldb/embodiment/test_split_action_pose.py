@@ -14,7 +14,7 @@ def _image():
 
 
 def _ypr_actions(width: int) -> np.ndarray:
-    """Return a moving ``[L xyz ypr (g), R xyz ypr (g)]`` chunk."""
+    """Return five poses in the 12- or 14-column Cartesian YPR layout."""
     steps = np.linspace(0.0, 0.1, 5)
     actions = np.zeros((5, width))
     stride = 7 if width == 14 else 6
@@ -25,7 +25,7 @@ def _ypr_actions(width: int) -> np.ndarray:
 
 
 def _quat_actions() -> np.ndarray:
-    """Return the 16 wide ``[L xyz quat g, R xyz quat g]`` wrist-frame chunk."""
+    """Return five poses in the 16-column Cartesian quaternion layout."""
     steps = np.linspace(0.0, 0.1, 5)
     actions = np.zeros((5, 16))
     for side, offset in enumerate((0, 8)):
@@ -62,7 +62,7 @@ def test_eva_still_reads_the_shared_width() -> None:
 
 
 def test_eva_can_visualize_its_quaternion_wrist_frame_output() -> None:
-    """`cartesian_wristframe_quat` emits 16 dims, which used to raise here."""
+    """All Cartesian visualizers accept EVA's 16-column quaternion layout."""
     for mode in ("traj", "traj+rotation", "axes"):
         image = Eva.viz(
             _image(), _quat_actions(), mode=mode, intrinsics=INTRINSICS
@@ -90,7 +90,7 @@ def test_the_viz_path_calls_the_subclass_split() -> None:
 
 
 def test_a_new_platform_overrides_only_the_split() -> None:
-    """A layout the shared function cannot guess costs one classmethod."""
+    """A subclass splitter controls visualization of a platform-specific layout."""
 
     class _SixteenWide(Eva):
         @classmethod

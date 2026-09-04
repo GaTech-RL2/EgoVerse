@@ -307,22 +307,23 @@ class Embodiment(ABC):
 
     @classmethod
     def split_action_pose(cls, actions):
-        """Split a cartesian action tensor into per-side position and rotation.
+        """Split a supported Cartesian layout into per-side XYZ and YPR.
 
-        The base implementation reads the shared cartesian layouts, ``[L xyz
-        ypr g, R xyz ypr g]`` at 14 and ``[L xyz ypr, R xyz ypr]`` at 12. A
-        platform whose transform list emits a different width overrides this
-        rather than widening the shared function, because only the platform
-        knows what its own extra columns mean.
+        The base implementation accepts ``[L xyz ypr, R xyz ypr]`` with 12
+        columns and ``[L xyz ypr gripper, R xyz ypr gripper]`` with 14 columns.
+        It omits the gripper columns from the returned blocks. Subclasses can
+        override this method for platform-specific layouts.
 
         Args:
-            actions: A cartesian action tensor.
+            actions: An array with one of the supported widths on its last
+                axis.
 
         Returns:
-            ``(left_xyz, left_ypr, right_xyz, right_ypr)``.
+            ``(left_xyz, left_ypr, right_xyz, right_ypr)``. Each block preserves
+            the input's leading dimensions and has a final width of three.
 
         Raises:
-            ValueError: If the width is not one this embodiment emits.
+            ValueError: If the final axis is neither 12 nor 14 columns wide.
         """
         return _split_action_pose(actions)
 
@@ -373,7 +374,7 @@ class Embodiment(ABC):
         **kwargs,
     ):
         K = intrinsics if intrinsics is not None else cls.INTRINSICS
-        # The visualizers read whichever layout this embodiment emits.
+        # Pass the bound classmethod so subclass-specific layouts are honored.
         split_pose = cls.split_action_pose
         if mode == "traj":
             return _viz_traj(

@@ -1,4 +1,4 @@
-"""Test the dexterous array keys and the forward-kinematics residual gate."""
+"""Test dexterous array rules and forward-kinematics residual validation."""
 
 import numpy as np
 import pytest
@@ -145,7 +145,7 @@ def test_degrees_stored_where_radians_belong_fail_the_residual_gate(
 def test_the_gate_reports_no_finding_for_an_end_effector_with_no_urdf(
     tmp_path,
 ) -> None:
-    """An EVA episode declares a jaw, so no residual is claimed either way."""
+    """An end-effector without a URDF produces no FK-residual finding."""
     from egomimic.rldb.zarr.test_validate import _write_eva
 
     _write_eva(tmp_path / "eva.zarr")

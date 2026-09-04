@@ -44,8 +44,8 @@ def test_a_quarter_turn_swings_the_tip_into_the_x_axis(tmp_path) -> None:
 
     poses = chain.link_transforms({"shoulder": np.pi / 2})
 
-    # The tip starts 2 m above the base; rotating +90 deg about y sends the
-    # upper segment along +x while its own 1 m offset stays below it.
+    # The shoulder origin places ``upper`` at z=1. Its +90-degree rotation maps
+    # the tip's local +z offset to the root frame's +x axis.
     assert np.allclose(poses["tip"][:3, 3], [1.0, 0.0, 1.0], atol=1e-9)
     assert np.allclose(poses["upper"][:3, 3], [0.0, 0.0, 1.0], atol=1e-9)
 
@@ -67,9 +67,9 @@ def test_a_mimic_joint_follows_its_source(tmp_path) -> None:
 
     assert chain.actuated_joint_names == ("shoulder",)
     poses = chain.link_transforms({"shoulder": np.pi / 2})
-    # The tip sits where the fixed version put it, because its own rotation
-    # happens after its offset. The mimic shows in the orientation: both joints
-    # turned 90 deg about y, so the tip frame is a half turn from the base.
+    # The wrist origin is applied before its rotation, so the tip position is
+    # unchanged from the fixed-wrist case. Both joints rotate +90 degrees about
+    # y, making the tip frame a 180-degree rotation from the root frame.
     assert np.allclose(poses["tip"][:3, 3], [1.0, 0.0, 1.0], atol=1e-9)
     assert np.allclose(
         poses["tip"][:3, :3], [[-1, 0, 0], [0, 1, 0], [0, 0, -1]], atol=1e-9
@@ -107,7 +107,7 @@ def test_naming_an_absent_link_says_which_links_exist(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# The residual gate
+# Forward-kinematics residuals
 # ---------------------------------------------------------------------------
 
 
@@ -169,7 +169,7 @@ def test_a_joint_name_the_urdf_does_not_actuate_is_refused(hand_spec, hand_track
 
 
 # ---------------------------------------------------------------------------
-# Registry rules that keep the gate from going dormant
+# Registry requirements for FK validation
 # ---------------------------------------------------------------------------
 
 

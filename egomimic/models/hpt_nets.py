@@ -853,11 +853,11 @@ LOSS_MSE = partial(F.mse_loss)
 
 
 class PolicyHead(ActionMaskMixin, nn.Module):
-    """Abstract class for policy head."""
+    """Base policy head with optional per-embodiment action masks."""
 
     def __init__(self, **kwargs):
         super().__init__()
-        # Optional; a head that serves no masked end-effector registers none.
+        # Missing dimensions or fully valid keypoint layouts register no masks.
         self.init_action_masks(kwargs.get("infer_ac_dims"))
 
     def freeze(self):
@@ -876,17 +876,19 @@ class PolicyHead(ActionMaskMixin, nn.Module):
         return next(self.parameters()).device
 
     def compute_loss(self, x: torch.Tensor, data: dict):
-        """
-        Compute smooth L1 loss between predicted and target actions,
-        slicing as needed if their dimensions differ.
+        """Compute smooth L1 loss over common, valid action elements.
+
+        Prediction and target tensors are truncated to their common leading
+        action width. If ``data["embodiment"]`` selects a registered mask,
+        structurally absent keypoint coordinates are excluded from the mean.
 
         Args:
-            x (torch.Tensor): Transformer outputs used to predict actions.
-            data (dict): Contains:
-                - 'action': ground-truth action tensor of shape (B, T, D_target)
+            x: Transformer outputs passed to this head.
+            data: A batch containing ``action`` with shape ``(B, T, D_target)``
+                and, when masking is needed, one ``embodiment`` ID per sample.
 
         Returns:
-            torch.Tensor: Scalar loss
+            The scalar smooth L1 loss.
         """
         target_action = data["action"]
         B, T = target_action.shape[:2]

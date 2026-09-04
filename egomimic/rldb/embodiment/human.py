@@ -145,13 +145,23 @@ class Human(Embodiment):
         keypoint_spec=None,
         **kwargs,
     ):
-        """Visualize one sample.
+        """Render human gaze or keypoints, or delegate a Cartesian mode.
 
         Args:
-            keypoint_spec: The side's ``KeypointSpec`` from the end-effector
-                registry, which supplies the slot count and the slots this
-                end-effector owns. Omitting it draws MANO's 21 slots, which is
-                what every human episode carries.
+            image: Image frame on which to draw.
+            viz_data: Gaze, keypoint, Cartesian-action, or annotation data,
+                according to ``mode``.
+            mode: One of ``gaze``, ``keypoints``, ``traj``,
+                ``traj+rotation``, ``axes``, or ``annotations``.
+            intrinsics: Camera projection matrix. ``Human.INTRINSICS`` is used
+                when omitted.
+            finger_edges: Optional skeleton edge list for keypoint mode.
+            finger_edge_ranges: Optional named ranges into ``finger_edges``.
+            keypoint_spec: Topology size and valid slots applied to both side
+                blocks in keypoint mode. Omitting it selects all 21 MANO slots.
+
+        Returns:
+            The rendered image.
         """
         K = intrinsics if intrinsics is not None else cls.INTRINSICS
         if mode == "gaze":
