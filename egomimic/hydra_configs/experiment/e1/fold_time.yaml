@@ -1,0 +1,9 @@
+# @package _global_
+# Time row: direct BC on the raw (100, 14) 30 Hz chunk (3.3 s).
+defaults:
+  - /experiment/e1/fold_base
+  - override /model: hpt_cotrain_mecka_flow_shared_head
+  - _self_
+e1:
+  variant: time
+  chunk_length: 100

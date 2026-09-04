@@ -1,0 +1,61 @@
+# E1 fold speed-spread data: mecka FREEFORM fold-clothes episodes from a local
+# folder of episode dirs (or symlinks — the split folders built by
+# build_splits.py). No SQL: LocalFolderEpisodeResolver takes every episode in
+# the folder. The variant / window / token knobs come from the ``e1`` node of
+# the experiment config so the three rows share one data file.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      folder_path: ${e1.train_root}
+      key_map:
+        _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
+        horizon: ${e1.chunk_length}
+      transform_list:
+        _target_: egomimic.rldb.embodiment.e1_fold.get_transform_list
+        variant: ${e1.variant}
+        chunk_length: ${e1.chunk_length}
+        time_rows: ${e1.time_rows}
+        min_distance_unit: ${e1.D}
+        resampled_vector_length: ${e1.M}
+        stride: 1
+        rotation_mode: euler
+    mode: ${e1.train_mode}
+    valid_ratio: 0.0
+    bounds_check: false
+
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      folder_path: ${e1.valid_root}
+      key_map:
+        _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
+        horizon: ${e1.chunk_length}
+      transform_list:
+        _target_: egomimic.rldb.embodiment.e1_fold.get_transform_list
+        variant: ${e1.variant}
+        chunk_length: ${e1.chunk_length}
+        time_rows: ${e1.time_rows}
+        min_distance_unit: ${e1.D}
+        resampled_vector_length: ${e1.M}
+        stride: 1
+        rotation_mode: euler
+    mode: ${e1.valid_mode}
+    valid_ratio: 0.0
+    bounds_check: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 128
+    num_workers: 12
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 128
+    num_workers: 8
+    shuffle: false
