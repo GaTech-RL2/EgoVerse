@@ -35,6 +35,7 @@ trainer:
   sync_batchnorm: false
   check_val_every_n_epoch: 10
   num_sanity_val_steps: 0
+  limit_val_batches: ${e1.limit_val_batches}  # the evaluator's copy only applies in mode=eval
 
 callbacks:
   model_checkpoint:
