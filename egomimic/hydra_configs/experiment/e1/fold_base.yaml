@@ -1,0 +1,44 @@
+# @package _global_
+# E1 of the mixed-speed protocol on mecka freeform fold data (real, bimanual).
+# One experiment config per row (fold_time / fold_arcmean / fold_arcvel); the
+# launcher sets e1.spread, e1.train_root, e1.valid_root, seed and the budget.
+defaults:
+  - override /data: e1/fold_freeform
+  - override /evaluator: e1/fold_tempo
+  - _self_
+
+e1:
+  variant: ???
+  spread: ???
+  train_root: ???
+  valid_root: ???
+  train_mode: total
+  valid_mode: total
+  D: 0.40
+  M: 100
+  time_rows: 100
+  chunk_length: 100
+  h_match_frames: 40
+  limit_val_batches: 40
+
+name: e1_fold_${e1.variant}
+description: ${e1.spread}_s${seed}
+
+arc_tokenizer:
+  min_distance_unit: ${e1.D}
+  resampled_vector_length: ${e1.M}
+
+trainer:
+  strategy: auto
+  sync_batchnorm: false
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 1
+    save_top_k: 2
+
+norm_stats:
+  sample_frac: 0.25
+  num_workers: 8

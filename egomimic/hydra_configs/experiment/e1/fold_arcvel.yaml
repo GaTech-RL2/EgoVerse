@@ -1,0 +1,9 @@
+# @package _global_
+# Arc+Vel row: (M, 16) waypoints + per-arm speed profile, integral clock.
+defaults:
+  - /experiment/e1/fold_base
+  - override /model: e1/fold_arcvel
+  - _self_
+e1:
+  variant: arcvel
+  chunk_length: 200

@@ -1,0 +1,11 @@
+_target_: egomimic.eval.e1_fold_tempo_eval.E1FoldTempoEval
+variant: ${e1.variant}
+time_key: actions_time
+D: ${e1.D}
+M: ${e1.M}
+dt: 0.03333333333333333
+h_match_frames: ${e1.h_match_frames}
+results_path: ${paths.output_dir}/e1_tempo.json
+limit_val_batches: ${e1.limit_val_batches}
+viz_func: null
+arc_match_distance: null

@@ -1,0 +1,11 @@
+# @package _global_
+# Arc-mean row: the branch's (M+1, 14) arc token, D = 0.40 m, M = 100, with the
+# velocity row re-normed to path speed. Raw window 200 frames (6.7 s) so the
+# token has room to reach D; no interpolation (chunk_length == raw window).
+defaults:
+  - /experiment/e1/fold_base
+  - override /model: hpt_cotrain_mecka_flow_shared_head_arc_D40_M100
+  - _self_
+e1:
+  variant: arcmean
+  chunk_length: 200
