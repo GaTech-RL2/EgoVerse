@@ -43,15 +43,22 @@ for idx in np.linspace(0, len(ds) - 1, 12).astype(int):
         assert np.allclose(a, gt)
         continue
     dec = detok.detokenize(a, action_horizon=40)
+    pred_clocks = detok.clock_at_waypoints(a)
     for k, (xo, _, _, vsl) in enumerate(ARM_LAYOUT):
         e = np.sqrt(np.mean(np.sum((dec[:, xo:xo+3] - gt[:40, xo:xo+3]) ** 2, axis=1)))
         errs.append(e)
-        cum = cumulative_arc_length(a[:100, xo:xo+3])
-        if variant == "arcmean":
-            clocks.append((float(cum[-1]), float(np.linalg.norm(a[100, vsl]))))
-        else:
-            clocks.append((float(cum[-1]), float(np.median(a[:, 14 + k]))))
+        wp = a[:100, xo:xo+3]
+        cum = cumulative_arc_length(wp)
+        gt_cum = cumulative_arc_length(gt[:, xo:xo+3])
+        # clock check: predicted vs true time to reach min(span, what GT covers in 100 frames)
+        s_chk = min(float(cum[-1]), float(gt_cum[-1])) * 0.999
+        if s_chk > 1e-3:
+            t_true = float(np.interp(s_chk, gt_cum, np.arange(len(gt_cum)))) / 30.0
+            t_pred = float(np.interp(s_chk, cum, pred_clocks[k]))
+            clocks.append((round(float(cum[-1]), 3), round(t_true, 2), round(t_pred, 2)))
 if variant != "time":
+    ratios = [p / t for _, t, p in clocks if t > 0]
     print(f"  token shape {a.shape}; codec E_time(40f) RMS over arms/samples = {np.sqrt(np.mean(np.square(errs))):.4f} m "
-          f"(median {np.median(errs):.4f}); span/speed samples: {[(round(c,3), round(v,3)) for c, v in clocks[:6]]}")
+          f"(median {np.median(errs):.4f}); clock ratio pred/true median {np.median(ratios):.2f} "
+          f"(q10 {np.quantile(ratios, .1):.2f}, q90 {np.quantile(ratios, .9):.2f}); (span, t_true, t_pred) = {clocks[:6]}")
 print(f"[{variant}] SMOKE_OK")
