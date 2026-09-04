@@ -17,7 +17,8 @@ PY=${PY:-$HOME/scratch/EgoVerse/.venv/bin/python}
 DATA=${DATA:-$HOME/scratch/data/e1_fold}
 OUT=${OUT:-$HOME/scratch/runs/e1_fold}
 VARIANT=${VARIANT:?time|arcmean|arcvel}; SPREAD=${SPREAD:?narrow|medium|full}; SEED=${SEED:-42}
-MAX_STEPS=${MAX_STEPS:-30000}; MAX_TIME=${MAX_TIME:-00:09:00:00}
+# trainer/base.yaml fixes limit_train_batches=100, so an epoch is 100 optimizer steps.
+MAX_STEPS=${MAX_STEPS:-30000}; MAX_EPOCHS=$(( MAX_STEPS / 100 )); MAX_TIME=${MAX_TIME:-00:09:00:00}
 until [ -f $DATA/manifest.json ] && [ -d $DATA/$SPREAD ]; do echo "waiting for $DATA/manifest.json ($(date))"; sleep 60; done
 H_MATCH=${H_MATCH:-$(cat $DATA/h_match_frames 2>/dev/null || echo 40)}
 RUN=$OUT/${VARIANT}_${SPREAD}_s${SEED}
@@ -30,7 +31,7 @@ echo "=== TRAIN $VARIANT $SPREAD s$SEED -> $RUN ($(date)) commit=$(git rev-parse
 $PY egomimic/trainHydra.py --config-name=train_zarr_cartesian \
   +experiment=e1/fold_${VARIANT} \
   e1.spread=$SPREAD e1.train_root=$DATA/$SPREAD e1.valid_root=$DATA/test_mid e1.h_match_frames=$H_MATCH \
-  seed=$SEED trainer.max_steps=$MAX_STEPS +trainer.max_time=$MAX_TIME \
+  seed=$SEED trainer.max_epochs=$MAX_EPOCHS trainer.min_epochs=0 +trainer.max_time=$MAX_TIME \
   trainer.devices=1 trainer.num_nodes=1 launch_params.gpus_per_node=1 launch_params.nodes=1 \
   ${TRAIN_EXTRA:-} hydra.run.dir=$RUN/train
 CKPT=$(ls -t $RUN/train/checkpoints/*.ckpt | grep -v last | head -1 || true); [ -n "$CKPT" ] || CKPT=$RUN/train/checkpoints/last.ckpt

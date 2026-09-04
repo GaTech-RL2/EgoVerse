@@ -28,15 +28,17 @@ arc_tokenizer:
   min_distance_unit: ${e1.D}
   resampled_vector_length: ${e1.M}
 
+# trainer/base.yaml pins limit_train_batches=100: one "epoch" = 100 optimizer
+# steps, so 300 epochs = the 30k-step budget; val every 1k steps, ckpt every 5k.
 trainer:
   strategy: auto
   sync_batchnorm: false
-  check_val_every_n_epoch: 1
+  check_val_every_n_epoch: 10
   num_sanity_val_steps: 0
 
 callbacks:
   model_checkpoint:
-    every_n_epochs: 1
+    every_n_epochs: 50
     save_top_k: 2
 
 norm_stats:
