@@ -1,43 +1,97 @@
 """E1 (mixed-speed protocol) variants of the bimanual arc-length tokenizer.
 
 Additive subclass of ``TokenizeBimanualArcLengthCartesian`` — nothing upstream
-changes. Two opt-in knobs:
+changes. Three things over the parent:
+
+* **Vectorized tokenize / detokenize with the parent's exact semantics.** The
+  parent resamples rotation with one scipy ``Slerp`` object per waypoint
+  (≈ 200 Rotation/Slerp constructions per sample), which measured 1 s per
+  sample in loader workers — 25 min per 100-batch epoch. Here the bracketing
+  is one ``searchsorted``, positions / grippers are one linear blend, and
+  rotation is one batched ``rot_i * exp(alpha · log(rot_i⁻¹ rot_{i+1}))`` —
+  the same geodesic scipy's ``Slerp`` walks. ``e1_data_smoke.py --check-parent``
+  asserts agreement with the parent to float precision.
 
 * ``velocity_norm="path"`` — the trailing velocity row keeps the chord
   direction but its magnitude becomes the token's PATH speed (arc length the
   token covers / time it took) instead of chord / time. ``detokenize`` walks the
   waypoint polyline at ``||vel||``, so the upstream chord-norm token runs slow on
   any curved motion (Step 0 on mecka fold chunks: token speed / measured path
-  speed = 0.23, d_clock 2.7 s median). "path" is the protocol's Arc-mean.
+  speed = 0.23, d_clock 2.8 s median). "path" is the protocol's Arc-mean.
 
 * ``velocity_mode="profile"`` — Arc+Vel. No velocity row; every waypoint row
   carries the per-arm speed at that arc-length position as two extra columns:
   ``(M, 16) = [14 canonical | v_L(u_m), v_R(u_m)]``. ``detokenize`` integrates
-  the clock, t(u) = ∫ du / v(u) with v piecewise linear between waypoints, so a
-  chunk that slows down mid-token is reconstructed slowing down.
-
-The waypoint speeds are the raw 30 Hz chunk's path speed (7-frame moving
-average — see ``chunk_speed`` for why not a Butterworth here), read at the
-waypoints' fractional frame indices.
+  the clock, t(u) = ∫ du / v(u) with v piecewise linear between waypoints.
+  The waypoint speeds are the raw 30 Hz chunk's path speed (7-frame moving
+  average — see ``chunk_speed`` for why not a Butterworth here).
 """
 
 from __future__ import annotations
 
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 from egomimic.rldb.zarr.action_chunk_transforms import Transform
 from egomimic.rldb.zarr.arc_length_tokenizer import (
     TokenizeBimanualArcLengthCartesian,
-    _interp_linear_at_s,
-    _interp_pos_at_s,
-    _interp_ypr_at_s,
     cumulative_arc_length,
 )
+
+try:  # the parent fills chunks with out-of-range poses; mirror that rule
+    from egomimic.rldb.zarr.arc_length_tokenizer import INVALID_POSE_FILL, INVALID_POSE_THRESHOLD
+except ImportError:  # pragma: no cover
+    INVALID_POSE_THRESHOLD, INVALID_POSE_FILL = np.inf, 0.0
 
 # (xyz offset, ypr offset, grip offset, velocity-row xyz slice) per arm in the
 # canonical 14-dim layout [L xyz ypr grip | R xyz ypr grip].
 ARM_LAYOUT = ((0, 3, 6, slice(0, 3)), (7, 10, 13, slice(7, 10)))
 E1_ARCVEL_DIM = 16
+
+
+# ---------------------------------------------------------------------------
+# vectorized arc-length resampling (parent semantics)
+# ---------------------------------------------------------------------------
+def _bracket_vec(cum: np.ndarray, targets: np.ndarray):
+    """Vectorized ``_bracket_segment``: segment index i and alpha per target."""
+    n = len(cum)
+    i = np.searchsorted(cum, targets, side="left") - 1
+    i = np.clip(i, 0, max(n - 2, 0))
+    s0, s1 = cum[i], cum[np.minimum(i + 1, n - 1)]
+    span = s1 - s0
+    alpha = np.where(span > 1e-12, (targets - s0) / np.where(span > 1e-12, span, 1.0), 0.0)
+    lo, hi = targets <= cum[0], targets >= cum[-1]
+    i = np.where(lo, 0, np.where(hi, max(n - 2, 0), i))
+    alpha = np.where(lo, 0.0, np.where(hi, 1.0, alpha))
+    return i, np.clip(alpha, 0.0, 1.0)
+
+
+def _slerp_vec(rot: R, i: np.ndarray, alpha: np.ndarray) -> R:
+    """Geodesic interpolation between rot[i] and rot[i+1] at alpha (what scipy's Slerp does)."""
+    n = len(rot)
+    j = np.minimum(i + 1, n - 1)
+    r0, r1 = rot[i], rot[j]
+    rel = r0.inv() * r1
+    return r0 * R.from_rotvec(rel.as_rotvec() * alpha[:, None])
+
+
+def resample_at_s(pos, ypr, grip, cum, targets, rot: R | None = None):
+    """Interpolate (pos, ypr, grip) at arc lengths ``targets`` against ``cum``.
+
+    Same edge rules as the parent's ``_interp_*_at_s``: below cum[0] → first
+    row, at/above cum[-1] → last row, alpha == 0 → the bracketing row itself.
+    """
+    i, alpha = _bracket_vec(cum, targets)
+    j = np.minimum(i + 1, len(cum) - 1)
+    a = alpha[:, None]
+    pos_out = (1.0 - a) * pos[i] + a * pos[j]
+    grip_out = (1.0 - a) * grip[i] + a * grip[j]
+    rot = R.from_euler("ZYX", ypr) if rot is None else rot
+    ypr_out = _slerp_vec(rot, i, alpha).as_euler("ZYX", degrees=False)
+    exact0, exact1 = alpha <= 0.0, alpha >= 1.0
+    ypr_out[exact0] = ypr[i[exact0]]
+    ypr_out[exact1] = ypr[j[exact1]]
+    return pos_out, ypr_out, grip_out
 
 
 def chunk_speed(pos: np.ndarray, dt: float, smooth_frames: int = 7) -> np.ndarray:
@@ -104,74 +158,128 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         self.speed_smooth_frames = int(speed_smooth_frames)
         self.min_speed = float(min_speed)
 
+    # -- one arm, parent semantics of ArcLengthTokenizer.tokenize_at(t=0) -----
+    def _tokenize_arm(self, arm: np.ndarray):
+        """arm: (T, 7) [xyz ypr grip] → (waypoints (M, 7), mean velocity (3,), num_steps, span)."""
+        cfg = self.tokenizer.config
+        M, D, dt = self.M, cfg.min_distance_unit, cfg.dt
+        pos, ypr, grip = arm[:, 0:3], arm[:, 3:6], arm[:, 6:7]
+        n = len(pos)
+        cum = cumulative_arc_length(pos)
+        end_s = min(D, float(cum[-1]))
+        end_idx = int(np.searchsorted(cum, end_s, side="right") - 1)
+        end_idx = max(0, min(end_idx, n - 1))
+        num_steps = max(1, end_idx)
+        alphas = np.linspace(0.0, 1.0, M)
+        if end_s < cfg.zero_dist_epsilon or num_steps > cfg.max_steps_per_chunk:
+            # zero token: hold the pose, slerp rotation to the end frame, ramp the gripper
+            end = min(end_idx, n - 1)
+            rot = R.from_euler("ZYX", np.stack([ypr[0], ypr[end]]))
+            ypr_rs = _slerp_vec(rot, np.zeros(M, dtype=int), alphas).as_euler("ZYX", degrees=False)
+            ypr_rs[0] = ypr[0]
+            ypr_rs[-1] = ypr[end]
+            wp = np.concatenate([np.repeat(pos[:1], M, 0), ypr_rs, (1 - alphas[:, None]) * grip[0] + alphas[:, None] * grip[end]], axis=1)
+            return wp, np.zeros(3), num_steps, end_s
+        targets = np.linspace(0.0, end_s, M)
+        pos_rs, ypr_rs, grip_rs = resample_at_s(pos, ypr, grip, cum, targets)
+        pos_rs[0], ypr_rs[0], grip_rs[0] = pos[0], ypr[0], grip[0]  # start_idx=0 anchoring
+        vel = (pos_rs[-1] - pos_rs[0]) / max(num_steps * dt, 1e-8)  # MEAN_PER_DIM
+        return np.concatenate([pos_rs, ypr_rs, grip_rs], axis=1), vel, num_steps, end_s
+
     # -- tokenize ----------------------------------------------------------
     def transform(self, batch: dict) -> dict:
         chunk = np.asarray(batch[self.action_key], dtype=np.float64)
-        tok = super().transform({self.action_key: chunk.copy()})[self.output_action_key]  # (M+1, 14)
         M = self.M
         dt = self.tokenizer.config.dt
-        D = self.tokenizer.config.min_distance_unit
-
-        if self.velocity_mode == "mean":
-            if self.velocity_norm == "path":
-                for xyz_off, _, _, vsl in ARM_LAYOUT:
-                    wp = tok[:M, xyz_off : xyz_off + 3]
-                    vel = tok[M, vsl]
-                    speed = float(np.linalg.norm(vel))
-                    chord = float(np.linalg.norm(wp[-1] - wp[0]))
-                    span = float(cumulative_arc_length(wp)[-1])
-                    if speed > 1e-8 and chord > 1e-8 and span > 1e-8:
-                        duration = chord / speed  # what the upstream row encodes
-                        tok[M, vsl] = vel * ((span / duration) / speed)
-            batch[self.output_action_key] = tok
+        if chunk.ndim != 2 or chunk.shape[1] != 14:
+            raise ValueError(f"expected (T, 14) chunk, got {chunk.shape}")
+        if np.any(np.abs(chunk) >= INVALID_POSE_THRESHOLD):
+            rows, cols = (M, E1_ARCVEL_DIM) if self.velocity_mode == "profile" else (M + 1, 14)
+            batch[self.output_action_key] = np.full((rows, cols), INVALID_POSE_FILL, dtype=np.float64)
             return batch
 
-        # profile mode: (M, 16) — waypoints + per-arm speed at each waypoint
-        prof = np.zeros((M, 2), dtype=np.float64)
-        for k, (xyz_off, _, _, _) in enumerate(ARM_LAYOUT):
-            pos = chunk[:, xyz_off : xyz_off + 3]
-            cum = cumulative_arc_length(pos)
-            span = min(D, float(cum[-1]))
-            if span <= 1e-8 or len(pos) < 2:
-                continue  # stationary arm: zero speed, waypoints hold the pose
-            u = np.linspace(0.0, span, M)
-            fidx = np.interp(u, cum, np.arange(len(cum)))
-            v = chunk_speed(pos, dt, self.speed_smooth_frames)
-            prof[:, k] = np.maximum(np.interp(fidx, np.arange(len(v)), v), 0.0)
-        batch[self.output_action_key] = np.concatenate([tok[:M], prof], axis=1)
+        wps, vels, spans = [], [], []
+        for xyz_off, _, _, _ in ARM_LAYOUT:
+            wp, vel, _, span = self._tokenize_arm(chunk[:, xyz_off : xyz_off + 7])
+            wps.append(wp)
+            vels.append(vel)
+            spans.append(span)
+        waypoints = np.concatenate(wps, axis=1)  # (M, 14)
+
+        if self.velocity_mode == "profile":
+            prof = np.zeros((M, 2), dtype=np.float64)
+            for k, (xyz_off, _, _, _) in enumerate(ARM_LAYOUT):
+                pos = chunk[:, xyz_off : xyz_off + 3]
+                cum = cumulative_arc_length(pos)
+                span = spans[k]
+                if span <= 1e-8 or len(pos) < 2:
+                    continue
+                u = np.linspace(0.0, span, M)
+                fidx = np.interp(u, cum, np.arange(len(cum)))
+                v = chunk_speed(pos, dt, self.speed_smooth_frames)
+                prof[:, k] = np.maximum(np.interp(fidx, np.arange(len(v)), v), 0.0)
+            batch[self.output_action_key] = np.concatenate([waypoints, prof], axis=1)
+            return batch
+
+        # mean mode: the parent's (M+1, 14) layout with its velocity row
+        vel_token = np.zeros(14, dtype=np.float64)
+        default_dur = max(M - 1, 1) * dt
+        for k, (xyz_off, ypr_off, grip_off, vsl) in enumerate(ARM_LAYOUT):
+            wp = wps[k]
+            vel = vels[k]
+            speed = float(np.linalg.norm(vel))
+            chord = float(np.linalg.norm(wp[-1, 0:3] - wp[0, 0:3]))
+            dur = (chord / speed) if speed > 1e-8 else default_dur
+            if self.velocity_norm == "path" and speed > 1e-8 and chord > 1e-8:
+                span_wp = float(cumulative_arc_length(wp[:, 0:3])[-1])
+                if span_wp > 1e-8:
+                    vel = vel * ((span_wp / dur) / speed)
+            vel_token[vsl] = vel
+            vel_token[ypr_off : ypr_off + 3] = (wp[-1, 3:6] - wp[0, 3:6]) / max(dur, 1e-8)
+            vel_token[grip_off] = float(wp[-1, 6] - wp[0, 6]) / max(dur, 1e-8)
+        batch[self.output_action_key] = np.concatenate([waypoints, vel_token[None]], axis=0)
         return batch
 
     # -- detokenize --------------------------------------------------------
     def detokenize(self, arc_actions: np.ndarray, action_horizon: int) -> np.ndarray:
         arc = np.asarray(arc_actions, dtype=np.float64)
-        if self.velocity_mode == "mean":
-            return super().detokenize(arc, action_horizon)
-        if arc.ndim != 2 or arc.shape[1] != E1_ARCVEL_DIM:
-            raise ValueError(f"profile detokenize expects (M, {E1_ARCVEL_DIM}), got {arc.shape}")
-        dt = self.tokenizer.config.dt
         h = int(action_horizon)
+        dt = self.tokenizer.config.dt
         t = dt * np.arange(h, dtype=np.float64)
+        profile = self.velocity_mode == "profile"
+        if profile:
+            if arc.ndim != 2 or arc.shape[1] != E1_ARCVEL_DIM:
+                raise ValueError(f"profile detokenize expects (M, {E1_ARCVEL_DIM}), got {arc.shape}")
+            M = arc.shape[0]
+        else:
+            if arc.ndim != 2 or arc.shape[1] != 14:
+                raise ValueError(f"detokenize expects (M+1, 14), got {arc.shape}")
+            M = arc.shape[0] - 1
         arms = []
-        for k, (xyz_off, ypr_off, grip_off, _) in enumerate(ARM_LAYOUT):
-            xyz_wp = arc[:, xyz_off : xyz_off + 3]
-            ypr_wp = arc[:, ypr_off : ypr_off + 3]
-            grip_wp = arc[:, grip_off : grip_off + 1]
+        for k, (xyz_off, ypr_off, grip_off, vsl) in enumerate(ARM_LAYOUT):
+            xyz_wp = arc[:M, xyz_off : xyz_off + 3]
+            ypr_wp = arc[:M, ypr_off : ypr_off + 3]
+            grip_wp = arc[:M, grip_off : grip_off + 1]
             cum = cumulative_arc_length(xyz_wp)
-            if float(cum[-1]) < 1e-9:
+            total = float(cum[-1])
+            if profile:
+                degenerate = total < 1e-9
+                s = None if degenerate else np.interp(t, integral_clock(cum, np.maximum(arc[:, 14 + k], self.min_speed)), cum)
+            else:
+                speed = float(np.linalg.norm(arc[M, vsl]))
+                degenerate = total < 1e-9 or speed < 1e-8
+                s = None if degenerate else np.minimum(speed * t, total)
+            if degenerate:
                 arms.append(np.concatenate([np.repeat(xyz_wp[:1], h, 0), np.repeat(ypr_wp[:1], h, 0), np.repeat(grip_wp[:1], h, 0)], axis=-1))
                 continue
-            t_of_u = integral_clock(cum, np.maximum(arc[:, 14 + k], self.min_speed))
-            s = np.interp(t, t_of_u, cum)  # clamps at the last waypoint once the token is exhausted
-            pos_t = np.stack([_interp_pos_at_s(xyz_wp, cum, float(sk)) for sk in s])
-            ypr_t = np.stack([_interp_ypr_at_s(ypr_wp, cum, float(sk)) for sk in s])
-            grip_t = np.stack([_interp_linear_at_s(grip_wp, cum, float(sk)) for sk in s])
+            pos_t, ypr_t, grip_t = resample_at_s(xyz_wp, ypr_wp, grip_wp, cum, s)
             arms.append(np.concatenate([pos_t, ypr_t, grip_t], axis=-1))
         return np.concatenate(arms, axis=-1)  # (H, 14)
 
     def clock_at_waypoints(self, arc_actions: np.ndarray) -> list[np.ndarray]:
         """Per arm, the token's implied time-of-progress at its M waypoints (s)."""
         arc = np.asarray(arc_actions, dtype=np.float64)
-        M = self.M
+        M = arc.shape[0] if self.velocity_mode == "profile" else arc.shape[0] - 1
         out = []
         for k, (xyz_off, _, _, vsl) in enumerate(ARM_LAYOUT):
             cum = cumulative_arc_length(arc[:M, xyz_off : xyz_off + 3])

@@ -25,6 +25,8 @@ RUN=$OUT/${VARIANT}_${SPREAD}_s${SEED}
 cd $WT
 export PYTHONPATH=$WT HYDRA_FULL_ERROR=1 PYTHONUNBUFFERED=1 WANDB_MODE=${WANDB_MODE:-online}
 export TORCHINDUCTOR_CACHE_DIR=/tmp/ti_$SLURM_JOB_ID TRITON_CACHE_DIR=/tmp/tr_$SLURM_JOB_ID
+# loader workers do small numpy/scipy ops; without this each worker spawns a full BLAS thread pool
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 unset CC CXX LD 2>/dev/null || true
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 echo "=== TRAIN $VARIANT $SPREAD s$SEED -> $RUN ($(date)) commit=$(git rev-parse --short HEAD) ==="
