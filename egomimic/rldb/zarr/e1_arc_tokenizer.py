@@ -16,14 +16,14 @@ changes. Two opt-in knobs:
   the clock, t(u) = ∫ du / v(u) with v piecewise linear between waypoints, so a
   chunk that slows down mid-token is reconstructed slowing down.
 
-The waypoint speeds come from the raw 30 Hz chunk (zero-phase 3 Hz Butterworth,
-same as Step 0), read at the waypoints' fractional frame indices.
+The waypoint speeds are the raw 30 Hz chunk's path speed (7-frame moving
+average — see ``chunk_speed`` for why not a Butterworth here), read at the
+waypoints' fractional frame indices.
 """
 
 from __future__ import annotations
 
 import numpy as np
-from scipy.signal import butter, sosfiltfilt
 
 from egomimic.rldb.zarr.action_chunk_transforms import Transform
 from egomimic.rldb.zarr.arc_length_tokenizer import (
@@ -40,15 +40,26 @@ ARM_LAYOUT = ((0, 3, 6, slice(0, 3)), (7, 10, 13, slice(7, 10)))
 E1_ARCVEL_DIM = 16
 
 
-def chunk_speed(pos: np.ndarray, dt: float, fc: float = 3.0) -> np.ndarray:
-    """Per-frame translational speed of a (T, 3) chunk, low-passed at fc Hz."""
+def chunk_speed(pos: np.ndarray, dt: float, smooth_frames: int = 7) -> np.ndarray:
+    """Per-frame PATH speed of a (T, 3) chunk: d(arc length)/dt, smoothed with a
+    centred ``smooth_frames`` moving average (edge-padded).
+
+    Deliberately not an IIR low-pass: a zero-phase Butterworth on a 200-frame
+    chunk has a ~10-frame transient at the anchor, exactly where the token's
+    first waypoints (and E_time) live. Path speed rather than chord speed so the
+    integral clock traverses the token's own arc length — jitter included — at
+    the rate it was actually traversed.
+    """
     pos = np.asarray(pos, dtype=np.float64)
-    if len(pos) >= 12 and fc > 0:
-        sos = butter(4, fc, btype="low", fs=1.0 / dt, output="sos")
-        pos = sosfiltfilt(sos, pos, axis=0)
     if len(pos) < 2:
         return np.zeros(len(pos))
-    return np.linalg.norm(np.gradient(pos, dt, axis=0), axis=1)
+    step = np.linalg.norm(np.diff(pos, axis=0), axis=1) / dt
+    v = np.concatenate([step, step[-1:]])
+    w = max(1, int(smooth_frames))
+    if w > 1 and len(v) >= w:
+        vp = np.pad(v, (w // 2, w - 1 - w // 2), mode="edge")
+        v = np.convolve(vp, np.ones(w) / w, mode="valid")
+    return v
 
 
 def integral_clock(cum: np.ndarray, speed: np.ndarray) -> np.ndarray:
@@ -79,7 +90,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         *,
         velocity_norm: str = "chord",
         velocity_mode: str = "mean",
-        speed_fc: float = 3.0,
+        speed_smooth_frames: int = 7,
         min_speed: float = 0.01,
         **kwargs,
     ):
@@ -90,7 +101,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
             raise ValueError(f"velocity_mode must be 'mean' or 'profile', got {velocity_mode!r}")
         self.velocity_norm = velocity_norm
         self.velocity_mode = velocity_mode
-        self.speed_fc = float(speed_fc)
+        self.speed_smooth_frames = int(speed_smooth_frames)
         self.min_speed = float(min_speed)
 
     # -- tokenize ----------------------------------------------------------
@@ -125,7 +136,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                 continue  # stationary arm: zero speed, waypoints hold the pose
             u = np.linspace(0.0, span, M)
             fidx = np.interp(u, cum, np.arange(len(cum)))
-            v = chunk_speed(pos, dt, self.speed_fc)
+            v = chunk_speed(pos, dt, self.speed_smooth_frames)
             prof[:, k] = np.maximum(np.interp(fidx, np.arange(len(v)), v), 0.0)
         batch[self.output_action_key] = np.concatenate([tok[:M], prof], axis=1)
         return batch

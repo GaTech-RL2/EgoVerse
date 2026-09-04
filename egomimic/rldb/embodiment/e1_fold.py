@@ -46,7 +46,7 @@ def get_transform_list(
     resampled_vector_length: int = 100,
     stride: int = 1,
     rotation_mode: str = "euler",
-    speed_fc: float = 3.0,
+    speed_smooth_frames: int = 7,
     velocity_norm: str = "path",
 ):
     if variant not in VARIANTS:
@@ -66,7 +66,7 @@ def get_transform_list(
                 dt=float(stride) / 30.0,
                 velocity_norm=velocity_norm,
                 velocity_mode="mean" if variant == "arcmean" else "profile",
-                speed_fc=float(speed_fc),
+                speed_smooth_frames=int(speed_smooth_frames),
             )
         )
     return tl
