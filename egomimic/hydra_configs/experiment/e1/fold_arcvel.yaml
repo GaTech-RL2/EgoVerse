@@ -2,7 +2,7 @@
 # Arc+Vel row: (M, 16) waypoints + per-arm speed profile, integral clock.
 defaults:
   - /experiment/e1/fold_base
-  - override /model: e1/fold_arcvel
+  - override /model: hpt_cotrain_mecka_flow_shared_head_arcvel_D40_M100
   - _self_
 e1:
   variant: arcvel
