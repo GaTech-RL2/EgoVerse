@@ -4,10 +4,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from egomimic.models.action_mask import ActionMaskMixin, masked_loss
 from egomimic.models.denoising_nets import ConditionalUnet1D
 
 
-class DenoisingPolicy(nn.Module):
+class DenoisingPolicy(ActionMaskMixin, nn.Module):
     """
     Template class for a diffusion-based policy head.
 
@@ -40,6 +41,10 @@ class DenoisingPolicy(nn.Module):
 
         if not infer_ac_dims:
             raise ValueError("infer_ac_dims must be a non-empty dict")
+
+        # Keypoint slots an embodiment's end-effectors do not own are dropped
+        # from the loss; see `egomimic.rldb.embodiment.action_layout`.
+        self.init_action_masks(infer_ac_dims)
 
         for name, param in self.model.named_parameters():
             if not param.requires_grad:
@@ -90,11 +95,16 @@ class DenoisingPolicy(nn.Module):
         """
         raise NotImplementedError
 
-    def loss_fn(self, pred, target):
+    def loss_fn(self, pred, target, mask=None):
         """
         Computes loss, function to override for stuff like adaptive loss weighting
+
+        Args:
+            pred: Predicted actions.
+            target: Target actions.
+            mask: Action dimensions to keep, or None to weight them equally.
         """
-        return F.mse_loss(pred, target)
+        return masked_loss(F.mse_loss, pred, target, mask)
 
     def preprocess_compute_loss(self, global_cond, data):
         if self.pooling == "mean":
@@ -124,4 +134,4 @@ class DenoisingPolicy(nn.Module):
     def compute_loss(self, global_cond, data):
         actions, global_cond = self.preprocess_compute_loss(global_cond, data)
         pred, target = self.predict(actions, global_cond)
-        return self.loss_fn(pred, target)
+        return self.loss_fn(pred, target, self.action_mask(data, target))

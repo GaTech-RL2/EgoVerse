@@ -230,7 +230,25 @@ def _split_action_pose(actions):
     return left_xyz, left_ypr, right_xyz, right_ypr
 
 
-def _split_keypoints(keypoints, wrist_in_data: bool = False, is_quat: bool = True):
+def _split_keypoints(
+    keypoints, wrist_in_data: bool = False, is_quat: bool = True, n_kp: int = 21
+):
+    """Split a bimanual keypoint tensor into its per-side blocks.
+
+    Args:
+        keypoints: A ``[L block, R block]`` tensor. With ``wrist_in_data`` each
+            block is ``[xyz(3), rot(4|3), keypoints(3 * n_kp)]``; without it
+            each block is the keypoints alone.
+        wrist_in_data: Whether each side carries a wrist pose before its
+            keypoints.
+        is_quat: Whether that pose's rotation is a quaternion rather than YPR.
+        n_kp: Slots in the keypoint topology. The default is MANO's 21; an
+            end-effector spec supplies the value for any other topology.
+
+    Returns:
+        Six blocks with a wrist, two without.
+    """
+    kp_size = n_kp * 3
     if wrist_in_data:
         xyz_size = 3
         if is_quat:
@@ -239,10 +257,10 @@ def _split_keypoints(keypoints, wrist_in_data: bool = False, is_quat: bool = Tru
             angle_size = 3
         left_xyz_index = xyz_size
         left_angle_index = left_xyz_index + angle_size
-        left_keypoints_index = left_angle_index + 21 * 3
+        left_keypoints_index = left_angle_index + kp_size
         right_xyz_index = left_keypoints_index + xyz_size
         right_angle_index = right_xyz_index + angle_size
-        right_keypoints_index = right_angle_index + 21 * 3
+        right_keypoints_index = right_angle_index + kp_size
         return (
             keypoints[..., :left_xyz_index],
             keypoints[..., left_xyz_index:left_angle_index],
@@ -252,9 +270,8 @@ def _split_keypoints(keypoints, wrist_in_data: bool = False, is_quat: bool = Tru
             keypoints[..., right_angle_index:right_keypoints_index],
         )
     else:
-        xyz_size = 3
-        left_keypoints = keypoints[..., :63]
-        right_keypoints = keypoints[..., 63:]
+        left_keypoints = keypoints[..., :kp_size]
+        right_keypoints = keypoints[..., kp_size:]
         return left_keypoints, right_keypoints
 
 # ---- moved from egomimicUtils.py (code unchanged) ----

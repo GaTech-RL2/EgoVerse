@@ -13,6 +13,7 @@ from torch import einsum
 from torchvision import transforms
 from transformers import T5Model, T5Tokenizer
 
+from egomimic.models.action_mask import ActionMaskMixin, masked_loss
 from egomimic.utils.tensor_utils import get_sinusoid_encoding_table
 
 
@@ -851,11 +852,13 @@ LOSS = partial(F.smooth_l1_loss, beta=0.05)
 LOSS_MSE = partial(F.mse_loss)
 
 
-class PolicyHead(nn.Module):
+class PolicyHead(ActionMaskMixin, nn.Module):
     """Abstract class for policy head."""
 
     def __init__(self, **kwargs):
         super().__init__()
+        # Optional; a head that serves no masked end-effector registers none.
+        self.init_action_masks(kwargs.get("infer_ac_dims"))
 
     def freeze(self):
         for param in self.parameters():
@@ -897,7 +900,9 @@ class PolicyHead(nn.Module):
         pred_action = pred_action[..., :D_common]
         target_action = target_action[..., :D_common]
 
-        return LOSS(pred_action, target_action)
+        return masked_loss(
+            LOSS, pred_action, target_action, self.action_mask(data, target_action)
+        )
 
 
 class MLPPolicyHead(PolicyHead):
@@ -914,7 +919,7 @@ class MLPPolicyHead(PolicyHead):
         **kwargs,
     ) -> None:
         """vanilla MLP head on the pooled feature"""
-        super().__init__()
+        super().__init__(**kwargs)
         self.input = input
         modules = [nn.Linear(input_dim, widths[0]), nn.SiLU()]
 

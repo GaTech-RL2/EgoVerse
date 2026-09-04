@@ -142,8 +142,17 @@ class Human(Embodiment):
         intrinsics=None,
         finger_edges=None,
         finger_edge_ranges=None,
+        keypoint_spec=None,
         **kwargs,
     ):
+        """Visualize one sample.
+
+        Args:
+            keypoint_spec: The side's ``KeypointSpec`` from the end-effector
+                registry, which supplies the slot count and the slots this
+                end-effector owns. Omitting it draws MANO's 21 slots, which is
+                what every human episode carries.
+        """
         K = intrinsics if intrinsics is not None else cls.INTRINSICS
         if mode == "gaze":
             return _viz_gaze(
@@ -169,6 +178,12 @@ class Human(Embodiment):
                 image=image,
                 actions=viz_data,
                 intrinsics=K,
+                n_kp=21 if keypoint_spec is None else keypoint_spec.n_slots,
+                valid_slots=(
+                    None
+                    if keypoint_spec is None or keypoint_spec.is_complete
+                    else keypoint_spec.valid
+                ),
                 edges=finger_edges if finger_edges is not None else cls.FINGER_EDGES,
                 edge_ranges=(
                     finger_edge_ranges

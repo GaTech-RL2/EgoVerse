@@ -303,9 +303,27 @@ def _viz_keypoints(
     colors,
     edge_ranges,
     dot_color=None,
+    n_kp=21,
+    valid_slots=None,
     **kwargs,
 ):
-    """Visualize all 21 MANO keypoints per hand, projected onto the image."""
+    """Project one keypoint tensor per hand onto the image.
+
+    Args:
+        image: The frame to draw on.
+        actions: A bimanual keypoint tensor, with or without a wrist pose per
+            side.
+        intrinsics: The camera matrix that projects camera-frame points.
+        edges: Skeleton edges as ``(i, j)`` slot pairs.
+        colors: A colour per finger name.
+        edge_ranges: ``(finger, start, end)`` ranges over ``edges``.
+        dot_color: One colour for both hands, or None to colour them apart.
+        n_kp: Slots in the keypoint topology. The default is MANO's 21; the
+            end-effector spec supplies the value for any other topology.
+        valid_slots: Slots the end-effector owns, or None when it owns all of
+            them. A masked slot is a structural absence, not a failed estimate,
+            so it is not drawn and neither are its edges.
+    """
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
 
@@ -313,16 +331,24 @@ def _viz_keypoints(
     vis = base.copy()
     h, w = vis.shape[:2]
 
-    if actions.shape[-1] == 140:
+    n_kp = int(n_kp)
+    side_kp = 3 * n_kp
+    if actions.shape[-1] == 2 * (side_kp + 7):
         _, _, left_keypoints, _, _, right_keypoints = _split_keypoints(
-            actions, wrist_in_data=True
+            actions, wrist_in_data=True, n_kp=n_kp
         )
-    elif actions.shape[-1] == 138:
+    elif actions.shape[-1] == 2 * (side_kp + 6):
         _, _, left_keypoints, _, _, right_keypoints = _split_keypoints(
-            actions, wrist_in_data=True, is_quat=False
+            actions, wrist_in_data=True, is_quat=False, n_kp=n_kp
         )
     else:
-        left_keypoints, right_keypoints = _split_keypoints(actions, wrist_in_data=False)
+        left_keypoints, right_keypoints = _split_keypoints(
+            actions, wrist_in_data=False, n_kp=n_kp
+        )
+    owned = np.ones(n_kp, dtype=bool)
+    if valid_slots is not None:
+        owned[:] = False
+        owned[[s for s in valid_slots if 0 <= s < n_kp]] = True
     keypoints = {}
     keypoints["left"] = left_keypoints.reshape(-1, 3)
     keypoints["right"] = right_keypoints.reshape(-1, 3)
@@ -335,23 +361,25 @@ def _viz_keypoints(
         # Camera frame -> pixels
         kps_px = cam_frame_to_cam_pixels(kps_cam, intrinsics)  # (42, 3+) 21 per arm
 
-        # Identify valid keypoints (z > 0 and in image bounds)
+        # Identify drawable keypoints: owned by this end-effector, in front of
+        # the camera, and inside the image.
         valid = kps_cam[:, 2] > 0.01
         valid &= (kps_px[:, 0] >= 0) & (kps_px[:, 0] < w)
         valid &= (kps_px[:, 1] >= 0) & (kps_px[:, 1] < h)
+        valid &= owned[: len(valid)]
 
         # Draw skeleton edges (colored by finger)
         for finger, start, end in edge_ranges:
             color = colors[finger]
-            for edge_idx in range(start, end):
+            for edge_idx in range(start, min(end, len(edges))):
                 i, j = edges[edge_idx]
-                if valid[i] and valid[j]:
+                if i < len(valid) and j < len(valid) and valid[i] and valid[j]:
                     p1 = (int(kps_px[i, 0]), int(kps_px[i, 1]))
                     p2 = (int(kps_px[j, 0]), int(kps_px[j, 1]))
                     cv2.line(vis, p1, p2, color, 2)
 
         # Draw keypoint dots on top
-        for k in range(21):
+        for k in range(n_kp):
             if valid[k]:
                 center = (int(kps_px[k, 0]), int(kps_px[k, 1]))
                 cv2.circle(vis, center, 4, hand_dot_color, -1)
