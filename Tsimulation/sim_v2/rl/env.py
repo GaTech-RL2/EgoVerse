@@ -34,7 +34,7 @@ class PushShapesRLEnv(gym.Env):
                  obstacle_level=0, max_steps=600, image_size=96,
                  shaping=1.0, success_bonus=50.0, step_cost=0.01,
                  render_obs=False, seed=None,
-                 delta_action=True, max_delta=10.0):
+                 action_mode="residual", max_delta=512.0):
         super().__init__()
         self.kw = dict(object_shape=object_shape, pusher_shape=pusher_shape,
                        obstacle_level=obstacle_level, image_size=image_size)
@@ -55,14 +55,23 @@ class PushShapesRLEnv(gym.Env):
         # collapsed to exactly zero coverage. Commanding a bounded DELTA from
         # the current pose keeps exploration local and matches how the action is
         # actually structured (position + small correction).
-        self.delta_action = bool(delta_action)
+        # action_mode:
+        #   "absolute" -- [-1,1]^n mapped affinely onto the native bounds. The
+        #     expert commands targets up to 469px from its current pose (p90 is
+        #     already 12-57px), so a bounded delta CANNOT express what the
+        #     demonstrations do and BC in delta space would fit a truncated
+        #     target. Absolute is the space the demos actually live in.
+        #   "delta"    -- bounded offset from the current pose; keeps
+        #     exploration local, but only reaches +/- max_delta per step.
+        #   "native"   -- raw env units, for replaying recorded actions.
+        self.action_mode = str(action_mode)
         self.max_delta = float(max_delta)
         self._native = self._env.action_space
-        if self.delta_action:
-            n = self._native.shape[0]
-            self.action_space = spaces.Box(-1.0, 1.0, (n,), dtype=np.float32)
-        else:
+        n = self._native.shape[0]
+        if self.action_mode == "native":
             self.action_space = self._native
+        else:
+            self.action_space = spaces.Box(-1.0, 1.0, (n,), dtype=np.float32)
         # [agent_xy, cos/sin(agent_ang), obj_xy, cos/sin(obj_ang), goal_xy,
         #  cos/sin(goal_ang), obj->goal delta, agent->obj delta, coverage]
         self.observation_space = spaces.Box(-np.inf, np.inf, (19,), dtype=np.float32)
@@ -120,6 +129,50 @@ class PushShapesRLEnv(gym.Env):
         self._prev_phi = self._phi()
         return self._obs(), {}
 
+    def to_norm(self, cmd):
+        """Native command -> the current action space's [-1,1]^n encoding.
+
+        For "residual" this is (cmd - current pose)/max_delta. Predicting the
+        residual matters because an absolute target is dominated by "copy the
+        current pose": BC reached MSE 0.0044 on absolute targets, which sounds
+        small but is ~17px of command error over a 512px range, and scored
+        exactly 0.0000 coverage. The residual is centred on zero (the expert
+        holds position >50% of steps) so the same MSE buys far more accuracy.
+        max_delta spans the arena because the expert commands targets up to
+        469px away; the earlier +/-10px clip could not express that at all."""
+        cmd = np.asarray(cmd, float)
+        if self.action_mode == "residual":
+            o = self._env._get_obs()
+            px, py = o["agent_pos"]; pa = float(o["agent_angle"][0])
+            n = self._native.shape[0]
+            out = np.zeros(n)
+            out[0] = (cmd[0] - px) / self.max_delta
+            out[1] = (cmd[1] - py) / self.max_delta
+            if n >= 3: out[2] = _wrap(cmd[2] - pa) / np.pi
+            if n >= 4:
+                lo, hi = self._native.low[3], self._native.high[3]
+                out[3] = 2.0 * (cmd[3] - lo) / (hi - lo) - 1.0
+            return np.clip(out, -1.0, 1.0)
+        lo, hi = self._native.low, self._native.high
+        return np.clip(2.0 * (cmd - lo) / (hi - lo) - 1.0, -1.0, 1.0)
+
+    def _residual_to_native(self, a):
+        o = self._env._get_obs()
+        px, py = o["agent_pos"]; pa = float(o["agent_angle"][0])
+        n = self._native.shape[0]
+        cmd = np.empty(n)
+        cmd[0] = px + a[0] * self.max_delta
+        cmd[1] = py + a[1] * self.max_delta
+        if n >= 3: cmd[2] = pa + a[2] * np.pi
+        if n >= 4:
+            lo, hi = self._native.low[3], self._native.high[3]
+            cmd[3] = lo + (a[3] + 1.0) * 0.5 * (hi - lo)
+        return cmd
+
+    def _abs_to_native(self, a):
+        lo, hi = self._native.low, self._native.high
+        return lo + (np.asarray(a, float) + 1.0) * 0.5 * (hi - lo)
+
     def _to_native(self, a):
         """Map a in [-1,1]^n onto an absolute command near the current pose."""
         o = self._env._get_obs()
@@ -138,8 +191,12 @@ class PushShapesRLEnv(gym.Env):
     def step(self, action):
         a = np.asarray(action, dtype=np.float64).reshape(-1)
         a = np.clip(a, self.action_space.low, self.action_space.high)
-        if self.delta_action:
+        if self.action_mode == "delta":
             a = self._to_native(a)
+        elif self.action_mode == "absolute":
+            a = self._abs_to_native(a)
+        elif self.action_mode == "residual":
+            a = self._residual_to_native(a)
         a = np.clip(a, self._native.low, self._native.high)
         _o, _r, terminated, _tr, info = self._env.step(a)
         self._t += 1
