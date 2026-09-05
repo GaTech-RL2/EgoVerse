@@ -1188,6 +1188,25 @@ class TokenizeBimanualArcLengthCartesian:
 
             cumdist = cumulative_arc_length(xyz_wp)
             total = float(cumdist[-1])
+            # The velocity token is a CHORD rate: make_velocity_payload's
+            # MEAN_PER_DIM is (pos[-1] - pos[0]) / total_time, i.e. net
+            # displacement over time. But `s` below walks ARC LENGTH, and arc
+            # >= chord for anything that is not a straight line, so advancing
+            # arc length at a chord rate replays the motion too slowly --
+            # measured up to 1.98x on real folding data, where the path
+            # doubles back and arc is nearly twice the chord.
+            #
+            # Convert to the arc rate the traversal actually needs. Since
+            # speed == chord / total_time, this is exactly total / total_time,
+            # so the reconstruction now takes the same wall-clock time the arm
+            # originally did. Written as a ratio because chord and total are
+            # both recoverable from the waypoints while total_time is not.
+            chord = float(np.linalg.norm(xyz_wp[-1] - xyz_wp[0]))
+            if chord > 1e-6:
+                speed = speed * (total / chord)
+            # chord ~ 0 means the path returns to where it started, and a
+            # chord-based token carries no timing for that case at all; leave
+            # the rate alone rather than divide by ~0.
             if total < 1e-9 or speed < 1e-8:
                 # Degenerate: hold first waypoint for the whole horizon.
                 pos_t = np.repeat(xyz_wp[:1], h, axis=0)
