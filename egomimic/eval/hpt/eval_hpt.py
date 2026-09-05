@@ -360,14 +360,17 @@ class HPTEvalVideo(EvalVideo):
             gt_batch_viz = _batch
             preds_for_viz = preds
             if transform_list is not None and main_pred_key in preds:
+                # Detokenize BEFORE the revert -- see _viz_source.
+                gt_batch = dict(_batch)
+                gt_batch[ac_key] = self._viz_source(_batch[ac_key])
                 pred_batch = copy.deepcopy(_batch)
-                pred_batch[ac_key] = preds[main_pred_key]
-                gt_t = Embodiment.apply_transform(_batch, transform_list)
+                pred_batch[ac_key] = self._viz_source(preds[main_pred_key])
+                gt_t = Embodiment.apply_transform(gt_batch, transform_list)
                 pred_t = Embodiment.apply_transform(pred_batch, transform_list)
                 # apply_transform drops keys whose shape[0] != batch_size
                 # (e.g. ``embodiment``, ``annotations``). Merge to preserve them.
-                gt_batch_viz = {**_batch, **gt_t}
-                pred_batch_viz = {**_batch, **pred_t}
+                gt_batch_viz = {**gt_batch, **gt_t}
+                pred_batch_viz = {**gt_batch, **pred_t}
 
                 # ``.contiguous()`` because ``apply_transform`` returns CPU tensors,
                 # so ``.cpu()`` here is a no-op and ``[:, -1]`` leaves a non-contiguous
@@ -391,6 +394,21 @@ class HPTEvalVideo(EvalVideo):
             metrics["Valid/action_loss"] = total_loss / n_loss_embodiments
 
         return metrics, images_dict
+
+    def _viz_source(self, tensor):
+        """The action chunk to hand the VIZ path, before any frame revert.
+
+        Identity here: a time-indexed run already predicts a chunk of poses.
+        ``ArcTokEvalVideo`` overrides it to detokenize, because an arc token's
+        last row is a VELOCITY, and the revert below rotates AND translates
+        every row it is given. Translating a velocity by the camera offset
+        turns it into a position: measured on real data, the left arm's
+        (0.0810, 0.0574, 0.0074) m/s became (-0.2313, -0.0193, 0.8945), so
+        ``detokenize`` read a speed of 0.92 instead of 0.0995 and raced through
+        a 0.393 m path in 13 control steps instead of 119. Detokenizing first
+        means ``apply_transform`` only ever sees rows that really are poses.
+        """
+        return tensor
 
     def _visualize_preds(self, predictions, batch):
         if self.viz_func is None:
