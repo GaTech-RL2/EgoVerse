@@ -8,6 +8,7 @@ defaults:
   - override /model: abc/yam_bimanual_dp
   - override /data: abc_arc/abc_fstshirt_bc
   - override /evaluator: null
+  - override hydra/launcher: submitit_pace
   - _self_
 
 name: abc_yam_fstshirt_dp

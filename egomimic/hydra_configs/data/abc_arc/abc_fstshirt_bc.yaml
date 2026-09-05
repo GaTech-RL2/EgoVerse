@@ -27,7 +27,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /coc/flash7/scratch/arc-training
+      folder_path: /storage/project/r-dxu345-0/shared/arc_abc
       image_hw: [480, 640]
       # 20 YAM episodes = 48,286 frames. Matched to the cotrain run's yam split
       # so the two see identical robot data; do not change one without the other.
@@ -60,7 +60,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /coc/flash7/scratch/arc-training
+      folder_path: /storage/project/r-dxu345-0/shared/arc_abc
       image_hw: [480, 640]
       debug: 20
       key_map:
