@@ -54,6 +54,9 @@ workflow:
       TARGET_PER_JOB: "{{target_per_job}}"
       SHARDS_PER_JOB: "{{shards_per_job}}"
       MAX_STEPS: "{{max_steps}}"
+      # Bound wall time: chain_gripper yields ~4x worse than the
+      # median, so an uncapped shard on it would run indefinitely.
+      MAX_ATTEMPTS: "{{max_attempts}}"
       RUN_DESC: "{{run_desc}}"
       NUM_GPU: "{{num_gpu}}"
       BATCH_SIZE: "{{batch_size}}"
@@ -235,6 +238,7 @@ workflow:
                 --embodiment "$EMB" --gap "$GAP" \
                 --target "$TARGET_PER_JOB" --seed0 "$SEED0" \
                 --max-steps "$MAX_STEPS" \
+                --max-attempts "$MAX_ATTEMPTS" \
                 > "$OUT/${EMB}_${GAP}_${SH}.log" 2>&1 ) &
             PIDS="$PIDS $!"
           done
