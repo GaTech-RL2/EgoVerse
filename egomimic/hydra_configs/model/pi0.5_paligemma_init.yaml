@@ -1,0 +1,59 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.pi.PI
+  config:
+    pytorch_training_precision: bfloat16
+    # Produced by external/openpi/examples/convert_paligemma_to_pytorch.py.
+    # Only the PaliGemma backbone carries pretrained weights; action expert and
+    # projection heads are randomly initialized (from-scratch pi0.5 pretraining).
+    pytorch_weight_path: /storage/home/hcoda1/5/acheluva3/r-dxu345-0/EgoVerse/egomimic/algo/pi_checkpoints/paligemma_base_pytorch
+    model:
+      pi05: true
+      action_dim: 32
+      action_horizon: 100
+      max_token_len: 180
+
+  tokenizer_model_name: "google/paligemma-3b-mix-224"
+  tokenizer_max_length: 128
+  sampling_mode: "random"
+  annotation_key: "annotations"
+  default_prompt: "This is a bad action."
+  proprio_in_prompt: true
+  embodiment_label: true
+  state_num_bins: 256
+  control_mode: null
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: 224
+        interpolation: 3
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: 224
+        interpolation: 3
+
+# Random action expert + projection heads can produce large early gradients.
+enable_grad_norm: true
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  # Higher than pi0.5_base (3e-5) because the action expert is cold.
+  lr: 1e-4
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  weight_decay: 1e-4
+
+scheduler:
+  _target_: transformers.get_cosine_schedule_with_warmup
+  _partial_: true
+  # Longer warmup + horizon than pi0.5_base for from-scratch pretraining.
+  num_warmup_steps: 5000
+  num_training_steps: 200000
+  num_cycles: 0.5
+
+scheduler_interval: step
