@@ -298,6 +298,7 @@ class EefArcMatchEval(ArcTokEvalVideo):
         dtw_max_samples: int = 8,
         dtw_clip_gt_to_distance: bool = False,
         rot_lever_m: float = 0.10,
+        viz_chunk_rows: dict | int | None = None,
         untokenized_action_key: str = UNTOKENIZED_ACTION_KEY,
         **kwargs,
     ):
@@ -346,6 +347,12 @@ class EefArcMatchEval(ArcTokEvalVideo):
         self.dtw_max_samples = int(dtw_max_samples)
         self.dtw_clip_gt_to_distance = bool(dtw_clip_gt_to_distance)
         self.rot_lever_m = float(rot_lever_m)
+        # Overlay-only: draw this many rows instead of the chunk's own length.
+        # A baseline chunk is interpolated up to 100 rows from a 45/30-frame raw
+        # window, so without this most of the drawn dots are interpolation.
+        if viz_chunk_rows is not None and hasattr(viz_chunk_rows, "keys"):
+            viz_chunk_rows = {str(k): int(v) for k, v in viz_chunk_rows.items()}
+        self.viz_chunk_rows = viz_chunk_rows
         self.untokenized_action_key = untokenized_action_key
         self._warned_missing_untokenized = False
 

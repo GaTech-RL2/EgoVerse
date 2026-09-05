@@ -226,6 +226,7 @@ class Human(Embodiment):
         include_aria_keypoints: bool = False,
         norm_mode: bool = False,
         annotation_key: str = None,
+        action_horizon: int | None = None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
@@ -235,6 +236,7 @@ class Human(Embodiment):
             keymap_mode,
             has_head_pose=has_head_pose,
             include_aria_keypoints=include_aria_keypoints,
+            action_horizon=action_horizon,
         )
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
@@ -257,6 +259,7 @@ class Human(Embodiment):
         keymap_mode: str,
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
+        action_horizon: int | None = None,
     ):
         """Canonical MANO keymap. A ``_pi`` suffix swaps the front image key to
         ``PI_FRONT_KEY``; ``include_aria_keypoints`` additionally exposes the raw
@@ -275,6 +278,12 @@ class Human(Embodiment):
             )
         else:
             horizon = cls.ACTION_HORIZON
+        # An explicit override wins over both. Used to equalize the RAW window
+        # across embodiments: human defaults to 30 frames and yam to 45, so a
+        # human and a yam baseline run otherwise predict over 1.0 s and 1.5 s
+        # of motion while both emit the same (100, 14) chunk.
+        if action_horizon is not None:
+            horizon = int(action_horizon)
 
         if base_mode == "cartesian":
             key_map = {
@@ -391,6 +400,7 @@ class Human(Embodiment):
         # modes. See eva.py for the cartesian layout description.
         min_distance_unit: float = 0.60,
         resampled_vector_length: int = 20,
+        chunk_length: int | None = None,
         # Keypoint arc-tokenizer only.
         distance_mode: str = "linf",
         lambda_rot: float = 0.0,
@@ -418,6 +428,17 @@ class Human(Embodiment):
         ``arc_tokenizer_keypoints`` is the keypoint layout arc-tokenized the
         same way, (T, 138) -> (M+1, 138).
         """
+        # Rows the raw window is interpolated to before anything else runs.
+        # Arc defaults to the raw window itself, i.e. NO resampling: the
+        # tokenizer is what selects the frames covering D and resamples those to
+        # M. Interpolating to 100 first would decimate the human window 6x, and
+        # arc length measured on a decimated path is systematically short.
+        if chunk_length is None:
+            chunk_length = (
+                cls.ARC_TOK_ACTION_HORIZON
+                if action_mode.startswith("arc_tokenizer_cartesian")
+                else 100
+            )
         if action_mode == "arc_tokenizer_cartesian":
             raise ValueError(
                 f"{cls.__name__} cartesian has no gripper column, so the "
@@ -448,7 +469,7 @@ class Human(Embodiment):
                 f"action_mode '{action_mode}'"
             )
         transform_list = builders[coord_frame](
-            stride=stride, rotation_mode=rotation_mode
+            stride=stride, rotation_mode=rotation_mode, chunk_length=chunk_length
         )
         if action_mode in (
             "cartesian_gripper_padded",
@@ -1033,8 +1054,12 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
             (right_action_wristframe, pose_shape),
             (right_grip, 1),
         ]
-        concat_keys = [left_action_headframe, left_grip,
-                       right_action_headframe, right_grip]
+        concat_keys = [
+            left_action_headframe,
+            left_grip,
+            right_action_headframe,
+            right_grip,
+        ]
     else:
         obs_split = [
             (left_obs_headframe, pose_shape),
