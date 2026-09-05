@@ -128,28 +128,36 @@ class ArcTokEvalVideo(HPTEvalVideo):
             return self._detokenize_batch(t)
         return t
 
-    def _visualize_preds(self, predictions, batch):
-        if self.viz_func is None:
-            raise ValueError("viz_func is not set")
-        embodiment_id = batch["embodiment"][0].item()
-        embodiment_name = get_embodiment(embodiment_id).lower()
+    def _viz_source(self, tensor):
+        """Detokenize before the frame revert, not after.
 
-        algo = self.model
-        ac_key = algo.ac_keys[embodiment_id]
-        main_pred_key = f"{embodiment_name}_{ac_key}"
+        The base class reverts the chunk to camera frame and only then calls
+        ``_visualize_preds``. That revert translates every row, and row M of an
+        arc token is a VELOCITY -- translating it produces a position, whose
+        magnitude ``detokenize`` then reads as a speed. Doing the reconstruction
+        here means the revert receives (B, H, 14) poses, which is what it
+        assumes. Everything downstream, video and cam-frame metrics alike, is
+        then working on a time-parameterized chunk.
+        """
+        if tensor is None:
+            return None
+        t = tensor if isinstance(tensor, torch.Tensor) else torch.as_tensor(tensor)
+        return self._detokenize_batch(t) if self._is_arc(t) else t
 
-        # Detokenize both GT and prediction so the viz path sees a
-        # time-parameterized (B, H, 14) chunk it can project as dots.
-        preds_viz = dict(predictions)
-        batch_viz = dict(batch)
-        if main_pred_key in predictions and predictions[main_pred_key] is not None:
-            preds_viz[main_pred_key] = self._detokenize_batch(
-                predictions[main_pred_key]
-            )
-        if ac_key in batch and batch[ac_key] is not None:
-            batch_viz[ac_key] = self._detokenize_batch(batch[ac_key])
+    def _is_arc(self, t) -> bool:
+        """True when a chunk is arc tokens rather than time steps.
 
-        return self.viz_func[embodiment_name](preds_viz, batch_viz)
+        Both are 14 wide, so width alone cannot separate them -- the ROW COUNT
+        can. An arc chunk is M waypoints plus one velocity token; a time-indexed
+        chunk is ``rollout_horizon`` rows. A baseline whose horizon happened to
+        equal M+1 would be misread as arc, so keep them distinct in configs.
+        """
+        return (
+            t is not None
+            and t.ndim == 3
+            and t.shape[1] == self._M + 1
+            and t.shape[-1] == ARC_TOK_BIMANUAL_DIM
+        )
 
     def compute_metrics_and_viz(self, batch):
         """Extends the base HPTEvalVideo pass with DETOKENIZED-space MSE

@@ -351,16 +351,6 @@ class EefArcMatchEval(ArcTokEvalVideo):
 
     # -- plumbing -----------------------------------------------------------
 
-    def _is_arc(self, t) -> bool:
-        """True when a chunk is arc tokens rather than time steps.
-
-        Both are 14 wide, so width cannot tell them apart -- the ROW COUNT can.
-        An arc chunk is M waypoints plus one velocity token; a time-indexed one
-        is ``rollout_horizon`` rows. A baseline whose horizon happened to equal
-        M+1 would be misread as arc, so keep them distinct when adding configs.
-        """
-        return t is not None and t.ndim == 3 and t.shape[1] == self._M + 1
-
     def _detokenize_batch(self, tensor):
         """Detokenize arc tokens; pass a time-indexed chunk through untouched.
 
