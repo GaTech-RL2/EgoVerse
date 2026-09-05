@@ -143,8 +143,10 @@ class PosePushController:
     instead of re-wedging in the same place.
     """
 
-    def __init__(self, world_size: float):
+    def __init__(self, world_size: float, rng=None, jitter: float = 1.5):
         self.world_size = float(world_size)
+        self.rng = rng if rng is not None else np.random.default_rng()
+        self.jitter = float(jitter)
         self._prev_o = None
         self._stuck = 0
         self._recover = 0
@@ -177,9 +179,16 @@ class PosePushController:
             # Retreat 90 degrees around from where we are, so the retry
             # approaches from a different side instead of re-wedging in the
             # same place.
+            # Randomise which way we go round and by how much. A fixed +90
+            # retreat lets the retry re-enter on the same bearing and wedge
+            # again, so the episode cycles jam -> recover -> jam.
             r = p - c
-            a = float(np.arctan2(r[1], r[0])) + np.pi / 2.0
+            turn = self.rng.choice([-1.0, 1.0]) * self.rng.uniform(0.6, 1.8)
+            a = float(np.arctan2(r[1], r[0])) + turn
             self._escape_dir = np.array([np.cos(a), np.sin(a)])
             return np.clip(c + self._escape_dir * R_ESCAPE, 0.0, self.world_size)
 
-        return pose_action(agent_xy, object_pose, goal_pose, self.world_size, **kw)
+        out = pose_action(agent_xy, object_pose, goal_pose, self.world_size, **kw)
+        if self.jitter > 0.0:
+            out = out + self.rng.normal(0.0, self.jitter, size=2)
+        return np.clip(out, 0.0, self.world_size)
