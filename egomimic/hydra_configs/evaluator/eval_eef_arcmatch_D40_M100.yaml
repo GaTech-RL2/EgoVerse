@@ -1,26 +1,36 @@
-# Arc-matched EEF-frame validation at D = 0.40 m, M = 100.
+# EEF-frame validation at D = 0.40 m, M = 100, for arc and time-indexed runs.
 #
-# Accepts BOTH arc-tokenized and time-indexed runs -- arc detection is by
-# sequence length, so a baseline chunk passes straight through instead of being
-# detokenized. Every metric is arc-matched (clip to the first D metres of
-# travel, resample to N points spaced uniformly in arc length), and the names
-# carry no hint of the action space, so an arc run and a baseline run emit
-# identically named numbers that overlay on one chart:
+# Four families per embodiment, every one anchored on the ground truth under
+# NORMAL action-chunk sampling (in metres, never normalized):
 #
-#   Valid/{emb}_actions_cartesian_arcmatch_paired_mse_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_paired_mse_avg          shape only
+#   Valid/{emb}_actions_cartesian_arcmatch_withvel_paired_mse_avg  shape + timing
 #   Valid/{emb}_actions_cartesian_arcmatch_xyz_mse_avg
-#   Valid/{emb}_actions_cartesian_arcmatch_final_xyz_l2_m_avg
-#   Valid/{emb}_actions_cartesian_arcmatch_rot_geodesic_deg_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_final_xyz_l2_m_avg      metres
+#   Valid/{emb}_actions_cartesian_arcmatch_rot_geodesic_deg_avg    degrees
+#   Valid/{emb}_actions_cartesian_arcmatch_pose_err_m_avg          metres, xyz+rot
+#   Valid/{emb}_actions_cartesian_arcmatch_span_m_avg              matched window
+#   Valid/{emb}_actions_cartesian_arcmatch_travel_ratio_avg        1.0 == honest
+#   Valid/{emb}_actions_cartesian_dtw_paired_mse_avg               sees extent
+#   Valid/{emb}_actions_cartesian_dtw_xyz_l2_m_avg                 metres
+#   Valid/{emb}_actions_cartesian_detok_paired_mse_avg             arc runs
+#   Valid/{emb}_actions_cartesian_baseline_paired_mse_avg          baseline runs
+#   Valid/{emb}_actions_cartesian_gt_chunk_travel_m_avg            comparability
 #
-# The rotation metric is GEODESIC -- the angle of the single rotation carrying
-# gt to pred -- not a per-axis ypr difference. ypr differences are frame
-# dependent and break at wraparound and gimbal lock, so they cannot be compared
-# across runs; the geodesic angle is frame invariant and reads in degrees.
+# arcmatch re-tokenizes prediction and ground truth onto a MATCHED per-arm span
+# -- the shorter of the two travelled distances -- rather than a fixed D, so
+# neither side is scored over motion the other never reached. It is exactly
+# travel-invariant, which means it measures path shape and nothing else; read
+# travel_ratio and dtw next to it to see whether the prediction went anywhere.
+#
+# The rotation metric is GEODESIC, the angle of the single rotation carrying gt
+# to pred. ypr differences are frame dependent and break at wraparound and
+# gimbal lock; the geodesic angle is frame invariant and reads in degrees.
 #
 # Metrics are EEF-frame only, which loses nothing: the camera revert is a rigid
-# transform applied to prediction and ground truth alike, and the resampled
-# vector is positions + gripper, so the values are frame-invariant (measured
-# agreement ~2e-11).
+# transform applied to prediction and ground truth alike (measured agreement
+# ~2e-11). See the module docstring for what these numbers can and cannot settle
+# when ranking an arc run against its baseline twin.
 defaults:
   - viz@viz_func: cartesian/base
   - _self_
@@ -48,10 +58,32 @@ arc_match_points: 100
 
 # Detokenizer settings, consulted only when the run IS arc. They must match what
 # the data pipeline tokenized with (D40 / M100) or the reconstruction runs at
-# the wrong speed.
+# the wrong speed. rollout_horizon sets the val-VIDEO length only; the metrics
+# reconstruct to whatever the scored ground-truth chunk is long.
 min_distance_unit: 0.40
 resampled_vector_length: 100
 rollout_horizon: 100
+
+# How many steps of the time-indexed ground truth the time-domain families
+# score. Set per embodiment to the value that makes this run cover the same
+# WALL-CLOCK span as the baseline twin it will be compared against -- the arc
+# keymap samples a much wider window (human 600 raw frames, yam 200) than the
+# cartesian keymap it is being compared to (human ACTION_HORIZON=30, yam 45),
+# so matching sample counts is not automatic. Check `_gt_chunk_travel_m_avg`
+# agrees between the two runs; if it does, they are scoring the same motion.
+chunk_length:
+  human_bimanual: 30
+  yam_bimanual: 45
+
+# Lever arm for the combined pose_err_m metrics: how many metres one radian of
+# orientation error is worth, i.e. how far out on the gripper the scored point
+# sits. 0.10 m is about a gripper's length. Two runs share those charts only if
+# they share this number.
+rot_lever_m: 0.10
+
+# DTW is O(N*M) per arm per sample. The metric is a batch mean either way, so
+# only this many samples per batch are warped.
+dtw_max_samples: 8
 
 # Used for the val VIDEO, not for metrics: the overlay projects through K and
 # needs camera-frame poses to sit on the hands/grippers. Human trains on

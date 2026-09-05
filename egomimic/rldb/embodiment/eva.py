@@ -106,6 +106,17 @@ class Eva(Embodiment):
         return transform_list
 
 
+# Where the arc tokenizer stashes the untokenized chunk it consumed, so
+# validation can score against the real thing instead of a reconstruction.
+# Nothing trains on it. It is not declared in any keymap, but MultiDataset's
+# `_infer_key_type` classifies post-transform keys by name and anything starting
+# with "actions" is inferred to be an action key -- so it does get normalized on
+# the way in, and the evaluator's `norm_stats.unnormalize` puts it back in
+# metres. Renaming it to something not starting with "actions" would skip both
+# halves; keep the two in step either way.
+UNTOKENIZED_ACTION_KEY = "actions_cartesian_untokenized"
+
+
 def _append_arc_tokenizer(
     transform_list: list[Transform],
     *,
@@ -114,6 +125,7 @@ def _append_arc_tokenizer(
     rotation_mode: Literal["euler", "quat", "6D"] = "euler",
     dt: float | None = None,
     action_key: str = "actions_cartesian",
+    preserve_action_key: str | None = UNTOKENIZED_ACTION_KEY,
 ) -> list[Transform]:
     """Splice the arc-length tokenizer in before the final NumpyToTensor.
 
@@ -140,10 +152,17 @@ def _append_arc_tokenizer(
         output_action_key=action_key,
         min_distance_unit=float(min_distance_unit),
         resampled_vector_length=int(resampled_vector_length),
+        preserve_action_key=preserve_action_key,
         **kwargs,
     )
     for i in range(len(transform_list) - 1, -1, -1):
         if isinstance(transform_list[i], NumpyToTensor):
+            # The preserved chunk has to ride through the same cast as
+            # everything else or it reaches the collate fn as a numpy array.
+            if preserve_action_key is not None:
+                transform_list[i].keys = list(transform_list[i].keys) + [
+                    preserve_action_key
+                ]
             return transform_list[:i] + [tokenize] + transform_list[i:]
     return transform_list + [tokenize]
 
