@@ -19,9 +19,10 @@ planar:
   raw_action_horizon: 200
   action_horizon: 16
   arc_dt: 0.0333333333333333
-  # M waypoints + one timing row, which is the target width the diffusion
-  # stages validate against.
-  arc_token_rows: 101
+  # M translation rows plus M rotation rows. Each stream carries its own local
+  # velocity, so there is no global timing row.
+  arc_rotation_distance: 0.10471975511965977
+  arc_token_rows: 200
   eval_native_decoder:
     _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroNativeDecoder
     resampled_vector_length: ${planar.arc_waypoints}

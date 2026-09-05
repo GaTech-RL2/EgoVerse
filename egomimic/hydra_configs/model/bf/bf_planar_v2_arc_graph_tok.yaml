@@ -22,13 +22,12 @@ pipeline:
         front_img_1: front_img_1
         state_agent_obj: state_agent_obj
       encoder: ${planar.encoder}
-    # Tokenize: (T, native) time-indexed chunk -> (M + 1, 5) arc token.
+    # Tokenize into two M-row streams: [x,y,0,0,v] then [0,0,cos,sin,omega].
     - _target_: egomimic.pipeline.stages_arc.ArcTokenizeStage
       action_key: actions
       min_distance_unit: ${planar.arc_distance}
       resampled_vector_length: ${planar.arc_waypoints}
-      rotation_radius: ${planar.arc_rotation_radius}
-      hybrid_rotation_unit: ${planar.hybrid_rotation_unit}
+      rotation_distance_unit: ${planar.arc_rotation_distance}
       dt: ${planar.arc_dt}
     - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
       action_horizon: ${planar.arc_token_rows}
@@ -62,10 +61,6 @@ pipeline:
       action_horizon: ${planar.action_horizon}
       native_action_dim: 3
       dt: ${planar.arc_dt}
-      # Must be the tokenizer's radius: the token's speed is a rate in the
-      # SE(2) metric this lambda defines, so the polyline the decoder walks has
-      # to be measured the same way.
-      rotation_radius: ${planar.arc_rotation_radius}
 
 enable_grad_norm: false
 optimizer:

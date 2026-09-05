@@ -11,8 +11,7 @@ from egomimic.pipeline.pushshapes import (
 from egomimic.rldb.zarr.planar_arc import (
     PadPlanarAction,
     TokenizePlanarArcLength,
-    lambda_for_radius,
-    planar_step_distance,
+    TokenizeUSocketArcVelocity,
 )
 
 
@@ -29,96 +28,101 @@ def test_pad_planar_action_has_common_layout(width):
     np.testing.assert_allclose(output[:, 4], grip)
 
 
-def test_planar_arc_shape_anchor_and_timing():
+def test_planar_arc_has_two_streams_and_no_mean_speed_row():
     action = np.column_stack(
-        (
-            np.arange(6, dtype=np.float32),
-            np.zeros(6, dtype=np.float32),
-            np.linspace(0, math.pi / 2, 6, dtype=np.float32),
-            np.linspace(0, 1, 6, dtype=np.float32),
-        )
+        (np.arange(6, dtype=np.float64), np.zeros(6), np.linspace(0, 0.5, 6))
     )
-    transform = TokenizePlanarArcLength(
-        min_distance_unit=3,
+    token = TokenizeUSocketArcVelocity(
+        min_distance_unit=3, resampled_vector_length=4, dt=0.5
+    ).tokenize(action)
+    assert token.shape == (8, 5)
+    translation, rotation = token[:4], token[4:]
+    np.testing.assert_allclose(translation[:, 2:4], 0)
+    np.testing.assert_allclose(rotation[:, :2], 0)
+    np.testing.assert_allclose(translation[:, 4], 2.0)
+    np.testing.assert_allclose(rotation[:, 4], 0.2)
+    np.testing.assert_allclose(translation[0, :2], action[0, :2])
+    np.testing.assert_allclose(rotation[0, 2:4], [1, 0], atol=1e-8)
+
+
+def test_existing_robot_arc_token_schema_is_unchanged():
+    action = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.1]])
+    token = TokenizePlanarArcLength(resampled_vector_length=4).tokenize(action)
+    assert token.shape == (5, 5)
+
+
+def test_local_velocities_are_not_replaced_by_a_chunk_mean():
+    action = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.1], [4.0, 0.0, 0.4]])
+    token = TokenizeUSocketArcVelocity(
+        min_distance_unit=4,
+        rotation_distance_unit=0.4,
+        resampled_vector_length=3,
+        dt=1.0,
+    ).tokenize(action)
+    linear = token[:3, 4]
+    angular = token[3:, 4]
+    assert linear[0] != pytest.approx(linear[1])
+    assert angular[0] != pytest.approx(angular[1])
+
+
+def test_signed_angular_velocity_is_preserved():
+    action = np.array([[0.0, 0.0, 0.4], [0.0, 0.0, 0.2], [0.0, 0.0, -0.2]])
+    token = TokenizeUSocketArcVelocity(
+        min_distance_unit=1,
+        rotation_distance_unit=0.6,
         resampled_vector_length=4,
         dt=0.5,
-        rotation_radius=0,
-    )
-    token = transform.transform({"actions": action})["actions"]
-    assert token.shape == (5, 5)
-    np.testing.assert_allclose(token[0, :2], action[0, :2])
-    np.testing.assert_allclose(token[0, 2:4], [1, 0], atol=1e-6)
-    assert token[0, 4] == action[0, 3]
-    np.testing.assert_allclose(token[-1], [2, 0, 0, 0, 0], atol=1e-6)
+    ).tokenize(action)
+    assert np.all(token[4:, 4] < 0)
 
 
-def test_rotation_radius_adds_metric_distance():
-    xy = np.zeros((3, 2))
-    theta = np.array([0, math.pi / 2, math.pi])
-    assert planar_step_distance(xy).sum() == 0
-    weighted = planar_step_distance(xy, theta, lambda_for_radius(30))
-    assert np.all(weighted > 0)
-
-
-def test_hybrid_rotation_budget_caps_a_shared_cartesian_window():
-    """A small angular budget shortens the common arc window, not a stream."""
-    action = np.array(
-        [[0.0, 0.0, 0.0], [10.0, 0.0, math.pi], [20.0, 0.0, math.pi]]
-    )
-    token = TokenizePlanarArcLength(
+def test_translation_and_rotation_have_independent_budgets():
+    action = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.5], [20.0, 0.0, 1.0]])
+    token = TokenizeUSocketArcVelocity(
         min_distance_unit=20,
+        rotation_distance_unit=0.25,
         resampled_vector_length=3,
-        rotation_radius=0,
-        hybrid_rotation_unit=0.25,
-    ).transform({"actions": action})["actions"]
-
-    # The first pi rotation has unit chordal metric, so its 0.25 budget keeps
-    # only the first quarter of the 20-unit Cartesian future: x=5.
-    np.testing.assert_allclose(token[2, :2], [5.0, 0.0], atol=1e-6)
-
-
-def test_hybrid_rotation_budget_does_not_shorten_translation_only_motion():
-    action = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [20.0, 0.0, 0.0]])
-    legacy = TokenizePlanarArcLength(
-        min_distance_unit=12, resampled_vector_length=3
-    ).transform({"actions": action})["actions"]
-    hybrid = TokenizePlanarArcLength(
-        min_distance_unit=12,
-        resampled_vector_length=3,
-        hybrid_rotation_unit=0.25,
-    ).transform({"actions": action})["actions"]
-    np.testing.assert_allclose(hybrid, legacy)
+    ).tokenize(action)
+    np.testing.assert_allclose(token[2, :2], [20.0, 0.0])
+    assert math.atan2(token[5, 3], token[5, 2]) == pytest.approx(0.25)
 
 
 @pytest.mark.parametrize("budget", [0.0, -1.0, float("nan")])
-def test_hybrid_rotation_budget_must_be_positive_and_finite(budget):
-    with pytest.raises(ValueError, match="hybrid_rotation_unit"):
-        TokenizePlanarArcLength(hybrid_rotation_unit=budget)
+def test_rotation_budget_must_be_positive_and_finite(budget):
+    with pytest.raises(ValueError, match="rotation_distance_unit"):
+        TokenizeUSocketArcVelocity(rotation_distance_unit=budget)
 
 
-def test_zero_motion_holds_pose_and_grip():
-    action = np.repeat(np.array([[4.0, 7.0, 0.5, 0.75]]), 5, axis=0)
-    token = TokenizePlanarArcLength(resampled_vector_length=3).transform(
-        {"actions": action}
-    )["actions"]
+def test_zero_motion_holds_both_streams_and_zeroes_velocities():
+    action = np.repeat(np.array([[4.0, 7.0, 0.5]]), 5, axis=0)
+    token = TokenizeUSocketArcVelocity(resampled_vector_length=3).tokenize(action)
     np.testing.assert_allclose(token[:3, :2], [[4, 7]] * 3)
-    np.testing.assert_allclose(token[:3, 4], 0.75)
-    assert token[-1, 0] == 0
+    np.testing.assert_allclose(token[:, 4], 0)
+    np.testing.assert_allclose(token[3:, 2], math.cos(0.5))
+    np.testing.assert_allclose(token[3:, 3], math.sin(0.5))
 
 
-@pytest.mark.parametrize("native_dim", [2, 3, 4])
+@pytest.mark.parametrize("native_dim", [2, 3])
 def test_common_and_arc_adapters_decode_same_anchor(native_dim):
-    token = torch.tensor([[[2.0, 3.0, 0.0, 1.0, 0.4], [9.0, 8.0, 1.0, 0.0, 0.0]]])
-    dense = PlanarCommon5NativeDecoder(2, native_dim).decode(token)
-    arc_input = torch.cat((token, torch.zeros(1, 1, 5)), dim=1)
-    arc = PlanarArcWaypointZeroNativeDecoder(2, native_dim).decode(arc_input)
-    assert dense.shape == (1, 2, native_dim)
+    dense_token = torch.tensor(
+        [[[2.0, 3.0, 0.0, 1.0, 0.0], [9.0, 8.0, 1.0, 0.0, 0.0]]]
+    )
+    dense = PlanarCommon5NativeDecoder(2, native_dim).decode(dense_token)
+    arc_token = torch.zeros(1, 4, 5)
+    arc_token[:, 0, :2] = dense_token[:, 0, :2]
+    arc_token[:, 2, 2:4] = dense_token[:, 0, 2:4]
+    arc = PlanarArcWaypointZeroNativeDecoder(2, native_dim).decode(arc_token)
     torch.testing.assert_close(arc, dense[:, :1])
 
 
-def test_arc_rejects_nonfinite_or_short_input():
-    transform = TokenizePlanarArcLength()
+def test_arc_accepts_common_five_and_rejects_nonfinite_or_short_input():
+    transform = TokenizeUSocketArcVelocity()
+    native = np.array([[0.0, 0.0, 0.2], [1.0, 0.0, 0.3]])
+    common = PadPlanarAction().transform({"actions": native.copy()})["actions"]
+    np.testing.assert_allclose(transform.tokenize(native), transform.tokenize(common))
     with pytest.raises(ValueError):
         transform.transform({"actions": np.zeros((1, 3))})
     with pytest.raises(ValueError):
         transform.transform({"actions": np.array([[0, 0], [np.nan, 1]])})
+    with pytest.raises(ValueError, match="U-Socket"):
+        transform.transform({"actions": np.zeros((2, 4))})

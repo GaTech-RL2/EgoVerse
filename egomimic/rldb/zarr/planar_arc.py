@@ -87,20 +87,150 @@ class PadPlanarAction:
         return batch
 
 
-class TokenizePlanarArcLength:
-    """Encode a future native action chunk as M arc waypoints plus timing.
+class TokenizeUSocketArcVelocity:
+    """Encode U-Socket actions as independent translation and angle streams.
 
-    The final row has only its first field populated with mean arc speed. The
-    first waypoint is copied from timestep zero rather than recovered via an
-    arc lookup; this preserves stationary grip transitions exactly.
+    The token has ``2 * M`` rows of width five. Rows ``[:M]`` are
+    ``[x, y, 0, 0, v_xy]`` and rows ``[M:]`` are
+    ``[0, 0, cos(theta), sin(theta), omega]``. ``v_xy`` is the local
+    non-negative tangential speed of each translation interval and ``omega``
+    is the local *signed* angular velocity of each angle interval. There is no
+    chunk-level or mean velocity row.
 
-    ``hybrid_rotation_unit`` optionally adds the hybrid Cartesian/angular
-    window rule used by the arc sweep.  The regular SE(2) cumulative clock
-    still supplies interpolation positions.  A separate, unweighted angular
-    clock then limits the fraction of the available Cartesian window.  This
-    is intentionally a dataset-bound Planar transform: generic PipelineAlgo
-    stages do not need to know what an angle or an action represents.
+    Translation and rotation are sampled on their own cumulative arc clocks
+    and have independent distance budgets. Their local velocities recover the
+    elapsed-time parameterization when the streams are decoded.
     """
+
+    def __init__(
+        self,
+        action_key: str = "actions",
+        output_action_key: str = "actions",
+        min_distance_unit: float = 200.0,
+        resampled_vector_length: int = 100,
+        dt: float = 1.0 / 30.0,
+        rotation_distance_unit: float | None = None,
+        zero_dist_epsilon: float = 1e-9,
+    ):
+        if min_distance_unit <= 0 or dt <= 0:
+            raise ValueError("min_distance_unit and dt must be positive")
+        if resampled_vector_length < 2:
+            raise ValueError("resampled_vector_length must be at least two")
+        if rotation_distance_unit is not None and (
+            not math.isfinite(rotation_distance_unit) or rotation_distance_unit <= 0
+        ):
+            raise ValueError("rotation_distance_unit must be finite and positive")
+        self.action_key = str(action_key)
+        self.output_action_key = str(output_action_key)
+        self.distance = float(min_distance_unit)
+        self.num_waypoints = int(resampled_vector_length)
+        self.dt = float(dt)
+        self.rotation_distance = (
+            None
+            if rotation_distance_unit is None
+            else float(rotation_distance_unit)
+        )
+        self.zero_dist_epsilon = float(zero_dist_epsilon)
+
+    @staticmethod
+    def _components(actions: np.ndarray):
+        xy = actions[:, :2]
+        if actions.shape[1] == PLANAR_ACTION_DIM:
+            theta = np.unwrap(np.arctan2(actions[:, 3], actions[:, 2]))
+        elif actions.shape[1] == 3:
+            theta = np.unwrap(actions[:, 2])
+        else:
+            theta = np.zeros(len(actions))
+        return xy, theta
+
+    def _sample_stream(
+        self,
+        values: np.ndarray,
+        cumulative: np.ndarray,
+        end: float,
+        *,
+        signed_rate: bool,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Sample geometry and one local interval rate at each waypoint."""
+        if end <= self.zero_dist_epsilon:
+            points = np.repeat(values[:1], self.num_waypoints, axis=0)
+            return points, np.zeros(self.num_waypoints, dtype=np.float64)
+
+        targets = np.linspace(0.0, end, self.num_waypoints)
+        points = np.stack(
+            [_interpolate(values, cumulative, point) for point in targets]
+        )
+        points[0] = values[0]
+
+        # Recover the source time at every sampled arc position. Using the
+        # bracketing source frames (rather than end / total_time) retains local
+        # speed changes and also accounts for stationary frames before motion.
+        times = np.empty(self.num_waypoints, dtype=np.float64)
+        times[0] = 0.0
+        for index, target in enumerate(targets[1:], start=1):
+            source_index, alpha = _bracket_segment(cumulative, float(target))
+            times[index] = (source_index + alpha) * self.dt
+
+        delta_t = np.diff(times)
+        if signed_rate:
+            delta_geometry = np.diff(points[:, 0])
+        else:
+            delta_geometry = np.linalg.norm(np.diff(points, axis=0), axis=-1)
+        interval_rate = np.divide(
+            delta_geometry,
+            delta_t,
+            out=np.zeros_like(delta_geometry),
+            where=delta_t > self.zero_dist_epsilon,
+        )
+        rates = np.zeros(self.num_waypoints, dtype=np.float64)
+        rates[:-1] = interval_rate
+        rates[-1] = interval_rate[-1]
+        return points, rates
+
+    def tokenize(self, actions: np.ndarray) -> np.ndarray:
+        xy, theta = self._components(actions)
+        translation_arc = np.concatenate(
+            (np.zeros(1), np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=-1)))
+        )
+        angle_arc = np.concatenate((np.zeros(1), np.cumsum(np.abs(np.diff(theta)))))
+        translation_end = min(self.distance, float(translation_arc[-1]))
+        rotation_end = float(angle_arc[-1])
+        if self.rotation_distance is not None:
+            rotation_end = min(self.rotation_distance, rotation_end)
+
+        xy_waypoints, linear_speed = self._sample_stream(
+            xy, translation_arc, translation_end, signed_rate=False
+        )
+        theta_waypoints, angular_velocity = self._sample_stream(
+            theta[:, None], angle_arc, rotation_end, signed_rate=True
+        )
+
+        translation = np.zeros((self.num_waypoints, PLANAR_ACTION_DIM))
+        translation[:, :2] = xy_waypoints
+        translation[:, 4] = linear_speed
+        rotation = np.zeros((self.num_waypoints, PLANAR_ACTION_DIM))
+        rotation[:, 2] = np.cos(theta_waypoints[:, 0])
+        rotation[:, 3] = np.sin(theta_waypoints[:, 0])
+        rotation[:, 4] = angular_velocity
+        return np.concatenate((translation, rotation), axis=0)
+
+    def transform(self, batch: dict) -> dict:
+        value = np.asarray(batch[self.action_key])
+        if value.ndim != 2 or value.shape[1] not in (2, 3, PLANAR_ACTION_DIM):
+            raise ValueError(
+                "TokenizeUSocketArcVelocity expects U-Socket native (T, 2|3) or "
+                f"common-five (T, 5), got {value.shape}"
+            )
+        if len(value) < 2 or not np.isfinite(value).all():
+            raise ValueError("planar actions need at least two finite timesteps")
+        output = self.tokenize(value.astype(np.float64, copy=False))
+        dtype = value.dtype if np.issubdtype(value.dtype, np.floating) else np.float32
+        batch[self.output_action_key] = output.astype(dtype, copy=False)
+        return batch
+
+
+class TokenizePlanarArcLength:
+    """Legacy robot/Planar SE(2) tokenizer; its schema remains unchanged."""
 
     def __init__(
         self,
@@ -130,9 +260,7 @@ class TokenizePlanarArcLength:
         self.dt = float(dt)
         self.rotation_radius = float(rotation_radius)
         self.hybrid_rotation_unit = (
-            None
-            if hybrid_rotation_unit is None
-            else float(hybrid_rotation_unit)
+            None if hybrid_rotation_unit is None else float(hybrid_rotation_unit)
         )
         self.zero_dist_epsilon = float(zero_dist_epsilon)
 
@@ -148,36 +276,30 @@ class TokenizePlanarArcLength:
         return xy, theta, grip
 
     def _window_end(self, cumulative: np.ndarray, theta: np.ndarray) -> float:
-        """Return the cumulative-distance endpoint for this token window."""
         end = min(self.distance, float(cumulative[-1]))
         if self.hybrid_rotation_unit is None:
             return end
-
         rotation = np.concatenate(
-            (
-                np.zeros(1, dtype=np.float64),
-                np.cumsum(rotation_step_metric_planar(theta)),
-            )
+            (np.zeros(1), np.cumsum(rotation_step_metric_planar(theta)))
         )
-        translation_span = float(cumulative[-1])
-        rotation_span = float(rotation[-1])
         if (
-            translation_span > self.zero_dist_epsilon
-            and rotation_span > self.zero_dist_epsilon
+            cumulative[-1] > self.zero_dist_epsilon
+            and rotation[-1] > self.zero_dist_epsilon
         ):
-            rotation_fraction = min(
-                1.0, self.hybrid_rotation_unit / rotation_span
+            end = min(
+                end,
+                float(cumulative[-1])
+                * min(1.0, self.hybrid_rotation_unit / float(rotation[-1])),
             )
-            end = min(end, translation_span * rotation_fraction)
         return end
 
     def tokenize(self, actions: np.ndarray) -> np.ndarray:
         xy, theta, grip = self._components(actions)
-        weight = lambda_for_radius(self.rotation_radius)
-        steps = planar_step_distance(xy, theta, weight)
+        steps = planar_step_distance(
+            xy, theta, lambda_for_radius(self.rotation_radius)
+        )
         cumulative = np.concatenate((np.zeros(1), np.cumsum(steps)))
         end = self._window_end(cumulative, theta)
-
         if end <= self.zero_dist_epsilon:
             xy_waypoints = np.repeat(xy[:1], self.num_waypoints, axis=0)
             theta_waypoints = np.repeat(theta[0], self.num_waypoints)
@@ -195,11 +317,13 @@ class TokenizePlanarArcLength:
                 ]
             )
             grip_waypoints = np.array(
-                [_interpolate(grip[:, None], cumulative, point)[0] for point in targets]
+                [
+                    _interpolate(grip[:, None], cumulative, point)[0]
+                    for point in targets
+                ]
             )
             last_index = int(np.searchsorted(cumulative, end, side="left"))
             speed = end / (max(1, last_index) * self.dt)
-
         xy_waypoints[0] = xy[0]
         theta_waypoints[0] = theta[0]
         grip_waypoints[0] = grip[0]

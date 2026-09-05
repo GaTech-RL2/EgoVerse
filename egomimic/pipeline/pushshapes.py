@@ -60,7 +60,7 @@ class PlanarCommon5NativeDecoder:
 
 
 class PlanarArcWaypointZeroNativeDecoder:
-    """Decode the anchored first waypoint from a Planar arc token."""
+    """Decode the anchors of the independent XY and angle token streams."""
 
     preserves_decoded_timing = True
     action_horizon = 1
@@ -83,12 +83,18 @@ class PlanarArcWaypointZeroNativeDecoder:
             if not torch.is_tensor(actions) and np.asarray(actions).ndim == 2
             else value
         )
-        expected = (self.num_waypoints + 1, PLANAR_ACTION_DIM)
+        expected = (2 * self.num_waypoints, PLANAR_ACTION_DIM)
         if value.ndim != 3 or tuple(value.shape[1:]) != expected:
             raise ValueError(
                 f"expected (B, {expected[0]}, {expected[1]}), got {value.shape}"
             )
-        return _common5_to_native(value[:, :1], self.native_action_dim)
+        if torch.is_tensor(value):
+            anchor = torch.zeros_like(value[:, :1])
+        else:
+            anchor = np.zeros_like(value[:, :1])
+        anchor[..., :2] = value[:, :1, :2]
+        anchor[..., 2:4] = value[:, self.num_waypoints : self.num_waypoints + 1, 2:4]
+        return _common5_to_native(anchor, self.native_action_dim)
 
     __call__ = decode
 
