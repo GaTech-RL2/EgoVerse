@@ -16,8 +16,8 @@ from egomimic.utils.viz_utils import (
 
 
 class EMBODIMENT(Enum):
-    # All human demonstration data is one embodiment (HUMAN_*); the robot Eva is
-    # the only non-human embodiment. There is NO vendor/source notion at the
+    # All human demonstration data is one embodiment (HUMAN_*); the robots (Eva,
+    # YAM) are the non-human embodiments. There is NO vendor/source notion at the
     # embodiment level — the data source is recorded only in the SQL `lab` field.
     HUMAN_RIGHT_ARM = 1
     HUMAN_LEFT_ARM = 2
@@ -25,6 +25,10 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    # ABC-130k's two-arm YAM teleoperation station (see egomimic/scripts/abc_process).
+    # A parallel-jaw robot in a station-anchored world frame -- NOT egocentric human
+    # data, so it carries no obs_head_pose/obs_keypoints and no extrinsics.
+    YAM_BIMANUAL = 7
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

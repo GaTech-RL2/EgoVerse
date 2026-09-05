@@ -181,6 +181,73 @@ def get_fallback_idx(
     return random.choice(valid_candidates), attempts
 
 
+def _resize_images(arr: np.ndarray, target_hw: tuple[int, int]) -> np.ndarray:
+    """Resize decoded images to ``target_hw``, preserving layout and dtype.
+
+    Accepts a single frame or a window, in either channels-last (H, W, C) or
+    channels-first (C, H, W) layout -- the decoder emits channels-first floats,
+    so assuming HWC silently turns every sample into a decode failure.
+
+    The scaling is anamorphic on purpose: the axes scale independently so a
+    640x480 and a 640x360 capture can share a batch. Whatever happens here MUST
+    be mirrored on the intrinsics (``_scale_intrinsics``) or every projected
+    overlay is wrong by the same factor.
+    """
+    import cv2
+
+    th, tw = int(target_hw[0]), int(target_hw[1])
+
+    def _one(img: np.ndarray) -> np.ndarray:
+        chw = img.ndim == 3 and img.shape[0] in (1, 3) and img.shape[0] != img.shape[2]
+        hwc = np.transpose(img, (1, 2, 0)) if chw else img
+        if hwc.shape[0] == th and hwc.shape[1] == tw:
+            return img
+        src = hwc.astype(np.float32, copy=False)
+        out = cv2.resize(src, (tw, th), interpolation=cv2.INTER_AREA)
+        if out.ndim == 2:
+            out = out[:, :, None]
+        out = out.astype(img.dtype, copy=False)
+        return np.transpose(out, (2, 0, 1)) if chw else out
+
+    if arr.ndim == 3:
+        return _one(arr)
+    if arr.ndim == 4:
+        return np.stack([_one(f) for f in arr])
+    return arr
+
+
+def _image_hw_of(arr: np.ndarray) -> tuple[int, int] | None:
+    """(H, W) of a decoded frame or window, in either channel layout.
+
+    The decoder emits channels-first, so reading shape[0:2] blindly yields
+    (C, H) and scales the intrinsics by a garbage factor.
+    """
+    if arr.ndim == 3:
+        chw = arr.shape[0] in (1, 3) and arr.shape[0] != arr.shape[2]
+        return (arr.shape[1], arr.shape[2]) if chw else (arr.shape[0], arr.shape[1])
+    if arr.ndim == 4:
+        chw = arr.shape[1] in (1, 3) and arr.shape[1] != arr.shape[3]
+        return (arr.shape[2], arr.shape[3]) if chw else (arr.shape[1], arr.shape[2])
+    return None
+
+
+def _scale_intrinsics(K: np.ndarray, src_hw: tuple[int, int], dst_hw: tuple[int, int]) -> np.ndarray:
+    """Rescale a 3x4 K for an image resized from ``src_hw`` to ``dst_hw``.
+
+    Row 0 (fx, cx) scales with width, row 1 (fy, cy) with height. Scaling only
+    one axis is what produced the anamorphic K bug in backfill_abc_metadata.
+    """
+    sh, sw = src_hw
+    dh, dw = dst_hw
+    if not sh or not sw:
+        return K
+    out = np.array(K, dtype=np.float32, copy=True)
+    out[0] *= float(dw) / float(sw)
+    out[1] *= float(dh) / float(sh)
+    return out
+
+
+
 class EpisodeResolver:
     """
     Base class for episode resolution utilities.
@@ -194,10 +261,15 @@ class EpisodeResolver:
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        image_hw: tuple[int, int] | None = None,
     ):
         self.folder_path = Path(folder_path)
         self.key_map = key_map
         self.transform_list = transform_list
+        # Common (H, W) every episode's images are resized to, with intrinsics
+        # rescaled to match. Needed because a batch cannot mix image sizes and
+        # these datasets do (640x480 / 640x360 / 1280x720 / 848x480).
+        self.image_hw = tuple(image_hw) if image_hw else None
 
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
@@ -230,6 +302,7 @@ class EpisodeResolver:
                     p,
                     key_map=self.key_map,
                     transform_list=self.transform_list,
+                    image_hw=self.image_hw,
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -259,6 +332,7 @@ class S3EpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
+        image_hw: tuple[int, int] | None = None,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
@@ -267,6 +341,7 @@ class S3EpisodeResolver(EpisodeResolver):
             folder_path,
             key_map=key_map,
             transform_list=transform_list,
+            image_hw=image_hw,
         )
 
     def resolve(
@@ -618,8 +693,9 @@ class LocalEpisodeResolver(EpisodeResolver):
         key_map: dict | None = None,
         transform_list: list | None = None,
         debug=False,
+        image_hw: tuple[int, int] | None = None,
     ):
-        super().__init__(folder_path, key_map, transform_list)
+        super().__init__(folder_path, key_map, transform_list, image_hw=image_hw)
         self.debug = debug
 
     @staticmethod
@@ -1529,6 +1605,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         Episode_path: Path,
         key_map: dict,
         transform_list: list | None = None,
+        image_hw: tuple[int, int] | None = None,
     ):
         """
         Args:
@@ -1545,6 +1622,10 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         self.key_map = key_map
         self.transform = transform_list
+        self.image_hw = tuple(image_hw) if image_hw else None
+        # (H, W) of this episode's front camera BEFORE any resize, captured at
+        # decode time so the intrinsics can be rescaled by the same factors.
+        self._src_front_hw = None
         super().__init__()
 
     def init_episode(self):
@@ -1716,6 +1797,13 @@ class ZarrDataset(torch.utils.data.Dataset):
                         idx = _next("JPEG decode failed", key=k)
                         retry = True
                         break
+                    if self.image_hw is not None:
+                        # Remember the FRONT camera's native size: the
+                        # per-episode K describes that image, so it is what the
+                        # intrinsics rescale below must be based on.
+                        if "front" in str(zarr_key):
+                            self._src_front_hw = _image_hw_of(decoded)
+                        decoded = _resize_images(decoded, self.image_hw)
                     data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
                 elif zarr_key in self._json_keys:
                     if isinstance(data[k], np.ndarray):
@@ -1755,6 +1843,10 @@ class ZarrDataset(torch.utils.data.Dataset):
                     K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
                 if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
                     K = np.full((3, 4), np.nan, dtype=np.float32)
+                elif self.image_hw is not None and self._src_front_hw is not None:
+                    # Images were resized above; K describes the pre-resize
+                    # front image, so scale it by the same per-axis factors.
+                    K = _scale_intrinsics(K, self._src_front_hw, self.image_hw)
             else:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))

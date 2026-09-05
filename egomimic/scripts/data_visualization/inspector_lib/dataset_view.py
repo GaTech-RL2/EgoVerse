@@ -70,6 +70,7 @@ try:
     from egomimic.rldb.embodiment.embodiment import Embodiment
     from egomimic.rldb.embodiment.eva import Eva
     from egomimic.rldb.embodiment.human import Human
+    from egomimic.rldb.embodiment.yam import Yam
 
     # Mirror `egomimic/scripts/viz_language.py`'s `_EMBODIMENT_CLASSES` so the
     # browser resolves the same class for an episode's `embodiment` attr.
@@ -80,11 +81,13 @@ try:
         "human_bimanual": Human,
         "human_right_arm": Human,
         "human_left_arm": Human,
+        "yam_bimanual": Yam,
     }
 except Exception as _e:  # pragma: no cover - optional heavy dep
     Embodiment = None
     Eva = None
     Human = None
+    Yam = None
     _EMBODIMENT_CLASSES = {}
     logger.warning("Embodiment classes unavailable, overlays disabled: %s", _e)
 
