@@ -116,3 +116,70 @@ def pose_action(agent_xy, object_pose, goal_pose, world_size,
         return np.clip(stage, 0.0, world_size)
 
     return np.clip(target, 0.0, world_size)
+
+
+R_ESCAPE = 165.0       # how far out to retreat when jammed
+STUCK_STEPS = 80       # steps of OBJECT stasis that count as jammed. Watch the
+                       # object, not the pusher: when wedged the pusher keeps
+                       # oscillating between orbit and approach (|p-c| swinging
+                       # 122-129) while the object's pose never changes at all,
+                       # so a pusher-motion detector never fires.
+RECOVER_STEPS = 30     # how long to hold the retreat before re-approaching
+
+
+class PosePushController:
+    """Stateful wrapper adding jam detection and recovery.
+
+    pose_action is a pure function of the current state, which makes it unable
+    to notice the dominant failure: the pusher is SOLID, so while approaching or
+    orbiting it can wedge against the object and stop moving. Traced over four
+    episodes, three had the object's position error frozen at its initial value
+    for all 900 steps (277.9 -> 277.9, 121.3 -> 121.3, 343.2 -> 343.2) and the
+    fourth progressed to 46.6 then froze. A stateless controller re-issues the
+    same blocked command forever.
+
+    Detect it by the pusher not moving, retreat radially clear of the object,
+    and flip the orbit direction so the retry approaches from the other side
+    instead of re-wedging in the same place.
+    """
+
+    def __init__(self, world_size: float):
+        self.world_size = float(world_size)
+        self._prev_o = None
+        self._stuck = 0
+        self._recover = 0
+        self._escape_dir = None
+
+    def reset(self):
+        self._prev_o = None
+        self._stuck = 0
+        self._recover = 0
+        self._escape_dir = None
+
+    def __call__(self, agent_xy, object_pose, goal_pose, **kw):
+        p = np.asarray(agent_xy, dtype=np.float64)
+        c = np.asarray(object_pose[:2], dtype=np.float64)
+        obj = np.array([c[0], c[1], float(object_pose[2])])
+
+        if self._prev_o is not None:
+            moved = float(np.linalg.norm(obj[:2] - self._prev_o[:2])) \
+                + 40.0 * abs(_wrap(obj[2] - self._prev_o[2]))
+            self._stuck = self._stuck + 1 if moved < 0.25 else 0
+        self._prev_o = obj
+
+        if self._recover > 0:
+            self._recover -= 1
+            return np.clip(c + self._escape_dir * R_ESCAPE, 0.0, self.world_size)
+
+        if self._stuck >= STUCK_STEPS:
+            self._stuck = 0
+            self._recover = RECOVER_STEPS
+            # Retreat 90 degrees around from where we are, so the retry
+            # approaches from a different side instead of re-wedging in the
+            # same place.
+            r = p - c
+            a = float(np.arctan2(r[1], r[0])) + np.pi / 2.0
+            self._escape_dir = np.array([np.cos(a), np.sin(a)])
+            return np.clip(c + self._escape_dir * R_ESCAPE, 0.0, self.world_size)
+
+        return pose_action(agent_xy, object_pose, goal_pose, self.world_size, **kw)
