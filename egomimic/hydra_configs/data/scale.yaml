@@ -12,7 +12,9 @@ train_datasets:
         has_head_pose: false
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
         stride: 1
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter

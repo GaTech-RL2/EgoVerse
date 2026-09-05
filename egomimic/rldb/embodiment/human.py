@@ -8,17 +8,15 @@ import numpy as np
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
-    BatchQuaternionPoseToYPR,
     ConcatKeys,
     DeleteKeys,
     InterpolatePose,
     PadGripperZeros,
     PoseCoordinateFrameTransform,
-    QuaternionPoseToYPR,
     Reshape,
     SplitKeys,
     Transform,
-    XYZWXYZ_to_XYZYPR,
+    transforms_for_rotation_mode,
 )
 from egomimic.utils.viz_utils import (
     ColorPalette,
@@ -98,7 +96,7 @@ class Human(Embodiment):
     by the data config, because get_keymap / get_transform_list resolve at hydra
     config time (before any episode is read):
       - get_keymap(keymap_mode, has_head_pose=True, include_aria_keypoints=False)
-      - get_transform_list(mode, stride=3)
+      - get_transform_list(action_mode, coord_frame, rotation_mode, stride=3)
     Per-episode camera intrinsics travel in ``batch["intrinsics"]`` (from
     zarr.json); ``cls.INTRINSICS`` is only a fallback for legacy episodes that
     lack them. The canonical keypoints are MANO for every vendor.
@@ -325,45 +323,74 @@ class Human(Embodiment):
     @classmethod
     def get_transform_list(
         cls,
-        mode: Literal[
+        action_mode: Literal[
             "cartesian",
-            "cartesian_padded",
-            "cartesian_wristframe_ypr",
-            "keypoints_headframe_ypr",
-            "keypoints_headframe_quat",
-            "keypoints_wristframe_ypr",
-            "keypoints_wristframe_quat",
-        ],
+            "cartesian_gripper_padded",
+            "keypoints",
+        ] = "cartesian",
+        coord_frame: Literal[
+            "camframe",
+            "eef_frame",
+        ] = "camframe",
+        rotation_mode: Literal[
+            "euler",
+            "quat",
+            "6D",
+        ] = "euler",
         stride: int = 3,
     ) -> list[Transform]:
-        """Transform pipeline. ``stride`` is the per-vendor action stride
-        (Aria/LightWheel=3, Scale/Mecka=1), supplied by the data config.
+        """``action_mode`` is the action layout; ``coord_frame`` is where poses
+        live; ``rotation_mode`` is how rotation is stored.
+
+        ``stride`` is the per-vendor action stride (Aria/LightWheel=3,
+        Scale/Mecka=1), supplied by the data config.
+
+        Human cartesian has no gripper. ``cartesian_gripper_padded`` inserts a
+        zero gripper per arm so the layout matches Eva/Yam (14D euler, 16D quat,
+        20D Zhou 6D).
         """
-        if mode == "cartesian":
-            return _build_human_cartesian_bimanual_transform_list(stride=stride)
-        if mode == "cartesian_padded":
-            return _build_human_cartesian_bimanual_transform_list(
-                stride=stride
-            ) + [PadGripperZeros(action_key="actions_cartesian")]
-        if mode == "cartesian_wristframe_ypr":
-            return _build_human_cartesian_eef_frame_transform_list(stride=stride)
-        if mode == "keypoints_headframe_ypr":
-            return _build_human_keypoints_bimanual_transform_list(
-                stride=stride, is_quat=False
+        if action_mode in ("cartesian", "cartesian_gripper_padded"):
+            builders = {
+                "camframe": _build_human_cartesian_bimanual_transform_list,
+                "eef_frame": _build_human_cartesian_eef_frame_transform_list,
+            }
+        elif action_mode == "keypoints":
+            builders = {
+                "camframe": _build_human_keypoints_bimanual_transform_list,
+                "eef_frame": _build_human_keypoints_eef_frame_transform_list,
+            }
+        else:
+            raise ValueError(
+                f"Unsupported action_mode '{action_mode}' for {cls.__name__}"
             )
-        if mode == "keypoints_headframe_quat":
-            return _build_human_keypoints_bimanual_transform_list(
-                stride=stride, is_quat=True
+        if coord_frame not in builders:
+            raise ValueError(
+                f"Unsupported coord_frame '{coord_frame}' for {cls.__name__} "
+                f"action_mode '{action_mode}'"
             )
-        if mode == "keypoints_wristframe_ypr":
-            return _build_human_keypoints_eef_frame_transform_list(
-                stride=stride, is_quat=False
+        transform_list = builders[coord_frame](
+            stride=stride, rotation_mode=rotation_mode
+        )
+        if action_mode == "cartesian_gripper_padded":
+            return _pad_human_cartesian_gripper(
+                transform_list, rotation_mode=rotation_mode
             )
-        if mode == "keypoints_wristframe_quat":
-            return _build_human_keypoints_eef_frame_transform_list(
-                stride=stride, is_quat=True
-            )
-        raise ValueError(f"Unsupported transform_list mode '{mode}' for {cls.__name__}")
+        return transform_list
+
+
+def _pad_human_cartesian_gripper(
+    transform_list: list[Transform],
+    *,
+    rotation_mode: Literal["euler", "quat", "6D"],
+    actions_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Append zero-gripper slots so human cartesian matches Eva/Yam layout."""
+    pose_dim = {"euler": 6, "quat": 7, "6D": 9}[rotation_mode]
+    return transform_list + [
+        PadGripperZeros(action_key=actions_key, pose_dim=pose_dim),
+        PadGripperZeros(action_key=obs_key, pose_dim=pose_dim),
+    ]
 
 
 # this works for quat and ypr since actionChunkCoordinateFrameTransform works for both
@@ -484,7 +511,7 @@ def _build_human_keypoints_eef_frame_transform_list(
     delete_target_world: bool = True,
     chunk_length: int = 100,
     stride: int = 3,
-    is_quat: bool = True,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
 ) -> list[Transform]:
     transform_list = _build_human_keypoints_bimanual_transform_list(
         target_world=target_world,
@@ -494,7 +521,7 @@ def _build_human_keypoints_eef_frame_transform_list(
         chunk_length=chunk_length,
         stride=stride,
         concat_keys=False,
-        is_quat=True,
+        rotation_mode="quat",
     )
     delete_keys = [
         left_keypoints_action_world,
@@ -596,27 +623,17 @@ def _build_human_keypoints_eef_frame_transform_list(
             ),
         ]
     )
-    if not is_quat:
-        transform_list.extend(
-            [
-                BatchQuaternionPoseToYPR(
-                    pose_key=left_wrist_action_wristframe,
-                    output_key=left_wrist_action_wristframe,
-                ),
-                BatchQuaternionPoseToYPR(
-                    pose_key=right_wrist_action_wristframe,
-                    output_key=right_wrist_action_wristframe,
-                ),
-                QuaternionPoseToYPR(
-                    pose_key=left_wrist_obs_headframe,
-                    output_key=left_wrist_obs_headframe,
-                ),
-                QuaternionPoseToYPR(
-                    pose_key=right_wrist_obs_headframe,
-                    output_key=right_wrist_obs_headframe,
-                ),
-            ]
+    transform_list.extend(
+        transforms_for_rotation_mode(
+            keys=[
+                left_wrist_action_wristframe,
+                right_wrist_action_wristframe,
+                left_wrist_obs_headframe,
+                right_wrist_obs_headframe,
+            ],
+            rotation_mode=rotation_mode,
         )
+    )
     transform_list.extend(
         [
             ConcatKeys(
@@ -670,7 +687,7 @@ def _build_human_keypoints_bimanual_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     concat_keys: bool = True,
-    is_quat: bool = True,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
 ) -> list[Transform]:
     keys_to_delete = list(
         {
@@ -814,28 +831,18 @@ def _build_human_keypoints_bimanual_transform_list(
             mode="xyzwxyz",
         ),
     ]
-    if not is_quat:
-        transform_list.extend(
-            [
-                BatchQuaternionPoseToYPR(
-                    pose_key=left_wrist_action_headframe,
-                    output_key=left_wrist_action_headframe,
-                ),
-                BatchQuaternionPoseToYPR(
-                    pose_key=right_wrist_action_headframe,
-                    output_key=right_wrist_action_headframe,
-                ),
-                QuaternionPoseToYPR(
-                    pose_key=left_wrist_obs_headframe,
-                    output_key=left_wrist_obs_headframe,
-                ),
-                QuaternionPoseToYPR(
-                    pose_key=right_wrist_obs_headframe,
-                    output_key=right_wrist_obs_headframe,
-                ),
-            ]
-        )
     if concat_keys:
+        transform_list.extend(
+            transforms_for_rotation_mode(
+                keys=[
+                    left_wrist_action_headframe,
+                    right_wrist_action_headframe,
+                    left_wrist_obs_headframe,
+                    right_wrist_obs_headframe,
+                ],
+                rotation_mode=rotation_mode,
+            )
+        )
         transform_list.extend(
             [
                 ConcatKeys(
@@ -943,14 +950,15 @@ def _build_human_cartesian_eef_frame_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     delete_target_world: bool = True,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
 ) -> list[Transform]:
     """ARIA bimanual cartesian pipeline expressed in the current wrist frame.
 
     Action ee-pose chunks are first transformed world → headframe (via
     ``obs_head_pose``), then headframe → wristframe (via the proprio
     ``*.obs_ee_pose_headframe`` for each side). Proprio ee-poses remain in
-    headframe (wristframe of the wrist itself is identity). All retained poses
-    are converted to xyz-ypr.
+    headframe (wristframe of the wrist itself is identity). Rotation is
+    converted per ``rotation_mode``.
     """
     keys_to_delete = list(
         {
@@ -1018,26 +1026,33 @@ def _build_human_cartesian_eef_frame_transform_list(
             transformed_key_name=right_action_wristframe,
             mode="xyzwxyz",
         ),
-        XYZWXYZ_to_XYZYPR(
+    ]
+    transform_list.extend(
+        transforms_for_rotation_mode(
             keys=[
                 left_action_wristframe,
                 right_action_wristframe,
                 left_obs_headframe,
                 right_obs_headframe,
-            ]
-        ),
-        ConcatKeys(
-            key_list=[left_action_wristframe, right_action_wristframe],
-            new_key_name=actions_key,
-            delete_old_keys=True,
-        ),
-        ConcatKeys(
-            key_list=[left_obs_headframe, right_obs_headframe],
-            new_key_name=obs_key,
-            delete_old_keys=True,
-        ),
-        DeleteKeys(keys_to_delete=keys_to_delete),
-    ]
+            ],
+            rotation_mode=rotation_mode,
+        )
+    )
+    transform_list.extend(
+        [
+            ConcatKeys(
+                key_list=[left_action_wristframe, right_action_wristframe],
+                new_key_name=actions_key,
+                delete_old_keys=True,
+            ),
+            ConcatKeys(
+                key_list=[left_obs_headframe, right_obs_headframe],
+                new_key_name=obs_key,
+                delete_old_keys=True,
+            ),
+            DeleteKeys(keys_to_delete=keys_to_delete),
+        ]
+    )
     return transform_list
 
 
@@ -1059,6 +1074,7 @@ def _build_human_cartesian_bimanual_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     delete_target_world: bool = True,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
 ) -> list[Transform]:
     """Canonical ARIA bimanual transform pipeline used by tests and notebooks.
 
@@ -1121,17 +1137,17 @@ def _build_human_cartesian_bimanual_transform_list(
         ),
     ]
 
-    if target_world_is_quat:
-        transform_list.append(
-            XYZWXYZ_to_XYZYPR(
-                keys=[
-                    left_action_headframe,
-                    right_action_headframe,
-                    left_obs_headframe,
-                    right_obs_headframe,
-                ]
-            )
+    transform_list.extend(
+        transforms_for_rotation_mode(
+            keys=[
+                left_action_headframe,
+                right_action_headframe,
+                left_obs_headframe,
+                right_obs_headframe,
+            ],
+            rotation_mode=rotation_mode,
         )
+    )
 
     transform_list.extend(
         [

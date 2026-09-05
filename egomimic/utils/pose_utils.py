@@ -171,6 +171,45 @@ def _xyzwxyz_to_matrix(xyzwxyz: np.ndarray) -> np.ndarray:
     return mats
 
 
+def _matrix_to_xyzrot6d(mats: np.ndarray) -> np.ndarray:
+    """SE3 matrices -> xyz + Zhou 6D rotation (first two columns of R).
+
+    Dropping the last column of the 3x3 leaves two 3-vectors, stacked
+    column-major as ``[r00, r10, r20, r01, r11, r21]``.
+    """
+    if mats.ndim != 3 or mats.shape[-2:] != (4, 4):
+        raise ValueError(f"Expected (B, 4, 4) array, got shape {mats.shape}")
+    mats = np.asarray(mats)
+    dtype = mats.dtype if np.issubdtype(mats.dtype, np.floating) else np.float64
+    xyz = mats[:, :3, 3]
+    # First two columns, each 3D, concatenated — not a C-order reshape of (3, 2),
+    # which would interleave row-wise.
+    rot6d = np.concatenate([mats[:, :3, 0], mats[:, :3, 1]], axis=-1)
+    return np.concatenate([xyz, rot6d], axis=-1).astype(dtype, copy=False)
+
+
+def _xyzrot6d_to_matrix(xyzrot6d: np.ndarray) -> np.ndarray:
+    """Inverse of ``_matrix_to_xyzrot6d``: Gram-Schmidt the two columns, third = cross."""
+    if xyzrot6d.ndim != 2 or xyzrot6d.shape[-1] != 9:
+        raise ValueError(f"Expected (B, 9) array, got shape {xyzrot6d.shape}")
+    B = xyzrot6d.shape[0]
+    dtype = xyzrot6d.dtype if np.issubdtype(xyzrot6d.dtype, np.floating) else np.float64
+    a1 = xyzrot6d[:, 3:6]
+    a2 = xyzrot6d[:, 6:9]
+    n1 = np.linalg.norm(a1, axis=-1, keepdims=True)
+    b1 = a1 / np.clip(n1, 1e-12, None)
+    a2_proj = a2 - np.sum(b1 * a2, axis=-1, keepdims=True) * b1
+    n2 = np.linalg.norm(a2_proj, axis=-1, keepdims=True)
+    b2 = a2_proj / np.clip(n2, 1e-12, None)
+    b3 = np.cross(b1, b2)
+    mats = np.broadcast_to(np.eye(4, dtype=dtype), (B, 4, 4)).copy()
+    mats[:, :3, 0] = b1
+    mats[:, :3, 1] = b2
+    mats[:, :3, 2] = b3
+    mats[:, :3, 3] = xyzrot6d[:, :3]
+    return mats
+
+
 def T_rot_orientation(T: np.ndarray, rot_orientation: np.ndarray) -> np.ndarray:
     """
     Permute the rotation matrix of a SE(3) transformation.

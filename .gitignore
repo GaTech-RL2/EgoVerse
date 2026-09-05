@@ -49,3 +49,14 @@ scratch/
 sample_data/
 external_ckpts/
 external/MANO/
+
+# Run artifacts. These land in the repo root because that is the working dir
+# slurm jobs are submitted from; none of it belongs in git. wandb/ especially:
+# it is where every run's local state accumulates, so an unguarded `git add -A`
+# would sweep hundreds of MB of run data into a commit.
+wandb/
+nohup_*/
+norm_stats_cache/
+slurm-*.out
+ss/
+/*.png
