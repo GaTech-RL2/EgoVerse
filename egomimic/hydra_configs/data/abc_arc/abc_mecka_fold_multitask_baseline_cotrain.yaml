@@ -27,6 +27,10 @@ train_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: cartesian
+        # Equalize the RAW window with yam (45). Human defaults to 30, which
+        # would make a human baseline chunk 1.0 s against yam's 1.5 s while
+        # both still emit (100, 14) -- nothing in the shapes reveals it.
+        action_horizon: 45
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         action_mode: cartesian_gripper_padded
@@ -140,6 +144,10 @@ valid_datasets:
         key_map:
           _target_: egomimic.rldb.embodiment.human.Human.get_keymap
           keymap_mode: cartesian
+          # Equalize the RAW window with yam (45). Human defaults to 30, which
+          # would make a human baseline chunk 1.0 s against yam's 1.5 s while
+          # both still emit (100, 14) -- nothing in the shapes reveals it.
+          action_horizon: 45
         transform_list:
           _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
           action_mode: cartesian_gripper_padded
@@ -199,6 +207,10 @@ valid_datasets:
         key_map:
           _target_: egomimic.rldb.embodiment.human.Human.get_keymap
           keymap_mode: cartesian
+          # Equalize the RAW window with yam (45). Human defaults to 30, which
+          # would make a human baseline chunk 1.0 s against yam's 1.5 s while
+          # both still emit (100, 14) -- nothing in the shapes reveals it.
+          action_horizon: 45
         transform_list:
           _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
           action_mode: cartesian_gripper_padded

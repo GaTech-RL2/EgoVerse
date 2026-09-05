@@ -361,10 +361,15 @@ class HPTEvalVideo(EvalVideo):
             preds_for_viz = preds
             if transform_list is not None and main_pred_key in preds:
                 # Detokenize BEFORE the revert -- see _viz_source.
+                _rows = self._viz_rows_for(embodiment_name)
                 gt_batch = dict(_batch)
-                gt_batch[ac_key] = self._viz_source(_batch[ac_key])
+                gt_batch[ac_key] = self._resample_rows(
+                    self._viz_source(_batch[ac_key]), _rows
+                )
                 pred_batch = copy.deepcopy(_batch)
-                pred_batch[ac_key] = self._viz_source(preds[main_pred_key])
+                pred_batch[ac_key] = self._resample_rows(
+                    self._viz_source(preds[main_pred_key]), _rows
+                )
                 gt_t = Embodiment.apply_transform(gt_batch, transform_list)
                 pred_t = Embodiment.apply_transform(pred_batch, transform_list)
                 # apply_transform drops keys whose shape[0] != batch_size
@@ -394,6 +399,34 @@ class HPTEvalVideo(EvalVideo):
             metrics["Valid/action_loss"] = total_loss / n_loss_embodiments
 
         return metrics, images_dict
+
+    def _viz_rows_for(self, embodiment_name):
+        """How many rows the overlay should draw for this embodiment, or None.
+
+        A baseline chunk is INTERPOLATED UP: 45 raw frames (yam) or 30 (human)
+        become 100 rows, so 55-70 of the drawn dots are interpolation, not
+        control setpoints. Setting this to the raw window makes the overlay show
+        what the controller actually receives.
+        """
+        v = getattr(self, "viz_chunk_rows", None)
+        if isinstance(v, dict):
+            v = v.get(embodiment_name)
+        return int(v) if v else None
+
+    @staticmethod
+    def _resample_rows(tensor, rows):
+        """Uniformly resample a (B, T, D) chunk to `rows` rows along time."""
+        if (
+            tensor is None
+            or rows is None
+            or tensor.ndim != 3
+            or tensor.shape[1] == rows
+        ):
+            return tensor
+        idx = torch.linspace(0, tensor.shape[1] - 1, rows, device=tensor.device)
+        lo, hi = idx.floor().long(), idx.ceil().long()
+        w = (idx - lo.float()).view(1, -1, 1)
+        return tensor[:, lo] * (1 - w) + tensor[:, hi] * w
 
     def _viz_source(self, tensor):
         """The action chunk to hand the VIZ path, before any frame revert.
