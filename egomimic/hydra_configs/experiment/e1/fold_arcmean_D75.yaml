@@ -1,0 +1,16 @@
+# @package _global_
+# Arc-mean row at D_match: Step 0 found the Time row's 100-step horizon covers a
+# median 0.756 m of wrist travel (1.9 × D), above the protocol's 25 % trigger,
+# so an arc row whose token spans the same distance is owed after the
+# canonical 18. Same model (M = 100, 101 × 14), only the token span changes;
+# H_match stays the Step 0 value. Runs are keyed as <variant>_<spread>_s<seed>
+# by the launcher, so pass VARIANT=arcmean_D75.
+defaults:
+  - /experiment/e1/fold_base
+  - override /model: hpt_cotrain_mecka_flow_shared_head_arc_D40_M100
+  - _self_
+e1:
+  variant: arcmean
+  chunk_length: 200
+  D: 0.75
+name: e1_fold_arcmean_D75
