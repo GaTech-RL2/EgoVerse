@@ -1024,9 +1024,18 @@ class TokenizeBimanualArcLengthCartesian:
         resampled_vector_length: int = 20,
         dt: float = 1.0 / 30.0,
         zero_dist_epsilon: float = 1e-6,
+        preserve_action_key: str | None = None,
     ):
         self.action_key = action_key
         self.output_action_key = output_action_key
+        # Tokenizing overwrites ``output_action_key`` in place, which destroys
+        # the time-indexed chunk it was built from. Validation needs that chunk
+        # back: every cross-run metric is anchored on "the ground truth under
+        # normal action-chunk sampling", and detokenizing the token to recover
+        # it would be circular (the reconstruction spans D by construction, so
+        # its travelled distance carries no information). Set this to keep an
+        # untouched copy alongside the token.
+        self.preserve_action_key = preserve_action_key
         # MEAN_PER_DIM velocity mode: we consume the per-axis xyz velocity
         # directly. ypr and gripper velocities are computed here (the base
         # tokenizer doesn't track ypr/gripper velocity).
@@ -1045,9 +1054,10 @@ class TokenizeBimanualArcLengthCartesian:
         return self.tokenizer.M
 
     def transform(self, batch: dict) -> dict:
-        arc = self.tokenizer.tokenize(
-            np.asarray(batch[self.action_key], dtype=np.float64)
-        )
+        raw = np.asarray(batch[self.action_key], dtype=np.float64)
+        if self.preserve_action_key is not None:
+            batch[self.preserve_action_key] = raw.copy()
+        arc = self.tokenizer.tokenize(raw)
         # Per-arm block emitted by BimanualArcLengthTokenizer (MEAN_PER_DIM):
         #   [xyz(3), ypr(3), grip(1), vel_xyz(3)] = 10 dims.
         # Bimanual concat: 20 dims total.
