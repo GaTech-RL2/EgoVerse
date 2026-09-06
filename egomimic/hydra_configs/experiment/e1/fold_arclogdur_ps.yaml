@@ -1,0 +1,18 @@
+# @package _global_
+# Tempo ablation A2 (#1 + #2 + #3 + #4): the logdur row plus progress-weighted
+# training anchors (alpha = 0.2 mixed measure) and arc length accumulated on
+# 3 Hz low-passed positions. Launch with VARIANT=arclogdur_ps.
+defaults:
+  - /experiment/e1/fold_base
+  - override /model: hpt_cotrain_mecka_flow_shared_head_arcvel_D40_M100
+  - _self_
+e1:
+  variant: arclogdur
+  chunk_length: 200
+  progress_smooth_hz: 3.0
+  anchor_sampler:
+    alpha: 0.2
+    fc_hz: 3.0
+    fs_hz: 30.0
+    seed: ${seed}
+name: e1_fold_arclogdur_ps

@@ -9,13 +9,14 @@ import numpy as np
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 
-WT, variant, root = sys.argv[1], sys.argv[2], sys.argv[3]
+WT, exp, root = sys.argv[1], sys.argv[2], sys.argv[3]  # exp = experiment suffix (arcvel, arclogdur_ps, ...)
 with initialize_config_dir(config_dir=f"{WT}/egomimic/hydra_configs", version_base=None):
     cfg = compose(
         config_name="train_zarr_cartesian",
-        overrides=[f"+experiment=e1/fold_{variant}", "e1.spread=smoke", f"e1.train_root={root}",
+        overrides=[f"+experiment=e1/fold_{exp}", "e1.spread=smoke", f"e1.train_root={root}",
                    f"e1.valid_root={root}", "e1.h_match_frames=40", "seed=0"],
     )
+variant = str(cfg.e1.variant)
 t0 = time.time()
 ds = instantiate(cfg.data.train_datasets.human_bimanual)
 print(f"[{variant}] dataset built in {time.time()-t0:.1f}s: {len(ds)} samples, leaves={len(ds.datasets)}")
@@ -24,8 +25,17 @@ from egomimic.rldb.zarr.arc_length_tokenizer import cumulative_arc_length
 
 detok = None
 if variant != "time":
+    from egomimic.rldb.embodiment.e1_fold import VELOCITY_MODES
     detok = TokenizeBimanualArcLengthE1(min_distance_unit=0.40, resampled_vector_length=100, dt=1/30,
-                                        velocity_norm="path", velocity_mode="mean" if variant == "arcmean" else "profile")
+                                        velocity_norm="path", velocity_mode=VELOCITY_MODES[variant],
+                                        progress_smooth_hz=cfg.e1.progress_smooth_hz)
+    # #3: exercise the anchor sampler the way the datamodule will
+    if cfg.e1.get("anchor_sampler"):
+        from omegaconf import OmegaConf
+        from egomimic.rldb.zarr.e1_anchor_sampler import build_anchor_sampler
+        smp = build_anchor_sampler(ds, **OmegaConf.to_container(cfg.e1.anchor_sampler, resolve=True))
+        draws = np.array(list(iter(smp))[:20000])
+        print(f"  anchor sampler: {len(smp)} draws/epoch, first 20k draws hit {len(np.unique(draws))} distinct anchors")
 errs, clocks = [], []
 for idx in np.linspace(0, len(ds) - 1, 12).astype(int):
     t0 = time.time()

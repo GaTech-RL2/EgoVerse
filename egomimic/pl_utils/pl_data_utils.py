@@ -200,6 +200,24 @@ class MultiDataModuleWrapper(LightningDataModule):
                 raise ValueError(
                     f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config train_dataloader_params."
                 )
+            dataset_params = dict(dataset_params)
+            # E1 tempo ablation (#3): an optional progress-weighted anchor sampler
+            # replaces the uniform shuffle for this dataset only.
+            sampler_cfg = dataset_params.pop("anchor_sampler", None)
+            if sampler_cfg:
+                from omegaconf import OmegaConf
+                from egomimic.rldb.zarr.e1_anchor_sampler import build_anchor_sampler
+
+                if OmegaConf.is_config(sampler_cfg):
+                    sampler_cfg = OmegaConf.to_container(sampler_cfg, resolve=True)
+                sampler = build_anchor_sampler(dataset, **dict(sampler_cfg))
+                iterables[dataset_name] = DataLoader(
+                    dataset,
+                    sampler=sampler,
+                    collate_fn=_collate_fn_for(dataset),
+                    **dataset_params,
+                )
+                continue
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=True,

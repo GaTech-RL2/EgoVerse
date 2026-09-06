@@ -20,6 +20,10 @@ e1:
   chunk_length: 100
   h_match_frames: 40
   limit_val_batches: 40
+  # tempo ablation knobs (Ideas note "Arc Tokenizer Tempo Invariance Changes")
+  prog_horizon_m: 0.19        # E_time_prog: fixed-progress horizon (mid-tertile coverage of H_match)
+  progress_smooth_hz: null    # #4: low-pass positions before arc length (3.0 in the _ps rows)
+  anchor_sampler: null        # #3: {alpha, fc_hz, fs_hz, seed} -> progress-weighted anchors
 
 name: e1_fold_${e1.variant}
 description: ${e1.spread}_s${seed}

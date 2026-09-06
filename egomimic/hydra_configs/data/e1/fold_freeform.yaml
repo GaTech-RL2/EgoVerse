@@ -23,6 +23,7 @@ train_datasets:
         resampled_vector_length: ${e1.M}
         stride: 1
         rotation_mode: euler
+        progress_smooth_hz: ${e1.progress_smooth_hz}
     mode: ${e1.train_mode}
     valid_ratio: 0.0
     bounds_check: false
@@ -45,6 +46,7 @@ valid_datasets:
         resampled_vector_length: ${e1.M}
         stride: 1
         rotation_mode: euler
+        progress_smooth_hz: ${e1.progress_smooth_hz}
     mode: ${e1.valid_mode}
     valid_ratio: 0.0
     bounds_check: false
@@ -53,6 +55,7 @@ train_dataloader_params:
   human_bimanual:
     batch_size: 128
     num_workers: 12
+    anchor_sampler: ${e1.anchor_sampler}
 
 valid_dataloader_params:
   human_bimanual:
