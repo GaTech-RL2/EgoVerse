@@ -2,7 +2,7 @@
 # Time-indexed BASELINE twin of abc_mecka_fold_multitask_cotrain_arcD40M100.
 #
 # Uses the 300M-parameter trunk (embed_dim 840, 19 blocks; 299.4M total),
-# NOT the ~56M model the fstshirt runs use -- so this is not comparable to
+# NOT the ~56M model the BC and small-cotrain runs use -- so this is not comparable to
 # those; it is only comparable to its own arc twin.
 #
 # Multitask cotrain: ABC fold-family tasks (yam_bimanual) + mecka free-fold
