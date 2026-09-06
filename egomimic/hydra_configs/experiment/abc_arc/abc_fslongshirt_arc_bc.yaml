@@ -69,6 +69,14 @@ trainer:
   # exercises the whole val path -- forward, arc-matched metrics, video overlay
   # -- in seconds at startup.
   num_sanity_val_steps: 2
+  # Validate every 100 epochs rather than the 200 inherited from
+  # trainer/ddp/base.yaml. Over max_epochs 2000 that is 20 validation
+  # points per run instead of 10, which is what makes a matched-epoch
+  # arc-vs-baseline comparison legible rather than a two-point line.
+  # Set here rather than in trainer/ddp/base.yaml: that file is shared
+  # with every other ddp experiment in the repo, and doubling their
+  # validation cost is not this study's call to make.
+  check_val_every_n_epoch: 100
 
 # Norm stats sampling fraction. The pass reads every sampled frame of every
 # episode before training starts and is the bulk of startup. A finished run's
