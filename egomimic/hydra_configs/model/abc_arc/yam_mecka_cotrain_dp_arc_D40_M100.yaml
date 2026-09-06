@@ -1,0 +1,81 @@
+# Cotrain Diffusion Policy: yam_bimanual + human_bimanual, arc-tokenized actions.
+#
+# Graph DP equivalent of hpt_abc_mecka_cotrain_flow_shared_head_arc_D40_M100.
+# Both embodiments share all observation keys:
+#   observations.images.front_img_1  (yam: 480x640, human: 360x640)
+#   observations.state.ee_pose       (14D for both)
+#   actions_cartesian                (101, 14) arc token -- loader-side
+#                                    tokenization via arc_tokenizer_cartesian
+#
+# Arc tokenization happens in the data config transform_list, not the graph.
+# ArcTokenizeStage / ArcDetokenizeStage in stages_arc.py are Planar-specific
+# (native_action_dim ∈ {2,3,4}) and are not used here.
+#
+# condition_dim = 64 (SpatialSoftmax, num_kp=32) + 14 (ee_pose) = 78.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 1
+      inputs:
+        front_img_1: observations.images.front_img_1
+        ee_pose: observations.state.ee_pose
+      encoder:
+        _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+        obs_specs:
+          ee_pose: {input_dim: 14, input_slice: [0, 14]}
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 360
+            image_width: 640
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 324
+            crop_width: 576
+            crop_eval_mode: center
+            crop_sample_mode: v02
+            crop_scope: frame
+            norm_layer: group
+            pool_type: spatial_softmax
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+      action_key: actions_cartesian
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+      action_horizon: 101
+      action_dim: 14
+      noise_scheduler: &cotrain_arc_scheduler
+        _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: 101
+      action_dim: 14
+      condition_input_dim: 78
+      policy:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: 101
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+          input_dim: 14
+          cond_dim: 78
+          ac_latent_seq: 1
+          diffusion_step_embed_dim: 256
+          down_dims: [256, 512, 1024]
+          kernel_size: 3
+        noise_scheduler: *cotrain_arc_scheduler
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+scheduler: null

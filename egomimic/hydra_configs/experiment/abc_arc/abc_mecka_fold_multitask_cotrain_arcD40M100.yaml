@@ -1,0 +1,51 @@
+# @package _global_
+# Multitask cotrain: ABC fold-family tasks (yam_bimanual) + mecka free-fold
+# (human_bimanual), arc-tokenized at D=0.40 m / M=100.
+#
+# Arc tokenization is loader-side (arc_tokenizer_cartesian in the data config).
+# Both embodiments produce (101, 14) arc tokens in `actions_cartesian`.
+#
+# Launch (2x L40 on PACE):
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_mecka_fold_multitask_cotrain_arcD40M100
+defaults:
+  - override /model: abc_arc/yam_mecka_cotrain_dp_300M_arc_D40_M100
+  - override /data: abc_arc/abc_mecka_fold_multitask_arc_cotrain_D40_M100
+  - override /evaluator: null
+  - override hydra/launcher: submitit_pace
+  - _self_
+
+name: abc_mecka_fold_multitask_cotrain_arcD40M100
+description: arcD40M100
+
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/arc_abc
+
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  strategy: ddp_find_unused_parameters_true
+  num_sanity_val_steps: 2
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+
+# 20% sample for norm stats: full pass over the 40-hour multitask mix is
+# hours of startup on its own.
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.2
+
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+      - abc
+      - multitask
+      - arc

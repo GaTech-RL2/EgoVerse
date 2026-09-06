@@ -1,0 +1,50 @@
+# Cartesian bimanual validation for baseline (time-indexed) cotrain runs.
+#
+# Logs deterministic normalized MSE, native (metres/radians) MSE, and up to
+# ``videos_per_epoch`` predicted-vs-ground-truth overlay frames per embodiment,
+# per val epoch, on rank 0. Overlays are logged as WandB images under
+# ``Val_video/{embodiment}`` for the default val group and namespaced
+# ``Val_video_{group}/{embodiment}`` for every other group.
+#
+#   Valid/MSE                        macro mean of per-embodiment normalized MSE
+#   Valid/MSE/{embodiment}           per-embodiment normalized MSE
+#   Valid/Native_MSE                 macro mean, unnormalized action-chunk MSE
+#   Valid/Native_MSE/{embodiment}    per-embodiment native MSE
+#
+# For the arc twins (loader-side arc tokenization) use the D40/M100 arc
+# evaluator instead, once the arc-tok data path lands in this repo.
+
+defaults:
+  - viz@viz_func: cartesian/base
+  - _self_
+
+_target_: egomimic.eval.bimanual_cartesian_eval.BimanualCartesianEval
+
+action_key: actions_cartesian
+obs_pose_key: observations.state.ee_pose
+image_key: observations.images.front_img_1
+
+# Per-embodiment revert transform lists. The evaluator applies these to both GT
+# and predicted eef-frame chunks BEFORE handing them to ``viz_func``, so overlays
+# are drawn in the front-camera frame that ``viz_gt_preds`` projects into. Each
+# entry instantiates to the already-constructed list of transforms.
+revert_transforms:
+  yam_bimanual:
+    _target_: egomimic.rldb.embodiment.yam._build_yam_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+    to_camera_frame: true
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
+    is_quat: false
+    gripper_padded: true
+
+# Per-epoch overlay budget across the whole val loop. Two frames per embodiment
+# per epoch keeps WandB storage bounded on multi-day runs while still giving a
+# visible timeline of how the policy improves.
+videos_per_epoch: 2
+
+# On-disk overlay copies, relative to Hydra's per-run output dir.
+video_output_dir: ${paths.output_dir}/val_videos
+
+# Pin the sampler for reproducibility across resumed runs.
+deterministic_seed: 420042

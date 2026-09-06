@@ -3,17 +3,20 @@ defaults:
 
 _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
 
-# Slurm configuration
-name: ${hydra.job.name}                             # Default job name
-partition: "gpu-h200"                             # Slurm partition
-account: "gts-dxu345-rl2"                              # Slurm account
-cpus_per_task: 8                                   # Number of CPUs per task (max 4:1 CPU:GPU ratio)
-nodes: ${launch_params.nodes}                       # Number of nodes
-tasks_per_node: ${launch_params.gpus_per_node}      # Use variable for tasks per node
-gres: "gpu:h200:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}" # GPU type and count (h100 for H100 GPUs)
-qos: "inferno"                                        # Slurm QoS
+# PACE gpu-h200 launcher. H200 nodes have 141 GB VRAM, so mem_per_gpu 250G is
+# safe. cpus_per_task 8 with 2 GPUs = 16 CPUs (under the 8:1 CPU:GPU cap).
+# Gres count is hardcoded because this repo does not register an ``eval``
+# OmegaConf resolver, so ``${eval:...}`` arithmetic doesn't compose. Override
+# ``hydra.launcher.gres`` on the CLI if launching on a different GPU count.
+name: ${hydra.job.name}
+partition: "gpu-h200"
+account: "gts-dxu345-rl2"
+cpus_per_task: 8
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:h200:2"
+qos: "inferno"
 mem_per_gpu: 250G
-timeout_min: 2880                                   # Timeout in minutes (48 hours)
-# exclude: "protocol, puma"     # Nodes to exclude
+timeout_min: 2880
 additional_parameters:
   requeue: true

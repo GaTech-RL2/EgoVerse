@@ -1,0 +1,21 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# PACE gpu-a100 launcher. A100 nodes are 64 CPU / 8 GPU = 8:1 CPU:GPU max, so
+# 8 cpus_per_task is safe. mem_per_gpu 80G covers both 40 GB and 80 GB A100
+# variants. Gres count is hardcoded (this repo does not register an ``eval``
+# OmegaConf resolver, so ``${eval:...}`` arithmetic doesn't compose).
+name: ${hydra.job.name}
+partition: "gpu-a100"
+account: "gts-dxu345-rl2"
+cpus_per_task: 8
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:a100:2"
+qos: "inferno"
+mem_per_gpu: 80G
+timeout_min: 2880
+additional_parameters:
+  requeue: true

@@ -45,3 +45,4 @@ scratch/
 sample_data/
 external_ckpts/
 external/MANO/
+.claude/

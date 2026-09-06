@@ -1,0 +1,77 @@
+# @package _global_
+# ABC-ONLY (no cotraining) ARC-TOKENIZED BC at D = 0.40 m / M = 100:
+# fold_and_stack_the_t_shirts, yam_bimanual. The single-domain arm of the
+# cotrain ablation.
+#
+# Arc tokenization is loader-side (arc_tokenizer_cartesian in the data config).
+# The model sees `actions_cartesian` as (101, 14) arc tokens and models them
+# directly with DP -- no graph-side ArcTokenizeStage.
+#
+# Launch:
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_fstshirt_arc_bc
+defaults:
+  - override /model: abc_arc/yam_bimanual_dp_arc_D40_M100
+  - override /data: abc_arc/abc_fstshirt_arc_bc_D40_M100
+  - override /evaluator: null
+  - override hydra/launcher: submitit_pace
+  - _self_
+
+name: abc_fstshirt_arc_bc
+description: arcD40M100
+
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/arc_abc
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 2
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+      - abc
+      - bc
+      - arc
+
+abc:
+  action_dim: 14
+  action_horizon: 16
+  arc_token_rows: 101
+  condition_dim: 78
+  encoder:
+    _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+    obs_specs:
+      ee_pose: {input_dim: 14, input_slice: [0, 14]}
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 480
+        image_width: 640
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        crop_aug: true
+        crop_height: 432
+        crop_width: 576
+        crop_eval_mode: center
+        crop_sample_mode: v02
+        crop_scope: frame
+        norm_layer: group
+        pool_type: spatial_softmax
