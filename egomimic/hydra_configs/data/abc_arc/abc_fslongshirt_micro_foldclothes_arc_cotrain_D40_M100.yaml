@@ -13,7 +13,6 @@ train_datasets:
       folder_path: /coc/flash7/scratch/arc-training
       image_hw: [360, 640]
       # First 250 mecka episodes = 49,707 frames.
-      debug: 250
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: arc_tokenizer_cartesian
@@ -28,7 +27,7 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'mecka' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'microagi' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and int(row['episode_hash'].encode().hex()[-6:], 16) % 1000 < 147"
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -41,7 +40,6 @@ train_datasets:
       image_hw: [480, 640]
       # Frame-matched to the 250 mecka episodes above: 20 YAM episodes
       # = 48,286 frames (97.1% of 49,707). 21 would overshoot to 107.4%.
-      debug: 20
       key_map:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
         keymap_mode: arc_tokenizer_cartesian
@@ -55,7 +53,7 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the t-shirts' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the long sleeve shirts' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and int(row['episode_hash'].encode().hex()[-6:], 16) % 1000 < 692"
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -70,7 +68,6 @@ valid_datasets:
       folder_path: /coc/flash7/scratch/arc-training
       image_hw: [360, 640]
       # First 250 mecka episodes = 49,707 frames.
-      debug: 250
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: arc_tokenizer_cartesian
@@ -85,7 +82,7 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'mecka' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'microagi' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and int(row['episode_hash'].encode().hex()[-6:], 16) % 1000 < 147"
     mode: valid
     valid_ratio: 0.2
     bounds_check: false
@@ -97,7 +94,6 @@ valid_datasets:
       image_hw: [480, 640]
       # Frame-matched to the 250 mecka episodes above: 20 YAM episodes
       # = 48,286 frames (97.1% of 49,707). 21 would overshoot to 107.4%.
-      debug: 20
       key_map:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
         keymap_mode: arc_tokenizer_cartesian
@@ -111,7 +107,7 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the t-shirts' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the long sleeve shirts' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and int(row['episode_hash'].encode().hex()[-6:], 16) % 1000 < 692"
     mode: valid
     valid_ratio: 0.2
     bounds_check: false

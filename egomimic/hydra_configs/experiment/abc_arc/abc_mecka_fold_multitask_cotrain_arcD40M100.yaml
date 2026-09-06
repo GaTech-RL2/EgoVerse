@@ -3,10 +3,10 @@
 # (human_bimanual), arc-tokenized at D=0.40 m / M=100, on the 300M model.
 #
 # Uses the 300M-parameter trunk (embed_dim 840, 19 blocks; 299.4M total),
-# NOT the ~56M model the fstshirt runs use -- so this is not comparable to
+# NOT the ~56M model the BC and small-cotrain runs use -- so this is not comparable to
 # those; it is only comparable to its own baseline twin.
 #
-# The multitask twin of abc_fstshirt_mecka_freefold_cotrain_arcD40M100, which
+# The multitask twin of abc_fslongshirt_micro_foldclothes_cotrain_arcD40M100, which
 # trains the single ABC task fold_and_stack_the_t_shirts. Everything below is
 # identical to that run; the only intended difference is the ABC task mix,
 # which lives in the data config.

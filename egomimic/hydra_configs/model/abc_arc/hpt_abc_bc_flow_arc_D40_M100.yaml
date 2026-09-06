@@ -101,11 +101,12 @@ robomimic_model:
         mlp_ratio: 4
     eva_bimanual: null
 
-# NOTE ON THE OPTIMIZER: inherited from bc_flow_eva as-is, which means
-# lr = 1e-4 with CosineAnnealingLR(T_max=1400), while the cotrain runs use
-# lr = 3e-4 constant. If this pair is meant to be a controlled cotrain ablation,
-# that difference confounds it -- uncomment below to match the cotrain runs.
+# OPTIMIZER: constant LR, no schedule. bc_flow_eva ships lr = 1e-4 with
+# CosineAnnealingLR(T_max=1400); the decay makes a BC run's late-epoch numbers
+# incomparable to the cotrain runs, which are constant. Keeping lr at 1e-4 and
+# dropping the scheduler leaves the BC/cotrain comparison resting on the data
+# mix rather than on two different LR trajectories.
 #
-# optimizer:
-#   lr: 3e-4
-# scheduler: null
+# (The cotrain runs use 3e-4 constant, so LR still differs between BC and
+# cotrain -- but it is now a constant offset rather than a diverging curve.)
+scheduler: null

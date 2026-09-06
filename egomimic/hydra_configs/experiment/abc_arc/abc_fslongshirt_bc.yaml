@@ -4,19 +4,27 @@
 #
 # Robot data is held FIXED at the cotrain run's yam split -- 20 ABC episodes,
 # 48,286 frames -- so the only thing removed relative to
-# abc_fstshirt_mecka_freefold_cotrain_baseline is the 250 mecka human episodes.
+# abc_fslongshirt_micro_foldclothes_cotrain_baseline adds the human split.
 # Any delta between the two is attributable to cotraining, not to data volume.
 #
-# Its arc twin is abc_fstshirt_arc_bc.
+# Its arc twin is abc_fslongshirt_arc_bc.
 #
 # Launch:
 #   python egomimic/trainHydra.py -m \
-#       +experiment=abc_arc/abc_fstshirt_bc
+#       +experiment=abc_arc/abc_fslongshirt_bc
 #
 # `-m` is required: the submitit launcher only engages in multirun mode.
+#
+# The `override /hydra/launcher` line in the defaults below does NOT take
+# effect -- hydra only honours a hydra/ group selection from the primary config
+# or the command line, and an experiment loaded with `+experiment=` is neither.
+# Verified: without a CLI flag the resolved choice is plain `submitit`
+# (rl2-lab, a40), whatever this file says. Pass it explicitly:
+#     hydra/launcher=submitit_skynet_a40      (non-preemptible, schedules fast)
+#     hydra/launcher=submitit_skynet_l40s     (overcap -- PREEMPTIBLE)
 defaults:
   - override /model: abc_arc/hpt_abc_bc_flow_baseline
-  - override /data: abc_arc/abc_fstshirt_bc
+  - override /data: abc_arc/abc_fslongshirt_bc
 
   # The SAME evaluator all four runs in this study use -- both cotrain runs and
   # both BC runs -- so every one of them emits identically named numbers that
@@ -35,7 +43,7 @@ defaults:
   - override /hydra/launcher: submitit_skynet_a40
   - _self_
 
-name: abc_fstshirt_bc
+name: abc_fslongshirt_bc
 description: baseline
 
 # The default paths.dataset_dir (/coc/flash7/scratch/egoverseS3ZarrDataset) is
@@ -59,8 +67,18 @@ trainer:
   # -- in seconds at startup.
   num_sanity_val_steps: 2
 
+# Norm stats sampling fraction. The pass reads every sampled frame of every
+# episode before training starts and is the bulk of startup. A finished run's
+# stats land in <output_dir>/norm_stats/norm_stats.json -- pass that back via
+# norm_stats.precomputed_norm_path=<path> to skip it on a relaunch of the SAME
+# data config. Verify the file has BOTH embodiments populated first: cache_stats
+# writes after each embodiment, so an interrupted run leaves a partial file that
+# would silently leave one embodiment unnormalized.
+norm_stats:
+  sample_frac: 0.2
+
 launch_params:
-  gpus_per_node: 1
+  gpus_per_node: 2
   nodes: 1
 
 logger:

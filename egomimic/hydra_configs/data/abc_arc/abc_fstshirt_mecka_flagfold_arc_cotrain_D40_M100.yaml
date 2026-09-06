@@ -3,16 +3,6 @@
 # These splits happen to be uniform today, but a batch cannot mix image sizes and
 # ABC/mecka ship 640x480, 640x360, 1280x720 and 848x480 -- so adding an episode
 # without this would crash collate rather than resize.
-# Time-indexed BASELINE for the arc D40/M100 cotrain.
-#
-# Identical datasets, episode limits and coord_frame to
-# abc_fstshirt_mecka_freefold_arc_cotrain_D40_M100 -- the ONLY difference is
-# the action space: a (100, 14) time-parameterized chunk instead of (M+1, 14)
-# arc-length tokens. Keeping everything else identical is the point; it is
-# what makes the two runs comparable.
-#
-# keymap_mode drops to `cartesian` (action horizon 45, not the arc window of
-# 200) and the arc knobs are removed, since nothing consumes them here.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -23,16 +13,17 @@ train_datasets:
       folder_path: /coc/flash7/scratch/arc-training
       image_hw: [360, 640]
       # First 250 mecka episodes = 49,707 frames.
-      debug: 250
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        action_mode: cartesian_gripper_padded
+        action_mode: arc_tokenizer_cartesian_gripper_padded
         coord_frame: eef_frame
         rotation_mode: euler
         stride: 1
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -49,19 +40,20 @@ train_datasets:
       image_hw: [480, 640]
       # Frame-matched to the 250 mecka episodes above: 20 YAM episodes
       # = 48,286 frames (97.1% of 49,707). 21 would overshoot to 107.4%.
-      debug: 20
       key_map:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
-        action_mode: cartesian
+        action_mode: arc_tokenizer_cartesian
         coord_frame: eef_frame
         rotation_mode: euler
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the t-shirts' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the t-shirts' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and int(row['episode_hash'].encode().hex()[-6:], 16) % 1000 < 945"
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -76,16 +68,17 @@ valid_datasets:
       folder_path: /coc/flash7/scratch/arc-training
       image_hw: [360, 640]
       # First 250 mecka episodes = 49,707 frames.
-      debug: 250
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        action_mode: cartesian_gripper_padded
+        action_mode: arc_tokenizer_cartesian_gripper_padded
         coord_frame: eef_frame
         rotation_mode: euler
         stride: 1
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -101,19 +94,20 @@ valid_datasets:
       image_hw: [480, 640]
       # Frame-matched to the 250 mecka episodes above: 20 YAM episodes
       # = 48,286 frames (97.1% of 49,707). 21 would overshoot to 107.4%.
-      debug: 20
       key_map:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: arc_tokenizer_cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
-        action_mode: cartesian
+        action_mode: arc_tokenizer_cartesian
         coord_frame: eef_frame
         rotation_mode: euler
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the t-shirts' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+        - "lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the t-shirts' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and int(row['episode_hash'].encode().hex()[-6:], 16) % 1000 < 945"
     mode: valid
     valid_ratio: 0.2
     bounds_check: false
