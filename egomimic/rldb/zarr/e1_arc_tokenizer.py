@@ -155,11 +155,18 @@ LOGDUR_CLIP = np.log(20.0)  # |log(segment duration / mean segment duration)| ca
 LOGDUR_MIN_DT = 1e-4        # s, floor on a segment duration at tokenize time
 
 
-def durations_to_clock(col: np.ndarray, span: float) -> np.ndarray:
-    """logdur column (M,) + polyline span (m) -> time-of-progress at the M waypoints (s)."""
+def durations_to_clock(col: np.ndarray, span: float, min_speed: float = 0.01, max_speed: float = 5.0) -> np.ndarray:
+    """logdur column (M,) + polyline span (m) -> time-of-progress at the M waypoints (s).
+
+    The decoded mean speed is bounded to [min_speed, max_speed] — the same
+    floor the profile mode's integral clock uses — so a wild row-0 prediction
+    cannot make one chunk's clock dominate d_clock (an untrained head gave
+    10^5 s in the launcher smoke). Tokenized values sit well inside the range
+    (fold data: 0.10–0.42 m/s), so training targets are never clipped.
+    """
     col = np.asarray(col, dtype=np.float64)
     M = len(col)
-    t_span = max(float(span), 1e-9) * np.exp(np.clip(col[0], -20.0, 20.0))
+    t_span = max(float(span), 1e-9) * np.exp(np.clip(col[0], -np.log(max_speed), -np.log(min_speed)))
     seg = np.exp(np.clip(col[1:], -LOGDUR_CLIP, LOGDUR_CLIP)) * (t_span / max(M - 1, 1))
     return np.concatenate(([0.0], np.cumsum(seg)))
 
@@ -341,7 +348,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
     def _wide_clock(self, col: np.ndarray, cum: np.ndarray) -> np.ndarray:
         """Time-of-progress at the M waypoints from one arm's timing column."""
         if self.velocity_mode == "logdur":
-            return durations_to_clock(col, float(cum[-1]))
+            return durations_to_clock(col, float(cum[-1]), min_speed=self.min_speed)
         return integral_clock(cum, np.maximum(col, self.min_speed))
 
     def clock_at_waypoints(self, arc_actions: np.ndarray) -> list[np.ndarray]:
