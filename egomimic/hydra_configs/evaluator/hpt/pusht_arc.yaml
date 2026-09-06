@@ -1,0 +1,13 @@
+# Val-batch overlay for HPT + arc-tok on pushshapes_sim.
+#
+# Same pipeline as evaluator/hpt/pusht.yaml but the viz strips the trailing
+# velocity token from the (M+1, 2) chunk before drawing. Otherwise the
+# velocity slot renders as a stray dot at raw pixel (vx, vy) near the
+# top-left corner. Set M to match the tokenizer's resampled_vector_length.
+_target_: egomimic.eval.hpt.eval_hpt.HPTEvalVideo
+limit_val_batches: 4
+max_videos: 2
+viz_func:
+  pushshapes_sim:
+    _target_: hydra.utils.get_method
+    path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds_arc

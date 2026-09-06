@@ -1,0 +1,58 @@
+defaults:
+  - pusht_arc/base@_here_
+
+# Arc-tok counterpart of pusht_cotrain/circle_usocket.yaml. Cotrains
+#   pushshapes_sim            -> circle,   tokens (41, 3) with theta = 0
+#   pushshapes_sim_u_socket   -> u_socket, tokens (41, 3)
+#
+# Sequence = M+1 = 41 slots (40 arc waypoints + 1 velocity token), each 3-D.
+# For circle the theta column is zero in BOTH the waypoints and the velocity
+# token, because the data config pads to 3-D BEFORE tokenizing — tokenizing
+# first would produce a 2-D velocity token needing its own padding rule.
+#
+# D = 100 px and M = 40 must stay identical to the single-pusher arc runs and
+# to the evaluator's arc_match_distance / arc_match_points, otherwise the
+# cotrained model is not comparable to them.
+#
+# See circle_usocket.yaml for why state is NOT padded (separate proprio stems)
+# and why zero-padding the action is the right choice for the shared head.
+eef_name: "circle+u_socket"
+
+robomimic_model:
+  domains: ["pushshapes_sim", "pushshapes_sim_u_socket"]
+
+  ac_keys:
+    pushshapes_sim: "actions"
+    pushshapes_sim_u_socket: "actions"
+  shared_ac_key: "actions"
+
+  stem_specs:
+    pushshapes_sim:
+      state_agent_obj:
+        input_dim: 5
+    pushshapes_sim_u_socket:
+      state_agent_obj:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 6
+        output_dim: 128
+        widths: [128]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 4
+            crossattn_dim_head: 32
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 128
+
+  head_specs:
+    pushshapes_sim: null
+    pushshapes_sim_u_socket: null
+    shared:
+      action_horizon: 41
+      infer_ac_dims:
+        pushshapes_sim: 3
+        pushshapes_sim_u_socket: 3
+      model:
+        act_dim: 3
+        act_seq: 41

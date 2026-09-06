@@ -1,12 +1,12 @@
 defaults:
-  - model: hpt_bc_flow_eva
+  - model: hpt/bc_flow_eva
   - paths: default
-  - trainer: ddp
+  - trainer: ddp/base
   - debug: null
-  - logger: wandb
-  - data: eva
-  - callbacks: checkpoints
-  - evaluator: eval_hpt
+  - logger: wandb/base
+  - data: debug/single_episode/eva_cartesian
+  - callbacks: checkpoint/base
+  - evaluator: hpt/base
   - override hydra/launcher: submitit
   - _self_
 
@@ -27,6 +27,13 @@ launch_params:
   nodes: 1
 
 seed: 42
+
+# Arc-length tokenizer defaults. Data configs read ${arc_tokenizer.*} to keep
+# tokenization params consistent between train and eval — override per-run to
+# retokenize (e.g. arc_tokenizer.min_distance_unit=0.4 for D40).
+arc_tokenizer:
+  min_distance_unit: 0.20
+  resampled_vector_length: 15
 
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:

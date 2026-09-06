@@ -27,11 +27,42 @@ class EMBODIMENT(Enum):
     EVA_BIMANUAL = 6
     # ABC-130k's two-arm YAM teleoperation station (see egomimic/scripts/abc_process).
     # A parallel-jaw robot in a station-anchored world frame -- NOT egocentric human
-    # data, so it carries no obs_head_pose/obs_keypoints and no extrinsics.
+    # data, so it carries no obs_head_pose/obs_keypoints.
     YAM_BIMANUAL = 7
+    # PushShapes simulator embodiments. The IDs are pinned at 15/16/17 because
+    # trained checkpoints and collected datasets encode them; renumbering would
+    # silently re-route every existing pushshapes result. The gap below the real
+    # embodiments is deliberate -- it leaves room for more of them (YAM took 7)
+    # without ever colliding.
+    PUSHSHAPES_SIM = 15
+    PUSHSHAPES_SIM_STICK = 16
+    PUSHSHAPES_SIM_SMALL_CIRCLE = 17
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
+
+# Legacy embodiment aliases from before the human-source collapse. Pre-collapse
+# episodes still carry vendor-specific embodiment strings in their zarr.json
+# (mecka_bimanual, aria_bimanual, scale_bimanual, lightwheel_bimanual, etc.);
+# post-collapse everything human is human_*. Aliasing on read means we can load
+# those legacy caches without re-downloading — the vendor identity now lives
+# only in the SQL `lab` field, so nothing downstream needs to know about it.
+_LEGACY_EMBODIMENT_ALIASES: dict[str, str] = {
+    # bimanual
+    "aria_bimanual": "human_bimanual",
+    "mecka_bimanual": "human_bimanual",
+    "scale_bimanual": "human_bimanual",
+    "lightwheel_bimanual": "human_bimanual",
+    # per-arm
+    "aria_right_arm": "human_right_arm",
+    "aria_left_arm": "human_left_arm",
+    "mecka_right_arm": "human_right_arm",
+    "mecka_left_arm": "human_left_arm",
+    "scale_right_arm": "human_right_arm",
+    "scale_left_arm": "human_left_arm",
+    "lightwheel_right_arm": "human_right_arm",
+    "lightwheel_left_arm": "human_left_arm",
+}
 
 
 def _intrinsics_from_batch(batch, i: int):
@@ -55,7 +86,9 @@ def get_embodiment(index):
 
 
 def get_embodiment_id(embodiment_name):
-    return EMBODIMENT[embodiment_name.upper()].value
+    name = embodiment_name.lower()
+    name = _LEGACY_EMBODIMENT_ALIASES.get(name, name)
+    return EMBODIMENT[name.upper()].value
 
 
 class Embodiment(ABC):
@@ -203,12 +236,22 @@ class Embodiment(ABC):
             pred_action = pred_actions[i]
             K_i = _intrinsics_from_batch(batch, i)
             ims = cls.viz(
-                image, action, mode=mode, color="Greens", alpha=gt_alpha,
-                intrinsics=K_i, **kwargs
+                image,
+                action,
+                mode=mode,
+                color="Greens",
+                alpha=gt_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             ims = cls.viz(
-                ims, pred_action, mode=mode, color="Reds", alpha=pred_alpha,
-                intrinsics=K_i, **kwargs
+                ims,
+                pred_action,
+                mode=mode,
+                color="Reds",
+                alpha=pred_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             if annotation_key is not None:
                 ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)

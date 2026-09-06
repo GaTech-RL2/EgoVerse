@@ -1,0 +1,10 @@
+defaults:
+  - pusht_arc/base@_here_
+
+# HPT arc-tok config for PushShapes with the stick pusher.
+#   D = 100 px, M = 40, sequence = (M+1, 2) = (41, 2)
+#   Pusher (end-effector): "stick", 60 x 10 px capsule that re-orients toward
+#   its velocity vector every step (env.py _ORIENTED_PUSHERS).
+#   Action = 2-D target (target_x, target_y) in world pixels; orientation is
+#   derived from motion, not commanded.
+eef_name: "stick"

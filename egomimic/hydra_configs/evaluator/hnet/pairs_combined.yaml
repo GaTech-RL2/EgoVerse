@@ -1,0 +1,37 @@
+# Cross-embodiment cotrain eval, ONE video with one ROW per embodiment.
+# Wraps the per-embodiment EvalListSideBySide composite (traj + PCA +
+# boundary strip below) in CombinedRowsEval, which vstacks the
+# pushshapes_sim (top) and pushshapes_sim_stick (bottom) composites into a
+# single ``combined_rows.mp4``. This is the 2-row cross-emb viz.
+_target_: egomimic.eval.core.eval_combined_rows.CombinedRowsEval
+embodiment_order: ["pushshapes_sim", "pushshapes_sim_stick"]
+limit_val_batches: 1
+inner_eval:
+  _target_: egomimic.eval.core.eval_composite.EvalListSideBySide
+  pad_h: max
+  below_indices: [2]   # idx 2 = BoundaryStripEval -> vstack below traj+PCA row
+  limit_val_batches: 1
+  evals:
+    - _target_: egomimic.eval.core.eval_hnet.HNetEvalVideo
+      limit_val_batches: 1
+      max_videos: 3
+      viz_func:
+        pushshapes_sim:
+          _target_: hydra.utils.get_method
+          path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+        pushshapes_sim_stick:
+          _target_: hydra.utils.get_method
+          path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+    - _target_: egomimic.eval.probes.eval_pca_tokens.PCATokenEval
+      limit_val_batches: 1
+      max_videos: 3
+      panel_h: 384
+      panel_w: 384
+      n_components: 2
+      n_extra_train_episodes: 30
+    - _target_: egomimic.eval.probes.eval_boundary_strip.BoundaryStripEval
+      limit_val_batches: 1
+      max_videos: 3
+      window: 256
+      strip_width: 24
+      pixels_per_step: 1

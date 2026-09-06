@@ -55,10 +55,10 @@ You only need to do this initially and whenever you pull/modify code.
 
 ## 3. Running the container
 
-From the repo root (or wherever `run_eva_docker.sh` lives):
+From the repo root (or wherever `scripts/ops/run_eva_docker.sh` lives):
 
 ```bash
-./run_eva_docker.sh {left | right | both}
+./scripts/ops/run_eva_docker.sh {left | right | both}
 ```
 
 Once the container appears in Cursor / VS Code, attach a terminal to it and run:

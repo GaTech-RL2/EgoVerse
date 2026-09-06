@@ -1,0 +1,22 @@
+# Val-batch overlay for the circle + u_socket cotrain run (arc-tok).
+#
+# Same per-domain viz_func requirement as pusht_cotrain.yaml, but using
+# viz_gt_preds_arc so the trailing velocity token is sliced off both domains
+# before drawing.
+#
+# PushShapesArcEvalVideo strips that same token before the arc-matched metric.
+# arc_tok_points must equal the tokenizer's resampled_vector_length (40) and
+# arc_match_distance its min_distance_unit (100.0).
+_target_: egomimic.eval.hpt.eval_hpt.PushShapesArcEvalVideo
+limit_val_batches: 4
+max_videos: 2
+arc_match_distance: 100.0
+arc_match_points: 40
+arc_tok_points: 40
+viz_func:
+  pushshapes_sim:
+    _target_: hydra.utils.get_method
+    path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds_arc
+  pushshapes_sim_u_socket:
+    _target_: hydra.utils.get_method
+    path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds_arc

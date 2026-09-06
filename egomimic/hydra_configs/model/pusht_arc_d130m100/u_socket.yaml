@@ -1,0 +1,41 @@
+defaults:
+  - pusht_arc/base@_here_
+
+# HPT arc-tok config for PushShapes with the U-socket pusher, D=130 px / M=100.
+#   sequence = (M+1, 3) = (101, 3): 100 arc waypoints + 1 velocity token.
+#   Pusher (end-effector): "u_socket", U-shaped socket (32 px inner gap,
+#   10 px prongs) that grips T-stems for oriented pushing.
+#   Action = 3-D target (target_x, target_y, target_theta): the socket
+#   needs a commanded orientation (env.py:171-176, _VALID_PUSHERS =
+#   "u_socket" branch), so per-token action dim = 3, NOT 2 like the other
+#   pushers. The velocity token holds [x_vel, y_vel, theta_vel].
+#
+# D and M MUST match data/pushshapes/pusht/u_socket_arc_d130m100.yaml and
+# evaluator/hpt/pusht_arc_d130m100.yaml, or the arc-matched metric compares
+# chunks built on different grids.
+eef_name: "u_socket"
+
+robomimic_model:
+  arc_tok:
+    min_distance_unit: 130.0
+
+  trunk:
+    action_horizon: 101
+
+  # u_socket's observations.state is 6-D (the socket carries an orientation),
+  # not the 5-D layout every other pusher uses. Without this override the
+  # proprio stem is built for 5 inputs and the first training batch dies on a
+  # shape mismatch.
+  stem_specs:
+    pushshapes_sim:
+      state_agent_obj:
+        input_dim: 6
+
+  head_specs:
+    shared:
+      action_horizon: 101
+      infer_ac_dims:
+        pushshapes_sim: 3
+      model:
+        act_dim: 3
+        act_seq: 101

@@ -1,0 +1,121 @@
+# Smoke probe: what does the human keypoints pipeline actually emit?
+#
+# Answers, empirically, the things that block wiring the 21-keypoint arc
+# tokenizer in: which keys exist post-transform, their shapes, the wrist
+# pose dimensionality (6 vs 7), the effective chunk length, and whether a
+# (T, 140) [L kp63 | L wrist7 | R kp63 | R wrist7] chunk can be assembled.
+# Also runs the tokenizer on one real batch end to end.
+#
+# 2 episodes, no GPU work -- minutes, not the ~60min full dataset pull.
+workflow:
+  name: "{{job_name}}"
+  tasks:
+  - name: probe
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+    environment:
+      BRANCH: "{{branch}}"
+      HYDRA_FULL_ERROR: "1"
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update && apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/a.zip
+        unzip -q /tmp/a.zip -d /tmp && /tmp/aws/install --update && rm -rf /tmp/a.zip /tmp/aws
+        mkdir -p /workspace && cd /workspace
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" EgoVerse
+        cd /workspace/EgoVerse && uv sync --frozen && source .venv/bin/activate
+        bash ./egomimic/utils/aws/setup_secret.sh
+        mkdir -p /workspace/kp_probe
+        python /tmp/probe.py 2>&1 | tail -80
+    - path: /tmp/probe.py
+      contents: |
+        import os, sys, numpy as np, torch, hydra
+        os.chdir("/workspace/EgoVerse"); sys.path.insert(0, "/workspace/EgoVerse")
+        from hydra import initialize_config_dir, compose
+        import egomimic.utils.hydra_resolvers  # noqa
+
+        with initialize_config_dir(config_dir="/workspace/EgoVerse/egomimic/hydra_configs",
+                                   version_base="1.3"):
+            # train_zarr_keypoints.yaml overrides
+            # evaluator/viz@evaluator.viz_func to 'eva_cartesian_aria_keypoints_wrist',
+            # which does not exist in the repo -- the config cannot compose as
+            # committed. Point it at a real viz config instead. (Deleting the
+            # evaluator with ~evaluator does NOT work: the override is in the
+            # defaults list, so hydra still tries to resolve it.)
+            cfg = compose(config_name="train_zarr_keypoints", overrides=[
+                "evaluator/viz@evaluator.viz_func=keypoints_wrist",
+                "data=aria_keypoints",
+                "paths.dataset_dir=/workspace/kp_probe",
+                "+data.train_datasets.human_bimanual.resolver.debug=2",
+            ])
+        ds = hydra.utils.instantiate(cfg.data.train_datasets.human_bimanual)
+        print(f"\ndataset len = {len(ds)}")
+        s = ds[0]
+        print("\n=== ALL KEYS AND SHAPES IN ONE SAMPLE ===")
+        for k in sorted(s):
+            v = s[k]
+            try: shp = tuple(v.shape)
+            except Exception: shp = type(v).__name__
+            print(f"  {k:<52} {shp}")
+
+        print("\n=== CONFIRM COLUMN LAYOUT of actions_keypoints (T,138) ===")
+        import numpy as np
+        A = s["actions_keypoints"]
+        A = A.numpy() if torch.is_tensor(A) else np.asarray(A)
+        print(f"  chunk {A.shape};  138 = 2 x (21*3 + 6) -> wrist is 6-dim (xyz+ypr), no gripper")
+        EDGES=[(0,1),(1,2),(2,3),(3,4),(0,5),(5,6),(6,7),(7,8),(0,9),(9,10),(10,11),(11,12),
+               (0,13),(13,14),(14,15),(15,16),(0,17),(17,18),(18,19),(19,20)]
+        def score(kp):
+            """kp (T,21,3) -> bone length stats. Correct slicing => plausible and near-constant."""
+            L=np.stack([np.linalg.norm(kp[:,u]-kp[:,v],axis=1) for u,v in EDGES],1)  # (T,20)
+            return L.mean(), L.std(0).mean(), L.mean(0).min(), L.mean(0).max()
+        CAND={
+          "A: [Lwrist6|Lkp63|Rwrist6|Rkp63]": (slice(6,69),   slice(75,138)),
+          "B: [Lkp63|Lwrist6|Rkp63|Rwrist6]": (slice(0,63),   slice(69,132)),
+          "C: [Lkp63|Rkp63|Lwrist6|Rwrist6]": (slice(0,63),   slice(63,126)),
+        }
+        print(f"\n  {'candidate layout':<36} {'mean bone':>10} {'std over t':>11} {'min':>8} {'max':>8}  verdict")
+        print("  "+"-"*88)
+        for name,(sl_l,sl_r) in CAND.items():
+            try:
+                kl=A[:,sl_l].reshape(len(A),21,3); kr=A[:,sl_r].reshape(len(A),21,3)
+                m1,sd1,mn1,mx1=score(kl); m2,sd2,mn2,mx2=score(kr)
+                m,sd,mn,mx=(m1+m2)/2,(sd1+sd2)/2,min(mn1,mn2),max(mx1,mx2)
+                # human finger bones ~15-50mm, and rigid => std over time near 0
+                good = (0.005<m<0.06) and (sd < 0.2*m) and (mx<0.12)
+                print(f"  {name:<36} {m*1000:>9.1f}mm {sd*1000:>10.2f}mm {mn*1000:>7.1f} {mx*1000:>7.1f}  {'PLAUSIBLE' if good else 'no'}")
+            except Exception as e:
+                print(f"  {name:<36} FAILED: {type(e).__name__}")
+        print("\n  (correct layout = anatomically sized bones that stay rigid over the chunk)")
+        print("\n=== wrist block sanity (candidate A: cols 0:6 and 69:75) ===")
+        for lbl,sl in (("L wrist",slice(0,6)),("R wrist",slice(69,75))):
+            w=A[:,sl]
+            print(f"  {lbl}: xyz range {np.ptp(w[:,:3],axis=0).round(3)}  ypr range {np.ptp(w[:,3:6],axis=0).round(3)} rad")
+        print("\n=== done ===")
+  resources:
+    default:
+      cpu: 8
+      gpu: 1
+      memory: 64Gi
+      storage: 120Gi
+  timeout:
+    queue_timeout: 1d

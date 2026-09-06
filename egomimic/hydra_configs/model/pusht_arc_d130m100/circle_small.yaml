@@ -1,0 +1,24 @@
+defaults:
+  - pusht_arc/base@_here_
+
+# HPT arc-tok config for PushShapes with the small-circle pusher.
+#   D = 100 px, M = 40, sequence = (M+1, 2) = (41, 2)
+#   Pusher (end-effector): "circle_small", contact radius 5 px (3x smaller).
+#   Action = 2-D target (target_x, target_y) in world pixels.
+eef_name: "circle_small"
+
+# D=130 px / M=100 arc-tok override of model/pusht_arc/circle_small.yaml.
+#   sequence = M+1 = 101 slots (100 waypoints + 1 velocity token)
+# D and M MUST match data/pushshapes/pusht/circle_small_arc_d130m100.yaml and
+# evaluator/hpt/pusht_arc_d130m100.yaml, or the arc-matched metric compares
+# chunks built on different grids.
+robomimic_model:
+  arc_tok:
+    min_distance_unit: 130.0
+  trunk:
+    action_horizon: 101
+  head_specs:
+    shared:
+      action_horizon: 101
+      model:
+        act_seq: 101

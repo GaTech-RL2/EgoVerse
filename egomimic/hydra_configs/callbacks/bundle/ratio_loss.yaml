@@ -1,0 +1,9 @@
+# Checkpointing plus ratio-loss regularization disabled after one quarter of
+# training (epoch 500 in the standard 2,000-epoch run).
+defaults:
+  - /callbacks/checkpoint/base@_here_
+  - /callbacks/scheduler/ratio_loss@_here_
+  - _self_
+
+ratio_loss_scheduler:
+  switch_fraction: 0.25

@@ -1,0 +1,19 @@
+defaults:
+  - data: cotrain_pi_base
+  - embedder: tsne_2d
+  - paths: default
+  - _self_
+
+output_html: ./arc_embedding.html
+title: "Arc-token embedding"
+
+# Which split(s) to draw samples from: train | valid | both
+split: train
+
+# Which post-transform key holds the (T, 14) bimanual cartesian chunk.
+action_key: actions_cartesian
+
+hydra:
+  run:
+    dir: ./logs/arc_embedding/${now:%Y-%m-%d_%H-%M-%S}
+  output_subdir: null

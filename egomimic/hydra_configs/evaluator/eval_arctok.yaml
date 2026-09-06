@@ -1,0 +1,52 @@
+defaults:
+  - viz@viz_func: cartesian/base
+  - _self_
+
+# Strip ``annotation_key`` from every viz_func entry — the base
+# viz/cartesian sets ``annotation_key: sampled_prompt`` which
+# viz_gt_preds then tries to read from the batch. The arc-tok data
+# pipeline doesn't produce annotations, so leaving it wired crashes
+# validation at the first step.
+viz_func:
+  yam_bimanual:
+    annotation_key: null
+  eva_bimanual:
+    annotation_key: null
+  human_bimanual:
+    annotation_key: null
+  human_right_arm:
+    annotation_key: null
+  human_left_arm:
+    annotation_key: null
+
+# Val-video eval for arc-tokenized action policies.
+#
+# Model output shape: (B, M+1, 14). Before viz, the class detokenizes both
+# prediction and GT into (B, H, 14) time-parameterized chunks (full canonical
+# layout with xyz + ypr + grip per arm; rotation unconditionally supervised)
+# so the canonical _viz_traj → draw_dot_on_frame path runs unchanged. The
+# reconstruction uses the model-predicted velocity token's xyz slots to
+# derive per-arm duration, so val videos are the same trajectory an open-loop
+# rollout would send to the controller.
+#
+# The three arc knobs (min_distance_unit, resampled_vector_length, dt)
+# MUST match the values the data pipeline used to produce the training
+# targets. If they don't, the detokenizer will reconstruct at the wrong
+# speed and the overlay will look correct-shape-but-wrong-length. Wire
+# these from the same shared arc-tokenizer config the data yaml uses.
+_target_: egomimic.eval.eval_arctok.ArcTokEvalVideo
+
+# D = per-arm arc length span of one token (meters). Default matches the
+# fold_clothes sweep's mid-range.
+min_distance_unit: 0.60
+
+# M = number of waypoints per token. Model output must be (M+1, 14).
+resampled_vector_length: 20
+
+# H = number of control-period steps to reconstruct per sample for the
+# val video. 100 matches the non-arc cotrain val-video length so
+# side-by-side comparison stays meaningful.
+rollout_horizon: 100
+
+# Control period in seconds (30 Hz).
+dt: 0.03333333333333333

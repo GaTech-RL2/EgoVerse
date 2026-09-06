@@ -1,0 +1,65 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# HPT + arc-tok dataloader for pushshapes_sim on the U-socket set
+# (3000 T-shape episodes, orientation-controlled u_socket pusher).
+#
+# Raw window: 100 pusher-target frames per sample. The transform_list rewrites
+# it to (M+1, 2) = (41, 2) arc-length tokens (40 waypoints + 1 velocity token)
+# via TokenizePushShapesArcLength.
+#
+# D = 100 px, M = 40 — held IDENTICAL to circle_arc.yaml and to the
+# evaluator's arc_match_distance / arc_match_points. Changing D or M here
+# without changing them there silently breaks the arc-matched comparison.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v1/u_socket_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt_arc
+        action_horizon: 100
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_transform_list
+        mode: arc_tokenizer
+        min_distance_unit: 100.0
+        resampled_vector_length: 40
+    mode: total
+    # bounds_check=false: skip the per-sample quantile bounds scan entirely.
+    # skip_bounds_check only suppressed the RESAMPLE on a violation -- the scan
+    # still ran on every __getitem__ and logged, which is pure overhead once we
+    # have decided to keep out-of-quantile samples.
+    skip_bounds_check: true
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v1/u_socket_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt_arc
+        action_horizon: 100
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_transform_list
+        mode: arc_tokenizer
+        min_distance_unit: 100.0
+        resampled_vector_length: 40
+    mode: total
+    # bounds_check=false: skip the per-sample quantile bounds scan entirely.
+    # skip_bounds_check only suppressed the RESAMPLE on a violation -- the scan
+    # still ran on every __getitem__ and logged, which is pure overhead once we
+    # have decided to keep out-of-quantile samples.
+    skip_bounds_check: true
+    bounds_check: false
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4

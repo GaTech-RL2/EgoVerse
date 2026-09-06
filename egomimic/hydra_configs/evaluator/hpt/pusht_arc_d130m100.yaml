@@ -1,0 +1,22 @@
+# Val-batch overlay + arc-matched metric for the D=130 px / M=100 arc-tok runs.
+#
+# Same class and behaviour as evaluator/hpt/pusht_arc.yaml, only the grid
+# changes. All three values track the tokenizer in
+# data/pushshapes/pusht/*_arc_d130m100.yaml:
+#   arc_match_distance <- min_distance_unit      (130.0)
+#   arc_match_points   <- resampled_vector_length (100)
+#   arc_tok_points     <- resampled_vector_length (100)  [velocity-token strip]
+#
+# NOTE: arc-matched numbers from a D=130/M=100 run are NOT comparable to the
+# D=100/M=40 runs — the metric scores a different arc span at a different
+# resolution. Compare D130 runs only against other D130 runs.
+_target_: egomimic.eval.hpt.eval_hpt.PushShapesArcEvalVideo
+limit_val_batches: 4
+max_videos: 2
+arc_match_distance: 130.0
+arc_match_points: 100
+arc_tok_points: 100
+viz_func:
+  pushshapes_sim:
+    _target_: hydra.utils.get_method
+    path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds_arc

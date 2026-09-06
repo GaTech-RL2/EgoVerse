@@ -117,10 +117,15 @@ class Yam(Embodiment):
     )
     EXTRINSICS = {"front_1": TOP_CAMERA_D405}
 
+    ACTION_HORIZON = 45
+    # Wider raw window for arc so per-arm arc length has room to reach D.
+    ARC_TOK_ACTION_HORIZON = 200
+
     @staticmethod
     def get_transform_list(
         action_mode: Literal[
             "cartesian",
+            "arc_tokenizer_cartesian",
         ] = "cartesian",
         coord_frame: Literal[
             "camframe",
@@ -132,6 +137,11 @@ class Yam(Embodiment):
             "quat",
             "6D",
         ] = "euler",
+        # Arc-tokenizer args, only consulted when
+        # action_mode="arc_tokenizer_cartesian". See eva.py for the layout.
+        min_distance_unit: float = 0.60,
+        resampled_vector_length: int = 20,
+        chunk_length: int | None = None,
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -153,20 +163,53 @@ class Yam(Embodiment):
 
         Geometric hops always run in xyz+quat; ``rotation_mode`` then converts
         rotation to euler (xyz+ypr, 14D), quat (16D), or Zhou 6D (20D).
+
+        ``arc_tokenizer_cartesian`` runs the cartesian pipeline for the chosen
+        frame and then rewrites ``actions_cartesian`` to (M+1, 14) arc-length
+        tokens, the same layout Eva and Human emit -- Yam is already 14D with a
+        real gripper, so unlike Human it needs no padding step first. It is
+        euler-only, because that is the layout the tokenizer consumes.
         """
-        if action_mode != "cartesian":
+        if action_mode not in ("cartesian", "arc_tokenizer_cartesian"):
             raise ValueError(f"unknown action_mode {action_mode!r}")
+        # Rows the raw window is interpolated to before anything else runs.
+        # Arc defaults to the raw window itself, i.e. NO resampling: the
+        # tokenizer is what selects the frames covering D and resamples those
+        # to M. Interpolating to 100 first would decimate the yam window 2x and
+        # the human window 6x, and arc length measured on a decimated path is
+        # systematically short.
+        if chunk_length is None:
+            chunk_length = (
+                Yam.ARC_TOK_ACTION_HORIZON
+                if action_mode == "arc_tokenizer_cartesian"
+                else 100
+            )
         if coord_frame == "camframe":
-            return _build_yam_bimanual_camframe_transform_list(
-                rotation_mode=rotation_mode, to_camera_frame=True
+            transform_list = _build_yam_bimanual_camframe_transform_list(
+                rotation_mode=rotation_mode, to_camera_frame=True,
+                chunk_length=chunk_length,
             )
-        if coord_frame == "world":
-            return _build_yam_bimanual_camframe_transform_list(
-                rotation_mode=rotation_mode, to_camera_frame=False
+        elif coord_frame == "world":
+            transform_list = _build_yam_bimanual_camframe_transform_list(
+                rotation_mode=rotation_mode, to_camera_frame=False,
+                chunk_length=chunk_length,
             )
-        if coord_frame == "eef_frame":
-            return _build_yam_bimanual_eef_frame_transform_list(rotation_mode=rotation_mode)
-        raise ValueError(f"unknown coord_frame {coord_frame!r}")
+        elif coord_frame == "eef_frame":
+            transform_list = _build_yam_bimanual_eef_frame_transform_list(
+                rotation_mode=rotation_mode, chunk_length=chunk_length
+            )
+        else:
+            raise ValueError(f"unknown coord_frame {coord_frame!r}")
+        if action_mode == "arc_tokenizer_cartesian":
+            from egomimic.rldb.embodiment.eva import _append_arc_tokenizer
+
+            return _append_arc_tokenizer(
+                transform_list,
+                min_distance_unit=min_distance_unit,
+                resampled_vector_length=resampled_vector_length,
+                rotation_mode=rotation_mode,
+            )
+        return transform_list
 
     @classmethod
     def viz_wristframe_batch(
@@ -261,7 +304,14 @@ class Yam(Embodiment):
             right_wrist_key = "observations.images.right_wrist_img"
             left_wrist_key = "observations.images.left_wrist_img"
 
-        horizon = 45
+        # Arc-tokenizer mode needs a wider raw window so per-arm arc length can
+        # reach ``min_distance_unit`` (D) before the padded tail kicks in.
+        # 200 raw frames is ~6.7s at 30fps, matching Eva.
+        horizon = (
+            cls.ARC_TOK_ACTION_HORIZON
+            if keymap_mode == "arc_tokenizer_cartesian"
+            else cls.ACTION_HORIZON
+        )
 
         return {
             front_key: {"key_type": "camera_keys", "zarr_key": "images.front_1"},

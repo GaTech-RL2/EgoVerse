@@ -1,7 +1,7 @@
 defaults:
   - train_zarr_cartesian
-  - override model: pi0.5_bc_eva
-  - override data: eva_pi
-  - override trainer: ddp_pi
-  - override evaluator: eval_pi
+  - override model: pi05/bc_eva
+  - override data: generic/multiview_cartesian/eva
+  - override trainer: ddp/pi
+  - override evaluator: pi/base
   - override hydra/launcher: submitit_pace

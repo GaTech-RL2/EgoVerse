@@ -1,0 +1,21 @@
+defaults:
+  - /data/pushshapes/packed_episode/simulation/base@_here_
+  - _self_
+
+train_datasets:
+  pushshapes_sim:
+    resolver:
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle/basic
+
+valid_datasets:
+  pushshapes_sim:
+    resolver:
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle/basic
+
+train_dataloader_params:
+  pushshapes_sim:
+    num_workers: 2
+
+valid_dataloader_params:
+  pushshapes_sim:
+    num_workers: 2
