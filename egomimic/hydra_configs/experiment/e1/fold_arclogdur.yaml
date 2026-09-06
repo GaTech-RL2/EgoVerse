@@ -1,0 +1,11 @@
+# @package _global_
+# Tempo ablation A1 (#1 + #2): Arc+Vel layout (M, 16) with the logdur timing
+# channel — row 0 = log mean slowness per arm, rows 1.. = log relative segment
+# durations. Same head as the arcvel row.
+defaults:
+  - /experiment/e1/fold_base
+  - override /model: hpt_cotrain_mecka_flow_shared_head_arcvel_D40_M100
+  - _self_
+e1:
+  variant: arclogdur
+  chunk_length: 200

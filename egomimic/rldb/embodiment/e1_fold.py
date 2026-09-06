@@ -6,6 +6,10 @@ euler rotation, zero gripper pad → (T, 14)) and differ only in the target:
   time     (100, 14)  raw 30 Hz chunk, 3.3 s — the protocol's Time row
   arcmean  (101, 14)  the branch's arc token, velocity row re-normed to PATH speed
   arcvel   (100, 16)  Arc+Vel: waypoints + per-arm speed profile, integral clock
+  arclogdur (100, 16) tempo ablation (#1+#2): waypoints + per-arm log mean
+                      slowness (row 0) and log relative segment durations
+                      (rows 1..); with ``progress_smooth_hz`` set, arc length
+                      is accumulated on 3 Hz low-passed positions (#4)
 
 Every variant also carries ``actions_time`` = the first ``time_rows`` rows of the
 un-tokenized chunk, which is what the E1 evaluator scores against.
@@ -26,7 +30,8 @@ from egomimic.rldb.embodiment.human import (
 )
 from egomimic.rldb.zarr.e1_arc_tokenizer import CopyKeyRows, TokenizeBimanualArcLengthE1
 
-VARIANTS = ("time", "arcmean", "arcvel")
+VARIANTS = ("time", "arcmean", "arcvel", "arclogdur")
+VELOCITY_MODES = {"arcmean": "mean", "arcvel": "profile", "arclogdur": "logdur"}
 
 
 def get_keymap(horizon: int, keymap_mode: str = "cartesian", **kwargs):
@@ -48,6 +53,7 @@ def get_transform_list(
     rotation_mode: str = "euler",
     speed_smooth_frames: int = 7,
     velocity_norm: str = "path",
+    progress_smooth_hz: float | None = None,
 ):
     if variant not in VARIANTS:
         raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
@@ -65,8 +71,9 @@ def get_transform_list(
                 resampled_vector_length=int(resampled_vector_length),
                 dt=float(stride) / 30.0,
                 velocity_norm=velocity_norm,
-                velocity_mode="mean" if variant == "arcmean" else "profile",
+                velocity_mode=VELOCITY_MODES[variant],
                 speed_smooth_frames=int(speed_smooth_frames),
+                progress_smooth_hz=progress_smooth_hz,
             )
         )
     return tl
