@@ -24,6 +24,7 @@ e1:
   prog_horizon_m: 0.19        # E_time_prog: fixed-progress horizon (mid-tertile coverage of H_match)
   progress_smooth_hz: null    # #4: low-pass positions before arc length (3.0 in the _ps rows)
   anchor_sampler: null        # #3: {alpha, fc_hz, fs_hz, seed} -> progress-weighted anchors
+  velocity_norm: path         # Arc-mean velocity row: path (E1 rows) | chord (the lab's token, decoded at the arc rate)
 
 name: e1_fold_${e1.variant}
 description: ${e1.spread}_s${seed}

@@ -1,19 +1,20 @@
-# E1 fold speed-spread data: mecka FREEFORM fold-clothes episodes from a local
-# folder of episode dirs (or symlinks — the split folders built by
-# build_splits.py). No SQL: LocalFolderEpisodeResolver takes every episode in
-# the folder. The variant / window / token knobs come from the ``e1`` node of
-# the experiment config so the three rows share one data file.
+# E1 speed-spread data on the ABC / YAM "sort the stationery into containers" episodes on Phoenix:
+# split folders of symlinks into the mirror, front + BOTH wrist cameras (the lab's BC model consumes
+# them, so these checkpoints match the rollout stack's inputs), EE pose + gripper.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
-  human_bimanual:
+  yam_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      _target_: egomimic.rldb.zarr.e1_resolvers.LocalFolderEpisodeResolverWithEmbodimentOverride
       folder_path: ${e1.train_root}
+      embodiment_override: yam_bimanual
       key_map:
         _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
         horizon: ${e1.chunk_length}
+        embodiment: yam
+        drop_wrist_images: false
       transform_list:
         _target_: egomimic.rldb.embodiment.e1_fold.get_transform_list
         variant: ${e1.variant}
@@ -25,19 +26,23 @@ train_datasets:
         rotation_mode: euler
         progress_smooth_hz: ${e1.progress_smooth_hz}
         velocity_norm: ${e1.velocity_norm}
+        embodiment: yam
     mode: ${e1.train_mode}
     valid_ratio: 0.0
     bounds_check: false
 
 valid_datasets:
-  human_bimanual:
+  yam_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      _target_: egomimic.rldb.zarr.e1_resolvers.LocalFolderEpisodeResolverWithEmbodimentOverride
       folder_path: ${e1.valid_root}
+      embodiment_override: yam_bimanual
       key_map:
         _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
         horizon: ${e1.chunk_length}
+        embodiment: yam
+        drop_wrist_images: false
       transform_list:
         _target_: egomimic.rldb.embodiment.e1_fold.get_transform_list
         variant: ${e1.variant}
@@ -49,18 +54,19 @@ valid_datasets:
         rotation_mode: euler
         progress_smooth_hz: ${e1.progress_smooth_hz}
         velocity_norm: ${e1.velocity_norm}
+        embodiment: yam
     mode: ${e1.valid_mode}
     valid_ratio: 0.0
     bounds_check: false
 
 train_dataloader_params:
-  human_bimanual:
+  yam_bimanual:
     batch_size: 128
     num_workers: 12
     anchor_sampler: ${e1.anchor_sampler}
 
 valid_dataloader_params:
-  human_bimanual:
+  yam_bimanual:
     batch_size: 128
     num_workers: 8
     shuffle: false

@@ -1,0 +1,19 @@
+# @package _global_
+# stationery E1 — arclogdur row on the lab's abc_arc/hpt_abc_bc_flow_arc_D40_M100.
+defaults:
+  - /experiment/e1/abcs_base
+  - override /model: abc_arc/hpt_abc_bc_flow_arc_D40_M100
+  - _self_
+e1:
+  variant: arclogdur
+  chunk_length: 200
+model:
+  robomimic_model:
+    head_specs:
+      yam_bimanual:
+        action_horizon: 100
+        infer_ac_dims:
+          yam_bimanual: 16
+        model:
+          act_dim: 16
+          act_seq: 100
