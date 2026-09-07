@@ -32,7 +32,7 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 echo "=== TRAIN $VARIANT $SPREAD s$SEED -> $RUN ($(date)) commit=$(git rev-parse --short HEAD) steps=$MAX_STEPS val_every=${VAL_EVERY}00 ==="
 $PY egomimic/trainHydra.py --config-name=train_zarr_cartesian \
   +experiment=e1/fold_${VARIANT} \
-  e1.spread=$SPREAD e1.train_root=$DATA/$SPREAD e1.valid_root=$DATA/test_mid e1.h_match_frames=$H_MATCH \
+  e1.spread=$SPREAD e1.train_root=$DATA/$SPREAD e1.valid_root=$DATA/${VALID_SET:-test_mid} e1.h_match_frames=$H_MATCH \
   seed=$SEED trainer.max_epochs=$MAX_EPOCHS trainer.min_epochs=0 +trainer.max_time=$MAX_TIME \
   trainer.check_val_every_n_epoch=$VAL_EVERY callbacks.model_checkpoint.every_n_epochs=$VAL_EVERY callbacks.model_checkpoint.save_top_k=-1 \
   trainer.devices=1 trainer.num_nodes=1 launch_params.gpus_per_node=1 launch_params.nodes=1 \
