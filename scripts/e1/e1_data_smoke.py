@@ -2,7 +2,7 @@
 """Data-pipeline smoke for the E1 fold rows: build the dataset from the hydra
 config, pull samples, print shapes, and round-trip the arc tokens through the
 detokenizer against the carried ``actions_time`` ground truth."""
-import sys
+import os, sys
 import time
 
 import numpy as np
@@ -13,12 +13,12 @@ WT, exp, root = sys.argv[1], sys.argv[2], sys.argv[3]  # exp = experiment suffix
 with initialize_config_dir(config_dir=f"{WT}/egomimic/hydra_configs", version_base=None):
     cfg = compose(
         config_name="train_zarr_cartesian",
-        overrides=[f"+experiment=e1/fold_{exp}", "e1.spread=smoke", f"e1.train_root={root}",
+        overrides=[f"+experiment=e1/{os.environ.get('E1_EXP', 'fold')}_{exp}", "e1.spread=smoke", f"e1.train_root={root}",
                    f"e1.valid_root={root}", "e1.h_match_frames=40", "seed=0"],
     )
 variant = str(cfg.e1.variant)
 t0 = time.time()
-ds = instantiate(cfg.data.train_datasets.human_bimanual)
+ds_name = next(iter(cfg.data.train_datasets.keys())); ds = instantiate(cfg.data.train_datasets[ds_name])
 print(f"[{variant}] dataset built in {time.time()-t0:.1f}s: {len(ds)} samples, leaves={len(ds.datasets)}")
 from egomimic.rldb.zarr.e1_arc_tokenizer import TokenizeBimanualArcLengthE1, ARM_LAYOUT
 from egomimic.rldb.zarr.arc_length_tokenizer import cumulative_arc_length
