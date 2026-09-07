@@ -1,6 +1,5 @@
-# E1 speed-spread data on the ABC / YAM "sort the stationery into containers" episodes on Phoenix:
-# split folders of symlinks into the mirror, front + BOTH wrist cameras (the lab's BC model consumes
-# them, so these checkpoints match the rollout stack's inputs), EE pose + gripper.
+# ICE copy for the stationery E1 sweep: identical to abc_skirts.yaml (front camera only,
+# embodiment override, image_hw 480x640); the split folders under e1.train_root / e1.valid_root select the task.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -15,7 +14,6 @@ train_datasets:
         _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
         horizon: ${e1.chunk_length}
         embodiment: yam
-        drop_wrist_images: false
       transform_list:
         _target_: egomimic.rldb.embodiment.e1_fold.get_transform_list
         variant: ${e1.variant}
@@ -44,7 +42,6 @@ valid_datasets:
         _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
         horizon: ${e1.chunk_length}
         embodiment: yam
-        drop_wrist_images: false
       transform_list:
         _target_: egomimic.rldb.embodiment.e1_fold.get_transform_list
         variant: ${e1.variant}
