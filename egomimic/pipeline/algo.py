@@ -32,6 +32,8 @@ class PipelineAlgo:
 
     def _move_value(self, value):
         if torch.is_tensor(value):
+            if value.dtype == torch.float64:
+                return value.to(device=self.device, dtype=torch.float32)
             return value.to(self.device)
         if isinstance(value, Mapping):
             return {key: self._move_value(item) for key, item in value.items()}

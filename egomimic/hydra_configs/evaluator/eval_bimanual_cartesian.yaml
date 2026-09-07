@@ -1,10 +1,12 @@
 # Cartesian bimanual validation for baseline (time-indexed) cotrain runs.
 #
-# Logs deterministic normalized MSE, native (metres/radians) MSE, and up to
-# ``videos_per_epoch`` predicted-vs-ground-truth overlay frames per embodiment,
-# per val epoch, on rank 0. Overlays are logged as WandB images under
-# ``Val_video/{embodiment}`` for the default val group and namespaced
-# ``Val_video_{group}/{embodiment}`` for every other group.
+# Logs deterministic normalized MSE, native (metres/radians) MSE, and h264 mp4
+# overlay videos of predicted vs GT trajectories, buffered across the whole val
+# epoch on rank 0. One mp4 per episode when the loader stamps ``episode_hash``
+# (it does for zarr sources); batches without it fall back to fixed-size
+# ``validation_video_{i}.mp4`` chunks. Each finished mp4 is also logged to
+# WandB via ``wandb.Video`` under ``Val_video/{embodiment}`` (or
+# ``Val_video_{group}/{embodiment}`` off the default group).
 #
 #   Valid/MSE                        macro mean of per-embodiment normalized MSE
 #   Valid/MSE/{embodiment}           per-embodiment normalized MSE
@@ -38,13 +40,20 @@ revert_transforms:
     is_quat: false
     gripper_padded: true
 
-# Per-epoch overlay budget across the whole val loop. Two frames per embodiment
-# per epoch keeps WandB storage bounded on multi-day runs while still giving a
-# visible timeline of how the policy improves.
-videos_per_epoch: 2
+# Base directory for mp4s. Left null so writes land under the trainer's
+# ``default_root_dir/videos`` (matches the main EgoVerse layout). Override to
+# ``${paths.output_dir}/val_videos`` if the run needs Hydra-rooted paths.
+video_output_dir: null
 
-# On-disk overlay copies, relative to Hydra's per-run output dir.
-video_output_dir: ${paths.output_dir}/val_videos
+# Fixed-size fallback: only hit when a batch has no ``episode_hash``. Zarr
+# sources stamp it, so this path is mostly a safety net.
+video_chunk_frames: 1000
+
+# Per-episode safety cap: also the peak RAM bound on rank 0, roughly
+#     n_embodiments * max_episode_frames * H * W * 3 bytes
+# (~5.5 GB per embodiment at 480x640 and 6000 frames). Episodes past this are
+# written and truncated, not split.
+max_episode_frames: 6000
 
 # Pin the sampler for reproducibility across resumed runs.
 deterministic_seed: 420042

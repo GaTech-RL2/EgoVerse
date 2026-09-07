@@ -4,8 +4,16 @@ Graph-native evaluator for time-indexed (baseline) cotrain runs on 14-D bimanual
 cartesian action chunks. Mirrors ``PlanarActionEval`` on the metric side --
 normalized and native MSE, aggregated across embodiments -- and adds the overlay
 plumbing the arc-branch evaluator used: predicted vs. ground-truth trajectories
-projected through per-embodiment revert transforms and logged to WandB as
-per-sample images.
+projected through per-embodiment revert transforms.
+
+Video output matches the main EgoVerse ``EvalVideo`` format: one h264 mp4 per
+episode under ``val_videos/epoch_{N}/[group/]{embodiment}/{episode_hash}.mp4``
+at 30 fps, buffered across the whole val epoch and cut on ``episode_hash``
+boundaries. Batches without ``episode_hash`` fall back to fixed-size
+``validation_video_{i}.mp4`` chunks. Every finished mp4 is also logged to
+WandB via ``wandb.Video`` at ``Val_video/{embodiment}`` (or
+``Val_video_{group}/{embodiment}`` off the default group). Only rank 0
+buffers/writes.
 
 The action space here is 14-D eef-frame [L pose(6), L grip(1), R pose(6), R
 grip(1)]; ``viz_func`` per-embodiment partials receive it in native units and
@@ -28,17 +36,18 @@ suffix instead.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
 import torch
+import torchvision.io as tvio
 
 from egomimic.eval.eval import Eval
 from egomimic.pipeline.core import resolve_homogeneous_scalar
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
-from egomimic.utils.viz_utils import save_image
 
 
 class BimanualCartesianEval(Eval):
@@ -53,8 +62,9 @@ class BimanualCartesianEval(Eval):
         image_key: str = "observations.images.front_img_1",
         viz_func: Mapping | None = None,
         revert_transforms: Mapping | None = None,
-        videos_per_epoch: int = 2,
         video_output_dir: str | None = None,
+        video_chunk_frames: int = 1000,
+        max_episode_frames: int = 6000,
         deterministic_seed: int = 420042,
         limit_val_batches: int | None = None,
     ):
@@ -72,12 +82,15 @@ class BimanualCartesianEval(Eval):
         # the current EEF pose before projection. Each entry is the ALREADY-
         # instantiated list returned by ``_build_{embodiment}_revert_eef_frame_transform_list``.
         self.revert_transforms = dict(revert_transforms or {})
-        self.videos_per_epoch = int(videos_per_epoch)
-        if self.videos_per_epoch < 0:
-            raise ValueError("videos_per_epoch must be non-negative")
         self.video_output_dir = (
             None if video_output_dir is None else Path(video_output_dir)
         )
+        # Frames per file on the LEGACY chunked path (batches with no
+        # ``episode_hash``); episode-aware batches cut on episode boundaries.
+        self.video_chunk_frames = int(video_chunk_frames)
+        # Safety cap on a single episode's video and the memory bound on the
+        # episode-aware path (an open episode is held in RAM until its boundary).
+        self.max_episode_frames = int(max_episode_frames)
         self.deterministic_seed = int(deterministic_seed)
         # Only present so ``ConfigStore`` overrides (used by fast probes) have a
         # place to land; ``BimanualCartesianEval`` does not override trainer
@@ -85,7 +98,15 @@ class BimanualCartesianEval(Eval):
         self.override_dict = {}
         if limit_val_batches is not None:
             self.override_dict["limit_val_batches"] = int(limit_val_batches)
-        self._videos_saved_this_epoch = 0
+        # All keyed by (group, embodiment_name) so per-group runs don't spill
+        # frames into each other.
+        self.val_image_buffer: dict = {}
+        self.val_counter: dict = {}
+        self.val_open_episode: dict = {}
+        self.val_written: dict = {}
+        # (group, embodiment_name, path) accumulated across the epoch and
+        # flushed to WandB in on_validation_end.
+        self._written_paths: list = []
 
     # ------------------------------------------------------------------
     # lifecycle
@@ -101,9 +122,49 @@ class BimanualCartesianEval(Eval):
         )
 
     def on_validation_start(self):
-        self._videos_saved_this_epoch = 0
+        # Per-epoch reset. ``val_written`` in particular MUST clear here: it is
+        # the "already have a video for this episode" guard, and carrying it
+        # across epochs would silently skip every episode after epoch 0.
+        self.val_image_buffer = {}
+        self.val_counter = {}
+        self.val_open_episode = {}
+        self.val_written = {}
+        self._written_paths = []
+        if self.trainer is not None and getattr(self.trainer, "is_global_zero", True):
+            os.makedirs(
+                os.path.join(
+                    self._video_dir_root(),
+                    f"epoch_{int(getattr(self.trainer, 'current_epoch', 0))}",
+                ),
+                exist_ok=True,
+            )
 
     def on_validation_end(self):
+        # Only rank 0 buffered / wrote frames, so only rank 0 has tails to
+        # flush and paths to upload.
+        if self.trainer is not None and not getattr(
+            self.trainer, "is_global_zero", True
+        ):
+            return None
+        for buf_key in list(self.val_image_buffer):
+            group, embodiment_name = buf_key
+            out_dir = self._group_video_dir(group, embodiment_name)
+            if self.val_open_episode.get(buf_key) is not None:
+                self._flush_episode(buf_key, out_dir)
+            elif len(self.val_image_buffer[buf_key]) != 0:
+                # chunked fallback tail
+                self._write_video(
+                    out_dir,
+                    f"validation_video_{self.val_counter.get(buf_key, 0)}",
+                    self.val_image_buffer[buf_key],
+                    group=group,
+                    embodiment_name=embodiment_name,
+                )
+            self.val_counter[buf_key] = 0
+            self.val_image_buffer[buf_key] = []
+            self.val_open_episode[buf_key] = None
+
+        self._log_wandb_videos()
         return None
 
     # ------------------------------------------------------------------
@@ -186,69 +247,169 @@ class BimanualCartesianEval(Eval):
         return reverted[self.action_key]
 
     # ------------------------------------------------------------------
-    # WandB video logging
+    # video buffering / writing
     # ------------------------------------------------------------------
+
+    def _video_dir_root(self) -> str:
+        """Base ``videos/`` directory. Prefer ``video_output_dir`` when set,
+        else fall back to ``{trainer.default_root_dir}/videos``."""
+        if self.video_output_dir is not None:
+            return str(self.video_output_dir)
+        if self.trainer is None:
+            return os.path.join(os.getcwd(), "videos")
+        return os.path.join(self.trainer.default_root_dir, "videos")
+
+    def _group_video_dir(self, group: str, embodiment_name: str) -> str:
+        """``videos/epoch_N/[group/]{embodiment}`` -- the group segment is
+        omitted for the default group so existing runs keep their layout."""
+        parts = [
+            self._video_dir_root(),
+            f"epoch_{int(getattr(self.trainer, 'current_epoch', 0))}",
+        ]
+        if group != DEFAULT_VALID_GROUP:
+            parts.append(str(group))
+        parts.append(str(embodiment_name))
+        return os.path.join(*parts)
+
+    def _write_video(self, out_dir, name, frames, *, group, embodiment_name):
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, f"{name}.mp4")
+        tvio.write_video(
+            path,
+            torch.stack(list(frames)),
+            fps=30,
+            video_codec="h264",
+        )
+        self._written_paths.append((group, embodiment_name, path))
+
+    def _flush_episode(self, buf_key, out_dir):
+        """Write the open episode's buffer as ``{episode_hash}.mp4``."""
+        episode = self.val_open_episode.get(buf_key)
+        buffer = self.val_image_buffer.get(buf_key) or []
+        if episode is not None and len(buffer) != 0:
+            group, embodiment_name = buf_key
+            self._write_video(
+                out_dir,
+                episode,
+                buffer,
+                group=group,
+                embodiment_name=embodiment_name,
+            )
+            self.val_written.setdefault(buf_key, set()).add(episode)
+        self.val_image_buffer[buf_key] = []
+        self.val_open_episode[buf_key] = None
+
+    def _buffer_per_episode(self, buf_key, out_dir, frames, hashes):
+        """One mp4 per episode, cut where ``episode_hash`` changes.
+
+        Validation runs with shuffle=False and MultiDataset lays its index map
+        out episode by episode, so samples arrive grouped by episode and in
+        frame order -- the boundary is simply where the hash changes.
+        """
+        written = self.val_written.setdefault(buf_key, set())
+        for frame, episode in zip(frames, hashes):
+            open_episode = self.val_open_episode.get(buf_key)
+            if episode in written:
+                # Replay from ``max_size_cycle`` (or frames past the safety
+                # cap). Seeing a finished episode also means whatever is still
+                # open has ended -- without this the LAST episode of a cycling
+                # embodiment never hits a boundary and keeps accumulating a
+                # copy of itself on every wrap.
+                if open_episode is not None:
+                    self._flush_episode(buf_key, out_dir)
+                continue
+            if open_episode is None:
+                self.val_open_episode[buf_key] = episode
+                self.val_image_buffer[buf_key] = []
+            elif episode != open_episode:
+                self._flush_episode(buf_key, out_dir)
+                self.val_open_episode[buf_key] = episode
+                self.val_image_buffer[buf_key] = []
+            buffer = self.val_image_buffer[buf_key]
+            buffer.append(frame)
+            if len(buffer) >= self.max_episode_frames:
+                # Episode longer than the safety cap: write what we have and
+                # mark it done so the remainder is dropped rather than
+                # spilling into the next episode's file.
+                self._flush_episode(buf_key, out_dir)
+
+    def _buffer_chunked(self, buf_key, out_dir, frames):
+        """Legacy path for batches with no ``episode_hash``: fixed-size files."""
+        if self.val_image_buffer.get(buf_key) is None:
+            self.val_image_buffer[buf_key] = []
+            self.val_counter[buf_key] = 0
+        self.val_image_buffer[buf_key].extend(frames)
+        if len(self.val_image_buffer[buf_key]) >= self.video_chunk_frames:
+            group, embodiment_name = buf_key
+            self._write_video(
+                out_dir,
+                f"validation_video_{self.val_counter[buf_key]}",
+                self.val_image_buffer[buf_key],
+                group=group,
+                embodiment_name=embodiment_name,
+            )
+            self.val_image_buffer[buf_key].clear()
+            self.val_counter[buf_key] += 1
+
+    @staticmethod
+    def _episode_hashes(source_batch: Mapping, n_images: int):
+        """Per-sample ``episode_hash`` for this embodiment's images.
+
+        ``episode_hash`` is stamped on every sample by ZarrDataset and falls
+        through ``process_batch_for_training`` unchanged. Returns ``None`` when
+        it is absent or shorter than the image count so callers fall back to
+        fixed-size chunking rather than mislabelling frames.
+        """
+        hashes = (
+            source_batch.get("episode_hash")
+            if isinstance(source_batch, Mapping)
+            else None
+        )
+        if not isinstance(hashes, (list, tuple)) or len(hashes) < n_images:
+            return None
+        return [str(h) for h in hashes[:n_images]]
 
     def _wandb_logger(self):
         """Return the WandbLogger.experiment handle if wandb is configured."""
         if self.trainer is None:
             return None
         logger = getattr(self.trainer, "logger", None)
-        # PL exposes a list at trainer.loggers; the first with wandb wins.
         loggers = getattr(self.trainer, "loggers", None) or ([logger] if logger else [])
         for entry in loggers:
             experiment = getattr(entry, "experiment", None)
             if experiment is None:
                 continue
-            # WandB run objects expose ``.log`` and ``.id``; duck-check both.
             if callable(getattr(experiment, "log", None)) and hasattr(experiment, "id"):
                 return experiment
         return None
 
-    def _log_video_frames(
-        self,
-        *,
-        embodiment_name: str,
-        frames: np.ndarray,
-        batch_idx: int,
-    ) -> None:
-        """Write overlays to disk (if configured) and log per-sample WandB images.
+    def _log_wandb_videos(self) -> None:
+        """Upload every mp4 written this epoch as a ``wandb.Video`` panel.
 
-        ``frames`` is (N, H, W, 3) uint8; each row is one sample's overlay.
+        One log call per (group, embodiment); the panel accepts a list so all
+        episode files for that pair land on the same chart.
         """
-        rank = int(self.trainer.global_rank) if self.trainer is not None else 0
-        if self.video_output_dir is not None:
-            epoch = int(getattr(self.trainer, "current_epoch", 0))
-            step = int(getattr(self.trainer, "global_step", 0))
-            destination = (
-                self.video_output_dir
-                / f"epoch-{epoch}-step-{step}"
-                / (self._validation_group or DEFAULT_VALID_GROUP)
-                / embodiment_name
-            )
-            destination.mkdir(parents=True, exist_ok=True)
-            for i, frame in enumerate(frames):
-                save_image(
-                    frame,
-                    str(destination / f"rank-{rank}-batch-{batch_idx}-sample-{i}.png"),
-                )
-
+        if not self._written_paths:
+            return
         experiment = self._wandb_logger()
         if experiment is None:
             return
-        # Lazy import so the module works without wandb installed at parse time.
         import wandb  # type: ignore
 
-        group = self._validation_group or DEFAULT_VALID_GROUP
-        key_prefix = (
-            "Val_video" if group == DEFAULT_VALID_GROUP else f"Val_video_{group}"
-        )
-        images = [
-            wandb.Image(frame, caption=f"batch{batch_idx}-sample{i}")
-            for i, frame in enumerate(frames)
-        ]
+        grouped: dict[tuple[str, str], list[str]] = {}
+        for group, embodiment_name, path in self._written_paths:
+            grouped.setdefault((group, embodiment_name), []).append(path)
+
+        payload: dict = {}
+        for (group, embodiment_name), paths in grouped.items():
+            prefix = (
+                "Val_video" if group == DEFAULT_VALID_GROUP else f"Val_video_{group}"
+            )
+            payload[f"{prefix}/{embodiment_name}"] = [
+                wandb.Video(p, fps=30, format="mp4") for p in paths
+            ]
         experiment.log(
-            {f"{key_prefix}/{embodiment_name}": images},
+            payload,
             step=int(getattr(self.trainer, "global_step", 0)),
         )
 
@@ -259,13 +420,15 @@ class BimanualCartesianEval(Eval):
         source_batch: Mapping,
         predictions: Mapping,
         embodiment_id: int,
-        batch_idx: int,
     ) -> None:
-        """Render prediction vs GT overlay on the first ``budget`` samples."""
-        if self.videos_per_epoch <= 0:
-            return
-        remaining = self.videos_per_epoch - self._videos_saved_this_epoch
-        if remaining <= 0:
+        """Render prediction vs GT overlays and buffer them into the epoch video.
+
+        Rank 0 only -- other ranks racing on the same directory would clobber
+        each other's files.
+        """
+        if self.trainer is not None and not getattr(
+            self.trainer, "is_global_zero", True
+        ):
             return
         viz_partial = self.viz_func.get(embodiment_name)
         if viz_partial is None:
@@ -277,16 +440,15 @@ class BimanualCartesianEval(Eval):
 
         pred_normalized = predictions["pred_action"].detach()
         gt_normalized = source_batch[self.action_key].detach()
-        take = int(min(remaining, pred_normalized.shape[0]))
-        if take <= 0:
+        if int(pred_normalized.shape[0]) <= 0:
             return
 
-        pred_native = self._native(pred_normalized[:take], embodiment_id).detach().cpu()
-        gt_native = self._native(gt_normalized[:take], embodiment_id).detach().cpu()
+        pred_native = self._native(pred_normalized, embodiment_id).detach().cpu()
+        gt_native = self._native(gt_normalized, embodiment_id).detach().cpu()
 
         # Unnormalize the obs pose and drop an optional T_obs=1 axis. The revert
         # transforms expect per-sample obs of shape (D,), not (T_obs, D).
-        obs_pose_normalized = source_batch[self.obs_pose_key][:take].detach()
+        obs_pose_normalized = source_batch[self.obs_pose_key].detach()
         obs_pose_native = self._native_pose(obs_pose_normalized, embodiment_id)
         if obs_pose_native.ndim == 3 and obs_pose_native.shape[1] == 1:
             obs_pose_native = obs_pose_native.squeeze(1)
@@ -306,7 +468,7 @@ class BimanualCartesianEval(Eval):
         )
 
         image_slab = source_batch[self.image_key]
-        images = image_slab[:take]
+        images = image_slab
         if images.ndim == 5:
             # (B, T=1, C, H, W) or (B, C, H, W) — collapse the optional obs-step axis.
             images = images[:, 0]
@@ -324,10 +486,10 @@ class BimanualCartesianEval(Eval):
         flat_batch = {
             self.image_key: images,
             self.action_key: gt_camframe,
-            "embodiment": source_batch["embodiment"][:take].detach().cpu(),
+            "embodiment": source_batch["embodiment"].detach().cpu(),
         }
         if "intrinsics" in source_batch:
-            flat_batch["intrinsics"] = source_batch["intrinsics"][:take].detach().cpu()
+            flat_batch["intrinsics"] = source_batch["intrinsics"].detach().cpu()
 
         try:
             frames = viz_partial(
@@ -335,13 +497,10 @@ class BimanualCartesianEval(Eval):
                 batch=flat_batch,
             )
         except Exception as exc:  # noqa: BLE001 -- overlay is best-effort, don't die val
-            if self.trainer is not None and getattr(
-                self.trainer, "is_global_zero", True
-            ):
-                print(
-                    f"[BimanualCartesianEval] skipped {embodiment_name} overlay: {exc}",
-                    flush=True,
-                )
+            print(
+                f"[BimanualCartesianEval] skipped {embodiment_name} overlay: {exc}",
+                flush=True,
+            )
             return
 
         if not isinstance(frames, np.ndarray):
@@ -351,12 +510,21 @@ class BimanualCartesianEval(Eval):
         if frames.ndim == 3:
             frames = frames[None]
 
-        self._log_video_frames(
-            embodiment_name=embodiment_name,
-            frames=frames,
-            batch_idx=batch_idx,
-        )
-        self._videos_saved_this_epoch += int(frames.shape[0])
+        # torchvision.io.write_video wants uint8 (T, H, W, 3) tensors; keep the
+        # per-frame layout the numpy array already has.
+        frame_tensor = torch.from_numpy(frames)
+        n_images = int(frame_tensor.shape[0])
+
+        group = self._validation_group or DEFAULT_VALID_GROUP
+        buf_key = (group, embodiment_name)
+        out_dir = self._group_video_dir(group, embodiment_name)
+        os.makedirs(out_dir, exist_ok=True)
+
+        hashes = self._episode_hashes(source_batch, n_images)
+        if hashes is None:
+            self._buffer_chunked(buf_key, out_dir, list(frame_tensor))
+        else:
+            self._buffer_per_episode(buf_key, out_dir, list(frame_tensor), hashes)
 
     # ------------------------------------------------------------------
     # main val entrypoint
@@ -404,7 +572,6 @@ class BimanualCartesianEval(Eval):
                 source_batch=source_batch,
                 predictions=result[source_id],
                 embodiment_id=embodiment_id,
-                batch_idx=batch_idx,
             )
 
         metrics["Valid/MSE"] = torch.stack(normalized_values).mean()
