@@ -7,6 +7,7 @@ dt: 0.03333333333333333
 h_match_frames: ${e1.h_match_frames}
 prog_horizon_m: ${e1.prog_horizon_m}
 progress_smooth_hz: ${e1.progress_smooth_hz}
+velocity_norm: ${e1.velocity_norm}
 results_path: ${paths.output_dir}/e1_tempo.json
 limit_val_batches: ${e1.limit_val_batches}
 viz_func: null

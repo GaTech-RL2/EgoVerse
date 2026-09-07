@@ -58,6 +58,7 @@ class E1FoldTempoEval(HPTEvalVideo):
         results_path: str | None = None,
         prog_horizon_m: float = 0.19,
         progress_smooth_hz: float | None = None,
+        velocity_norm: str = "path",
         **kwargs,
     ):
         kwargs.setdefault("viz_func", None)
@@ -77,7 +78,7 @@ class E1FoldTempoEval(HPTEvalVideo):
                 min_distance_unit=self.D,
                 resampled_vector_length=self.M,
                 dt=self.dt,
-                velocity_norm="path",
+                velocity_norm=velocity_norm,
                 velocity_mode={"arcmean": "mean", "arcvel": "profile", "arclogdur": "logdur"}[variant],
                 progress_smooth_hz=progress_smooth_hz,
             )

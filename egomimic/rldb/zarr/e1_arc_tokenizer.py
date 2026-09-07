@@ -340,6 +340,12 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                 s = None if degenerate else np.interp(t, self._wide_clock(arc[:, 14 + k], cum), cum)
             else:
                 speed = float(np.linalg.norm(arc[M, vsl]))
+                if self.velocity_norm == "chord":
+                    # the lab's token stores a CHORD rate; walking arc length at it runs slow
+                    # (parent fix df5b8498): convert to the arc rate the traversal needs.
+                    chord = float(np.linalg.norm(xyz_wp[-1] - xyz_wp[0]))
+                    if chord > 1e-6:
+                        speed = speed * (total / chord)
                 degenerate = total < 1e-9 or speed < 1e-8
                 s = None if degenerate else np.minimum(speed * t, total)
             if degenerate:
@@ -366,5 +372,9 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                 out.append(self._wide_clock(arc[:, 14 + k], cum))
             else:
                 speed = float(np.linalg.norm(arc[M, vsl]))
+                if self.velocity_norm == "chord":
+                    chord = float(np.linalg.norm(arc[0, xyz_off : xyz_off + 3] - arc[M - 1, xyz_off : xyz_off + 3]))
+                    if chord > 1e-6:
+                        speed = speed * (float(cum[-1]) / chord)
                 out.append(cum / max(speed, self.min_speed))
         return out

@@ -1,0 +1,11 @@
+# @package _global_
+# E1 rows on the ABC / YAM stationery episodes with the LAB's ABC BC models (per-domain FM head,
+# front + wrist cameras) so the checkpoints are rollout-compatible: Time = raw 100-frame chunk
+# (3.3 s, time-matched to the arc rows, unlike the lab's 45-frame baseline), Arc-mean = the lab's
+# chord-norm (M+1, 14) token decoded at the arc rate, logdur = the (M, 16) tempo-ablation channel.
+defaults:
+  - /experiment/e1/fold_base
+  - override /data: e1/abc_stationery
+  - _self_
+
+name: e1_abcs_${e1.variant}
