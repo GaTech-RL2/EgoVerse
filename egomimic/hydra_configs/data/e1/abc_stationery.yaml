@@ -10,6 +10,7 @@ train_datasets:
       _target_: egomimic.rldb.zarr.e1_resolvers.LocalFolderEpisodeResolverWithEmbodimentOverride
       folder_path: ${e1.train_root}
       embodiment_override: yam_bimanual
+      image_hw: [480, 640]
       key_map:
         _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
         horizon: ${e1.chunk_length}
@@ -38,6 +39,7 @@ valid_datasets:
       _target_: egomimic.rldb.zarr.e1_resolvers.LocalFolderEpisodeResolverWithEmbodimentOverride
       folder_path: ${e1.valid_root}
       embodiment_override: yam_bimanual
+      image_hw: [480, 640]
       key_map:
         _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
         horizon: ${e1.chunk_length}
