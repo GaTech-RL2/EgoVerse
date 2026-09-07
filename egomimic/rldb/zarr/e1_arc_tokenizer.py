@@ -167,7 +167,11 @@ def durations_to_clock(col: np.ndarray, span: float, min_speed: float = 0.01, ma
     col = np.asarray(col, dtype=np.float64)
     M = len(col)
     t_span = max(float(span), 1e-9) * np.exp(np.clip(col[0], -np.log(max_speed), -np.log(min_speed)))
-    seg = np.exp(np.clip(col[1:], -LOGDUR_CLIP, LOGDUR_CLIP)) * (t_span / max(M - 1, 1))
+    # rows 1.. are log(segment duration / mean segment duration): at tokenization their
+    # exponentials sum to M-1 exactly, so normalising here is exact for true tokens and
+    # keeps a predicted profile from rescaling the total time that row 0 owns.
+    w = np.exp(np.clip(col[1:], -LOGDUR_CLIP, LOGDUR_CLIP))
+    seg = w / max(float(w.sum()), 1e-12) * t_span
     return np.concatenate(([0.0], np.cumsum(seg)))
 
 
