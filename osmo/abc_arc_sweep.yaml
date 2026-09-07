@@ -204,6 +204,63 @@ workflow:
           done
         }
 
+        # ---- phase 1: norm stats, ONE GPU per experiment, no DDP.
+        #
+        # trainHydra computes norm stats BEFORE trainer.fit, so under
+        # gpus_per_node=2 rank 1 sits at the process-group store while rank 0
+        # does the whole pass. That pass is hours (~11h for the 40h multitask
+        # arc run at sample_frac 0.2) and the store gives up at 1800s:
+        #   DistStoreError: Timed out after 1801 seconds waiting for clients.
+        #   1/2 clients joined.
+        # Under submitit this never happens -- tasks_per_node=2 starts both
+        # ranks together. Running trainHydra directly the second rank is spawned
+        # late and starves, so compute the stats once on a single GPU and the
+        # barrier disappears.
+        #
+        # Cache per EXPERIMENT, not per pair: the arc and baseline twins read
+        # the same episodes but tokenize differently, so the files are not
+        # interchangeable.
+        NORM_ROOT=/workspace/norm_cache
+        mkdir -p "$NORM_ROOT"
+        NPIDS=""
+        i=0
+        for EXP in $EXPERIMENTS; do
+          mkdir -p "$NORM_ROOT/$EXP"
+          ( CUDA_VISIBLE_DEVICES=$i python egomimic/trainHydra.py \
+              +experiment=abc_arc/"$EXP" \
+              launch_params.gpus_per_node=1 \
+              norm_stats.save_cache_dir="$NORM_ROOT/$EXP" \
+              trainer.max_epochs=1 trainer.min_epochs=1 \
+              trainer.limit_train_batches=1 trainer.limit_val_batches=0 \
+              trainer.num_sanity_val_steps=0 \
+              ~logger ~callbacks \
+              name="normstats_${EXP}" \
+              > "/tmp/norm_${EXP}.log" 2>&1 ) &
+          NPIDS="$NPIDS $!"
+          i=$((i + 1))
+        done
+        echo "phase 1: $(echo $NPIDS | wc -w) norm-stats passes, 1 GPU each"
+        FIRSTN=$(echo $EXPERIMENTS | awk '{print $1}')
+        touch "/tmp/norm_${FIRSTN}.log"; tail -f "/tmp/norm_${FIRSTN}.log" & NTAIL=$!
+        drain_pids "$NPIDS"
+        kill $NTAIL 2>/dev/null || true
+
+        # Verify EVERY cache before using it. cache_stats writes after each
+        # embodiment, so an interrupted pass leaves a partial file that would
+        # silently leave one embodiment unnormalized.
+        for EXP in $EXPERIMENTS; do
+          NJ="$NORM_ROOT/$EXP/norm_stats/norm_stats.json"
+          if [ ! -s "$NJ" ]; then
+            echo "FATAL: no norm stats for $EXP"; tail -30 "/tmp/norm_${EXP}.log"; exit 1
+          fi
+          if ! python -c "import json,sys; d=json.load(open(sys.argv[1])); st=d['stats']; c={e:len(k) for e,k in st.items()}; ok=bool(st) and all(len(k)>0 for k in st.values()); print('  norm stats',sys.argv[2],c,'COMPLETE' if ok else 'PARTIAL'); sys.exit(0 if ok else 1)" "$NJ" "$EXP"; then
+            echo "FATAL: partial norm stats for $EXP -- refusing to train on it"; exit 1
+          fi
+        done
+        echo "phase 1 complete: all caches verified"
+
+        # ---- phase 2: real training, GPUS_PER_RUN each, stats preloaded so the
+        # rendezvous happens within seconds of start.
         RC=0
         PIDS=""
         i=0
@@ -216,6 +273,7 @@ workflow:
             python egomimic/trainHydra.py \
               +experiment=abc_arc/"$EXP" \
               launch_params.gpus_per_node="$GPUS_PER_RUN" \
+              norm_stats.precomputed_norm_path="$NORM_ROOT/$EXP/norm_stats/norm_stats.json" \
               logger.wandb.entity="$WANDB_ENTITY" \
               > "/tmp/arc_${EXP}.log" 2>&1 ) &
           PIDS="$PIDS $!"
@@ -240,7 +298,7 @@ workflow:
         bash -c 'set -a; source "$HOME/.egoverse_env"; set +a
           export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
           export AWS_DEFAULT_REGION=auto
-          for d in $(find /workspace/EgoVerse/logs -type d \( -name checkpoints -o -name norm_stats \) 2>/dev/null); do
+          for d in $(find /workspace/EgoVerse/logs /workspace/norm_cache -type d \( -name checkpoints -o -name norm_stats \) 2>/dev/null); do
             RN=$(basename $(dirname $(dirname "$d")))
             s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
               sync "$d/" "s3://rldb/staged/abc_arc/'"$JOB_NAME"'/$RN/$(basename $d)/"
