@@ -14,6 +14,12 @@ euler rotation, zero gripper pad → (T, 14)) and differ only in the target:
 Every variant also carries ``actions_time`` = the first ``time_rows`` rows of the
 un-tokenized chunk, which is what the E1 evaluator scores against.
 
+``embodiment="yam"`` runs the same three rows on the ABC / YAM robot episodes:
+the Yam ``cartesian`` keymap without the two wrist cameras (not transferred to
+ICE; E1 uses the front image only, as on mecka) and the Yam eef-frame transform
+list, which already yields the (T, 14) [xyz ypr grip] x {L, R} layout with a
+real gripper — no padding step.
+
 Why not ``Human.get_keymap('arc_tokenizer_cartesian')``: that keymap reads a
 600-frame raw window that ``InterpolatePose`` squeezes to 100 samples, so the
 tokenizer's ``dt`` no longer matches the sample spacing (6x off for mecka at
@@ -34,9 +40,18 @@ VARIANTS = ("time", "arcmean", "arcvel", "arclogdur")
 VELOCITY_MODES = {"arcmean": "mean", "arcvel": "profile", "arclogdur": "logdur"}
 
 
-def get_keymap(horizon: int, keymap_mode: str = "cartesian", **kwargs):
+def get_keymap(horizon: int, keymap_mode: str = "cartesian", embodiment: str = "human", drop_wrist_images: bool = True, **kwargs):
     """Plain cartesian keymap with every action key's raw window set to ``horizon``."""
-    key_map = Human.get_keymap(keymap_mode, **kwargs)
+    if embodiment == "human":
+        key_map = Human.get_keymap(keymap_mode, **kwargs)
+    elif embodiment == "yam":
+        from egomimic.rldb.embodiment.yam import Yam
+
+        key_map = Yam.get_keymap(keymap_mode, **kwargs)
+        if drop_wrist_images:
+            key_map = {k: v for k, v in key_map.items() if v.get("zarr_key") not in ("images.left_wrist", "images.right_wrist")}
+    else:
+        raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
     for spec in key_map.values():
         if "horizon" in spec:
             spec["horizon"] = int(horizon)
@@ -54,13 +69,23 @@ def get_transform_list(
     speed_smooth_frames: int = 7,
     velocity_norm: str = "path",
     progress_smooth_hz: float | None = None,
+    embodiment: str = "human",
 ):
     if variant not in VARIANTS:
         raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
-    tl = _build_human_cartesian_eef_frame_transform_list(
-        stride=int(stride), rotation_mode=rotation_mode, chunk_length=int(chunk_length)
-    )
-    tl = _pad_human_cartesian_gripper(tl, rotation_mode=rotation_mode)
+    if embodiment == "human":
+        tl = _build_human_cartesian_eef_frame_transform_list(
+            stride=int(stride), rotation_mode=rotation_mode, chunk_length=int(chunk_length)
+        )
+        tl = _pad_human_cartesian_gripper(tl, rotation_mode=rotation_mode)
+    elif embodiment == "yam":
+        from egomimic.rldb.embodiment.yam import _build_yam_bimanual_eef_frame_transform_list
+
+        tl = _build_yam_bimanual_eef_frame_transform_list(
+            stride=int(stride), rotation_mode=rotation_mode, chunk_length=int(chunk_length)
+        )
+    else:
+        raise ValueError(f"embodiment must be 'human' or 'yam', got {embodiment!r}")
     tl.append(CopyKeyRows("actions_cartesian", "actions_time", int(time_rows)))
     if variant != "time":
         tl.append(

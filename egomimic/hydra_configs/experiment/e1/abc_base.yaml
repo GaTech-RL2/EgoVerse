@@ -1,0 +1,13 @@
+# @package _global_
+# E1 of the mixed-speed protocol on the ABC / YAM "fold and stack the skirts"
+# episodes — the robot replication of experiment/e1/fold_base. Same rows, same
+# tokenizer, same evaluator, same HPT flow model. The yam_bimanual domain
+# (state_ee_pose 14-D stem + the shared front_img_1 stem) is declared in each
+# abc_<variant> config AFTER its model override, because a model-group override
+# replaces list-valued keys such as `domains`.
+defaults:
+  - /experiment/e1/fold_base
+  - override /data: e1/abc_skirts
+  - _self_
+
+name: e1_abc_${e1.variant}
