@@ -1,0 +1,8 @@
+# @package _global_
+# ABC / YAM skirts — arclogdur row with FIXED waypoint spacing (h = D/(M-1), plateau past the valid length).
+defaults:
+  - /experiment/e1/abc_arclogdur
+  - _self_
+e1:
+  fixed_spacing: true
+name: e1_abc_arclogdur_fs

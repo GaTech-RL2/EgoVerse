@@ -1,0 +1,8 @@
+# @package _global_
+# ABC / YAM STATIONERY (ICE) — arcmean row with FIXED waypoint spacing.
+defaults:
+  - /experiment/e1/abcst_arcmean
+  - _self_
+e1:
+  fixed_spacing: true
+name: e1_abcst_arcmean_fs

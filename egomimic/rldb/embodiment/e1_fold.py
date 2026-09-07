@@ -70,6 +70,7 @@ def get_transform_list(
     velocity_norm: str = "path",
     progress_smooth_hz: float | None = None,
     embodiment: str = "human",
+    fixed_spacing: bool = False,
 ):
     if variant not in VARIANTS:
         raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
@@ -99,6 +100,7 @@ def get_transform_list(
                 velocity_mode=VELOCITY_MODES[variant],
                 speed_smooth_frames=int(speed_smooth_frames),
                 progress_smooth_hz=progress_smooth_hz,
+                fixed_spacing=bool(fixed_spacing),
             )
         )
     return tl

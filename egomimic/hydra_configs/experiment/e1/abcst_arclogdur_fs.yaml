@@ -1,0 +1,8 @@
+# @package _global_
+# ABC / YAM STATIONERY (ICE) — arclogdur row with FIXED waypoint spacing.
+defaults:
+  - /experiment/e1/abcst_arclogdur
+  - _self_
+e1:
+  fixed_spacing: true
+name: e1_abcst_arclogdur_fs

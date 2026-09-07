@@ -25,6 +25,7 @@ train_datasets:
         rotation_mode: euler
         progress_smooth_hz: ${e1.progress_smooth_hz}
         velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
         embodiment: yam
     mode: ${e1.train_mode}
     valid_ratio: 0.0
@@ -53,6 +54,7 @@ valid_datasets:
         rotation_mode: euler
         progress_smooth_hz: ${e1.progress_smooth_hz}
         velocity_norm: ${e1.velocity_norm}
+        fixed_spacing: ${e1.fixed_spacing}
         embodiment: yam
     mode: ${e1.valid_mode}
     valid_ratio: 0.0
