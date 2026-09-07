@@ -28,6 +28,7 @@ model:
               crossattn_modality_dropout: 0.1
               modality_embed_dim: 256
     head_specs:
+      yam_bimanual: null   # shared head only, like human_bimanual / eva_bimanual
       shared:
         infer_ac_dims:
           yam_bimanual: 14
