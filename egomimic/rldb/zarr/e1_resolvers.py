@@ -10,7 +10,7 @@ be routed to the eva domain and normalised with the wrong stats.
 
 from __future__ import annotations
 
-from egomimic.rldb.zarr.zarr_dataset_multi import LocalFolderEpisodeResolver
+from egomimic.rldb.zarr.zarr_dataset_multi import LocalFolderEpisodeResolver, S3EpisodeResolver
 
 
 class LocalFolderEpisodeResolverWithEmbodimentOverride(LocalFolderEpisodeResolver):
@@ -20,6 +20,25 @@ class LocalFolderEpisodeResolverWithEmbodimentOverride(LocalFolderEpisodeResolve
         # The folder resolver drops the base class's image_hw; ABC episodes mix 640x480 with
         # 1280x720 front images and a batch cannot mix sizes, so resize like the lab's S3 resolver.
         self.image_hw = tuple(image_hw) if image_hw else None
+
+    def resolve(self, *args, **kwargs):
+        datasets = super().resolve(*args, **kwargs)
+        if self.embodiment_override is not None:
+            for ds in datasets.values():
+                ds.embodiment = self.embodiment_override
+        return datasets
+
+
+class S3EpisodeResolverWithEmbodimentOverride(S3EpisodeResolver):
+    """The lab's SQL-driven resolver with the same override. On the Phoenix mirror the ABC
+    zarrs still say ``attrs.embodiment == "eva_bimanual"`` (the Skynet copies the lab trains
+    from were converted after the eva→yam relabel), so without this the leaves register as
+    embodiment 6 while the model's domain is yam_bimanual (7): norm stats land under 6 with no
+    keys and ``HPT.ac_keys[7]`` is never set ("Missing key 7" at the first validation batch)."""
+
+    def __init__(self, *args, embodiment_override: str | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.embodiment_override = embodiment_override
 
     def resolve(self, *args, **kwargs):
         datasets = super().resolve(*args, **kwargs)

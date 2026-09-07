@@ -25,7 +25,8 @@ train_datasets:
   yam_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
       folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
       image_hw: [480, 640]
       # 276 YAM episodes = 10.01 h. Matched to the cotrain run's yam split
@@ -54,7 +55,8 @@ valid_datasets:
   yam_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
       folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
       image_hw: [480, 640]
       key_map:
