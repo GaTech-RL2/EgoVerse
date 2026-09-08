@@ -16,7 +16,7 @@ train_datasets:
         keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian
+        mode: cartesian_rot6d
         stride: 1
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter

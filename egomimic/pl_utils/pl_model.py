@@ -13,6 +13,19 @@ import egomimic.utils.tensor_utils as TensorUtils
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
+def unwrap_combined_batch(batch):
+    """A nested lightning ``CombinedLoader`` yields ``(batch, batch_idx,
+    dataloader_idx)``; return just the batch. Plain dict batches pass through."""
+    if (
+        isinstance(batch, (tuple, list))
+        and len(batch) == 3
+        and isinstance(batch[0], dict)
+        and not isinstance(batch[1], dict)
+    ):
+        return batch[0]
+    return batch
+
+
 class ModelWrapper(LightningModule):
     """
     Wrapper class around robomimic models to ensure compatibility with Pytorch Lightning.
@@ -208,9 +221,14 @@ class ModelWrapper(LightningModule):
         """
         if self.evaluator is None:
             return
+        # With several val loaders (metrics + viz), each element is itself a
+        # CombinedLoader, which yields ``(batch, batch_idx, dataloader_idx)``
+        # tuples; unwrap to the per-dataset dict the algo expects.
+        batch = unwrap_combined_batch(batch)
         batch = self.model.process_batch_for_training(batch)
         print(
-            f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}",
+            f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}, "
+            f"dataloader_idx={dataloader_idx}",
             flush=True,
         )
         self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
@@ -242,12 +260,32 @@ class ModelWrapper(LightningModule):
         config_tree = getattr(self.hparams, "config_tree", None)
         if config_tree is not None:
             cfg = self._as_config(config_tree)
-            optimizer = hydra.utils.instantiate(
-                cfg.model.optimizer,
-                params=self.trainer.model.parameters(),
-            )
-            if callable(optimizer):
-                optimizer = optimizer()
+            # Algos that define per-module parameter groups (e.g. BPP: the
+            # pretrained ViT at 0.1x lr and no weight decay, as in the
+            # original recipe) provide them here; otherwise a single group.
+            groups_fn = getattr(self.model, "optimizer_param_groups", None)
+            if callable(groups_fn):
+                groups = groups_fn(
+                    lr=float(cfg.model.optimizer.lr),
+                    weight_decay=float(cfg.model.optimizer.get("weight_decay", 0.0)),
+                )
+                # Do not pass the groups through instantiate: hydra converts
+                # lists/dicts of kwargs into OmegaConf containers, which the
+                # optimizer rejects. Requires `_partial_: true` on the config.
+                optimizer = hydra.utils.instantiate(cfg.model.optimizer)
+                if not callable(optimizer):
+                    raise ValueError(
+                        "model.optimizer must be `_partial_: true` when the algo "
+                        "provides optimizer_param_groups"
+                    )
+                optimizer = optimizer(params=groups)
+            else:
+                optimizer = hydra.utils.instantiate(
+                    cfg.model.optimizer,
+                    params=self.trainer.model.parameters(),
+                )
+                if callable(optimizer):
+                    optimizer = optimizer()
             scheduler_cfg = cfg.model.get("scheduler")
             if scheduler_cfg is not None:
                 scheduler = hydra.utils.instantiate(
@@ -276,6 +314,18 @@ class ModelWrapper(LightningModule):
                 },
             }
         return {"optimizer": optimizer}
+
+    # Keys some policies append to ``state_dict`` outside the module tree
+    # (behavior_prompting's BasePolicy adds ``_extra_training_split_info``;
+    # its own ``load_state_dict`` pops it, but a strict Lightning resume goes
+    # through this wrapper's ``load_state_dict`` and never reaches that).
+    EXTRA_STATE_DICT_KEYS = ("_extra_training_split_info",)
+
+    def on_load_checkpoint(self, checkpoint):
+        sd = checkpoint.get("state_dict")
+        if isinstance(sd, dict):
+            for k in self.EXTRA_STATE_DICT_KEYS:
+                sd.pop(k, None)
 
     def on_fit_start(self):
         self.model.device = self.device

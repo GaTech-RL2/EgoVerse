@@ -43,6 +43,12 @@ class HPTEvalVideo(EvalVideo):
                     total_loss = torch.zeros_like(loss_val)
                 total_loss = total_loss + loss_val
                 n_loss_embodiments += 1
+            # Whole-episode prompting: val loss split by seen / unseen operator
+            # (computed inside forward_eval on the sub-batches).
+            for split in ("seen", "unseen"):
+                key = f"{embodiment_name}_loss_{split}_operator"
+                if key in preds:
+                    metrics[f"Valid/{key}"] = preds[key]
 
             # Samples the dataset substituted (bounds/NaN rejection) are dropped
             # from all per-sample metrics and from the video frames.
@@ -73,6 +79,30 @@ class HPTEvalVideo(EvalVideo):
                 metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_max"] = (
                     fd.max().item()
                 )
+                # Paired MSE split by seen / unseen operator and per group
+                # when the dataset tags samples (EpisodePromptMultiDataset).
+                # The group index -> (task, operator) table is in the
+                # dataset's build log ("group i = ..." lines).
+                seen = raw_batch.get("operator_seen")
+                group_idx = raw_batch.get("group_idx")
+                pred_cpu = preds[f"{embodiment_name}_{ac_key}"].detach().cpu()
+                gt_cpu = _batch[ac_key].detach().cpu()
+                if torch.is_tensor(seen) and seen.ndim == 1:
+                    seen = seen.bool().cpu()
+                    for split, rows in (("seen", seen), ("unseen", ~seen)):
+                        if rows.any():
+                            metrics[
+                                f"Valid/{embodiment_name}_{ac_key}_paired_mse_{split}_operator"
+                            ] = torch.nn.functional.mse_loss(
+                                pred_cpu[rows], gt_cpu[rows]
+                            )
+                if torch.is_tensor(group_idx) and group_idx.ndim == 1:
+                    group_idx = group_idx.cpu()
+                    for g in torch.unique(group_idx).tolist():
+                        rows = group_idx == g
+                        metrics[
+                            f"Valid/{embodiment_name}_{ac_key}_paired_mse_group_{int(g)}"
+                        ] = torch.nn.functional.mse_loss(pred_cpu[rows], gt_cpu[rows])
 
             if embodiment_name in algo.auxiliary_ac_keys:
                 for aux_key in algo.auxiliary_ac_keys[embodiment_name]:

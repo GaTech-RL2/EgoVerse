@@ -20,7 +20,7 @@ _MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "hydra_configs", "mod
 MODEL_YAML = os.path.join(_MODEL_DIR, "bpp_prompt_dit.yaml")
 NOPROMPT_MODEL_YAML = os.path.join(_MODEL_DIR, "bpp_dit.yaml")
 
-B, T, D = 2, 100, 12
+B, T, D = 2, 100, 18
 EMBODIMENT = "human_bimanual"
 
 
@@ -234,3 +234,218 @@ def test_noprompt_rejects_prompt_block():
     norm_stats, _ = _build_norm_stats()
     with pytest.raises(Exception, match="does not support prompting"):
         hydra.utils.instantiate(cfg.model.robomimic_model, norm_stats=norm_stats)
+
+
+# ---------------------------------------------------------------------------
+# Whole-episode prompting (model/bpp_prompt_dit_episode.yaml, prompt.mode
+# episode_pair): the batch carries a collated, variable-length prompt.
+# ---------------------------------------------------------------------------
+
+EPISODE_MODEL_YAML = os.path.join(_MODEL_DIR, "bpp_prompt_dit_episode.yaml")
+CHUNK_EP = 30
+
+
+@pytest.fixture(scope="module")
+def algo_episode():
+    cfg = _load_small_cfg(EPISODE_MODEL_YAML)
+    norm_stats, _ = _build_norm_stats()
+    return hydra.utils.instantiate(cfg.model.robomimic_model, norm_stats=norm_stats)
+
+
+def _build_episode_batch(lengths=(3, 5, 4, 2), groups=(0, 0, 1, 1)):
+    from egomimic.pl_utils.pl_data_utils import prompt_collate
+
+    torch.manual_seed(0)
+    Bn = len(lengths)
+    prompts = [
+        {
+            "obs": {
+                "observations.images.front_img_1": torch.rand(L, 3, 224, 224),
+                "observations.state.ee_pose": torch.randn(L, D).clamp(-1, 1),
+            },
+            "action": torch.randn(L, CHUNK_EP, D).clamp(-1, 1),
+            "length": L,
+        }
+        for L in lengths
+    ]
+    return {
+        EMBODIMENT: {
+            "observations.images.front_img_1": torch.rand(Bn, 3, 360, 640),
+            "observations.state.ee_pose": torch.randn(Bn, D).clamp(-1, 1),
+            "actions_cartesian": torch.randn(Bn, T, D).clamp(-1, 1),
+            "group_idx": torch.tensor(groups),
+            "prompt": prompt_collate(prompts),
+        }
+    }
+
+
+def test_episode_mode_config(algo_episode):
+    assert algo_episode.prompt_mode == "episode_pair"
+    assert algo_episode.chunk_n_actions == CHUNK_EP
+    assert algo_episode.max_prompt_len == 15  # 450 / 30
+    assert algo_episode.prompt_chunker is None
+
+
+def test_episode_prompt_structure(algo_episode, emb_id):
+    algo = algo_episode
+    algo.nets.eval()
+    processed = algo.process_batch_for_training(_build_episode_batch())
+    assert torch.is_tensor(processed[emb_id]["prompt"]["action"])
+    obs_dict = algo._build_obs_dict(processed[emb_id], emb_id, training=False)
+    prompt = obs_dict["prompt"]
+    Bn, P = 4, 5
+    assert set(prompt["obs"].keys()) == {"front_img_1", "state_ee_pose"}
+    assert prompt["obs"]["front_img_1"].shape == (Bn, P, 3, 224, 224)
+    assert prompt["obs"]["state_ee_pose"].shape == (Bn, P, D)
+    assert prompt["action"].shape == (Bn, P, CHUNK_EP, D)
+    mask = prompt["metadata"]["mask"]
+    assert mask.shape == (Bn, P) and mask.dtype == torch.bool
+    assert mask.sum(1).tolist() == [2, 0, 1, 3]
+
+
+def test_episode_training_path_and_grads(algo_episode, emb_id):
+    algo = algo_episode
+    algo.nets.train()
+    processed = algo.process_batch_for_training(_build_episode_batch())
+    predictions = algo.forward_training(processed)
+    losses = algo.compute_losses(predictions, processed)
+    assert torch.isfinite(losses["action_loss"])
+    algo.nets.zero_grad(set_to_none=True)
+    losses["action_loss"].backward()
+    trainable = [p for p in algo.nets.parameters() if p.requires_grad]
+    with_grad = [p for p in trainable if p.grad is not None]
+    assert len(with_grad) == len(trainable)
+
+
+def test_episode_forward_eval_and_seen_unseen_losses(algo_episode, emb_id):
+    algo = algo_episode
+    algo.nets.eval()
+    batch = _build_episode_batch()
+    batch[EMBODIMENT]["operator_seen"] = torch.tensor([1, 1, 0, 0])
+    with torch.no_grad():
+        processed = algo.process_batch_for_training(batch)
+        preds = algo.forward_eval(processed)
+    assert torch.isfinite(preds[f"{EMBODIMENT}_loss"])
+    assert torch.isfinite(preds[f"{EMBODIMENT}_loss_seen_operator"])
+    assert torch.isfinite(preds[f"{EMBODIMENT}_loss_unseen_operator"])
+    assert preds[f"{EMBODIMENT}_actions_cartesian"].shape == (4, T, D)
+
+    # all-seen batch: no unseen key; untagged batch: neither key
+    batch = _build_episode_batch()
+    batch[EMBODIMENT]["operator_seen"] = torch.tensor([1, 1, 1, 1])
+    with torch.no_grad():
+        preds2 = algo.forward_eval(algo.process_batch_for_training(batch))
+    assert f"{EMBODIMENT}_loss_seen_operator" in preds2
+    assert f"{EMBODIMENT}_loss_unseen_operator" not in preds2
+    with torch.no_grad():
+        preds3 = algo.forward_eval(
+            algo.process_batch_for_training(_build_episode_batch())
+        )
+    assert f"{EMBODIMENT}_loss_seen_operator" not in preds3
+
+
+def test_episode_prompt_dropout_zeroes_content(algo_episode, emb_id):
+    algo = algo_episode
+    algo.nets.train()
+    processed = algo.process_batch_for_training(_build_episode_batch())
+    old = algo.p_drop_prompt
+    algo.p_drop_prompt = 1.0
+    try:
+        obs_dict = algo._build_obs_dict(processed[emb_id], emb_id, training=True)
+    finally:
+        algo.p_drop_prompt = old
+    assert (obs_dict["prompt"]["action"] == 0).all()
+    assert (obs_dict["prompt"]["obs"]["state_ee_pose"] == 0).all()
+    assert not obs_dict["prompt"]["metadata"]["mask"].all(1).any()
+
+
+def test_episode_mode_requires_prompt_in_batch(algo_episode, emb_id):
+    algo = algo_episode
+    batch = _build_episode_batch()
+    del batch[EMBODIMENT]["prompt"]
+    processed = algo.process_batch_for_training(batch)
+    with pytest.raises(ValueError, match="carries no `prompt`"):
+        algo._build_obs_dict(processed[emb_id], emb_id, training=False)
+
+
+def test_episode_rejects_wrong_chunk_size(algo_episode, emb_id):
+    algo = algo_episode
+    batch = _build_episode_batch()
+    bad = batch[EMBODIMENT]["prompt"]["action"]
+    batch[EMBODIMENT]["prompt"]["action"] = bad[:, :, : CHUNK_EP - 1]
+    processed = algo.process_batch_for_training(batch)
+    with pytest.raises(ValueError, match="prompt chunk size"):
+        algo._build_obs_dict(processed[emb_id], emb_id, training=False)
+
+
+def test_noprompt_policy_drops_episode_prompt_batch(algo_noprompt, emb_id):
+    """Arm A of the video-context ablation: the unprompted policy trains on
+    data built by EpisodePromptMultiDataset, so the batch carries a collated
+    prompt plus group / operator tags. The adapter must drop the prompt and
+    keep the tags."""
+    algo = algo_noprompt
+    algo.nets.train()
+    batch = _build_episode_batch()
+    batch[EMBODIMENT]["operator_seen"] = torch.tensor([1, 1, 0, 0])
+    processed = algo.process_batch_for_training(batch)
+    assert "prompt" not in processed[emb_id]
+    assert processed[emb_id]["group_idx"].tolist() == [0, 0, 1, 1]
+    assert processed[emb_id]["operator_seen"].tolist() == [1, 1, 0, 0]
+    obs_dict = algo._build_obs_dict(processed[emb_id], emb_id, training=True)
+    assert "prompt" not in obs_dict
+    predictions = algo.forward_training(processed)
+    losses = algo.compute_losses(predictions, processed)
+    assert torch.isfinite(losses["action_loss"])
+    algo.nets.zero_grad(set_to_none=True)
+    losses["action_loss"].backward()
+    algo.nets.eval()
+    with torch.no_grad():
+        preds = algo.forward_eval(algo.process_batch_for_training(batch))
+    assert preds[f"{EMBODIMENT}_actions_cartesian"].shape == (4, T, D)
+    # seen / unseen losses are computed from the tags, prompt or not
+    assert torch.isfinite(preds[f"{EMBODIMENT}_loss_seen_operator"])
+    assert torch.isfinite(preds[f"{EMBODIMENT}_loss_unseen_operator"])
+
+
+def test_grad_checkpointing_flag_enables_vit_checkpointing(algo_episode, emb_id):
+    # default (algo_episode fixture) stays off
+    assert not any(
+        getattr(m, "grad_checkpointing", False)
+        for m in algo_episode.nets["policy"].modules()
+    )
+    cfg = _load_small_cfg(EPISODE_MODEL_YAML)
+    cfg.model.robomimic_model.grad_checkpointing = True
+    norm_stats, _ = _build_norm_stats()
+    algo = hydra.utils.instantiate(cfg.model.robomimic_model, norm_stats=norm_stats)
+    vits = [
+        m for m in algo.nets["policy"].modules() if hasattr(m, "set_grad_checkpointing")
+    ]
+    assert vits and all(getattr(m, "grad_checkpointing", False) for m in vits)
+    import timm.layers
+
+    assert not timm.layers.use_reentrant_ckpt()
+    # training path still backprops into every trainable parameter
+    algo.nets.train()
+    processed = algo.process_batch_for_training(_build_episode_batch())
+    losses = algo.compute_losses(algo.forward_training(processed), processed)
+    algo.nets.zero_grad(set_to_none=True)
+    losses["action_loss"].backward()
+    trainable = [p for p in algo.nets.parameters() if p.requires_grad]
+    assert all(p.grad is not None for p in trainable)
+
+
+def test_optimizer_param_groups_cover_all_and_scale_backbone(algo_episode):
+    algo = algo_episode
+    lr, wd = 5e-5, 1e-6
+    groups = algo.optimizer_param_groups(lr=lr, weight_decay=wd)
+    ids = [id(p) for g in groups for p in g["params"]]
+    assert len(ids) == len(set(ids))  # no param in two groups
+    trainable = {id(p) for p in algo.nets.parameters() if p.requires_grad}
+    assert set(ids) == trainable
+    lrs = {float(g.get("lr", lr)) for g in groups}
+    assert lr in lrs
+    assert any(abs(g_lr - lr * 0.1) < 1e-12 for g_lr in lrs)  # backbone at 0.1x
+    backbone = [g for g in groups if abs(float(g.get("lr", lr)) - lr * 0.1) < 1e-12]
+    assert all(g["weight_decay"] == 0 for g in backbone)
+    opt = torch.optim.AdamW(groups, lr=lr, weight_decay=wd)
+    assert len(opt.param_groups) == len(groups)

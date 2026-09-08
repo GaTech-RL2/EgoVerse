@@ -1,0 +1,129 @@
+# Video-context ablation data for the BPP algo (docs/2026-09-03_bpp_video_context_ablation.md,
+# section 4). Mecka human_bimanual `folding_clothes`: six operators, three for
+# training and three held out entirely. The split is pinned by episode hash
+# (48 episodes: 36 train, 6 seen-operator val, 6 unseen-operator val), so both
+# datasets run in `mode: total` and the filter lambdas are the split.
+#
+# Rotations are the continuous 6D representation (Human transform mode
+# `cartesian_rot6d`): actions_cartesian and observations.state.ee_pose are
+# 2 x (xyz + 6) = 18 dims, matching the model configs' shape_meta, so the
+# +-pi wraparound of yaw/pitch/roll never appears in a target.
+#
+# Design notes:
+# - `chunk_n_actions`, `max_sequence_length` and the prompt transform's
+#   `chunk_length` are literals (60 / 2700 / 60), not interpolations of the
+#   model's shape_meta: arm A's model (bpp_dit) has no prompt shape_meta, so
+#   the interpolation would fail at compose time. The BPP adapter still
+#   asserts a prompted model's chunk size against the batch.
+# - The valid dataset has its own filter and its own literal `prompt` block
+#   (hydra cannot partially override an interpolated block), with the three
+#   unseen operators in `heldout_groups` so their samples are tagged
+#   `operator_seen=0`.
+# - `shuffle: true` on the valid loader: `limit_val_batches: 80` at batch 32
+#   is 2560 samples of 25 096, so an unshuffled loader would only ever see
+#   the first one or two episodes (sorted by hash).
+#
+# Arm A (unprompted model) should add
+#   data.train_datasets.human_bimanual.prompt.ignore=true \
+#   data.valid_datasets.human_bimanual.prompt.ignore=true
+# so the dataset skips the prompt IO; episode lists and tags are unchanged.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.prompt_dataset.EpisodePromptMultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_rot6d
+        stride: 1
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      # 36 training episodes: 12 per training operator
+      # (68e0b875c33a1abcb8fc55b9, 695d09fc83a9fdf2d84d9c11, 693cbbbbc67c9e4814b2ce46).
+      filter_lambdas:
+        - "lambda row: row['episode_hash'] in ['69b4d5ea2c83b2c34dfe560d', '69b4b4ed999caf0c82b98be6', '69b1c9e184028c82aba1269e', '69b4fe13d309464df7115850', '69b494f9690ce5eb0225ca23', '69b1cbcd3fa257258bdafc7d', '69b1cd61850f4b031baebdfe', '69b36456806f8dde7843c8cd', '69b1e127bbf6e05cf50b8579', '69b337fe7aaac69b6ecbeeee', '69b1d90aeaaec6169402ae02', '69b547d71666a9ba0092e8f4', '69b49d6def58e30ec42f86eb', '69b31fb3122e58b0d29ad6b1', '69b52abf4963ef0ac28d5beb', '69b43f198a313c3e6edaab44', '69b49d536325cbcd4232ac72', '69b49c96d5bde809a4eebb79', '69b49d266a0a108e820b1073', '69b504f361c85d2534e8f88a', '69b529589f66a2746698fbe1', '69b54ff560172888461a8600', '69b4ae0a7b8718172195a07c', '69b496c930ac9bf923d7f170', '69b3a406daef557c66e76aeb', '69b4f843758deefb5ec01244', '69b3699cd04bd6fd45e77d76', '69b4e89e680bedd399fcbb5c', '69b9c8f8a6f41015b5203409', '69b4953c60b9979b587b0c27', '69b4b82da85a9038236c3e9e', '69b238d3f6f2b3966869f7c7', '69b525b01b5d00f6e2fca79a', '69b4ae6d1279cedd289bc325', '69b553ebf629796beb9845d4', '69b32ea71fea872861dae3f2']"
+    mode: total
+    valid_ratio: 0.0
+    # Prompt chunks use the rollout's frame convention (head frame at the
+    # chunk start) with chunk_length = chunk_n_actions (2 s at 30 fps).
+    prompt_transform_list:
+      _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+      mode: cartesian_rot6d
+      stride: 1
+      chunk_length: 60
+    prompt:
+      chunk_n_actions: 60             # 2 s chunks at 30 fps; must equal shape_meta.prompt_chunk_n_actions
+      max_sequence_length: 2700       # longest episode in the split is 2699 frames; must equal shape_meta.max_sequence_length
+      prompt_stride: 1                # every raw action step kept
+      group_key: "lambda row: (row['task'], row['operator'])"  # prompt pool key; never crosses operators
+      min_episodes_per_group: 2
+      balance_by: group               # equal total weight per operator (WeightedRandomSampler)
+      heldout_groups: []              # no held-out operator in the training data
+      image_size: [224, 224]
+      cache_bytes: 2.0e9
+      action_key: actions_cartesian
+      state_key: observations.state.ee_pose
+      seed: 0
+      ignore: false
+
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.prompt_dataset.EpisodePromptMultiDataset._from_resolver
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      # 6 seen-operator val episodes (2 per training operator) + 6 unseen-
+      # operator val episodes (2 each of 69439ad5a2a8b5aee76602f5,
+      # 6905a4e79adc5c8f26f52ca2, 695d0ba283a9fdf2d84da234). Each operator's
+      # two episodes prompt each other.
+      filter_lambdas:
+        - "lambda row: row['episode_hash'] in ['69b493642127166166f189f2', '69b53baf3dd17eb53d7ddc35', '69b3250b098c263fb8c36782', '69b4acf23282e47c8735365c', '69b5787761c85d2534e8fb9a', '69b485709b2ecfe4a474b8a9', '69b1ca5b179c113f82bd4614', '69b33c636d8e889d7aa560a6', '69b1c4dc1b7bf3cf07b4c1e3', '69b3496f13390784beeac7ad', '69b272c97ba3e5cddc08eff7', '69b330bf13e59a723bbc6fec']"
+    mode: total
+    valid_ratio: 0.0
+    prompt_transform_list: ${data.train_datasets.human_bimanual.prompt_transform_list}
+    prompt:
+      chunk_n_actions: 60
+      max_sequence_length: 2700
+      prompt_stride: 1
+      group_key: "lambda row: (row['task'], row['operator'])"
+      min_episodes_per_group: 2
+      balance_by: group
+      # Unseen operators: tagged operator_seen=0 (total mode moves nothing).
+      heldout_groups: ['69439ad5a2a8b5aee76602f5', '6905a4e79adc5c8f26f52ca2', '695d0ba283a9fdf2d84da234']
+      image_size: [224, 224]
+      cache_bytes: 2.0e9
+      action_key: actions_cartesian
+      state_key: observations.state.ee_pose
+      seed: 0
+      ignore: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: true
+# Second, sequential validation loader used only for the validation videos
+# (the shuffled metrics loader above would give a slideshow of random
+# frames). 300 contiguous frames (10 s) starting 30 % into the first seen
+# and the first unseen val episode; one video per episode. For a full pass
+# over every val episode (eval mode) override episodes=all (or per_group for
+# one whole episode per operator) and frames_per_episode=null and raise
+# evaluator.limit_val_batches.
+valid_viz_params:
+  human_bimanual:
+    episodes: auto
+    frames_per_episode: 300
+    start_frac: 0.3
+    batch_size: 16
+    num_workers: 4

@@ -1,7 +1,8 @@
 import numpy as np
+import scipy
 from scipy.interpolate import interp1d
+from scipy.spatial.transform import Rotation, Slerp
 from scipy.spatial.transform import Rotation as R
-from scipy.spatial.transform import Slerp
 
 
 def xyzw_to_wxyz(xyzw):
@@ -129,6 +130,60 @@ def _xyzypr_to_matrix(xyzypr: np.ndarray) -> np.ndarray:
     return mats
 
 
+def _matrix_to_xyzrot6d(mats: np.ndarray) -> np.ndarray:
+    """
+    args:
+        mats: (B, 4, 4) array of SE3 transformation matrices
+    returns:
+        (B, 9) np.array of [[x, y, z, r00, r01, r02, r10, r11, r12]]: xyz plus
+        the continuous 6D rotation representation of Zhou et al. (CVPR 2019),
+        the first two rows of the rotation matrix. Same convention as
+        pytorch3d / behavior_prompting ``matrix_to_rotation_6d``.
+    """
+    if mats.ndim != 3 or mats.shape[-2:] != (4, 4):
+        raise ValueError(f"Expected (B, 4, 4) array, got shape {mats.shape}")
+
+    mats = np.asarray(mats)
+    dtype = mats.dtype if np.issubdtype(mats.dtype, np.floating) else np.float64
+
+    xyz = mats[:, :3, 3]
+    rot6d = mats[:, :2, :3].reshape(mats.shape[0], 6)
+    return np.concatenate([xyz, rot6d], axis=-1).astype(dtype, copy=False)
+
+
+def _rot6d_to_rotmat(rot6d: np.ndarray) -> np.ndarray:
+    """(B, 6) first-two-rows representation -> (B, 3, 3) rotation matrices via
+    Gram-Schmidt (pytorch3d ``rotation_6d_to_matrix``). Tolerates
+    non-orthonormal input, e.g. network predictions."""
+    rot6d = np.asarray(rot6d)
+    if rot6d.ndim != 2 or rot6d.shape[-1] != 6:
+        raise ValueError(f"Expected (B, 6) array, got shape {rot6d.shape}")
+    a1, a2 = rot6d[:, :3], rot6d[:, 3:]
+    b1 = a1 / np.clip(np.linalg.norm(a1, axis=-1, keepdims=True), 1e-8, None)
+    a2 = a2 - np.sum(b1 * a2, axis=-1, keepdims=True) * b1
+    b2 = a2 / np.clip(np.linalg.norm(a2, axis=-1, keepdims=True), 1e-8, None)
+    b3 = np.cross(b1, b2)
+    return np.stack([b1, b2, b3], axis=-2)
+
+
+def _xyzrot6d_to_matrix(xyzrot6d: np.ndarray) -> np.ndarray:
+    """
+    args:
+        xyzrot6d: (B, 9) np.array of [[x, y, z, r00, r01, r02, r10, r11, r12]]
+    returns:
+        (B, 4, 4) array of SE3 transformation matrices
+    """
+    if xyzrot6d.ndim != 2 or xyzrot6d.shape[-1] != 9:
+        raise ValueError(f"Expected (B, 9) array, got shape {xyzrot6d.shape}")
+    B = xyzrot6d.shape[0]
+    dtype = xyzrot6d.dtype if np.issubdtype(xyzrot6d.dtype, np.floating) else np.float64
+
+    mats = np.broadcast_to(np.eye(4, dtype=dtype), (B, 4, 4)).copy()
+    mats[:, :3, :3] = _rot6d_to_rotmat(xyzrot6d[:, 3:9])
+    mats[:, :3, 3] = xyzrot6d[:, :3]
+    return mats
+
+
 def _matrix_to_xyzwxyz(mats: np.ndarray) -> np.ndarray:
     """
     args:
@@ -211,9 +266,40 @@ def _matrix_to_xyz(mats: np.ndarray) -> np.ndarray:
     return mats[:, :3, 3].astype(dtype, copy=False)
 
 
+def _rot6d_to_ypr(rot6d):
+    """(..., 6) first-two-rows representation -> (..., 3) yaw/pitch/roll (ZYX)."""
+    rot6d = np.asarray(rot6d, dtype=np.float64)
+    lead = rot6d.shape[:-1]
+    mats = _rot6d_to_rotmat(rot6d.reshape(-1, 6))
+    return R.from_matrix(mats).as_euler("ZYX", degrees=False).reshape(*lead, 3)
+
+
+# Per-arm block size of every cartesian pose layout the pipeline produces.
+# Position is always the first three entries of each block; the rest is
+# rotation (ypr / quaternion / rot6d) and, for the 14-dim layout, gripper.
+_POSE_BLOCK_SIZES = {6: 6, 7: 7, 9: 9, 12: 6, 14: 7, 18: 9}
+
+
+def is_pose_key(key_name: str) -> bool:
+    """True for keys that hold end-effector poses (``*ee_pose*``, ``*cartesian*``)."""
+    name = key_name.lower()
+    return "ee_pose" in name or "cartesian" in name
+
+
+def pose_position_dims(n_dims: int) -> list[int] | None:
+    """Indices of the xyz entries in a pose vector of ``n_dims``, or None when
+    the layout is not one of the known cartesian layouts (6/7/9 per arm, or
+    two arms of those)."""
+    block = _POSE_BLOCK_SIZES.get(n_dims)
+    if block is None:
+        return None
+    return [b * block + i for b in range(n_dims // block) for i in range(3)]
+
+
 def _split_action_pose(actions):
     # 14D layout: [L xyz ypr g, R xyz ypr g]
     # 12D layout: [L xyz ypr, R xyz ypr]
+    # 18D layout: [L xyz rot6d, R xyz rot6d] (returned rotation converted to ypr)
     if actions.shape[-1] == 14:
         left_xyz = actions[..., :3]
         left_ypr = actions[..., 3:6]
@@ -224,6 +310,11 @@ def _split_action_pose(actions):
         left_ypr = actions[..., 3:6]
         right_xyz = actions[..., 6:9]
         right_ypr = actions[..., 9:12]
+    elif actions.shape[-1] == 18:
+        left_xyz = actions[..., :3]
+        left_ypr = _rot6d_to_ypr(actions[..., 3:9])
+        right_xyz = actions[..., 9:12]
+        right_ypr = _rot6d_to_ypr(actions[..., 12:18])
     else:
         raise ValueError(f"Unsupported action dim {actions.shape[-1]}")
     return left_xyz, left_ypr, right_xyz, right_ypr
@@ -256,11 +347,9 @@ def _split_keypoints(keypoints, wrist_in_data: bool = False, is_quat: bool = Tru
         right_keypoints = keypoints[..., 63:]
         return left_keypoints, right_keypoints
 
-from scipy.spatial.transform import Rotation
-import scipy
-
 
 # ---- moved from egomimicUtils.py (code unchanged) ----
+
 
 def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
     """
@@ -274,6 +363,7 @@ def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
 
     ee_pose_grip_cam = np.linalg.inv(T_cam_base) @ ee_pose_base.T
     return ee_pose_grip_cam.T[:, :3]
+
 
 def base_frame_to_cam_frame(base_frame, T_cam_base):
     """
@@ -292,6 +382,7 @@ def base_frame_to_cam_frame(base_frame, T_cam_base):
     ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
 
+
 def cam_frame_to_base_frame(cam_frame, T_cam_base):
     """
     cam_frame: (N, 6) (x, y, z, yaw, pitch, roll)
@@ -308,6 +399,7 @@ def cam_frame_to_base_frame(cam_frame, T_cam_base):
     xyz = base_frame[:, :3, 3]
     ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
+
 
 def pose_to_transform(pose):
     """
@@ -340,6 +432,7 @@ def pose_to_transform(pose):
     T[:3, 3] = [x, y, z]
     return T
 
+
 def transform_to_pose(T):
     """
     Convert a 4x4 homogeneous transform back to a 6D pose [x, y, z, yaw, pitch, roll].
@@ -361,6 +454,7 @@ def transform_to_pose(T):
         roll = np.arctan2(-R[0, 1], R[1, 1])
     return np.array([x, y, z, yaw, pitch, roll])
 
+
 def cam_frame_to_cam_pixels(ee_pose_cam, intrinsics):
     """
     camera frame 3d coordinates to pixels in camera frame
@@ -377,6 +471,7 @@ def cam_frame_to_cam_pixels(ee_pose_cam, intrinsics):
     # print("2d pos cam frame: ", px_val)
 
     return px_val.T
+
 
 def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
     """
@@ -437,6 +532,7 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
 
     return np.stack(outputs, axis=0)  # (B, seq_length, D)
 
+
 def interpolate_arr(v, seq_length):
     """
     v: (B, T, D)
@@ -456,6 +552,7 @@ def interpolate_arr(v, seq_length):
         interpolated.append(interp(np.linspace(0, 1, seq_length)))
 
     return np.array(interpolated)
+
 
 def get_vector_from_yaw_pitch(
     yaw_rads: float,

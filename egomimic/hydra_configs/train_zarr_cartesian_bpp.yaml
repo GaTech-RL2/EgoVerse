@@ -9,3 +9,6 @@ evaluator:
   viz_func:
     human_bimanual:
       annotation_key: null
+
+# Keep every frame: no per-sample bounds rejection/substitution.
+reject_outliers: false

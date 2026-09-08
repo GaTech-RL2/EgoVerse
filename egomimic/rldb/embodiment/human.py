@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import Literal
 
 import numpy as np
@@ -18,6 +17,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     Reshape,
     SplitKeys,
     Transform,
+    XYZWXYZ_to_XYZRot6D,
     XYZWXYZ_to_XYZYPR,
 )
 from egomimic.utils.viz_utils import (
@@ -25,7 +25,6 @@ from egomimic.utils.viz_utils import (
     _viz_gaze,
     _viz_keypoints,
 )
-
 
 ARIA_INTRINSICS = np.array(
     [
@@ -80,14 +79,32 @@ ARIA_T_RGB_CPF = np.array(
 # Aria's raw 21-keypoint layout (0-4 fingertips, 5 palm root) — NOT MANO. Used
 # only for the opt-in raw-Aria-keypoint viz; the canonical keypoints are MANO.
 ARIA_FINGER_EDGES = [
-    (5, 6), (6, 7), (7, 0),                # thumb
-    (5, 8), (8, 9), (9, 10), (10, 1),      # index
-    (5, 11), (11, 12), (12, 13), (13, 2),  # middle
-    (5, 14), (14, 15), (15, 16), (16, 3),  # ring
-    (5, 17), (17, 18), (18, 19), (19, 4),  # pinky
+    (5, 6),
+    (6, 7),
+    (7, 0),  # thumb
+    (5, 8),
+    (8, 9),
+    (9, 10),
+    (10, 1),  # index
+    (5, 11),
+    (11, 12),
+    (12, 13),
+    (13, 2),  # middle
+    (5, 14),
+    (14, 15),
+    (15, 16),
+    (16, 3),  # ring
+    (5, 17),
+    (17, 18),
+    (18, 19),
+    (19, 4),  # pinky
 ]
 ARIA_FINGER_EDGE_RANGES = [
-    ("thumb", 0, 3), ("index", 3, 7), ("middle", 7, 11), ("ring", 11, 15), ("pinky", 15, 19),
+    ("thumb", 0, 3),
+    ("index", 3, 7),
+    ("middle", 7, 11),
+    ("ring", 11, 15),
+    ("pinky", 15, 19),
 ]
 
 
@@ -103,6 +120,7 @@ class Human(Embodiment):
     zarr.json); ``cls.INTRINSICS`` is only a fallback for legacy episodes that
     lack them. The canonical keypoints are MANO for every vendor.
     """
+
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
     # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
@@ -111,11 +129,26 @@ class Human(Embodiment):
     T_RGB_CPF = ARIA_T_RGB_CPF  # for the opt-in aria gaze viz
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
-        (0, 5), (5, 6), (6, 7), (7, 8),         # index
-        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
-        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
-        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),  # thumb
+        (0, 5),
+        (5, 6),
+        (6, 7),
+        (7, 8),  # index
+        (0, 9),
+        (9, 10),
+        (10, 11),
+        (11, 12),  # middle
+        (0, 13),
+        (13, 14),
+        (14, 15),
+        (15, 16),  # ring
+        (0, 17),
+        (17, 18),
+        (18, 19),
+        (19, 20),  # pinky
     ]
     FINGER_COLORS = {
         "thumb": (255, 100, 100),
@@ -327,6 +360,7 @@ class Human(Embodiment):
         cls,
         mode: Literal[
             "cartesian",
+            "cartesian_rot6d",
             "cartesian_padded",
             "cartesian_wristframe_ypr",
             "keypoints_headframe_ypr",
@@ -335,16 +369,35 @@ class Human(Embodiment):
             "keypoints_wristframe_quat",
         ],
         stride: int = 3,
+        chunk_length: int | None = None,
     ) -> list[Transform]:
         """Transform pipeline. ``stride`` is the per-vendor action stride
         (Aria/LightWheel=3, Scale/Mecka=1), supplied by the data config.
+        ``chunk_length`` overrides the interpolated action-chunk length
+        (default 100) for the cartesian modes; prompt datasets use it to build
+        prompt chunks with the same frame convention as the rollout actions.
         """
+        chunk_kwargs = {} if chunk_length is None else {"chunk_length": chunk_length}
         if mode == "cartesian":
-            return _build_human_cartesian_bimanual_transform_list(stride=stride)
+            return _build_human_cartesian_bimanual_transform_list(
+                stride=stride, **chunk_kwargs
+            )
+        if mode == "cartesian_rot6d":
+            # Same pipeline, rotations as the continuous 6D representation
+            # (first two rotation-matrix rows) instead of yaw/pitch/roll:
+            # actions/state become 2 x (xyz + 6) = 18 dims and never wrap at
+            # +-pi. Viz converts back through ``_split_action_pose``.
+            return _build_human_cartesian_bimanual_transform_list(
+                stride=stride, rotation="rot6d", **chunk_kwargs
+            )
         if mode == "cartesian_padded":
             return _build_human_cartesian_bimanual_transform_list(
-                stride=stride
+                stride=stride, **chunk_kwargs
             ) + [PadGripperZeros(action_key="actions_cartesian")]
+        if chunk_length is not None:
+            raise ValueError(
+                f"chunk_length is only supported for cartesian modes, got mode={mode!r}"
+            )
         if mode == "cartesian_wristframe_ypr":
             return _build_human_cartesian_eef_frame_transform_list(stride=stride)
         if mode == "keypoints_headframe_ypr":
@@ -1059,13 +1112,20 @@ def _build_human_cartesian_bimanual_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     delete_target_world: bool = True,
+    rotation: Literal["ypr", "rot6d"] = "ypr",
 ) -> list[Transform]:
     """Canonical ARIA bimanual transform pipeline used by tests and notebooks.
 
     Aria human data does not have commanded ee poses; action chunks are built
     from stacked observed ee poses (typically with a horizon on
     ``left/right.action_ee_pose`` mapped from ``left/right.obs_ee_pose``).
+
+    ``rotation`` picks the final rotation layout when ``target_world_is_quat``:
+    ``"ypr"`` (xyz + yaw/pitch/roll, 6 per arm) or ``"rot6d"`` (xyz + first two
+    rotation-matrix rows, 9 per arm).
     """
+    if rotation not in ("ypr", "rot6d"):
+        raise ValueError(f"rotation must be 'ypr' or 'rot6d', got {rotation!r}")
     keys_to_delete = list(
         {
             left_action_world,
@@ -1122,8 +1182,9 @@ def _build_human_cartesian_bimanual_transform_list(
     ]
 
     if target_world_is_quat:
+        convert = XYZWXYZ_to_XYZRot6D if rotation == "rot6d" else XYZWXYZ_to_XYZYPR
         transform_list.append(
-            XYZWXYZ_to_XYZYPR(
+            convert(
                 keys=[
                     left_action_headframe,
                     right_action_headframe,

@@ -10,7 +10,13 @@ First privately list what you need next; then request every item that doesn't de
 ## Shell / Command Execution
 to run commands in the interactive shell make sure to source /coc/flash7/rco3/EgoVerse/emimic/bin/activate
 
-Apply this before running anything
+Apply this NOW before running anything
+
+## Version Control
+we are using graphite https://graphite.com/docs/command-reference
+use gt modify instead of git commits
+
+DO NOT COMMIT CODE UNLESS I TELL YOU TO
 
 ## Slurm rules
 If you're on a slurm cluster, request a GPU before running or testing training.
@@ -32,3 +38,6 @@ Then claim a GPU, prioritize what's most available:
 salloc -p rl2-lab -A rl2-lab --gres=gpu:a40:1 -c 12 --mem=30G
 
 salloc -p hoffman-lab -A hoffman-lab --gres=gpu:a40:1 -c 12 --mem=30G
+
+## Saving episode videos
+Look up the episode in the SQL table (`episode_hash_to_table_row` in `egomimic/utils/aws/aws_sql.py`) to get `zarr_mp4_path` (an `s3://rldb/...` key), then download it with `get_boto3_s3_client().download_file("rldb", key, out)` from `egomimic/utils/aws/aws_data_utils.py` (call `load_env()` first). Save to `logs/claude_scratch/videos/`.

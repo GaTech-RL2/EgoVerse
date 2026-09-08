@@ -26,9 +26,11 @@ from egomimic.utils.pose_utils import (
     _interpolate_quat_wxyz,
     _interpolate_xyz,
     _matrix_to_xyz,
+    _matrix_to_xyzrot6d,
     _matrix_to_xyzwxyz,
     _matrix_to_xyzypr,
     _xyz_to_matrix,
+    _xyzrot6d_to_matrix,
     _xyzwxyz_to_matrix,
     _xyzypr_to_matrix,
     wxyz_to_xyzw,
@@ -387,6 +389,55 @@ class XYZWXYZ_to_XYZYPR(Transform):
         return batch
 
 
+class XYZWXYZ_to_XYZRot6D(Transform):
+    """Convert listed keys from xyz+quat(wxyz) (7) to xyz+rot6d (9) in-place.
+
+    rot6d is the continuous representation of Zhou et al. (first two rows of
+    the rotation matrix), so consecutive poses never jump the way yaw/pitch/
+    roll do at +-pi. Drop-in sibling of ``XYZWXYZ_to_XYZYPR``.
+    """
+
+    def __init__(self, keys: list[str]):
+        self.keys = list(keys)
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            value = np.asarray(batch[key])
+            if value.ndim == 1 and value.shape[0] == 7:
+                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value[None, :]))[0]
+            elif value.ndim == 2 and value.shape[1] == 7:
+                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value))
+            else:
+                raise ValueError(
+                    f"XYZWXYZ_to_XYZRot6D expects key '{key}' to have shape (7,) "
+                    f"or (T, 7), got {value.shape}"
+                )
+        return batch
+
+
+class XYZRot6D_to_XYZYPR(Transform):
+    """Convert listed keys from xyz+rot6d (9) to xyz+ypr (6) in-place; the
+    inverse direction for viz / rollout of rot6d policies. Gram-Schmidt makes
+    it tolerant of non-orthonormal (predicted) rot6d."""
+
+    def __init__(self, keys: list[str]):
+        self.keys = list(keys)
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            value = np.asarray(batch[key])
+            if value.ndim == 1 and value.shape[0] == 9:
+                batch[key] = _matrix_to_xyzypr(_xyzrot6d_to_matrix(value[None, :]))[0]
+            elif value.ndim == 2 and value.shape[1] == 9:
+                batch[key] = _matrix_to_xyzypr(_xyzrot6d_to_matrix(value))
+            else:
+                raise ValueError(
+                    f"XYZRot6D_to_XYZYPR expects key '{key}' to have shape (9,) "
+                    f"or (T, 9), got {value.shape}"
+                )
+        return batch
+
+
 class CartesianWithGripperCoordinateTransform(Transform):
     def __init__(
         self,
@@ -535,12 +586,8 @@ class PadGripperZeros(Transform):
             )
         pad_shape = (*arr.shape[:-1], 1)
         pad = np.zeros(pad_shape, dtype=arr.dtype)
-        padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
-        )
-        batch[self.action_key] = (
-            torch.from_numpy(padded) if is_tensor else padded
-        )
+        padded = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
+        batch[self.action_key] = torch.from_numpy(padded) if is_tensor else padded
         return batch
 
 
