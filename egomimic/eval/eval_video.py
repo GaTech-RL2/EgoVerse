@@ -29,6 +29,7 @@ class EvalVideo(Eval):
         # the model's wrist-frame actions back into cam (head) frame. Reused for
         # both cam-frame MSE and the viz video so we don't transform twice.
         self.transform_lists = transform_lists or {}
+        self.viz_buffers = {}
         self.val_image_buffer = {}
         self.val_counter = {}
         self.override_dict = {
@@ -118,7 +119,68 @@ class EvalVideo(Eval):
                 exist_ok=True,
             )
 
+    # ---- viz loader support (see MultiDataModuleWrapper.valid_viz_params) ----
+    def _viz_dataloader_idx(self):
+        dm = getattr(self.trainer, "datamodule", None)
+        return getattr(dm, "viz_dataloader_idx", None)
+
+    def _episode_label(self, embodiment_id, episode_idx: int) -> str:
+        """``<idx>_<hash8>_<seen|unseen>`` from the first valid dataset that
+        names its episodes; falls back to the bare index."""
+        dm = getattr(self.trainer, "datamodule", None)
+        for ds in (getattr(dm, "valid_datasets", None) or {}).values():
+            names = getattr(ds, "episode_names", None)
+            if names and 0 <= episode_idx < len(names):
+                name = names[episode_idx]
+                tags = getattr(ds, "_operator_seen", None) or {}
+                tag = ""
+                if name in tags:
+                    tag = "_seen" if tags[name] else "_unseen"
+                return f"ep{episode_idx:02d}_{str(name)[:8]}{tag}"
+        return f"ep{episode_idx:02d}"
+
+    def _buffer_viz_frames(self, key, raw_batch, images):
+        """Append viz frames to per-episode buffers. ``raw_batch`` is the
+        processed batch for this embodiment (before substituted rows were
+        dropped); ``images`` are the frames of the kept rows, in order."""
+        ep = raw_batch.get("episode_idx")
+        sub = raw_batch.get("substituted")
+        if torch.is_tensor(ep):
+            ep = ep.reshape(-1)
+            if torch.is_tensor(sub) and sub.numel() == ep.numel():
+                ep = ep[~sub.reshape(-1).bool()]
+            ep = ep.tolist()
+        if not isinstance(ep, list) or len(ep) != len(images):
+            ep = [-1] * len(images)
+        for e, frame in zip(ep, images):
+            self.viz_buffers.setdefault((key, int(e)), []).append(
+                torch.from_numpy(frame)
+            )
+
+    def _write_viz_videos(self):
+        if not self.trainer.is_global_zero:
+            self.viz_buffers = {}
+            return
+        for (key, e), frames in self.viz_buffers.items():
+            if not frames:
+                continue
+            out_dir = os.path.join(
+                self.video_dir(),
+                f"epoch_{self.trainer.current_epoch}",
+                str(get_embodiment(key)),
+            )
+            os.makedirs(out_dir, exist_ok=True)
+            label = self._episode_label(key, e) if e >= 0 else "viz"
+            tvio.write_video(
+                os.path.join(out_dir, f"{label}.mp4"),
+                torch.stack(frames),
+                fps=30,
+                video_codec="h264",
+            )
+        self.viz_buffers = {}
+
     def on_validation_end(self):
+        self._write_viz_videos()
         for key, buffer in self.val_image_buffer.items():
             os.makedirs(
                 os.path.join(
@@ -142,13 +204,28 @@ class EvalVideo(Eval):
             self.val_image_buffer[key] = []
 
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
+        viz_idx = self._viz_dataloader_idx()
         metrics, images_dict = self.compute_metrics_and_viz(batch)
+
+        if viz_idx is not None and dataloader_idx == viz_idx:
+            # Viz loader: frames only, one video per episode; no metrics.
+            for key, images in images_dict.items():
+                self._buffer_viz_frames(key, batch[key], images)
+            return
 
         device = self.trainer.lightning_module.device
         metrics = {
             k: (v.to(device) if torch.is_tensor(v) else torch.tensor(v, device=device))
             for k, v in metrics.items()
         }
+
+        if viz_idx is not None:
+            # Metrics loader: log without Lightning's "/dataloader_idx_N"
+            # suffix and leave the video to the viz loader.
+            self.trainer.lightning_module.log_dict(
+                metrics, sync_dist=True, add_dataloader_idx=False
+            )
+            return
 
         ## images is now a dict
         for key, images in images_dict.items():

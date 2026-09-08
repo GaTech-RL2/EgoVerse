@@ -1,0 +1,44 @@
+# Video-context ablation on folding_clothes (docs/2026-09-03_bpp_video_context_ablation.md).
+# Arm C by default; arm A is `model=bpp_dit` (plus the data `prompt.ignore`
+# overrides listed in data/bpp_folding_clothes.yaml), arm B is
+# `model.robomimic_model.policy.obs_encoder.ignore_prompt=true`.
+#
+# Smoke (section 7, step 3):
+#   python egomimic/trainHydra.py -m --config-name train_zarr_cartesian_bpp_folding \
+#     name=bpp_ctx_smoke description=smoke_C launch_params.gpus_per_node=1 \
+#     trainer.max_epochs=4 trainer.min_epochs=4 trainer.check_val_every_n_epoch=2
+# Main runs add trainer.max_epochs=300 trainer.min_epochs=300
+#   trainer.check_val_every_n_epoch=25 callbacks.model_checkpoint.every_n_epochs=50
+#   seed=42,43 and, after the first run,
+#   norm_stats.precomputed_norm_path=<its cached stats>.
+# LR: linear warmup over 1500 steps to 5e-5, then flat (model configs).
+defaults:
+  - train_zarr_cartesian
+  - override model: bpp_prompt_dit_episode_folding
+  - override data: bpp_folding_clothes
+  - _self_
+
+# No language annotations in this data, so the val-video overlay must not
+# look for the `sampled_prompt` key that viz/cartesian.yaml wires in.
+evaluator:
+  viz_func:
+    human_bimanual:
+      annotation_key: null
+
+# Range normalization onto [-1, 1] keeps every target inside the DDIM clip
+# window (docs/2026-09-02_bpp_episode_overfit_debugging.md). The range is the training
+# set's 0.01th / 99.99th percentile per key and dim, the same bounds the
+# rejection below uses, so every kept frame lands inside [-1, 1] and the
+# rejected outliers do not stretch the range (true min/max was up to 1.4x
+# wider on some dims). Folded in so every arm gets it.
+norm_stats:
+  norm_mode: quantile_0_01
+
+# The BPP base configs switch the per-sample bounds check off; this
+# experiment keeps it on. A frame whose xyz (either arm) falls outside the
+# training set's 0.01th / 99.99th percentile is substituted and masked out
+# of the eval metrics. Pose keys are only ever checked on their position
+# dims (MultiDataset._check_bounds): rotation bounds would just encode the
+# training operators' orientation range, and rejecting on them removed up
+# to a quarter of some unseen-operator val episodes (decisions doc 22).
+reject_outliers: true

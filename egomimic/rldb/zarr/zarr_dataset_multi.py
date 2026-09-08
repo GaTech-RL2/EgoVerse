@@ -48,6 +48,7 @@ from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_table_to_df,
 )
+from egomimic.utils.pose_utils import is_pose_key, pose_position_dims
 
 if TYPE_CHECKING:
     # Annotation-only import — avoids a runtime circular import with
@@ -286,12 +287,22 @@ class S3EpisodeResolver(EpisodeResolver):
 
         logger.info(f"Filters: {filters}")
 
-        filtered_paths = self.sync_from_filters(
-            bucket_name=self.bucket_name,
-            filters=filters,
-            local_dir=self.folder_path,
-            debug=self.debug,
-        )
+        rows = self._get_filtered_rows(filters, debug=self.debug)
+        filtered_paths = [
+            (row["zarr_processed_path"], row["episode_hash"]) for row in rows
+        ]
+        if not filtered_paths:
+            logger.warning("No episodes matched filters.")
+        else:
+            logger.info(
+                f"Syncing S3 datasets with filters {filters} to local directory "
+                f"{self.folder_path}..."
+            )
+            self._sync_s3_to_local(
+                bucket_name=self.bucket_name,
+                s3_paths=filtered_paths,
+                local_dir=self.folder_path,
+            )
 
         valid_hashes = {hashes for _, hashes in filtered_paths}
         if not valid_hashes:
@@ -305,24 +316,25 @@ class S3EpisodeResolver(EpisodeResolver):
             valid_folder_names=valid_hashes,
         )
 
+        # Attach the SQL row so downstream code (e.g. prompt-pool grouping by
+        # task/operator) can read episode-level metadata that is not in the
+        # zarr attrs.
+        rows_by_hash = {row["episode_hash"]: row for row in rows}
+        for ep_hash, ds_obj in datasets.items():
+            ds_obj.metadata_row = rows_by_hash.get(ep_hash)
+
         return datasets
 
     @staticmethod
-    def _get_filtered_paths(
+    def _get_filtered_rows(
         filters: DatasetFilter | None = None, debug: int | bool | None = None
-    ) -> list[tuple[str, str]]:
+    ) -> list[dict]:
         """
-        Filters episodes from the SQL episode table according to the criteria specified in `filters`
-        and returns a list of (zarr_processed_path, episode_hash) tuples for episodes that match and
-        have a non-null zarr_processed_path.
-
-        Args:
-            filters (DatasetFilter | None): Filter object applied row-by-row to the
-                episode table.
-
-        Returns:
-            list[tuple[str, str]]: List of tuples, each containing (zarr_processed_path, episode_hash)
-                                   for episodes passing the filter criteria.
+        Filters episodes from the SQL episode table according to `filters` and
+        returns the full normalized row (as a dict) for every episode that
+        matches and has a non-null zarr_processed_path. Rows carry the SQL
+        columns (task, operator, lab, num_frames, ...) that are not stored in
+        the zarr attrs.
         """
         filters = _ensure_dataset_filter(filters)
         engine = create_default_engine()
@@ -335,7 +347,7 @@ class S3EpisodeResolver(EpisodeResolver):
             lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
             axis=1,
         )
-        output = df.loc[mask, ["zarr_processed_path", "episode_hash"]]
+        output = df.loc[mask]
         n_matched_sql = len(output)
 
         output = output[
@@ -354,9 +366,33 @@ class S3EpisodeResolver(EpisodeResolver):
                 logger.info("Debug mode: limiting to %d datasets.", k)
             output = output.iloc[:k]
 
-        paths = list(output.itertuples(index=False, name=None))
-        logger.info(f"Paths: {paths}")
-        return paths
+        rows = [_normalize_filter_row(r) for r in output.to_dict(orient="records")]
+        logger.info(
+            f"Paths: {[(r['zarr_processed_path'], r['episode_hash']) for r in rows]}"
+        )
+        return rows
+
+    @classmethod
+    def _get_filtered_paths(
+        cls, filters: DatasetFilter | None = None, debug: int | bool | None = None
+    ) -> list[tuple[str, str]]:
+        """
+        Filters episodes from the SQL episode table according to the criteria specified in `filters`
+        and returns a list of (zarr_processed_path, episode_hash) tuples for episodes that match and
+        have a non-null zarr_processed_path.
+
+        Args:
+            filters (DatasetFilter | None): Filter object applied row-by-row to the
+                episode table.
+
+        Returns:
+            list[tuple[str, str]]: List of tuples, each containing (zarr_processed_path, episode_hash)
+                                   for episodes passing the filter criteria.
+        """
+        return [
+            (row["zarr_processed_path"], row["episode_hash"])
+            for row in cls._get_filtered_rows(filters, debug=debug)
+        ]
 
     @classmethod
     def _sync_s3_to_local(
@@ -612,6 +648,10 @@ class LocalEpisodeResolver(EpisodeResolver):
     Resolves episodes from local Zarr stores, filtering via local metadata.
     """
 
+    # episode_hash -> zarr attrs (normalized as a filter row); filled by
+    # _get_local_filtered_paths and attached to datasets in resolve().
+    _local_rows: dict[str, dict] = {}
+
     def __init__(
         self,
         folder_path: Path,
@@ -660,6 +700,9 @@ class LocalEpisodeResolver(EpisodeResolver):
 
             if cls._local_filters_match(metadata, episode_hash, filters):
                 filtered.append((str(p), episode_hash))
+                cls._local_rows[episode_hash] = _normalize_filter_row(
+                    metadata, episode_hash=episode_hash
+                )
 
         if debug is not None and debug is not False:
             k = min(10 if debug is True else int(debug), len(filtered))
@@ -700,6 +743,21 @@ class LocalEpisodeResolver(EpisodeResolver):
         datasets = self._load_zarr_datasets(
             search_path=self.folder_path, valid_folder_names=valid_folder_names
         )
+
+        # Local episodes have no SQL row; expose the zarr attrs under the SQL
+        # column names that grouping code reads (task, operator). Local
+        # task_name is often a placeholder ("debug"), hence the warning.
+        for ep_hash, ds_obj in datasets.items():
+            row = dict(self._local_rows.get(ep_hash) or {})
+            row.setdefault("task", row.get("task_name"))
+            row.setdefault("operator", row.get("user_id"))
+            ds_obj.metadata_row = row
+        if datasets:
+            logger.warning(
+                "LocalEpisodeResolver: metadata_row built from zarr attrs "
+                "(task <- task_name, operator <- user_id); task_name may be a "
+                "placeholder."
+            )
 
         return datasets
 
@@ -743,13 +801,18 @@ class MultiDataset(torch.utils.data.Dataset):
             mode: One of "train", "valid", "total", "percent" — which split to keep.
             percent: Fraction (when mode="percent").
             valid_ratio: Train/valid split ratio.
-            norm_mode: One of "zscore", "minmax", "quantile".
+            norm_mode: One of "zscore", "minmax", "quantile" (1st / 99th
+                percentile) or "quantile_0_01" (0.01th / 99.99th percentile,
+                the same bounds ``reject_outliers`` uses).
             state: If provided, populate stats fields from this dict (deploy mode).
             reject_outliers: If False, ``__getitem__`` skips the per-key
                 quantile bounds check (samples outside the stats' widest
                 quantile range are kept and normalized as-is). NaN/Inf
                 samples are always rejected. Propagated to datasets via
-                ``set_norm_stats_from``.
+                ``set_norm_stats_from``. Pose keys (``ee_pose`` /
+                ``cartesian``) are only checked on their xyz dims: rotation
+                bounds would just encode the training operators' orientation
+                range and reject valid frames of unseen operators.
         """
         super().__init__()
 
@@ -901,6 +964,24 @@ class MultiDataset(torch.utils.data.Dataset):
 
             below = arr < q_low
             above = arr > q_high
+            if is_pose_key(zarr_key) or is_pose_key(key_name):
+                # Never reject on rotation: only the xyz dims are checked.
+                dims = pose_position_dims(arr.shape[-1])
+                if dims is None:
+                    warn_key = f"poselayout:{zarr_key}"
+                    if warn_key not in self._warned_violations:
+                        self._warned_violations.add(warn_key)
+                        logger.warning(
+                            f"Unknown pose layout for {zarr_key} "
+                            f"(last dim {arr.shape[-1]}); bounds check runs on all dims"
+                        )
+                else:
+                    keep = torch.zeros(
+                        arr.shape[-1], dtype=torch.bool, device=arr.device
+                    )
+                    keep[dims] = True
+                    below = below & keep
+                    above = above & keep
             if torch.any(below) or torch.any(above):
                 prefix = f"Bounds violation in {zarr_key} ep={episode_name} frame={idx}"
                 warn_key = f"bounds:{episode_name}:{zarr_key}"
@@ -1283,6 +1364,22 @@ class MultiDataset(torch.utils.data.Dataset):
 
     # ---- normalize / unnormalize ----
 
+    # Range-based modes map ``[lo, hi]`` (per key, per dim, from the training
+    # set) onto ``[-1, 1]``. ``quantile_0_01`` uses the same percentiles as the
+    # ``reject_outliers`` bounds check, so every kept frame lands inside
+    # ``[-1, 1]`` and rejected outliers do not stretch the range.
+    RANGE_NORM_MODES = {
+        "minmax": ("min", "max"),
+        "quantile": ("quantile_1", "quantile_99"),
+        "quantile_0_01": ("quantile_0_01", "quantile_99_99"),
+    }
+
+    def _range_bounds(self, tensor, stats):
+        lo_key, hi_key = self.RANGE_NORM_MODES[self.norm_mode]
+        lo = torch.as_tensor(stats[lo_key], device=tensor.device, dtype=torch.float32)
+        hi = torch.as_tensor(stats[hi_key], device=tensor.device, dtype=torch.float32)
+        return lo, hi
+
     def _apply_norm_one(self, tensor, stats):
         if self.norm_mode == "zscore":
             mean = torch.as_tensor(
@@ -1292,22 +1389,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 stats["std"], device=tensor.device, dtype=torch.float32
             )
             return (tensor - mean) / (std + 1e-6)
-        if self.norm_mode == "minmax":
-            mn = torch.as_tensor(
-                stats["min"], device=tensor.device, dtype=torch.float32
-            )
-            mx = torch.as_tensor(
-                stats["max"], device=tensor.device, dtype=torch.float32
-            )
-            return 2.0 * ((tensor - mn) / (mx - mn + 1e-6)) - 1.0
-        if self.norm_mode == "quantile":
-            q1 = torch.as_tensor(
-                stats["quantile_1"], device=tensor.device, dtype=torch.float32
-            )
-            q99 = torch.as_tensor(
-                stats["quantile_99"], device=tensor.device, dtype=torch.float32
-            )
-            return 2.0 * ((tensor - q1) / (q99 - q1 + 1e-6)) - 1.0
+        if self.norm_mode in self.RANGE_NORM_MODES:
+            lo, hi = self._range_bounds(tensor, stats)
+            return 2.0 * ((tensor - lo) / (hi - lo + 1e-6)) - 1.0
         raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
 
     def _apply_unnorm_one(self, tensor, stats):
@@ -1319,22 +1403,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 stats["std"], device=tensor.device, dtype=torch.float32
             )
             return tensor * (std + 1e-6) + mean
-        if self.norm_mode == "minmax":
-            mn = torch.as_tensor(
-                stats["min"], device=tensor.device, dtype=torch.float32
-            )
-            mx = torch.as_tensor(
-                stats["max"], device=tensor.device, dtype=torch.float32
-            )
-            return (tensor + 1) * 0.5 * (mx - mn + 1e-6) + mn
-        if self.norm_mode == "quantile":
-            q1 = torch.as_tensor(
-                stats["quantile_1"], device=tensor.device, dtype=torch.float32
-            )
-            q99 = torch.as_tensor(
-                stats["quantile_99"], device=tensor.device, dtype=torch.float32
-            )
-            return (tensor + 1) * 0.5 * (q99 - q1 + 1e-6) + q1
+        if self.norm_mode in self.RANGE_NORM_MODES:
+            lo, hi = self._range_bounds(tensor, stats)
+            return (tensor + 1) * 0.5 * (hi - lo + 1e-6) + lo
         raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
 
     def normalize(self, data: dict, embodiment_id: int) -> dict:
@@ -1562,6 +1633,9 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         self.episode_path = Episode_path
         self.metadata = None
+        # Episode-level row from the SQL episode table (S3EpisodeResolver) or
+        # the zarr attrs (LocalEpisodeResolver); None when built directly.
+        self.metadata_row: dict | None = None
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None

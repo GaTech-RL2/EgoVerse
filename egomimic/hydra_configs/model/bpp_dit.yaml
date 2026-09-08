@@ -24,12 +24,12 @@ robomimic_model:
 
   # BPP-convention shape_meta without the prompt fields. Keys, shapes and
   # horizons match bpp_prompt_dit.yaml (human cartesian: one front camera,
-  # 12-dim state/action) so the receding-observation path is identical.
+  # 18-dim rot6d state/action) so the receding-observation path is identical.
   shape_meta:
     image_resolution: 224
     use_prompting: false
     action:
-      shape: [12]
+      shape: [18]
       horizon: 100
     obs:
       front_img_1:
@@ -38,7 +38,7 @@ robomimic_model:
         type: rgb
         ignore_by_policy: false
       state_ee_pose:
-        shape: [12]
+        shape: [18]
         horizon: 1
         type: low_dim
         ignore_by_policy: false
@@ -123,7 +123,11 @@ optimizer:
   betas: [0.95, 0.999]
 
 scheduler:
-  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  # Linear warmup then flat LR. LinearLR ramps lr from start_factor*lr to lr
+  # over total_iters and holds it there. 1500 steps is 5 % of the 30k-step
+  # ablation runs, matching BPP's own `lr_warmup_proportion: 0.05`.
+  _target_: torch.optim.lr_scheduler.LinearLR
   _partial_: true
-  T_max: 1400
-  eta_min: 1e-6
+  start_factor: 0.01
+  end_factor: 1.0
+  total_iters: 1500

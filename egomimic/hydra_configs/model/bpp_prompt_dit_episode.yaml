@@ -1,4 +1,8 @@
-# Behavior-Prompting Diffusion Transformer (BPP) as an EgoMimic algo.
+# Behavior-Prompting Diffusion Transformer (BPP) with whole-episode prompts
+# (prompt.mode: episode_pair). Same policy stack as bpp_prompt_dit.yaml; the
+# prompt is built by EpisodePromptMultiDataset (data/bpp_folding_clothes.yaml)
+# from another episode of the same (task, operator) group, one chunk per
+# second. See docs/2026-09-02_bpp_episode_prompting.md.
 #
 # Translated nearly verbatim from behavior_prompting's
 #   train_network/config/model/diffusion_transformer_base.yaml
@@ -17,10 +21,11 @@ robomimic_model:
   ac_keys:
     human_bimanual: "actions_cartesian"
 
-  # Prompt sampling (adapter-side). batch_roll: each sample is prompted with
-  # its batch neighbor's (obs, action-chunk) pair — single-task first cut.
+  # Prompt sampling. episode_pair: the dataset attaches a whole-episode prompt
+  # from the same (task, operator) group; the adapter renames keys, resizes
+  # frames and applies content dropout.
   prompt:
-    mode: batch_roll
+    mode: episode_pair
     p_drop_prompt: 0.0
 
   # BPP-convention shape_meta. Keys are our short batch names (the adapter
@@ -29,9 +34,16 @@ robomimic_model:
   # MultiDataset actually emits (single current frame per obs key).
   shape_meta:
     image_resolution: 224
-    prompt_chunk_n_actions: 20
-    max_sequence_length: 400 # bounds the prompt positional embedding length
-    pad_end_prompt_actions: "no" # quoted — bare `no` parses as YAML false
+    # 1 Hz prompt chunks on 30 fps data (the original's convention: chunk 20
+    # at 20 Hz). The data config interpolates this value.
+    prompt_chunk_n_actions: 30
+    # Longest demo of the chosen task in raw frames (sizes the prompt
+    # positional table; episodes longer than this fail at dataset build).
+    # cup_on_saucer: 450 (14.8 s). fold_clothes: 750 (24.2 s).
+    max_sequence_length: 450
+    # Prompt chunks are already full (the dataset repeats the last frame past
+    # the episode end), so this is unused in episode_pair mode.
+    pad_end_prompt_actions: repeat
     use_prompting: true
     action:
       shape: [18]

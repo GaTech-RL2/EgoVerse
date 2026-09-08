@@ -1,7 +1,7 @@
 """
 BPP — Behavior-Prompting diffusion-transformer policy as an EgoMimic algo.
 
-Thin adapter (Option A in docs/bpp_algo_option.md) around the vendored
+Thin adapter (Option A in docs/2026-09-02_bpp_algo_option.md) around the vendored
 ``external/behavior_prompting`` package: the hydra model config instantiates
 ``DiffusionTransformerPolicy`` (+ ``PairPromptObsEncoder`` stack) directly and
 this class only translates between the EgoMimic Algo contract and BPP's
@@ -17,8 +17,18 @@ Prompting is optional and decided by the wrapped policy: if
 see ``model/bpp_dit.yaml``) the adapter never builds, encodes, or attaches a
 prompt, so the model is the unprompted diffusion transformer with the same
 receding-observation path.
+
+Two prompt sampling modes (``prompt.mode``):
+
+- ``batch_roll``: each sample is prompted with its batch neighbor's single
+  frame + action chunk (single-task smoke tests; no dataset changes).
+- ``episode_pair``: the dataset (``EpisodePromptMultiDataset``) attaches a
+  whole-episode prompt from the same (task, operator) group; the adapter only
+  renames keys, resizes frames, and applies prompt dropout. See
+  docs/2026-09-02_bpp_episode_prompting.md.
 """
 
+import math
 from collections import OrderedDict
 
 import torch
@@ -63,6 +73,13 @@ class BPP(Algo):
         # Only valid when the policy supports prompting; must be omitted for
         # the unprompted variant.
         prompt: dict = None,
+        # Activation checkpointing of the timm ViT blocks (every module in
+        # the policy that exposes ``set_grad_checkpointing``). Trades the
+        # per-image ViT activations, which dominate memory with long
+        # prompts, for a second forward pass in backward. Non-reentrant, so
+        # it is safe under DDP with the shared prompt/receding encoder
+        # being called several times per step. No effect on the math.
+        grad_checkpointing: bool = False,
         **kwargs,
     ):
         if policy is None or shape_meta is None or not ac_keys:
@@ -82,20 +99,26 @@ class BPP(Algo):
         prompt = dict(prompt or {})
         if self.use_prompt:
             self.prompt_mode = prompt.get("mode", "batch_roll")
-            if self.prompt_mode != "batch_roll":
+            if self.prompt_mode not in ("batch_roll", "episode_pair"):
                 raise NotImplementedError(
                     f"Unsupported prompt sampling mode: {self.prompt_mode!r} "
-                    "(only 'batch_roll' is implemented)"
+                    "(expected 'batch_roll' or 'episode_pair')"
                 )
             self.p_drop_prompt = float(prompt.get("p_drop_prompt", 0.0))
             self.chunk_n_actions = int(shape_meta["prompt_chunk_n_actions"])
-            if self.action_horizon % self.chunk_n_actions != 0:
-                raise ValueError(
-                    "batch_roll prompting requires action horizon "
-                    f"({self.action_horizon}) divisible by prompt_chunk_n_actions "
-                    f"({self.chunk_n_actions})"
-                )
-            self.prompt_chunker = PromptActionChunker(shape_meta)
+            self.max_prompt_len = math.ceil(
+                int(shape_meta["max_sequence_length"]) / self.chunk_n_actions
+            )
+            if self.prompt_mode == "batch_roll":
+                if self.action_horizon % self.chunk_n_actions != 0:
+                    raise ValueError(
+                        "batch_roll prompting requires action horizon "
+                        f"({self.action_horizon}) divisible by prompt_chunk_n_actions "
+                        f"({self.chunk_n_actions})"
+                    )
+                self.prompt_chunker = PromptActionChunker(shape_meta)
+            else:
+                self.prompt_chunker = None
         else:
             if prompt:
                 raise ValueError(
@@ -106,6 +129,7 @@ class BPP(Algo):
             self.prompt_mode = None
             self.p_drop_prompt = 0.0
             self.chunk_n_actions = None
+            self.max_prompt_len = None
             self.prompt_chunker = None
 
         # BPP has no multi-head/shared/OT machinery; expose the attributes the
@@ -172,6 +196,25 @@ class BPP(Algo):
 
         self.nets = nn.ModuleDict({"policy": policy})
 
+        self.grad_checkpointing = bool(grad_checkpointing)
+        if self.grad_checkpointing:
+            import timm.layers
+
+            timm.layers.set_reentrant_ckpt(False)
+            checkpointed = [
+                type(m).__name__
+                for m in policy.modules()
+                if hasattr(m, "set_grad_checkpointing")
+            ]
+            for m in policy.modules():
+                if hasattr(m, "set_grad_checkpointing"):
+                    m.set_grad_checkpointing(True)
+            if not checkpointed:
+                raise ValueError(
+                    "grad_checkpointing=True but no module in the policy exposes "
+                    "set_grad_checkpointing (expected a timm ViT backbone)."
+                )
+
         # Force the policy's internal Normalizer (and its prompt normalizer)
         # to identity for every key it will ever see, so all real
         # normalization stays on the EgoMimic side (self.norm_stats).
@@ -205,6 +248,14 @@ class BPP(Algo):
             embodiment_id = get_embodiment_id(embodiment_name)
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
+                if key == "prompt":
+                    # Nested whole-episode prompt (episode_pair); keys inside
+                    # are batch keys and are renamed in _build_obs_dict. An
+                    # unprompted policy drops it here so the prompt tensors
+                    # never reach the device.
+                    if self.use_prompt:
+                        processed_batch[embodiment_id][key] = value
+                    continue
                 key_name = (
                     self.norm_stats.zarr_key_to_keyname(key, embodiment_id) or key
                 )
@@ -225,14 +276,21 @@ class BPP(Algo):
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
                 [embodiment_id], device=self.device, dtype=torch.int64
             )
-            for key, value in processed_batch[embodiment_id].items():
-                if isinstance(value, torch.Tensor):
-                    value = value.to(self.device)
-                    if value.is_floating_point():
-                        value = value.float()
-                    processed_batch[embodiment_id][key] = value
+            processed_batch[embodiment_id] = self._to_device(
+                processed_batch[embodiment_id]
+            )
 
         return processed_batch
+
+    def _to_device(self, value):
+        """Move tensors (recursing into dicts) to self.device; floats -> fp32."""
+        if isinstance(value, dict):
+            return {k: self._to_device(v) for k, v in value.items()}
+        if isinstance(value, torch.Tensor):
+            value = value.to(self.device)
+            if value.is_floating_point():
+                value = value.float()
+        return value
 
     @override
     def forward_training(self, batch):
@@ -267,6 +325,20 @@ class BPP(Algo):
             )
             unnorm_preds[f"{embodiment_name}_loss"] = val_loss
 
+            # Whole-episode prompting: split the val loss by whether the
+            # sample's operator was seen in training (held-out episode of a
+            # training operator) or held out entirely (unseen operator).
+            seen = _batch.get("operator_seen")
+            if torch.is_tensor(seen) and seen.ndim == 1 and seen.shape[0] > 0:
+                seen = seen.bool()
+                for name, rows in (("seen", seen), ("unseen", ~seen)):
+                    if not rows.any():
+                        continue
+                    sub_obs = self._select_rows(obs_dict, rows)
+                    unnorm_preds[f"{embodiment_name}_loss_{name}_operator"] = self.nets[
+                        "policy"
+                    ].compute_loss({"obs": sub_obs, "action": _batch[ac_key][rows]})
+
             result = self.nets["policy"].predict_action(obs_dict)
             ref = _batch[ac_key]
             B, T, D = ref.shape
@@ -298,6 +370,56 @@ class BPP(Algo):
         for loss_key, loss in info["losses"].items():
             log[loss_key] = loss.item()
         return log
+
+    # =====================================================================
+    # Optimizer parameter groups (original BPP recipe: pretrained backbone at
+    # lr * pretrained_lr_scale with no weight decay, transformer decay groups)
+    # =====================================================================
+
+    def optimizer_param_groups(self, lr: float, weight_decay: float):
+        policy = self.nets["policy"]
+        groups = []
+        groups.extend(policy.model.get_optim_groups(weight_decay=weight_decay))
+        groups.extend(
+            policy.obs_encoder.get_optim_groups(lr=lr, weight_decay=weight_decay)
+        )
+        # The original builds some groups from parameter generators; make
+        # them lists so they survive being inspected and filtered below.
+        for g in groups:
+            g["params"] = list(g["params"])
+        covered = {id(p) for g in groups for p in g["params"]}
+        missing = [
+            n
+            for n, p in self.nets.named_parameters()
+            if p.requires_grad and id(p) not in covered
+        ]
+        if missing:
+            raise RuntimeError(
+                "BPP optimizer groups do not cover trainable params: "
+                f"{missing[:10]}{'...' if len(missing) > 10 else ''}"
+            )
+        # drop frozen params (identity normalizers) so the optimizer never
+        # sees grad-less tensors
+        for g in groups:
+            g["params"] = [p for p in g["params"] if p.requires_grad]
+        return [g for g in groups if g["params"]]
+
+    # =====================================================================
+    # Eval helpers
+    # =====================================================================
+
+    @staticmethod
+    def _select_rows(value, rows):
+        """Index the batch dimension of every tensor in a (nested) obs dict."""
+        if isinstance(value, dict):
+            return {k: BPP._select_rows(v, rows) for k, v in value.items()}
+        if (
+            torch.is_tensor(value)
+            and value.ndim >= 1
+            and value.shape[0] == rows.shape[0]
+        ):
+            return value[rows]
+        return value
 
     # =====================================================================
     # Prompting API passthrough (deployment: prompt once per episode, then
@@ -376,11 +498,70 @@ class BPP(Algo):
                 if prompt_type == "proprioception":
                     prompt_obs_src[meta_key] = value
 
-        if self.use_prompt:
+        if self.use_prompt and self.prompt_mode == "batch_roll":
             obs["prompt"] = self._batch_roll_prompt(
                 prompt_obs_src, _batch[ac_key], training
             )
+        elif self.use_prompt:
+            if "prompt" not in _batch:
+                raise ValueError(
+                    "prompt.mode=episode_pair but the batch carries no `prompt`; "
+                    "use data built on EpisodePromptMultiDataset "
+                    "(data/bpp_folding_clothes.yaml)."
+                )
+            obs["prompt"] = self._episode_prompt(_batch["prompt"], training)
         return obs
+
+    def _episode_prompt(self, prompt, training: bool):
+        """Adapt a collated whole-episode prompt (batch keys, resized frames,
+        normalized state/actions, ``metadata.mask``) to the policy's prompt
+        dict: rename obs keys to shape_meta names, run the eval image
+        transform, check chunk geometry, apply content dropout."""
+        obs = {}
+        for batch_key, value in prompt["obs"].items():
+            meta_key = self.obs_key_map.get(batch_key)
+            if meta_key is None:
+                continue
+            attr = self.shape_meta["obs"][meta_key]
+            prompt_type = attr.get("prompt_type", "ignore")
+            if meta_key in self._rgb_meta_keys and prompt_type == "observation":
+                B, P = value.shape[:2]
+                frames = self.eval_image_augs(value.reshape(B * P, *value.shape[2:]))
+                obs[meta_key] = frames.reshape(B, P, *frames.shape[1:])
+            elif (
+                meta_key not in self._rgb_meta_keys and prompt_type == "proprioception"
+            ):
+                obs[meta_key] = value
+        action = prompt["action"]
+        B, P, chunk_n, _ = action.shape
+        if chunk_n != self.chunk_n_actions:
+            raise ValueError(
+                f"prompt chunk size {chunk_n} != shape_meta.prompt_chunk_n_actions "
+                f"{self.chunk_n_actions}; the data config must interpolate the "
+                "model's prompt_chunk_n_actions."
+            )
+        if P > self.max_prompt_len:
+            raise ValueError(
+                f"prompt has {P} chunks > max {self.max_prompt_len} "
+                "(shape_meta.max_sequence_length / prompt_chunk_n_actions)."
+            )
+        mask = prompt["metadata"]["mask"].to(torch.bool)
+        chunked = {"obs": obs, "action": action, "metadata": {"mask": mask}}
+        if training and self.p_drop_prompt > 0.0:
+            chunked = self._drop_prompt_content(chunked, B, action.device)
+        return chunked
+
+    def _drop_prompt_content(self, chunked, B, device):
+        # Content dropout: zero the prompt for dropped samples instead of
+        # masking it out entirely (an all-True key_padding_mask row would
+        # NaN the cross-attention softmax).
+        keep = (torch.rand(B, device=device) >= self.p_drop_prompt).float()
+        chunked["action"] = chunked["action"] * keep.view(B, 1, 1, 1)
+        chunked["obs"] = {
+            k: v * keep.view(B, *([1] * (v.dim() - 1)))
+            for k, v in chunked["obs"].items()
+        }
+        return chunked
 
     def _batch_roll_prompt(self, prompt_obs_src, actions, training: bool):
         """Roll the batch by one so sample i is prompted with sample i+1's
@@ -401,14 +582,6 @@ class BPP(Algo):
         }
 
         if training and self.p_drop_prompt > 0.0:
-            # Content dropout: zero the prompt for dropped samples instead of
-            # masking it out entirely (an all-True key_padding_mask row would
-            # NaN the cross-attention softmax).
-            keep = (torch.rand(B, device=actions.device) >= self.p_drop_prompt).float()
-            chunked["action"] = chunked["action"] * keep.view(B, 1, 1, 1)
-            chunked["obs"] = {
-                k: v * keep.view(B, *([1] * (v.dim() - 1)))
-                for k, v in chunked["obs"].items()
-            }
+            chunked = self._drop_prompt_content(chunked, B, actions.device)
 
         return chunked

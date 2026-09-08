@@ -1,0 +1,19 @@
+# Whole-episode prompting model for the folding_clothes video-context
+# ablation (docs/2026-09-03_bpp_video_context_ablation.md, section 3): arm C as is, arm B
+# with `...obs_encoder.ignore_prompt=true`, C-vid / C-act with the tokenizer's
+# `ignore_prompt_*` flags. Same policy as bpp_prompt_dit_episode.yaml; only the
+# prompt grid changes: one chunk every 2 s (60 action steps at 30 fps) and a
+# 2700-frame (45-chunk) positional table for the 90 s episodes.
+# data/bpp_folding_clothes.yaml carries the same two values as literals.
+defaults:
+  - bpp_prompt_dit_episode
+  - _self_
+
+robomimic_model:
+  shape_meta:
+    prompt_chunk_n_actions: 60
+    max_sequence_length: 2700
+  # Batch 32 x up to 46 ViT images per sample does not fit a 48 GB A40
+  # without it (smoke run 2026-09-03: OOM at 43.8 GiB). Checkpoints the
+  # ViT blocks; same math, one extra ViT forward per step.
+  grad_checkpointing: true
