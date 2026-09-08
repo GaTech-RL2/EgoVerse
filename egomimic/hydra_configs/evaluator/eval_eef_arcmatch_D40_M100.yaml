@@ -64,16 +64,44 @@ min_distance_unit: 0.40
 resampled_vector_length: 100
 rollout_horizon: 100
 
-# How many steps of the time-indexed ground truth the time-domain families
-# score. Set per embodiment to the value that makes this run cover the same
-# WALL-CLOCK span as the baseline twin it will be compared against -- the arc
-# keymap samples a much wider window (human 600 raw frames, yam 200) than the
-# cartesian keymap it is being compared to (human ACTION_HORIZON=30, yam 45),
-# so matching sample counts is not automatic. Check `_gt_chunk_travel_m_avg`
-# agrees between the two runs; if it does, they are scoring the same motion.
-chunk_length:
-  human_bimanual: 30
+# The third hyperparam of the matched-span rule, alongside D and M: the TRUE
+# action horizon in RAW control frames. This is what "normal action chunk
+# sampling" means, so it is the window `basedist` is measured over, and both
+# run types are reduced to it before anything else happens:
+#
+#   arc run       the preserved `actions_cartesian_untokenized` window is
+#                 already at the native control rate (the 600/200-frame window
+#                 is only sampling headroom so the tokenizer can reach D), so
+#                 its normal chunk is the first `action_horizon` frames of it.
+#   baseline run  the chunk arrives interpolated UP to 100 rows from these same
+#                 raw frames (pose_utils._interpolate_*), so it is
+#                 de-interpolated back down.
+#
+# Counting ROWS instead -- what `chunk_length` below did -- silently compares
+# different amounts of time: a baseline row is 45/30/100 = 0.015 s against an
+# arc row's 1/30 s, so `chunk_length: 30` scored 0.45 s of baseline motion
+# against 1.0 s of arc motion. It also broke `dt` in the velocity payload and
+# left `arm_travel` summing a total variation over 100 samples on one side and
+# 45 on the other. All three come back into agreement here.
+#
+# Both embodiments use 45: human `action_horizon: 45` is set explicitly in the
+# data configs to match yam's ACTION_HORIZON, so both are 1.5 s at 30 Hz.
+action_horizon:
+  human_bimanual: 45
   yam_bimanual: 45
+
+# Superseded by `action_horizon` and left unset. Only consulted when
+# `action_horizon` is absent, in which case the row-counting behaviour above
+# applies and the time-domain families stop being cross-comparable.
+# chunk_length:
+#   human_bimanual: 30
+#   yam_bimanual: 45
+
+# Matched spans below this floor are structural zeros -- at span 0 every
+# waypoint collapses onto row 0, the origin in eef_frame, so the arm scores
+# exactly 0 whatever was predicted. `arcmatch_degenerate_frac` reports the
+# share below it so a mean made mostly of zeros is visible.
+span_floor_m: 0.01
 
 # Lever arm for the combined pose_err_m metrics: how many metres one radian of
 # orientation error is worth, i.e. how far out on the gripper the scored point
@@ -99,3 +127,13 @@ transform_lists:
     _target_: egomimic.rldb.embodiment.yam._build_yam_bimanual_revert_eef_frame_transform_list
     is_quat: false
     to_camera_frame: true
+
+# Row count a BASELINE chunk is interpolated up to in the data pipeline. Both
+# run types are put through the identical `action_horizon -> this -> action_horizon`
+# round trip, so both are scored at the same BANDWIDTH. The round trip is a
+# low-pass and a baseline chunk has already had half of it applied, so
+# de-interpolating only the baseline attenuates its error and leaves the arc
+# side's intact -- measured on real yam chunks that flattered the baseline
+# 1.36x at identical injected error. Applying it to both gives ratio 1.000.
+# Must equal the baseline twin's chunk row count.
+interp_chunk_rows: 100
