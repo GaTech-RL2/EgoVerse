@@ -7,6 +7,16 @@ Scores every variant against the same un-tokenized 30 Hz ground truth
             frames — the protocol's primary read (H_match from Step 0).
   E_arc   : RMS xyz error at equal progress, M points over min(D, reach).
   d_clock : RMS error, in seconds, of the time-of-progress at those points.
+  paired_mse : the repo's metric, computed the way eval_eef_arcmatch does --
+            _mse(pred[:B], gt[:B], PAIRED_COLS) with B = min(len(pred),
+            len(gt)), i.e. over ALL actions of the chunk, xyz + gripper of both
+            arms, rotation excluded so radians are never summed with metres.
+            Physical units against the same raw ground truth for every row, so
+            unlike the model's own validation loss (a flow-matching surrogate
+            living in each run's own normalized space) it is directly
+            comparable across variants and spreads. paired_mse_hmatch is the
+            same quantity restricted to the protocol's matched horizon, for
+            continuity with E_time; xyz-only splits alongside both.
   Progress parameterization: E_arc and d_clock compare at equal progress, and
   progress is "arc length at the tokenizer's bandwidth" — when the row was
   tokenized with ``progress_smooth_hz`` the ground-truth progress is measured
@@ -39,6 +49,10 @@ from egomimic.eval.hpt.eval_hpt import HPTEvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 from egomimic.rldb.zarr.arc_length_tokenizer import cumulative_arc_length
 from egomimic.rldb.zarr.e1_arc_tokenizer import ARM_LAYOUT, TokenizeBimanualArcLengthE1, lowpass_positions
+
+# Same columns the lab's eval_eef_arcmatch uses: xyz + gripper per arm.
+PAIRED_COLS = [0, 1, 2, 6, 7, 8, 9, 13]
+XYZ_COLS = [0, 1, 2, 7, 8, 9]
 
 
 def _at_progress(p, cum, s):
@@ -88,6 +102,9 @@ class E1FoldTempoEval(HPTEvalVideo):
         self._sums = {k: 0.0 for k in ("e_time_sq", "e_arc_sq", "d_clock_sq", "e_time_prog_sq")}
         self._arm_sums = {a: {k: 0.0 for k in ("e_time_sq", "e_arc_sq", "d_clock_sq", "e_time_prog_sq")} for a in ("L", "R")}
         self._prog_frames = []
+        # Action-space MSEs, accumulated per sample (not per arm).
+        self._paired = {k: 0.0 for k in ("paired_mse", "paired_mse_hmatch", "xyz_mse", "xyz_mse_hmatch")}
+        self._n_paired = 0
         self._n = 0
         self._n_partial = 0
         self._per_chunk = []
@@ -132,6 +149,25 @@ class E1FoldTempoEval(HPTEvalVideo):
             gt = _batch[self.time_key].detach().float().cpu().numpy().astype(np.float64)
             for b in range(pred.shape[0]):
                 chunk_vals = []
+                # Lab-style paired MSE: decoded prediction vs raw ground truth,
+                # xyz + gripper, rotation excluded. Both arms at once.
+                gt_full = gt[b]
+                dec = (
+                    pred[b][: len(gt_full)]
+                    if self.variant == "time"
+                    else self._detok.detokenize(pred[b], action_horizon=len(gt_full))
+                )
+                nb = min(len(dec), len(gt_full))
+                nh = min(self.h_match, nb)
+                for key, cols, upto in (
+                    ("paired_mse", PAIRED_COLS, nb),          # repo definition: all actions
+                    ("paired_mse_hmatch", PAIRED_COLS, nh),
+                    ("xyz_mse", XYZ_COLS, nb),
+                    ("xyz_mse_hmatch", XYZ_COLS, nh),
+                ):
+                    d = dec[:upto][:, cols] - gt_full[:upto][:, cols]
+                    self._paired[key] += float(np.mean(d ** 2))
+                self._n_paired += 1
                 for a, (arm, (xyz_off, _, _, _)) in enumerate(zip(("L", "R"), ARM_LAYOUT)):
                     gt_xyz = gt[b, :, xyz_off : xyz_off + 3]
                     gt_cum_raw = cumulative_arc_length(gt_xyz)
@@ -165,6 +201,9 @@ class E1FoldTempoEval(HPTEvalVideo):
             n = max(self._n, 1)
             for k, label in (("e_time_sq", "E_time"), ("e_arc_sq", "E_arc"), ("d_clock_sq", "d_clock"), ("e_time_prog_sq", "E_time_prog")):
                 metrics[f"Valid/E1/{label}/{name}"] = torch.tensor(np.sqrt(self._sums[k] / n))
+            npd = max(self._n_paired, 1)
+            for k in ("paired_mse", "paired_mse_hmatch", "xyz_mse", "xyz_mse_hmatch"):
+                metrics[f"Valid/E1/{k}/{name}"] = torch.tensor(self._paired[k] / npd)
         return metrics, {}
 
     def on_validation_end(self):
@@ -182,6 +221,8 @@ class E1FoldTempoEval(HPTEvalVideo):
             "e_arc": float(np.sqrt(self._sums["e_arc_sq"] / n)),
             "d_clock": float(np.sqrt(self._sums["d_clock_sq"] / n)),
             "e_time_prog": float(np.sqrt(self._sums["e_time_prog_sq"] / n)),
+            **{k: float(v / max(self._n_paired, 1)) for k, v in self._paired.items()},
+            "n_paired": int(self._n_paired),
             "prog_horizon_m": self.prog_horizon_m,
             "progress_smooth_hz": self.progress_smooth_hz,
             "prog_frames_p50": float(np.median(self._prog_frames)) if self._prog_frames else None,

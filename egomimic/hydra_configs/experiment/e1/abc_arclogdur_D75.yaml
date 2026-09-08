@@ -1,0 +1,13 @@
+# @package _global_
+# ABC skirts — arclogdur row at D_match = 0.75 m (Step 0: the Time rows 100-frame horizon covers a
+# median 0.73 m of wrist travel, 1.9x D). At D = 0.40 a token spans only 67/52/38 % of the
+# scored 100-frame chunk on the low/mid/high tertiles, so an all-actions MSE freezes the arc
+# prediction for the rest of the horizon and the penalty GROWS with tempo. D_match makes the
+# token cover the same motion the time chunk does, which is the fair comparison by construction.
+defaults:
+  - /experiment/e1/abc_arclogdur
+  - _self_
+e1:
+  D: 0.75
+  chunk_length: 400
+name: e1_abc_arclogdur_D75
