@@ -1,0 +1,33 @@
+defaults:
+  - pi0.5_base
+  - _self_
+
+# pi0.5 BC on the abc EVA robot data (eva_bimanual, 20D native with grippers),
+# trained from the DEFAULT pi0.5 base checkpoint — no init_weights_ckpt, no
+# mecka/human pretrain in the lineage. Same shape as pi0.5_bc_mecka_6d with the
+# domain swapped human -> eva; the difference from pi0.5_ft_abc_eva_6d is only
+# that this one is not meant to be launched with a weights-only init.
+#
+# Normalized continuous-6D rotation encoding, wrist-relative actions via the
+# `cartesian_wristframe_6d` transform mode. Pairs with
+# data=abc_stationery_pi_6d and evaluator=eval_pi_wristframe_6d.
+robomimic_model:
+  camera_transforms: {}
+  config:
+    # M-sample val metrics (reverse KL, best/mean/worst-of-M, diversity).
+    reverse_kl_samples: 4
+  ac_keys:
+    eva_bimanual: "actions_cartesian"
+  domains: ["eva_bimanual"]
+
+  action_encoding: "cartesian_normalized_rot6d"
+  # Keep the discretized-proprio "State: <bins>" prompt block. No embodiment
+  # label in the prompt — single domain, nothing to disambiguate.
+  embodiment_label: false
+
+  action_converters:
+    rules:
+      EVA_BIMANUAL:
+        _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter

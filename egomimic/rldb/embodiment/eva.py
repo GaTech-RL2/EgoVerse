@@ -68,6 +68,40 @@ _ABC_FOLD_VIZ = np.array(
 )
 EVA_EXTRINSICS["abc_fold_viz"] = {"left": _ABC_FOLD_VIZ, "right": _ABC_FOLD_VIZ}
 
+# rl2yam: the rl2 lab's YAM station overhead ("agentview") camera, RealSense
+# serial 230322272195, calibration 20260902_190104
+# (yam_ws/calibrations/agentview/.../calibration.json). Per-arm 4x4s are
+# base_T_camera in THAT arm's base frame — the same convention this registry
+# stores (camera pose; the frame transforms invert internally via
+# target_world) — mapped left <- can_follower_l, right <- can_follower_r.
+# Structurally it matches abc_fold_viz (camera ~0.94 m above the bases,
+# +y from the right base, -y from the left), which is the point: baking THIS
+# rig's frame into the cam-frame proprio means the "State: <bins>" the policy
+# is trained on are the ones the rollout stack will actually send. Wrist-frame
+# action targets are invariant to the key; the proprio frame and the eval-viz
+# revert frame are not, so a config using this key needs its OWN norm stats.
+# The station's K (fx 391.50, fy 391.05, cx 317.78, cy 238.38) is NOT wired
+# into EVA_INTRINSICS: that constant is the fallback used to PROJECT onto the
+# ABC training images, which come from ABC's camera, not this one.
+EVA_EXTRINSICS["rl2yam"] = {
+    "left": np.array(
+        [
+            [0.008031593763524247, -0.8460137949113619, 0.5331005086485036, -0.24745807872964987],
+            [-0.9999023536250363, -0.012891419243587143, -0.005393934092919931, -0.312508332334387],
+            [0.011435764807410006, -0.5330051314289218, -0.8460347233735189, 0.9444139504200416],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    ),
+    "right": np.array(
+        [
+            [0.01687638082297442, -0.8502128271356683, 0.5261685436666587, -0.22926829110543537],
+            [-0.9996630984747586, -0.003968782524055946, 0.02565030824613683, 0.2926165109213208],
+            [-0.019719972570037284, -0.526424161051952, -0.8499933678227057, 0.9431512773981495],
+            [0.0, 0.0, 0.0, 1.0],
+        ]
+    ),
+}
+
 # ABC-130k RealSense top camera K (640x480 space). Replaces the old
 # ARIA_INTRINSICS fallback (fx=266.5), which mis-scaled the eva eval overlay
 # ~1.6x — same fix as the remote repo's Eva.VIZ_INTRINSICS_KEY="eva". Only

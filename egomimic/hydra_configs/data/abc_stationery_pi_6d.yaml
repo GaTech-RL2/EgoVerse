@@ -1,0 +1,98 @@
+# ABC_STATIONERY_PI_6D — the single ABC task "sort the stationery into
+# containers" at FULL size: all 2,066 episodes / 41.6 h (verified 2026-09-08
+# against the live episode table; every one present on the Phoenix mirror).
+# Built for a zero-shot rollout policy, so it is abc_eva_pi_6d_foldviz with the
+# task restricted and ONE other delta:
+#
+# THE eva->yam RELABEL FIX. On 2026-09-01 every ABC row was relabeled
+# embodiment eva_bimanual -> yam_bimanual in the episode table, so the
+# `embodiment == 'eva_bimanual'` clause in abc_eva_pi_6d{,_foldviz}.yaml and
+# mecka_abc_pi_6d.yaml now matches ZERO rows. Filter on lab + task + the /abc/
+# path instead — those are stable across the relabel. The episodes are still
+# TRAINED AS eva_bimanual: the zarrs on the mirror say
+# `attrs.embodiment = eva_bimanual` (they were converted before the relabel)
+# and the leaf dataset reads the embodiment from the zarr, so the dataset
+# registers under eva_bimanual — which is what model pi0.5_ft_abc_eva_6d, the
+# eva extrinsics registry and the eva norm stats all expect. No embodiment
+# override anywhere; the relabel is a SQL-side rename only.
+#
+# Language conditioning is the stock pipeline: `annotation_key: annotations`
+# over ABC's dense sub-task spans (23 per episode, 100 % frame coverage, 116
+# distinct texts on this task, e.g. "Pick up the pen from the center of the
+# board."). PI._build_prompts samples one span per frame — no high-level or
+# injected task prompt.
+#
+# WRIST-frame cartesian actions with the continuous 6D rotation representation
+# (20D = xyz+6D+gripper per arm) and the **rl2 lab YAM station** overhead-camera
+# extrinsics (extrinsics_key=rl2yam, RealSense 230322272195, calib
+# 20260902_190104) baked into the base->cam proprio — deliberately the ROLLOUT
+# rig's frame, not ABC's own abc_fold_viz, so the discretized "State: <bins>"
+# the policy trains on are the ones the rollout stack will send. Wrist-frame
+# action targets are invariant to the key; the proprio frame and the eval-viz
+# revert frame are not, so this config has its OWN norm stats
+# (norm_stats/abc_stationery_rl2yam, via norm_abc_stationery_rl2yam.sbatch) and
+# the eval-viz overlay is not geometrically meaningful on ABC images (it
+# projects rl2yam-frame poses with the ABC camera's K); the arc-matched and
+# MSE metrics are unaffected, both sides go through the same transform.
+# Pairs with model=pi0.5_bc_abc_eva_6d and evaluator=eval_pi_wristframe_6d.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian_wristframe_6d
+        extrinsics_key: rl2yam
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'abc'"
+        - "lambda row: str(row.get('task', '')) == 'sort the stationery into containers'"
+        - "lambda row: '/abc/' in str(row.get('zarr_processed_path', ''))"
+        - "lambda row: not bool(row.get('is_deleted', False))"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+
+# Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
+# videos_train_viz/). No shuffle -> same leading slice every val.
+train_viz_datasets:
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: train
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+
+train_viz_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 2
+    shuffle: false
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 64
+    num_workers: 8
+
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 64
+    num_workers: 8
+    shuffle: false
