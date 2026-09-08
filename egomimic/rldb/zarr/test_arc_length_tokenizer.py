@@ -767,3 +767,78 @@ def test_transform_adapter_with_joints() -> None:
     )
     np.testing.assert_allclose(out["left.cmd_joint_pos_arc"], jl)
     np.testing.assert_allclose(out["right.cmd_joint_pos_arc"], jr)
+
+
+# ---------------------------------------------------------------------------
+# Vectorized arc-length resampling: equivalence with the per-target helpers
+# ---------------------------------------------------------------------------
+
+
+def _scalar_resample(pos, ypr, grip, cumdist, targets):
+    """Reference: the original per-target implementation."""
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        _interp_linear_at_s,
+        _interp_pos_at_s,
+        _interp_ypr_at_s,
+    )
+
+    return (
+        np.stack([_interp_pos_at_s(pos, cumdist, float(s)) for s in targets]),
+        np.stack([_interp_ypr_at_s(ypr, cumdist, float(s)) for s in targets]),
+        np.stack([_interp_linear_at_s(grip, cumdist, float(s)) for s in targets]),
+    )
+
+
+def _random_track(rng, n):
+    """A wandering track with rotation and a gripper channel."""
+    step = rng.normal(scale=0.02, size=(n - 1, 3))
+    pos = np.concatenate([np.zeros((1, 3)), np.cumsum(step, axis=0)])
+    ypr = np.cumsum(rng.normal(scale=0.05, size=(n, 3)), axis=0)
+    grip = rng.uniform(size=(n, 1))
+    return pos, ypr, grip
+
+
+@pytest.mark.parametrize("n,k", [(2, 5), (7, 20), (60, 100), (200, 100)])
+def test_resample_at_arc_lengths_matches_per_target_helpers(n, k):
+    """The vectorized path reproduces the per-target helpers it replaces."""
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        cumulative_arc_length,
+        resample_at_arc_lengths,
+    )
+
+    rng = np.random.default_rng(0)
+    pos, ypr, grip = _random_track(rng, n)
+    cumdist = cumulative_arc_length(pos)
+    # Interior targets plus both clamped ends and an exact knot.
+    targets = np.concatenate(
+        [
+            np.linspace(0.0, float(cumdist[-1]), k),
+            [-1.0, float(cumdist[-1]) + 1.0, float(cumdist[min(1, n - 1)])],
+        ]
+    )
+    got = resample_at_arc_lengths(pos, ypr, grip, cumdist, targets)
+    want = _scalar_resample(pos, ypr, grip, cumdist, targets)
+    np.testing.assert_array_equal(got[0], want[0])  # linear interp: bit-identical
+    np.testing.assert_array_equal(got[2], want[2])
+    # Rotation goes through one batched geodesic step instead of one Slerp per
+    # target; same geodesic, float-precision difference only.
+    np.testing.assert_allclose(got[1], want[1], atol=1e-12, rtol=0)
+
+
+def test_resample_at_arc_lengths_handles_stationary_clusters():
+    """Zero-length segments (a held pose) must not divide by zero."""
+    from egomimic.rldb.zarr.arc_length_tokenizer import (
+        cumulative_arc_length,
+        resample_at_arc_lengths,
+    )
+
+    pos = np.array([[0.0, 0, 0], [0, 0, 0], [0, 0, 0], [0.1, 0, 0], [0.2, 0, 0]])
+    ypr = np.array([[0.0, 0, 0], [0.1, 0, 0], [0.2, 0, 0], [0.3, 0, 0], [0.4, 0, 0]])
+    grip = np.zeros((5, 1))
+    cumdist = cumulative_arc_length(pos)
+    targets = np.linspace(0.0, float(cumdist[-1]), 9)
+    got = resample_at_arc_lengths(pos, ypr, grip, cumdist, targets)
+    want = _scalar_resample(pos, ypr, grip, cumdist, targets)
+    assert np.all(np.isfinite(got[0])) and np.all(np.isfinite(got[1]))
+    np.testing.assert_array_equal(got[0], want[0])
+    np.testing.assert_allclose(got[1], want[1], atol=1e-12, rtol=0)
