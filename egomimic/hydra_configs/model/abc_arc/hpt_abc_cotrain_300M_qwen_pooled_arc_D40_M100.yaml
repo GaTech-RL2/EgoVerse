@@ -1,0 +1,231 @@
+# 300M ARC-TOKENIZED (D = 0.40 m / M = 100) cotrain + POOLED Qwen3-Embedding language stem.
+#
+# Standalone copy of hpt_abc_mecka_cotrain_flow_shared_head_300M_arc_D40_M100.yaml with
+# the annotation modality added. It does NOT inherit from that file: a bare
+# `hpt_cotrain_enc_dec_base` default only resolves when the config is requested
+# as `abc_arc/<name>` from the `model` group (the `override /model:` route), so
+# referencing it from a sibling inside model/abc_arc/ shifts the group base and
+# breaks the grandparent lookup. Keep the two files in sync by hand -- the arc
+# and baseline 300M configs already relate to each other the same way.
+#
+# Trunk, stems, head, encoders and optimizer are byte-identical to the twin, so
+# the only difference in a paired run is the language input.
+
+defaults:
+  - hpt_cotrain_enc_dec_base
+
+robomimic_model:
+  domains: ["yam_bimanual", "human_bimanual"]
+
+  ac_keys:
+    yam_bimanual: "actions_cartesian"
+    human_bimanual: "actions_cartesian"
+  shared_ac_key: "actions_cartesian"
+
+  # ---- language conditioning -------------------------------------------
+  # Set annotation_key and HPT samples one annotation string per batch item
+  # and routes it to the stem registered under `annotation_modality`. Leave it
+  # unset (the twin config) and none of this runs -- no prompts are built and
+  # no extra modality is injected.
+  #
+  # The batch already carries PLAIN, TIME-ALIGNED text: the data config's
+  # `annotation_key: annotations` registers a `key_type: annotation_keys`
+  # entry, and MultiDataset._annotations_for_span resolves the episode's JSON
+  # records {"text", "start_idx", "end_idx"} down to the texts whose interval
+  # overlaps the sampled chunk. Nothing here parses JSON.
+  annotation_key: "annotations"
+  # "random" picks among every annotation overlapping the chunk, which is mild
+  # paraphrase augmentation when a chunk straddles two labelled segments.
+  # "first" is the deterministic alternative.
+  annotation_sampling_mode: "random"
+  # Must match the shared_stem_specs key and the shared_obs_keys entry below.
+  annotation_modality: "annotation"
+  # Deliberately empty rather than a task name. ~17% of yam chunks overlap no
+  # annotation interval, and if the fallback were a label the model could learn
+  # to lean on a string that will not exist at deployment.
+  default_prompt: ""
+
+  camera_transforms: {}
+
+  6dof: true
+  diffusion: true
+
+  trunk:
+    embed_dim: 840
+    # 19, not the reference's 24. The reference recipe is a SINGLE-domain,
+    # single-camera BC model; this cotrain carries three 840-wide ResNet
+    # encoders, two domains' stems and a wider shared head, so at 24 blocks it
+    # measures 341.9M. Trunk blocks cost ~8.48M each here, so 19 lands at
+    # 299.5M -- verified by instantiating the model and counting parameters,
+    # not estimated.
+    num_blocks: 19
+    num_heads: 10
+    token_postprocessing: "action_token"
+    observation_horizon: 1
+    action_horizon: 64
+    no_trunk: false
+    use_domain_embedding: true
+    drop_path: 0.1
+    weight_init_style: "pytorch"
+
+  shared_obs_keys: ["front_img_1", "annotation"]
+
+  shared_stem_specs:
+      front_img_1:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 840
+        output_dim: 840
+        widths: [840]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 18
+            crossattn_heads: 10
+            crossattn_dim_head: 140
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 840
+
+      # Pooled Qwen3-Embedding language stem. The encoder last-token-pools to
+      # one (B, 1, hidden) sentence vector, then PolicyStem's learnable-token
+      # cross-attention expands it to crossattn_latent tokens -- measured
+      # compute_latent output is (B, 18, 840). The per-token variant
+      # (QwenPerTokenEncoder) feeds all L token states into that same pooling
+      # instead, so pooled is the cheaper default at equal output width.
+      #
+      # Registered as a SHARED stem, so both embodiments use one text encoder
+      # rather than a per-domain copy. The prompt vocabulary is the same
+      # fold-task language on both sides, and it keeps the added trainable
+      # parameters down to the projection alone.
+      annotation:
+        _target_: egomimic.models.stems.text_encoders.QwenPooledEncoder
+        model_name: "Qwen/Qwen3-Embedding-0.6B"
+        max_length: 128
+        # Frozen. The 0.6B encoder would otherwise swamp the 299.5M trainable
+        # trunk and make the "300M" label meaningless. Measured: 595.8M frozen,
+        # 5.6M trainable (the hidden_size -> 840 projection plus the cross-attn
+        # latents), so a language run is ~305M trainable against the twin's
+        # 299.5M. fp16 keeps the frozen weights' VRAM down.
+        freeze: true
+        dtype: "float16"
+        # MUST equal trunk.embed_dim (840) or the post-stem tokens will not
+        # concat with the other modalities in HPTModel.preprocess_tokens.
+        output_dim: 840
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 18
+            crossattn_heads: 10
+            crossattn_dim_head: 140
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 840
+
+  stem_specs:
+    yam_bimanual:
+      state_ee_pose:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 14
+        output_dim: 840
+        widths: [840]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 18
+            crossattn_heads: 10
+            crossattn_dim_head: 140
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 840
+      left_wrist_img:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 840
+        output_dim: 840
+        widths: [840]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 18
+            crossattn_heads: 10
+            crossattn_dim_head: 140
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 840
+      right_wrist_img:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 840
+        output_dim: 840
+        widths: [840]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 18
+            crossattn_heads: 10
+            crossattn_dim_head: 140
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 840
+    human_bimanual:
+      state_ee_pose:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 14
+        output_dim: 840
+        widths: [840]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 18
+            crossattn_heads: 10
+            crossattn_dim_head: 140
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 840
+    # Not in `domains`, so never built; nulled so the 256-wide leftovers from
+    # hpt_cotrain_enc_dec_base cannot be mistaken for live config.
+    eva_bimanual: null
+
+  head_specs:
+    human_bimanual: null
+    yam_bimanual: null
+    eva_bimanual: null
+    shared:
+      _target_: egomimic.models.heads.fm_policy.FMPolicy
+      action_horizon: 101
+      num_inference_steps: 50
+      pooling: null
+      padding: "zero"
+      time_dist: "beta"
+      infer_ac_dims:
+        yam_bimanual: 14
+        human_bimanual: 14
+      model:
+        _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 840
+        hidden_dim: 320
+        act_dim: 14
+        act_seq: 101
+        n_heads: 5
+        dropout: 0.1
+        mlp_layers: 5
+        mlp_ratio: 5
+
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.stems.hpt_stems.ResNet
+      output_dim: 840
+      num_of_copy: 1
+    right_wrist_img:
+      _target_: egomimic.models.stems.hpt_stems.ResNet
+      output_dim: 840
+      num_of_copy: 1
+    left_wrist_img:
+      _target_: egomimic.models.stems.hpt_stems.ResNet
+      output_dim: 840
+      num_of_copy: 1
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  # Constant 1e-4 (no decay), between the 300M reference's 1e-5 and the 3e-4 the
+  # small cotrain runs use.
+  lr: 1e-4
+  weight_decay: 0.0001
+
+# Constant LR at 1e-4 -- no scheduler (pl_model.configure_optimizers skips
+# scheduling when `scheduler` is absent/null).
+scheduler: null
