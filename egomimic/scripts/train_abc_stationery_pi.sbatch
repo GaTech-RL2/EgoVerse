@@ -9,9 +9,13 @@
 #SBATCH --time=72:00:00
 #SBATCH --job-name=pi05_abc_stat
 #SBATCH --output=/storage/project/r-dxu345-0/agao81/EgoVerse/logs/pi05_abc_stationery_ft_%j.log
-# Throttled H200s (2026-09-01 probe: SM clocks pinned ~350-420 MHz, 93 C —
-# DDP runs at the slowest rank, so one bad unit is a 3-4x slowdown).
-#SBATCH --exclude=atl1-1-02-012-16-0,atl1-1-02-014-9-0
+# Throttled H200s — DDP runs at the slowest rank, so one bad unit is a 3-4x
+# slowdown. 2026-09-01 probe: atl1-1-02-012-16-0, atl1-1-02-014-9-0 (SM pinned
+# ~350-420 MHz at 93 C). 2026-09-08, job 12948703: atl1-1-02-012-2-0 GPU 0
+# (GPU-6c751aff, serial 1653324048637) sat at 345 MHz / 91 C with SW thermal
+# slowdown active while its three siblings ran 1980 MHz / 40 C — 11 s/step
+# instead of ~3.5.
+#SBATCH --exclude=atl1-1-02-012-16-0,atl1-1-02-014-9-0,atl1-1-02-012-2-0
 
 # pi0.5 on ALL 2,066 ABC "sort the stationery into containers" episodes
 # (41.6 h) — a zero-shot rollout candidate for the YAM station.
