@@ -74,6 +74,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
 
 from egomimic.eval.eval_arctok import ArcTokEvalVideo
@@ -160,6 +161,42 @@ def tokenize_span(
         velocity[o + 3 : o + 6] = (y[-1] - y[0]) / dur
         velocity[o + 6] = (g[-1, 0] - g[0, 0]) / dur
     return waypoints, velocity
+
+
+def deinterp_rows(chunk: np.ndarray, num_rows: int) -> np.ndarray:
+    """Undo the (action_horizon -> chunk_length) up-interpolation.
+
+    A baseline action chunk leaves the data pipeline as ``chunk_length`` rows
+    linearly interpolated from ``action_horizon`` RAW control frames --
+    ``pose_utils._interpolate_*`` maps ``linspace(0,1,H)`` onto
+    ``linspace(0,1,L)``. Sampling that reconstruction back at
+    ``linspace(0,1,H)`` returns the raw frames (exactly at the endpoints, to
+    within one 1/(L-1) cell of linear error elsewhere), which is what lets both
+    run types be scored at the native control rate.
+
+    That matters for three separate things that all silently disagree
+    otherwise: the row count, ``dt`` in the velocity payload, and the
+    total-variation arc length ``arm_travel`` sums. A baseline row is 0.015 s
+    against an arc row's 1/30 s, so before this the two sides were 2.2x apart
+    on all three at once.
+
+    Rotation columns are unwrapped before interpolation and rewrapped after,
+    mirroring the forward transform; interpolating raw euler across a +-pi
+    wrap would otherwise invent a full-turn sweep.
+    """
+    arr = np.asarray(chunk, dtype=np.float64)
+    src = int(arr.shape[-2])
+    if src == int(num_rows):
+        return arr.copy()
+    old_t = np.linspace(0.0, 1.0, src)
+    new_t = np.linspace(0.0, 1.0, int(num_rows))
+    out = interp1d(old_t, arr, axis=-2, kind="linear")(new_t)
+    ypr = [c for c in YPR_COLS if c < arr.shape[-1]]
+    if ypr:
+        unwrapped = np.unwrap(arr[..., ypr], axis=-2)
+        vals = interp1d(old_t, unwrapped, axis=-2, kind="linear")(new_t)
+        out[..., ypr] = (vals + np.pi) % (2 * np.pi) - np.pi
+    return out
 
 
 def match_spans(pred_ti: np.ndarray, gt_ti: np.ndarray) -> np.ndarray:
@@ -295,6 +332,10 @@ class EefArcMatchEval(ArcTokEvalVideo):
         self,
         *args,
         chunk_length: int | dict | None = None,
+        action_horizon: int | dict | None = None,
+        interp_chunk_rows: int | None = 100,
+        native_dt: float | None = None,
+        span_floor_m: float = 0.01,
         dtw_max_samples: int = 8,
         dtw_clip_gt_to_distance: bool = False,
         rot_lever_m: float = 0.10,
@@ -311,6 +352,38 @@ class EefArcMatchEval(ArcTokEvalVideo):
                 keymaps subsample at different strides. Left unset, the full
                 available chunk is used and the time-domain families stop being
                 cross-comparable (``_gt_chunk_travel_m_avg`` will show it).
+            action_horizon: the TRUE action horizon in RAW control frames --
+                the third hyperparam of the matched-span rule, alongside D and
+                M. This is the window "normal action chunk sampling" means, so
+                it is what ``basedist`` is measured over. Set it and both run
+                types are scored at the native control rate over the same
+                number of raw frames: an arc run's preserved window is already
+                native-spaced so its normal chunk is the first H frames, while
+                a baseline chunk is de-interpolated back down from its
+                ``chunk_length`` rows. Preferred over ``chunk_length``, which
+                counts rows and so means different amounts of time on the two
+                sides.
+            interp_chunk_rows: the row count a BASELINE chunk is interpolated
+                up to in the data pipeline (100). Both run types are put
+                through the identical ``H -> interp_chunk_rows -> H`` round
+                trip so they are scored at the same BANDWIDTH. That round trip
+                is a low-pass, and a baseline chunk has already been through
+                its first half, so de-interpolating only the baseline would
+                attenuate its error and leave the arc side's intact -- measured
+                on real yam chunks that alone flattered the baseline 1.36x at
+                identical injected error. Applying it to both sides brings the
+                ratio to 1.000 (p10 and p90 both 1.000). Set to null to skip
+                the equalization. It costs 0.29% of measured travel (real-data
+                median), and costs it equally on both sides.
+            native_dt: seconds per raw control frame, used for the velocity
+                payload once both sides are native-spaced. Defaults to the
+                detokenizer's own dt (1/30 s).
+            span_floor_m: matched spans below this contribute essentially
+                nothing -- at span 0 every waypoint collapses onto row 0, which
+                is the origin in eef_frame, so the sample scores exactly 0
+                whatever the model predicted. The fraction below the floor is
+                logged as ``arcmatch_degenerate_frac`` so a mean made mostly of
+                zeros is visible rather than silent.
             dtw_max_samples: DTW is O(N*M) per arm per sample, so only this many
                 samples per batch are warped. The metric is a batch mean either
                 way; this bounds the cost.
@@ -344,6 +417,20 @@ class EefArcMatchEval(ArcTokEvalVideo):
         elif chunk_length is not None:
             chunk_length = int(chunk_length)
         self.chunk_length = chunk_length
+        if action_horizon is not None and hasattr(action_horizon, "keys"):
+            action_horizon = {str(k): int(v) for k, v in action_horizon.items()}
+        elif action_horizon is not None:
+            action_horizon = int(action_horizon)
+        self.action_horizon = action_horizon
+        self.interp_chunk_rows = (
+            int(interp_chunk_rows) if interp_chunk_rows else None
+        )
+        self.native_dt = (
+            float(native_dt)
+            if native_dt is not None
+            else float(self._detokenizer.tokenizer.config.dt)
+        )
+        self.span_floor_m = float(span_floor_m)
         self.dtw_max_samples = int(dtw_max_samples)
         self.dtw_clip_gt_to_distance = bool(dtw_clip_gt_to_distance)
         self.rot_lever_m = float(rot_lever_m)
@@ -375,6 +462,12 @@ class EefArcMatchEval(ArcTokEvalVideo):
         if isinstance(cl, dict):
             cl = cl.get(embodiment_name)
         return min(cl, available) if cl else available
+
+    def _action_horizon(self, embodiment_name: str) -> int | None:
+        ah = self.action_horizon
+        if isinstance(ah, dict):
+            ah = ah.get(embodiment_name)
+        return int(ah) if ah else None
 
     def _time_indexed_gt(self, batch_unnorm: dict, ac_key: str, is_arc: bool):
         """The ground truth under normal action-chunk sampling, in metres."""
@@ -416,7 +509,11 @@ class EefArcMatchEval(ArcTokEvalVideo):
         preds = algo.forward_eval(batch)
         M = self.arc_match_points
         D = self.arc_match_distance
-        dt = self._detokenizer.tokenizer.config.dt
+        # Native control period. Once both run types are de-interpolated to the
+        # raw action horizon every row is one control frame on both sides, so a
+        # single dt is correct for both -- which it was NOT while a baseline row
+        # was 0.015 s and an arc row 1/30 s.
+        dt = self.native_dt
 
         for embodiment_id, _batch in batch.items():
             _batch = algo.norm_stats.unnormalize(_batch, embodiment_id)
@@ -430,15 +527,45 @@ class EefArcMatchEval(ArcTokEvalVideo):
             gt_t = self._time_indexed_gt(_batch, ac_key, is_arc)
             if gt_t is None:
                 continue
-            T = self._chunk_len(embodiment_name, int(gt_t.shape[1]))
-            gt = self._np(gt_t)[:, :T]
             # An arc prediction becomes time-indexed by the same reconstruction
             # a controller would run, so from here the two run types are one
             # code path over identical objects.
-            pred_t = (
-                self._detokenize_batch_to(preds[pk], T) if is_arc else preds[pk][:, :T]
-            )
-            pred = self._np(pred_t)
+            H = self._action_horizon(embodiment_name)
+            if H is not None:
+                # Both sides reduced to the SAME normal action chunk: H raw
+                # control frames. The arc run's preserved window is already
+                # native-spaced, so its normal chunk is just the first H frames
+                # of it; a baseline chunk arrives interpolated up to
+                # `chunk_length` rows from those same H frames and is put back.
+                # basedist is then measured over the same motion, at the same
+                # sample density, on both sides -- the density matters because
+                # arm_travel is a total variation and inflates with the number
+                # of samples it sums over.
+                if is_arc:
+                    gt = self._np(gt_t)[:, :H]
+                    pred = self._np(self._detokenize_batch_to(preds[pk], H))
+                    # Bandwidth equalization. The baseline's chunk has already
+                    # been through the first half of an H -> L -> H round trip,
+                    # which low-passes it; putting the arc side through the
+                    # whole trip means both are judged on the band both can
+                    # express. Skipping this is not neutral -- it attenuates
+                    # only the baseline's error, worth 1.36x on real chunks.
+                    if self.interp_chunk_rows:
+                        L = self.interp_chunk_rows
+                        gt = deinterp_rows(deinterp_rows(gt, L), H)
+                        pred = deinterp_rows(deinterp_rows(pred, L), H)
+                else:
+                    gt = deinterp_rows(self._np(gt_t), H)
+                    pred = deinterp_rows(self._np(preds[pk]), H)
+            else:
+                T = self._chunk_len(embodiment_name, int(gt_t.shape[1]))
+                gt = self._np(gt_t)[:, :T]
+                pred_t = (
+                    self._detokenize_batch_to(preds[pk], T)
+                    if is_arc
+                    else preds[pk][:, :T]
+                )
+                pred = self._np(pred_t)
             if pred is None or pred.shape[1] < 2 or gt.shape[1] < 2:
                 continue
 
@@ -486,10 +613,17 @@ class EefArcMatchEval(ArcTokEvalVideo):
     def _add_arcmatch(self, metrics, pk, pred, gt, M, dt):
         """Re-tokenize both sides onto the matched per-arm span, then score."""
         Pw, Gw, Pv, Gv, spans, ratios = [], [], [], [], [], []
+        n_arms = n_degenerate = 0
         for p, g in zip(pred, gt):
             s = match_spans(p, g)
             if not np.all(np.isfinite(s)):
                 continue
+            # A span at (or near) zero collapses every waypoint onto row 0,
+            # which is the origin in eef_frame -- so the arm scores exactly 0
+            # no matter what was predicted. Count them rather than let them
+            # quietly drag the mean down.
+            n_arms += s.size
+            n_degenerate += int(np.count_nonzero(s < self.span_floor_m))
             pw, pv = tokenize_span(p, s, M, dt)
             gw, gv = tokenize_span(g, s, M, dt)
             Pw.append(pw)
@@ -528,6 +662,11 @@ class EefArcMatchEval(ArcTokEvalVideo):
             # that stalls scores well on shape while span and ratio collapse.
             "arcmatch_span_m_avg": float(np.mean(spans)),
             "arcmatch_travel_ratio_avg": float(np.mean(ratios)),
+            # Share of (sample, arm) pairs whose matched span is below the
+            # floor, i.e. contributing a structural zero to every mean above.
+            "arcmatch_degenerate_frac": (
+                float(n_degenerate) / float(n_arms) if n_arms else 0.0
+            ),
         }
         for k, v in m.items():
             metrics[f"Valid/{pk}_{k}"] = torch.tensor(v)
