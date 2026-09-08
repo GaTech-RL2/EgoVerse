@@ -1,0 +1,14 @@
+# Arc-tokenizer override of the abc YAM 300M pooled-Qwen cotrain.
+#
+# Inherits hpt_abc_cotrain_300M_qwen_pooled via an absolute model-group
+# default (same @_here_ pattern as hpt_abc_bc_flow_baseline). The only
+# intended change is the FM head horizon: M=100 arc tokens plus the BOS slot.
+defaults:
+  - /model/abc_arc/hpt_abc_cotrain_300M_qwen_pooled@_here_
+
+robomimic_model:
+  head_specs:
+    shared:
+      action_horizon: 101
+      model:
+        act_seq: 101

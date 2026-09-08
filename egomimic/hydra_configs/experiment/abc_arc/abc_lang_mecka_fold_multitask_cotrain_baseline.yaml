@@ -30,7 +30,7 @@
 # and an experiment loaded with `+experiment=` is neither. It records intent;
 # the CLI flag is what selects the launcher.
 defaults:
-  - override /model: abc_arc/hpt_abc_cotrain_300M_qwen_pooled_baseline
+  - override /model: abc_arc/hpt_abc_cotrain_300M_qwen_pooled
   - override /data: abc_arc/abc_lang_mecka_fold_multitask_baseline_cotrain
   - override /evaluator: eval_eef_arcmatch_D40_M100
   - override /trainer: ddp/base
