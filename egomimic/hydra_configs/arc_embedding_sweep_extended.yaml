@@ -1,0 +1,9 @@
+defaults:
+  - arc_embedding_sweep
+  - _self_
+
+# Extended-range sweep for longer-distance folds. Same base config as
+# arc_embedding_sweep.yaml, just wider D + finer W grid — 4 × 4 = 16 tabs.
+sweep:
+  joint_distance_cm: [100, 160, 200, 280]
+  waypoints: [15, 20, 30, 50]

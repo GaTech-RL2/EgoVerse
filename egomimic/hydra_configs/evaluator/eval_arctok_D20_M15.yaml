@@ -1,0 +1,9 @@
+defaults:
+  - eval_arctok
+  - _self_
+
+# Val-video eval matched to the arc_tests_cotrain.yaml data pipeline:
+# D=20cm, M=15. Model output shape is (B, 16, 14); detokenized to
+# (B, 100, 14) canonical bimanual cartesian (xyz + ypr + grip) before viz.
+min_distance_unit: 0.20
+resampled_vector_length: 15

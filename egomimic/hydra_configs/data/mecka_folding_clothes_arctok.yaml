@@ -1,0 +1,70 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Mecka folding_clothes single-embodiment arc-tok run.
+#   * SQL filter: human_bimanual + lab=mecka + task=folding_clothes
+#   * TRAIN/VALID: disjoint 80/20 split via valid_ratio; ``debug: 625`` caps
+#     total to 625 episodes → 500 train / 125 valid (deterministic under
+#     SEED-shuffled split_dataset_names).
+# stride=1 (mecka native 30 fps; no downsample). Uses arc_tokenizer_cartesian
+# which already appends PadGripperZeros → 14-dim base then (M+1, 14) tokens.
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: arc_tokenizer_cartesian_gripper_padded
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 1
+        min_distance_unit: 0.20
+        resampled_vector_length: 15
+      debug: 625
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'mecka' and row['task'] == 'folding_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: train
+    valid_ratio: 0.2
+    bounds_check: false
+
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: arc_tokenizer_cartesian_gripper_padded
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 1
+        min_distance_unit: 0.20
+        resampled_vector_length: 15
+      debug: 625
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'mecka' and row['task'] == 'folding_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: valid
+    valid_ratio: 0.2
+    bounds_check: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 128
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 128
+    num_workers: 6

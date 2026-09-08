@@ -1,0 +1,110 @@
+# @package _global_
+# Time-indexed BASELINE twin of abc_mecka_fold_multitask_cotrain_arcD40M100.
+#
+# Uses the 300M-parameter trunk (embed_dim 840, 19 blocks; 299.4M total),
+# NOT the ~56M model the BC and small-cotrain runs use -- so this is not comparable to
+# those; it is only comparable to its own arc twin.
+#
+# Multitask cotrain: ABC fold-family tasks (yam_bimanual) + mecka free-fold
+# (human_bimanual). Same episodes, same limits, same trunk/stems/head, same
+# cache as the arc twin. The only difference is the action space: a 100-step
+# time-parameterized chunk instead of (M+1, 14) arc-length tokens. That is what
+# makes the pair a controlled comparison.
+#
+# Launch (2x L40S):
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_mecka_fold_multitask_cotrain_baseline \
+#       hydra/launcher=submitit_skynet_l40s
+#
+# `-m` is required: the submitit launcher only engages in multirun mode.
+#
+# The `override /hydra/launcher` line in the defaults below does NOT take
+# effect -- hydra only honours a hydra/ group selection from the primary
+# config or the command line, and an experiment loaded with `+experiment=`
+# is neither. Verified: without the CLI flag the resolved choice is plain
+# `submitit` (rl2-lab, a40), whatever this file says. The line is kept to
+# record intent; the CLI flag is what actually selects the launcher.
+defaults:
+  - override /model: abc_arc/hpt_abc_mecka_cotrain_flow_shared_head_300M_baseline
+  - override /data: abc_arc/abc_mecka_fold_multitask_baseline_cotrain
+
+
+  # The SAME evaluator the arc twin uses. It accepts both action spaces -- arc
+  # detection is by row count, so a time-indexed chunk passes straight through
+  # instead of being detokenized -- and every metric is arc-matched (clipped to
+  # the first 0.40 m of travel, resampled to 100 points spaced uniformly in arc
+  # length), so the two runs emit identically named numbers that overlay on one
+  # chart:
+  #
+  #   ..._arcmatch_paired_mse_avg          shape, travel divided out
+  #   ..._arcmatch_withvel_paired_mse_avg  shape + timing
+  #   ..._arcmatch_pose_err_m_avg          position AND rotation, in metres
+  #   ..._arcmatch_travel_ratio_avg        1.0 means the extent is honest
+  #   ..._dtw_paired_mse_avg               timing-elastic, sees extent
+  #   ..._detok_* / ..._baseline_*         time domain, per action space
+  #   ..._gt_chunk_travel_m_avg            agrees => same motion scored
+  #
+  # No single family ranks arc against baseline on its own -- each removes a
+  # different invariance and the two classes put their error in different
+  # channels. See the evaluator module docstring for the measured caveats.
+  #
+  # The rotation metric is geodesic, not a per-axis ypr difference, so it stays
+  # comparable across the two runs. The per-embodiment reverts the evaluator
+  # needs come from _frame_arcmatch_base, so nothing is duplicated here.
+  - override /evaluator: eval_eef_arcmatch_D40_M100
+  - override /trainer: ddp/base
+  - override /logger: wandb/base
+  - override /hydra/launcher: submitit_skynet_l40s
+  - _self_
+
+name: abc_mecka_fold_multitask_cotrain_baseline
+description: baseline
+
+# The default paths.dataset_dir is owned by another user and mode drwxr-xr-x, so
+# s5cmd's mkdir fails for any episode not already cached there. This one is ours
+# and already holds all 250 mecka episodes. ABC episodes outside
+# fold_and_stack_the_t_shirts are NOT cached here yet and will be pulled from R2
+# on first use.
+paths:
+  dataset_dir: /coc/flash7/scratch/arc-training
+
+# ddp/base sets `strategy: ddp`, which asserts every parameter gets a gradient
+# each step. This is a COTRAIN model with a per-embodiment stem: a given batch
+# routes through one embodiment's stem and leaves the other's untouched, so
+# plain ddp aborts with "Expected to have finished reduction in the prior
+# iteration".
+trainer:
+  strategy: ddp_find_unused_parameters_true
+  # Run 2 validation batches BEFORE epoch 0. Validation otherwise first executes
+  # at epoch 200, so a fault in the evaluator or viz path (as happened with the
+  # baseline hitting the arc detokenizer) costs hours before it surfaces. This
+  # exercises the whole val path -- forward, arc-matched metrics, video overlay
+  # -- in seconds at startup.
+  num_sanity_val_steps: 2
+
+# Norm stats over 20% of frames. The full pass reads every frame of every
+# episode before training starts, which on the 40-hour multitask mix (8,158
+# episodes, ~8.5M samples) is hours of startup on its own. A finished run's
+# stats land in <output_dir>/norm_stats/norm_stats.json -- pass that back via
+# norm_stats.precomputed_norm_path=<path> to skip the pass entirely when
+# relaunching the SAME data config (the arc and baseline runs have different
+# action spaces, so their files are not interchangeable).
+norm_stats:
+  sample_frac: 0.2
+
+# 2x L40S on one node. The l40s nodes live in overcap (not rl2-lab), so this
+# runs preemptible -- see hydra/launcher/submitit_skynet_l40s.yaml. Swap the
+# launcher override above back to submitit_skynet_a40 and set gpus_per_node: 1
+# to return to the previous single-A40 setup.
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+
+logger:
+  wandb:
+    project: "arc"
+    tags:
+      - abc
+      - multitask
+      - 300M
+      - baseline

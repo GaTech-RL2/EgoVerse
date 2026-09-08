@@ -1,0 +1,17 @@
+# Human-only keypoint viz.
+#
+# Differs from viz/keypoints.yaml and viz/keypoints_wrist.yaml in two ways,
+# both of which make those unusable on this path:
+#   * image_key is observations.images.front_img_1, the key the batch actually
+#     carries (confirmed by probe). Both existing keypoint viz configs use a
+#     bare front_img_1, which KeyErrors.
+#   * no eva_bimanual entry -- these runs are single-domain, and viz_func is
+#     indexed by embodiment name at eval time.
+# annotation_key is omitted deliberately: arc_tests has no annotations, and
+# leaving it wired raises KeyError('sampled_prompt') at the first val step.
+human_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_keypoints
+  mode: keypoints

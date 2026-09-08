@@ -1,0 +1,75 @@
+# @package _global_
+# Multitask cotrain WITH LANGUAGE, time-indexed: ABC fold-family tasks
+# (yam_bimanual) + mecka free-fold (human_bimanual), 300M trunk, pooled
+# Qwen3-Embedding prompt stem.
+#
+# LANGUAGE variant of abc_mecka_fold_multitask_cotrain_baseline.
+# Same 300M trunk, same episodes, same splits, same evaluator. The only
+# differences are the annotation track in the data config and the pooled
+# Qwen3-Embedding stem in the model config, so the pair isolates the effect of
+# language conditioning and nothing else.
+#
+# The Qwen encoder is FROZEN (float16), so trainable parameters stay at the
+# same ~299.5M as the twin plus the hidden_size -> 840 projection. VRAM does
+# rise by the encoder's weights, which is why this still wants 2 GPUs.
+#
+# Prompts come from the episodes' own annotation intervals, time-aligned to
+# each sampled chunk. Chunks that overlap no interval fall back to
+# default_prompt: "" rather than a task label, so the model cannot learn to
+# lean on a string that would not exist at deployment.
+#
+# Launch (2x L40S):
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_lang_mecka_fold_multitask_cotrain_baseline \
+#       hydra/launcher=submitit_skynet_l40s
+#
+# `-m` is required: the submitit launcher only engages in multirun mode.
+#
+# The `override /hydra/launcher` line below does NOT take effect -- hydra only
+# honours a hydra/ group selection from the primary config or the command line,
+# and an experiment loaded with `+experiment=` is neither. It records intent;
+# the CLI flag is what selects the launcher.
+defaults:
+  - override /model: abc_arc/hpt_abc_cotrain_300M_qwen_pooled
+  - override /data: abc_arc/abc_lang_mecka_fold_multitask_baseline_cotrain
+  - override /evaluator: eval_eef_arcmatch_D40_M100
+  - override /trainer: ddp/base
+  - override /logger: wandb/base
+  - override /hydra/launcher: submitit_skynet_l40s
+  - _self_
+
+name: abc_lang_mecka_fold_multitask_cotrain_baseline
+description: baseline-lang
+
+paths:
+  dataset_dir: /coc/flash7/scratch/arc-training
+
+# ddp/base sets `strategy: ddp`, which asserts every parameter gets a gradient
+# each step. This is a COTRAIN model with per-embodiment stems, and the frozen
+# Qwen encoder contributes no gradients at all, so plain ddp would abort with
+# "Expected to have finished reduction in the prior iteration".
+trainer:
+  strategy: ddp_find_unused_parameters_true
+  # Two val batches before epoch 0. This is the cheapest place to catch a
+  # language-path fault -- a missing annotation key, a stem/trunk width
+  # mismatch, or a Qwen checkpoint that will not download -- instead of
+  # discovering it hours in at the first scheduled validation.
+  num_sanity_val_steps: 2
+
+norm_stats:
+  sample_frac: 0.2
+
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+
+logger:
+  wandb:
+    project: "arc"
+    tags:
+      - abc
+      - multitask
+      - 300M
+      - baseline
+      - language
+      - qwen-pooled

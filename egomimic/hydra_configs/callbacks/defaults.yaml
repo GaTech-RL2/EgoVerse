@@ -1,3 +1,0 @@
-wandb_profiler:
-  _target_: egomimic.utils.timing_callback.WandbProfilerLogger
-  log_every_n_steps: 100

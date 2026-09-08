@@ -1,0 +1,58 @@
+defaults:
+  - hpt_cotrain_mecka_flow_shared_head_arc
+
+# Arc-tok D=40cm, M=100 with a dedicated trunk readout slot for the
+# velocity token (vs ``_veldec`` which mean-pools trunk outputs into an
+# MLP). The HPT trunk is configured with ``action_horizon = M + 1 = 101``
+# so ``postprocess_tokens`` emits (B, 101, 256). The wrapper splits:
+#     slots 0..99  -> shape context   (FM head cross-attn context)
+#     slot 100     -> velocity readout (Linear(256, 14) -> vel token)
+# The FM head denoises only the M=100 shape waypoints; the wrapper
+# concats the vel token to produce the canonical (101, 14) arc-tok
+# action layout (xyz + ypr + grip per arm; rotation is unconditionally
+# supervised).
+#
+# Two losses propagate in parallel:
+#   - flow-matching MSE on waypoints (trunk + stems + flow head)
+#   - direct MSE on velocity (trunk + stems + Linear vel_head)
+# Both share the trunk + stems, so all decoder pieces get gradient. The
+# trunk itself learns to route velocity magnitude into slot 100 via
+# self-attention, which is cleaner than pooling all trunk outputs into
+# a separate MLP.
+robomimic_model:
+  trunk:
+    # M waypoints + 1 velocity readout = M+1 learnable action tokens
+    # prepended before the trunk. postprocess_tokens slices [:, :101].
+    action_horizon: 101
+
+  head_specs:
+    shared:
+      _target_: egomimic.models.heads.fm_policy.FMPolicyWithVelReadout
+      num_waypoints: 100
+      # 14 dims (xyz + ypr + grip per arm) — rotation unconditionally supervised.
+      act_dim: 14
+      vel_readout_dim: 256
+      vel_loss_weight: 1.0
+      fm_policy:
+        _target_: egomimic.models.heads.fm_policy.FMPolicy
+        # M=100 waypoints only (velocity handled by vel readout slot)
+        action_horizon: 100
+        num_inference_steps: 50
+        pooling: null
+        padding: "zero"
+        time_dist: "beta"
+        infer_ac_dims:
+          eva_bimanual: 14
+          human_bimanual: 14
+        model:
+          _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
+          nblocks: 6
+          cond_dim: 256
+          hidden_dim: 128
+          # 14 dims (xyz + ypr + grip per arm).
+          act_dim: 14
+          act_seq: 100
+          n_heads: 4
+          dropout: 0.1
+          mlp_layers: 4
+          mlp_ratio: 4

@@ -1,0 +1,9 @@
+defaults:
+  - pusht_arc/base@_here_
+
+# HPT arc-tok config for PushShapes with the L pusher.
+#   D = 100 px, M = 40, sequence = (M+1, 2) = (41, 2)
+#   Pusher (end-effector): "L", axis-aligned L (arm 45 px, thickness 15 px).
+#   The L stays fixed at its spawn angle -- rigid axis-aligned tool.
+#   Action = 2-D target (target_x, target_y) in world pixels.
+eef_name: "L"

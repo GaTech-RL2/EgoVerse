@@ -1,0 +1,275 @@
+# 40-hour multitask cotrain mix. scale/ data is OUT entirely; human is mecka
+# folding_clothes plus microagi garment-folding tasks including a 15%
+# subsample of microagi fold_clothes, robot is the ABC fold-and-stack garment family
+# (38.49 h, 2302 eps).
+#
+# Train splits select by lab+task rather than by episode hash: at this size an
+# explicit allowlist would be ~8,700 entries. The 24 validation and held-out-task
+# hashes are subtracted from both train filters so the val setup below is
+# untouched and the newtask groups stay genuinely unseen. The two held-out TASKS
+# (mecka fold_clothes, abc 'fold and stack the shorts') are absent from the task
+# lists entirely, not just by hash.
+#
+# Images are resized to a per-embodiment common size via `image_hw` on each
+# resolver, and each episode's intrinsics are rescaled by the same per-axis
+# factors (ZarrDataset._scale_intrinsics), so overlays stay exact.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/arc-training
+      # every episode resized to this (H, W); K rescaled to match
+      image_hw: [360, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: arc_tokenizer_cartesian_gripper_padded
+        coord_frame: eef_frame
+        rotation_mode: euler
+        stride: 1
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - >-
+          lambda row: row['embodiment'] == 'human_bimanual' and ((row['lab'] ==
+          'mecka' and row['task'] == 'folding_clothes') or (row['lab'] ==
+          'microagi' and row['task'] in {
+          'fold_and_organize_clothes', 'fold_and_organize_laundry', 'fold_and_pack_black_shorts',
+          'fold_and_pack_eighth_pair_of_black_shorts', 'fold_and_pack_fifth_pair_of_black_shorts',
+          'fold_and_pack_fourth_pair_of_black_shorts', 'fold_and_pack_ninth_pair_of_black_shorts',
+          'fold_and_pack_seventh_pair_of_black_shorts', 'fold_and_pack_sixth_pair_of_black_shorts',
+          'fold_and_pack_tenth_pair_of_black_shorts', 'fold_and_pack_third_pair_of_black_shorts',
+          'fold_and_stack_shorts', 'fold_beige_shorts', 'fold_black_shorts',
+          'fold_blue_denim_shorts', 'fold_blue_shorts', 'fold_brown_shorts', 'fold_grey_shorts',
+          'fold_shirt', 'fold_socks', 'fold_tan_shorts', 'fold_white_t-shirt', 'folding_shorts',
+          'iron_and_fold_beige_shorts', 'iron_and_fold_clothes', 'iron_and_fold_denim_shorts',
+          'iron_and_fold_grey_shorts',
+          }) or (row['lab'] == 'microagi' and row['task'] == 'fold_clothes'
+          and int(row['episode_hash'][-6:]) % 100 < 15)) and
+          row['episode_hash'] not in {
+          '2026-05-01-06-56-31-406083', '2026-05-01-22-31-17-295310', '2026-06-16-09-35-29-246427',
+          '2026-06-16-17-51-19-724900', '2cf9c1ae-411f-4aad-a5f0-28edb5ec82f2',
+          '4da9408d-bea0-44f1-9165-5ebdb042587b', '68d315af-385c-49db-84b8-32bb30dcfe4a',
+          '692e8585aec602a46af10263', '692e8586aec602a46af1026c', '692e90f07641010d043544f3',
+          '692ea0ee3019385fbbf5674e', '692ea2a9ba0400c70689fe66', '692ea7ccc609aae267b2796b',
+          '69b4ae0a7b8718172195a07c', '69b9e68cd8d59e6ae34c0e1b',
+          '7d89688c-dced-4e93-82f9-cc311b514253', '9b23163c-09b8-4c4f-94fa-f26e6b1679d8',
+          '9d32a6b6-ddf9-43ff-9af7-a87e3c47ad73', 'b14d4545-cef1-4d7a-b6f2-3ff9a843bb87',
+          'b9b381ef-1fcd-4e61-9b8c-febd46275b91', 'c5d349ea-20e9-4988-a971-10c332c916ad',
+          'd879954a-d7b6-4b8c-9f15-baede5104617', 'da1fa91b-b5a6-473b-bae9-208b6336dcf3',
+          'ddee867c-e895-4013-b49c-f8c9daccffcc',
+          }
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/arc-training
+      # every episode resized to this (H, W); K rescaled to match
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+        action_mode: arc_tokenizer_cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - >-
+          lambda row: row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc'
+          and row['task'] in {
+          'fold and stack the long sleeve shirts', 'fold and stack the skirts',
+          'fold and stack the trousers', 'fold and stack the tank tops',
+          'fold and stack the t-shirts',
+          } and row['episode_hash'] not in {
+          '2026-05-01-06-56-31-406083', '2026-05-01-22-31-17-295310', '2026-06-16-09-35-29-246427',
+          '2026-06-16-17-51-19-724900', '2cf9c1ae-411f-4aad-a5f0-28edb5ec82f2',
+          '4da9408d-bea0-44f1-9165-5ebdb042587b', '68d315af-385c-49db-84b8-32bb30dcfe4a',
+          '692e8585aec602a46af10263', '692e8586aec602a46af1026c', '692e90f07641010d043544f3',
+          '692ea0ee3019385fbbf5674e', '692ea2a9ba0400c70689fe66', '692ea7ccc609aae267b2796b',
+          '69b4ae0a7b8718172195a07c', '69b9e68cd8d59e6ae34c0e1b',
+          '7d89688c-dced-4e93-82f9-cc311b514253', '9b23163c-09b8-4c4f-94fa-f26e6b1679d8',
+          '9d32a6b6-ddf9-43ff-9af7-a87e3c47ad73', 'b14d4545-cef1-4d7a-b6f2-3ff9a843bb87',
+          'b9b381ef-1fcd-4e61-9b8c-febd46275b91', 'c5d349ea-20e9-4988-a971-10c332c916ad',
+          'd879954a-d7b6-4b8c-9f15-baede5104617', 'da1fa91b-b5a6-473b-bae9-208b6336dcf3',
+          'ddee867c-e895-4013-b49c-f8c9daccffcc',
+          }
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+# Duplicated (not interpolated) so hydra.utils.instantiate can resolve without
+# needing to walk up to `train_datasets` after it's been mutated in place.
+#
+# GROUPED shape: {group: {embodiment: dataset}}. Each group is a separate val
+# loop, run in the order written here. The group named `valid` is the default
+# one -- its metrics stay `Valid/...` and its videos stay in
+# videos/epoch_N/{embodiment}/, so this run overlays on charts from runs that
+# predate val groups. Every other group is namespaced.
+#
+# valid_ratio: 1.0 takes the WHOLE allowlist as validation (split_dataset_names
+# puts int(len * 1.0) == len names in the valid set). These episodes are
+# excluded from the train allowlists above, so there is nothing to hold back.
+valid_datasets:
+
+  # IN-DOMAIN: held-out trajectories of the tasks the model trains on. This is
+  # the control -- if these do not come down, the transfer number below means
+  # nothing.
+  valid:
+    human_bimanual:
+      # 2 held-out episodes each from mecka/folding_clothes,
+      # scale/freeform_folding_clothes and microagi fold*shorts.
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /coc/flash7/scratch/arc-training
+        # every episode resized to this (H, W); K rescaled to match
+        image_hw: [360, 640]
+        key_map:
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: arc_tokenizer_cartesian
+        transform_list:
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          action_mode: arc_tokenizer_cartesian_gripper_padded
+          coord_frame: eef_frame
+          rotation_mode: euler
+          stride: 1
+          min_distance_unit: 0.40
+          resampled_vector_length: 100
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+            - >-
+              lambda row: row['episode_hash'] in {
+              '69b4ae0a7b8718172195a07c', '2026-05-01-06-56-31-406083', '2026-05-01-22-31-17-295310', '69b9e68cd8d59e6ae34c0e1b', '2026-06-16-09-35-29-246427', '2026-06-16-17-51-19-724900',
+              }
+      mode: valid
+      valid_ratio: 1.0
+      bounds_check: false
+
+    yam_bimanual:
+      # 2 held-out episodes each from trousers, skirts and
+      # long sleeve shirts.
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /coc/flash7/scratch/arc-training
+        # every episode resized to this (H, W); K rescaled to match
+        image_hw: [480, 640]
+        key_map:
+          _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+          keymap_mode: arc_tokenizer_cartesian
+        transform_list:
+          _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+          action_mode: arc_tokenizer_cartesian
+          coord_frame: eef_frame
+          rotation_mode: euler
+          min_distance_unit: 0.40
+          resampled_vector_length: 100
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+            - >-
+              lambda row: row['episode_hash'] in {
+              '4da9408d-bea0-44f1-9165-5ebdb042587b', 'd879954a-d7b6-4b8c-9f15-baede5104617', 'da1fa91b-b5a6-473b-bae9-208b6336dcf3', 'c5d349ea-20e9-4988-a971-10c332c916ad', '9b23163c-09b8-4c4f-94fa-f26e6b1679d8', 'b14d4545-cef1-4d7a-b6f2-3ff9a843bb87',
+              }
+      mode: valid
+      valid_ratio: 1.0
+      bounds_check: false
+
+  # HELD-OUT TASKS: neither appears in any train split. Logs under
+  # `Valid_newtask/...` with videos in videos/epoch_N/newtask/{embodiment}/.
+  newtask:
+    human_bimanual:
+      # mecka / 'fold_clothes' -- 6 of 1,607 eps, 1,170 frames.
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /coc/flash7/scratch/arc-training
+        # every episode resized to this (H, W); K rescaled to match
+        image_hw: [360, 640]
+        key_map:
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: arc_tokenizer_cartesian
+        transform_list:
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          action_mode: arc_tokenizer_cartesian_gripper_padded
+          coord_frame: eef_frame
+          rotation_mode: euler
+          stride: 1
+          min_distance_unit: 0.40
+          resampled_vector_length: 100
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+            - >-
+              lambda row: row['episode_hash'] in {
+              '692e8585aec602a46af10263', '692e8586aec602a46af1026c', '692e90f07641010d043544f3', '692ea0ee3019385fbbf5674e',
+              '692ea2a9ba0400c70689fe66', '692ea7ccc609aae267b2796b',
+              }
+      mode: valid
+      valid_ratio: 1.0
+      bounds_check: false
+
+    yam_bimanual:
+      # 'fold and stack the shorts' -- the headline transfer
+      # metric. 6 of 547 eps, 6,943 frames.
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /coc/flash7/scratch/arc-training
+        # every episode resized to this (H, W); K rescaled to match
+        image_hw: [480, 640]
+        key_map:
+          _target_: egomimic.rldb.embodiment.yam.Yam.get_keymap
+          keymap_mode: arc_tokenizer_cartesian
+        transform_list:
+          _target_: egomimic.rldb.embodiment.yam.Yam.get_transform_list
+          action_mode: arc_tokenizer_cartesian
+          coord_frame: eef_frame
+          rotation_mode: euler
+          min_distance_unit: 0.40
+          resampled_vector_length: 100
+      filters:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+            - >-
+              lambda row: row['episode_hash'] in {
+              '68d315af-385c-49db-84b8-32bb30dcfe4a', '2cf9c1ae-411f-4aad-a5f0-28edb5ec82f2', '9d32a6b6-ddf9-43ff-9af7-a87e3c47ad73', 'b9b381ef-1fcd-4e61-9b8c-febd46275b91', 'ddee867c-e895-4013-b49c-f8c9daccffcc', '7d89688c-dced-4e93-82f9-cc311b514253', }
+      mode: valid
+      valid_ratio: 1.0
+      bounds_check: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 6
+
+# Keyed by embodiment, not by group, so both val groups share these. Key by
+# group name instead ({group: {embodiment: params}}) to differ per group.
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 6

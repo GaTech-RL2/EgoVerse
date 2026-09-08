@@ -1,0 +1,30 @@
+# BC-RNN evaluator: val data viz + sim rollout. Skips PCATokenEval and
+# BoundaryStripEval because both probe H-Net stage internals (action_out
+# hook, chunker boundary tokens) that BC-RNN doesn't expose.
+
+_target_: egomimic.eval.core.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.core.eval_composite.EvalVideoList
+    pad_h: max
+    limit_val_batches: 4
+    evals:
+      - _target_: egomimic.eval.core.eval_hnet.HNetEvalVideo
+        limit_val_batches: 4
+        max_videos: 2
+        viz_func:
+          pushshapes_sim:
+            _target_: hydra.utils.get_method
+            path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+  - _target_: egomimic.eval.core.eval_sim.HNetSimEval
+    limit_val_batches: 4
+    max_videos: 2
+    embodiment_name: pushshapes_sim
+    init_mode: replay
+    max_steps: 1200
+    coverage_threshold: 0.7
+    env_kwargs:
+      object_shape: T
+      pusher_shape: circle
+      obstacle_level: 0
+      image_size: 96

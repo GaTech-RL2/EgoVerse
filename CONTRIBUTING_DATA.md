@@ -649,7 +649,7 @@ There is a **single concrete `Human` embodiment class** ([`egomimic/rldb/embodim
 Onboarding human data is just two steps:
 
 1. Write `embodiment="human_bimanual"` (or `human_left_arm` / `human_right_arm`) in the DB row and in `zarr.attrs`; record your lab/hardware in the `lab` field.
-2. Add a data config under [`egomimic/hydra_configs/data/`](egomimic/hydra_configs/data/) whose `key_map` / `transform_list` point at `Human.get_keymap` / `Human.get_transform_list` with the args your data needs. Copy `aria.yaml` (head-mounted, `stride: 3`) or `scale.yaml` (no head pose: `has_head_pose: false`, `stride: 1`).
+2. Add a data config under [`egomimic/hydra_configs/data/`](egomimic/hydra_configs/data/) whose `key_map` / `transform_list` point at `Human.get_keymap` / `Human.get_transform_list` with the args your data needs. Copy `aria/base.yaml` (head-mounted, `stride: 3`) or `scale/base.yaml` (no head pose: `has_head_pose: false`, `stride: 1`).
 
 Notes:
 - Camera **intrinsics are MANDATORY** and live in `zarr.attrs` as a `{camera_key: 3x4}` dict (§6.4). You no longer declare an `INTRINSICS` constant in code.
@@ -941,7 +941,7 @@ import torch
 
 # cartesian mode re-expresses every pose relative to obs_head_pose, so the
 # cartesian transform REQUIRES a head pose. Head-mounted (Aria) data uses it
-# directly; head-pose-less data (e.g. Scale/Mecka — scale.yaml sets
+# directly; head-pose-less data (e.g. Scale/Mecka — scale/base.yaml sets
 # has_head_pose: false) cannot run the cartesian transform, so load it with
 # transform_list=None to validate the raw episode (the §11.1 checks are the
 # primary validation in that case).

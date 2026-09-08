@@ -1,0 +1,19 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# PACE L40S launcher — 2× L40S / node fits in the gpu-l40s partition (8 L40S/node,
+# ~515G RAM/node), account gts-dxu345-rl2, QoS inferno.
+name: ${hydra.job.name}
+partition: "gpu-l40s"
+account: "gts-dxu345-rl2"
+cpus_per_task: 4
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:l40s:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}"
+qos: "inferno"
+mem_per_gpu: 60G
+timeout_min: 2880
+additional_parameters:
+  requeue: true

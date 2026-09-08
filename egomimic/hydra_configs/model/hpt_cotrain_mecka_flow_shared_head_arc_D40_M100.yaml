@@ -1,0 +1,13 @@
+defaults:
+  - hpt_cotrain_mecka_flow_shared_head_arc
+
+# Overrides for D=40cm, M=100 arc-tok pipeline.
+# Sequence length = M+1 = 101 slots (100 waypoints + 1 velocity token),
+# each 14-dim [L xyz(3), L ypr(3), L grip(1), R xyz(3), R ypr(3), R grip(1)]
+# (xyz + ypr + grip per arm). Total action tensor shape per sample: (101, 14).
+robomimic_model:
+  head_specs:
+    shared:
+      action_horizon: 101
+      model:
+        act_seq: 101

@@ -1,0 +1,19 @@
+defaults:
+  - hpt_bc_keypoints_base
+
+# hpt_bc_keypoints_base sets lr=5e-5 with CosineAnnealingLR(T_max=1400).
+# scheduler_interval defaults to "step" (trainHydra.py:157), so T_max is 1400
+# STEPS ~ 14 epochs at ~101 steps/epoch -- and CosineAnnealingLR keeps
+# evaluating cos(pi*T_cur/T_max) past T_max, so the LR climbs back up. Over a
+# 600-epoch run that is ~22 sawtooth cycles between 1e-5 and 5e-5, not a decay.
+#
+# Match the cartesian runs instead: constant lr 3e-4, no scheduler. That is the
+# "const lr 3e-4" every arc-cartesian run used, so the keypoint results are
+# comparable to them.
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3e-4
+  weight_decay: 0.0001
+
+scheduler: null

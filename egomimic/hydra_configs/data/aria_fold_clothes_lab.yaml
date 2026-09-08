@@ -1,0 +1,47 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# All aria-lab fold-clothes human demos, resolved from a local folder of
+# per-episode zarrs (no SQL round-trip). Post-collapse aria data lives under
+# embodiment=human_bimanual and carries task_name=fold_clothes in each
+# episode's zarr.json attrs.
+#
+# Override the folder with paths.dataset_dir=/path/to/aria_fold at the CLI.
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 3
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'human_bimanual' and row.get('task_name') == 'fold_clothes'"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${train_datasets.human_bimanual._target_}
+    resolver: ${train_datasets.human_bimanual.resolver}
+    filters: ${train_datasets.human_bimanual.filters}
+    mode: valid
+    valid_ratio: ${train_datasets.human_bimanual.valid_ratio}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6

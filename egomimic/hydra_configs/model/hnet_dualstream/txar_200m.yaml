@@ -1,0 +1,14 @@
+# txar_200m -- shared skeleton in hnet_dualstream/txar_base.yaml
+defaults:
+  - hnet_dualstream/txar_base@_here_
+  - _self_
+
+arch_layout: T8
+d_cond: 1408
+d_intermediate: 3755
+d_model: 1408
+input_hidden_dim: 1408
+k_agnostic: 20
+k_specific: 12
+output_hidden_dim: 1408
+rotary_emb_dim: 176

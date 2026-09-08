@@ -1,0 +1,87 @@
+# @package _global_
+# Time-indexed BASELINE twin of abc_fslongshirt_micro_foldclothes_cotrain_arcD40M100.
+#
+# Same episodes, same limits, same trunk/stems/head, same writable cache. The
+# only difference is the action space: a 100-step time-parameterized chunk
+# instead of (M+1, 14) arc-length tokens. That is what makes the two runs a
+# controlled comparison.
+#
+# Evaluator is the SAME one the arc run uses. It accepts both action spaces --
+# arc detection is by sequence length, so this time-indexed chunk passes
+# straight through instead of being detokenized -- and every metric is
+# arc-matched (clipped to the first 0.40 m of travel, resampled to 100 points
+# spaced uniformly in arc length), so the two runs emit identically named
+# numbers that overlay on one chart:
+#
+#   Valid/{emb}_actions_cartesian_arcmatch_paired_mse_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_xyz_mse_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_final_xyz_l2_m_avg
+#   Valid/{emb}_actions_cartesian_arcmatch_rot_geodesic_deg_avg
+#
+# The rotation metric is geodesic, not a per-axis ypr difference, so it stays
+# comparable across the two runs. The per-embodiment reverts the evaluator
+# needs come from _frame_arcmatch_base, so nothing is duplicated here.
+#
+# Launch:
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_fslongshirt_micro_foldclothes_cotrain_baseline
+#
+# The `override /hydra/launcher` line in the defaults below does NOT take
+# effect -- hydra only honours a hydra/ group selection from the primary config
+# or the command line, and an experiment loaded with `+experiment=` is neither.
+# Verified: without a CLI flag the resolved choice is plain `submitit`
+# (rl2-lab, a40), whatever this file says. Pass it explicitly:
+#     hydra/launcher=submitit_skynet_a40      (non-preemptible, schedules fast)
+#     hydra/launcher=submitit_skynet_l40s     (overcap -- PREEMPTIBLE)
+defaults:
+  - override /model: abc_arc/hpt_abc_mecka_cotrain_flow_shared_head_baseline
+  - override /data: abc_arc/abc_fslongshirt_micro_foldclothes_baseline_cotrain
+  - override /evaluator: eval_eef_arcmatch_D40_M100
+  - override /trainer: ddp/base
+  - override /logger: wandb/base
+  - override /hydra/launcher: submitit_skynet_a40
+  - _self_
+
+name: abc_fslongshirt_micro_foldclothes_cotrain_baseline
+description: baseline
+
+# The default paths.dataset_dir is owned by another user and mode drwxr-xr-x, so
+# s5cmd's mkdir fails for any episode not already cached there. This one is ours
+# and already holds every episode both splits need.
+paths:
+  dataset_dir: /coc/flash7/scratch/arc-training
+
+# ddp/base sets `strategy: ddp`, which asserts every parameter gets a gradient
+# each step. This is a COTRAIN model with a per-embodiment stem: a given batch
+# routes through one embodiment's stem and leaves the other's untouched, so
+# plain ddp aborts with "Expected to have finished reduction in the prior
+# iteration". ddp/debug set this for the same reason; carry it over.
+trainer:
+  strategy: ddp_find_unused_parameters_true
+  # Run 2 validation batches BEFORE epoch 0. Validation otherwise first executes
+  # at epoch 200, so a fault in the evaluator or viz path (as happened with the
+  # baseline hitting the arc detokenizer) costs hours before it surfaces. This
+  # exercises the whole val path -- forward, arc-matched metrics, video overlay
+  # -- in seconds at startup.
+  num_sanity_val_steps: 2
+
+# Norm stats sampling fraction. The pass reads every sampled frame of every
+# episode before training starts and is the bulk of startup. A finished run's
+# stats land in <output_dir>/norm_stats/norm_stats.json -- pass that back via
+# norm_stats.precomputed_norm_path=<path> to skip it on a relaunch of the SAME
+# data config. Verify the file has BOTH embodiments populated first: cache_stats
+# writes after each embodiment, so an interrupted run leaves a partial file that
+# would silently leave one embodiment unnormalized.
+norm_stats:
+  sample_frac: 0.2
+
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+
+logger:
+  wandb:
+    project: "arc"
+    tags:
+      - abc
+      - baseline

@@ -1,0 +1,64 @@
+defaults:
+  - pusht/base@_here_
+
+# HPT cotrain across TWO PushShapes pushers, time-chunked (no arc-tok):
+#   pushshapes_sim            -> circle,   action [x, y]        (padded to 3-D)
+#   pushshapes_sim_u_socket   -> u_socket, action [x, y, theta]
+#
+# The two pushers do not share an action width, so the circle domain is
+# right-padded with a zero theta column (PadActionDimZeros, wired from the data
+# config) and BOTH feed one shared FMPolicy head sized act_dim=3. Zero-padding
+# rather than masking is deliberate: after normalization a constant column has
+# zero variance, so circle contributes no gradient to the theta output and
+# cannot teach the head a spurious orientation prior. theta is learned from
+# u_socket alone.
+#
+# State is NOT padded — the two domains keep SEPARATE proprio stems (5-D for
+# circle, 6-D for u_socket), which is the whole point of per-embodiment stems.
+# Only the trunk and the head are shared.
+#
+# u_socket is a distinct logical embodiment (EMBODIMENT.PUSHSHAPES_SIM_U_SOCKET
+# = 18) even though its episodes carry the same ``pushshapes_sim`` tag on disk;
+# the data config re-stamps it via LocalEpisodeResolverWithEmbodimentOverride.
+eef_name: "circle+u_socket"
+
+robomimic_model:
+  domains: ["pushshapes_sim", "pushshapes_sim_u_socket"]
+
+  ac_keys:
+    pushshapes_sim: "actions"
+    pushshapes_sim_u_socket: "actions"
+  shared_ac_key: "actions"
+
+  stem_specs:
+    pushshapes_sim:
+      state_agent_obj:
+        input_dim: 5
+    pushshapes_sim_u_socket:
+      state_agent_obj:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        # 6-D: u_socket's state carries the socket orientation.
+        input_dim: 6
+        output_dim: 128
+        widths: [128]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 4
+            crossattn_dim_head: 32
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 128
+
+  head_specs:
+    pushshapes_sim: null
+    pushshapes_sim_u_socket: null
+    shared:
+      action_horizon: 32
+      # Both domains are scored in the padded 3-D layout.
+      infer_ac_dims:
+        pushshapes_sim: 3
+        pushshapes_sim_u_socket: 3
+      model:
+        act_dim: 3
+        act_seq: 32

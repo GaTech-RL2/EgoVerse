@@ -10,7 +10,7 @@ Episodes whose object already exists in the bucket are skipped (unless --overwri
 Example usage:
 python egomimic/scripts/language_process/scale_to_bucket_annotation_parallel.py \
 --scale-annotation-dir annotations_test \
---dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \
+--dataset-config-path egomimic/hydra_configs/data/pick_place/multiview_cartesian/eva_language.yaml \
 --conversion-mode pick_place_llm \
 --prompt-filepath egomimic/scripts/language_process/prompt.txt \
 --augment-prompt-filepath egomimic/scripts/language_process/augment_prompt.txt \
@@ -213,7 +213,7 @@ if __name__ == "__main__":
 
     # --- Instantiate datasets (sequential, needs SQL / S3 sync) ---
     # Use hydra's compose API so `defaults:` inheritance from base configs
-    # (e.g. cotrain_pi_base.yaml) is resolved — OmegaConf.load alone leaves
+    # (e.g. cotrain_pi/base.yaml) is resolved — OmegaConf.load alone leaves
     # `_target_` unset and instantiate returns a bare DictConfig.
     from egomimic.utils.hydra_utils import HYDRA_CONFIG_DIR, load_config
 

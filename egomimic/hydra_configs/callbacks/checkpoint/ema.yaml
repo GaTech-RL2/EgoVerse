@@ -1,0 +1,7 @@
+defaults:
+  - checkpoint/base@_here_
+  - _self_
+
+ema:
+  _target_: egomimic.pl_utils.ema_callback.EMACallback
+  decay: 0.9999

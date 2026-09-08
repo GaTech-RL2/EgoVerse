@@ -13,7 +13,7 @@ from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.pylogger import RankedLogger
-from egomimic.utils.utils import extras
+from egomimic.pl_utils.utils import extras
 
 log = RankedLogger(__name__, rank_zero_only=True)
 

@@ -1,0 +1,64 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# 3-episode MECKA fold_clothes debug set. Episode hashes are pinned by hand
+# (instead of a lab/task filter + `debug: N`) so a resumed run reloads exactly
+# the same episodes -- used to verify the checkpoint resume path in trainHydra.py.
+#
+# Pinned episodes (from app.episodes, embodiment=human_bimanual, lab=mecka,
+# task=fold_clothes):
+#   692eb90168bf0a1f4623060c  237 frames
+#   692ea7ccc609aae267b2796e  189 frames
+#   692eb78d4e7eab2cafd26aa5  214 frames
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 1
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['episode_hash'] in ['692eb90168bf0a1f4623060c', '692ea7ccc609aae267b2796e', '692eb78d4e7eab2cafd26aa5']"
+    mode: total
+
+# Duplicated (not interpolated) so hydra.utils.instantiate can resolve it --
+# `${train_datasets.human_bimanual}` resolves against the ROOT config, not this
+# group, and blows up with InterpolationKeyError at instantiate time.
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 1
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['episode_hash'] in ['692eb90168bf0a1f4623060c', '692ea7ccc609aae267b2796e', '692eb78d4e7eab2cafd26aa5']"
+    mode: total
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 8
+    num_workers: 4
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 8
+    num_workers: 4

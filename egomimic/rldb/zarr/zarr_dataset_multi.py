@@ -41,6 +41,16 @@ from tqdm import tqdm
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
+# Shared read/decode helpers used by BOTH loader paths (padded __getitem__ and
+# packed _read_span). See _common.py + tests/test_loader_equality.py.
+from egomimic.rldb.zarr._common import (
+    decode_jpeg_single,
+    decode_jpeg_window,
+    decode_json_array,
+    tag_embodiment,
+    tensorize_float32,
+)
+
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.utils.aws.aws_data_utils import load_env
@@ -692,7 +702,8 @@ class LocalEpisodeResolver(EpisodeResolver):
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
-        debug=False,
+        norm_stats: dict | None = None,
+        debug: int | bool | None = None,
         image_hw: tuple[int, int] | None = None,
     ):
         super().__init__(folder_path, key_map, transform_list, image_hw=image_hw)
@@ -780,6 +791,88 @@ class LocalEpisodeResolver(EpisodeResolver):
         return datasets
 
 
+class LocalFolderEpisodeResolver(EpisodeResolver):
+    """
+    Resolves every zarr episode inside ``folder_path`` — no SQL, no external
+    filters. The folder itself is the source of truth: if a zarr is in it,
+    it's included.
+
+    Optional ``embodiment`` restricts to episodes whose zarr ``attrs.embodiment``
+    matches, which is what cotraining data configs use to route each domain
+    (e.g. ``eva_bimanual``, ``human_bimanual``) to the right transform stack.
+    """
+
+    def __init__(
+        self,
+        folder_path: Path,
+        key_map: dict | None = None,
+        transform_list: list | None = None,
+        embodiment: str | None = None,
+        debug: int | bool | None = None,
+    ):
+        super().__init__(folder_path, key_map, transform_list)
+        self.embodiment = embodiment
+        self.debug = debug
+
+    def resolve(
+        self,
+        sync_from_s3: bool = False,
+        filters: DatasetFilter | None = None,
+    ) -> dict[str, "ZarrDataset"]:
+        if sync_from_s3:
+            logger.warning(
+                "LocalFolderEpisodeResolver does not sync from S3; ignoring sync_from_s3=True."
+            )
+        if filters is not None:
+            logger.info(
+                "LocalFolderEpisodeResolver ignores `filters`; using every episode in %s%s.",
+                self.folder_path,
+                f" with embodiment={self.embodiment}" if self.embodiment else "",
+            )
+
+        if not self.folder_path.is_dir():
+            raise ValueError(f"folder_path is not a directory: {self.folder_path}")
+
+        selected: list[str] = []
+        for p in sorted(self.folder_path.iterdir()):
+            if not p.is_dir():
+                continue
+            name = p.name[:-5] if p.name.endswith(".zarr") else p.name
+            if self.embodiment is not None:
+                try:
+                    attrs = dict(zarr.open_group(str(p), mode="r").attrs)
+                except Exception as e:
+                    logger.warning("Failed to read metadata for %s: %s", p, e)
+                    continue
+                if attrs.get("embodiment") != self.embodiment:
+                    continue
+            selected.append(name)
+
+        if self.debug is not None and self.debug is not False:
+            k = min(10 if self.debug is True else int(self.debug), len(selected))
+            if k < len(selected):
+                logger.info("Debug mode: limiting to %d datasets.", k)
+            selected = selected[:k]
+
+        if not selected:
+            raise ValueError(
+                f"No episodes found in {self.folder_path}"
+                + (f" for embodiment={self.embodiment}" if self.embodiment else "")
+            )
+
+        logger.info(
+            "LocalFolderEpisodeResolver: %d episodes from %s%s",
+            len(selected),
+            self.folder_path,
+            f" (embodiment={self.embodiment})" if self.embodiment else "",
+        )
+
+        return self._load_zarr_datasets(
+            search_path=self.folder_path,
+            valid_folder_names=set(selected),
+        )
+
+
 class MultiDataset(torch.utils.data.Dataset):
     """
     Wraps a dict of child datasets (Zarr leaves or other MultiDatasets) and
@@ -810,6 +903,7 @@ class MultiDataset(torch.utils.data.Dataset):
         valid_ratio: float = 0.2,
         norm_mode: str = "zscore",
         state: dict | None = None,
+        bounds_check: bool = True,
         **kwargs,
     ):
         """
@@ -832,12 +926,21 @@ class MultiDataset(torch.utils.data.Dataset):
         self.norm_stats: dict[int, dict[str, dict[str, np.ndarray]]] = {}
         self._norm_run_metadata: dict[str, float | int | None] | None = None
 
+        # When True, ``__getitem__`` still LOGS bounds violations but does
+        # NOT resample to a fresh index — the slightly-out-of-quantile
+        # sample is returned as-is. Useful when norm stats are reused
+        # across datasets (~1-2% of frames naturally lie outside the
+        # precomputed q1/q99) and the per-sample resample loop dominates
+        # data-loading time.
+        self.skip_bounds_check = bool(kwargs.get("skip_bounds_check", False))
+
         # ---- Dataset graph fields ----
         self.datasets: dict = {}
         self.index_map: list = []
         self._global_indices_by_dataset: dict[str, list[int]] = {}
         # Dedup bounds-check warnings: keyed by f"bounds:{episode}:{zarr_key}"
         self._warned_violations: set[str] = set()
+        self.bounds_check = bounds_check
         self.train_collections: set = set()
         self.valid_collections: set = set()
 
@@ -1001,8 +1104,12 @@ class MultiDataset(torch.utils.data.Dataset):
             if isinstance(dataset, MultiDataset):
                 return data
 
-            violation = self._check_bounds(data, dataset, local_idx, dataset_name)
-            if violation is not None:
+            violation = (
+                self._check_bounds(data, dataset, local_idx, dataset_name)
+                if self.bounds_check
+                else None
+            )
+            if violation is not None and not self.skip_bounds_check:
                 next_idx, attempts = self._next_after_failure(
                     idx,
                     dataset_name,
@@ -1043,7 +1150,7 @@ class MultiDataset(torch.utils.data.Dataset):
         sync_from_s3 = kwargs.pop("sync_from_s3", False)
         filters = kwargs.pop("filters", None)
 
-        if isinstance(resolver, LocalEpisodeResolver):
+        if isinstance(resolver, (LocalEpisodeResolver, LocalFolderEpisodeResolver)):
             resolved = resolver.resolve(sync_from_s3=sync_from_s3, filters=filters)
         else:
             resolved = resolver.resolve(filters=filters)
@@ -1056,12 +1163,27 @@ class MultiDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def _iter_leaves(ds):
-        """Yield non-MultiDataset leaves from possibly nested wrappers."""
+        """Yield non-MultiDataset leaves from possibly nested wrappers.
+
+        Also descends into ``ZarrEpisodePackedDataset``, which owns the same
+        ``dict[str, ZarrDataset]`` shape as ``MultiDataset.datasets``. The
+        leaves carry ``.embodiment`` / ``.key_map`` and that's what
+        ``populate_from_datasets`` probes.
+        """
         if isinstance(ds, MultiDataset):
             for child in ds.datasets.values():
                 yield from MultiDataset._iter_leaves(child)
-        else:
-            yield ds
+            return
+        # Lazy import to avoid cycle.
+        from egomimic.rldb.zarr.zarr_dataset_packed import (
+            ZarrEpisodePackedDataset as _ZEP,
+        )
+
+        if isinstance(ds, _ZEP):
+            for child in ds.datasets.values():
+                yield from MultiDataset._iter_leaves(child)
+            return
+        yield ds
 
     def populate_from_datasets(self, datasets: dict | None = None) -> None:
         """
@@ -1070,6 +1192,10 @@ class MultiDataset(torch.utils.data.Dataset):
         ``self.datasets`` so the typical call is just ``mds.populate_from_datasets()``.
         """
         graph = datasets if datasets is not None else self.datasets
+        # Leaves under the same wrapper share the same embodiment / key_map,
+        # so probing one is enough — the rest produce identical info and
+        # ``leaf[0]`` is expensive (JPEG decode + horizon-window read).
+        probed_embodiments: set = set()
         for ds in graph.values():
             for leaf in self._iter_leaves(ds):
                 emb = getattr(leaf, "embodiment", None)
@@ -1077,6 +1203,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 if emb is None or key_map is None:
                     continue
                 emb_id = emb if isinstance(emb, int) else get_embodiment_id(emb)
+                if emb_id in probed_embodiments:
+                    continue
+                probed_embodiments.add(emb_id)
                 self.embodiments.add(emb_id)
                 self.key_types.setdefault(emb_id, {})
                 self.zarr_keys.setdefault(emb_id, {})
@@ -1210,24 +1339,47 @@ class MultiDataset(torch.utils.data.Dataset):
                 )
                 return
 
+        # Packed datasets return variable-length per-episode tensors; default
+        # collate would torch.stack them and crash. Use pack_collate when the
+        # dataset is a ``ZarrEpisodePackedDataset``; in that case n_samples is
+        # interpreted as frames (since each packed batch contributes many
+        # frames at once via ``batch[zarr_key].shape[0] == T_total``).
+        from egomimic.rldb.zarr.zarr_dataset_packed import (
+            ZarrEpisodePackedDataset,
+            pack_collate,
+        )
+
+        is_packed = isinstance(dataset, ZarrEpisodePackedDataset)
+        collate_fn = pack_collate if is_packed else None
+
         loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,
             num_workers=num_workers,
             shuffle=True,
             generator=torch.Generator().manual_seed(seed),
+            collate_fn=collate_fn,
         )
         N = len(dataset)
         if N <= 0:
             raise ValueError("Dataset is empty")
-        n_samples = int(math.ceil(sample_frac * N))
-        n_samples = max(1, min(n_samples, N))
+        if is_packed:
+            # Frames, not episodes — sample_frac applies to the full frame budget.
+            total_frames = sum(end - start for _key, start, end in dataset.index)
+            n_samples = int(math.ceil(sample_frac * total_frames))
+            n_samples = max(1, min(n_samples, total_frames))
+        else:
+            n_samples = int(math.ceil(sample_frac * N))
+            n_samples = max(1, min(n_samples, N))
         if max_samples is not None:
             n_samples = min(n_samples, max_samples)
 
         logger.info(f"[MultiDataset] embodiment={embodiment} norm_keys={norm_keys}")
+        unit = "frames" if is_packed else "samples"
+        denom = total_frames if is_packed else N
         logger.info(
-            f"[MultiDataset] sampling {n_samples}/{N} (~{100 * sample_frac:.1f}%)"
+            f"[MultiDataset] sampling {n_samples}/{denom} {unit} "
+            f"(~{100 * sample_frac:.1f}%)"
         )
 
         loading_start = time.time()
@@ -1708,6 +1860,21 @@ class ZarrDataset(torch.utils.data.Dataset):
                 valid_annotations.append(ann.get("text", ""))
         return valid_annotations
 
+    def _annotations_for_span(self, start: int, end: int) -> list[str]:
+        """Return all annotation texts whose [start_idx, end_idx) overlap [start, end)."""
+        out: list[str] = []
+        for ann in self._load_annotations():
+            a_start = int(ann.get("start_idx", -1))
+            a_end = int(ann.get("end_idx", -1))
+            if a_start < 0 or a_end <= a_start:
+                continue
+            if a_end <= start or a_start >= end:
+                continue
+            text = ann.get("text", "")
+            if text:
+                out.append(text)
+        return out
+
     def __len__(self) -> int:
         return self.total_frames
 
@@ -1733,6 +1900,79 @@ class ZarrDataset(torch.utils.data.Dataset):
                     padding = np.repeat(last_frame, pad_len, axis=0)
                     data[k] = np.concatenate([data[k], padding], axis=0)
 
+        return data
+
+    def _read_span(
+        self,
+        start: int,
+        end: int,
+        *,
+        episode_idx: int | None = None,
+    ) -> dict:
+        """Read a variable-length span ``[start, end)`` for every key in ``key_map``.
+
+        Unlike ``__getitem__``, this performs no horizon-based windowing or
+        padding — each per-frame key is read exactly over the span. Designed
+        for packed dataloaders that batch multiple variable-length samples
+        into a single stream.
+
+        Returns a dict containing:
+          - per-frame tensors of shape ``(end - start, ...)`` for camera /
+            proprio / action keys
+          - the configured annotation key (``key_type == "annotation_keys"``)
+            → ``list[str]`` of annotation texts whose spans overlap
+            ``[start, end)``
+          - ``"seq_len"`` (int)
+          - ``"embodiment"`` and ``"metadata.robot_name"`` (int embodiment id)
+          - ``"episode_idx"`` if provided
+
+        Errors (bad JPEG, transform failure) propagate to the caller; the
+        wrapping packed dataset is responsible for resampling.
+        """
+        if end <= start:
+            raise ValueError(
+                f"_read_span requires end > start (got start={start}, end={end})"
+            )
+        if start < 0 or end > self.total_frames:
+            raise ValueError(
+                f"_read_span out of range [0, {self.total_frames}): "
+                f"start={start}, end={end}"
+            )
+
+        seq_len = end - start
+        data: dict = {}
+
+        for k in self.key_map:
+            spec = self.key_map[k]
+            zarr_key = spec["zarr_key"]
+            key_type = spec.get("key_type", None)
+
+            if key_type == "annotation_keys":
+                data[k] = self._annotations_for_span(start, end)
+                continue
+
+            if key_type == "metadata_keys":
+                continue
+
+            arr = self.episode_reader.read({zarr_key: (start, end)})[zarr_key]
+
+            if zarr_key in self._image_keys:
+                arr = decode_jpeg_window(arr)
+            elif zarr_key in self._json_keys:
+                arr = decode_json_array(arr, self._decode_json_entry)
+
+            data[k] = arr
+
+        if self.transform:
+            for transform in self.transform:
+                data = transform.transform(data)
+
+        tensorize_float32(data, skip_object_dtype=True)
+
+        data["seq_len"] = seq_len
+        tag_embodiment(data, self.embodiment)
+        if episode_idx is not None:
+            data["episode_idx"] = int(episode_idx)
         return data
 
     def __getitem__(
@@ -1792,22 +2032,30 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if zarr_key in self._image_keys:
                     jpeg_bytes = data[k]
                     try:
-                        decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                        if horizon is not None and horizon > 1:
+                            # Windowed image read: jpeg_bytes is an array of
+                            # per-frame JPEG buffers. decode_jpeg_window decodes
+                            # each frame individually (simplejpeg can't
+                            # vectorize across the buffer-array dtype) and
+                            # stacks — same path _read_span uses.
+                            data[k] = decode_jpeg_window(jpeg_bytes)
+                        else:
+                            data[k] = decode_jpeg_single(jpeg_bytes)
                     except Exception:
                         idx = _next("JPEG decode failed", key=k)
                         retry = True
                         break
                     if self.image_hw is not None:
+                        dec = data[k]
                         # Remember the FRONT camera's native size: the
                         # per-episode K describes that image, so it is what the
                         # intrinsics rescale below must be based on.
                         if "front" in str(zarr_key):
-                            self._src_front_hw = _image_hw_of(decoded)
-                        decoded = _resize_images(decoded, self.image_hw)
-                    data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
+                            self._src_front_hw = _image_hw_of(dec)
+                        data[k] = _resize_images(dec, self.image_hw)
                 elif zarr_key in self._json_keys:
                     if isinstance(data[k], np.ndarray):
-                        data[k] = [self._decode_json_entry(v) for v in data[k]]
+                        data[k] = decode_json_array(data[k], self._decode_json_entry)
                     else:
                         data[k] = self._decode_json_entry(data[k])
             if retry:
@@ -1817,9 +2065,7 @@ class ZarrDataset(torch.utils.data.Dataset):
                 for transform in self.transform or []:
                     data = transform.transform(data)
 
-            for k, v in data.items():
-                if isinstance(v, np.ndarray):
-                    data[k] = torch.from_numpy(v).to(torch.float32)
+            tensorize_float32(data, skip_object_dtype=False)
 
             data["embodiment"] = get_embodiment_id(self.embodiment)
             # Per-episode camera intrinsics travel with the batch so a single
@@ -1841,7 +2087,10 @@ class ZarrDataset(torch.utils.data.Dataset):
                     # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
                     # some contributors store 3x3 (e.g. microagi).
                     K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
+                if K.shape != (
+                    3,
+                    4,
+                ):  # unexpected -> sentinel (viz falls back to const)
                     K = np.full((3, 4), np.nan, dtype=np.float32)
                 elif self.image_hw is not None and self._src_front_hw is not None:
                     # Images were resized above; K describes the pre-resize
@@ -1851,7 +2100,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                 K = np.full((3, 4), np.nan, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             _ = origin  # preserved for symmetry with prior API
             return data
 
@@ -1919,6 +2170,7 @@ class ZarrEpisode:
     __slots__ = (
         "_path",
         "_store",
+        "_pid",
         "metadata",
         "keys",
     )
@@ -1930,9 +2182,17 @@ class ZarrEpisode:
             path: Path to the .zarr episode directory
         """
         self._path = Path(path)
+        self._pid = os.getpid()
         self._store = zarr.open_group(str(self._path), mode="r")
         self.metadata = dict(self._store.attrs)
         self.keys = self.metadata["features"]
+
+    def _get_store(self):
+        # zarr v3 uses asyncio internally which is not fork-safe; reopen after fork
+        if os.getpid() != self._pid:
+            self._store = zarr.open_group(str(self._path), mode="r")
+            self._pid = os.getpid()
+        return self._store
 
     @property
     def intrinsics(self) -> np.ndarray | dict[str, np.ndarray] | None:
@@ -1969,9 +2229,10 @@ class ZarrEpisode:
             ...     "rewards": (20, None),     # Read single frame at index 20
             ... })
         """
+        store = self._get_store()
         result = {}
         for key, (start, end) in keys_with_ranges.items():
-            arr = self._store[key]
+            arr = store[key]
             if end is not None:
                 data = arr[start:end]
             else:
@@ -2002,3 +2263,39 @@ class ZarrEpisode:
     def __repr__(self) -> str:
         """String representation of the episode."""
         return f"ZarrEpisode(path={self._path}, frames={len(self)})"
+
+
+class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
+    """Like LocalEpisodeResolver, but overrides the embodiment string read
+    from zarr metadata with a config-supplied value.
+
+    Cotrain use-case: the same on-disk dataset (e.g. PushShapes-style
+    pushshapes_sim) is split into multiple logical embodiments (circle,
+    stick) that share the metadata tag. The data-config supplies a per-folder
+    embodiment_override so the model dispatch can tell them apart.
+    """
+
+    def __init__(
+        self,
+        folder_path,
+        key_map=None,
+        transform_list=None,
+        norm_stats=None,
+        debug=None,
+        embodiment_override: str | None = None,
+    ):
+        super().__init__(
+            folder_path=folder_path,
+            key_map=key_map,
+            transform_list=transform_list,
+            norm_stats=norm_stats,
+            debug=debug,
+        )
+        self.embodiment_override = embodiment_override
+
+    def resolve(self, *args, **kwargs):
+        datasets = super().resolve(*args, **kwargs)
+        if self.embodiment_override is not None:
+            for ds in datasets.values():
+                ds.embodiment = self.embodiment_override
+        return datasets

@@ -1,0 +1,142 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# BC-RNN-HNET — the PAPER-EXACT BC-RNN recipe with ONE thing changed: the
+# recurrent core is swapped LSTM -> the user's REAL hierarchical dynamic-chunking
+# H-Net (core: hnet). EVERYTHING ELSE is byte-identical to
+# bc_rnn_pushshapes_paperexact.yaml / ..._tx_cos.yaml (same obs encoder, same GMM
+# head, same minmax norm, same repeat_unmasked windows, same rnn_horizon=10, same
+# eval crop, same warmup->cosine schedule) so this isolates the effect of the
+# history mechanism alone. Pairs SINGLE-KNOB with the TX-cos run 3324263 (same
+# warmup->cosine, only the core differs LSTM/TX/H-Net).
+#
+# The core lives under the ``lstm:`` slot (kept named ``lstm:`` so the shared
+# policy/state_dict plumbing is unchanged). Here its _target_ is HNetCore
+# instead of LSTMCore/TransformerCore, and ``core: hnet`` guards that the config
+# + algo agree. Default ``core: lstm`` everywhere else stays byte-identical.
+#
+# CORE = the REAL H-Net (egomimic.models.hnet stage tree):
+#   in_proj 66 -> d_model
+#     -> EncoderDecoderStage(outer, CAUSAL)
+#         -> ChunkerStage(RoutingModule dynamic chunking over frames, CAUSAL)
+#             -> ComputeStage(inner main_network, CAUSAL)
+#     -> (B, T, d_model) per-step features for the GMM head.
+# CAUSALITY (make-or-break): causal=True on every Isotropic stack +
+# RoutingModule boundary at k depends only on h_{k-1},h_k + DeChunkLayer EMA is
+# a left-to-right recurrence -> output at k uses only positions <= k INCLUDING
+# the chunk-boundary decisions. Rollout step() replays the SAME forward over a
+# rolling buffer (TX pattern), so train == rollout (prefix-consistency ~1e-6).
+#
+# Inherited paper settings (unchanged from base):
+#  1. actor_layer_dims = ()  -> actor_mlp_dims: [] (head reads core.hidden_dim)
+#  3. paper-exact obs encoder (raw 2-dim low-dim + ReLU image + no fusion MLP,
+#       concat 64+2=66 feeds the core directly)
+#  4. eval-time RANDOM crop + v0.2 off-by-one
+#  5. window pad = repeat last frame, unmasked NLL (repeat_unmasked)
+#  6. fp32 (set in launcher: trainer.precision=32)
+#  7. no grad-spike clip (enable_grad_norm: false below)
+robomimic_model:
+  _target_: egomimic.algo.bc.WindowedBC
+
+  action_dim: 2
+  action_horizon: 1024
+  rnn_horizon: 10
+  max_windows_per_batch: 256
+  # actor_layer_dims = () -> empty actor MLP (identity). gmm_head.d_model then
+  # equals the core's per-step output width (d_model=256).
+  actor_mlp_dims: []
+  # repeat-pad window tails (obs AND action) + include pad steps in the NLL with
+  # NO mask (robomimic pad_same=True, plain-mean loss).
+  pad_mode: repeat_unmasked
+  # CORE SWAP: the real dynamic-chunking H-Net over the rnn_horizon window.
+  core: hnet
+
+  obs_encoder:
+    _target_: egomimic.models.stems.obs_encoder.ObsEncoder
+    # paper-exact mode -> embed_dim is IGNORED (becomes the concat sum 64+2=66);
+    # low-dim raw (no MLP), ReLU on image, no fusion MLP.
+    embed_dim: 66
+    paper_exact: true
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]   # agent xy out of the 5-dim state_agent_obj
+        embed_dim: 64         # ignored in paper_exact (raw 2-dim fed through)
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        # crop 86x86 (round(96*76/84)), random at TRAIN, RANDOM at EVAL too
+        # (crop_eval_mode=random), corner sampled via v0.2 off-by-one.
+        crop_aug: true
+        crop_height: 86
+        crop_width: 86
+        crop_eval_mode: random
+        crop_sample_mode: v02
+
+  # CORE: HNetCore under the ``lstm:`` slot (the policy treats it polymorphically
+  # via the shared .input_dim/.hidden_dim/forward/init_hidden/step interface).
+  # input_dim = obs_encoder concat (64 img + 2 raw) = 66. Defaults param-matched
+  # to LSTM(1000)x2 12.28M / TX(448,5L) 12.11M — see the report for the exact
+  # count. d_model=256 (multiple of 32 for the dechunk EMA headdim, divisible by
+  # n_heads=8); outer 4 + 4 (enc/dec) + inner 6 = 14 "T" blocks @ d_int=768.
+  core_net:
+    _target_: egomimic.models.cores.hnet_core.HNetCore
+    input_dim: 66                  # = obs_encoder concat (64 img + 2 raw)
+    d_model: 256                   # H-Net working dim = head input (param-matched)
+    n_heads: 8                     # 256 / 8 = 32 dim/head
+    d_intermediate: 768            # SwiGLU FFN hidden (3 * d_model)
+    outer_layers: 4                # T blocks in EACH of outer encoder + decoder
+    inner_layers: 6                # T blocks in the inner ComputeStage
+    target_compression_ratio: 2.0  # NO-OP in BC-RNN (the ratio/compression aux
+                                   # loss is never read; chunk length is driven
+                                   # purely by obs-embedding cos-sim dynamics).
+    ratio_loss_weight: 0.03        # INERT in BC-RNN (algo doesn't read ctx.aux;
+                                   # kept for a clean single-knob LSTM/TX/HNet cmp)
+    max_window: ${..rnn_horizon}  # inherits the ONE window number (override only for capacity pre-allocation, e.g. window curriculum)
+    dropout: 0.0                   # paper-exact LSTM uses dropout 0 -> match
+    resid_dropout: 0.0
+    rotary_emb_dim: 0              # RoPE off (learned-pos-free; window is short)
+    causal: true                   # MUST stay true for train==rollout parity
+
+  gmm_head:
+    _target_: egomimic.models.heads.gmm_head.GMMActionHead
+    d_model: 256                   # = core.hidden_dim (no actor MLP)
+    action_dim: 2
+    num_modes: 5
+    min_std: 1.0e-4
+    std_activation: softplus
+    low_noise_eval: true
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+# disable the MAD-based grad-spike clip (robomimic never clips).
+enable_grad_norm: false
+
+# robomimic optimizer: Adam, lr 1e-4, L2=0 (no weight decay), CONSTANT lr.
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+# Warmup->cosine (the smooth-loss variant; pairs single-knob with TX-cos 3324263).
+# Horizon in OPTIMIZER STEPS: 1800 epochs x 50 batches = 90,000.
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 90000
+  warmup_steps: 4500  # 5% warmup
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6
+
+# ----- DELIBERATE TASK ADAPTATIONS (kept, identical to paperexact) -----
+# * MIN-MAX action normalization (norm_stats.norm_mode=minmax, set in launcher).
+#   Fresh full-data stats (sample_frac=1.0, no precomputed path).
+# * obs keys = agent xy (slice 0:2) + front_img_1; ar rollout eval path; packed
+#   pipeline cut into 10-step windows (repeat-pad in paper-exact mode).

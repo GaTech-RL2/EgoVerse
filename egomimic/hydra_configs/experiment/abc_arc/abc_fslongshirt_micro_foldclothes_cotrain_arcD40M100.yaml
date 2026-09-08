@@ -1,0 +1,88 @@
+# @package _global_
+# Cotrain: ABC fold-and-stack-t-shirts (yam_bimanual) + mecka free-fold
+# (human_bimanual), arc-tokenized at D=0.40 / M=100.
+#
+# Launch:
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_fslongshirt_micro_foldclothes_cotrain_arcD40M100
+#
+# `-m` is required: the submitit launcher only engages in multirun mode.
+#
+# The `override /hydra/launcher` line in the defaults below does NOT take
+# effect -- hydra only honours a hydra/ group selection from the primary config
+# or the command line, and an experiment loaded with `+experiment=` is neither.
+# Verified: without a CLI flag the resolved choice is plain `submitit`
+# (rl2-lab, a40), whatever this file says. Pass it explicitly:
+#     hydra/launcher=submitit_skynet_a40      (non-preemptible, schedules fast)
+#     hydra/launcher=submitit_skynet_l40s     (overcap -- PREEMPTIBLE)
+defaults:
+  - override /model: abc_arc/hpt_abc_mecka_cotrain_flow_shared_head_arc_D40_M100
+  - override /data: abc_arc/abc_fslongshirt_micro_foldclothes_arc_cotrain_D40_M100
+  # The SAME evaluator the ..._cotrain_baseline run uses. Every metric is
+  # arc-matched and no metric name mentions the action space, so this run and
+  # the time-indexed baseline emit identically named numbers that overlay on
+  # one chart:
+  #
+  #   Valid/{emb}_actions_cartesian_arcmatch_paired_mse_avg
+  #   Valid/{emb}_actions_cartesian_arcmatch_xyz_mse_avg
+  #   Valid/{emb}_actions_cartesian_arcmatch_final_xyz_l2_m_avg
+  #   Valid/{emb}_actions_cartesian_arcmatch_rot_geodesic_deg_avg
+  #
+  # Scoring is in the EEF frame, which this data config already trains in
+  # (coord_frame=eef_frame, actions as deltas from the current EEF pose), and
+  # every metric above is frame invariant: position error survives a rigid
+  # transform, and rotation error is the geodesic angle rather than a per-axis
+  # ypr difference. The evaluator still reverts to the top-camera frame for the
+  # val VIDEO, which is what makes the overlay track the grippers.
+  - override /evaluator: eval_eef_arcmatch_D40_M100
+  - override /trainer: ddp/base
+  - override /logger: wandb/base
+  - override /hydra/launcher: submitit_skynet_l40s
+  - _self_
+
+name: abc_fslongshirt_micro_foldclothes_cotrain_arcD40M100
+description: arcD40M100
+
+# The default paths.dataset_dir (/coc/flash7/scratch/egoverseS3ZarrDataset) is
+# owned by another user and mode drwxr-xr-x, so s5cmd's mkdir fails with
+# "permission denied" for any episode not already cached there -- which is what
+# killed the 2026-09-02 15:11 run. This directory is writable, and already holds
+# all 250 mecka episodes, so the human split needs no download at all.
+paths:
+  dataset_dir: /coc/flash7/scratch/arc-training
+
+# ddp/base sets `strategy: ddp`, which asserts every parameter gets a gradient
+# each step. This is a COTRAIN model with a per-embodiment stem: a given batch
+# routes through one embodiment's stem and leaves the other's untouched, so
+# plain ddp aborts with "Expected to have finished reduction in the prior
+# iteration". ddp/debug set this for the same reason; carry it over.
+trainer:
+  strategy: ddp_find_unused_parameters_true
+  # Run 2 validation batches BEFORE epoch 0. Validation otherwise first executes
+  # at epoch 200, so a fault in the evaluator or viz path (as happened with the
+  # baseline hitting the arc detokenizer) costs hours before it surfaces. This
+  # exercises the whole val path -- forward, arc-matched metrics, video overlay
+  # -- in seconds at startup.
+  num_sanity_val_steps: 2
+
+# Norm stats sampling fraction. The pass reads every sampled frame of every
+# episode before training starts and is the bulk of startup. A finished run's
+# stats land in <output_dir>/norm_stats/norm_stats.json -- pass that back via
+# norm_stats.precomputed_norm_path=<path> to skip it on a relaunch of the SAME
+# data config. Verify the file has BOTH embodiments populated first: cache_stats
+# writes after each embodiment, so an interrupted run leaves a partial file that
+# would silently leave one embodiment unnormalized.
+norm_stats:
+  sample_frac: 0.2
+
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+
+logger:
+  wandb:
+    # entity comes from logger/wandb/base.yaml; project pinned here so the run
+    # does not silently follow a change to that shared default.
+    project: "arc"
+    tags:
+      - abc

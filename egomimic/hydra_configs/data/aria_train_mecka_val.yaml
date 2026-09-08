@@ -1,0 +1,63 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Classic cartesian (non-arc-tok) sibling of aria_train_mecka_val_arctok.yaml.
+# Same TRAIN=aria / VALID=mecka split, but ``actions_cartesian`` stays as a
+# time-parameterized (T, 12) chunk (no arc tokenization). Used to build a
+# baseline for the arc-tok run — pair with ``+evaluator.first_D_meters=0.20``
+# on ``eval_hpt`` to log a distance-clamped ``detok_paired_mse_avg`` that
+# overlays on the same wandb chart as the arc-tok run's detok metric.
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/aria_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: cartesian_gripper_padded
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 1
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'human_bimanual' and row.get('task_name') == 'fold_clothes'"
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: cartesian_gripper_padded
+        coord_frame: camframe
+        rotation_mode: euler
+        stride: 1
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'mecka' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 128
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 128
+    num_workers: 6

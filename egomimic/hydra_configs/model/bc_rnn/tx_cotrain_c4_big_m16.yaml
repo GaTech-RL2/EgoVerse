@@ -1,0 +1,114 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# BC-RNN-TRANSFORMER COTRAIN (2-embodiment) -- CHUNK-4 capacity-matched build.
+#
+# DERIVED FROM bc_rnn_pushshapes_paperexact_tx_chunk8.yaml (the single-domain
+# TransformerCore + GMM head recipe) with exactly FOUR deltas:
+#   1. domains -> [pushshapes_sim, pushshapes_sim_small_circle] (2-embodiment
+#      cotrain: big circle + small circle). WindowedBC.forward_training already
+#      loops over batch.items() (one entry per embodiment id) and accumulates a
+#      per-embodiment GMM NLL with the SHARED policy, so a 2-domain batch trains
+#      both domains in one step. NOTE: WindowedBC has a SINGLE shared policy
+#      (ONE obs_encoder + ONE core + ONE gmm_head) -- there are NO per-embodiment
+#      encoders/heads (unlike the H-Net firstend pyramid). Both embodiments share
+#      ALL weights; the only per-embodiment thing is the action/obs norm-stats
+#      (norm_stats.normalize/unnormalize keyed by emb_id). Pair with data config
+#      tsimulation/cotrain_small_circle.yaml.
+#   2. chunk_len 8 -> 4 (predict 4, execute 4, re-predict; n_action_steps=4).
+#      gmm_head.chunk_len matched to 4 (the algo guards they agree).
+#   3. obs_stride 8 -> 4 (kept == chunk_len so the rollout queue never drains
+#      between obs steps, matching the chunk8 invariant chunk_len==obs_stride).
+#   4. core_net.d_model 448 -> 936 (head_dim 936/8 = 117, integer / clean) so the
+#      SHARED-weight total lands at ~63.92M (the cross-family cotrain target).
+#      n_layers/n_heads/ff_mult UNCHANGED (5 / 8 / 4) -> only the trunk WIDTH
+#      grows; encoder + head STRUCTURE are untouched. gmm_head.d_model tracks
+#      core_net.d_model (= core.hidden_dim, no actor MLP).
+#
+# Because the policy is fully shared, the 2-embodiment COTRAIN total EQUALS the
+# single instantiated policy param count (one set of weights serves both
+# domains): obs_encoder(11.20M) + core(52.75M @ d_model=936) + gmm_head(0.045M)
+# = 63.99M (+0.11% vs 63.92M). Verified by hydra.instantiate of the three
+# param-bearing submodules (see model card / structured report).
+#
+# Everything else is IDENTICAL to the chunk8 single-domain recipe: paper-exact
+# obs encoder, minmax norm (launcher), repeat_unmasked windows, rnn_horizon=10,
+# random eval crop, warmup->cosine peak 1e-4, fp32, no grad clip.
+robomimic_model:
+  _target_: egomimic.algo.bc.WindowedBC
+
+  action_dim: 2
+  action_horizon: 1024
+  rnn_horizon: 10
+  max_windows_per_batch: 256
+  actor_mlp_dims: []
+  pad_mode: repeat_unmasked
+  core: transformer
+  # OBS STRIDING + ACTION CHUNKING -> chunk-4 (was 8/8).
+  obs_stride: 4
+  chunk_len: 4
+
+  obs_encoder:
+    _target_: egomimic.models.stems.obs_encoder.ObsEncoder
+    embed_dim: 66
+    paper_exact: true
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]
+        embed_dim: 64
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        crop_aug: true
+        crop_height: 86
+        crop_width: 86
+        crop_eval_mode: random
+        crop_sample_mode: v02
+
+  # CORE: TransformerCore, width grown to hit the 63.92M cotrain target.
+  core_net:
+    _target_: egomimic.models.cores.transformer_core.TransformerCore
+    input_dim: 66             # = obs_encoder concat (64 img + 2 raw)
+    d_model: 936              # 936 / 8 = 117 (clean integer head_dim)
+    n_layers: 5               # UNCHANGED -- grow WIDTH only
+    n_heads: 8                # 936 / 8 = 117 dim/head
+    ff_mult: 4                # FF hidden = 4*936 = 3744
+    dropout: 0.0
+    max_window: ${..rnn_horizon}
+
+  gmm_head:
+    _target_: egomimic.models.heads.gmm_head.GMMActionHead
+    d_model: 936              # = core.hidden_dim (no actor MLP)
+    action_dim: 2
+    num_modes: 16
+    min_std: 1.0e-4
+    std_activation: softplus
+    low_noise_eval: true
+    chunk_len: 4              # MUST match robomimic_model.chunk_len above
+
+  # 2-EMBODIMENT COTRAIN: big circle + small circle (shared policy weights).
+  domains: ["pushshapes_sim", "pushshapes_sim_small_circle"]
+  ac_keys:
+    pushshapes_sim: "actions"
+    pushshapes_sim_small_circle: "actions"
+
+enable_grad_norm: false
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 300000
+  warmup_steps: 15000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6

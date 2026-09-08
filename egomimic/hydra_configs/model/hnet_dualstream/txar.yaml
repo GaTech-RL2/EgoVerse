@@ -1,0 +1,14 @@
+# txar -- shared skeleton in hnet_dualstream/txar_base.yaml
+defaults:
+  - hnet_dualstream/txar_base@_here_
+  - _self_
+
+arch_layout: T5
+d_cond: 936
+d_intermediate: 2504
+d_model: 936
+input_hidden_dim: 936
+k_agnostic: 3
+k_specific: 2
+output_hidden_dim: 936
+rotary_emb_dim: 116

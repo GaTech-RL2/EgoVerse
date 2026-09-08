@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import signal
 from typing import Any, Dict, List, Optional, Tuple
@@ -22,10 +23,15 @@ from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
-from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
-from egomimic.utils.logging_utils import log_hyperparameters
+from egomimic.pl_utils.instantiators import instantiate_callbacks, instantiate_loggers
+from egomimic.pl_utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
-from egomimic.utils.utils import extras, task_wrapper
+from egomimic.pl_utils.utils import extras, task_wrapper
+
+# Gated TF32: NO-OP unless EGOMIMIC_TF32=1 in env. Enables TensorFloat-32 matmuls
+# (~1.5-2x on A40 tensor cores) without changing other experiments numerics.
+if os.environ.get("EGOMIMIC_TF32") == "1":
+    torch.set_float32_matmul_precision("high")
 
 OmegaConf.register_new_resolver("eval", eval)
 
@@ -146,9 +152,26 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     # Stats-only MultiDataset (no graph of its own; explicitly populated from
     # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
+    _norm_mode = OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile")
+    # FIX #6: GMM action heads assume targets pre-normalized to [-1,1] (robomimic
+    # tanh on the mode means). norm_mode="quantile" (the yaml default — the
+    # "quantile trap") maps q1/q99 -> -1/+1, leaving ~2% tail actions OUTSIDE
+    # [-1,1] that the tanh'd means can never reach (see gmm_head.py header).
+    # minmax maps the FULL action range into [-1,+1]. Fail fast so a launch that
+    # forgets ``norm_stats.norm_mode=minmax`` can't silently train a broken GMM.
+    _head_type = OmegaConf.select(
+        cfg, "model.robomimic_model.outer_stage.action_head_type", default=None
+    )
+    if _head_type == "gmm" and _norm_mode != "minmax":
+        raise ValueError(
+            f"GMM action head requires norm_stats.norm_mode='minmax' (got "
+            f"'{_norm_mode}'). The quantile mapping leaves tail actions outside "
+            f"[-1,1] that the GMM tanh means cannot reach. Set "
+            f"norm_stats.norm_mode=minmax (launcher or config)."
+        )
     norm_stats = MultiDataset(
         state={},
-        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
+        norm_mode=_norm_mode,
     )
     norm_stats.populate_from_datasets(datamodule.train_datasets)
 
@@ -226,6 +249,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         config_tree=_build_model_config_tree(cfg),
         norm_stats_state=norm_stats.to_state(),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
+        # BUGFIX 2026-06-25: enable_grad_norm was a dead config key — trainHydra
+        # never passed it, so ModelWrapper always used its default True (the MAD
+        # spike-clamper ran on every run regardless of config, freezing its
+        # median at the warmup grad scale → grad-starvation). Now honor the
+        # config so model.enable_grad_norm=false actually disables the clamper.
+        enable_grad_norm=cfg.model.get("enable_grad_norm", True),
     )
 
     _log_dataset_frame_counts(datamodule.train_datasets, datamodule.valid_datasets)
@@ -293,8 +322,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         last_ckpt_path = os.path.join(
             trainer.default_root_dir, "checkpoints", "last.ckpt"
         )
-        log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
-        cfg.ckpt_path = last_ckpt_path
+        if os.path.exists(last_ckpt_path):
+            log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
+            cfg.ckpt_path = last_ckpt_path
+        else:
+            log.info(
+                f"SLURM requeue but no {last_ckpt_path}; keeping ckpt_path={cfg.get('ckpt_path')}"
+            )
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
@@ -328,7 +362,27 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 model.load_state_dict(checkpoint["state_dict"], strict=False)
                 log.info(f"Loaded weights from {ckpt_path}")
             log.info("Starting evaluation!")
-            trainer.validate(model=model, datamodule=datamodule)
+            results = trainer.validate(model=model, datamodule=datamodule)
+
+            # Eval mode sets cfg.logger = None above, so the Valid/* metrics
+            # the evaluator computes via log_dict have nowhere to go. Persist
+            # them next to the run so an offline eval sweep can collect them.
+            eval_out = {
+                "ckpt_path": ckpt_path,
+                "evaluator": OmegaConf.select(cfg, "evaluator._target_", default=None),
+                "data": OmegaConf.select(cfg, "data._target_", default=None),
+                "name": cfg.get("name"),
+                "description": cfg.get("description"),
+                "results": results,
+                "callback_metrics": {
+                    k: (v.item() if torch.is_tensor(v) else v)
+                    for k, v in trainer.callback_metrics.items()
+                },
+            }
+            out_path = os.path.join(trainer.default_root_dir, "eval_metrics.json")
+            with open(out_path, "w") as f:
+                json.dump(eval_out, f, indent=2, default=str)
+            log.info(f"Wrote eval metrics to {out_path}")
     else:
         raise ValueError(f"Invalid mode: {mode}")
 

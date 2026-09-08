@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 # Top-level keys this module's yaml templates use that the underlying
 # MultiDataModuleWrapper does NOT accept. Must stay in sync with the
-# `data:` block in cotrain_pi_latent.yaml.
+# `data:` block in cotrain_pi/latent.yaml.
 _LATENT_CONFIG_KEYS = frozenset(
     {
         "latent_mode",

@@ -1,0 +1,27 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# Skynet L40S launcher. The l40s nodes (bishop, dynamics, grom, zhurong) are NOT
+# in rl2-lab -- they sit in overcap, essa-lab, hoffman-lab and kira-lab, so
+# overcap is the partition this account can actually land on -- with the
+# rl2-lab ACCOUNT, not an `overcap` account, which slurm rejects as an
+# invalid account/partition combination. Overcap is preemptible, hence
+# requeue: true; expect restarts, and keep checkpointing frequent enough
+# that a preemption is cheap.
+name: ${hydra.job.name}
+partition: "overcap"
+account: "rl2-lab"
+
+cpus_per_task: 12
+
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:l40s:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}"
+
+qos: "short"
+timeout_min: 2880
+
+additional_parameters:
+  requeue: true

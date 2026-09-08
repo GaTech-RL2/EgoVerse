@@ -1,0 +1,327 @@
+# Offline eval sweep: run the matching evaluator over every checkpoint a
+# training run produced, and report Valid/* metrics in CARTESIAN space.
+#
+# Why this exists: the training runs carry `~evaluator`, so validation_step
+# (pl_model.py:209) returns immediately and no Valid/* metric is ever logged.
+# This job re-attaches the evaluator offline.
+#
+# The comparable pair across the two variants is:
+#   baseline (eval_hpt)             Valid/{emb}_actions_cartesian_paired_mse_avg
+#   arctok   (eval_arctok_D20_M15)  Valid/{emb}_actions_cartesian_detok_paired_mse_avg
+#
+# ArcTokEvalVideo detokenizes prediction and GT back to (B, 100, 14) using the
+# model-predicted velocity token, and drops the zero-padded rotation columns,
+# so its MSE is in the same physical units as the baseline's. That is the only
+# apples-to-apples comparison between the two action spaces.
+#
+# Checkpoints are read from s3://rldb/staged/arc_ckpts/<run>/, where the
+# training containers sync them (node-local /workspace is ephemeral and the
+# training workflow declares no outputs).
+#
+# trainHydra.py eval mode forces devices=1, so this needs 1 GPU, not 8.
+#
+#   osmo workflow submit osmo/eval_ckpts_l40s.yaml --pool groot-l40s-03 --set \
+#     branch=arc-length-nv job_name=eval-baseline-cart \
+#     src_run=arc-baseline-cart-8xl40s-2 \
+#     data_cfg=arc_tests_cotrain \
+#     model_cfg=hpt_cotrain_mecka_flow_shared_head \
+#     evaluator_cfg=eval_hpt
+
+workflow:
+  name: "{{job_name}}"
+
+  tasks:
+  - name: eval
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+
+    environment:
+      BRANCH: "{{branch}}"
+      SRC_RUN: "{{src_run}}"
+      DATA_CFG: "{{data_cfg}}"
+      MODEL_CFG: "{{model_cfg}}"
+      EVALUATOR_CFG: "{{evaluator_cfg}}"
+      # Latest epoch present in BOTH runs' checkpoint sets, so the matched
+      # comparison lands first instead of at the end of the sweep.
+      FIRST_CKPT: "{{first_ckpt}}"
+      # Smoke mode: N>0 caps each resolver at N episodes, so the pull is
+      # seconds instead of ~60min for 141GB. The metric is meaningless at
+      # N=4 -- the point is to exercise checkpoint load -> evaluator ->
+      # trainer.validate -> eval_metrics.json -> R2 push before paying for a
+      # real sweep. Set 0 for the real run.
+      DEBUG_EPISODES: "{{debug_episodes}}"
+      # EvalVideo defaults limit_val_batches=400 and renders validation video
+      # frames per batch (~45s/batch observed), i.e. ~5h PER CHECKPOINT. It is
+      # a CONSTRUCTOR arg that lands in override_dict, and trainHydra applies
+      # override_dict AFTER the CLI (trainHydra.py:181) -- so
+      # trainer.limit_val_batches on the command line is silently clobbered and
+      # this must be set on the evaluator instead. It is a constructor arg and
+      # not a key in any evaluator yaml, so like `debug` it needs a leading
+      # '+' to be ADDED -- plain override raises "Key 'limit_val_batches' is
+      # not in struct".
+      EVAL_BATCHES: "{{eval_batches}}"
+      # Arc-matched metric: compare only the sub-trajectory covering the same
+      # DISTANCE on both sides. A baseline 100-step chunk travels ~10x further
+      # than an arc token's span (measured 1.89m vs 0.19m on real human data),
+      # so the default per-timestep MSE scores the two over different amounts
+      # of motion. Set the SAME values for baseline and arc-tok.
+      ARC_MATCH_D: "{{arc_match_d}}"
+      ARC_MATCH_M: "{{arc_match_m}}"
+      # viz_func entries whose annotation_key must be nulled. The cartesian
+      # viz sets annotation_key: sampled_prompt and arc_tests has no
+      # annotations, but the keypoint viz has no such key and no eva entry --
+      # overriding a key that is not in the struct is a hard hydra error.
+      ANNOT_EMBODIMENTS: "{{annot_embodiments}}"
+      # Embodiments present in the data config. Drives the valid dataloader
+      # overrides; a human-only config has no eva_bimanual and overriding a
+      # key that is not in the struct is a hard hydra error.
+      EMBODIMENTS: "{{embodiments}}"
+      # Evaluate only the newest N checkpoints (0 = all). The late ones are
+      # what matter for val videos; sweeping all 10 mostly burns time.
+      LAST_N_CKPTS: "{{last_n_ckpts}}"
+      # Frames per video file. 30fps, so 1000 ~= 33s. Raise for longer clips;
+      # number of clips per embodiment = total frames / this.
+      VIDEO_CHUNK_FRAMES: "{{video_chunk_frames}}"
+      WORKDIR: /workspace
+      DATASET_DIR: /workspace/arc_tests
+      HYDRA_FULL_ERROR: "1"
+      TOKENIZERS_PARALLELISM: "false"
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+
+        mkdir -p "$WORKDIR" && cd "$WORKDIR"
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" EgoVerse
+        cd "$WORKDIR/EgoVerse"
+        git rev-parse HEAD
+        uv sync --frozen
+        source .venv/bin/activate
+
+        bash ./egomimic/utils/aws/setup_secret.sh
+        set -a; source "$HOME/.egoverse_env"; set +a
+
+        # NOTE: do NOT export AWS_*/AWS_DEFAULT_REGION=auto globally here.
+        # The R2 creds need region "auto", but boto3 uses the same variables
+        # to reach Secrets Manager for the DB password, and region=auto sends
+        # it to secretsmanager.auto.amazonaws.com -> EndpointConnectionError,
+        # which kills S3EpisodeResolver before any eval runs. Scope the R2
+        # creds to the s5cmd calls that actually need them; the ambient
+        # credentials from egoverse-aws (us-east-2) stay intact for python.
+        r2() {
+          AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
+          AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+          AWS_DEFAULT_REGION=auto AWS_REGION=auto \
+          s5cmd --endpoint-url "$R2_ENDPOINT_URL" "$@"
+        }
+
+        # ------------------------------------------------- pull checkpoints
+        CKPT_DIR=/workspace/ckpts
+        mkdir -p "$CKPT_DIR"
+        r2 --numworkers 32 sync "s3://rldb/staged/arc_ckpts/${SRC_RUN}/*" "$CKPT_DIR/"
+        find "$CKPT_DIR" -name '*.ckpt' | sort
+        NCK=$(find "$CKPT_DIR" -name '*.ckpt' | wc -l)
+        echo "found $NCK checkpoints for $SRC_RUN"
+        test "$NCK" -gt 0
+
+        # The val split must match training: same data config, same
+        # valid_ratio (0.2), same seed. S3EpisodeResolver re-pulls the same
+        # 862 episodes into DATASET_DIR.
+        mkdir -p "$DATASET_DIR"
+
+        # viz/cartesian.yaml sets annotation_key: sampled_prompt for every
+        # embodiment, and eval_hpt inherits it. arc_tests produces no
+        # annotations, so viz_gt_preds raises KeyError('sampled_prompt') at the
+        # first validation step. eval_arctok.yaml already nulls these; eval_hpt
+        # does not, so the overrides above do it on the command line.
+
+        # `debug` is not a key in the resolver config block, so it must be
+        # ADDED with a leading '+'. Without it hydra raises
+        # "Key 'debug' is not in struct".
+        DBG=""
+        if [ "${DEBUG_EPISODES:-0}" -gt 0 ] 2>/dev/null; then
+          for split in train valid; do
+            for emb in $EMBODIMENTS; do
+              DBG="$DBG +data.${split}_datasets.${emb}.resolver.debug=${DEBUG_EPISODES}"
+            done
+          done
+          echo "SMOKE MODE: capping each resolver at ${DEBUG_EPISODES} episodes"
+        fi
+
+        DL_OVERRIDES=""
+        for emb in $EMBODIMENTS; do
+          DL_OVERRIDES="$DL_OVERRIDES data.valid_dataloader_params.${emb}.batch_size=8"
+          DL_OVERRIDES="$DL_OVERRIDES data.valid_dataloader_params.${emb}.num_workers=4"
+        done
+        echo "dataloader overrides: $DL_OVERRIDES"
+
+        ANNOT_OVERRIDES=""
+        for emb in $ANNOT_EMBODIMENTS; do
+          ANNOT_OVERRIDES="$ANNOT_OVERRIDES evaluator.viz_func.${emb}.annotation_key=null"
+        done
+        echo "annotation overrides: ${ANNOT_OVERRIDES:-<none>}"
+
+        RESULTS=/workspace/eval_results
+        mkdir -p "$RESULTS"
+
+        # trainHydra computes norm stats (lines ~108-141) BEFORE branching on
+        # mode, so eval pays for it too. At sample_frac=1.0 over 862 episodes
+        # that is ~1.33M samples at ~350/s -- about 63 minutes PER CHECKPOINT.
+        # The training run's own norm_stats.json rides along in the checkpoint
+        # sync, so pass it and the step collapses to a load.
+        test -s "$CKPT_DIR/norm_stats.json" || {
+          echo "FATAL: norm_stats.json missing from $CKPT_DIR -- every checkpoint would"
+          echo "recompute stats for ~1h. Check the training run's sync loop."
+          exit 1
+        }
+
+        # Evaluate FIRST_CKPT first (the latest epoch both runs share, so the
+        # matched comparison lands without waiting for the whole sweep), then
+        # the remaining epoch checkpoints newest-first, then last.ckpt.
+        # Keep only the newest N checkpoints when LAST_N_CKPTS > 0.
+        if [ "${LAST_N_CKPTS:-0}" -gt 0 ] 2>/dev/null; then
+          KEEP=$( { find "$CKPT_DIR" -name 'epoch_*.ckpt' | sort -V; find "$CKPT_DIR" -name 'last.ckpt'; } | tail -n "$LAST_N_CKPTS")
+          echo "limiting to newest $LAST_N_CKPTS checkpoints:"; echo "$KEEP"
+          for f in $(find "$CKPT_DIR" -name '*.ckpt'); do
+            echo "$KEEP" | grep -qxF "$f" || rm -f "$f"
+          done
+        fi
+
+        ORDER=""
+        if [ -n "${FIRST_CKPT:-}" ]; then
+          HIT=$(find "$CKPT_DIR" -name "$FIRST_CKPT" | head -1 || true)
+          [ -n "$HIT" ] && ORDER="$HIT" && echo "priority checkpoint: $HIT"
+        fi
+        REST=$(find "$CKPT_DIR" -name 'epoch_*.ckpt' | sort -Vr)
+        for CKPT in $ORDER $REST $(find "$CKPT_DIR" -name 'last.ckpt'); do
+          # skip the priority checkpoint when the descending list reaches it
+          if [ -n "$ORDER" ] && [ "$CKPT" = "$ORDER" ] && [ -n "${SEEN_FIRST:-}" ]; then continue; fi
+          [ "$CKPT" = "$ORDER" ] && SEEN_FIRST=1
+          # Lightning names these "epoch_epoch=199.ckpt". The '=' must go or
+          # hydra parses description=epoch_epoch=199 as a malformed override
+          # ("mismatched input '=' expecting <EOF>").
+          TAG=$(basename "$CKPT" .ckpt | tr '=' '_' | tr -cd '[:alnum:]_-')
+          # hydra's override grammar rejects a second '=' anywhere in an
+          # override, and that includes the VALUE. Lightning writes
+          # "epoch_epoch=1599.ckpt", so ckpt_path=<that> fails to parse and
+          # every epoch checkpoint errored instantly -- only last.ckpt (no '=')
+          # ever ran. Sanitizing the description was not enough; the path
+          # itself has to be '='-free.
+          SAFE="$CKPT_DIR/safe_${TAG}.ckpt"
+          ln -sf "$CKPT" "$SAFE"
+          echo "=================== evaluating $TAG ==================="
+          set +e
+          python egomimic/trainHydra.py \
+            data="$DATA_CFG" \
+            model="$MODEL_CFG" \
+            evaluator="$EVALUATOR_CFG" \
+            +evaluator.limit_val_batches="$EVAL_BATCHES" \
+            +evaluator.arc_match_distance="$ARC_MATCH_D" \
+            +evaluator.arc_match_points="$ARC_MATCH_M" \
+            +evaluator.video_chunk_frames="$VIDEO_CHUNK_FRAMES" \
+            $ANNOT_OVERRIDES \
+            mode=eval \
+            ckpt_path="$SAFE" \
+            norm_stats.precomputed_norm_path="$CKPT_DIR/norm_stats.json" \
+            paths.dataset_dir="$DATASET_DIR" \
+            launch_params.nodes=1 launch_params.gpus_per_node=1 \
+            $DL_OVERRIDES \
+            hydra.run.dir="/workspace/evalruns/$TAG" \
+            $DBG \
+            name="eval_${SRC_RUN}" description="$TAG"
+          RC=$?
+          set -e
+          # Read the exact path this checkpoint's run wrote to. The previous
+          # `find -newer "$CKPT" | head -1` matched ANY recent eval_metrics.json,
+          # so when a checkpoint failed to write one it silently copied the
+          # PREVIOUS checkpoint's result under the new tag -- 5 of 7 results in
+          # an earlier sweep were duplicates of two real evals.
+          FOUND="/workspace/evalruns/$TAG/eval_metrics.json"
+          [ -s "$FOUND" ] || FOUND=""
+          if [ -n "$FOUND" ]; then
+            cp "$FOUND" "$RESULTS/${TAG}.json"
+            NCAPTURED=$((${NCAPTURED:-0} + 1))
+            echo "captured metrics for $TAG"
+          else
+            echo "WARNING: no eval_metrics.json for $TAG (rc=$RC)"
+          fi
+          # Push after each checkpoint so a later failure keeps earlier results.
+          r2 sync "$RESULTS/" "s3://rldb/staged/arc_evals/${SRC_RUN}/" || true
+          # Validation videos live in the hydra run dir on ephemeral node-local
+          # disk. EvalVideo writes them per embodiment; without this they die
+          # with the container, same as the checkpoints did.
+          VID="/workspace/evalruns/$TAG/videos"
+          if [ -d "$VID" ]; then
+            r2 --numworkers 16 sync "$VID/" "s3://rldb/staged/arc_eval_videos/${SRC_RUN}/${TAG}/" || true
+            echo "synced $(find "$VID" -name '*.mp4' | wc -l) videos for $TAG"
+          fi
+        done
+
+        echo "=========================== SUMMARY ==========================="
+        python - <<'PY'
+        import json, glob, os
+        rows = []
+        for p in sorted(glob.glob("/workspace/eval_results/*.json")):
+            d = json.load(open(p))
+            cm = d.get("callback_metrics", {})
+            keep = {k: v for k, v in cm.items()
+                    if "mse" in k.lower() or "loss" in k.lower()}
+            rows.append((os.path.basename(p), keep))
+        for name, keep in rows:
+            print(f"--- {name}")
+            for k in sorted(keep):
+                try:
+                    print(f"    {k:70s} {float(keep[k]):.6f}")
+                except (TypeError, ValueError):
+                    print(f"    {k:70s} {keep[k]}")
+        if not rows:
+            print("NO RESULTS CAPTURED")
+        PY
+
+        # Without this the trailing summary's exit 0 makes OSMO report
+        # COMPLETED even when every checkpoint failed, which is how an earlier
+        # run "succeeded" while producing nothing.
+        echo "captured ${NCAPTURED:-0} checkpoint result(s)"
+        test "${NCAPTURED:-0}" -gt 0
+
+  # eval forces devices=1 (trainHydra.py:183), and OSMO requires the rest of
+  # the request to be proportional: asking for 1 of 8 GPUs caps CPU at
+  # floor(127/8)=15, memory at ~989/8 and storage at ~3164/8. The ~141GB
+  # dataset plus ~3GB of checkpoints fits comfortably in 380Gi.
+  resources:
+    default:
+      cpu: 15
+      gpu: 1
+      memory: 120Gi
+      storage: 380Gi
+
+  timeout:
+    queue_timeout: 1d

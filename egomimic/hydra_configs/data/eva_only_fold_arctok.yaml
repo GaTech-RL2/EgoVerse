@@ -1,0 +1,65 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Eva-only ROBOT-BASELINE arc-tok run: mirrors arc_tests_cotrain_arctok.yaml
+# on the eva side but drops human_bimanual entirely. Same SQL filter
+# (eva_bimanual + lab=rl2 + task=fold_clothes) so the eva data pool is
+# identical to the cotrain version — apples-to-apples "arc-tok, robot-only"
+# vs "arc-tok, cotrain". D / M come from the top-level ``arc_tokenizer``
+# group.
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        action_mode: arc_tokenizer_cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+        min_distance_unit: 0.20
+        resampled_vector_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: train
+    valid_ratio: 0.2
+    bounds_check: false
+
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        action_mode: arc_tokenizer_cartesian
+        coord_frame: camframe
+        rotation_mode: euler
+        min_distance_unit: 0.20
+        resampled_vector_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: valid
+    valid_ratio: 0.2
+    bounds_check: false
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 128
+    num_workers: 6
+
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 128
+    num_workers: 6
