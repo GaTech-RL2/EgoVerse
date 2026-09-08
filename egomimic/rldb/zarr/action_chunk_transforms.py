@@ -301,6 +301,78 @@ class BatchQuaternionPoseToYPR(Transform):
         return batch
 
 
+def _quat_wxyz_to_rot6d(quat_wxyz: np.ndarray) -> np.ndarray:
+    """(…, 4) wxyz quaternion -> (…, 6) Zhou 6D (first two columns of R)."""
+    xyzw = wxyz_to_xyzw(quat_wxyz)
+    rotmats = R.from_quat(xyzw.reshape(-1, 4)).as_matrix()  # (N, 3, 3)
+    rot6d = np.concatenate([rotmats[:, :, 0], rotmats[:, :, 1]], axis=-1)
+    return rot6d.reshape(*quat_wxyz.shape[:-1], 6)
+
+
+class QuaternionPoseTo6D(Transform):
+    """Single pose xyz+quat(wxyz) (7,) -> xyz + Zhou 6D rotation (9,)."""
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.shape != (7,):
+            raise ValueError(
+                f"QuaternionPoseTo6D expects shape (7,), got {pose.shape} for key "
+                f"'{self.pose_key}'"
+            )
+        batch[self.output_key] = np.concatenate(
+            [pose[:3], _quat_wxyz_to_rot6d(pose[3:7])], axis=0
+        )
+        return batch
+
+
+class BatchQuaternionPoseTo6D(Transform):
+    """Batch poses xyz+quat(wxyz) (N, 7) -> xyz + Zhou 6D rotation (N, 9).
+
+    The 3x3 rotation matrix's last column is dropped, leaving two 3-vectors.
+    """
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.ndim != 2 or pose.shape[-1] != 7:
+            raise ValueError(
+                f"BatchQuaternionPoseTo6D expects shape (N, 7), got {pose.shape} for key "
+                f"'{self.pose_key}'"
+            )
+        batch[self.output_key] = np.concatenate(
+            [pose[:, :3], _quat_wxyz_to_rot6d(pose[:, 3:7])], axis=1
+        )
+        return batch
+
+
+class XYZWXYZ_to_XYZRot6D(Transform):
+    """Convert listed keys from xyz+quat(wxyz) to xyz+rot6d in-place."""
+
+    def __init__(self, keys: list[str]):
+        self.keys = list(keys)
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            value = np.asarray(batch[key])
+            if value.ndim == 1 and value.shape[0] == 7:
+                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value[None, :]))[0]
+            elif value.ndim == 2 and value.shape[1] == 7:
+                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value))
+            else:
+                raise ValueError(
+                    f"XYZWXYZ_to_XYZRot6D expects key '{key}' to have shape (7,) "
+                    f"or (T, 7), got {value.shape}"
+                )
+        return batch
+
+
 class BatchYPRToQuaternionPose(Transform):
     """Convert a batch of poses from xyz + ypr to xyz + quat(x,y,z,w)."""
 
@@ -364,27 +436,6 @@ class DeleteKeys(Transform):
     def transform(self, batch):
         for key in self.keys_to_delete:
             batch.pop(key, None)
-        return batch
-
-
-class XYZWXYZ_to_XYZRot6D(Transform):
-    """Convert listed keys from xyz+quat(wxyz) to xyz+rot6d in-place."""
-
-    def __init__(self, keys: list[str]):
-        self.keys = list(keys)
-
-    def transform(self, batch: dict) -> dict:
-        for key in self.keys:
-            value = np.asarray(batch[key])
-            if value.ndim == 1 and value.shape[0] == 7:
-                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value[None, :]))[0]
-            elif value.ndim == 2 and value.shape[1] == 7:
-                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value))
-            else:
-                raise ValueError(
-                    f"XYZWXYZ_to_XYZRot6D expects key '{key}' to have shape (7,) "
-                    f"or (T, 7), got {value.shape}"
-                )
         return batch
 
 

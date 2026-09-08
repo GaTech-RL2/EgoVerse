@@ -26,3 +26,10 @@ human_left_arm:
   action_key: actions_cartesian
   annotation_key: sampled_prompt
   mode: traj
+yam_bimanual:
+  _target_: egomimic.rldb.embodiment.yam.Yam.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_cartesian
+  annotation_key: sampled_prompt
+  mode: traj

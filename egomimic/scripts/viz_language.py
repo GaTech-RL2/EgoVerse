@@ -20,6 +20,7 @@ from omegaconf import DictConfig, OmegaConf
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
+from egomimic.rldb.embodiment.yam import Yam
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.viz_utils import _prepare_viz_image
 
@@ -32,6 +33,7 @@ _EMBODIMENT_CLASSES: dict[str, type[Embodiment]] = {
     "human_bimanual": Human,
     "human_right_arm": Human,
     "human_left_arm": Human,
+    "yam_bimanual": Yam,
 }
 
 
