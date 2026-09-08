@@ -734,6 +734,7 @@ class MultiDataset(torch.utils.data.Dataset):
         valid_ratio: float = 0.2,
         norm_mode: str = "zscore",
         state: dict | None = None,
+        reject_outliers: bool = True,
         **kwargs,
     ):
         """
@@ -744,11 +745,17 @@ class MultiDataset(torch.utils.data.Dataset):
             valid_ratio: Train/valid split ratio.
             norm_mode: One of "zscore", "minmax", "quantile".
             state: If provided, populate stats fields from this dict (deploy mode).
+            reject_outliers: If False, ``__getitem__`` skips the per-key
+                quantile bounds check (samples outside the stats' widest
+                quantile range are kept and normalized as-is). NaN/Inf
+                samples are always rejected. Propagated to datasets via
+                ``set_norm_stats_from``.
         """
         super().__init__()
 
         # ---- Stats fields (always present, may be empty) ----
         self.norm_mode = norm_mode
+        self.reject_outliers = reject_outliers
         self.embodiments: set[int] = set()
         self.key_types: dict[int, dict[str, str]] = {}
         self.zarr_keys: dict[int, dict[str, str]] = {}
@@ -830,6 +837,7 @@ class MultiDataset(torch.utils.data.Dataset):
         self.shapes = source.shapes
         self.embodiments = source.embodiments
         self.norm_mode = source.norm_mode
+        self.reject_outliers = source.reject_outliers
         # Each MultiDataset keeps its own warning-dedup state.
         self._warned_violations = set()
         for ds in self.datasets.values():
@@ -842,6 +850,8 @@ class MultiDataset(torch.utils.data.Dataset):
         """Return a violation message if any tracked key in ``data`` has NaN/Inf
         or values outside per-key quantile bounds. ``None`` means the sample
         passes. Logs each (episode, key) violation once.
+
+        When ``self.reject_outliers`` is False only the NaN/Inf check runs.
         """
         embodiment_id = data.get("embodiment")
         if embodiment_id is None:
@@ -886,6 +896,9 @@ class MultiDataset(torch.utils.data.Dataset):
                     logger.warning(prefix)
                 return prefix
 
+            if not self.reject_outliers:
+                continue
+
             below = arr < q_low
             above = arr > q_high
             if torch.any(below) or torch.any(above):
@@ -904,6 +917,7 @@ class MultiDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx, _attempts: int | None = None):
         attempts = _attempts
+        requested_idx = idx
         while True:
             dataset_name, local_idx = self.index_map[idx]
             dataset = self.datasets[dataset_name]
@@ -923,7 +937,7 @@ class MultiDataset(torch.utils.data.Dataset):
             # If this leaf is itself a MultiDataset, it already ran bounds +
             # normalize for its returned sample. Pass through unchanged.
             if isinstance(dataset, MultiDataset):
-                return data
+                return self._mark_substituted(data, idx != requested_idx)
 
             violation = self._check_bounds(data, dataset, local_idx, dataset_name)
             if violation is not None:
@@ -939,7 +953,18 @@ class MultiDataset(torch.utils.data.Dataset):
             # Bounds passed — normalize and return.
             if self.norm_stats and data.get("embodiment") in self.norm_stats:
                 data = self.normalize(data, data["embodiment"])
-            return data
+            return self._mark_substituted(data, idx != requested_idx)
+
+    @staticmethod
+    def _mark_substituted(data: dict, substituted: bool) -> dict:
+        """Set ``data["substituted"]`` to True if this sample was served from a
+        different index than the one requested (bounds/NaN rejection here, or a
+        decode failure in the leaf). Preserves a True set by a nested dataset.
+        Collates to a ``(B,)`` bool tensor; eval uses it to mask substituted
+        samples out of metrics and validation videos.
+        """
+        data["substituted"] = bool(data.get("substituted", False)) or substituted
+        return data
 
     def _next_after_failure(
         self, idx: int, dataset_name: str, attempts: int | None, *, reason: str
@@ -1367,12 +1392,11 @@ class MultiDataset(torch.utils.data.Dataset):
         MultiDataset instead. Bounds-check + normalize now run at the
         MultiDataset level in ``__getitem__``, not as per-leaf transforms.
 
-        Kept as a thin shim that calls ``set_norm_stats_from(self)`` on each
-        MultiDataset in ``datasets`` so existing callers keep working. The
-        ``reject_outliers`` flag is no longer honored — bounds checking is
-        always on when stats are populated. To disable, clear ``norm_stats``.
+        Kept as a thin shim that sets ``self.reject_outliers`` and calls
+        ``set_norm_stats_from(self)`` on each MultiDataset in ``datasets`` so
+        existing callers keep working.
         """
-        del reject_outliers  # unused
+        self.reject_outliers = reject_outliers
         graph = datasets if datasets is not None else self.datasets
         for ds in graph.values():
             if isinstance(ds, MultiDataset):
@@ -1753,14 +1777,22 @@ class ZarrDataset(torch.utils.data.Dataset):
                     # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
                     # some contributors store 3x3 (e.g. microagi).
                     K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
+                if K.shape != (
+                    3,
+                    4,
+                ):  # unexpected -> sentinel (viz falls back to const)
                     K = np.full((3, 4), np.nan, dtype=np.float32)
             else:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
-            _ = origin  # preserved for symmetry with prior API
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
+            # True when a decode failure redirected this read to a different
+            # frame than the one requested. Downstream (eval) uses it to mask
+            # substituted samples out of metrics and validation videos.
+            data["substituted"] = idx != origin
             return data
 
 

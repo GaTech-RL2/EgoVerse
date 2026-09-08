@@ -29,11 +29,12 @@ class HPTEvalVideo(EvalVideo):
         mse = MeanSquaredError()
         total_loss = None
         n_loss_embodiments = 0
-        for embodiment_id, _batch in batch.items():
-            _batch = algo.norm_stats.unnormalize(_batch, embodiment_id)
+        for embodiment_id, raw_batch in batch.items():
             embodiment_name = get_embodiment(embodiment_id).lower()
             ac_key = algo.ac_keys[embodiment_id]
 
+            # The loss is a scalar computed inside forward_eval over the whole
+            # batch, so it cannot be masked after the fact; record it first.
             loss_key = f"{embodiment_name}_loss"
             if loss_key in preds:
                 loss_val = preds[loss_key]
@@ -42,6 +43,15 @@ class HPTEvalVideo(EvalVideo):
                     total_loss = torch.zeros_like(loss_val)
                 total_loss = total_loss + loss_val
                 n_loss_embodiments += 1
+
+            # Samples the dataset substituted (bounds/NaN rejection) are dropped
+            # from all per-sample metrics and from the video frames.
+            raw_batch, preds, n_kept = self.mask_substituted(
+                raw_batch, preds, embodiment_name
+            )
+            if n_kept == 0:
+                continue
+            _batch = algo.norm_stats.unnormalize(raw_batch, embodiment_id)
 
             if f"{embodiment_name}_{ac_key}" in preds and ac_key != algo.shared_ac_key:
                 metrics[f"Valid/{embodiment_name}_{ac_key}_paired_mse_avg"] = mse(
@@ -106,7 +116,7 @@ class HPTEvalVideo(EvalVideo):
                 hpt_batch = {
                     "domain": embodiment_name,
                     "data": algo._robomimic_to_hpt_data(
-                        batch[embodiment_id],
+                        raw_batch,
                         algo.camera_keys[embodiment_id],
                         algo.proprio_keys[embodiment_id],
                         algo.lang_keys[embodiment_id],

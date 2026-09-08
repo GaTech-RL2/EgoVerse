@@ -1,0 +1,169 @@
+# Behavior-Prompting Diffusion Transformer (BPP) as an EgoMimic algo.
+#
+# Translated nearly verbatim from behavior_prompting's
+#   train_network/config/model/diffusion_transformer_base.yaml
+#   train_network/config/model/obs_encoder/pair_prompt_encoder.yaml
+# with shape_meta generated here from our human cartesian data config
+# (data/bpp_overfit_test.yaml, data/mecka.yaml, data/human.yaml). Human
+# batches carry one front camera and a 12-dim state/action
+# ([left xyz+ypr, right xyz+ypr] in the head frame, no gripper).
+# See docs/bpp_algo_option.md.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.bpp.BPP
+  camera_transforms: {}
+
+  ac_keys:
+    human_bimanual: "actions_cartesian"
+
+  # Prompt sampling (adapter-side). batch_roll: each sample is prompted with
+  # its batch neighbor's (obs, action-chunk) pair — single-task first cut.
+  prompt:
+    mode: batch_roll
+    p_drop_prompt: 0.0
+
+  # BPP-convention shape_meta. Keys are our short batch names (the adapter
+  # maps "observations.images.front_img_1" -> "front_img_1" and
+  # "observations.state.ee_pose" -> "state_ee_pose"). Horizons match what
+  # MultiDataset actually emits (single current frame per obs key).
+  shape_meta:
+    image_resolution: 224
+    prompt_chunk_n_actions: 20
+    max_sequence_length: 400 # bounds the prompt positional embedding length
+    pad_end_prompt_actions: "no" # quoted — bare `no` parses as YAML false
+    use_prompting: true
+    action:
+      shape: [12]
+      horizon: 100
+    obs:
+      front_img_1:
+        shape: [3, 224, 224]
+        horizon: 1
+        type: rgb
+        ignore_by_policy: false
+        include_in_receding_obs: true
+        include_in_prompt_current_obs: true
+        prompt_type: observation
+      state_ee_pose:
+        shape: [12]
+        horizon: 1
+        type: low_dim
+        ignore_by_policy: false
+        include_in_receding_obs: true
+        include_in_prompt_current_obs: true
+        prompt_type: proprioception
+
+  policy:
+    _target_: behavior_prompting.train_network.policy.diffusion_transformer_policy.DiffusionTransformerPolicy
+    shape_meta: ${model.robomimic_model.shape_meta}
+    n_emb: 768
+
+    noise_scheduler:
+      _target_: diffusers.DDIMScheduler
+      num_train_timesteps: 50
+      beta_start: 0.0001
+      beta_end: 0.02
+      beta_schedule: squaredcos_cap_v2
+      clip_sample: True
+      set_alpha_to_one: True
+      steps_offset: 0
+      prediction_type: epsilon
+
+    num_inference_steps: 16
+    input_pertub: 0.1
+    diffusion_decoder_n_layer: 7
+    diffusion_decoder_n_head: 8
+    diffusion_encoder_enabled: False
+    diffusion_encoder_n_layer: 4
+    diffusion_encoder_n_head: 8
+    p_drop_attn: 0.1
+
+    obs_encoder:
+      _target_: behavior_prompting.train_network.model.prompt.prompt_obs_encoder.PairPromptObsEncoder
+      shape_meta: ${model.robomimic_model.shape_meta}
+      obs_encoder:
+        _target_: behavior_prompting.train_network.model.prompt.prompt_obs_encoder.PairPromptTransformerTokenizer
+        shape_meta: ${model.robomimic_model.shape_meta}
+        separate_prompt_and_receding_obs_encoders: False
+        obs_encoder:
+          _target_: behavior_prompting.train_network.model.vision.transformer_obs_encoder.TransformerObsEncoder
+          shape_meta: ${model.robomimic_model.shape_meta}
+          global_pool: ""
+          n_emb: 768
+          model_name: "vit_base_patch16_clip_224.openai"
+          pretrained: True
+          frozen: False
+          feature_aggregation: cls
+          downsample_ratio: 32
+          # Image geometry/augmentation is owned by the algo-level
+          # train/eval_image_augs below — keep these null so frames are never
+          # doubly augmented. CLIP mean/std still applied via use_vision_norm.
+          train_image_transforms: null
+          non_prompt_train_image_transforms: null
+          eval_image_transforms: null
+          use_group_norm: True
+          share_rgb_model: False
+          use_vision_norm: True
+          concat_time_dimension: False
+        n_emb: 768
+        concat_prompt_and_receding: False
+        only_use_last_step_of_prompt: False
+        cut_first_n_steps_of_prompt: 0
+        ignore_prompt_obs: False
+        ignore_prompt_proprio: False
+        ignore_prompt_action: False
+        merge_prompt_tokens: obs_and_action # none, obs, obs_and_action
+        use_pool_modality_pos_embed: true
+        prompt_attention_pool:
+          _target_: timm.layers.AttentionPoolLatent
+          in_features: 768
+          num_heads: 8
+          mlp_ratio: 4.0
+          pool_type: "token"
+      prompt_encoder_enabled: False
+      prompt_encoder_n_layer: 6
+      prompt_encoder_n_head: 8
+      prompt_with_obs_decoder_enabled: True
+      prompt_with_obs_decoder_n_layer: 6
+      prompt_with_obs_decoder_n_head: 8
+      ignore_prompt: False
+      flatten_output: False
+      n_emb: 768
+      p_drop_attn: 0.1
+      p_drop_prompt_tokens: 0.0
+      use_attention_sink: False
+      num_attention_sink_tokens: 4
+
+  # Resize to the CLIP ViT's 224x224 + BPP's UMI color jitter. No Normalize:
+  # the policy applies CLIP mean/std internally (use_vision_norm: True).
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: [224, 224]
+        antialias: true
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.3
+        contrast: 0.4
+        saturation: 0.5
+        hue: 0.08
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: [224, 224]
+        antialias: true
+
+# BPP's UMI diffusion-transformer training hyperparameters.
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5e-5
+  weight_decay: 1e-6
+  betas: [0.95, 0.999]
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 1400
+  eta_min: 1e-6

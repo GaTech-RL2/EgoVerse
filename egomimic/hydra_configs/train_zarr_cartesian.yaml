@@ -35,4 +35,6 @@ norm_stats:
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null
+# When false, frames outside the per-key quantile bounds are kept (NaN/Inf frames
+# are still dropped). Normalization is unaffected.
 reject_outliers: true

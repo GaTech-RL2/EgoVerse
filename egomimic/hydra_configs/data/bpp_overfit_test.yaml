@@ -1,0 +1,40 @@
+# Single-episode overfit config for the BPP algo (model/bpp_prompt_dit.yaml,
+# model/bpp_dit.yaml). Train and valid are the same episode so a working model
+# should drive the loss toward zero and forward_eval should reproduce the
+# episode's action chunks.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian
+        stride: 1
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        # - "lambda row: row['lab'] == 'mecka' and row['task'] == 'folding_clothes' and row['episode_hash'] == '69bb0e1f7fcc76cdadcc00bb'"
+        - "lambda row: row['episode_hash'] == '6930856076acbe36f0806bfb'"
+    # total: every frame of the episode is a training sample (no train/valid split).
+    mode: total
+
+# Validate on the same episode: for an overfit test valid loss should track train loss.
+valid_datasets:
+  human_bimanual: ${data.train_datasets.human_bimanual}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6

@@ -44,6 +44,59 @@ class EvalVideo(Eval):
     def video_dir(self):
         return os.path.join(self.root_dir(), "videos")
 
+    @staticmethod
+    def _select_rows(d: dict, keep: torch.Tensor, batch_size: int) -> dict:
+        """Return a copy of ``d`` with every per-sample entry (tensor with
+        ``shape[0] == batch_size`` or list of that length) indexed by the bool
+        mask ``keep``. Entries that are not per-sample (scalars, the ``(1,)``
+        ``embodiment`` tensor, strings) are passed through unchanged.
+        """
+        out = {}
+        keep_cpu = keep.detach().cpu()
+        keep_idx = keep_cpu.nonzero(as_tuple=False).flatten().tolist()
+        for k, v in d.items():
+            if k == "embodiment":
+                out[k] = v
+            elif torch.is_tensor(v) and v.ndim >= 1 and v.shape[0] == batch_size:
+                out[k] = v[keep.to(v.device)]
+            elif isinstance(v, list) and len(v) == batch_size:
+                out[k] = [v[i] for i in keep_idx]
+            else:
+                out[k] = v
+        return out
+
+    @classmethod
+    def mask_substituted(cls, batch: dict, preds: dict, embodiment_name: str):
+        """Drop samples the dataset served from a different index than requested
+        (see ``MultiDataset._mark_substituted``) so they contribute to neither
+        metrics nor the validation video.
+
+        ``batch`` is one embodiment's batch dict; ``preds`` is the algo's full
+        prediction dict, of which only the ``{embodiment_name}_*`` per-sample
+        tensors are filtered. Returns ``(batch, preds, n_kept)``. When the batch
+        has no ``substituted`` key it is returned unchanged.
+        """
+        sub = batch.get("substituted")
+        if not torch.is_tensor(sub) or sub.ndim != 1:
+            return batch, preds, None
+        keep = ~sub.bool()
+        n_kept = int(keep.sum().item())
+        if n_kept == sub.shape[0]:
+            return batch, preds, n_kept
+        B = sub.shape[0]
+        batch = cls._select_rows(batch, keep, B)
+        prefix = f"{embodiment_name}_"
+        preds = dict(preds)
+        for k, v in list(preds.items()):
+            if (
+                k.startswith(prefix)
+                and torch.is_tensor(v)
+                and v.ndim >= 1
+                and v.shape[0] == B
+            ):
+                preds[k] = v[keep.to(v.device)]
+        return batch, preds, n_kept
+
     @abstractmethod
     def compute_metrics_and_viz(self, batch):
         """
