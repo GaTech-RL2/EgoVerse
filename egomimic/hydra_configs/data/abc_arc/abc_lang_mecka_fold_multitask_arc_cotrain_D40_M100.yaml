@@ -1,0 +1,54 @@
+# Language variant of abc_mecka_fold_multitask_arc_cotrain_D40_M100.
+#
+# Identical episodes, filters, transforms, horizons and splits -- the ONLY
+# difference is that each embodiment's keymap now registers the annotation
+# track, so the batch carries language for the Qwen stem to condition on.
+# That keeps this and its no-language twin a controlled pair.
+#
+# `annotation_key: annotations` adds a `key_type: annotation_keys` entry to
+# the keymap -- handled by Embodiment.get_keymap for yam and
+# Human.get_keymap for human, both of which already accept the argument, so
+# no code change is needed. MultiDataset then resolves the episode's JSON
+# records {"text", "start_idx", "end_idx"} down to the plain texts whose
+# interval overlaps the sampled chunk, so the batch gets a time-aligned
+# list[str] per item rather than raw JSON.
+#
+# EVERY keymap in the config is patched below -- train AND every validation
+# group. Missing one would silently hand that split empty prompts, and since
+# an empty list falls back to `default_prompt` the run would look healthy
+# while validating unconditioned.
+#
+# Safe during the norm-stats pass: get_keymap drops annotation_keys whenever
+# norm_mode is set, so the statistics pass never sees strings.
+defaults:
+  - abc_arc/abc_mecka_fold_multitask_arc_cotrain_D40_M100
+  - _self_
+
+train_datasets:
+  human_bimanual:
+    resolver:
+      key_map:
+        annotation_key: annotations
+  yam_bimanual:
+    resolver:
+      key_map:
+        annotation_key: annotations
+valid_datasets:
+  valid:
+    human_bimanual:
+      resolver:
+        key_map:
+          annotation_key: annotations
+    yam_bimanual:
+      resolver:
+        key_map:
+          annotation_key: annotations
+  newtask:
+    human_bimanual:
+      resolver:
+        key_map:
+          annotation_key: annotations
+    yam_bimanual:
+      resolver:
+        key_map:
+          annotation_key: annotations
