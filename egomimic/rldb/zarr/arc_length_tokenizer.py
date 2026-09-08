@@ -199,6 +199,87 @@ def _interp_linear_at_s(
     return (1.0 - alpha) * values[i] + alpha * values[i + 1]
 
 
+def _bracket_segments(
+    cumdist: np.ndarray, targets: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Vectorized :func:`_bracket_segment` over many arc-length targets.
+
+    Same clamping rules as the scalar version: a target at or below
+    ``cumdist[0]`` maps to ``(0, 0.0)``, at or above ``cumdist[-1]`` to
+    ``(len - 2, 1.0)``, and a zero-length segment yields ``alpha = 0``.
+    """
+    cumdist = np.asarray(cumdist, dtype=np.float64)
+    targets = np.asarray(targets, dtype=np.float64)
+    n = len(cumdist)
+    last = max(n - 2, 0)
+    i = np.clip(np.searchsorted(cumdist, targets, side="left") - 1, 0, last)
+    s0 = cumdist[i]
+    s1 = cumdist[np.minimum(i + 1, n - 1)]
+    span = s1 - s0
+    ok = span > 1e-12
+    alpha = np.where(ok, (targets - s0) / np.where(ok, span, 1.0), 0.0)
+    lo = targets <= cumdist[0]
+    hi = targets >= cumdist[-1]
+    i = np.where(lo, 0, np.where(hi, last, i))
+    alpha = np.where(lo, 0.0, np.where(hi, 1.0, alpha))
+    return i, alpha
+
+
+def _slerp_segments_ypr(
+    ypr: np.ndarray, i: np.ndarray, alpha: np.ndarray
+) -> np.ndarray:
+    """SLERP ``ypr[i] -> ypr[i + 1]`` at ``alpha``, for many pairs at once.
+
+    Walks the same geodesic scipy's two-keyframe ``Slerp`` walks, as one
+    batched rotation-vector step instead of one ``Slerp`` object per target.
+    """
+    ypr = np.asarray(ypr, dtype=np.float64)
+    n = len(ypr)
+    j = np.minimum(i + 1, n - 1)
+    rot = _ypr_to_rotation(ypr)
+    r0 = rot[i]
+    rel = r0.inv() * rot[j]
+    out = _rotation_to_ypr(r0 * R.from_rotvec(rel.as_rotvec() * alpha[:, None]))
+    # Endpoints exactly: the scalar helpers short-circuit at alpha 0 / 1 and
+    # return the keyframe itself, so do not let the geodesic round-trip it.
+    at0 = alpha <= 0.0
+    at1 = alpha >= 1.0
+    out[at0] = ypr[i[at0]]
+    out[at1] = ypr[j[at1]]
+    return out
+
+
+def resample_at_arc_lengths(
+    pos: np.ndarray,
+    ypr: np.ndarray,
+    gripper: np.ndarray,
+    cumdist: np.ndarray,
+    targets: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Interpolate pos / ypr / gripper at many arc lengths in a single pass.
+
+    Vectorized equivalent of calling :func:`_interp_pos_at_s`,
+    :func:`_interp_ypr_at_s` and :func:`_interp_linear_at_s` once per target.
+    The scalar rotation helper builds a fresh two-keyframe ``Slerp`` per
+    target, so a bimanual token at M = 100 costs ~200 Rotation/Slerp
+    constructions per sample and dominates data loading (58 ms/sample
+    measured on mecka fold chunks, ~1 s/sample in loader workers without
+    ``OMP_NUM_THREADS=1``); this form measures 1.65 ms.
+
+    returns: (pos (K, 3), ypr (K, 3), gripper (K, G)) for K targets.
+    """
+    targets = np.asarray(targets, dtype=np.float64)
+    i, alpha = _bracket_segments(cumdist, targets)
+    j = np.minimum(i + 1, len(cumdist) - 1)
+    a = alpha[:, None]
+    pos = np.asarray(pos, dtype=np.float64)
+    gripper = np.asarray(gripper, dtype=np.float64)
+    pos_out = (1.0 - a) * pos[i] + a * pos[j]
+    grip_out = (1.0 - a) * gripper[i] + a * gripper[j]
+    ypr_out = _slerp_segments_ypr(ypr, i, alpha)
+    return pos_out, ypr_out, grip_out
+
+
 def resample_by_distance(
     pos: np.ndarray,
     ypr: np.ndarray,
@@ -221,14 +302,8 @@ def resample_by_distance(
     returns: (pos (M, 3), ypr (M, 3), gripper (M, G)).
     """
     targets = np.linspace(start_s, end_s, num_samples)
-    pos_out = np.stack(
-        [_interp_pos_at_s(pos, cumdist, float(s)) for s in targets], axis=0
-    )
-    ypr_out = np.stack(
-        [_interp_ypr_at_s(ypr, cumdist, float(s)) for s in targets], axis=0
-    )
-    grip_out = np.stack(
-        [_interp_linear_at_s(gripper, cumdist, float(s)) for s in targets], axis=0
+    pos_out, ypr_out, grip_out = resample_at_arc_lengths(
+        pos, ypr, gripper, cumdist, targets
     )
     if start_idx is not None:
         pos_out[0] = pos[start_idx]
@@ -1217,14 +1292,8 @@ class TokenizeBimanualArcLengthCartesian:
                 # linearly and ypr via SLERP at each s(k) against the
                 # waypoints' cumdist.
                 s = np.minimum(speed * np.arange(h, dtype=np.float64) * dt, total)
-                pos_t = np.stack(
-                    [_interp_pos_at_s(xyz_wp, cumdist, float(sk)) for sk in s]
-                )
-                ypr_t = np.stack(
-                    [_interp_ypr_at_s(ypr_wp, cumdist, float(sk)) for sk in s]
-                )
-                grip_t = np.stack(
-                    [_interp_linear_at_s(grip_wp, cumdist, float(sk)) for sk in s]
+                pos_t, ypr_t, grip_t = resample_at_arc_lengths(
+                    xyz_wp, ypr_wp, grip_wp, cumdist, s
                 )
             arms_out.append(np.concatenate([pos_t, ypr_t, grip_t], axis=-1))
         return np.concatenate(arms_out, axis=-1)  # (H, 14)
