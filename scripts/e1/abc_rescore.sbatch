@@ -42,7 +42,9 @@ PYEOF
 }
 run_eval() {  # tag set ckpt
   local TAG=$1 TS=$2 CKPT=$3 OUTD=$RUN/eval_${1}_$2
-  if has_metric $OUTD/eval_metrics.json; then echo "have $TAG/$TS ($METRIC)"; return; fi
+  # FORCE=1 re-evaluates even when METRIC is already present -- needed when a knob that changes
+  # the metric (e.g. e1.arcmatch_gt_span_m) is being overridden via EVAL_EXTRA
+  if [ "${FORCE:-0}" != 1 ] && has_metric $OUTD/eval_metrics.json; then echo "have $TAG/$TS ($METRIC)"; return; fi
   echo "=== EVAL $TAG on $TS ckpt=$CKPT ($(date)) ==="
   $PY egomimic/trainHydra.py --config-name=train_zarr_cartesian +experiment=e1/${EXP}_${VARIANT} mode=eval "ckpt_path=\"$CKPT\"" \
     e1.spread=$SPREAD e1.train_root=$DATA/$SPREAD e1.valid_root=$DATA/$TS e1.h_match_frames=$H_MATCH e1.limit_val_batches=1.0 \
