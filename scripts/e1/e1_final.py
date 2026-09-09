@@ -36,8 +36,20 @@ def tag_of(run):
     return "best"
 
 
+SNAPSHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "time_baseline_snapshot.json")
+
+
 def collect(fams, rows):
     out = defaultdict(dict)
+    # runs/e1_abc (the robot Time baseline) was deleted from scratch on 2026-09-09 15:31 ET.
+    # Its per-cell numbers were harvested before that and live in the snapshot beside this
+    # script; use them when the directory is gone so the comparison stays reconstructible.
+    if "e1_abc" in fams and "time" in rows and not os.path.isdir(f"{ROOT}/e1_abc") and os.path.exists(SNAPSHOT):
+        snap = json.load(open(SNAPSHOT))["time"]
+        for k, v in snap.items():
+            sp, sd = k.rsplit("_s", 1)
+            out["time"][(sp, int(sd))] = v["arcmatch_gtspan_paired_mse"]
+        print("(robot Time baseline read from time_baseline_snapshot.json -- runs/e1_abc is gone)")
     for fam in fams:
         for run in glob.glob(f"{ROOT}/{fam}/*/"):
             run = run.rstrip("/"); name = os.path.basename(run)

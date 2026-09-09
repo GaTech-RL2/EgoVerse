@@ -1,0 +1,14 @@
+{
+  "_what": "Per-cell metrics of the robot Time baseline (runs/e1_abc/time_<spread>_s<seed>, 30k steps, tag=best, mean over test_low/test_mid/test_high). The run directories were deleted from ICE scratch at 15:31 ET on 2026-09-09 (not by the agent session); these values were harvested from the eval JSONs by scripts/e1/e1_verdict.py and e1_final.py earlier the same day, before the deletion, and are copied verbatim from that tool output.",
+  "_source_commit": "18aca75c (scripts/e1/e1_final.py output), 2a49905c (e1_verdict.py output)",
+  "_gt_span_m": 0.36961,
+  "_matched_span_m_mean": 0.67189,
+  "time": {
+    "narrow_s42": {"arcmatch_paired_mse": 0.03173, "arcmatch_gtspan_paired_mse": 0.02555, "xyz_mse": 0.00867},
+    "narrow_s43": {"arcmatch_paired_mse": 0.03279, "arcmatch_gtspan_paired_mse": 0.02571, "xyz_mse": 0.00910},
+    "medium_s42": {"arcmatch_paired_mse": 0.02938, "arcmatch_gtspan_paired_mse": 0.02379, "xyz_mse": 0.00820},
+    "medium_s43": {"arcmatch_paired_mse": 0.03021, "arcmatch_gtspan_paired_mse": 0.02444, "xyz_mse": 0.00860},
+    "full_s42":   {"arcmatch_paired_mse": 0.03199, "arcmatch_gtspan_paired_mse": 0.02509, "xyz_mse": 0.00915},
+    "full_s43":   {"arcmatch_paired_mse": 0.03184, "arcmatch_gtspan_paired_mse": 0.02497, "xyz_mse": 0.00889}
+  }
+}
