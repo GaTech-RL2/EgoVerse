@@ -57,6 +57,13 @@ else
 fi
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 export TORCHINDUCTOR_CACHE_DIR=/tmp/ti_$SLURM_JOB_ID TRITON_CACHE_DIR=/tmp/tr_$SLURM_JOB_ID
+# Job 12976086 died on a NCCL ALLREDUCE watchdog timeout (SeqNum 1419, 30 min)
+# ~15 min into training: ranks 0/1/3 aborted while rank 2 stopped issuing
+# collectives — i.e. one rank's input pipeline stalled, not a compute fault
+# (all four GPUs were at 1980 MHz / 37-54 C with no throttling). NCCL_DEBUG
+# gives the next occurrence something to read, and the dataloader timeouts
+# below turn a silent worker hang into a fast, attributable crash.
+export NCCL_DEBUG=WARN
 
 NORM_PATH="${NORM_PATH-/storage/project/r-dxu345-0/agao81/norm_stats/abc_stationery_rl2yam/norm_stats}"
 CKPT_PATH="${CKPT_PATH-}"
@@ -82,6 +89,11 @@ ARGS=(
   "model.optimizer.lr=$LR"
   "norm_stats.precomputed_norm_path=$NORM_PATH"
   model.robomimic_model.config.pytorch_weight_path=/storage/project/r-dxu345-0/agao81/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
+  # A stuck zarr read on the shared NFS mirror otherwise blocks a rank
+  # forever and only surfaces as the other ranks' NCCL watchdog timeout.
+  +data.train_dataloader_params.eva_bimanual.timeout=600
+  +data.valid_dataloader_params.eva_bimanual.timeout=600
+  +data.train_viz_dataloader_params.eva_bimanual.timeout=600
   callbacks.model_checkpoint.every_n_epochs=50
   callbacks.model_checkpoint.save_top_k=-1
   name=pi05_abc_stationery_bc
