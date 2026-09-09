@@ -1,0 +1,13 @@
+# @package _global_
+# Port of Ryan's duration-timed ARC codec (EgoVerse-graph 6d1b5f93): the
+# Arc+Vel layout (M, 16) whose per-arm timing column carries the ABSOLUTE elapsed
+# seconds of each waypoint interval instead of a log mean slowness plus a log
+# relative profile. Same timing content as arclogdur, different parameterization;
+# same head as the arcvel row.
+defaults:
+  - /experiment/e1/fold_base
+  - override /model: hpt_cotrain_mecka_flow_shared_head_arcvel_D40_M100
+  - _self_
+e1:
+  variant: arcdur
+  chunk_length: 200

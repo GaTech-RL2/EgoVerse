@@ -36,6 +36,20 @@ changes. Three things over the parent:
   clock as a cumulative sum of durations — no division by a near-zero speed,
   and a timing error is a *relative* error at any tempo.
 
+* ``velocity_mode="dur"`` — the port of Ryan's duration-timed codec
+  (EgoVerse-graph ``6d1b5f93``, "duration + progress instead of velocity").
+  Same ``(M, 16)`` layout, but the per-arm column holds the **elapsed seconds**
+  of each waypoint interval, absolute and unlogged: rows ``0..M-2`` are the
+  intervals and row ``M-1`` repeats the last one (his ``_sample_stream`` pads
+  the channel to length M the same way, and his decoder reads only the first
+  M-1). ``detokenize`` sums them into the clock — no division, no log, no
+  scalar/profile split. Ryan's argument is that ``_sample_stream`` computes
+  each interval's ``delta_t`` and then divides it away to make a rate, which
+  the decoder's first act is to invert; duration is the primitive quantity and
+  it represents a hold exactly. Differences from our ``logdur``, which already
+  banked the no-division half of that argument, are in the class docstring of
+  ``durations_to_clock_abs``.
+
 * ``fixed_spacing`` — theory design rule 1: waypoints are ALWAYS ``h = D / (M - 1)`` apart.
   A partial token (path shorter than D inside the window — 29 % of arm-tokens on ABC
   skirts, 50 % on stationery, 8 % on mecka) keeps its first ``n_valid`` waypoints at
@@ -189,6 +203,61 @@ def durations_to_clock(col: np.ndarray, span, min_speed: float = 0.01, max_speed
     return np.concatenate(([0.0], np.cumsum(seg)))
 
 
+def durations_to_clock_abs(col: np.ndarray, span, min_speed: float = 0.01, max_speed: float = 5.0) -> np.ndarray:
+    """``dur`` column (M,) + polyline span (m) -> time-of-progress at the M waypoints (s).
+
+    Ryan's duration codec, ported (EgoVerse-graph ``6d1b5f93``). The channel is
+    the elapsed SECONDS of each waypoint interval, so the clock is a running
+    sum of it: ``t = [0, cumsum(dt_i)]``. Rows ``0..M-2`` are the intervals;
+    row ``M-1`` repeats the last one and is never read, mirroring his
+    ``_sample_stream`` padding.
+
+    How this differs from ``durations_to_clock`` (our ``logdur``), which is the
+    whole point of running it as a row:
+
+    * **Absolute, not scalar x normalized profile.** logdur splits tempo into
+      row 0 (log mean slowness, which owns the total time) and rows 1.. (log
+      segment durations relative to the mean, renormalised at decode so a
+      predicted profile cannot rescale the total). Here every interval carries
+      its own absolute seconds and the total is just their sum, so a profile
+      error does move the total.
+    * **Linear, not log.** An L2 loss on this channel penalises absolute
+      timing error; on logdur it penalises relative error at any tempo. Which
+      one a mixed-tempo policy wants is exactly the open question.
+    * **Unclipped.** logdur clamps ``|log(seg / mean seg)|`` at ``LOGDUR_CLIP``
+      (= log 20), so a hold longer than 20x the mean segment is truncated;
+      absolute duration represents it exactly. This is Ryan's "duration
+      represents a hold exactly" point, and it is the one that bites on
+      hold-heavy sources (ABC stationery: 54 % of frames).
+    * His third argument -- the decoder reads only ``rate.abs()`` so the
+      predicted sign of omega is dead -- does not transfer: our rotation rides
+      the same per-arm arc clock as position and there is no angular rate
+      channel to carry a dead sign.
+
+    Durations are clamped non-negative: time cannot run backwards, and a
+    negative prediction would make the clock non-monotone and break the
+    progress lookup (his clamp too). The one guard that is ours and not his:
+    if the implied mean speed leaves ``[min_speed, max_speed]`` the clock is
+    rescaled uniformly -- the same bound ``durations_to_clock`` puts on
+    logdur's row 0, kept here so neither row gets a safety net the other
+    lacks. It never fires on true tokens (fold data 0.10-0.42 m/s).
+    """
+    col = np.asarray(col, dtype=np.float64)
+    M = len(col)
+    cum = None
+    if np.ndim(span) > 0:  # a cumulative-arc-length array: zero-length (padded) segments carry no time
+        cum = np.asarray(span, dtype=np.float64); span = float(cum[-1])
+    seg = np.maximum(col[: M - 1], 0.0)
+    if cum is not None:
+        seg = seg * (np.diff(cum) > 1e-9)
+    t_span = float(seg.sum())
+    span = max(float(span), 1e-9)
+    lo, hi = span / max_speed, span / min_speed
+    if t_span > 1e-12 and not (lo <= t_span <= hi):
+        seg = seg * (min(max(t_span, lo), hi) / t_span)
+    return np.concatenate(([0.0], np.cumsum(seg)))
+
+
 class CopyKeyRows(Transform):
     """``batch[dst] = batch[src][:n_rows]`` — carries the un-tokenized time chunk
     (``actions_time``) alongside the model target so the E1 evaluator can score
@@ -219,8 +288,8 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         self.fixed_spacing = bool(fixed_spacing)
         if velocity_norm not in ("chord", "path"):
             raise ValueError(f"velocity_norm must be 'chord' or 'path', got {velocity_norm!r}")
-        if velocity_mode not in ("mean", "profile", "logdur"):
-            raise ValueError(f"velocity_mode must be 'mean', 'profile' or 'logdur', got {velocity_mode!r}")
+        if velocity_mode not in ("mean", "profile", "logdur", "dur"):
+            raise ValueError(f"velocity_mode must be 'mean', 'profile', 'logdur' or 'dur', got {velocity_mode!r}")
         self.velocity_norm = velocity_norm
         self.velocity_mode = velocity_mode
         self.speed_smooth_frames = int(speed_smooth_frames)
@@ -230,7 +299,7 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
     @property
     def wide(self) -> bool:
         """(M, 16) layouts: a per-waypoint timing column per arm."""
-        return self.velocity_mode in ("profile", "logdur")
+        return self.velocity_mode in ("profile", "logdur", "dur")
 
     def _progress_positions(self, pos: np.ndarray) -> np.ndarray:
         """Positions used for arc length / resampling / timing (#4 when smoothing is on)."""
@@ -315,6 +384,18 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
                 if self.velocity_mode == "profile":
                     v = chunk_speed(pos, dt, self.speed_smooth_frames)
                     prof[:, k] = np.maximum(np.interp(fidx, np.arange(len(v)), v), 0.0)
+                elif self.velocity_mode == "dur":
+                    # Ryan's codec: the elapsed seconds of each waypoint interval,
+                    # absolute. `fidx` is the fractional frame index at each waypoint,
+                    # so an interval's duration is its difference x dt -- the same
+                    # `seg` logdur then takes the log of, which makes the two rows
+                    # carry identical timing content and differ only in how it is
+                    # parameterized. Padded (plateau) segments stay 0; row M-1 repeats
+                    # the last interval, as his `_sample_stream` pads.
+                    valid = np.diff(u) > 1e-9
+                    seg = np.maximum(np.diff(fidx) * dt, LOGDUR_MIN_DT) * valid
+                    prof[: M - 1, k] = seg
+                    prof[M - 1, k] = seg[-1]
                 else:  # logdur: row 0 = log mean slowness, rows 1.. = log relative segment durations
                     valid = np.diff(u) > 1e-9  # padded (plateau) segments carry no time and get 0
                     seg = np.maximum(np.diff(fidx) * dt, LOGDUR_MIN_DT) * valid
@@ -392,6 +473,8 @@ class TokenizeBimanualArcLengthE1(TokenizeBimanualArcLengthCartesian):
         """Time-of-progress at the M waypoints from one arm's timing column."""
         if self.velocity_mode == "logdur":
             return durations_to_clock(col, cum, min_speed=self.min_speed)
+        if self.velocity_mode == "dur":
+            return durations_to_clock_abs(col, cum, min_speed=self.min_speed)
         return integral_clock(cum, np.maximum(col, self.min_speed))
 
     def clock_at_waypoints(self, arc_actions: np.ndarray) -> list[np.ndarray]:

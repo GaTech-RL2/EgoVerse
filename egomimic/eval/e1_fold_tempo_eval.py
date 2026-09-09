@@ -139,8 +139,8 @@ class E1FoldTempoEval(HPTEvalVideo):
         self.span_floor_m = float(span_floor_m)
         kwargs.setdefault("viz_func", None)
         super().__init__(**kwargs)
-        if variant not in ("time", "arcmean", "arcvel", "arclogdur"):
-            raise ValueError("variant must be time | arcmean | arcvel | arclogdur")
+        if variant not in ("time", "arcmean", "arcvel", "arclogdur", "arcdur"):
+            raise ValueError("variant must be time | arcmean | arcvel | arclogdur | arcdur")
         self.prog_horizon_m = float(prog_horizon_m)
         self.progress_smooth_hz = None if progress_smooth_hz in (None, 0, 0.0) else float(progress_smooth_hz)
         self.variant = variant
@@ -155,7 +155,7 @@ class E1FoldTempoEval(HPTEvalVideo):
                 resampled_vector_length=self.M,
                 dt=self.dt,
                 velocity_norm=velocity_norm,
-                velocity_mode={"arcmean": "mean", "arcvel": "profile", "arclogdur": "logdur"}[variant],
+                velocity_mode={"arcmean": "mean", "arcvel": "profile", "arclogdur": "logdur", "arcdur": "dur"}[variant],
                 progress_smooth_hz=progress_smooth_hz,
             )
         self._reset()

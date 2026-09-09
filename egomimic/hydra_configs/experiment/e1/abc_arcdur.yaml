@@ -1,0 +1,34 @@
+# @package _global_
+# ABC / YAM skirts — arcdur row: Ryan's duration codec (see fold_arcdur).
+defaults:
+  - /experiment/e1/abc_base
+  - override /model: hpt_cotrain_mecka_flow_shared_head_arcvel_D40_M100
+  - _self_
+e1:
+  variant: arcdur
+  chunk_length: 200
+model:
+  robomimic_model:
+    domains: ["yam_bimanual", "human_bimanual"]
+    ac_keys:
+      yam_bimanual: "actions_cartesian"
+    stem_specs:
+      yam_bimanual:
+        state_ee_pose:
+          _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+          input_dim: 14
+          output_dim: 256
+          widths: [256]
+          specs:
+            random_horizon_masking: false
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: 8
+              crossattn_dim_head: 64
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: 256
+    head_specs:
+      yam_bimanual: null   # shared head only, like human_bimanual / eva_bimanual
+      shared:
+        infer_ac_dims:
+          yam_bimanual: 16
