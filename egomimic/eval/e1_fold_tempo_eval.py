@@ -47,7 +47,11 @@ import torch
 
 from egomimic.eval.hpt.eval_hpt import HPTEvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment
-from egomimic.rldb.zarr.arc_length_tokenizer import cumulative_arc_length
+from egomimic.rldb.zarr.arc_length_tokenizer import (
+    _dist_interval_indices,
+    cumulative_arc_length,
+    resample_by_distance,
+)
 from egomimic.rldb.zarr.e1_arc_tokenizer import ARM_LAYOUT, TokenizeBimanualArcLengthE1, lowpass_positions
 
 # Same columns the lab's eval_eef_arcmatch uses: xyz + gripper per arm.
@@ -57,6 +61,60 @@ XYZ_COLS = [0, 1, 2, 7, 8, 9]
 
 def _at_progress(p, cum, s):
     return np.stack([np.interp(s, cum, p[:, k]) for k in range(p.shape[1])], axis=1)
+
+
+# ---------------------------------------------------------------------------
+# Arc-matched scoring -- a line-for-line port of the lab's eval_eef_arcmatch
+# (aniketh/arc, 57763c49): per sample and arm the matched span is the SHORTER
+# of the two travelled distances, both sides are re-tokenized over it with the
+# tokenizer's own interpolators (linear xyz / gripper, SLERP rotation) to M
+# waypoints uniform in arc length, and the waypoints are scored on the paired
+# columns. Travel-normalized: it asks "is the path shape right" with the amount
+# of travel divided out, which is what makes a time-indexed and an arc run
+# comparable on one chart. The velocity row is recomputed by the same formula
+# on both sides (MEAN_PER_DIM over the covered index range) for the with-vel
+# variant. Spans below span_floor_m collapse every waypoint onto the origin
+# and score a structural zero, so they are counted rather than hidden.
+# ---------------------------------------------------------------------------
+ARM_BLOCKS = ((0, 3, 6), (7, 10, 13))  # (xyz offset, ypr offset, gripper index)
+
+
+def _arm_views(traj):
+    for xyz_off, ypr_off, grip_i in ARM_BLOCKS:
+        yield traj[:, xyz_off : xyz_off + 3], traj[:, ypr_off : ypr_off + 3], traj[:, grip_i : grip_i + 1]
+
+
+def arm_travel(traj):
+    """(T, 14) -> (2,) total translational arc length per arm, in metres."""
+    return np.array([float(cumulative_arc_length(pos)[-1]) for pos, _, _ in _arm_views(traj)])
+
+
+def match_spans(pred_ti, gt_ti):
+    return np.minimum(arm_travel(pred_ti), arm_travel(gt_ti))
+
+
+def tokenize_span(traj, spans, num_points, dt):
+    """Re-tokenize a time-indexed (T, 14) chunk over a per-arm span -> (waypoints (M, 14), velocity (14,))."""
+    waypoints = np.zeros((num_points, 14), dtype=np.float64)
+    velocity = np.zeros(14, dtype=np.float64)
+    for arm, (pos, ypr, grip) in enumerate(_arm_views(traj)):
+        cum = cumulative_arc_length(pos)
+        end_s = float(min(spans[arm], cum[-1]))
+        p, y, g = resample_by_distance(pos, ypr, grip, cum, 0.0, end_s, num_points, start_idx=0)
+        o = arm * 7
+        waypoints[:, o : o + 3] = p
+        waypoints[:, o + 3 : o + 6] = y
+        waypoints[:, o + 6] = g[:, 0]
+        start_i, end_i = _dist_interval_indices(cum, 0.0, end_s)
+        dur = max(end_i - start_i, 1) * dt
+        velocity[o : o + 3] = (p[-1] - p[0]) / dur
+        velocity[o + 3 : o + 6] = (y[-1] - y[0]) / dur
+        velocity[o + 6] = (g[-1, 0] - g[0, 0]) / dur
+    return waypoints, velocity
+
+
+def _mse_cols(a, b, cols):
+    return float(np.mean((a[..., cols] - b[..., cols]) ** 2))
 
 
 class E1FoldTempoEval(HPTEvalVideo):
@@ -73,8 +131,12 @@ class E1FoldTempoEval(HPTEvalVideo):
         prog_horizon_m: float = 0.19,
         progress_smooth_hz: float | None = None,
         velocity_norm: str = "path",
+        arc_match_points: int = 100,
+        span_floor_m: float = 0.01,
         **kwargs,
     ):
+        self.arc_match_points = int(arc_match_points)
+        self.span_floor_m = float(span_floor_m)
         kwargs.setdefault("viz_func", None)
         super().__init__(**kwargs)
         if variant not in ("time", "arcmean", "arcvel", "arclogdur"):
@@ -105,6 +167,10 @@ class E1FoldTempoEval(HPTEvalVideo):
         # Action-space MSEs, accumulated per sample (not per arm).
         self._paired = {k: 0.0 for k in ("paired_mse", "paired_mse_hmatch", "xyz_mse", "xyz_mse_hmatch")}
         self._n_paired = 0
+        self._am = {k: 0.0 for k in ("arcmatch_paired_mse", "arcmatch_withvel_paired_mse", "arcmatch_xyz_mse", "arcmatch_span_m", "arcmatch_travel_ratio")}
+        self._am_n = 0
+        self._am_arms = 0
+        self._am_degenerate = 0
         self._n = 0
         self._n_partial = 0
         self._per_chunk = []
@@ -168,6 +234,23 @@ class E1FoldTempoEval(HPTEvalVideo):
                     d = dec[:upto][:, cols] - gt_full[:upto][:, cols]
                     self._paired[key] += float(np.mean(d ** 2))
                 self._n_paired += 1
+                # Arc-matched (lab metric): both sides over the shorter per-arm travel.
+                p_, g_ = dec[:nb], gt_full[:nb]
+                spans = match_spans(p_, g_)
+                if np.all(np.isfinite(spans)):
+                    Mm = self.arc_match_points
+                    pw, pv = tokenize_span(p_, spans, Mm, self.dt)
+                    gw, gv = tokenize_span(g_, spans, Mm, self.dt)
+                    pf = np.concatenate([pw, pv[None, :]], axis=0)
+                    gf = np.concatenate([gw, gv[None, :]], axis=0)
+                    self._am["arcmatch_paired_mse"] += _mse_cols(pw, gw, PAIRED_COLS)
+                    self._am["arcmatch_withvel_paired_mse"] += _mse_cols(pf, gf, PAIRED_COLS)
+                    self._am["arcmatch_xyz_mse"] += _mse_cols(pw, gw, XYZ_COLS)
+                    self._am["arcmatch_span_m"] += float(np.mean(spans))
+                    self._am["arcmatch_travel_ratio"] += float(np.mean(arm_travel(p_) / np.maximum(arm_travel(g_), 1e-6)))
+                    self._am_n += 1
+                    self._am_arms += spans.size
+                    self._am_degenerate += int(np.count_nonzero(spans < self.span_floor_m))
                 for a, (arm, (xyz_off, _, _, _)) in enumerate(zip(("L", "R"), ARM_LAYOUT)):
                     gt_xyz = gt[b, :, xyz_off : xyz_off + 3]
                     gt_cum_raw = cumulative_arc_length(gt_xyz)
@@ -204,6 +287,10 @@ class E1FoldTempoEval(HPTEvalVideo):
             npd = max(self._n_paired, 1)
             for k in ("paired_mse", "paired_mse_hmatch", "xyz_mse", "xyz_mse_hmatch"):
                 metrics[f"Valid/E1/{k}/{name}"] = torch.tensor(self._paired[k] / npd)
+            nam = max(self._am_n, 1)
+            for k, v in self._am.items():
+                metrics[f"Valid/E1/{k}/{name}"] = torch.tensor(v / nam)
+            metrics[f"Valid/E1/arcmatch_degenerate_frac/{name}"] = torch.tensor(self._am_degenerate / max(self._am_arms, 1))
         return metrics, {}
 
     def on_validation_end(self):
@@ -223,6 +310,9 @@ class E1FoldTempoEval(HPTEvalVideo):
             "e_time_prog": float(np.sqrt(self._sums["e_time_prog_sq"] / n)),
             **{k: float(v / max(self._n_paired, 1)) for k, v in self._paired.items()},
             "n_paired": int(self._n_paired),
+            **{k: float(v / max(self._am_n, 1)) for k, v in self._am.items()},
+            "arcmatch_degenerate_frac": float(self._am_degenerate / max(self._am_arms, 1)),
+            "arcmatch_points": self.arc_match_points,
             "prog_horizon_m": self.prog_horizon_m,
             "progress_smooth_hz": self.progress_smooth_hz,
             "prog_frames_p50": float(np.median(self._prog_frames)) if self._prog_frames else None,
