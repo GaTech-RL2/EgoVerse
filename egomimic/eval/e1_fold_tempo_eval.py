@@ -79,6 +79,27 @@ def _at_progress(p, cum, s):
 ARM_BLOCKS = ((0, 3, 6), (7, 10, 13))  # (xyz offset, ypr offset, gripper index)
 
 
+# ---------------------------------------------------------------------------
+# Ground-truth-span arc-matched MSE -- a DIAGNOSTIC beside the lab metric, not
+# a replacement for it. The lab's span is min(travel(pred), travel(gt)) per arm,
+# so a row that under-travels is scored over a shorter piece of trajectory.
+# Measured on ABC skirts at 30k: the time rows match at 0.65-0.72 m and every
+# arc row at 0.286-0.306 m, because an arc token of budget D cannot represent
+# more than D metres of path over the 100-frame horizon. Less travel means less
+# room to diverge, so part of the arc rows' advantage on the lab metric is the
+# shorter span rather than better shape -- the same confound already recorded
+# for the stationery rollout pair.
+#
+# Here the span is min(travel(gt), gt_span_m) -- it depends only on the ground
+# truth, so every row is scored over the IDENTICAL piece of gt path, and a
+# prediction that stops short has its own short path stretched over the M
+# waypoints and is penalised for it instead of rewarded. Default gt_span_m = D,
+# the arc token's own budget: the longest span every row can represent.
+# ---------------------------------------------------------------------------
+def gt_spans(gt_ti, cap):
+    return np.minimum(arm_travel(gt_ti), cap)
+
+
 def _arm_views(traj):
     for xyz_off, ypr_off, grip_i in ARM_BLOCKS:
         yield traj[:, xyz_off : xyz_off + 3], traj[:, ypr_off : ypr_off + 3], traj[:, grip_i : grip_i + 1]
@@ -133,10 +154,12 @@ class E1FoldTempoEval(HPTEvalVideo):
         velocity_norm: str = "path",
         arc_match_points: int = 100,
         span_floor_m: float = 0.01,
+        arcmatch_gt_span_m: float | None = None,
         **kwargs,
     ):
         self.arc_match_points = int(arc_match_points)
         self.span_floor_m = float(span_floor_m)
+        self._gt_span_arg = arcmatch_gt_span_m
         kwargs.setdefault("viz_func", None)
         super().__init__(**kwargs)
         if variant not in ("time", "arcmean", "arcvel", "arclogdur", "arcdur"):
@@ -146,6 +169,8 @@ class E1FoldTempoEval(HPTEvalVideo):
         self.variant = variant
         self.time_key = time_key
         self.D, self.M, self.dt = float(D), int(M), float(dt)
+        # default: the token's own distance budget
+        self.gt_span_m = self.D if self._gt_span_arg in (None, 0, 0.0) else float(self._gt_span_arg)
         self.h_match = int(h_match_frames)
         self.results_path = Path(results_path) if results_path else None
         self._detok = None
@@ -171,6 +196,8 @@ class E1FoldTempoEval(HPTEvalVideo):
         self._am_n = 0
         self._am_arms = 0
         self._am_degenerate = 0
+        self._amg = {k: 0.0 for k in ("arcmatch_gtspan_paired_mse", "arcmatch_gtspan_xyz_mse", "arcmatch_gtspan_span_m")}
+        self._amg_n = 0
         self._n = 0
         self._n_partial = 0
         self._per_chunk = []
@@ -251,6 +278,15 @@ class E1FoldTempoEval(HPTEvalVideo):
                     self._am_n += 1
                     self._am_arms += spans.size
                     self._am_degenerate += int(np.count_nonzero(spans < self.span_floor_m))
+                    # diagnostic: same span for every row, set by the ground truth alone
+                    gs = gt_spans(g_, self.gt_span_m)
+                    if np.all(np.isfinite(gs)):
+                        pwg, _ = tokenize_span(p_, gs, Mm, self.dt)
+                        gwg, _ = tokenize_span(g_, gs, Mm, self.dt)
+                        self._amg["arcmatch_gtspan_paired_mse"] += _mse_cols(pwg, gwg, PAIRED_COLS)
+                        self._amg["arcmatch_gtspan_xyz_mse"] += _mse_cols(pwg, gwg, XYZ_COLS)
+                        self._amg["arcmatch_gtspan_span_m"] += float(np.mean(gs))
+                        self._amg_n += 1
                 for a, (arm, (xyz_off, _, _, _)) in enumerate(zip(("L", "R"), ARM_LAYOUT)):
                     gt_xyz = gt[b, :, xyz_off : xyz_off + 3]
                     gt_cum_raw = cumulative_arc_length(gt_xyz)
@@ -290,6 +326,9 @@ class E1FoldTempoEval(HPTEvalVideo):
             nam = max(self._am_n, 1)
             for k, v in self._am.items():
                 metrics[f"Valid/E1/{k}/{name}"] = torch.tensor(v / nam)
+            namg = max(self._amg_n, 1)
+            for k, v in self._amg.items():
+                metrics[f"Valid/E1/{k}/{name}"] = torch.tensor(v / namg)
             metrics[f"Valid/E1/arcmatch_degenerate_frac/{name}"] = torch.tensor(self._am_degenerate / max(self._am_arms, 1))
         return metrics, {}
 
@@ -311,6 +350,8 @@ class E1FoldTempoEval(HPTEvalVideo):
             **{k: float(v / max(self._n_paired, 1)) for k, v in self._paired.items()},
             "n_paired": int(self._n_paired),
             **{k: float(v / max(self._am_n, 1)) for k, v in self._am.items()},
+            **{k: float(v / max(self._amg_n, 1)) for k, v in self._amg.items()},
+            "arcmatch_gt_span_m": self.gt_span_m,
             "arcmatch_degenerate_frac": float(self._am_degenerate / max(self._am_arms, 1)),
             "arcmatch_points": self.arc_match_points,
             "prog_horizon_m": self.prog_horizon_m,

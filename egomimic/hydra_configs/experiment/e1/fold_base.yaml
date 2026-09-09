@@ -26,6 +26,7 @@ e1:
   anchor_sampler: null        # #3: {alpha, fc_hz, fs_hz, seed} -> progress-weighted anchors
   velocity_norm: path         # Arc-mean velocity row: path (E1 rows) | chord (the lab's token, decoded at the arc rate)
   fixed_spacing: false        # rule 1: constant waypoint spacing h = D/(M-1) with a plateau past the valid length
+  arcmatch_gt_span_m: null    # diagnostic beside the lab arc-matched MSE: score every row over the SAME gt span (null -> D)
 
 name: e1_fold_${e1.variant}
 description: ${e1.spread}_s${seed}

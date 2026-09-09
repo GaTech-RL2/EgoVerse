@@ -12,3 +12,4 @@ results_path: ${paths.output_dir}/e1_tempo.json
 limit_val_batches: ${e1.limit_val_batches}
 viz_func: null
 arc_match_distance: null
+arcmatch_gt_span_m: ${e1.arcmatch_gt_span_m}
