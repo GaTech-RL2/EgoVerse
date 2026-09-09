@@ -1,11 +1,11 @@
 # @package _global_
 defaults:
   - /experiment/pusht/planar_v2_usocket_base
-  - override /model: bf/bf_planar_v2_arc_velocity_dp
+  - override /model: bf/bf_planar_v2_arc_velocity_stacked_dp
   - _self_
 
-name: planar_v2_usocket_arc_velocity_D80_M56_R26deg
-description: loader_native_arc_velocity_D80_M56_R26deg_DDIM100_obs1
+name: planar_v2_usocket_arc_duration_D80_M56_R26deg
+description: arcdur_D80_M56_R26deg_DDIM100_obs1
 
 planar:
   raw_action_horizon: 80
@@ -14,10 +14,10 @@ planar:
   arc_waypoints: 56
   arc_rotation_distance: 0.4537856055185257
   arc_dt: 0.0333333333333333
-  arc_token_rows: 112
-  transform_target: egomimic.rldb.embodiment.usocket_arc_velocity.get_usocket_arc_velocity_transform_list
+  arc_token_rows: 56
+  transform_target: egomimic.rldb.embodiment.usocket_arc_velocity.get_usocket_arc_duration_transform_list
   eval_native_decoder:
-    _target_: egomimic.rldb.embodiment.usocket_arc_velocity.USocketArcLocalVelocityNativeDecoder
+    _target_: egomimic.rldb.embodiment.usocket_arc_velocity.USocketArcDurationNativeDecoder
     resampled_vector_length: ${planar.arc_waypoints}
     action_horizon: ${planar.action_horizon}
     native_action_dim: 3
@@ -44,3 +44,11 @@ data:
         transform_list:
           dt: ${planar.arc_dt}
           rotation_distance_unit: ${planar.arc_rotation_distance}
+
+# eval_planar_v2 hardcodes semantic_blocks for the width-5 planar action
+# ([x,y] [cos,sin] [grip]). The stacked token is width 6 --
+# [x, y, timing_translation, cos, sin, timing_rotation] -- and the EnergyScore
+# validator requires the blocks to partition EVERY channel exactly once, so the
+# width-5 partition is a hard error here rather than a silent mismatch.
+evaluator:
+  semantic_blocks: [[0, 2], [2, 3], [3, 5], [5, 6]]

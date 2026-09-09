@@ -150,8 +150,14 @@ class TokenizeUSocketArcVelocity:
         end: float,
         *,
         signed_rate: bool,
+        return_durations: bool = False,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Sample geometry and one local interval rate at each waypoint."""
+        """Sample geometry and one local interval rate at each waypoint.
+
+        With ``return_durations`` the second element is the elapsed SECONDS of
+        each interval rather than a rate. Duration is the more primitive
+        quantity: the rate is produced by dividing it out just below.
+        """
         if end <= self.zero_dist_epsilon:
             points = np.repeat(values[:1], self.num_waypoints, axis=0)
             return points, np.zeros(self.num_waypoints, dtype=np.float64)
@@ -182,6 +188,11 @@ class TokenizeUSocketArcVelocity:
             out=np.zeros_like(delta_geometry),
             where=delta_t > self.zero_dist_epsilon,
         )
+        if return_durations:
+            durations = np.zeros(self.num_waypoints, dtype=np.float64)
+            durations[:-1] = delta_t
+            durations[-1] = delta_t[-1]
+            return points, durations
         rates = np.zeros(self.num_waypoints, dtype=np.float64)
         rates[:-1] = interval_rate
         rates[-1] = interval_rate[-1]
@@ -227,6 +238,175 @@ class TokenizeUSocketArcVelocity:
         dtype = value.dtype if np.issubdtype(value.dtype, np.floating) else np.float32
         batch[self.output_action_key] = output.astype(dtype, copy=False)
         return batch
+
+
+#: Stacked ARC token width: [x, y, v_xy, cos, sin, omega].
+PLANAR_ARC_STACKED_DIM = 6
+
+
+class TokenizeUSocketArcVelocityStacked(TokenizeUSocketArcVelocity):
+    """Same two streams as the parent, stacked along the ACTION dim.
+
+    The parent emits ``[2*M, 5]``: translation rows ``[x, y, 0, 0, v_xy]`` then
+    rotation rows ``[0, 0, cos, sin, omega]``. Both streams are sampled at the
+    same ``M`` waypoint indices (``linspace(0, end, M)``) -- only ``cumulative``
+    and ``end`` differ -- so they are both length ``M`` and can simply be
+    concatenated on the feature axis instead of the row axis:
+
+        ``[M, 6] = [x, y, v_xy, cos, sin, omega]``
+
+    Clock independence is unaffected: it lives in the per-stream ``cumulative``
+    / ``end`` used for sampling and in the two velocity channels, not in the
+    row layout. A shared row index is a shared WAYPOINT index, not a shared
+    timestamp -- rows ``i`` and ``M+i`` of the parent layout are also at
+    different times.
+
+    Why this layout is preferable:
+
+    * No structurally dead entries. The parent zero-pads to the common planar
+      width, leaving 4*M of its 10*M entries (40%) permanently zero, which the
+      diffusion model must still denoise -- an identity map on dimensions that
+      unnormalize to nothing (their quantile range is zero).
+    * Half the sequence length, so the denoiser's time axis is M, not 2*M.
+    * A 1D convolution over waypoints no longer straddles the row-M boundary
+      between two streams on different clocks, and no longer has to learn a
+      positional regime change at the midpoint. The streams interact through
+      channels, which is what channels are for.
+    """
+
+    def tokenize(self, actions: np.ndarray) -> np.ndarray:
+        xy, theta = self._components(actions)
+        translation_arc = np.concatenate(
+            (np.zeros(1), np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=-1)))
+        )
+        angle_arc = np.concatenate((np.zeros(1), np.cumsum(np.abs(np.diff(theta)))))
+        translation_end = min(self.distance, float(translation_arc[-1]))
+        rotation_end = float(angle_arc[-1])
+        if self.rotation_distance is not None:
+            rotation_end = min(self.rotation_distance, rotation_end)
+
+        xy_waypoints, linear_speed = self._sample_stream(
+            xy, translation_arc, translation_end, signed_rate=False
+        )
+        theta_waypoints, angular_velocity = self._sample_stream(
+            theta[:, None], angle_arc, rotation_end, signed_rate=True
+        )
+
+        token = np.zeros((self.num_waypoints, PLANAR_ARC_STACKED_DIM))
+        token[:, 0:2] = xy_waypoints
+        token[:, 2] = linear_speed
+        token[:, 3] = np.cos(theta_waypoints[:, 0])
+        token[:, 4] = np.sin(theta_waypoints[:, 0])
+        token[:, 5] = angular_velocity
+        return token
+
+
+class TokenizeUSocketArcVelocityCarry(TokenizeUSocketArcVelocityStacked):
+    """Ablation: rotation carried on the TRANSLATION clock, no angular budget.
+
+    Emits the same ``[M, 6] = [x, y, v_xy, cos, sin, omega]`` token, but theta is
+    sampled against the translation arc clock instead of its own. There is no
+    second cumulative clock and no angular distance budget, so ``R`` does not
+    exist for this variant.
+
+    This is the baseline for "does the independent rotation clock earn its
+    keep?". The hybrid codec's whole premise is that translation and rotation
+    deserve separate arc parameterizations with separate budgets; if this
+    variant matches it, that premise is not paying for itself.
+
+    ``omega`` here is still the local signed angular rate per interval, so the
+    decoder is unchanged -- only the sampling positions differ.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # R is meaningless on a shared clock. Accepting it silently is exactly
+        # the dead-knob failure this codec family already shipped once, so
+        # refuse it rather than ignore it.
+        rotation = kwargs.get("rotation_distance_unit")
+        if rotation is not None:
+            raise ValueError(
+                "TokenizeUSocketArcVelocityCarry has no angular budget; "
+                "rotation_distance_unit must be None"
+            )
+        super().__init__(*args, **kwargs)
+
+    def tokenize(self, actions: np.ndarray) -> np.ndarray:
+        xy, theta = self._components(actions)
+        translation_arc = np.concatenate(
+            (np.zeros(1), np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=-1)))
+        )
+        translation_end = min(self.distance, float(translation_arc[-1]))
+
+        xy_waypoints, linear_speed = self._sample_stream(
+            xy, translation_arc, translation_end, signed_rate=False
+        )
+        # Same clock, same end: theta rides along with translation.
+        theta_waypoints, angular_velocity = self._sample_stream(
+            theta[:, None], translation_arc, translation_end, signed_rate=True
+        )
+
+        token = np.zeros((self.num_waypoints, PLANAR_ARC_STACKED_DIM))
+        token[:, 0:2] = xy_waypoints
+        token[:, 2] = linear_speed
+        token[:, 3] = np.cos(theta_waypoints[:, 0])
+        token[:, 4] = np.sin(theta_waypoints[:, 0])
+        token[:, 5] = angular_velocity
+        return token
+
+
+class TokenizeUSocketArcDuration(TokenizeUSocketArcVelocityStacked):
+    """Stacked ARC token carrying interval DURATION instead of velocity.
+
+    ``[M, 6] = [x, y, dt_translation, cos, sin, dt_rotation]``
+
+    Geometry is unchanged -- identical arc-length resampling, identical D and R
+    budgets -- so this isolates one variable: how the traversal schedule is
+    represented.
+
+    Two concrete reasons duration is the better carrier here, both visible in
+    the existing code rather than argued from first principles:
+
+    * ``_sample_stream`` computes the interval ``delta_t`` and then divides it
+      away to produce a rate. Storing the quotient of a quantity we already had
+      is a lossy detour: the decoder's first act is to invert the division.
+    * ``_decode_stream`` uses only ``rate.abs()``. The SIGN of omega is never
+      read, because direction is already carried by the cos/sin waypoints. The
+      velocity codec therefore trains the model to predict a sign that decoding
+      discards.
+
+    Duration also represents a hold exactly -- a long interval with no motion --
+    where a rate codec has to special-case zero velocity with a synthetic
+    ``stop_duration``. Compare the shape/clock formulation: geometry supplies
+    every coordinate, timing supplies only a scalar schedule.
+    """
+
+    def tokenize(self, actions: np.ndarray) -> np.ndarray:
+        xy, theta = self._components(actions)
+        translation_arc = np.concatenate(
+            (np.zeros(1), np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=-1)))
+        )
+        angle_arc = np.concatenate((np.zeros(1), np.cumsum(np.abs(np.diff(theta)))))
+        translation_end = min(self.distance, float(translation_arc[-1]))
+        rotation_end = float(angle_arc[-1])
+        if self.rotation_distance is not None:
+            rotation_end = min(self.rotation_distance, rotation_end)
+
+        xy_waypoints, xy_duration = self._sample_stream(
+            xy, translation_arc, translation_end,
+            signed_rate=False, return_durations=True,
+        )
+        theta_waypoints, theta_duration = self._sample_stream(
+            theta[:, None], angle_arc, rotation_end,
+            signed_rate=True, return_durations=True,
+        )
+
+        token = np.zeros((self.num_waypoints, PLANAR_ARC_STACKED_DIM))
+        token[:, 0:2] = xy_waypoints
+        token[:, 2] = xy_duration
+        token[:, 3] = np.cos(theta_waypoints[:, 0])
+        token[:, 4] = np.sin(theta_waypoints[:, 0])
+        token[:, 5] = theta_duration
+        return token
 
 
 class TokenizePlanarArcLength:

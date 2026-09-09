@@ -66,12 +66,20 @@ class Conv1dBlock(nn.Module):
     Conv1d --> GroupNorm --> Mish
     """
 
-    def __init__(self, inp_channels, out_channels, kernel_size, n_groups=8):
+    def __init__(
+        self, inp_channels, out_channels, kernel_size, n_groups=8, conv_groups=1
+    ):
         super().__init__()
 
+        # conv_groups splits the CHANNEL axis into independent paths (this is
+        # nn.Conv1d's `groups`, unrelated to n_groups, which is GroupNorm's).
         self.block = nn.Sequential(
             nn.Conv1d(
-                inp_channels, out_channels, kernel_size, padding=kernel_size // 2
+                inp_channels,
+                out_channels,
+                kernel_size,
+                padding=kernel_size // 2,
+                groups=conv_groups,
             ),
             # Rearrange('batch channels horizon -> batch channels 1 horizon'),
             nn.GroupNorm(n_groups, out_channels),
@@ -107,12 +115,23 @@ class ConditionalResidualBlock1D(nn.Module):
         kernel_size=3,
         n_groups=8,
         cond_predict_scale=False,
+        first_conv_groups=1,
     ):
         super().__init__()
 
+        # Only the FIRST conv is grouped. Grouping deeper layers would keep the
+        # two streams apart for the whole trunk, which is a different (much
+        # stronger) architecture; the point here is only to stop layer one from
+        # blending translation and rotation channels.
         self.blocks = nn.ModuleList(
             [
-                Conv1dBlock(in_channels, out_channels, kernel_size, n_groups=n_groups),
+                Conv1dBlock(
+                    in_channels,
+                    out_channels,
+                    kernel_size,
+                    n_groups=n_groups,
+                    conv_groups=first_conv_groups,
+                ),
                 Conv1dBlock(out_channels, out_channels, kernel_size, n_groups=n_groups),
             ]
         )
@@ -131,8 +150,10 @@ class ConditionalResidualBlock1D(nn.Module):
         )
 
         # make sure dimensions compatible
+        # The residual path would re-mix the streams even if blocks[0] does not,
+        # so it has to carry the same grouping.
         self.residual_conv = (
-            nn.Conv1d(in_channels, out_channels, 1)
+            nn.Conv1d(in_channels, out_channels, 1, groups=first_conv_groups)
             if in_channels != out_channels
             else nn.Identity()
         )
@@ -170,9 +191,30 @@ class ConditionalUnet1D(nn.Module):
         kernel_size=3,
         n_groups=8,
         cond_predict_scale=False,
+        input_groups=1,
     ):
-        """Build a one-dimensional U-Net with global conditioning."""
+        """Build a one-dimensional U-Net with global conditioning.
+
+        ``input_groups`` splits the INPUT channel axis into that many
+        independent paths through the first residual block, so semantically
+        distinct channel blocks are not blended by layer one. For the stacked
+        ARC token ``[x, y, v_xy, cos, sin, omega]``, ``input_groups=2`` keeps
+        translation and rotation apart until the second convolution. It relies
+        on that channel ORDER, so it is only meaningful for a token whose
+        channels are grouped contiguously by stream.
+        """
         super().__init__()
+        input_groups = int(input_groups)
+        if input_groups < 1:
+            raise ValueError("input_groups must be at least one")
+        if input_groups > 1 and (
+            input_dim % input_groups or down_dims[0] % input_groups
+        ):
+            raise ValueError(
+                f"input_groups={input_groups} must divide both input_dim="
+                f"{input_dim} and down_dims[0]={down_dims[0]}"
+            )
+        self.input_groups = input_groups
         all_dims = [input_dim] + list(down_dims)
         start_dim = down_dims[0]
 
@@ -226,6 +268,9 @@ class ConditionalUnet1D(nn.Module):
                             kernel_size=kernel_size,
                             n_groups=n_groups,
                             cond_predict_scale=cond_predict_scale,
+                            # Only the first down module touches raw token
+                            # channels; everything deeper is already mixed.
+                            first_conv_groups=input_groups if ind == 0 else 1,
                         ),
                         layer_func(
                             dim_out,
@@ -295,6 +340,22 @@ class ConditionalUnet1D(nn.Module):
         """
         sample = einops.rearrange(sample, "b h t -> b t h")
 
+        # NB the rearrange above turns (B, T, D) into (B, D, T): channels are
+        # dim 1 and TIME is dim 2. Each down module halves the time axis, so an
+        # input length not divisible by 2**(len(down_modules)-1) leaves the skip
+        # connection and the upsampled feature map at different lengths
+        # ("Sizes of tensors must match except in dimension 1"). Pad the time
+        # axis by REPEATING the last step, run the net, then trim back. When the
+        # length already divides evenly _pad is 0 and this is a no-op, so
+        # existing configurations stay bit-identical.
+        _T = sample.shape[2]
+        _factor = 2 ** max(len(self.down_modules) - 1, 0)
+        _pad = (-_T) % _factor
+        if _pad:
+            sample = torch.cat(
+                [sample, sample[:, :, -1:].expand(-1, -1, _pad)], dim=2
+            )
+
         # 1. time
         timesteps = timestep
         if not torch.is_tensor(timesteps):
@@ -339,6 +400,8 @@ class ConditionalUnet1D(nn.Module):
 
         x = self.final_conv(x)
         x = einops.rearrange(x, "b t h -> b h t")
+        if _pad:
+            x = x[:, :_T, :]
         return x
 
 
