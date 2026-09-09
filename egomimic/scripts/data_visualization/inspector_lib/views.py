@@ -196,7 +196,7 @@ class ScatterView:
         n_outliers_removed = 0
 
         # All reductions are read directly from precomputed coords produced
-        # by eval_latent — no client-side recompute. If the user picks a
+        # by the latent exporter; no client-side recompute. If the user picks a
         # reduction whose data isn't in this layer's .pt/.csv, return an
         # empty figure with a clear "no X exists" message instead of
         # silently falling back to a different reduction.
@@ -1166,7 +1166,7 @@ class BrowserView:
             f"embodiment : {src_emb}"
         )
 
-        # Fast path: eval_latent precomputed cross-embodiment KNN for the
+        # Fast path: use precomputed cross-source KNN for the
         # raw-key space and dumped it as `<layer>_knn.pt`. When present
         # AND aligned with the current CSV, we skip the full-D distance
         # scan entirely. PCA mode still computes on demand because the
@@ -1185,7 +1185,7 @@ class BrowserView:
                 t_knn = time.perf_counter()
                 pre_idx = np.asarray(knn_pre["indices"][src_idx], dtype=np.int32)
                 pre_dist = np.asarray(knn_pre["distances"][src_idx], dtype=np.float32)
-                # Drop padded slots (eval_latent uses dist=+inf, idx=-1
+                # Drop padded slots (the export format uses dist=+inf, idx=-1
                 # when fewer cross-emb candidates than K exist).
                 valid = (pre_idx >= 0) & np.isfinite(pre_dist)
                 pre_idx = pre_idx[valid]

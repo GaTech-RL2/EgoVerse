@@ -1,0 +1,37 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_chain_base
+  - override /model: bf/bf_planar_v2_dp_paper
+  - _self_
+name: planar_v2_chain_dp_paper_h16
+description: chain_gripper_paper_DP_DDPM100_obs2_EMA
+planar:
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+    action_horizon: 16
+    native_action_dim: 4
+  observation_horizon: 2
+  action_target_offset: 1
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_paper_transform_list
+  batch_size: 32
+run_provenance:
+  action_contract:
+    observation_alignment: pre_step
+    observation_horizon: 2
+    training_action_target_offset: 1
+    prediction_horizon: 16
+    rollout_action_chunk_start_index: 0
+    replan_every: 8
+    execution_slice: "[0,8)"
+eval_checkpoint:
+  use_ema: true
+callbacks:
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9999
+    use_warmup: true
+    update_after_step: 0
+    inv_gamma: 1.0
+    power: 0.75
+    min_decay: 0.0
+    validate_with_ema: true

@@ -452,10 +452,8 @@ def main():
             "working_dir": args.working_dir,
             "excludes": [
                 "**/.git/**",
-                "external/openpi/third_party/aloha/**",
                 "**/*.pack",
                 "**/__pycache__/**",
-                "external/openpi/**",
                 "temp_dir/**",
             ],
         }

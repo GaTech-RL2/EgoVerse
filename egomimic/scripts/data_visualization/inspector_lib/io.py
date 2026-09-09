@@ -349,7 +349,7 @@ def read_pt_payload(path: str, load_keys: bool = False) -> dict:
 def read_csv(path: str, load_keys: bool = False):
     """Returns dict of arrays read straight from the CSV. ALL reduction
     coords (umap, tsne2d, tsne3d, pca) come from columns written by
-    eval_latent — no client-side recompute. Missing columns become None.
+    the latent-export artifact; no client-side recompute. Missing columns become None.
 
     By default, the huge `k0..kN` raw key columns are SKIPPED (load_keys=False)
     because the inspector never reads them — saves ~98% of memory for

@@ -32,10 +32,8 @@ import os as _os
 import sys as _sys
 
 # When run as a script (`python latent_inspector.py`), ensure this dir is on
-# sys.path so the `inspector_lib` sibling package resolves. When imported as
-# part of `egomimic.scripts.data_visualization`, the package import below
-# would conflict with the sibling `egomimic/scripts/data_visualization.py`
-# module, so we deliberately import via the local `inspector_lib` name.
+# sys.path so the `inspector_lib` sibling package resolves. Import through the
+# local package name to support both direct CLI execution and package imports.
 _HERE = _os.path.dirname(_os.path.abspath(__file__))
 if _HERE not in _sys.path:
     _sys.path.insert(0, _HERE)

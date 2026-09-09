@@ -1,292 +1,112 @@
-# Quick Start
-Behavior cloning and flow-matching based policy training for EgoVerse
-datasets.
+# Pipeline training
 
-All commands below assume you are inside the `egomimic/` subfolder.
+EgoVerse training is configured as an explicit graph of registered stages.
+`PipelineAlgo` only schedules those stages for `train` or `inference`, moves
+multi-source batches to the selected device, aligns outputs with opaque loader
+keys, and reduces scalar `loss/*` values. Dataset or task semantics belong in
+the configured stages and evaluators, not in the graph runner.
 
-``` bash
-cd egomimic
-```
+## Configuration
 
-Launch interactive training with default configs on an example episode of RL2 lab robot data.
+The root Hydra config is `egomimic/hydra_configs/train_zarr_cartesian.yaml`.
+Its model, data, and evaluator defaults are intentionally null: every run must
+select a complete experiment instead of inheriting a historical policy by
+accident.
 
-``` bash
-python trainHydra.py --config-name=train_zarr_cartesian
-```
+A direct composition has this shape:
 
-This will:
-
-1.  Filter episodes from SQL
-2.  Download those episodes locally from cloudflare R2 (if not already present)
-3.  Build the Zarr dataset
-4.  Compute normalization statistics on the fly
-5.  Start training using default configs
-
-------------------------------------------------------------------------
-
-# Configuration Overview
-
-All Hydra configs live in:
-
-    hydra_configs/
-
-Main subfolders:
-
-    hydra_configs/
-    ├── train_zarr_cartesian.yaml        # top-level training config
-    ├── data/                  # dataset configs
-    ├── model/                 # model instantiations
-    ├── hydra/launcher/        # SLURM submitit configs
-
-For most use cases, you only need to modify the data YAML.
-
-------------------------------------------------------------------------
-
-# Training Aria Behavior Cloning (Interactive)
-
-## 1. Modify data config
-
-Open:
-
-    hydra_configs/data/aria.yaml
-
-Modify:
-
--   `folder_path` → local dataset directory\
--   `batch_size`\
--   `num_workers`
-
-Reference run: - `batch_size = 32`\
-- `num_workers = 10`\
-- Single L40S GPU\
-- 150k steps
-
-## 2. Launch training
-
-``` bash
-/python trainHydra.py   --config-name=train_zarr_cartesian   data=aria model=hpt_bc_flow_aria
-```
-
-------------------------------------------------------------------------
-
-# Training on SLURM (Cluster)
-
-## 1. Configure SLURM launcher
-
-Edit:
-
-    hydra_configs/hydra/launcher/submitit.yaml
-
-Match this to your `sbatch` configuration: - partition\
-- GPUs\
-- memory\
-- timeout\
-- nodes
-
-## 2. Submit job
-
-``` bash
-python trainHydra.py   --config-name=train_zarr_cartesian   data=aria model=hpt_bc_flow_aria   -m
-```
-
-The `-m` flag enables Hydra multirun mode and triggers the Submitit
-SLURM launcher.
-
-------------------------------------------------------------------------
-
-# Aria + EVA Co-Training
-
-## 1. Modify dataset config
-
-Edit:
-
-    hydra_configs/data/eva_human_cotrain.yaml
-
-Modify: - `folder_path`\
-- `batch_size`\
-- `num_workers`
-
-## 2. Launch
-
-Interactive:
-
-``` bash
-python trainHydra.py   --config-name=train_zarr_cartesian   data=eva_human_cotrain model=hpt_cotrain_flow_shared_head
-```
-
-SLURM:
-
-``` bash
-python trainHydra.py   --config-name=train_zarr_cartesian   data=eva_human_cotrain model=hpt_cotrain_flow_shared_head   -m
-```
-
-------------------------------------------------------------------------
-
-# Data YAML Walkthrough
-
-Main training config:
-
-    hydra_configs/train_zarr_cartesian.yaml
-
-## DataSchematic
-
-`DataSchematic`:
-
--   Maps post-transform dataset keys → batch keys expected by the model\
--   Stores key shapes and normalization stats\
--   Computes normalization dynamically during training
-
-------------------------------------------------------------------------
-
-## Dataset Structure
-
-Each file in:
-
-    hydra_configs/data/
-
-Contains:
-
-``` yaml
-train_datasets:
-  eva_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-```
-
-### MultiDataset
-
-Virtually merges multiple dataset units into a single dataset.
-
-### Resolver
-
-``` yaml
-resolver:
-  _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-```
-
-Responsible for:
-
--   Applying SQL filters\
--   Finding matching dataset units\
--   Instantiating Zarr datasets
-
-### Key Map
-
-``` yaml
-key_map:
-  _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
-```
-
-Maps:
-
-    raw dataset keys → pre-transform key names
-
-### Transform List
-
-``` yaml
-transform_list:
-  _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-```
-
-Defines:
-
--   Frame transforms (e.g., base → camera frame)\
--   Key renaming\
--   Concatenation\
--   Action chunking\
--   Post-processing
-
-### Filters
-
-``` yaml
-filters:
-  episode_hash: "2025-12-26-18-07-46-296000"
-```
-
-Filters are applied against the S3 SQL table to construct the dataset.\
-The list of available filters is visible directly in the SQL table.
-
-### Mode
-
-``` yaml
-mode: total
-```
-
-Options: - `train`\
-- `valid`\
-- `percent`\
-- `total`
-
-Controls how dataset units are sampled.
-
-------------------------------------------------------------------------
-
-# Mental Model of the Data Pipeline
-
-1.  SQL Filters\
-2.  `S3EpisodeResolver` finds matching units\
-3.  Units instantiated as Zarr datasets\
-4.  `MultiDataset` merges them\
-5.  Embodiment transforms applied\
-6.  `DataSchematic` maps to model batch keys\
-7.  Normalization computed\
-8.  Training begins
-
-------------------------------------------------------------------------
-
-# Overriding Configs Inline
-
-Example:
-
-``` bash
-python trainHydra.py   --config-name=train_zarr_cartesian   data=aria   train.batch_size=64   train.num_workers=8
-```
-
-
-# Norm Stats
-By default in `train_zarr_cartesian.yaml` norm stats are computed over the whole dataset.  Decrease `norm_stat_fraction` in `train_zarr_cartesian.yaml` when training on large datasets.
-
-------------------------------------------------------------------------
-
-# Tips
-
--   Always verify `folder_path` exists and has enough disk space.\
--   Large datasets will auto-download from S3 if not present locally.\
--   For debugging small runs, filter by a single `episode_hash`.  You can also set logger=debug trainer=debug to run fewer epochs.
-
-------------------------------------------------------------------------
-
-# Sample Commands
-
-## Debugging
-
-``` bash
+```bash
 python egomimic/trainHydra.py \
-    --config-name=train_zarr_cartesian_pi \
-    trainer=debug \
-    logger=debug \
-    norm_stats.sample_frac=0.001
+  --config-name=train_zarr_cartesian \
+  model=<pipeline-model-config> \
+  data=<dataset-config> \
+  evaluator=<evaluator-config>
 ```
 
-## Training
+A composed experiment may override all three groups. Keep the dataset split,
+normalization artifact, stage dimensions, optimizer, and evaluation contract
+inside that experiment so its resolved Hydra output is a complete run record.
 
-``` bash
-python egomimic/trainHydra.py -m \
-    --config-name=train_zarr_cartesian_pi \
-    name="fold_clothes" \
-    description="test_run" \
-    launch_params.nodes=1 \
-    launch_params.gpus_per_node=4
+Use `mode=train` for optimization and `mode=eval` for standalone evaluation.
+The deprecated boolean mode aliases are not supported.
+
+## Graph structure
+
+A diffusion-policy training graph normally contains distinct stages for:
+
+1. observation processing;
+2. target construction;
+3. data noising;
+4. denoising or velocity prediction;
+5. loss computation.
+
+Inference uses the same registered graph with the explicit `inference` mode.
+Training-only target, noising, and loss stages are excluded by their contracts;
+the configured denoiser performs reverse sampling. No stage is physically
+swapped at runtime.
+
+A stage whose declared reads are unavailable is a configuration error: the
+runner raises rather than skipping it. Mode restrictions are therefore declared,
+not inferred, with `train_only` or its mirror `inference_only`.
+
+## Action tokenization
+
+Arc-length tokenization can run either in the loader's `transform_list` or as
+graph nodes. The node form makes the boundary visible and lintable:
+
+- `ArcTokenizeStage` takes `ActionTargetBuilder`'s place in the stage list. It
+  reads the loader's time-indexed chunk and writes the arc token as `target`,
+  so it stays the single writer of `target` and the rest of the graph is
+  unchanged -- it simply models a token.
+- `ArcDetokenizeStage` is the inverse. It is `inference_only` and writes
+  `pred_action_native`.
+
+The two nodes must agree on `rotation_radius`, `dt` and
+`resampled_vector_length`. The token's speed is a rate in the tokenizer's SE(2)
+metric (translation plus `lambda * rotation`), so the polyline the decoder walks
+has to be measured in that same metric; measuring translation alone replays the
+chunk too fast by the ratio between the two lengths, and nothing in the tensor
+shapes reveals it. Keep both nodes pointed at one `planar.*` value rather than
+repeating the number.
+
+Tokenization in the graph also means the tokenizer sees the RAW window: the
+loader's dense transform only pads, so no interpolation stands between the
+episode's 30 Hz frames and the tokenizer, and `arc_dt` is the true capture
+period. A loader-side arc path that resamples before tokenizing would understate
+arc length and make that constant wrong.
+
+Compare `experiment/pusht/planar_v2_usocket_arc_bc` (tokenized in the loader)
+with `experiment/pusht/planar_v2_usocket_arc_graph_tok` (tokenized in the
+graph). Both are valid; only the second shows the tokenizer in `gt`-style graph
+output and in `tools/config_graph.py`.
+
+## Data loading
+
+Data configs build one or more datasets and a `CombinedLoader`. Its outer keys
+are opaque alignment identifiers. Each inner flat batch is passed through
+unchanged, including metadata; only configured stages may interpret fields.
+
+Normalization is owned by the data path. The Pipeline runner neither stores
+normalization state nor knows about action keys, embodiments, domains, or
+deployment adapters.
+
+The neutral dense-language data-processing configs are:
+
+- `data/cotrain_dense_language`
+- `data/eva_dense_language`
+
+They support annotation and embedding utilities and do not select a policy.
+
+## Slurm
+
+After a configuration composes and passes its required smoke test, add `-m` to
+use the configured Submitit launcher:
+
+```bash
+python egomimic/trainHydra.py --config-name=train_zarr_cartesian \
+  model=<pipeline-model-config> data=<dataset-config> \
+  evaluator=<evaluator-config> -m
 ```
 
-## Eval (using multirun.yaml from a previous training run)
-
-``` bash
-python egomimic/trainHydra.py \
-  --config-path=../logs/test/test_2026-04-07_15-53-47/.hydra/ \
-  --config-name=config \
-  hydra.searchpath=[file://egomimic/hydra_configs] \
-  ++mode=eval \
-  +evaluator=eval_video \
-  +norm_stats.precomputed_norm_path="logs/test/test_2026-04-07_15-53-47/norm_stats/norm_stats.json" \
-  ++ckpt_path="'logs/test/test_2026-04-07_14-20-30/checkpoints/last.ckpt'"
-```
+Always inspect the fully resolved config saved with the run before treating a
+launch as reproducible.

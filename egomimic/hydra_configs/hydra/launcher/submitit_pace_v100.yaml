@@ -1,0 +1,22 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# PACE gpu-v100 launcher. V100 nodes have 16/32 GB VRAM and a 12:1 CPU:GPU cap.
+# 12 CPUs per task × 2 GPUs = 24 CPUs (matches per-node CPU count). Only use
+# this partition for debug/smoketests; the 300M cotrain DP model does not fit
+# in 16 GB and will OOM at real batch sizes even on 32 GB V100s. Gres count is
+# hardcoded (no ``eval`` OmegaConf resolver is registered here).
+name: ${hydra.job.name}
+partition: "gpu-v100"
+account: "gts-dxu345-rl2"
+cpus_per_task: 12
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:v100:2"
+qos: "inferno"
+mem_per_gpu: 30G
+timeout_min: 2880
+additional_parameters:
+  requeue: true

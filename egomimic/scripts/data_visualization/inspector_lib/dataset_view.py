@@ -39,15 +39,6 @@ from functools import lru_cache
 
 import numpy as np
 
-from .images import (
-    _bytes_from_zarr_element,
-    _candidate_image_keys,
-    _resolve_zarr_path,
-    open_zarr_for_hash,
-)
-from .language import annotation_intervals, interval_for_frame
-from .views import ACCENT, BORDER, CANVAS, CARD_STYLE, LABEL_STYLE, MUTED, PANEL, TEXT
-
 # Canonical overlay path. The head-frame convention (head IS the camera, no
 # per-arm extrinsic) is built locally in `_head_T_world` / `_intrinsics_from_zarr`
 # below; the cam-frame inputs assembled here are then handed to the EMBODIMENT
@@ -64,6 +55,15 @@ from .views import ACCENT, BORDER, CANVAS, CARD_STYLE, LABEL_STYLE, MUTED, PANEL
 # is guarded — if it's unavailable the overlay falls back to the badge.
 from egomimic.utils.pose_utils import ee_pose_to_cam_frame
 
+from .images import (
+    _bytes_from_zarr_element,
+    _candidate_image_keys,
+    _resolve_zarr_path,
+    open_zarr_for_hash,
+)
+from .language import annotation_intervals, interval_for_frame
+from .views import ACCENT, BORDER, CARD_STYLE, LABEL_STYLE, MUTED, PANEL, TEXT
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -71,8 +71,7 @@ try:
     from egomimic.rldb.embodiment.eva import Eva
     from egomimic.rldb.embodiment.human import Human
 
-    # Mirror `egomimic/scripts/viz_language.py`'s `_EMBODIMENT_CLASSES` so the
-    # browser resolves the same class for an episode's `embodiment` attr.
+    # Keep visualization dispatch explicit for each episode's metadata.
     _EMBODIMENT_CLASSES: dict[str, type] = {
         "eva_bimanual": Eva,
         "eva_right_arm": Eva,

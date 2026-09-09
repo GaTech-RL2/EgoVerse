@@ -1,0 +1,21 @@
+# @package _global_
+# U-Socket data, action-space identity, and split provenance.
+defaults:
+  - /experiment/pusht/planar_v2_base
+  - override /data: pusht/planar_v2_usocket
+  - _self_
+
+planar:
+  action_dims: {pushshapes_sim_u_socket: 5}
+
+run_provenance:
+  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json
+  split_manifest_sha256: 3683e3461596eef8df2432fa865779b3c77b2a2057dabd0fea125595729cf313
+  split_seed: ${seed}
+  valid_ratio: 0.01
+  train_episode_count_per_domain: 2970
+  valid_episode_count_per_domain: 29
+  union_episode_count_per_domain: 2999
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
+  dataset_observation_alignment: pre_step

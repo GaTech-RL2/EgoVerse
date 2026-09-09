@@ -8,15 +8,13 @@ Episodes that already have ``annotation_key`` in their Zarr are skipped (unless 
 
 Example usage:
 python egomimic/scripts/language_process/bucket_to_zarr_annotation_parallel.py \
---dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \
+--dataset-config-path egomimic/hydra_configs/data/eva_dense_language.yaml \
 --bucket s3://rldb/scale_annotations
 """
 
 import argparse
 import json
-import os
 
-import hydra
 import ray
 
 from egomimic.scripts.language_process.scale_to_bucket_annotation_parallel import (
@@ -24,6 +22,7 @@ from egomimic.scripts.language_process.scale_to_bucket_annotation_parallel impor
     parse_s3_uri,
     s3_object_exists,
 )
+from egomimic.utils.hydra_utils import instantiate_dataset_splits_from_path
 
 
 def collect_unique_episode_paths(
@@ -121,29 +120,9 @@ if __name__ == "__main__":
     bucket, prefix = parse_s3_uri(args.bucket)
 
     # --- Instantiate datasets (sequential, needs SQL / S3 sync) ---
-    # Use hydra's compose API so `defaults:` inheritance from base configs
-    # (e.g. cotrain_pi_base.yaml) is resolved — OmegaConf.load alone leaves
-    # `_target_` unset and instantiate returns a bare DictConfig.
-    from egomimic.utils.hydra_utils import HYDRA_CONFIG_DIR, load_config
-
-    abs_cfg_path = os.path.abspath(args.dataset_config_path)
-    rel_path = os.path.relpath(abs_cfg_path, HYDRA_CONFIG_DIR)
-    config_name = os.path.splitext(rel_path)[0]
-    dataset_cfg = load_config(config_name)
-
-    train_datasets = {}
-    for dataset_name in dataset_cfg.train_datasets:
-        ds_cfg = dataset_cfg.train_datasets[dataset_name]
-        if ds_cfg is None:
-            continue
-        train_datasets[dataset_name] = hydra.utils.instantiate(ds_cfg)
-
-    valid_datasets = {}
-    for dataset_name in dataset_cfg.valid_datasets:
-        ds_cfg = dataset_cfg.valid_datasets[dataset_name]
-        if ds_cfg is None:
-            continue
-        valid_datasets[dataset_name] = hydra.utils.instantiate(ds_cfg)
+    train_datasets, valid_datasets = instantiate_dataset_splits_from_path(
+        args.dataset_config_path
+    )
 
     episodes = collect_unique_episode_paths(train_datasets, valid_datasets)
 

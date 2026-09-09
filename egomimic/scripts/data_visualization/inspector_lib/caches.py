@@ -174,7 +174,7 @@ class LayerStore:
 
     def load_knn(self, run_path: str, layer: str):
         """Load precomputed cross-embodiment KNN bundled inside
-        `<layer>_keys.pt` (v2 format, written by eval_latent). Returns
+        `<layer>_keys.pt` (v2 latent-export format). Returns
         dict with 'indices' (N, K) int32, 'distances' (N, K) float32,
         'k' int, 'embs' list[str], or None if the file is missing or
         doesn't carry KNN fields. Cached LRU; falls through to a quick

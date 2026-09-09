@@ -16,8 +16,8 @@ from egomimic.utils.viz_utils import (
 
 
 class EMBODIMENT(Enum):
-    # All human demonstration data is one embodiment (HUMAN_*); the robot Eva is
-    # the only non-human embodiment. There is NO vendor/source notion at the
+    # All human demonstration data is one embodiment (HUMAN_*); the robots (Eva,
+    # YAM) are the non-human embodiments. There is NO vendor/source notion at the
     # embodiment level — the data source is recorded only in the SQL `lab` field.
     HUMAN_RIGHT_ARM = 1
     HUMAN_LEFT_ARM = 2
@@ -25,6 +25,12 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    # ABC-130k's two-arm YAM teleoperation station (see egomimic/scripts/abc_process).
+    # A parallel-jaw robot in a station-anchored world frame -- NOT egocentric human
+    # data, so it carries no obs_head_pose/obs_keypoints and no extrinsics.
+    YAM_BIMANUAL = 7
+    PUSHSHAPES_SIM_U_SOCKET = 19
+    PUSHSHAPES_SIM_CHAIN_GRIPPER = 20
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
@@ -199,12 +205,22 @@ class Embodiment(ABC):
             pred_action = pred_actions[i]
             K_i = _intrinsics_from_batch(batch, i)
             ims = cls.viz(
-                image, action, mode=mode, color="Greens", alpha=gt_alpha,
-                intrinsics=K_i, **kwargs
+                image,
+                action,
+                mode=mode,
+                color="Greens",
+                alpha=gt_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             ims = cls.viz(
-                ims, pred_action, mode=mode, color="Reds", alpha=pred_alpha,
-                intrinsics=K_i, **kwargs
+                ims,
+                pred_action,
+                mode=mode,
+                color="Reds",
+                alpha=pred_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             if annotation_key is not None:
                 ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)

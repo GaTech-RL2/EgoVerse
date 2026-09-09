@@ -1,0 +1,28 @@
+# Per-embodiment overlay partials for BimanualCartesianEval.
+#
+# The evaluator calls each partial with (predictions=<flat dict>, batch=<flat
+# per-source dict>), where both the GT and the predicted actions_cartesian have
+# ALREADY been unnormalized and reverted into the front-camera frame by the
+# evaluator (using the ``revert_transforms`` mapping on the evaluator config).
+#
+# Each partial therefore only draws GT (green) and pred (red) onto ``image_key``
+# and does not do its own coordinate-frame revert.
+#
+# annotation_key is null: the ABC baseline data configs do not currently carry
+# per-sample prompts. If a future run adds them, override this per-embodiment.
+
+yam_bimanual:
+  _target_: egomimic.rldb.embodiment.yam.Yam.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_cartesian
+  annotation_key: null
+  mode: traj
+
+human_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_cartesian
+  annotation_key: null
+  mode: traj

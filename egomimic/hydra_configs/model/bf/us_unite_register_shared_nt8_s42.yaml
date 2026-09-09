@@ -1,0 +1,6 @@
+defaults:
+  - /model/bf/us_unite_register_shared_nt4_s42@_here_
+  - _self_
+
+share_encoder_denoiser: true
+num_latent_tokens: 8

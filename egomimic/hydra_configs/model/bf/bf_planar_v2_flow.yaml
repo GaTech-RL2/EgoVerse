@@ -1,0 +1,52 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 1
+      inputs:
+        front_img_1: front_img_1
+        state_agent_obj: state_agent_obj
+      encoder: ${planar.encoder}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    - _target_: egomimic.pipeline.stages_sampler.GaussianLatentNoise
+      num_tokens: ${planar.action_horizon}
+      latent_dim: 96
+    - _target_: egomimic.pipeline.stages_planar.PlanarFlowSampler
+      condition_input_dim: 67
+      condition_dim: 384
+      action_horizon: ${planar.action_horizon}
+      action_dims: ${planar.action_dims}
+      latent_dim: 96
+      decoder_hidden_dim: 512
+      denoiser_hidden_dim: 384
+      num_inference_steps: 8
+      gradient_checkpointing: true
+      denoising_module:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 16
+        cond_dim: 384
+        hidden_dim: 384
+        act_dim: 96
+        act_seq: ${planar.action_horizon}
+        n_heads: 8
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+        time_conditioning: additive
+    - _target_: egomimic.pipeline.stages_planar.PlanarActionMSELoss
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3.0e-5
+  weight_decay: 1.0e-4
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 3000
+  warmup_start_factor: 0.1
+  eta_min: 3.0e-6

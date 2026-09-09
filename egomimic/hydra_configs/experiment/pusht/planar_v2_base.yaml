@@ -1,0 +1,62 @@
+# @package _global_
+defaults:
+  - override /evaluator: eval_planar_v2
+  - override /logger: wandb
+
+launch_params: {gpus_per_node: 2, nodes: 1}
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+
+logger:
+  wandb:
+    project: pushshapes-planar-v2
+
+evaluator:
+  native_decoder: ${planar.eval_native_decoder}
+
+planar:
+  action_dims: ???
+  eval_native_decoder: ???
+  raw_action_horizon: 16
+  action_horizon: 16
+  observation_horizon: 1
+  action_target_offset: 0
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_dense_transform_list
+  arc_distance: 200.0
+  arc_waypoints: 100
+  arc_rotation_radius: 30.0
+  # Null preserves the ordinary SE(2) arc window.  A positive value enables
+  # the hybrid Cartesian/angular window cap in the Planar dataset transform.
+  hybrid_rotation_unit: null
+  batch_size: 16
+  encoder:
+    _target_: egomimic.pipeline.stages_sampler.DPStyleObsEncoder
+    obs_specs:
+      state_agent_obj: {input_dim: 3, input_slice: [0, 3]}
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        crop_aug: true
+        crop_height: 84
+        crop_width: 84
+        crop_eval_mode: center
+        crop_sample_mode: v02
+        crop_scope: frame
+        norm_layer: group
+        pool_type: spatial_softmax

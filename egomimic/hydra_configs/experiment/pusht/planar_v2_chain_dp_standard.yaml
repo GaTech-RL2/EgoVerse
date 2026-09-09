@@ -1,0 +1,12 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_chain_base
+  - override /model: bf/bf_planar_v2_dp_standard
+  - _self_
+name: planar_v2_chain_dp_standard_h16
+description: chain_gripper_standard_DP_DDIM100_obs1_no_EMA
+planar:
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+    action_horizon: 16
+    native_action_dim: 4

@@ -1,0 +1,23 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# PACE gpu-h100 launcher. Same account/QoS as submitit_pace (H200) but pointed
+# at the H100 partition. H100 has 80 GB VRAM (vs H200's 141 GB), so mem_per_gpu
+# is dialed back from 250G to 160G. Gres count is hardcoded because this repo
+# does not register an ``eval`` OmegaConf resolver for the ``${eval:...}``
+# arithmetic ``submitit_pace``/``submitit_skynet`` use.
+name: ${hydra.job.name}
+partition: "gpu-h100"
+account: "gts-dxu345-rl2"
+# PACE gpu-h100 partition enforces a 4:1 CPU:GPU ratio.
+cpus_per_task: 4
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:h100:2"
+qos: "inferno"
+mem_per_gpu: 160G
+timeout_min: 2880
+additional_parameters:
+  requeue: true

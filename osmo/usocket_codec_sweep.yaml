@@ -1,0 +1,285 @@
+# U-Socket ARC codec training shortlist on OSMO -- 1 node x 8 L40S/H100.
+#
+# Packs three runs on one node at 2 GPUs each (planar_v2_base already sets
+# launch_params.gpus_per_node: 2). Lightning DDP runs the ranks directly in
+# this container; there is no submitit.
+#
+# Cells:
+#   planar_v2_usocket_arc_velocity_D80_M56_R26deg  primary
+#   planar_v2_usocket_arc_velocity_D80_M56_R18deg  angular alternate
+#   planar_v2_usocket_dp_standard                  non-ARC DP control
+#
+# The two ARC cells differ in exactly three lines (name, description,
+# arc_rotation_distance), so the R comparison is otherwise fully controlled.
+#
+# Unlike the abc_arc configs, data/pusht/planar_v2_usocket.yaml uses
+# LocalEpisodeResolverWithEmbodimentOverride -- a LOCAL resolver that will not
+# fetch anything. It also pins expected_episode_names_sha256, so the episode
+# set must arrive byte-identical. This workflow therefore stages the corpus
+# from the R2 mirror into the exact folder_path the config names, and leaves
+# the config untouched so provenance cannot drift.
+
+workflow:
+  name: "{{job_name}}"
+
+  tasks:
+  - name: train
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+      egoverse-wandb:
+        WANDB_API_KEY: wandb_api_key
+
+    environment:
+      BRANCH: "{{branch}}"
+      EXPERIMENTS: "{{experiments}}"
+      GPUS_PER_RUN: "{{gpus_per_run}}"
+      JOB_NAME: "{{job_name}}"
+      WANDB_ENTITY: "{{wandb_entity}}"
+      MAX_STEPS: "{{max_steps}}"
+      CKPT_EVERY: "{{ckpt_every}}"
+      WORKDIR: /workspace
+      EXPECTED_EPISODES: "2999"
+      NCCL_DEBUG: WARN
+      TOKENIZERS_PARALLELISM: "false"
+      HYDRA_FULL_ERROR: "1"
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+
+        mkdir -p "$WORKDIR" && cd "$WORKDIR"
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse-graph.git" EgoVerse-graph
+        cd "$WORKDIR/EgoVerse-graph"
+        git rev-parse HEAD
+
+        # The rotation fix must be in the tree we are about to train on. A
+        # branch that silently lacks it trains every R cell on identical
+        # tokens, which is exactly the failure this sweep exists to avoid.
+        for EXP in $EXPERIMENTS; do
+          case "$EXP" in
+            *arc_velocity*)
+              F="egomimic/hydra_configs/experiment/pusht/${EXP}.yaml"
+              test -f "$F" || { echo "FATAL: $F missing on $BRANCH"; exit 1; }
+              grep -q "rotation_distance_unit" "$F" || {
+                echo "FATAL: $F does not wire rotation_distance_unit"; exit 1; }
+              ;;
+          esac
+        done
+        echo "preflight: rotation wiring present in all ARC cells"
+
+        uv sync --frozen
+        source .venv/bin/activate
+
+        bash ./egomimic/utils/aws/setup_secret.sh
+        test -s "$HOME/.egoverse_env"
+        set -a; source "$HOME/.egoverse_env"; set +a
+
+        # Fail in seconds rather than after the stage + norm-stats phases.
+        python - <<'PY'
+        import os, sys, wandb
+        entity = os.environ["WANDB_ENTITY"]
+        api = wandb.Api()
+        teams = [t if isinstance(t, str) else getattr(t, "name", str(t))
+                 for t in (getattr(api.viewer, "teams", None) or [])]
+        ents = sorted({e for e in (api.default_entity, *teams) if e})
+        print(f"wandb user={api.viewer.username} entities={ents}")
+        if entity not in ents:
+            sys.exit(f"FATAL: wandb key has no access to '{entity}'. Accessible: {ents}")
+        print(f"wandb entity '{entity}' OK")
+        PY
+
+        ulimit -n 65536 || true
+
+        # ------------------------------------------- stage the U-Socket corpus
+        # The config points at a PACE path that does not exist here. The R2
+        # mirror holds the RAW 3000; the canonical corpus is the 2999-episode
+        # "clean" set, which is the raw set MINUS exactly one episode
+        # (episode_T_u_socket_obs0_000270). Drop it and the loader's own guards
+        # (expected_episode_count 2999 and expected_episode_names_sha256)
+        # verify the result, so a wrong corpus fails loudly instead of training.
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        unset AWS_SESSION_TOKEN
+
+        DATA=/workspace/usocket_clean
+        mkdir -p "$DATA"
+        s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 64 \
+          cp "s3://rldb/processed_v3/pushshapes_sim/u_socket_3000_v2/*" "$DATA/"
+        echo "pulled $(find "$DATA" -maxdepth 1 -name 'episode_*' -type d | wc -l) episodes"
+        rm -rf "$DATA/episode_T_u_socket_obs0_000270.zarr" \
+               "$DATA/episode_T_u_socket_obs0_000270"
+        N=$(find "$DATA" -maxdepth 1 -name 'episode_*' -type d | wc -l)
+        echo "after dropping the raw-only episode: $N"
+        if [ "$N" -ne "$EXPECTED_EPISODES" ]; then
+          echo "FATAL: expected $EXPECTED_EPISODES episodes, found $N"; exit 1
+        fi
+        du -sh "$DATA"
+
+        # Override the folder_path leaves rather than recreating the PACE path;
+        # the loader hash guards still verify the episode set.
+        DATA_OV="data.train_datasets.pushshapes_sim_u_socket.resolver.folder_path=$DATA \
+                 data.valid_datasets.pushshapes_sim_u_socket.resolver.folder_path=$DATA"
+
+        # ------------------------------------------ checkpoint persistence
+        # ${paths.output_dir} is node-local and dies with the container, and
+        # this workflow declares no outputs. Push continuously to R2.
+        cat > /tmp/ckpt_sync.sh <<'CSEOF'
+        #!/bin/bash
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        DEST="s3://rldb/staged/usocket_codec/$1"
+        while true; do
+          for d in $(find /workspace/EgoVerse-graph/logs -type d -name checkpoints 2>/dev/null); do
+            RN=$(basename $(dirname $(dirname "$d")))
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
+              sync "$d/" "$DEST/$RN/checkpoints/" >>/tmp/ckpt_sync.log 2>&1
+          done
+          for f in $(find /workspace/EgoVerse-graph/logs -name norm_stats.json 2>/dev/null); do
+            RN=$(basename $(dirname $(dirname "$f")))
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp "$f" "$DEST/$RN/norm_stats.json" >>/tmp/ckpt_sync.log 2>&1
+          done
+          sleep 420
+        done
+        CSEOF
+        chmod +x /tmp/ckpt_sync.sh
+        (setsid nohup /tmp/ckpt_sync.sh "$JOB_NAME" >/dev/null 2>&1 &)
+
+        drain_pids () {
+          for dp in $1; do
+            while kill -0 "$dp" 2>/dev/null; do sleep 30; done
+          done
+        }
+
+        # ---- phase 1: norm stats, ONE GPU per experiment, no DDP.
+        # trainHydra computes stats before trainer.fit, so under gpus_per_node=2
+        # rank 1 waits at the process-group store while rank 0 does the whole
+        # pass, and the store gives up at 1800s with DistStoreError. Computing
+        # them once on a single GPU removes that barrier.
+        NORM_ROOT=/workspace/norm_cache
+        mkdir -p "$NORM_ROOT"
+        NPIDS=""
+        i=0
+        for EXP in $EXPERIMENTS; do
+          mkdir -p "$NORM_ROOT/$EXP"
+          ( CUDA_VISIBLE_DEVICES=$i python egomimic/trainHydra.py \
+              +experiment=pusht/"$EXP" \
+              $DATA_OV \
+              launch_params.gpus_per_node=1 \
+              norm_stats.save_cache_dir="$NORM_ROOT/$EXP" \
+              trainer.max_steps=1 trainer.max_epochs=1 trainer.min_epochs=1 \
+              trainer.limit_train_batches=1 trainer.limit_val_batches=0 \
+              trainer.num_sanity_val_steps=0 \
+              ~logger ~callbacks \
+              name="normstats_${EXP}" \
+              > "/tmp/norm_${EXP}.log" 2>&1 ) &
+          NPIDS="$NPIDS $!"
+          i=$((i + 1))
+        done
+        echo "phase 1: $(echo $NPIDS | wc -w) norm-stats passes, 1 GPU each"
+        FIRSTN=$(echo $EXPERIMENTS | awk '{print $1}')
+        touch "/tmp/norm_${FIRSTN}.log"; tail -f "/tmp/norm_${FIRSTN}.log" & NTAIL=$!
+        drain_pids "$NPIDS"
+        kill $NTAIL 2>/dev/null || true
+
+        # cache_stats writes after each embodiment, so an interrupted pass
+        # leaves a partial file that would silently train unnormalized.
+        for EXP in $EXPERIMENTS; do
+          NJ="$NORM_ROOT/$EXP/norm_stats/norm_stats.json"
+          if [ ! -s "$NJ" ]; then
+            echo "FATAL: no norm stats for $EXP"; tail -40 "/tmp/norm_${EXP}.log"; exit 1
+          fi
+          if ! python -c "import json,sys; d=json.load(open(sys.argv[1])); st=d['stats']; c={e:len(k) for e,k in st.items()}; ok=bool(st) and all(len(k)>0 for k in st.values()); print('  norm stats',sys.argv[2],c,'COMPLETE' if ok else 'PARTIAL'); sys.exit(0 if ok else 1)" "$NJ" "$EXP"; then
+            echo "FATAL: partial norm stats for $EXP -- refusing to train on it"; exit 1
+          fi
+        done
+        echo "phase 1 complete: all caches verified"
+
+        # ---- phase 2: training, GPUS_PER_RUN each.
+        RC=0
+        PIDS=""
+        i=0
+        for EXP in $EXPERIMENTS; do
+          LO=$((i * GPUS_PER_RUN))
+          DEVS=$(seq -s, $LO $((LO + GPUS_PER_RUN - 1)))
+          PORT=$((29500 + i * 17))
+          echo "launching $EXP on GPU(s) $DEVS port $PORT"
+          ( CUDA_VISIBLE_DEVICES="$DEVS" MASTER_PORT=$PORT \
+            python egomimic/trainHydra.py \
+              +experiment=pusht/"$EXP" \
+              $DATA_OV \
+              launch_params.gpus_per_node="$GPUS_PER_RUN" \
+              norm_stats.precomputed_norm_path="$NORM_ROOT/$EXP/norm_stats/norm_stats.json" \
+              trainer.max_steps="$MAX_STEPS" \
+              callbacks.model_checkpoint.every_n_epochs=0 \
+              +callbacks.model_checkpoint.every_n_train_steps="$CKPT_EVERY" \
+              callbacks.model_checkpoint.save_top_k=-1 \
+              logger.wandb.entity="$WANDB_ENTITY" \
+              > "/tmp/run_${EXP}.log" 2>&1 ) &
+          PIDS="$PIDS $!"
+          i=$((i + 1))
+        done
+
+        FIRST=$(echo $EXPERIMENTS | awk '{print $1}')
+        touch "/tmp/run_${FIRST}.log"; tail -f "/tmp/run_${FIRST}.log" & TAILPID=$!
+        drain_pids "$PIDS"
+        for p in $PIDS; do
+          if ! wait $p 2>/dev/null; then RC=1; echo "run pid $p exited nonzero"; fi
+        done
+        kill $TAILPID 2>/dev/null || true
+
+        echo "================ RESULTS ================"
+        for EXP in $EXPERIMENTS; do echo "--- $EXP"; tail -30 "/tmp/run_${EXP}.log" || true; done
+
+        bash -c 'set -a; source "$HOME/.egoverse_env"; set +a
+          export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+          export AWS_DEFAULT_REGION=auto
+          for d in $(find /workspace/EgoVerse-graph/logs /workspace/norm_cache -type d \( -name checkpoints -o -name norm_stats \) 2>/dev/null); do
+            RN=$(basename $(dirname $(dirname "$d")))
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
+              sync "$d/" "s3://rldb/staged/usocket_codec/'"$JOB_NAME"'/$RN/$(basename $d)/"
+          done' || true
+        echo "artifacts flushed"
+        exit $RC
+
+  resources:
+    default:
+      cpu: {{cpu}}
+      gpu: {{num_gpu}}
+      memory: {{memory}}
+      storage: {{storage}}
+
+  timeout:
+    queue_timeout: 1d

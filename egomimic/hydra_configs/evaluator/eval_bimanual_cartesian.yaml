@@ -1,0 +1,59 @@
+# Cartesian bimanual validation for baseline (time-indexed) cotrain runs.
+#
+# Logs deterministic normalized MSE, native (metres/radians) MSE, and h264 mp4
+# overlay videos of predicted vs GT trajectories, buffered across the whole val
+# epoch on rank 0. One mp4 per episode when the loader stamps ``episode_hash``
+# (it does for zarr sources); batches without it fall back to fixed-size
+# ``validation_video_{i}.mp4`` chunks. Each finished mp4 is also logged to
+# WandB via ``wandb.Video`` under ``Val_video/{embodiment}`` (or
+# ``Val_video_{group}/{embodiment}`` off the default group).
+#
+#   Valid/MSE                        macro mean of per-embodiment normalized MSE
+#   Valid/MSE/{embodiment}           per-embodiment normalized MSE
+#   Valid/Native_MSE                 macro mean, unnormalized action-chunk MSE
+#   Valid/Native_MSE/{embodiment}    per-embodiment native MSE
+#
+# For the arc twins (loader-side arc tokenization) use the D40/M100 arc
+# evaluator instead, once the arc-tok data path lands in this repo.
+
+defaults:
+  - viz@viz_func: cartesian/base
+  - _self_
+
+_target_: egomimic.eval.bimanual_cartesian_eval.BimanualCartesianEval
+
+action_key: actions_cartesian
+obs_pose_key: observations.state.ee_pose
+image_key: observations.images.front_img_1
+
+# Per-embodiment revert transform lists. The evaluator applies these to both GT
+# and predicted eef-frame chunks BEFORE handing them to ``viz_func``, so overlays
+# are drawn in the front-camera frame that ``viz_gt_preds`` projects into. Each
+# entry instantiates to the already-constructed list of transforms.
+revert_transforms:
+  yam_bimanual:
+    _target_: egomimic.rldb.embodiment.yam._build_yam_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+    to_camera_frame: true
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
+    is_quat: false
+    gripper_padded: true
+
+# Base directory for mp4s. Left null so writes land under the trainer's
+# ``default_root_dir/videos`` (matches the main EgoVerse layout). Override to
+# ``${paths.output_dir}/val_videos`` if the run needs Hydra-rooted paths.
+video_output_dir: null
+
+# Fixed-size fallback: only hit when a batch has no ``episode_hash``. Zarr
+# sources stamp it, so this path is mostly a safety net.
+video_chunk_frames: 1000
+
+# Per-episode safety cap: also the peak RAM bound on rank 0, roughly
+#     n_embodiments * max_episode_frames * H * W * 3 bytes
+# (~5.5 GB per embodiment at 480x640 and 6000 frames). Episodes past this are
+# written and truncated, not split.
+max_episode_frames: 6000
+
+# Pin the sampler for reproducibility across resumed runs.
+deterministic_seed: 420042

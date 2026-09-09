@@ -1,8 +1,11 @@
 import os
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
+from hydra.utils import instantiate
 from omegaconf import DictConfig
 
 HYDRA_CONFIG_DIR = os.path.join(
@@ -18,13 +21,13 @@ def load_config(
     """
     Load a Hydra config by name, resolving the full defaults chain.
 
-    For config group paths (e.g. "data/cotrain_pi_lang"), the returned
+    For config group paths (e.g. "data/cotrain_dense_language"), the returned
     DictConfig contains the group contents directly (not nested under
     the group key).
 
     Args:
         config_name: Name of the config file (without .yaml extension).
-            Can also be a config group path like "data/cotrain_pi_lang".
+            Can also be a config group path like "data/cotrain_dense_language".
         overrides: Optional list of Hydra overrides (e.g. ["+trainer=debug"]).
         config_dir: Optional override of the Hydra config search directory.
             Defaults to the ``egomimic/hydra_configs`` dir of the *installed*
@@ -93,3 +96,70 @@ def load_config_from_path(
     rel_path = os.path.relpath(abs_path, config_dir)
     config_name = os.path.splitext(rel_path)[0]
     return load_config(config_name, overrides=overrides, config_dir=config_dir)
+
+
+def load_data_config_from_path(
+    config_path: str | Path,
+    overrides: list[str] | None = None,
+    root_config_name: str = "train_zarr_cartesian",
+) -> DictConfig:
+    """Compose a data-group config inside its root Hydra context.
+
+    Data configs may inherit sibling configs and interpolate values supplied by
+    root groups such as ``paths``. Loading their YAML directly, or composing the
+    data group in isolation, cannot satisfy both contracts. This helper derives
+    the checkout-local Hydra search path, selects the requested ``data`` option
+    from the root config, and returns the composed data subtree while retaining
+    its parent context for interpolation resolution.
+    """
+
+    abs_path = Path(config_path).resolve()
+    config_dir = Path(find_hydra_config_dir(abs_path))
+    try:
+        relative = abs_path.relative_to(config_dir).with_suffix("")
+    except ValueError as exc:  # pragma: no cover - guarded by the finder
+        raise ValueError(f"Config {abs_path} is outside {config_dir}") from exc
+    if len(relative.parts) < 2 or relative.parts[0] != "data":
+        raise ValueError(
+            f"Expected a config below {config_dir / 'data'}, got {abs_path}"
+        )
+
+    option = Path(*relative.parts[1:]).as_posix()
+    root = load_config(
+        root_config_name,
+        overrides=[f"data={option}", *(overrides or [])],
+        config_dir=str(config_dir),
+    )
+    data = root.get("data")
+    if not isinstance(data, DictConfig):
+        raise TypeError(f"Hydra data option {option!r} did not compose to a mapping")
+    return data
+
+
+def instantiate_dataset_splits_from_path(
+    config_path: str | Path,
+    overrides: list[str] | None = None,
+    root_config_name: str = "train_zarr_cartesian",
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Instantiate non-null train and validation entries from one data config."""
+
+    data = load_data_config_from_path(
+        config_path,
+        overrides=overrides,
+        root_config_name=root_config_name,
+    )
+    instantiated: dict[str, dict[str, Any]] = {
+        "train_datasets": {},
+        "valid_datasets": {},
+    }
+    for split_name, output in instantiated.items():
+        split = data.get(split_name)
+        if split is None:
+            continue
+        if not isinstance(split, Mapping):
+            raise TypeError(f"{split_name} must be a mapping or null")
+        for source_name, dataset_config in split.items():
+            if dataset_config is None:
+                continue
+            output[source_name] = instantiate(dataset_config)
+    return instantiated["train_datasets"], instantiated["valid_datasets"]

@@ -8,17 +8,15 @@ from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
-    BatchQuaternionPoseToYPR,
     ConcatKeys,
     DeleteKeys,
     InterpolateLinear,
     InterpolatePose,
     NumpyToTensor,
     PoseCoordinateFrameTransform,
-    QuaternionPoseToYPR,
     SplitKeys,
     Transform,
-    XYZWXYZ_to_XYZYPR,
+    transforms_for_rotation_mode,
 )
 from egomimic.utils.pose_utils import (
     _matrix_to_xyzwxyz,
@@ -48,32 +46,39 @@ class Eva(Embodiment):
 
     @staticmethod
     def get_transform_list(
-        mode: Literal[
-            "cartesian", "cartesian_wristframe_ypr", "cartesian_wristframe_quat"
-        ],
+        action_mode: Literal["cartesian"] = "cartesian",
+        coord_frame: Literal["camframe", "eef_frame"] = "camframe",
+        rotation_mode: Literal["euler", "quat", "6D"] = "euler",
     ) -> list[Transform]:
-        if mode == "cartesian":
-            return _build_eva_bimanual_transform_list(is_quat=True)
-        elif mode == "cartesian_wristframe_ypr":
-            return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
-        elif mode == "cartesian_wristframe_quat":
-            return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
+        """``action_mode`` is the action layout; ``coord_frame`` is where poses
+        live; ``rotation_mode`` is how rotation is stored.
+
+        Cam-frame actions are expressed in the wrist cameras via
+        :attr:`EXTRINSICS`. EEF-frame actions are a delta from the current EEF
+        pose. In both cases the geometric hops run in xyz+quat, then
+        ``rotation_mode`` converts rotation to euler (xyz+ypr, 14D), quat (16D),
+        or Zhou 6D (20D).
+        """
+        if action_mode != "cartesian":
+            raise ValueError(f"unknown action_mode {action_mode!r}")
+        if coord_frame == "camframe":
+            return _build_eva_bimanual_transform_list(rotation_mode=rotation_mode)
+        if coord_frame == "eef_frame":
+            return _build_eva_bimanual_eef_frame_transform_list(
+                rotation_mode=rotation_mode
+            )
+        raise ValueError(f"unknown coord_frame {coord_frame!r}")
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
-        # Camera key naming differs by algo:
-        #   "cartesian"     -> dataset-style names (HPT and friends)
-        #   "cartesian_pi"  -> PI/PaliGemma-style names (base_0_rgb, *_wrist_0_rgb)
-        # Everything else (proprio + action) stays identical so the same
-        # transform_list ("cartesian") works either way.
-        if keymap_mode == "cartesian_pi":
-            front_key = "base_0_rgb"
-            right_wrist_key = "right_wrist_0_rgb"
-            left_wrist_key = "left_wrist_0_rgb"
-        else:
-            front_key = cls.VIZ_IMAGE_KEY
-            right_wrist_key = "observations.images.right_wrist_img"
-            left_wrist_key = "observations.images.left_wrist_img"
+        if keymap_mode != "cartesian":
+            raise ValueError(
+                f"Unsupported keymap_mode {keymap_mode!r} for {cls.__name__}; "
+                "expected 'cartesian'"
+            )
+        front_key = cls.VIZ_IMAGE_KEY
+        right_wrist_key = "observations.images.right_wrist_img"
+        left_wrist_key = "observations.images.left_wrist_img"
 
         key_map = {
             front_key: {
@@ -244,7 +249,7 @@ def _build_eva_bimanual_eef_frame_transform_list(
     obs_key: str = "observations.state.ee_pose",
     chunk_length: int = 100,
     stride: int = 1,
-    is_quat: bool = True,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
 ) -> list[Transform]:
     """EVA bimanual transform pipeline with actions expressed relative to the
     current EEF pose (wrist frame), analogous to keypoints relative to wrist pose."""
@@ -323,27 +328,17 @@ def _build_eva_bimanual_eef_frame_transform_list(
         ),
     ]
 
-    if not is_quat:
-        transform_list.extend(
-            [
-                BatchQuaternionPoseToYPR(
-                    pose_key=left_cmd_wristframe,
-                    output_key=left_cmd_wristframe,
-                ),
-                BatchQuaternionPoseToYPR(
-                    pose_key=right_cmd_wristframe,
-                    output_key=right_cmd_wristframe,
-                ),
-                QuaternionPoseToYPR(
-                    pose_key=left_obs_camframe,
-                    output_key=left_obs_camframe,
-                ),
-                QuaternionPoseToYPR(
-                    pose_key=right_obs_camframe,
-                    output_key=right_obs_camframe,
-                ),
-            ]
+    transform_list.extend(
+        transforms_for_rotation_mode(
+            keys=[
+                left_cmd_wristframe,
+                right_cmd_wristframe,
+                left_obs_camframe,
+                right_obs_camframe,
+            ],
+            rotation_mode=rotation_mode,
         )
+    )
 
     transform_list.extend(
         [
@@ -408,7 +403,7 @@ def _build_eva_bimanual_transform_list(
     obs_key: str = "observations.state.ee_pose",
     chunk_length: int = 100,
     stride: int = 1,
-    is_quat: bool = True,
+    rotation_mode: Literal["euler", "quat", "6D"] = "euler",
 ) -> list[Transform]:
     """Canonical EVA bimanual transform pipeline used by tests and notebooks."""
     extrinsics = Eva.EXTRINSICS
@@ -417,47 +412,46 @@ def _build_eva_bimanual_transform_list(
     left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}
     right_extra_batch_key = {"right_extrinsics_pose": right_extrinsics_pose}
 
-    mode = "xyzwxyz" if is_quat else "xyzypr"
     transform_list = [
         ActionChunkCoordinateFrameTransform(
             target_world=left_target_world,
             chunk_world=left_cmd_world,
             transformed_key_name=left_cmd_camframe,
             extra_batch_key=left_extra_batch_key,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         ActionChunkCoordinateFrameTransform(
             target_world=right_target_world,
             chunk_world=right_cmd_world,
             transformed_key_name=right_cmd_camframe,
             extra_batch_key=right_extra_batch_key,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         PoseCoordinateFrameTransform(
             target_world=left_target_world,
             pose_world=left_obs_pose,
             transformed_key_name=left_obs_pose,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         PoseCoordinateFrameTransform(
             target_world=right_target_world,
             pose_world=right_obs_pose,
             transformed_key_name=right_obs_pose,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=left_cmd_camframe,
             output_action_key=left_cmd_camframe,
             stride=stride,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=right_cmd_camframe,
             output_action_key=right_cmd_camframe,
             stride=stride,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         InterpolateLinear(
             new_chunk_length=chunk_length,
@@ -473,17 +467,17 @@ def _build_eva_bimanual_transform_list(
         ),
     ]
 
-    if is_quat:
-        transform_list.append(
-            XYZWXYZ_to_XYZYPR(
-                keys=[
-                    left_cmd_camframe,
-                    right_cmd_camframe,
-                    left_obs_pose,
-                    right_obs_pose,
-                ]
-            )
+    transform_list.extend(
+        transforms_for_rotation_mode(
+            keys=[
+                left_cmd_camframe,
+                right_cmd_camframe,
+                left_obs_pose,
+                right_obs_pose,
+            ],
+            rotation_mode=rotation_mode,
         )
+    )
 
     transform_list.extend(
         [

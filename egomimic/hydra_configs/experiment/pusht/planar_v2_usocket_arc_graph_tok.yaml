@@ -1,0 +1,29 @@
+# @package _global_
+# U-Socket arc BC with tokenization as GRAPH NODES rather than a loader transform.
+#
+# The data config is the dense one the base already selects: the loader hands
+# over time-indexed actions and `ArcTokenizeStage` converts them, so the arc
+# window parameters live in one place (the `planar` block below) and are read by
+# both the tokenize and detokenize nodes.
+defaults:
+  - /experiment/pusht/planar_v2_usocket_base
+  - override /model: bf/bf_planar_v2_arc_graph_tok
+  - _self_
+name: planar_v2_usocket_arc_graph_tok_D200_M100
+description: u_socket_arc_graph_tokenize_detokenize_DDIM100_obs1
+
+planar:
+  # Raw dense window handed to the graph. The tokenizer needs enough timesteps
+  # to cover `arc_distance`; 200 raw steps is what the loader-side arc config
+  # uses for the same window.
+  raw_action_horizon: 200
+  action_horizon: 16
+  arc_dt: 0.0333333333333333
+  # M translation rows plus M rotation rows. Each stream carries its own local
+  # velocity, so there is no global timing row.
+  arc_rotation_distance: 0.10471975511965977
+  arc_token_rows: 200
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroNativeDecoder
+    resampled_vector_length: ${planar.arc_waypoints}
+    native_action_dim: 3

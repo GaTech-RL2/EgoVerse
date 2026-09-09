@@ -1,0 +1,25 @@
+# @package _global_
+# U-Socket independent translation/rotation arc streams as graph nodes.
+#
+# D_translation = 40 px, D_rotation = 6 degrees, and M = 32.
+defaults:
+  - /experiment/pusht/planar_v2_usocket_base
+  - override /model: bf/bf_planar_v2_arc_graph_tok
+  - _self_
+
+name: planar_v2_usocket_arc_graph_tok_hybrid_D40_M32_R6deg
+description: u_socket_arc_graph_hybrid_D40_M32_R6deg_DDIM100_obs1
+
+planar:
+  # The tokenizer emits two M=32 streams with independent local velocities.
+  raw_action_horizon: 40
+  action_horizon: 16
+  arc_distance: 40.0
+  arc_waypoints: 32
+  arc_rotation_distance: 0.10471975511965977
+  arc_dt: 0.0333333333333333
+  arc_token_rows: 64
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroNativeDecoder
+    resampled_vector_length: ${planar.arc_waypoints}
+    native_action_dim: 3

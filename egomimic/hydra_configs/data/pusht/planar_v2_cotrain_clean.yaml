@@ -1,0 +1,4 @@
+defaults:
+  - /data/pusht/planar_v2_usocket@_here_
+  - /data/pusht/planar_v2_chain_gripper@_here_
+  - _self_

@@ -1,0 +1,24 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# Same PACE account / QoS as submitit_pace but targeted at gpu-l40s.
+# L40S nodes have 48 GB VRAM, so mem_per_gpu is dialed down from 250G to 100G
+# (the H200 partition ran at 250G/GPU to fit its 141 GB cards).
+name: ${hydra.job.name}
+partition: "gpu-l40s"
+account: "gts-dxu345-rl2"
+# PACE gpu-l40s partition enforces a 4:1 CPU:GPU ratio.
+cpus_per_task: 4
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+# Hardcoded 2 GPUs to match this repo's 2x L40S launch pattern; the ${eval:...}
+# resolver used by submitit_pace/submitit_skynet is not registered here, so
+# gres is spelled out. Override on the CLI if you need a different count.
+gres: "gpu:l40s:2"
+qos: "inferno"
+mem_per_gpu: 100G
+timeout_min: 2880
+additional_parameters:
+  requeue: true

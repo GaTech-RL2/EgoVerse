@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "torch==2.7.1",
     "torchvision==0.22.1",
+    "torchdiffeq==0.2.5",
     "projectaria-tools[all]==2.0.0",
     "pyyaml",
     "matplotlib",
@@ -36,26 +37,22 @@ dependencies = [
     "arm_pytorch_utilities",
     "pytorch-kinematics",
     "lightning",
-    "positional-encodings[pytorch]",
     "argparse",
     "pandas",
-    "overrides",
     "zarr==3.1.5",
     "tabulate",
     "transformers==4.53.2",
-    "timm",
     "boto3",
     "cloudpathlib",
     "sqlalchemy",
     "psycopg[binary]",
     "ray",
-    "geomloss",
-    "tslearn",
     "typing_extensions",
     "pyarrow",
     "simplejpeg",
     "prettytable",
     "datasets==4.0.0",
+    "diffusers==0.30.3",
     "s5cmd",
     "mediapy",
     "pytest",
@@ -68,3 +65,11 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["egomimic*"]
+
+[tool.setuptools.package-data]
+egomimic = ["hydra_configs/**/*.yaml", "hydra_configs/**/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

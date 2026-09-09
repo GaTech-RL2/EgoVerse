@@ -1,0 +1,77 @@
+# Planar DP over arc-length tokens, with tokenization INSIDE the graph.
+#
+# The difference from bf_planar_v2_dp_standard is two nodes, not a different
+# model. `ArcTokenizeStage` takes ActionTargetBuilder's place -- it is the only
+# writer of `target`, so everything downstream is the ordinary DP chain and
+# simply models an arc token instead of a time-indexed chunk.
+# `ArcDetokenizeStage` is the inverse and reads `pred_action`, which exists only
+# in the inference graph, so the dependency resolver drops it from training on
+# its own rather than through a mode flag.
+#
+# Contrast with experiment/pusht/planar_v2_usocket_arc_bc, where the same
+# tokenization happens in the loader's transform_list: there the stage list
+# gives no sign the target is a token, and the linter cannot see the boundary.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 1
+      inputs:
+        front_img_1: front_img_1
+        state_agent_obj: state_agent_obj
+      encoder: ${planar.encoder}
+    # Tokenize into two M-row streams: [x,y,0,0,v] then [0,0,cos,sin,omega].
+    - _target_: egomimic.pipeline.stages_arc.ArcTokenizeStage
+      action_key: actions
+      min_distance_unit: ${planar.arc_distance}
+      resampled_vector_length: ${planar.arc_waypoints}
+      rotation_distance_unit: ${planar.arc_rotation_distance}
+      dt: ${planar.arc_dt}
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+      action_horizon: ${planar.arc_token_rows}
+      action_dim: 5
+      noise_scheduler: &arc_scheduler
+        _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: ${planar.arc_token_rows}
+      action_dim: 5
+      condition_input_dim: 67
+      policy:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: ${planar.arc_token_rows}
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+          input_dim: 5
+          cond_dim: 67
+          ac_latent_seq: 1
+          diffusion_step_embed_dim: 256
+          down_dims: [256, 512, 1024]
+          kernel_size: 3
+        noise_scheduler: *arc_scheduler
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+    # Detokenize: arc token -> time-indexed native chunk (inference only).
+    - _target_: egomimic.pipeline.stages_arc.ArcDetokenizeStage
+      resampled_vector_length: ${planar.arc_waypoints}
+      action_horizon: ${planar.action_horizon}
+      native_action_dim: 3
+      dt: ${planar.arc_dt}
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 1.0e-6
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 500
+  warmup_start_factor: 1.0e-8
+  eta_min: 0.0

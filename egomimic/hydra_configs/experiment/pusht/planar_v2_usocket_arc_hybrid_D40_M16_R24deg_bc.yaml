@@ -1,0 +1,24 @@
+# @package _global_
+# Hybrid arc token: a shared 40 px Cartesian horizon is additionally limited
+# by 24 degrees of accumulated yaw.  The tokenizer's chordal angular metric is
+# sqrt(2) * sin(radians(24) / 4) = 0.14776.
+defaults:
+  - /experiment/pusht/planar_v2_usocket_base
+  - override /model: bf/bf_planar_v2_flow
+  - _self_
+
+name: planar_v2_usocket_arc_hybrid_D40_M16_R24deg
+description: u_socket_hybrid_arc_bc_common5_D40_M16_R24deg_J8_replan1
+
+planar:
+  raw_action_horizon: 40
+  action_horizon: 17
+  arc_distance: 40.0
+  arc_waypoints: 16
+  arc_rotation_radius: 0.0
+  hybrid_rotation_unit: 0.14776
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroNativeDecoder
+    resampled_vector_length: 16
+    native_action_dim: 3
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list

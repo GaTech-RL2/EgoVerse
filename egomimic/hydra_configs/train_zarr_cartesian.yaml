@@ -1,12 +1,12 @@
 defaults:
-  - model: hpt_bc_flow_eva
+  - model: null
   - paths: default
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: eva
+  - data: null
   - callbacks: checkpoints
-  - evaluator: eval_hpt
+  - evaluator: null
   - override hydra/launcher: submitit
   - _self_
 
@@ -14,6 +14,7 @@ name: test
 description: test
 ckpt_path: null
 mode: train
+norm_stats_only: false
 
 hydra:
   run:
@@ -26,6 +27,14 @@ launch_params:
   gpus_per_node: 1
   nodes: 1
 
+runtime:
+  # Lightning owns SIGUSR1/scontrol by default. An external ICE runner must
+  # opt in explicitly and prove that child/framework requeue is disabled.
+  slurm_requeue_owner: lightning
+  # Runner-owned mode forwards SIGUSR2 only to request a full-state save.
+  slurm_save_signal: SIGUSR2
+  slurm_signal_checkpoint_dir: ${paths.output_dir}/checkpoints
+
 seed: 42
 
 # Normalization and norm-stat cache settings (override per-run as needed).
@@ -35,4 +44,3 @@ norm_stats:
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null
-reject_outliers: true

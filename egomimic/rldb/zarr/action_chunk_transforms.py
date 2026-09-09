@@ -1,9 +1,9 @@
 """
 Embodiment-dependent action chunk transforms for ZarrDataset.
 
-Replicates the prestacking transformations from aria_to_lerobot.py / eva_to_lerobot.py,
-applied at load time instead of at data creation time. Raw action frames are loaded
-as (action_horizon, action_dim) and interpolated to (chunk_length, action_dim).
+Applies prestacking transformations at load time rather than data-creation time.
+Raw action frames are loaded as (action_horizon, action_dim) and interpolated to
+(chunk_length, action_dim).
 
 Translation (xyz) and gripper dimensions use linear interpolation.
 Rotation (euler ypr) dimensions use np.unwrap before interpolation and rewrap after,
@@ -26,6 +26,7 @@ from egomimic.utils.pose_utils import (
     _interpolate_quat_wxyz,
     _interpolate_xyz,
     _matrix_to_xyz,
+    _matrix_to_xyzrot6d,
     _matrix_to_xyzwxyz,
     _matrix_to_xyzypr,
     _xyz_to_matrix,
@@ -300,6 +301,57 @@ class BatchQuaternionPoseToYPR(Transform):
         return batch
 
 
+def _quat_wxyz_to_rot6d(quat_wxyz: np.ndarray) -> np.ndarray:
+    """(..., 4) wxyz quaternion -> (..., 6) Zhou 6D (first two columns of R)."""
+    xyzw = wxyz_to_xyzw(quat_wxyz)
+    rotmats = R.from_quat(xyzw.reshape(-1, 4)).as_matrix()  # (N, 3, 3)
+    rot6d = np.concatenate([rotmats[:, :, 0], rotmats[:, :, 1]], axis=-1)
+    return rot6d.reshape(*quat_wxyz.shape[:-1], 6)
+
+
+class QuaternionPoseTo6D(Transform):
+    """Single pose xyz+quat(wxyz) (7,) -> xyz + Zhou 6D rotation (9,)."""
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.shape != (7,):
+            raise ValueError(
+                f"QuaternionPoseTo6D expects shape (7,), got {pose.shape} for key "
+                f"'{self.pose_key}'"
+            )
+        batch[self.output_key] = np.concatenate(
+            [pose[:3], _quat_wxyz_to_rot6d(pose[3:7])], axis=0
+        )
+        return batch
+
+
+class BatchQuaternionPoseTo6D(Transform):
+    """Batch poses xyz+quat(wxyz) (N, 7) -> xyz + Zhou 6D rotation (N, 9).
+
+    The 3x3 rotation matrix's last column is dropped, leaving two 3-vectors.
+    """
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.ndim != 2 or pose.shape[-1] != 7:
+            raise ValueError(
+                f"BatchQuaternionPoseTo6D expects shape (N, 7), got {pose.shape} "
+                f"for key '{self.pose_key}'"
+            )
+        batch[self.output_key] = np.concatenate(
+            [pose[:, :3], _quat_wxyz_to_rot6d(pose[:, 3:7])], axis=1
+        )
+        return batch
+
+
 class BatchYPRToQuaternionPose(Transform):
     """Convert a batch of poses from xyz + ypr to xyz + quat(x,y,z,w)."""
 
@@ -366,6 +418,27 @@ class DeleteKeys(Transform):
         return batch
 
 
+class XYZWXYZ_to_XYZRot6D(Transform):
+    """Convert listed keys from xyz+quat(wxyz) to xyz+rot6d in-place."""
+
+    def __init__(self, keys: list[str]):
+        self.keys = list(keys)
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            value = np.asarray(batch[key])
+            if value.ndim == 1 and value.shape[0] == 7:
+                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value[None, :]))[0]
+            elif value.ndim == 2 and value.shape[1] == 7:
+                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value))
+            else:
+                raise ValueError(
+                    f"XYZWXYZ_to_XYZRot6D expects key '{key}' to have shape (7,) "
+                    f"or (T, 7), got {value.shape}"
+                )
+        return batch
+
+
 class XYZWXYZ_to_XYZYPR(Transform):
     """Convert listed keys from xyz+quat(wxyz) to xyz+ypr in-place."""
 
@@ -385,6 +458,25 @@ class XYZWXYZ_to_XYZYPR(Transform):
                     f"or (T, 7), got {value.shape}"
                 )
         return batch
+
+
+def transforms_for_rotation_mode(
+    keys: list[str],
+    rotation_mode: Literal["euler", "quat", "6D"],
+) -> list[Transform]:
+    """Convert xyz+quat(wxyz) poses to the requested rotation representation.
+
+    Geometric frame hops always run in quaternion form. This is the last step
+    that turns those 7D poses into what the policy sees: ``euler`` -> xyz+ypr
+    (6), ``quat`` -> leave 7D, ``6D`` -> Zhou 6D (xyz + first two columns of R).
+    """
+    if rotation_mode == "quat":
+        return []
+    if rotation_mode == "euler":
+        return [XYZWXYZ_to_XYZYPR(keys=keys)]
+    if rotation_mode == "6D":
+        return [XYZWXYZ_to_XYZRot6D(keys=keys)]
+    raise ValueError(f"unknown rotation_mode {rotation_mode!r}")
 
 
 class CartesianWithGripperCoordinateTransform(Transform):
@@ -513,34 +605,39 @@ class ConcatKeys(Transform):
 
 
 class PadGripperZeros(Transform):
-    """Pad a 12D bimanual cartesian action chunk to 14D by inserting a zero
-    gripper slot at position 6 (end of left arm) and position 13 (end of right
-    arm), matching the canonical [L xyz ypr g, R xyz ypr g] layout used by Eva.
+    """Insert a zero gripper slot after each arm's pose.
 
-    Used so aria (which has no gripper signal) can share an FM denoiser head
-    sized for 14D actions without needing in-model padding branches.
+    Default ``pose_dim=6`` (xyz+ypr) pads 12D -> 14D, matching the canonical
+    [L xyz ypr g, R xyz ypr g] layout used by Eva. ``pose_dim=9`` (xyz+Zhou 6D)
+    pads 18D -> 20D so human can share a 20D head with Eva.
+
+    Used so human data (which has no gripper signal) can share a denoiser head
+    with Eva without needing in-model padding branches.
     """
 
-    def __init__(self, action_key: str = "actions_cartesian"):
+    def __init__(self, action_key: str = "actions_cartesian", pose_dim: int = 6):
         self.action_key = action_key
+        self.pose_dim = int(pose_dim)
+        if self.pose_dim <= 0:
+            raise ValueError("pose_dim must be positive")
 
     def transform(self, batch: dict) -> dict:
         actions = batch[self.action_key]
         is_tensor = isinstance(actions, torch.Tensor)
         arr = actions.cpu().numpy() if is_tensor else np.asarray(actions)
-        if arr.shape[-1] != 12:
+        expected = 2 * self.pose_dim
+        if arr.shape[-1] != expected:
             raise ValueError(
-                f"PadGripperZeros expects last-dim 12, got {arr.shape} for "
-                f"'{self.action_key}'"
+                f"PadGripperZeros expects last-dim {expected} (2 x pose_dim="
+                f"{self.pose_dim}), got {arr.shape} for '{self.action_key}'"
             )
         pad_shape = (*arr.shape[:-1], 1)
         pad = np.zeros(pad_shape, dtype=arr.dtype)
+        half = self.pose_dim
         padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
+            (arr[..., :half], pad, arr[..., half:], pad), axis=-1
         )
-        batch[self.action_key] = (
-            torch.from_numpy(padded) if is_tensor else padded
-        )
+        batch[self.action_key] = torch.from_numpy(padded) if is_tensor else padded
         return batch
 
 
@@ -573,5 +670,94 @@ class NumpyToTensor(Transform):
             else:
                 raise ValueError(
                     f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
+                )
+        return batch
+
+
+class ThetaToRotVec(Transform):
+    """Replace scalar theta with ``(cos(theta), sin(theta))``."""
+
+    def __init__(self, keys: list[str], angle_col: int = 2):
+        self.keys = list(keys)
+        self.angle_col = int(angle_col)
+        if self.angle_col < 0:
+            raise ValueError("angle_col must be non-negative")
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            value = batch[key]
+            if value.ndim == 0 or value.shape[-1] <= self.angle_col:
+                raise ValueError(
+                    f"ThetaToRotVec needs angle_col={self.angle_col} in key "
+                    f"'{key}', got shape {tuple(value.shape)}"
+                )
+            theta = value[..., self.angle_col]
+            if torch.is_tensor(value):
+                batch[key] = torch.cat(
+                    (
+                        value[..., : self.angle_col],
+                        torch.cos(theta).unsqueeze(-1),
+                        torch.sin(theta).unsqueeze(-1),
+                        value[..., self.angle_col + 1 :],
+                    ),
+                    dim=-1,
+                )
+            else:
+                value = np.asarray(value)
+                batch[key] = np.concatenate(
+                    (
+                        value[..., : self.angle_col],
+                        np.cos(theta)[..., None].astype(value.dtype, copy=False),
+                        np.sin(theta)[..., None].astype(value.dtype, copy=False),
+                        value[..., self.angle_col + 1 :],
+                    ),
+                    axis=-1,
+                )
+        return batch
+
+
+class PlanarAgentStateToRotVec4(Transform):
+    """Encode native ``[agent x,y,theta,...]`` state as exactly four values."""
+
+    def __init__(self, keys: list[str], angle_col: int = 2, source_dim: int = 6):
+        self.keys = list(keys)
+        self.angle_col = int(angle_col)
+        self.source_dim = int(source_dim)
+        if self.angle_col != 2:
+            raise ValueError("PlanarAgentStateToRotVec4 requires angle_col=2")
+        if self.source_dim < 3:
+            raise ValueError("source_dim must be at least three")
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            value = batch[key]
+            if value.ndim == 0 or value.shape[-1] != self.source_dim:
+                raise ValueError(
+                    "PlanarAgentStateToRotVec4 needs exact source width "
+                    f"{self.source_dim} in key '{key}', got shape {tuple(value.shape)}"
+                )
+            theta = value[..., 2]
+            if torch.is_tensor(value):
+                batch[key] = torch.cat(
+                    (
+                        value[..., :2],
+                        torch.cos(theta).unsqueeze(-1),
+                        torch.sin(theta).unsqueeze(-1),
+                    ),
+                    dim=-1,
+                )
+            else:
+                value = np.asarray(value)
+                batch[key] = np.concatenate(
+                    (
+                        value[..., :2],
+                        np.cos(theta)[..., None].astype(value.dtype, copy=False),
+                        np.sin(theta)[..., None].astype(value.dtype, copy=False),
+                    ),
+                    axis=-1,
                 )
         return batch

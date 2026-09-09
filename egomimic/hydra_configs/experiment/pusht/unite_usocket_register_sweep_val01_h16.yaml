@@ -1,0 +1,101 @@
+# @package _global_
+defaults:
+  - override /data: pusht/unite_usocket_val01_h16_per_emb_proprio
+  - override /evaluator: eval_planar_v2
+  - override /logger: wandb
+
+name: unite_usocket_register_sweep_h16
+description: clean_action_h16_registers_pooled_obs_adaln_joint_flow${model.flow_steps_per_reconstruction}
+
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 1.0
+  val_check_interval: 10000
+  limit_val_batches: 8
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  strategy: ddp_find_unused_parameters_true
+  log_every_n_steps: 1
+  gradient_clip_val: 3.0
+  gradient_clip_algorithm: norm
+
+logger:
+  wandb:
+    project: pushshapes-flow-transfer
+
+norm_stats:
+  norm_mode: minmax
+  reduce_all_but_last: true
+
+callbacks:
+  model_checkpoint:
+    filename: "epoch-{epoch}-step-{step}"
+    every_n_train_steps: 20000
+    every_n_epochs: null
+  ema:
+    _target_: egomimic.utils.ema_callback.EMACallback
+    decay: 0.9978
+    validate_with_ema: true
+
+eval_checkpoint:
+  use_ema: true
+
+run_provenance:
+  split_manifest_path: egomimic/hydra_configs/data/pusht/planar_v2_usocket_dp_3k_split_seed42_v1.json
+  split_manifest_sha256: 3683e3461596eef8df2432fa865779b3c77b2a2057dabd0fea125595729cf313
+  split_seed: 42
+  valid_ratio: 0.01
+  train_episode_count_per_domain: 2970
+  valid_episode_count_per_domain: 29
+  union_episode_count_per_domain: 2999
+  id_overlap_count: 0
+  resolved_path_overlap_count: 0
+  action_contract:
+    representations:
+      pushshapes_sim_u_socket: x_y_cos_theta_sin_theta
+  unite_update_schedule:
+    mode: joint_reconstruction_plus_flow
+    flow_samples_per_reconstruction: ${model.flow_steps_per_reconstruction}
+    total_optimizer_steps: 240000
+  energy_score_contract:
+    sample_count: 32
+    seed_bank_sha256: 88657b829905d4374823db145ded19b99cec4735f76694734473bcee068bb5b6
+    validation_view: first_deterministic_validation_batch_per_ddp_rank
+    aggregation: condition_mean_then_equal_domain_macro_mean
+
+evaluator:
+  deterministic_seed: 420042
+  energy_score_max_batches_per_rank: 1
+  energy_score_validation_view:
+    definition: first_deterministic_validation_batch_per_ddp_rank
+    split_manifest_sha256: ${run_provenance.split_manifest_sha256}
+    per_rank_batch_size: 16
+    world_size: ${trainer.devices}
+  energy_score_provenance:
+    action_representations: ${run_provenance.action_contract.representations}
+    prediction_horizon: ${model.action_horizon}
+    sampler: dopri5
+    sampler_evaluation_points: 50
+    sampler_atol: 1.0e-6
+    sampler_rtol: 1.0e-3
+    model_autocast_precision: bf16
+    dopri5_state_precision: fp32
+    dopri5_derivative_precision: fp32
+    dopri5_error_control_precision: fp32
+  semantic_blocks: [[0, 2], [2, 4]]
+  native_decoder:
+    _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder
+
+# Simulator I/O is an application boundary, not part of PipelineAlgo.
+deployment:
+  observation_adapter:
+    _target_: egomimic.pipeline.pushshapes.USocketModelStateObservationAdapter
+  action_decoder:
+    _target_: egomimic.pipeline.pushshapes.USocketRotVecNativeDecoder

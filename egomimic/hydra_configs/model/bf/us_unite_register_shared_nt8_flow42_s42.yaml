@@ -1,0 +1,7 @@
+defaults:
+  - /model/bf/us_unite_register_shared_nt8_s42@_here_
+  - _self_
+
+# Literal 42:1 flow-to-reconstruction sample-count ablation. The ICE launcher
+# retains a flow mini-batch of 14, so this executes as three bounded chunks.
+flow_steps_per_reconstruction: 42

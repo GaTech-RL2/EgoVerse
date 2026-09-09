@@ -1,0 +1,53 @@
+# @package _global_
+# Cotrain: ABC fold-and-stack-t-shirts (yam_bimanual) + mecka free-fold
+# (human_bimanual), arc-tokenized at D=0.40 / M=100.
+#
+# Arc tokenization is loader-side (arc_tokenizer_cartesian in the data config).
+# Both embodiments produce (101, 14) arc tokens in `actions_cartesian`.
+#
+# Launch:
+#   python egomimic/trainHydra.py -m \
+#       +experiment=abc_arc/abc_fstshirt_mecka_freefold_cotrain_arcD40M100
+defaults:
+  - override /model: abc_arc/yam_mecka_cotrain_dp_arc_D40_M100
+  - override /data: abc_arc/abc_fstshirt_mecka_freefold_arc_cotrain_D40_M100
+  - override /evaluator: null
+  - override hydra/launcher: submitit_pace
+  - _self_
+
+name: abc_fstshirt_mecka_freefold_cotrain_arcD40M100
+description: arcD40M100
+
+paths:
+  dataset_dir: /storage/project/r-dxu345-0/shared/arc_abc
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  # ddp_find_unused_parameters_true: a cotrain model has per-embodiment stems;
+  # a given batch routes through one embodiment's stem and leaves the other
+  # untouched, so plain `ddp` would abort with "Expected to have finished
+  # reduction in the prior iteration".
+  strategy: ddp_find_unused_parameters_true
+  num_sanity_val_steps: 2
+  accumulate_grad_batches: 1
+  log_every_n_steps: 10
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+
+logger:
+  wandb:
+    project: abc-yam
+    tags:
+      - abc
+      - cotrain
+      - arc

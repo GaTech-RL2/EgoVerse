@@ -10,6 +10,11 @@ class Eval(ABC):
         return self.trainer.default_root_dir
 
     @abstractmethod
+    def bind_data_context(self, *, normalizer):
+        """Attach normalization and other data-owned evaluation state."""
+        pass
+
+    @abstractmethod
     def on_validation_start(self):
         pass
 

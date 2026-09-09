@@ -18,7 +18,6 @@ rsync_exclude:
   - "**/__pycache__/"
   - "*.pyc"
   - "logs/"
-  - "external/openpi"
 
 max_workers: 15
 idle_timeout_minutes: 10

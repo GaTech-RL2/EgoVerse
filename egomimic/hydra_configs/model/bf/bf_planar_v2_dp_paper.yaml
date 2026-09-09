@@ -1,0 +1,57 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 2
+      inputs:
+        front_img_1: front_img_1
+        state_agent_obj: state_agent_obj
+      encoder: ${planar.encoder}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+      action_horizon: 16
+      action_dim: 5
+      noise_scheduler: &paper_dp_scheduler
+        _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        variance_type: fixed_small
+        clip_sample: true
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: 16
+      action_dim: 5
+      condition_input_dim: 134
+      policy:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: 16
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.PaperConditionalUnet1D
+          input_dim: 5
+          global_cond_dim: 134
+          diffusion_step_embed_dim: 128
+          down_dims: [512, 1024, 2048]
+          kernel_size: 5
+          n_groups: 8
+          cond_predict_scale: true
+        noise_scheduler: *paper_dp_scheduler
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  betas: [0.95, 0.999]
+  eps: 1.0e-8
+  weight_decay: 1.0e-6
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 500
+  warmup_start_factor: 1.0e-8
+  eta_min: 0.0

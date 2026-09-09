@@ -4,8 +4,6 @@ egomimic.egg-info/
 *.hdf5
 *.out.*
 egomimic/debug
-trained_models_highlevel/
-trained_models_lowlevel/
 egomimic/scripts/exps
 *.ipynb_checkpoints
 *.mp4
@@ -15,7 +13,6 @@ egomimic/scripts/figures
 egomimic/**/*.png
 egomimic/**/*.jpg
 egomimic/**/*.svg
-act/detr/detr.egg-info/PKG-INFO
 egomimic/v_3_after.png
 egomimic/v_3.png
 egomimic/scripts/masking/overlays/
@@ -27,7 +24,6 @@ logs/
 emimic/
 emimic.egg-info/
 pyproject.bak
-egomimic/algo/pi_checkpoints/*
 egomimic/scripts/tsne/*
 lerobot_test/
 **/lerobot_test/
@@ -49,3 +45,4 @@ scratch/
 sample_data/
 external_ckpts/
 external/MANO/
+.claude/

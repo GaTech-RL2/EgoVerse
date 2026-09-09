@@ -1,0 +1,12 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_usocket_base
+  - override /model: bf/bf_planar_v2_flow
+  - _self_
+name: planar_v2_usocket_direct_bc_h16
+description: u_socket_direct_common5_H16_J8
+planar:
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarCommon5NativeDecoder
+    action_horizon: 16
+    native_action_dim: 3

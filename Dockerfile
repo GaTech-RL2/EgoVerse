@@ -60,17 +60,15 @@ RUN add-apt-repository ppa:git-core/ppa -y && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
     brew update && \
     brew tap withgraphite/tap && \
-    brew install withgraphite/tap/graphite && \
-    gt auth --token SX4r5gXXW83uNr4x1USeYFcc2VUEzp5YfBOGJVP7xXiGUk4vhEYEnPObeTY8
+    brew install withgraphite/tap/graphite
 
 # 4) create workspace dir early
 RUN mkdir -p /home/robot/robot_ws
 WORKDIR /home/robot/robot_ws
 
-# 5) copy only the env + requirements first (so pip/mamba stays cached)
+# 5) copy the environment definition first so mamba stays cached
 # adjust paths below to match your repo layout on host
 COPY egomimic/robot/eva/stanford_repo/conda_environments/py310_environment.yaml /tmp/py310_environment.yaml
-COPY requirements.txt /tmp/requirements.txt
 
 # 6) create mamba env (its own layer)
 RUN micromamba create -y -f /tmp/py310_environment.yaml -n arx-py310 && \
@@ -107,9 +105,10 @@ RUN echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc && \
 
 WORKDIR /home/robot/robot_ws
 
-# 11) python deps (outside mamba, your original flow)
-RUN pip install -r /tmp/requirements.txt && \
-    pip install -e . && \
+# 11) Install the Python >=3.11 project into uv's isolated environment. Keep
+# ROS/hardware helpers in the image's system Python 3.10 environment.
+RUN pip install uv && \
+    uv sync --locked && \
     pip install -e egomimic/robot/oculus_reader/. && \
     pip install pybullet pybind11 h5py
 

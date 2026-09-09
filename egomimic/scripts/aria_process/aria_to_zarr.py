@@ -196,7 +196,7 @@ def main(args) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed command-line arguments (same shape as eva_to_lerobot).
+        Parsed conversion command-line arguments.
     """
 
     try:
@@ -316,11 +316,19 @@ def argument_parse():
         help="Device for the MANO fit (e.g. cuda, mps, cpu). Default: auto (cuda > mps > cpu).",
     )
     parser.add_argument(
-        "--mano-iters", type=int, default=2400, help="Adam iterations per MANO fit chunk."
+        "--mano-iters",
+        type=int,
+        default=2400,
+        help="Adam iterations per MANO fit chunk.",
     )
-    parser.add_argument("--mano-lr", type=float, default=0.05, help="MANO fit learning rate.")
     parser.add_argument(
-        "--mano-beta-reg", type=float, default=0.01, help="L2 regularization on MANO shape betas."
+        "--mano-lr", type=float, default=0.05, help="MANO fit learning rate."
+    )
+    parser.add_argument(
+        "--mano-beta-reg",
+        type=float,
+        default=0.01,
+        help="L2 regularization on MANO shape betas.",
     )
     parser.add_argument(
         "--mano-chunk-size",

@@ -1,8 +1,5 @@
 """
-Convert Eva HDF5 episodes to Zarr format.
-
-Mirrors the main(args) interface of eva_to_lerobot.py so that
-run_eva_conversion.py can swap between LeRobot and Zarr backends.
+Convert Eva HDF5 episodes to the repository's Zarr format.
 """
 
 import argparse
@@ -17,8 +14,8 @@ from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 from egomimic.scripts.eva_process.eva_utils import EvaHD5Extractor
 from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
-from egomimic.utils.type_utils import str2bool
 from egomimic.utils.pose_utils import xyzw_to_wxyz
+from egomimic.utils.type_utils import str2bool
 from egomimic.utils.video_utils import resize_video_thwc, save_preview_mp4
 
 logger = logging.getLogger(__name__)
@@ -225,7 +222,7 @@ def main(args) -> None:
     Parameters
     ----------
     args : argparse.Namespace
-        Parsed command-line arguments (same shape as eva_to_lerobot).
+        Parsed conversion command-line arguments.
     """
 
     try:

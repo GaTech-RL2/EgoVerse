@@ -21,6 +21,7 @@ Each episode is self-contained with its own metadata, enabling:
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import logging
 import math
@@ -90,6 +91,53 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     valid = set(names[:n_valid])
     train = set(names[n_valid:])
     return train, valid
+
+
+def episode_names_sha256(dataset_names: Iterable[str]) -> str:
+    """Hash a sorted newline-delimited episode-ID list."""
+    payload = "".join(f"{name}\n" for name in sorted(map(str, dataset_names)))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _validate_episode_name_pin(
+    label: str,
+    dataset_names: Iterable[str],
+    expected_count: int | None,
+    expected_sha256: str | None,
+) -> None:
+    names = sorted(map(str, dataset_names))
+    if expected_count is not None and len(names) != int(expected_count):
+        raise ValueError(
+            f"expected {expected_count} {label} episodes, found {len(names)}"
+        )
+    if expected_sha256 is None:
+        return
+    expected_sha256 = str(expected_sha256).lower()
+    if len(expected_sha256) != 64 or any(
+        character not in "0123456789abcdef" for character in expected_sha256
+    ):
+        raise ValueError(f"{label} expected SHA-256 is not a hex digest")
+    actual = episode_names_sha256(names)
+    if actual != expected_sha256:
+        raise ValueError(
+            f"{label} episode-ID SHA-256 mismatch: expected {expected_sha256}, "
+            f"found {actual}"
+        )
+
+
+def decode_jpeg_payload(payload) -> np.ndarray:
+    """Decode either one JPEG or a temporal sequence without dropping time."""
+    if isinstance(payload, np.ndarray) and payload.ndim == 0:
+        payload = payload.item()
+    if isinstance(payload, (bytes, bytearray, memoryview)):
+        image = simplejpeg.decode_jpeg(bytes(payload), colorspace="RGB")
+        return np.transpose(image, (2, 0, 1)) / 255.0
+    frames = [
+        simplejpeg.decode_jpeg(bytes(value), colorspace="RGB") for value in payload
+    ]
+    if not frames:
+        raise ValueError("JPEG sequence cannot be empty")
+    return np.transpose(np.stack(frames), (0, 3, 1, 2)) / 255.0
 
 
 def _ensure_dataset_filter(filters: DatasetFilter | None) -> DatasetFilter:
@@ -181,6 +229,73 @@ def get_fallback_idx(
     return random.choice(valid_candidates), attempts
 
 
+def _resize_images(arr: np.ndarray, target_hw: tuple[int, int]) -> np.ndarray:
+    """Resize decoded images to ``target_hw``, preserving layout and dtype.
+
+    Accepts a single frame or a window, in either channels-last (H, W, C) or
+    channels-first (C, H, W) layout -- the decoder emits channels-first floats,
+    so assuming HWC silently turns every sample into a decode failure.
+
+    The scaling is anamorphic on purpose: the axes scale independently so a
+    640x480 and a 640x360 capture can share a batch. Whatever happens here MUST
+    be mirrored on the intrinsics (``_scale_intrinsics``) or every projected
+    overlay is wrong by the same factor.
+    """
+    import cv2
+
+    th, tw = int(target_hw[0]), int(target_hw[1])
+
+    def _one(img: np.ndarray) -> np.ndarray:
+        chw = img.ndim == 3 and img.shape[0] in (1, 3) and img.shape[0] != img.shape[2]
+        hwc = np.transpose(img, (1, 2, 0)) if chw else img
+        if hwc.shape[0] == th and hwc.shape[1] == tw:
+            return img
+        src = hwc.astype(np.float32, copy=False)
+        out = cv2.resize(src, (tw, th), interpolation=cv2.INTER_AREA)
+        if out.ndim == 2:
+            out = out[:, :, None]
+        out = out.astype(img.dtype, copy=False)
+        return np.transpose(out, (2, 0, 1)) if chw else out
+
+    if arr.ndim == 3:
+        return _one(arr)
+    if arr.ndim == 4:
+        return np.stack([_one(f) for f in arr])
+    return arr
+
+
+def _image_hw_of(arr: np.ndarray) -> tuple[int, int] | None:
+    """(H, W) of a decoded frame or window, in either channel layout.
+
+    The decoder emits channels-first, so reading shape[0:2] blindly yields
+    (C, H) and scales the intrinsics by a garbage factor.
+    """
+    if arr.ndim == 3:
+        chw = arr.shape[0] in (1, 3) and arr.shape[0] != arr.shape[2]
+        return (arr.shape[1], arr.shape[2]) if chw else (arr.shape[0], arr.shape[1])
+    if arr.ndim == 4:
+        chw = arr.shape[1] in (1, 3) and arr.shape[1] != arr.shape[3]
+        return (arr.shape[2], arr.shape[3]) if chw else (arr.shape[1], arr.shape[2])
+    return None
+
+
+def _scale_intrinsics(K: np.ndarray, src_hw: tuple[int, int], dst_hw: tuple[int, int]) -> np.ndarray:
+    """Rescale a 3x4 K for an image resized from ``src_hw`` to ``dst_hw``.
+
+    Row 0 (fx, cx) scales with width, row 1 (fy, cy) with height. Scaling only
+    one axis is what produced the anamorphic K bug in backfill_abc_metadata.
+    """
+    sh, sw = src_hw
+    dh, dw = dst_hw
+    if not sh or not sw:
+        return K
+    out = np.array(K, dtype=np.float32, copy=True)
+    out[0] *= float(dw) / float(sw)
+    out[1] *= float(dh) / float(sh)
+    return out
+
+
+
 class EpisodeResolver:
     """
     Base class for episode resolution utilities.
@@ -194,10 +309,15 @@ class EpisodeResolver:
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        image_hw: tuple[int, int] | None = None,
     ):
         self.folder_path = Path(folder_path)
         self.key_map = key_map
         self.transform_list = transform_list
+        # Common (H, W) every episode's images are resized to, with intrinsics
+        # rescaled to match. Needed because a batch cannot mix image sizes and
+        # these datasets do (640x480 / 640x360 / 1280x720 / 848x480).
+        self.image_hw = tuple(image_hw) if image_hw else None
 
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
@@ -230,6 +350,7 @@ class EpisodeResolver:
                     p,
                     key_map=self.key_map,
                     transform_list=self.transform_list,
+                    image_hw=self.image_hw,
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -259,6 +380,7 @@ class S3EpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
+        image_hw: tuple[int, int] | None = None,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
@@ -267,6 +389,7 @@ class S3EpisodeResolver(EpisodeResolver):
             folder_path,
             key_map=key_map,
             transform_list=transform_list,
+            image_hw=image_hw,
         )
 
     def resolve(
@@ -618,9 +741,14 @@ class LocalEpisodeResolver(EpisodeResolver):
         key_map: dict | None = None,
         transform_list: list | None = None,
         debug=False,
+        expected_episode_count: int | None = None,
+        expected_episode_names_sha256: str | None = None,
+        image_hw: tuple[int, int] | None = None,
     ):
-        super().__init__(folder_path, key_map, transform_list)
+        super().__init__(folder_path, key_map, transform_list, image_hw=image_hw)
         self.debug = debug
+        self.expected_episode_count = expected_episode_count
+        self.expected_episode_names_sha256 = expected_episode_names_sha256
 
     @staticmethod
     def _local_filters_match(
@@ -689,7 +817,15 @@ class LocalEpisodeResolver(EpisodeResolver):
             self.folder_path, filters, debug=self.debug
         )
 
-        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+        filtered_names = {folder_name for _, folder_name in filtered_paths}
+        _validate_episode_name_pin(
+            "local inventory",
+            filtered_names,
+            self.expected_episode_count,
+            self.expected_episode_names_sha256,
+        )
+
+        valid_folder_names = filtered_names
         logger.info(f"Valid folder names: {valid_folder_names}")
         if not valid_folder_names:
             raise ValueError(
@@ -701,6 +837,31 @@ class LocalEpisodeResolver(EpisodeResolver):
             search_path=self.folder_path, valid_folder_names=valid_folder_names
         )
 
+        if (
+            self.expected_episode_count is not None
+            or self.expected_episode_names_sha256
+        ):
+            if set(datasets) != valid_folder_names:
+                raise ValueError(
+                    "pinned local inventory did not fully load: "
+                    f"expected {sorted(valid_folder_names)}, got {sorted(datasets)}"
+                )
+
+        return datasets
+
+
+class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
+    """Assign PushShapes stores a config-selected logical embodiment."""
+
+    def __init__(self, *args, embodiment_override: str | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.embodiment_override = embodiment_override
+
+    def resolve(self, *args, **kwargs):
+        datasets = super().resolve(*args, **kwargs)
+        if self.embodiment_override is not None:
+            for dataset in datasets.values():
+                dataset.embodiment = self.embodiment_override
         return datasets
 
 
@@ -714,8 +875,8 @@ class MultiDataset(torch.utils.data.Dataset):
       - **Data mode** (default): pass ``datasets`` to wrap a real dataset graph
         (existing behaviour, used during training). Stats fields start empty;
         call ``populate_from_datasets()`` and ``infer_norm_from_dataset(...)``
-        to fill them in, then ``attach_normalize_transforms()`` to wire
-        normalize/reject transforms onto each leaf's ``transform_list``.
+        to fill them in, then share them with the selected datasets through
+        ``set_norm_stats_from()``.
       - **State mode** (``state=...``, ``datasets=None``): construct a
         stats-only instance for deploy/eval where the dataset graph isn't
         available. ``self.datasets`` is empty; only the stats fields are
@@ -732,6 +893,11 @@ class MultiDataset(torch.utils.data.Dataset):
         mode: str = "train",
         percent: float = 0.1,
         valid_ratio: float = 0.2,
+        split_seed: int = SEED,
+        expected_train_episode_count: int | None = None,
+        expected_train_episode_names_sha256: str | None = None,
+        expected_valid_episode_count: int | None = None,
+        expected_valid_episode_names_sha256: str | None = None,
         norm_mode: str = "zscore",
         state: dict | None = None,
         **kwargs,
@@ -774,8 +940,21 @@ class MultiDataset(torch.utils.data.Dataset):
             raise ValueError("MultiDataset requires either `datasets` or `state`.")
 
         # ---- Normal data-mode construction ----
+        self.split_seed = int(split_seed)
         self.train_collections, self.valid_collections = split_dataset_names(
-            datasets.keys(), valid_ratio=valid_ratio, seed=SEED
+            datasets.keys(), valid_ratio=valid_ratio, seed=self.split_seed
+        )
+        _validate_episode_name_pin(
+            "train",
+            self.train_collections,
+            expected_train_episode_count,
+            expected_train_episode_names_sha256,
+        )
+        _validate_episode_name_pin(
+            "validation",
+            self.valid_collections,
+            expected_valid_episode_count,
+            expected_valid_episode_names_sha256,
         )
 
         if mode == "train":
@@ -786,7 +965,7 @@ class MultiDataset(torch.utils.data.Dataset):
             chosen = set(datasets.keys())
         elif mode == "percent":
             all_names = sorted(datasets.keys())
-            rng = random.Random(SEED)
+            rng = random.Random(self.split_seed)
             rng.shuffle(all_names)
             n_keep = int(len(all_names) * percent)
             if percent > 0.0:
@@ -820,9 +999,8 @@ class MultiDataset(torch.utils.data.Dataset):
         reference. After this call ``__getitem__`` will bounds-check + normalize
         each sample using ``source``'s ``norm_stats``/``key_types``/``zarr_keys``.
 
-        Use this *instead of* ``attach_normalize_transforms`` — it doesn't mutate
-        any leaf-level ``transform`` list, so it can't accumulate duplicate
-        passes when leaves share a transform list reference.
+        This does not mutate any leaf-level ``transform`` list, so it cannot
+        accumulate duplicate passes when leaves share a transform list reference.
         """
         self.norm_stats = source.norm_stats
         self.key_types = source.key_types
@@ -1358,26 +1536,6 @@ class MultiDataset(torch.utils.data.Dataset):
             out[data_key] = self._apply_unnorm_one(value, stats)
         return out
 
-    # ---- transform attachment ----
-
-    def attach_normalize_transforms(
-        self, datasets: dict | None = None, reject_outliers: bool = True
-    ) -> None:
-        """Deprecated. Use ``set_norm_stats_from`` on each training/valid
-        MultiDataset instead. Bounds-check + normalize now run at the
-        MultiDataset level in ``__getitem__``, not as per-leaf transforms.
-
-        Kept as a thin shim that calls ``set_norm_stats_from(self)`` on each
-        MultiDataset in ``datasets`` so existing callers keep working. The
-        ``reject_outliers`` flag is no longer honored — bounds checking is
-        always on when stats are populated. To disable, clear ``norm_stats``.
-        """
-        del reject_outliers  # unused
-        graph = datasets if datasets is not None else self.datasets
-        for ds in graph.values():
-            if isinstance(ds, MultiDataset):
-                ds.set_norm_stats_from(self)
-
     # ---- serialization (checkpoint roundtrip) ----
 
     @staticmethod
@@ -1529,6 +1687,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         Episode_path: Path,
         key_map: dict,
         transform_list: list | None = None,
+        image_hw: tuple[int, int] | None = None,
     ):
         """
         Args:
@@ -1545,6 +1704,10 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         self.key_map = key_map
         self.transform = transform_list
+        self.image_hw = tuple(image_hw) if image_hw else None
+        # (H, W) of this episode's front camera BEFORE any resize, captured at
+        # decode time so the intrinsics can be rescaled by the same factors.
+        self._src_front_hw = None
         super().__init__()
 
     def init_episode(self):
@@ -1711,12 +1874,20 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if zarr_key in self._image_keys:
                     jpeg_bytes = data[k]
                     try:
-                        decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                        data[k] = decode_jpeg_payload(jpeg_bytes)
                     except Exception:
                         idx = _next("JPEG decode failed", key=k)
                         retry = True
                         break
-                    data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
+                    if self.image_hw is not None:
+                        # Remember the FRONT camera's native size: the
+                        # per-episode K describes that image, so it is what the
+                        # intrinsics rescale below must be based on. This fork
+                        # decodes straight into ``data[k]`` (already CHW floats),
+                        # so resize in place rather than via a local.
+                        if "front" in str(zarr_key):
+                            self._src_front_hw = _image_hw_of(data[k])
+                        data[k] = _resize_images(data[k], self.image_hw)
                 elif zarr_key in self._json_keys:
                     if isinstance(data[k], np.ndarray):
                         data[k] = [self._decode_json_entry(v) for v in data[k]]
@@ -1753,13 +1924,22 @@ class ZarrDataset(torch.utils.data.Dataset):
                     # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
                     # some contributors store 3x3 (e.g. microagi).
                     K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
+                if K.shape != (
+                    3,
+                    4,
+                ):  # unexpected -> sentinel (viz falls back to const)
                     K = np.full((3, 4), np.nan, dtype=np.float32)
+                elif self.image_hw is not None and self._src_front_hw is not None:
+                    # Images were resized above; K describes the pre-resize
+                    # front image, so scale it by the same per-axis factors.
+                    K = _scale_intrinsics(K, self._src_front_hw, self.image_hw)
             else:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             _ = origin  # preserved for symmetry with prior API
             return data
 

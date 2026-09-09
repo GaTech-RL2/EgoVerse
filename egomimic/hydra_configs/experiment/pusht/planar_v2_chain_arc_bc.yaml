@@ -1,0 +1,15 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_chain_base
+  - override /model: bf/bf_planar_v2_flow
+  - _self_
+name: planar_v2_chain_arc_D200_M100
+description: chain_gripper_arc_bc_common5_J8_replan1
+planar:
+  eval_native_decoder:
+    _target_: egomimic.pipeline.pushshapes.PlanarArcWaypointZeroNativeDecoder
+    resampled_vector_length: 100
+    native_action_dim: 4
+  raw_action_horizon: 200
+  action_horizon: 101
+  transform_target: egomimic.rldb.embodiment.pushshapes.get_planar_arc_length_transform_list

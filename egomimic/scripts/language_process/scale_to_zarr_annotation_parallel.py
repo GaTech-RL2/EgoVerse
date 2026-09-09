@@ -7,7 +7,7 @@ Each episode is processed as an independent Ray task:
 Example usage:
 python egomimic/scripts/language_process/scale_to_zarr_annotation_parallel.py \
 --scale-annotation-dir annotations_test \
---dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \
+--dataset-config-path egomimic/hydra_configs/data/eva_dense_language.yaml \
 --conversion-mode pick_place_llm \
 --prompt-filepath egomimic/scripts/language_process/prompt.txt \
 --augment-prompt-filepath egomimic/scripts/language_process/augment_prompt.txt \
@@ -18,7 +18,6 @@ import argparse
 import json
 import os
 
-import hydra
 import pandas as pd
 import ray
 import requests
@@ -27,6 +26,7 @@ from scaleapi import ScaleClient
 from egomimic.scripts.language_process.scale_to_zarr_annotation import (
     download_scale_annotation_csv,
 )
+from egomimic.utils.hydra_utils import instantiate_dataset_splits_from_path
 from egomimic.utils.scale_utils import (
     build_df_from_tasks,
     get_available_hashes,
@@ -185,29 +185,15 @@ if __name__ == "__main__":
         df = load_scale_annotation_csv(csv_path)
 
     # --- Instantiate datasets (sequential, needs SQL / S3 sync) ---
-    from egomimic.utils.hydra_utils import HYDRA_CONFIG_DIR, load_config
-
-    # Derive config name relative to hydra_configs dir (e.g. "data/cotrain_pi_lang")
-    abs_cfg_path = os.path.abspath(args.dataset_config_path)
-    rel_path = os.path.relpath(abs_cfg_path, HYDRA_CONFIG_DIR)
-    config_name = os.path.splitext(rel_path)[0]
-    dataset_cfg = load_config(config_name)
-
-    train_datasets = {}
+    train_datasets, valid_datasets = instantiate_dataset_splits_from_path(
+        args.dataset_config_path
+    )
     train_hashes = set()
-    for dataset_name in dataset_cfg.train_datasets:
-        train_datasets[dataset_name] = hydra.utils.instantiate(
-            dataset_cfg.train_datasets[dataset_name]
-        )
-        train_hashes.update(list(train_datasets[dataset_name].datasets.keys()))
-
-    valid_datasets = {}
+    for dataset in train_datasets.values():
+        train_hashes.update(dataset.datasets)
     valid_hashes = set()
-    for dataset_name in dataset_cfg.valid_datasets:
-        valid_datasets[dataset_name] = hydra.utils.instantiate(
-            dataset_cfg.valid_datasets[dataset_name]
-        )
-        valid_hashes.update(list(valid_datasets[dataset_name].datasets.keys()))
+    for dataset in valid_datasets.values():
+        valid_hashes.update(dataset.datasets)
 
     dataset_hashes = train_hashes.union(valid_hashes)
     available_hashes = get_available_hashes(df)

@@ -42,7 +42,7 @@ class ThumbnailService:
         """Wire `/thumbnail/<video_hash>/<frame_idx>` on `app.server`.
 
         Uses a string converter (not `<int:>`) so the sentinel `frame_idx=-1`
-        — written by eval_latent when the source dataset didn't emit
+        — written by a latent exporter when the source dataset didn't emit
         `frame_index` — reaches `load_thumbnail_jpeg`'s frame-0 fallback
         instead of 404'ing on the Werkzeug converter."""
 

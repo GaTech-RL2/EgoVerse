@@ -1,0 +1,64 @@
+# Graph-native Diffusion Policy over YAM bimanual cartesian actions.
+#
+# The dependency chain is the ordinary DP one -- observations -> condition,
+# actions -> target, target -> noised, denoise, loss -- so nothing here is
+# ABC-specific except the widths. `action_dim: 14` is eef_frame + euler:
+# [L xyz ypr g, R xyz ypr g]. Switching Yam.get_transform_list's rotation_mode
+# to quat or 6D makes that 16 or 20, and BOTH action_dim and the denoiser's
+# input_dim have to move with it -- DiffusionNoisingStage validates the target's
+# width, so a mismatch fails at the first batch rather than training silently.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+pipeline:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  stages:
+    - _target_: egomimic.pipeline.stages_sampler.FusedObsEncoder
+      n_obs_steps: 1
+      inputs:
+        front_img_1: observations.images.front_img_1
+        ee_pose: observations.state.ee_pose
+      encoder: ${abc.encoder}
+    - _target_: egomimic.pipeline.stages_io.ActionTargetBuilder
+      # Yam's cartesian transform list concatenates into
+      # `actions_cartesian`, not Planar's `actions`.
+      action_key: actions_cartesian
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionNoisingStage
+      action_horizon: ${abc.action_horizon}
+      action_dim: ${abc.action_dim}
+      noise_scheduler: &abc_scheduler
+        _target_: egomimic.models.ddim_scheduler.DDIMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        prediction_type: epsilon
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionDenoiserStage
+      action_horizon: ${abc.action_horizon}
+      action_dim: ${abc.action_dim}
+      condition_input_dim: ${abc.condition_dim}
+      policy:
+        _target_: egomimic.models.diffusion_policy.DiffusionPolicy
+        action_horizon: ${abc.action_horizon}
+        num_inference_steps: 100
+        model:
+          _target_: egomimic.models.denoising_nets.ConditionalUnet1D
+          input_dim: ${abc.action_dim}
+          cond_dim: ${abc.condition_dim}
+          ac_latent_seq: 1
+          diffusion_step_embed_dim: 256
+          down_dims: [256, 512, 1024]
+          kernel_size: 3
+        noise_scheduler: *abc_scheduler
+    - _target_: egomimic.pipeline.stages_diffusion.DiffusionEpsilonLossStage
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 1.0e-6
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 240000
+  warmup_steps: 500
+  warmup_start_factor: 1.0e-8
+  eta_min: 0.0

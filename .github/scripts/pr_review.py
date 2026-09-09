@@ -7,13 +7,14 @@ Reads pr_diff.txt, calls Claude API, writes review_output.md.
 """
 
 import os
+
 import anthropic
 
 SYSTEM_PROMPT = """You are a senior engineer and research collaborator reviewing pull requests for
 the EgoVerse robotics research codebase (https://github.com/GaTech-RL2/EgoVerse).
 
-The codebase is a robot learning framework. Key areas:
-- egomimic/algo/       — algorithm implementations (ACT, HPT, Pi 0.5)
+The codebase combines data tooling with a domain-neutral Pipeline framework. Key areas:
+- egomimic/pipeline/   — generic graph runner and configured stages
 - egomimic/rldb/       — data loading (zarr, embodiment transforms, filters)
 - egomimic/scripts/    — data processing per embodiment (Eva, Aria, Mecka, Scale)
 - egomimic/hydra_configs/ — Hydra training configs
@@ -22,7 +23,7 @@ The codebase is a robot learning framework. Key areas:
 Conventions:
 - Data format: Zarr v3. Always use ZarrWriter, never write zarr manually.
 - Episode hash: UTC timestamp YYYY-MM-DD-HH-MM-SS-ffffff
-- Embodiment strings must match the exact enum (e.g., aria_bimanual, eva_bimanual)
+- Dataset/source identifiers must match their configured resolvers; Pipeline core treats them as opaque
 - SQL: operator field must be SHA-256 hashed before insertion
 - Coordinate frames: poses stored in SLAM world frame; re-expressed to head frame at training time
 - Upload: always to Cloudflare R2, never legacy AWS S3

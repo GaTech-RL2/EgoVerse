@@ -1,6 +1,7 @@
 # EgoVerse: Egocentric Data for Robot Learning from Around the World
 ![EgoVerse](./assets/egoverse.png)
-This repository contains the data processing, training and evaluation code for EgoVerse.
+This repository contains EgoVerse data processing plus a dependency-aware Pipeline
+stack for training and evaluation.
 
 ---
 
@@ -20,11 +21,12 @@ The Scale dataset was fully reprocessed on 05/03/2026. All active Scale episodes
 ---
 
 ## Structure
-- [``egomimic/trainHydra.py``](./egomimic/trainHydra.py): Main training script, powered by Pytorch Lightning and Hydra (DDP supported)
-- [``egomimic/hydra_configs``](./egomimic/hydra_configs): Train configs for each algorithm
-- [``egomimic/algo``](./egomimic/algo): Algorithm code: ACT, EgoMimic (HPT based), Pi
-- [``egomimic/scripts/aloha_process``](./egomimic/scripts/aloha_process/): Process raw aloha hdf5 to zarr/lerobot
-- [``egomimic/scripts/aria_process``](./egomimic/scripts/aria_process/): Process aria vrs to zarr/lerobot
+- [``egomimic/trainHydra.py``](./egomimic/trainHydra.py): Lightning/Hydra training entry point
+- [``egomimic/pipeline``](./egomimic/pipeline): Generic graph runner and configured stages
+- [``egomimic/models``](./egomimic/models): Reusable neural-network components used by stages
+- [``egomimic/hydra_configs``](./egomimic/hydra_configs): Data, Pipeline, optimizer, and runtime configs
+- [``egomimic/rldb``](./egomimic/rldb): Dataset, transform, and normalization infrastructure
+- [``egomimic/scripts``](./egomimic/scripts): Data conversion and inspection tools
 
 ## Installation
 
@@ -38,16 +40,14 @@ curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/path/to/flash/
 ```
 git clone git@github.com:GaTech-RL2/EgoVerse.git
 cd EgoVerse
-uv venv emimic --python 3.11
-source emimic/bin/activate
-uv pip install -r requirements.txt
-uv pip install -e .
+uv sync --locked
+source .venv/bin/activate
 uv run pre-commit install
 ```
 
 ### Conda
 ```
-git clone --recursive git@github.com:GaTech-RL2/EgoVerse.git
+git clone git@github.com:GaTech-RL2/EgoVerse.git
 cd EgoVerse
 conda env create -f environment.yaml
 conda activate emimic
@@ -66,8 +66,8 @@ Download the AWS cli
 Set up your AWS keys to access our cloud storage
 ```
 aws configure
-AccessKeyId: AKIAYDKH4BNCAYHE5NG2
-SecretAccessKey: rGjT6NSh55YiB9MC9EyNGpVy8qcaTn4i19OmkhRW
+AccessKeyId: <your-access-key-id>
+SecretAccessKey: <your-secret-access-key>
 Default region name: us-east-2
 Default output format:
 ./egomimic/utils/aws/setup_secret.sh
@@ -76,7 +76,6 @@ Default output format:
 
 
 ### Other Settings
-Set `git config --global submodule.recurse true` if you want `git pull` to automatically update the submodule as well.
 Set your wandb project in ``egomimic/hydra_configs/logger/wandb.yaml``
 
 ## Submitit modification
@@ -131,9 +130,12 @@ python egomimic/scripts/data_download/sync_s3.py \
 ```
 
 ### Training
-Basic training run (robot BC)...
+Select a complete Pipeline experiment; the root config deliberately has no
+implicit model, data, or evaluator:
 ``` bash
-python egomimic/trainHydra.py --config-name=train_zarr_cartesian
+python egomimic/trainHydra.py --config-name=train_zarr_cartesian \
+  model=<pipeline-model-config> data=<dataset-config> \
+  evaluator=<evaluator-config>
 ```
 For full instructions on training see [``training.md``](./training.md)
 

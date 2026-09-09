@@ -1,0 +1,46 @@
+# @package _global_
+defaults:
+  - /experiment/pusht/planar_v2_usocket_base
+  - override /model: bf/bf_planar_v2_arc_velocity_dp
+  - _self_
+
+name: planar_v2_usocket_arc_velocity_D80_M56_R26deg
+description: loader_native_arc_velocity_D80_M56_R26deg_DDIM100_obs1
+
+planar:
+  raw_action_horizon: 80
+  action_horizon: 16
+  arc_distance: 80.0
+  arc_waypoints: 56
+  arc_rotation_distance: 0.4537856055185257
+  arc_dt: 0.0333333333333333
+  arc_token_rows: 112
+  transform_target: egomimic.rldb.embodiment.usocket_arc_velocity.get_usocket_arc_velocity_transform_list
+  eval_native_decoder:
+    _target_: egomimic.rldb.embodiment.usocket_arc_velocity.USocketArcLocalVelocityNativeDecoder
+    resampled_vector_length: ${planar.arc_waypoints}
+    action_horizon: ${planar.action_horizon}
+    native_action_dim: 3
+    dt: ${planar.arc_dt}
+# The shared U-Socket data config builds transform_list for the OLD hybrid
+# tokenizer: it passes rotation_radius/hybrid_rotation_unit and neither dt nor
+# rotation_distance_unit. get_usocket_arc_velocity_transform_list swallows the
+# unknown pair through **_kwargs and leaves rotation_distance_unit at its None
+# default, which uncaps the angular budget -- so without these two lines every
+# R cell tokenizes identically and the angular comparison is a null experiment.
+# Wired here rather than in data/pusht/planar_v2_usocket.yaml because the other
+# experiments sharing that config define no planar.arc_rotation_distance and
+# would fail interpolation.
+data:
+  train_datasets:
+    pushshapes_sim_u_socket:
+      resolver:
+        transform_list:
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}
+  valid_datasets:
+    pushshapes_sim_u_socket:
+      resolver:
+        transform_list:
+          dt: ${planar.arc_dt}
+          rotation_distance_unit: ${planar.arc_rotation_distance}

@@ -1,40 +1,40 @@
-from typing import Tuple
+"""Diffusion process used by factorized pipeline stages."""
+
+from __future__ import annotations
 
 import torch
-from overrides import override
+import torch.nn as nn
 
 from egomimic.models.denoising_nets import ConditionalUnet1D
-from egomimic.models.denoising_policy import DenoisingPolicy
 
 
-class DiffusionPolicy(DenoisingPolicy):
-    """
-    A diffusion-based policy head.
+class DiffusionPolicy(nn.Module):
+    """A single-width diffusion process with no batch-routing concerns.
 
     Args:
         model (ConditionalUnet1D): The model used for prediction.
         noise_scheduler: The noise scheduler used for the diffusion process.
         action_horizon (int): The number of time steps in the action horizon.
-        output_dim (int): The dimension of the output.
         num_inference_steps (int, optional): The number of inference steps.
-        **kwargs: Additional keyword arguments.
     """
 
     def __init__(
         self,
         model: ConditionalUnet1D,
         noise_scheduler,
-        action_horizon,
-        infer_ac_dims,
-        num_inference_steps=None,
-        **kwargs,
+        action_horizon: int,
+        num_inference_steps: int,
     ):
-        super().__init__(
-            model, action_horizon, infer_ac_dims, num_inference_steps, **kwargs
-        )
+        super().__init__()
+        self.model = model
         self.noise_scheduler = noise_scheduler
+        self.action_horizon = int(action_horizon)
+        self.num_inference_steps = int(num_inference_steps)
+        if self.action_horizon <= 0:
+            raise ValueError("action_horizon must be positive")
+        if self.num_inference_steps <= 0:
+            raise ValueError("num_inference_steps must be positive")
 
-    @override
     def inference(self, noise, global_cond, generator=None) -> torch.Tensor:
         self.noise_scheduler.set_timesteps(
             self.num_inference_steps, device=global_cond.device
@@ -50,14 +50,23 @@ class DiffusionPolicy(DenoisingPolicy):
             ).prev_sample
         return actions
 
-    @override
-    def predict(self, actions, global_cond) -> Tuple[torch.Tensor, torch.Tensor]:
-        noise = torch.randn(actions.shape, device=actions.device)
-        bsz = actions.shape[0]
-        timesteps = torch.randint(
-            0, self.noise_scheduler.num_train_timesteps, (bsz,), device=actions.device
-        ).long()
-        noisy_actions = self.noise_scheduler.add_noise(actions, noise, timesteps)
-        pred = self.model(noisy_actions, timesteps, global_cond)
-        target = noise
-        return pred, target
+    def sample_action(
+        self,
+        global_cond: torch.Tensor,
+        *,
+        action_dim: int,
+        generator=None,
+    ) -> torch.Tensor:
+        """Sample one fixed-width sequence for the supplied conditioning."""
+        action_dim = int(action_dim)
+        if action_dim <= 0:
+            raise ValueError("action_dim must be positive")
+        noise = torch.randn(
+            len(global_cond),
+            self.action_horizon,
+            action_dim,
+            dtype=global_cond.dtype,
+            device=global_cond.device,
+            generator=generator,
+        )
+        return self.inference(noise, global_cond, generator)

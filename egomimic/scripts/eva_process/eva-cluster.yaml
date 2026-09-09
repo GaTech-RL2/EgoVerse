@@ -91,7 +91,6 @@ initialization_commands:
   - |
     cd ~/EgoVerse
     pip3 install --no-input -r requirements-ray.txt
-    pip3 install --no-input -e external/lerobot
     pip3 install --no-input -e .
 
 setup_commands:

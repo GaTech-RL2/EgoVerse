@@ -13,14 +13,14 @@ Bundled transforms:
 Examples:
     python egomimic/scripts/embedding_process/zarr_embedding.py \\
         --transform dinov3 \\
-        --dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \\
+        --dataset-config-path egomimic/hydra_configs/data/eva_dense_language.yaml \\
         --input-keys observations.images.front_1 \\
         --output-keys observations.embeddings.dinov3.front_1 \\
         --batch-size 64
 
     python egomimic/scripts/embedding_process/zarr_embedding.py \\
         --transform qwen3 \\
-        --dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \\
+        --dataset-config-path egomimic/hydra_configs/data/eva_dense_language.yaml \\
         --input-keys annotations \\
         --output-keys observations.embeddings.qwen3.annotations
 """
@@ -30,13 +30,12 @@ from __future__ import annotations
 import argparse
 import logging
 
-import hydra
 import torch
 
 from egomimic.scripts.embedding_process.dinov3_embedding import DINOv3ImageEmbedding
 from egomimic.scripts.embedding_process.qwen3_embedding import Qwen3TextEmbedding
 from egomimic.scripts.embedding_process.zarr_key_transform import ZarrKeyTransform
-from egomimic.utils.hydra_utils import load_config_from_path
+from egomimic.utils.hydra_utils import instantiate_dataset_splits_from_path
 
 logger = logging.getLogger(__name__)
 
@@ -69,15 +68,13 @@ def _resolve_episode_paths(dataset_config_path: str) -> dict[str, str]:
     ``{episode_hash: episode_path}`` mapping covering every episode referenced
     by the config.
     """
-    dataset_cfg = load_config_from_path(dataset_config_path)
+    train_datasets, valid_datasets = instantiate_dataset_splits_from_path(
+        dataset_config_path
+    )
 
     episodes: dict[str, str] = {}
-    for split_key in ("train_datasets", "valid_datasets"):
-        split = getattr(dataset_cfg, split_key, None)
-        if split is None:
-            continue
-        for dataset_name in split:
-            multi = hydra.utils.instantiate(split[dataset_name])
+    for split in (train_datasets, valid_datasets):
+        for multi in split.values():
             for ep_hash, zarr_ds in multi.datasets.items():
                 if ep_hash in episodes:
                     continue
@@ -93,10 +90,9 @@ def main():
         required=True,
         help=(
             "Path to a Hydra dataset config (e.g. egomimic/hydra_configs/data/"
-            "eva_pi_lang.yaml). The full ``defaults:`` chain is resolved via "
-            "egomimic.utils.hydra_utils.load_config_from_path; every train + "
-            "valid MultiDataset is instantiated and the union of their "
-            "episodes is processed."
+            "eva_dense_language.yaml). The full ``defaults:`` chain and root "
+            "path context are resolved; every non-null train + valid MultiDataset "
+            "is instantiated and the union of their episodes is processed."
         ),
     )
     parser.add_argument("--input-keys", nargs="+", required=True)

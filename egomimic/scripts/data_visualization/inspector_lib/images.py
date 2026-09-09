@@ -210,7 +210,7 @@ def load_image_b64(zarr_root: str, video_hash: str, frame_idx: int, image_key: s
         if n == 0:
             tried.append(f"{key} ✗ (empty)")
             continue
-        # See load_thumbnail_jpeg for the rationale: -1 is eval_latent's
+        # See load_thumbnail_jpeg for the rationale: -1 is the export format's
         # "no source frame recorded" sentinel; fall back to frame 0 so the
         # UI shows the recording's first frame rather than nothing.
         if frame_idx == -1:
@@ -219,7 +219,7 @@ def load_image_b64(zarr_root: str, video_hash: str, frame_idx: int, image_key: s
         if not (0 <= frame_idx < n):
             tried.append(
                 f"{key} ✗ (frame_idx={frame_idx} out of range; episode has {n} frames — "
-                f"CSV likely written by an old eval_latent build that stored a per-run "
+                f"CSV likely written by an old latent exporter that stored a per-run "
                 f"sample index instead of the source frame index)"
             )
             continue
@@ -274,7 +274,7 @@ def load_thumbnail_jpeg(
             continue
         if arr.shape[0] == 0:
             continue
-        # `frame_idx == -1` is the eval_latent sentinel used when the
+        # `frame_idx == -1` is the latent-export sentinel used when the
         # source dataset didn't emit `frame_index` (safe_collate then drops
         # the key from the batch). Rather than rendering nothing — which
         # leaves every grid card blank — fall back to frame 0 so the user

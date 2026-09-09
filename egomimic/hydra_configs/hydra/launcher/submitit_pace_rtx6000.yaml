@@ -1,0 +1,22 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# PACE gpu-rtx6000 launcher. RTX 6000 nodes have 24 GB VRAM and a 6:1 CPU:GPU
+# cap, so cpus_per_task=6 with 2 GPUs = 12 CPUs (under the limit). mem_per_gpu
+# 60G is safe for a 24 GB card. For real 300M cotrain training the batch may
+# need to be reduced to fit; prefer this partition for debug/short runs. Gres
+# count is hardcoded (no ``eval`` OmegaConf resolver is registered here).
+name: ${hydra.job.name}
+partition: "gpu-rtx6000"
+account: "gts-dxu345-rl2"
+cpus_per_task: 6
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:rtx_6000:2"
+qos: "inferno"
+mem_per_gpu: 60G
+timeout_min: 2880
+additional_parameters:
+  requeue: true
