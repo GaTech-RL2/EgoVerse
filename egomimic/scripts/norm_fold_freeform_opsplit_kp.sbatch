@@ -12,14 +12,14 @@
 # CPU-only: 0.1-frac quantile norm stats for the mecka FREEFORM fold-clothes
 # set, held-out-OPERATOR split (train side: 423 eps / 1.04M frames), kp
 # pipeline (data=mecka_fold_freeform_opsplit_pi_keypoints, model=pi0.5_bc_mecka_keypoints).
-# Run from the aidan/fold-freeform-keypoints worktree.
+# Run from the aidan/kp-wristframe-port worktree (WT env override).
 #
 # Output: /storage/project/r-dxu345-0/agao81/norm_stats/fold_freeform_opsplit_kp/norm_stats/norm_stats.json
 # Training uses:
 #   norm_stats.precomputed_norm_path=/storage/project/r-dxu345-0/agao81/norm_stats/fold_freeform_opsplit_kp/norm_stats
 
 set -euo pipefail
-WT=/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/fold-freeform-kp
+WT="${WT-/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/kp-wristframe-port}"
 cd "$WT"
 export PYTHONPATH="$WT${PYTHONPATH:+:$PYTHONPATH}"
 PY=/storage/home/hcoda1/5/agao81/r-dxu345-0/EgoVerse/emimic/bin/python

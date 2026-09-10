@@ -27,7 +27,7 @@
 #   /storage/project/r-dxu345-0/agao81/norm_stats/fold_freeform_cam6d/norm_stats
 # Submit with --dependency=afterok:<norm job id>.
 #
-# Runs from the aidan/fold-freeform-frames worktree (code = eval_gating +
+# Runs from the aidan/kp-wristframe-port worktree (WT env override) (code = eval_gating +
 # these configs) so the primary checkout stays untouched. PYTHONPATH pins
 # `import egomimic` to the worktree (the emimic venv's editable install
 # points at the primary checkout); hydra outputs are forced into the primary
@@ -39,7 +39,7 @@
 #   LR         - optimizer lr (default 5e-5)
 
 set -euo pipefail
-WT=/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/fold-freeform-frames
+WT="${WT-/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/kp-wristframe-port}"
 REPO=/storage/project/r-dxu345-0/agao81/EgoVerse
 cd "$WT"
 export PYTHONPATH="$WT${PYTHONPATH:+:$PYTHONPATH}"

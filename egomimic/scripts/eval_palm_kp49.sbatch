@@ -21,7 +21,7 @@
 # MSE (eval_pi_keypoints_palm), reverse-KL sampling off to halve the cost.
 
 set -euo pipefail
-WT=/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/fold-freeform-kp
+WT="${WT-/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/kp-wristframe-port}"
 REPO=/storage/project/r-dxu345-0/agao81/EgoVerse
 cd "$WT"
 export PYTHONPATH="$WT${PYTHONPATH:+:$PYTHONPATH}"

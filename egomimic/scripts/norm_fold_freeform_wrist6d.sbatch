@@ -12,14 +12,14 @@
 # CPU-only: 0.1-frac quantile norm stats for the mecka FREEFORM fold-clothes
 # set (462 eps / 1.13M frames) in the wrist6d pipeline
 # (data=mecka_fold_freeform_pi_6d, model=pi0.5_bc_mecka_6d). Same procedure as
-# norm_mecka_all_6d.sbatch, run from the aidan/fold-freeform-frames worktree.
+# norm_mecka_all_6d.sbatch, run from the aidan/kp-wristframe-port worktree (WT env override).
 #
 # Output: /storage/project/r-dxu345-0/agao81/norm_stats/fold_freeform_wrist6d/norm_stats/norm_stats.json
 # Training uses:
 #   norm_stats.precomputed_norm_path=/storage/project/r-dxu345-0/agao81/norm_stats/fold_freeform_wrist6d/norm_stats
 
 set -euo pipefail
-WT=/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/fold-freeform-frames
+WT="${WT-/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/kp-wristframe-port}"
 cd "$WT"
 export PYTHONPATH="$WT${PYTHONPATH:+:$PYTHONPATH}"
 PY=/storage/home/hcoda1/5/agao81/r-dxu345-0/EgoVerse/emimic/bin/python

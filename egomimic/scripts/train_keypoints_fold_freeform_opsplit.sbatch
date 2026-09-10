@@ -31,8 +31,8 @@
 #   /storage/project/r-dxu345-0/agao81/norm_stats/fold_freeform_opsplit_kp/norm_stats
 # Submit with --dependency=afterok:<norm job id>.
 #
-# Runs from the aidan/fold-freeform-keypoints worktree (code = eval_gating +
-# fold-freeform-frames + the keypoint/opsplit commit); PYTHONPATH pins
+# Runs from the aidan/kp-wristframe-port worktree (WT env override; the
+# clean port of the 6D/keypoint recipe onto main); PYTHONPATH pins
 # `import egomimic` to it; hydra outputs are forced into the primary
 # checkout's logs/ so checkpoints outlive the worktree.
 #
@@ -42,7 +42,7 @@
 #   LR         - optimizer lr (default 5e-5)
 
 set -euo pipefail
-WT=/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/fold-freeform-kp
+WT="${WT-/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/kp-wristframe-port}"
 REPO=/storage/project/r-dxu345-0/agao81/EgoVerse
 cd "$WT"
 export PYTHONPATH="$WT${PYTHONPATH:+:$PYTHONPATH}"

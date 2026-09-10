@@ -18,7 +18,7 @@
 # re-initialized at action_dim 140. In-run norm stats (0.05 frac of 2 eps).
 
 set -euo pipefail
-WT=/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/fold-freeform-kp
+WT="${WT-/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/kp-wristframe-port}"
 REPO=/storage/project/r-dxu345-0/agao81/EgoVerse
 cd "$WT"
 export PYTHONPATH="$WT${PYTHONPATH:+:$PYTHONPATH}"

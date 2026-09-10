@@ -19,7 +19,7 @@
 #   FRAME=cam|wrist  CKPT=<path>  LABEL=<wandb/hydra name>
 
 set -euo pipefail
-WT=/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/fold-freeform-kp
+WT="${WT-/storage/project/r-dxu345-0/agao81/EgoVerse/.claude/worktrees/kp-wristframe-port}"
 REPO=/storage/project/r-dxu345-0/agao81/EgoVerse
 cd "$WT"
 export PYTHONPATH="$WT${PYTHONPATH:+:$PYTHONPATH}"
