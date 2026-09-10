@@ -10,6 +10,11 @@ euler rotation, zero gripper pad → (T, 14)) and differ only in the target:
                       slowness (row 0) and log relative segment durations
                       (rows 1..); with ``progress_smooth_hz`` set, arc length
                       is accumulated on 3 Hz low-passed positions (#4)
+  arcdur   (100, 16) the port of Ryan's duration codec (EgoVerse-graph
+                      6d1b5f93): the same timing content as arclogdur, carried
+                      as the ABSOLUTE elapsed seconds of each waypoint interval
+                      instead of a log mean slowness plus a log relative
+                      profile
 
 Every variant also carries ``actions_time`` = the first ``time_rows`` rows of the
 un-tokenized chunk, which is what the E1 evaluator scores against.
@@ -36,8 +41,8 @@ from egomimic.rldb.embodiment.human import (
 )
 from egomimic.rldb.zarr.e1_arc_tokenizer import CopyKeyRows, TokenizeBimanualArcLengthE1
 
-VARIANTS = ("time", "arcmean", "arcvel", "arclogdur")
-VELOCITY_MODES = {"arcmean": "mean", "arcvel": "profile", "arclogdur": "logdur"}
+VARIANTS = ("time", "arcmean", "arcvel", "arclogdur", "arcdur")
+VELOCITY_MODES = {"arcmean": "mean", "arcvel": "profile", "arclogdur": "logdur", "arcdur": "dur"}
 
 
 def get_keymap(horizon: int, keymap_mode: str = "cartesian", embodiment: str = "human", drop_wrist_images: bool = True, **kwargs):
@@ -70,6 +75,7 @@ def get_transform_list(
     velocity_norm: str = "path",
     progress_smooth_hz: float | None = None,
     embodiment: str = "human",
+    fixed_spacing: bool = False,
 ):
     if variant not in VARIANTS:
         raise ValueError(f"variant must be one of {VARIANTS}, got {variant!r}")
@@ -99,6 +105,7 @@ def get_transform_list(
                 velocity_mode=VELOCITY_MODES[variant],
                 speed_smooth_frames=int(speed_smooth_frames),
                 progress_smooth_hz=progress_smooth_hz,
+                fixed_spacing=bool(fixed_spacing),
             )
         )
     return tl
