@@ -100,7 +100,9 @@ def _assert_pose12_close(got, ref, atol):
     got = np.asarray(got, dtype=np.float64)
     ref = np.asarray(ref, dtype=np.float64)
     for off in (0, 6):
-        np.testing.assert_allclose(got[..., off : off + 3], ref[..., off : off + 3], atol=atol)
+        np.testing.assert_allclose(
+            got[..., off : off + 3], ref[..., off : off + 3], atol=atol
+        )
         Rg = _R_of_ypr(got[..., off + 3 : off + 6].reshape(-1, 3))
         Rr = _R_of_ypr(ref[..., off + 3 : off + 6].reshape(-1, 3))
         np.testing.assert_allclose(Rg, Rr, atol=atol)
@@ -139,7 +141,9 @@ def test_torch_ypr_matrix_matches_scipy_zyx():
     np.testing.assert_allclose(R_torch, R_scipy, atol=1e-12)
     # ...and _matrix_to_ypr inverts it on the principal branch.
     back = _matrix_to_ypr(torch.from_numpy(R_scipy)).numpy()
-    np.testing.assert_allclose(R.from_euler("ZYX", back).as_matrix(), R_scipy, atol=1e-12)
+    np.testing.assert_allclose(
+        R.from_euler("ZYX", back).as_matrix(), R_scipy, atol=1e-12
+    )
     # numpy 6D helpers use the same columns as the torch packers.
     six = _ypr_to_rot6d(ypr)
     np.testing.assert_allclose(six[:, :3], R_scipy[:, :, 0], atol=1e-12)
@@ -162,7 +166,9 @@ def test_gram_schmidt_matches_independent_and_is_proper():
     np.testing.assert_allclose(Rt, Rn, atol=1e-12)
     np.testing.assert_allclose(np.linalg.det(Rt), 1.0, atol=1e-12)
     np.testing.assert_allclose(
-        Rt @ np.transpose(Rt, (0, 2, 1)), np.broadcast_to(np.eye(3), Rt.shape), atol=1e-12
+        Rt @ np.transpose(Rt, (0, 2, 1)),
+        np.broadcast_to(np.eye(3), Rt.shape),
+        atol=1e-12,
     )
 
 
@@ -339,9 +345,13 @@ def test_eva_wristframe_6d_pipeline_round_trips_to_camframe(extrinsics_key, extr
     for b, r in enumerate(raws):
         for si, side in enumerate(("left", "right")):
             Einv = np.linalg.inv(np.asarray(extrinsics[side]))
-            gt_act[b, :, 7 * si : 7 * si + 6] = _xyzypr(Einv[None] @ _T_chunk(r[f"{side}.cmd_ee_pose"]))
+            gt_act[b, :, 7 * si : 7 * si + 6] = _xyzypr(
+                Einv[None] @ _T_chunk(r[f"{side}.cmd_ee_pose"])
+            )
             gt_act[b, :, 7 * si + 6] = r[f"{side}.cmd_gripper"][:, 0]
-            gt_obs[b, 7 * si : 7 * si + 6] = _xyzypr(Einv @ _T(r[f"{side}.obs_ee_pose"]))
+            gt_obs[b, 7 * si : 7 * si + 6] = _xyzypr(
+                Einv @ _T(r[f"{side}.obs_ee_pose"])
+            )
             gt_obs[b, 7 * si + 6] = r[f"{side}.obs_gripper"][0]
 
     # the x5Dec13_2 rig calibration is ~6e-9 off orthonormal, hence 1e-7
@@ -393,8 +403,8 @@ def test_split_keys_rejects_width_mismatch():
 
 
 def test_ypr_revert_on_6d_batch_fails_loudly():
-    """The evaluator/data-config mismatch the guard is for: eval_pi.yaml's
-    ypr revert applied to a cartesian_wristframe_6d batch."""
+    """The evaluator/data-config mismatch the guard is for: a plain ypr
+    wrist-frame revert applied to a cartesian_wristframe_6d batch."""
     from egomimic.rldb.embodiment.human import (
         _build_human_cartesian_revert_eef_frame_transform_list,
     )
@@ -430,17 +440,29 @@ def test_bounds_check_tolerates_roundoff_on_collapsed_bounds():
     md = _bounds_dataset("actions_cartesian", 18, 0.0, 0.0)
     arr = np.zeros((5, 18), dtype=np.float32)
     arr[0, 0] = 1e-9  # a roundoff-scale xyz value at a [0, 0] bound
-    assert md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep") is None
+    assert (
+        md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep")
+        is None
+    )
     arr[0, 0] = 1e-3  # a real violation is still caught
-    assert md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep") is not None
+    assert (
+        md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep")
+        is not None
+    )
 
 
 def test_bounds_check_warns_once_on_stat_shape_mismatch(caplog):
     md = _bounds_dataset("actions_cartesian", 18, -1.0, 1.0)
     arr = np.zeros((5, 20), dtype=np.float32)  # stats are 18-wide
     with caplog.at_level("WARNING"):
-        assert md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep") is None
-        assert md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 1, "ep") is None
+        assert (
+            md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep")
+            is None
+        )
+        assert (
+            md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 1, "ep")
+            is None
+        )
     msgs = [r.message for r in caplog.records if "bounds check skipped" in r.message]
     assert len(msgs) == 1, msgs
 
@@ -453,8 +475,14 @@ def test_precomputed_norm_stats_provenance_is_checked(tmp_path):
     writer._norm_run_metadata = None
     writer.norm_stats = {
         1: {
-            "actions_cartesian": {"quantile_1": np.zeros((T, 18)), "quantile_99": np.ones((T, 18))},
-            "observations.state.ee_pose": {"quantile_1": np.zeros(20), "quantile_99": np.ones(20)},
+            "actions_cartesian": {
+                "quantile_1": np.zeros((T, 18)),
+                "quantile_99": np.ones((T, 18)),
+            },
+            "observations.state.ee_pose": {
+                "quantile_1": np.zeros(20),
+                "quantile_99": np.ones(20),
+            },
         }
     }
     writer.cache_stats(str(tmp_path))

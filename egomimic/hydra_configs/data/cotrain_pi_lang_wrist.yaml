@@ -2,16 +2,15 @@ defaults:
   - cotrain_pi_lang
   - _self_
 
+# Wrist-frame twin of cotrain_pi_lang: same datasets, filters and PI-style
+# camera keys (inherited), actions in each wrist's own frame with the
+# continuous 6D rotation. Pair with evaluator=eval_pi_wristframe_6d.
 train_datasets:
   eva_bimanual:
     resolver:
-      key_map:
-        keymap_mode: cartesian_wristframe_ypr
       transform_list:
-        mode: cartesian_wristframe_ypr
+        mode: cartesian_wristframe_6d
   human_bimanual:
     resolver:
-      key_map:
-        keymap_mode: cartesian
       transform_list:
-        mode: cartesian_wristframe_ypr
+        mode: cartesian_wristframe_6d

@@ -12,10 +12,10 @@
 #SBATCH --job-name=eval_cart_ep
 #SBATCH --output=/storage/project/r-dxu345-0/agao81/EgoVerse/logs/eval_cart_%x_%j.log
 
-# Eval-only pass of a CARTESIAN opsplit checkpoint through the same offline
-# path as eval_palm_kp*.sbatch (1 GPU, 160 val batches, reverse-KL off, no viz),
-# so its cam_xyz_paired_mse_avg can be compared with the keypoint run's
-# offline palm-origin MSE without the offline-vs-in-training discrepancy.
+# Offline eval-only pass of a cartesian opsplit checkpoint (1 GPU, 160 val
+# batches, M-sample metrics off, no viz): the same val set every time, so
+# checkpoints / frames can be compared without the in-training discrepancy
+# (different val subsets per rank, viz epochs, ...).
 #   FRAME=cam|wrist  CKPT=<path>  LABEL=<wandb/hydra name>
 
 set -euo pipefail
@@ -50,7 +50,7 @@ echo "[eval] cwd=$(pwd) commit=$(git rev-parse HEAD) frame=$FRAME ckpt=$CKPT"
   "ckpt_path='$CKPT'" \
   norm_stats.precomputed_norm_path=/storage/project/r-dxu345-0/agao81/norm_stats/fold_freeform_opsplit_$NORM/norm_stats \
   model.robomimic_model.config.pytorch_weight_path=$REPO/egomimic/algo/pi_checkpoints/pi05_base_pytorch \
-  model.robomimic_model.config.reverse_kl_samples=1 \
+  model.robomimic_model.config.val_num_samples=1 \
   ~data.train_viz_datasets ~data.train_viz_dataloader_params \
   "name=$LABEL" description=ep99_valset_160batches \
   "+logger.wandb.name=$LABEL" \

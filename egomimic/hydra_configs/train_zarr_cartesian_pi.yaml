@@ -3,7 +3,7 @@ defaults:
   - override model: pi0.5_bc_eva
   - override data: eva_pi
   - override trainer: ddp_pi
-  - override evaluator: eval_pi
+  - override evaluator: eval_pi_camframe_6d
   - override hydra/launcher: submitit_pace
   - _self_
 

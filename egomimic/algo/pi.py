@@ -25,12 +25,7 @@ from egomimic.models.preprocess_pi_obs import (
     _to_minus1_1,
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.utils.action_utils import (
-    PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
-    PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D,
-    PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D,
-    ConverterRegistry,
-)
+from egomimic.utils.action_utils import ConverterRegistry
 
 logger = logging.getLogger(__name__)
 # Ensure logger propagates to root logger and has appropriate level
@@ -75,7 +70,6 @@ class PI(Algo):
         state_num_bins: int = 256,
         control_mode: dict[str, str] | None = None,
         proprio_keys_for_prompt: list[str] | None = None,
-        action_encoding: str = PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
@@ -109,7 +103,6 @@ class PI(Algo):
             "pi_cam_keys", ["base_0_rgb", "left_wrist_0_rgb", "right_wrist_0_rgb"]
         )
         self.config = config
-        self.action_encoding = action_encoding
 
         self.ac_keys = ac_keys
 
@@ -145,9 +138,10 @@ class PI(Algo):
         self.num_steps = getattr(self.config, "num_sampling_steps", 10)
         self.is_6dof = kwargs.get("is_6dof", True)
         # Stochastic action-chunk samples drawn per eval batch for the
-        # reverse-KL / best-of-M metrics. >1 enables them; each sample is a
-        # full flow-matching rollout, so this multiplies eval sampling cost.
-        self.rkl_samples = getattr(self.config, "reverse_kl_samples", 1)
+        # best-of-M / sample-diversity metrics. >1 enables them; each sample
+        # is a full flow-matching rollout, so this multiplies eval sampling
+        # cost.
+        self.val_samples = getattr(self.config, "val_num_samples", 1)
 
         self.action_converters = action_converters
 
@@ -202,44 +196,18 @@ class PI(Algo):
             )
         else:
             logger.warning("No pytorch_weight_path specified — training from scratch")
-        # Non-32 action widths (e.g. the 138-D wrist-first MANO keypoint
-        # action padded to 140): the vendored openpi PyTorch port hard-codes
-        # 32-wide action projections regardless of ``Pi0Config.action_dim``,
-        # so swap them for ``action_dim``-wide ones AFTER the (strict)
-        # base-weight load. Only these two layers start fresh;
-        # ``sample_actions`` already draws its noise at ``config.action_dim``.
+        # The vendored openpi PyTorch port hard-codes 32-wide action
+        # projections regardless of ``Pi0Config.action_dim``, and every
+        # converter packs into that 32D vector; any other width would
+        # silently mismatch, so refuse it here.
         action_dim = int(self.config.model.action_dim)
         if action_dim != 32:
-            self._resize_action_projections(action_dim)
+            raise ValueError(
+                f"PI0.5 requires model.action_dim == 32 (got {action_dim}); the "
+                "cartesian converters pack every embodiment into the 32D vector."
+            )
         self.nets = nn.ModuleDict()
         self.nets["policy"] = self.model
-
-    def _resize_action_projections(self, action_dim: int) -> None:
-        target = (
-            self.model.module
-            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
-            else self.model
-        )
-        old_in, old_out = target.action_in_proj, target.action_out_proj
-        width = old_in.out_features
-        new_in = nn.Linear(action_dim, width).to(
-            dtype=old_in.weight.dtype, device=old_in.weight.device
-        )
-        new_out = nn.Linear(width, action_dim).to(
-            dtype=old_out.weight.dtype, device=old_out.weight.device
-        )
-        target.action_in_proj = new_in
-        target.action_out_proj = new_out
-        logger.warning(
-            "action_dim=%d != 32: re-initialized action_in_proj (%d->%d) and "
-            "action_out_proj (%d->%d); the pretrained 32-wide projections are "
-            "discarded, everything else is loaded from the base checkpoint.",
-            action_dim,
-            action_dim,
-            width,
-            width,
-            action_dim,
-        )
 
     def _control_mode_for(self, emb_name: str | None) -> str:
         if self.control_mode and emb_name is not None:
@@ -339,23 +307,6 @@ class PI(Algo):
             "token_loss_mask": token_loss_mask.requires_grad_(False),
             "token_ar_mask": attention_mask.clone().requires_grad_(False),
         }
-
-    def _action_stats(self, embodiment_id: int, ac_key: str) -> dict:
-        try:
-            return self.norm_stats.norm_stats[embodiment_id][ac_key]
-        except KeyError as exc:
-            raise KeyError(
-                f"Missing norm stats for action key {ac_key!r} "
-                f"and embodiment id {embodiment_id}"
-            ) from exc
-
-    def _unnormalize_action(
-        self, action: torch.Tensor, embodiment_id: int, ac_key: str
-    ):
-        return self.norm_stats.unnormalize(
-            {ac_key: action.clone(), "embodiment": embodiment_id},
-            embodiment_id,
-        )[ac_key].to(action.device)
 
     @override
     def process_batch_for_training(self, batch):
@@ -523,34 +474,19 @@ class PI(Algo):
         return unnorm_preds
 
     def _postprocess_sampled_actions(self, pred_actions, _batch, embodiment_id, ac_key):
-        """Raw ``sample_actions`` output -> unnormalized action dict, honoring
-        ``action_encoding``. Shared by ``forward_eval`` and
-        ``sample_action_chunks`` so stochastic metric samples go through the
-        identical pipeline as the headline prediction."""
+        """Raw ``sample_actions`` output -> unnormalized action dict. Shared by
+        ``forward_eval`` and ``sample_action_chunks`` so stochastic metric
+        samples go through the identical pipeline as the headline prediction.
+
+        Extract the normalized xyz+6D(+gripper) action from the 32D vector,
+        then unnormalize via the standard pipeline (stats were computed over
+        the 6D representation) to get raw 6D actions."""
         ref = _batch[ac_key]
         _, T, D = ref.shape
         converter = self.action_registry.get(embodiment_id, ac_key)
         predictions = OrderedDict()
-        if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D:
-            pred_actions_orig = converter.from32_raw_rotation(
-                pred_actions,
-                stats=self._action_stats(embodiment_id, ac_key),
-                norm_mode=self.norm_stats.norm_mode,
-                unnormalize_non_rotation=True,
-            )
-            return {ac_key: pred_actions_orig[:, :T, :D]}
-        if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D:
-            # Extract the normalized xyz+6D(+gripper) action, then unnormalize
-            # via the standard pipeline (stats were computed over the 6D
-            # representation) to get raw 6D actions.
-            pred_6d = converter.from32_norm_6d(pred_actions)
-            predictions[ac_key] = pred_6d[:, :T, :D]
-        elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
-            predictions[ac_key] = converter.from32(pred_actions)[:, :T, :D]
-        else:
-            raise ValueError(
-                f"Unsupported PI0.5 action_encoding: {self.action_encoding!r}"
-            )
+        pred_6d = converter.from32_norm_6d(pred_actions)
+        predictions[ac_key] = pred_6d[:, :T, :D]
         return self.norm_stats.unnormalize(predictions, embodiment_id)
 
     @torch.no_grad()
@@ -654,25 +590,10 @@ class PI(Algo):
 
         emb_id = get_embodiment_id(embodiment)  # embodiment is a name string
         converter = self.action_registry.get(emb_id, ac_key)
-        if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D:
-            raw_action = self._unnormalize_action(action, emb_id, ac_key)
-            action32 = converter.to32_raw_rotation(
-                raw_action,
-                normalized_actions=action,
-                stats=self._action_stats(emb_id, ac_key),
-                norm_mode=self.norm_stats.norm_mode,
-            )
-        elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D:
-            # Action is already a normalized xyz+6D(+gripper) chunk (the
-            # ypr->6D conversion happened in the CartesianYPRToRot6D data
-            # transform). Just pack it into the 32D vector.
-            action32 = converter.to32_norm_6d(action)
-        elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
-            action32 = converter.to32(action)
-        else:
-            raise ValueError(
-                f"Unsupported PI0.5 action_encoding: {self.action_encoding!r}"
-            )
+        # Action is already a normalized xyz+6D(+gripper) chunk (the ypr->6D
+        # conversion happened in the CartesianYPRToRot6D data transform).
+        # Just pack it into the 32D vector.
+        action32 = converter.to32_norm_6d(action)
 
         # OpenPI expects a fixed camera tuple. Human datasets only provide
         # `base_0_rgb`, so duplicate that view into the missing wrist slots and
@@ -746,40 +667,3 @@ class PI(Algo):
             return batch.clone()
         else:
             return batch  # Return as is for non-tensor types
-
-    def _extract_xyz(self, x):
-        """
-        Extract xyz (3D position) and rotation from 6DoF or 6DoF+gripper actions.
-
-        Supports:
-        - 6: 6DoF (single arm)
-        - 7: 6DoF + gripper (single arm)
-        - 12: 2 arms × 6DoF
-        - 14: 2 arms × (6DoF + gripper)
-
-        Returns:
-            xyz: Tensor with only xyz per arm (shape: ..., 3) or (..., 6) for dual-arm.
-            rot: Tensor with only rotation per arm (shape: ..., 3) or (..., 6) for dual-arm.
-        """
-        if x.shape[-1] == 6:
-            return x[..., :3], x[..., 3:6]
-        elif x.shape[-1] == 7:
-            return x[..., :3], x[..., 3:6]
-        elif x.shape[-1] == 12:
-            xyz_right = x[..., :3]
-            rot_right = x[..., 3:6]
-            xyz_left = x[..., 6:9]
-            rot_left = x[..., 9:12]
-            return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat(
-                [rot_right, rot_left], dim=-1
-            )
-        elif x.shape[-1] == 14:
-            xyz_right = x[..., :3]
-            rot_right = x[..., 3:6]
-            xyz_left = x[..., 7:10]
-            rot_left = x[..., 10:13]
-            return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat(
-                [rot_right, rot_left], dim=-1
-            )
-        else:
-            raise ValueError(f"Unexpected shape for 6DoF input: {x.shape}")

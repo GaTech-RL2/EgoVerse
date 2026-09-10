@@ -1,17 +1,10 @@
 import logging
-import random
-from typing import Literal
 
-import numpy as np
-import torch
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
-from termcolor import cprint
 from torch.utils.data import DataLoader, default_collate
-from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
-
 
 
 class MultiDataModuleWrapper(LightningDataModule):
@@ -29,6 +22,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_dataloader_params: dict,
         train_viz_datasets: dict | None = None,
         train_viz_dataloader_params: dict | None = None,
+        held_out_operators: list | None = None,
     ):
         """
         Args:
@@ -41,6 +35,12 @@ class MultiDataModuleWrapper(LightningDataModule):
                 policy on training data alongside the canonical validation.
             train_viz_dataloader_params: dict of per-dataset DataLoader kwargs
                 for the train_viz loader.
+            held_out_operators: config-only. The held-out-operator split
+                configs (data/mecka_fold_*_opsplit_*.yaml) keep the operator
+                id list once at the data-config root and interpolate it from
+                the train/valid filter lambdas; hydra.instantiate(cfg.data)
+                forwards every root key here, so it must be accepted. Kept as
+                an attribute for provenance only.
 
         Tokenization (sampling a prompt from per-sample annotation lists,
         splicing in embodiment / control-mode / proprio blocks, and running
@@ -61,6 +61,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             k: v for k, v in (train_viz_datasets or {}).items() if v is not None
         }
         self.train_viz_dataloader_params = train_viz_dataloader_params or {}
+        self.held_out_operators = list(held_out_operators or [])
         self.collate_fn = annotation_collate
 
     def train_dataloader(self):
@@ -115,8 +116,6 @@ class MultiDataModuleWrapper(LightningDataModule):
         return [valid_loader, train_viz_loader]
 
 
-
-
 def _extract_list_keys(batch):
     """Pop all list-valued keys from *batch* samples and return them separately.
 
@@ -138,5 +137,3 @@ def annotation_collate(batch):
     collated = default_collate(batch)
     collated.update(extracted)
     return collated
-
-

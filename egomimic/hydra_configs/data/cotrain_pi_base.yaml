@@ -1,3 +1,8 @@
+# Base for every pi0.5 data config. Cartesian actions (and the proprio
+# ee_pose) leave the pipeline in the continuous-6D rotation layout
+# (`cartesian_6d`: xyz+6D per arm, +gripper for eva) — the only rotation
+# encoding the PI algo accepts. Wrist-frame variants override the mode to
+# `cartesian_wristframe_6d`. Norm stats must be computed on the 6D data.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -12,7 +17,7 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian
+        mode: cartesian_6d
     filters: null
     mode: train
     valid_ratio: 0.05
@@ -27,7 +32,7 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian
+        mode: cartesian_6d
         stride: 3
     filters: null
     mode: train

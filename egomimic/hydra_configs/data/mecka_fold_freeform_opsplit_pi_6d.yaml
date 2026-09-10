@@ -5,16 +5,20 @@
 # either fold-clothes task spelling), stored under the human_bimanual
 # embodiment, with the held-out-OPERATOR train/val split.
 #
-# OPERATOR SPLIT (shared by every *_opsplit_* config — keep the lists byte-
-# identical across them): validation = 31 operators held out ENTIRELY, so no
-# val episode shares an operator with training. Chosen deterministically on
-# 2026-09-01 from SQL app.episodes (462 freeform fold eps / 178 operators):
-# skip the 10 largest operators (their data stays in train), seeded shuffle
-# (random.Random(42)) of the remaining operator ids, accumulate until >= 10 %
-# of frames (Aidan: a full 10 %, raised from 8 % the same evening) ->
-# 31 operators, 50 episodes, 115,681 frames (10.2 %) held out;
-# train = 147 operators, 412 episodes, 1,013,220 frames. Both sides use
-# mode: total (no random episode split); the lists ARE the split.
+# OPERATOR SPLIT: validation = 31 operators held out ENTIRELY, so no val
+# episode shares an operator with training. The list lives ONCE, in
+# `held_out_operators` below; the train and valid filter lambdas both
+# interpolate it, so the two sides cannot drift apart. The cam-frame twin
+# (mecka_fold_freeform_opsplit_pi_cam6d) inherits this file and overrides only
+# the transform mode, so it shares the same node.
+#
+# Chosen deterministically on 2026-09-01 from SQL app.episodes (462 freeform
+# fold eps / 178 operators): skip the 10 largest operators (their data stays in
+# train), seeded shuffle (random.Random(42)) of the remaining operator ids,
+# accumulate until >= 10 % of frames -> 31 operators, 50 episodes,
+# 115,681 frames (10.2 %) held out; train = 147 operators, 412 episodes,
+# 1,013,220 frames. Both sides use mode: total (no random episode split); the
+# list IS the split. Do not edit it: checkpoints were trained against it.
 #
 # WRIST-frame cartesian actions with the continuous 6D rotation (18D =
 # xyz+6D per arm, no gripper): each arm's 100-step chunk is expressed
@@ -26,7 +30,8 @@
 # Rz(180°)-corrected before any frame math), pad_proprio_gripper (18 -> 20-dim
 # proprio so the State: prompt bins align with the robot layout), stride 1,
 # prompts from the `annotations` track. Pairs with evaluator=eval_pi_wristframe_6d
-# (+ `+evaluator@train_viz_evaluator=train_viz_pi_wristframe_6d`). Twins: mecka_fold_freeform_opsplit_pi_cam6d (cam frame), mecka_fold_freeform_opsplit_pi_keypoints (keypoint action).
+# (+ `+evaluator@train_viz_evaluator=train_viz_pi_wristframe_6d`). Twin:
+# mecka_fold_freeform_opsplit_pi_cam6d (cam frame).
 #
 # Norm stats: precompute on a CPU node (scripts/norm_fold_freeform_opsplit_wrist6d.sbatch) and point
 # training at norm_stats.precomputed_norm_path=<out>/norm_stats.
@@ -34,6 +39,43 @@
 # folder_path: shared PACE mirror of processed_v3; all 462 episodes present.
 
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# The 31 held-out operator ids (SQL app.episodes.operator), sorted. See the
+# OPERATOR SPLIT note above. Referenced by the filter lambdas via a relative
+# interpolation (five dots: lambda -> filter_lambdas -> filters ->
+# human_bimanual -> train/valid_datasets -> this config's root).
+held_out_operators:
+  - 68a8e70d1ffcf0417e08f0e5
+  - 68e2fc680b158ea94ab4f5bc
+  - 6930bf8a6e496b45b1e1122e
+  - 6931784c6e496b45b1e1b1cd
+  - 693a399ec67c9e4814b0c09f
+  - 693b9530c67c9e4814b20ab2
+  - 693c78165cb6c2828a4c2087
+  - 694604945c0479a0fb7f48a4
+  - 6948d23b5c0479a0fb8302b3
+  - 69529a85c0d9448524bc7880
+  - 6954f0b720b100982d812ed8
+  - 6957464720b100982d83b76c
+  - 695d07d783a9fdf2d84d9371
+  - 695d084183a9fdf2d84d955a
+  - 6961c50f83a9fdf2d85ec95d
+  - 69624a8683a9fdf2d86013c0
+  - 6973c3ae89fa4bc311d1bbe5
+  - 69842643f8ca4464d9920799
+  - 698937a5f8ca4464d99dce94
+  - 6992b19ab9d55c9c2d48432c
+  - 699429e18ef0252970048624
+  - 6996d5eded1708063b2fe419
+  - 6999d17c8f173e14271f9890
+  - 69a24256c4216c3e3ce33834
+  - 69a39ec9c4216c3e3ce49734
+  - 69a57a78c4216c3e3ce6323c
+  - 69a725a347e12c9b3390ba33
+  - 69a7943547e12c9b33911c02
+  - 69a84eed47e12c9b339208fd
+  - 69ab87207bf9cbce29a3cb36
+  - 69ae2463d22d99655253f287
 
 train_datasets:
   human_bimanual:
@@ -58,8 +100,8 @@ train_datasets:
         - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
         - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
         - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
-        # OPERATOR SPLIT — train = every operator NOT in the held-out set.
-        - "lambda row: str(row.get('operator', '')) not in {'68a8e70d1ffcf0417e08f0e5', '68e2fc680b158ea94ab4f5bc', '6930bf8a6e496b45b1e1122e', '6931784c6e496b45b1e1b1cd', '693a399ec67c9e4814b0c09f', '693b9530c67c9e4814b20ab2', '693c78165cb6c2828a4c2087', '694604945c0479a0fb7f48a4', '6948d23b5c0479a0fb8302b3', '69529a85c0d9448524bc7880', '6954f0b720b100982d812ed8', '6957464720b100982d83b76c', '695d07d783a9fdf2d84d9371', '695d084183a9fdf2d84d955a', '6961c50f83a9fdf2d85ec95d', '69624a8683a9fdf2d86013c0', '6973c3ae89fa4bc311d1bbe5', '69842643f8ca4464d9920799', '698937a5f8ca4464d99dce94', '6992b19ab9d55c9c2d48432c', '699429e18ef0252970048624', '6996d5eded1708063b2fe419', '6999d17c8f173e14271f9890', '69a24256c4216c3e3ce33834', '69a39ec9c4216c3e3ce49734', '69a57a78c4216c3e3ce6323c', '69a725a347e12c9b3390ba33', '69a7943547e12c9b33911c02', '69a84eed47e12c9b339208fd', '69ab87207bf9cbce29a3cb36', '69ae2463d22d99655253f287'}"
+        # OPERATOR SPLIT — train = every operator NOT in the held-out list.
+        - "lambda row: str(row.get('operator', '')) not in ${.....held_out_operators}"
     mode: total
 
 valid_datasets:
@@ -72,8 +114,8 @@ valid_datasets:
         - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
         - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
         - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
-        # OPERATOR SPLIT — valid = the 25 held-out operators only.
-        - "lambda row: str(row.get('operator', '')) in {'68a8e70d1ffcf0417e08f0e5', '68e2fc680b158ea94ab4f5bc', '6930bf8a6e496b45b1e1122e', '6931784c6e496b45b1e1b1cd', '693a399ec67c9e4814b0c09f', '693b9530c67c9e4814b20ab2', '693c78165cb6c2828a4c2087', '694604945c0479a0fb7f48a4', '6948d23b5c0479a0fb8302b3', '69529a85c0d9448524bc7880', '6954f0b720b100982d812ed8', '6957464720b100982d83b76c', '695d07d783a9fdf2d84d9371', '695d084183a9fdf2d84d955a', '6961c50f83a9fdf2d85ec95d', '69624a8683a9fdf2d86013c0', '6973c3ae89fa4bc311d1bbe5', '69842643f8ca4464d9920799', '698937a5f8ca4464d99dce94', '6992b19ab9d55c9c2d48432c', '699429e18ef0252970048624', '6996d5eded1708063b2fe419', '6999d17c8f173e14271f9890', '69a24256c4216c3e3ce33834', '69a39ec9c4216c3e3ce49734', '69a57a78c4216c3e3ce6323c', '69a725a347e12c9b3390ba33', '69a7943547e12c9b33911c02', '69a84eed47e12c9b339208fd', '69ab87207bf9cbce29a3cb36', '69ae2463d22d99655253f287'}"
+        # OPERATOR SPLIT — valid = the held-out operators only.
+        - "lambda row: str(row.get('operator', '')) in ${.....held_out_operators}"
     mode: total
 
 # Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,

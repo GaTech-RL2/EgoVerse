@@ -62,6 +62,12 @@ def main() -> None:
         required=True,
         help="save_cache_dir; writes <out>/norm_stats/norm_stats.json",
     )
+    ap.add_argument(
+        "overrides",
+        nargs="*",
+        help="extra hydra overrides appended verbatim (e.g. "
+        "paths.dataset_dir=/path/to/zarr/mirror)",
+    )
     args = ap.parse_args()
 
     cfg_dir = os.path.join(os.path.dirname(egomimic.__file__), "hydra_configs")
@@ -74,6 +80,7 @@ def main() -> None:
         f"norm_stats.save_cache_dir={args.out}",
         "norm_stats.precomputed_norm_path=null",
         "seed=42",
+        *args.overrides,
     ]
     with initialize_config_dir(version_base=None, config_dir=cfg_dir):
         cfg = compose(config_name=args.config_name, overrides=overrides)

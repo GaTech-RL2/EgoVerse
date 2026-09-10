@@ -3,12 +3,13 @@
 # second time against the `train_viz` dataloader. The wrapped `base`
 # evaluator owns compute_metrics_and_viz; this wrapper writes videos to
 # `videos_train_viz/` and prefixes metric keys with `train_viz/`. The
-# M-sample (reverse-KL) metrics are forced off for this pass — they stay on
-# the canonical valid loader only.
+# M-sample (best-of-M / diversity) metrics are forced off for this pass —
+# they stay on the canonical valid loader only.
 #
 # Enable via `+evaluator@train_viz_evaluator=train_viz_pi_camframe_6d`
 # together with a data config that defines `train_viz_datasets` and
-# `train_viz_dataloader_params` (see data/mecka_fold_freeform_pi_cam6d.yaml).
+# `train_viz_dataloader_params` (see
+# data/mecka_fold_freeform_opsplit_pi_cam6d.yaml).
 
 defaults:
   - /evaluator@base: eval_pi_camframe_6d

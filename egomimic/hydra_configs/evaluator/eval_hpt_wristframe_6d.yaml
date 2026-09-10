@@ -1,0 +1,24 @@
+# HPT wrist-frame 6D evaluator: HPT twin of eval_pi_wristframe_6d. Use with a
+# data config that applies the `cartesian_wristframe_6d` transform mode with
+# `keymap_mode: cartesian` (e.g. mecka_fold_flagship_opsplit_hpt_6d). The model
+# predicts the 18-D [xyz | 6D rot] x 2 action in each wrist's frame; the revert
+# converts 6D -> ypr (Gram-Schmidt), unpads the 20-D proprio, and projects
+# predictions + gt back to head (cam) frame, giving the cam-frame MSE
+# (Valid/human_bimanual_actions_cartesian_cam_{paired,final}_mse_avg) and the
+# overlay video. Native-frame metrics (paired/final MSE, Frechet) run on the
+# 18-D output. Same viz cadence/cap as eval_pi_wristframe_6d.
+defaults:
+  - viz@viz_func: cartesian_wrist_lang
+  - _self_
+
+_target_: egomimic.eval.eval_hpt.HPTEvalVideo
+
+# Render the val viz video only when (current_epoch + 1) is a multiple of this.
+viz_every_n_epochs: 100
+# On viz epochs, render only the first N val batches per rank; metrics still
+# run on every batch. The train_viz wrapper inherits this cap.
+viz_max_batches: 10
+
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_6d_wristframe_transform_list

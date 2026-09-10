@@ -16,9 +16,8 @@ from tslearn.metrics import SoftDTWLossPyTorch
 from egomimic.algo.algo import Algo
 from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
 from egomimic.utils.hf_utils import download_from_huggingface
-
+from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
 
 # Init scale for the HPT action tokens (was a shared constant in utils.py;
 # it has exactly one consumer, below).
@@ -909,8 +908,6 @@ class HPT(Algo):
         self.depth = kwargs.get("depth", 8)
         self.freeze_depth = kwargs.get("freeze_depth", 8)
         model.depth = self.depth
-
-        self.rkl_samples = kwargs.get("reverse_kl_samples", 4)
 
         if self.ot:
             self.ot_warm_start_steps = kwargs.get("ot_warm_start_steps", 0)

@@ -17,5 +17,8 @@ train_datasets:
   human_bimanual: null
 
 valid_datasets:
-  eva_bimanual: ${train_datasets.eva_bimanual}
+  # Relative (two dots: valid_datasets -> this config's root) so it resolves
+  # under the `data:` mount; an absolute `${train_datasets...}` looks for the
+  # key at the top-level train config and fails to compose.
+  eva_bimanual: ${..train_datasets.eva_bimanual}
   human_bimanual: null

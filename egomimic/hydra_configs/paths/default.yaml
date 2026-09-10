@@ -7,6 +7,8 @@
 # data_dir: ${paths.root_dir}/data/
 
 # default folder containing zarr episode datasets
+# Skynet shared mirror (world-writable so the S3 resolver can sync into it).
+# PACE launchers override this to the shared PACE mirror.
 dataset_dir: /coc/flash7/scratch/egoverseS3ZarrDataset
 
 # path to logging directory

@@ -1,3 +1,4 @@
+import os
 from functools import partial
 from typing import Callable, List, Optional, Union
 
@@ -187,9 +188,9 @@ class BlockWithMasking(nn.Module):
     ):
         super().__init__()
 
-        assert not isinstance(attn_target, nn.Module), (
-            "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
-        )
+        assert not isinstance(
+            attn_target, nn.Module
+        ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
         self.attn = attn_target()
         if drop_path > 0.0:
             self.drop_path = DropPath(drop_path)
@@ -670,7 +671,9 @@ def _qwen_last_token_pool(
     if left_padded:
         return last_hidden_states[:, -1]
     seq_lens = attention_mask.sum(dim=1) - 1
-    batch_idx = torch.arange(last_hidden_states.size(0), device=last_hidden_states.device)
+    batch_idx = torch.arange(
+        last_hidden_states.size(0), device=last_hidden_states.device
+    )
     return last_hidden_states[batch_idx, seq_lens]
 
 
@@ -711,8 +714,20 @@ class _Qwen3BaseEncoder(PolicyStem):
         self.max_length = max_length
         self.freeze_encoder = freeze
         torch_dtype = getattr(torch, dtype) if isinstance(dtype, str) else dtype
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
-        self.encoder = AutoModel.from_pretrained(model_name, torch_dtype=torch_dtype)
+        # transformers >= 4.57 probes the Hub while loading a tokenizer by repo
+        # id even under HF_HUB_OFFLINE=1 (tokenization_utils_base
+        # ._patch_mistral_regex -> model_info), which raises on compute nodes
+        # with no internet. Loading from the cached snapshot DIRECTORY skips
+        # that probe, so resolve the repo id to its local snapshot when offline.
+        load_path = model_name
+        if os.environ.get("HF_HUB_OFFLINE") == "1" or (
+            os.environ.get("TRANSFORMERS_OFFLINE") == "1"
+        ):
+            from huggingface_hub import snapshot_download
+
+            load_path = snapshot_download(model_name, local_files_only=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(load_path, padding_side="left")
+        self.encoder = AutoModel.from_pretrained(load_path, torch_dtype=torch_dtype)
         if freeze:
             for p in self.encoder.parameters():
                 p.requires_grad = False

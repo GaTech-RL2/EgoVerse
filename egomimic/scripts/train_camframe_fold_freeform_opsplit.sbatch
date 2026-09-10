@@ -30,7 +30,7 @@
 # Submit with --dependency=afterok:<norm job id>.
 #
 # Runs from the aidan/kp-wristframe-port worktree (WT env override; the
-# clean port of the 6D/keypoint recipe onto main); PYTHONPATH pins
+# clean port of the 6D recipe onto main); PYTHONPATH pins
 # `import egomimic` to it; hydra outputs are forced into the primary
 # checkout's logs/ so checkpoints outlive the worktree.
 #
