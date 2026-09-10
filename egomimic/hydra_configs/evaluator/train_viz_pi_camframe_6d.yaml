@@ -1,0 +1,29 @@
+# Cam-frame twin of train_viz_pi_wristframe_6d: wraps the cam-frame 6D Pi
+# evaluator (eval_pi_camframe_6d) so the same forward/metric/viz logic runs a
+# second time against the `train_viz` dataloader. The wrapped `base`
+# evaluator owns compute_metrics_and_viz; this wrapper writes videos to
+# `videos_train_viz/` and prefixes metric keys with `train_viz/`. The
+# M-sample (reverse-KL) metrics are forced off for this pass — they stay on
+# the canonical valid loader only.
+#
+# Enable via `+evaluator@train_viz_evaluator=train_viz_pi_camframe_6d`
+# together with a data config that defines `train_viz_datasets` and
+# `train_viz_dataloader_params` (see data/mecka_fold_freeform_pi_cam6d.yaml).
+
+defaults:
+  - /evaluator@base: eval_pi_camframe_6d
+  - _self_
+
+_target_: egomimic.eval.eval_train_viz.TrainVizEvalVideo
+
+# Cap on batches consumed from the train_viz loader per validation epoch in
+# eval-only mode. During fit-validation the trainer's limit_val_batches
+# applies per-dataloader.
+limit_val_batches: 50
+
+# eval_pi_camframe_6d does not carry the render cap that eval_pi_wristframe_6d
+# sets; apply the same cap on this head so both frames render <= 10 val
+# batches per viz epoch (the top-level evaluator gets it via
+# +evaluator.viz_max_batches=10 on the command line).
+base:
+  viz_max_batches: 10

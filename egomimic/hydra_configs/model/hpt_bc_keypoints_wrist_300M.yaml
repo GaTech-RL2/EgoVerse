@@ -1,0 +1,179 @@
+# HPT_BC_KEYPOINTS_WRIST_300M — ~300M-parameter HPT flow-matching BC on the
+# 138-D wrist-frame MANO keypoint action, with a frozen Qwen3-Embedding text
+# stem for the task prompt ("300M hpt qwen", Simar 2026-09-09).
+#
+# HPT twin of pi0.5_bc_mecka_keypoints: same data config family
+# (mecka_fold_freeform_opsplit_hpt_keypoints), same action
+# (`actions_keypoints`, per hand [wrist xyz+ypr in its own wrist frame (6) |
+# 21 keypoints in that wrist frame (63)] x {left, right}), same quantile
+# normalization from precomputed stats. Inputs: front image (ResNet), the
+# 138-D `observations.state.keypoints` (wrist pose in head frame + keypoints
+# in wrist frame, per hand — Aniketh's keypoint-ablation recipe), the 20-D
+# head-frame `observations.state.ee_pose` (the pi twin's prompt proprio, so
+# both models see the same head-frame palm pose), and the sampled annotation
+# through the Qwen per-token stem. Drop a stem by nulling it, e.g.
+#   ~model.robomimic_model.stem_specs.human_bimanual.state_ee_pose
+#   ~model.robomimic_model.shared_stem_specs.annotation model.robomimic_model.shared_obs_keys=[front_img_1]
+#
+# Widths follow the lab's 300M reference recipe (hpt_bc_flow_mecka_300M.yaml on
+# aniketh/hpt-run-configs; also the basis of the arc-E1 300M cotrain configs):
+# embed_dim 840, 10 trunk heads, cross-attn 18 latents x 10 heads x 140
+# dim_head, head hidden_dim 320 / 5 heads / mlp 5x5. embed_dim is the shared
+# bus width — every stem in/out, modality_embed_dim, encoder output and the
+# head cond_dim move with it. num_blocks is set so the TRAINABLE count
+# (frozen Qwen excluded) lands at ~300M — measured by instantiating this
+# config on 2026-09-09: 24 blocks = 312.2M trainable (trunk 203.5M =
+# 8.48M/block, heads 74.3M, stems 22.7M, ResNet 11.6M; Qwen 595.8M frozen),
+# so 23 blocks ~= 303.7M.
+#
+# Constant LR 5e-5, no scheduler — the setting of Aniketh's
+# mecka_fold_*_300M_constlr_5e5 ablation (W&B rl2-group/egoverse-ablations),
+# whose keypoint arm fit best. hpt_bc_keypoints_base's CosineAnnealingLR
+# (T_max=1400 STEPS) sawtooths over a long run and is deliberately not used.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hpt.HPT
+  camera_transforms: {}
+  ac_keys:
+    human_bimanual: "actions_keypoints"
+
+  diffusion: true
+  # Same M-sample val metrics as the pi twin (reverse KL, best/mean/worst-of-M).
+  reverse_kl_samples: 4
+
+  # Prompt for the Qwen stem: one annotation sampled per batch item from the
+  # `annotations` track (the data config's keymap exposes it).
+  annotation_key: "annotations"
+  annotation_sampling_mode: "random"
+  annotation_modality: "annotation"
+  default_prompt: ""
+
+  trunk:
+    embed_dim: 840
+    num_blocks: 23
+    num_heads: 10
+    token_postprocessing: "action_token"
+    observation_horizon: 1
+    action_horizon: 64
+    no_trunk: false
+    use_domain_embedding: true
+    drop_path: 0.1
+    weight_init_style: "pytorch"
+
+  multitask: false
+  pretrained: false
+  pretrained_checkpoint: null
+  domains: ["human_bimanual"]
+  shared_obs_keys: ["front_img_1", "annotation"]
+
+  head_specs:
+    human_bimanual:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 100
+      num_inference_steps: 50
+      pooling: null
+      time_dist: "beta"
+      infer_ac_dims:
+        human_bimanual: 138
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 840
+        hidden_dim: 320
+        act_dim: 138
+        act_seq: 100
+        n_heads: 5
+        dropout: 0.1
+        mlp_layers: 5
+        mlp_ratio: 5
+
+  shared_stem_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: 840
+      output_dim: 840
+      widths: [840]
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 18
+          crossattn_heads: 10
+          crossattn_dim_head: 140
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 840
+    annotation:
+      _target_: egomimic.models.hpt_nets.QwenPerTokenEncoder
+      model_name: "Qwen/Qwen3-Embedding-0.6B"
+      max_length: 128
+      freeze: true
+      dtype: "float16"
+      output_dim: 840
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 18
+          crossattn_heads: 10
+          crossattn_dim_head: 140
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 840
+
+  stem_specs:
+    human_bimanual:
+      state_keypoints:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 138
+        output_dim: 840
+        widths: [840]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 18
+            crossattn_heads: 10
+            crossattn_dim_head: 140
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 840
+      state_ee_pose:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 20
+        output_dim: 840
+        widths: [840]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 18
+            crossattn_heads: 10
+            crossattn_dim_head: 140
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 840
+
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.ResNet
+      output_dim: 840
+      num_of_copy: 1
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5e-5
+  weight_decay: 0.0001
+
+scheduler: null

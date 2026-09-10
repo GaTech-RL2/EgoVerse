@@ -28,9 +28,11 @@ from egomimic.utils.pose_utils import (
     _matrix_to_xyz,
     _matrix_to_xyzwxyz,
     _matrix_to_xyzypr,
+    _rot6d_to_ypr,
     _xyz_to_matrix,
     _xyzwxyz_to_matrix,
     _xyzypr_to_matrix,
+    _ypr_to_rot6d,
     wxyz_to_xyzw,
     xyzw_to_wxyz,
 )
@@ -387,6 +389,101 @@ class XYZWXYZ_to_XYZYPR(Transform):
         return batch
 
 
+class CartesianYPRToRot6D(Transform):
+    """Convert a bimanual cartesian action chunk from per-arm xyz+ypr(+gripper)
+    to per-arm xyz+rot6d(+gripper).
+
+    ``rot6d`` is the continuous 6D rotation representation = the first two
+    columns of the rotation matrix, packed as [col0(3), col1(3)] (see
+    :func:`egomimic.utils.pose_utils._ypr_to_rot6d`). This matches the column
+    convention of the ``to32``/``from32`` packers in
+    ``egomimic.utils.action_utils``, so the resulting per-arm layout maps
+    directly into the pi0.5 32D action blocks.
+
+    Input layouts (last dim):
+      12 -> [L xyz ypr, R xyz ypr]       -> 18 [L xyz 6d, R xyz 6d]
+      14 -> [L xyz ypr g, R xyz ypr g]   -> 20 [L xyz 6d g, R xyz 6d g]
+
+    Preserves the numpy/tensor type of the input (like ``PadGripperZeros``).
+    """
+
+    def __init__(
+        self, action_key: str = "actions_cartesian", output_key: str | None = None
+    ):
+        self.action_key = action_key
+        self.output_key = output_key or action_key
+
+    def transform(self, batch: dict) -> dict:
+        actions = batch[self.action_key]
+        is_tensor = isinstance(actions, torch.Tensor)
+        arr = actions.cpu().numpy() if is_tensor else np.asarray(actions)
+        D = arr.shape[-1]
+        if D == 14:
+            l_xyz, l_ypr, l_g = arr[..., 0:3], arr[..., 3:6], arr[..., 6:7]
+            r_xyz, r_ypr, r_g = arr[..., 7:10], arr[..., 10:13], arr[..., 13:14]
+            out = np.concatenate(
+                [l_xyz, _ypr_to_rot6d(l_ypr), l_g, r_xyz, _ypr_to_rot6d(r_ypr), r_g],
+                axis=-1,
+            )
+        elif D == 12:
+            l_xyz, l_ypr = arr[..., 0:3], arr[..., 3:6]
+            r_xyz, r_ypr = arr[..., 6:9], arr[..., 9:12]
+            out = np.concatenate(
+                [l_xyz, _ypr_to_rot6d(l_ypr), r_xyz, _ypr_to_rot6d(r_ypr)],
+                axis=-1,
+            )
+        else:
+            raise ValueError(
+                f"CartesianYPRToRot6D expects last-dim 12 or 14, got {arr.shape} "
+                f"for '{self.action_key}'"
+            )
+        batch[self.output_key] = torch.from_numpy(out) if is_tensor else out
+        return batch
+
+
+class CartesianRot6DToYPR(Transform):
+    """Inverse of :class:`CartesianYPRToRot6D`: per-arm xyz+rot6d(+gripper) ->
+    xyz+ypr(+gripper).
+
+    Input layouts (last dim):
+      18 -> [L xyz 6d, R xyz 6d]         -> 12 [L xyz ypr, R xyz ypr]
+      20 -> [L xyz 6d g, R xyz 6d g]     -> 14 [L xyz ypr g, R xyz ypr g]
+    """
+
+    def __init__(
+        self, action_key: str = "actions_cartesian", output_key: str | None = None
+    ):
+        self.action_key = action_key
+        self.output_key = output_key or action_key
+
+    def transform(self, batch: dict) -> dict:
+        actions = batch[self.action_key]
+        is_tensor = isinstance(actions, torch.Tensor)
+        arr = actions.cpu().numpy() if is_tensor else np.asarray(actions)
+        D = arr.shape[-1]
+        if D == 20:
+            l_xyz, l_6d, l_g = arr[..., 0:3], arr[..., 3:9], arr[..., 9:10]
+            r_xyz, r_6d, r_g = arr[..., 10:13], arr[..., 13:19], arr[..., 19:20]
+            out = np.concatenate(
+                [l_xyz, _rot6d_to_ypr(l_6d), l_g, r_xyz, _rot6d_to_ypr(r_6d), r_g],
+                axis=-1,
+            )
+        elif D == 18:
+            l_xyz, l_6d = arr[..., 0:3], arr[..., 3:9]
+            r_xyz, r_6d = arr[..., 9:12], arr[..., 12:18]
+            out = np.concatenate(
+                [l_xyz, _rot6d_to_ypr(l_6d), r_xyz, _rot6d_to_ypr(r_6d)],
+                axis=-1,
+            )
+        else:
+            raise ValueError(
+                f"CartesianRot6DToYPR expects last-dim 18 or 20, got {arr.shape} "
+                f"for '{self.action_key}'"
+            )
+        batch[self.output_key] = torch.from_numpy(out) if is_tensor else out
+        return batch
+
+
 class CartesianWithGripperCoordinateTransform(Transform):
     def __init__(
         self,
@@ -482,9 +579,24 @@ class SplitKeys(Transform):
         self.output_key_list = list(output_key_list)
 
     def transform(self, batch: dict) -> dict:
+        value = batch[self.input_key]
+        expected = sum(size for _, size in self.output_key_list)
+        width = int(value.shape[-1])
+        if width != expected:
+            # Every caller lays out the WHOLE vector, so a mismatch means the
+            # split layout and the data disagree — typically an evaluator
+            # revert list built for one transform mode (e.g. 12-dim ypr) fed a
+            # batch from another (18/20-dim 6D). Slicing silently would hand
+            # the frame math xyz + rot6d columns as "xyz + ypr".
+            raise ValueError(
+                f"SplitKeys: '{self.input_key}' has last dim {width} but the "
+                f"output layout {self.output_key_list} sums to {expected}. Check "
+                "that the evaluator transform_lists match the data config's "
+                "transform mode."
+            )
         prev_end = 0
         for key, size in self.output_key_list:
-            batch[key] = batch[self.input_key][..., prev_end : prev_end + size]
+            batch[key] = value[..., prev_end : prev_end + size]
             prev_end += size
         return batch
 
@@ -512,6 +624,77 @@ class ConcatKeys(Transform):
         return batch
 
 
+class RotateLocalFrame(Transform):
+    """Right-multiply listed xyz+quat(wxyz) pose keys by a constant LOCAL
+    rotation: ``R_new = R_old @ R_fix``. Relabels the pose's own axes without
+    moving its origin. Handles ``(7,)`` poses and ``(T, 7)`` chunks.
+
+    Used to retroactively fix the mecka LEFT wrist-frame convention without
+    reconverting the zarrs: ``compute_hand_pose_xyzquat`` built the palm
+    normal as ``cross(thumb_dir, pinky_dir)``, which already mirrors chirality
+    between hands, and then ``rot_left`` flipped x/y again — double-mirroring
+    the left hand onto the right hand's spatial convention. Since
+    ``rot_left == rot_right @ diag(-1, -1, 1)``, right-multiplying the stored
+    left pose by Rz(180°) (the default ``quat_wxyz``) is exactly equivalent to
+    reconverting with ``rot_right`` for both hands.
+    """
+
+    def __init__(
+        self,
+        keys: list[str],
+        quat_wxyz: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
+    ):
+        self.keys = list(keys)
+        self.quat_wxyz = tuple(float(v) for v in quat_wxyz)
+        w, x, y, z = self.quat_wxyz
+        self._fix = R.from_quat([x, y, z, w])  # scipy xyzw
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            pose = np.asarray(batch[key])
+            if pose.shape[-1] != 7:
+                raise ValueError(
+                    f"RotateLocalFrame expects xyz+quat(wxyz) with last dim 7, "
+                    f"got {pose.shape} for '{key}'"
+                )
+            flat = pose.reshape(-1, 7).astype(np.float64, copy=True)
+            # Zero-norm quats mark padded/invalid frames — leave them alone.
+            valid = np.linalg.norm(flat[:, 3:7], axis=-1) > 1e-6
+            if valid.any():
+                q_xyzw = flat[valid][:, [4, 5, 6, 3]]
+                rotated = (R.from_quat(q_xyzw) * self._fix).as_quat()  # xyzw
+                flat[np.flatnonzero(valid), 3:7] = rotated[:, [3, 0, 1, 2]]
+            batch[key] = flat.reshape(pose.shape)
+        return batch
+
+
+class UnpadGripperZeros(Transform):
+    """Inverse of :class:`PadGripperZeros`: drop the per-arm zero gripper
+    slots. 14 -> 12 (ypr: drop 6, 13) or 20 -> 18 (6D: drop 9, 19). Widths 12
+    and 18 pass through unchanged, so revert pipelines work whether or not the
+    forward pipeline padded (``pad_proprio_gripper``)."""
+
+    def __init__(self, action_key: str = "observations.state.ee_pose"):
+        self.action_key = action_key
+
+    def transform(self, batch: dict) -> dict:
+        arr = batch[self.action_key]
+        is_tensor = isinstance(arr, torch.Tensor)
+        a = arr.cpu().numpy() if is_tensor else np.asarray(arr)
+        D = a.shape[-1]
+        if D in (12, 18):
+            return batch
+        if D == 14:
+            keep = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12]
+        elif D == 20:
+            keep = [i for i in range(20) if i not in (9, 19)]
+        else:
+            raise ValueError(f"UnpadGripperZeros: unexpected width {a.shape}")
+        out = a[..., keep]
+        batch[self.action_key] = torch.from_numpy(out) if is_tensor else out
+        return batch
+
+
 class PadGripperZeros(Transform):
     """Pad a 12D bimanual cartesian action chunk to 14D by inserting a zero
     gripper slot at position 6 (end of left arm) and position 13 (end of right
@@ -528,6 +711,12 @@ class PadGripperZeros(Transform):
         actions = batch[self.action_key]
         is_tensor = isinstance(actions, torch.Tensor)
         arr = actions.cpu().numpy() if is_tensor else np.asarray(actions)
+        if arr.shape[-1] == 18:
+            # 6D layout: [L xyz 6d | R xyz 6d] -> insert grip zeros at 9, 19
+            zero = np.zeros_like(arr[..., :1])
+            out = np.concatenate([arr[..., 0:9], zero, arr[..., 9:18], zero], axis=-1)
+            batch[self.action_key] = torch.from_numpy(out) if is_tensor else out
+            return batch
         if arr.shape[-1] != 12:
             raise ValueError(
                 f"PadGripperZeros expects last-dim 12, got {arr.shape} for "
@@ -535,12 +724,8 @@ class PadGripperZeros(Transform):
             )
         pad_shape = (*arr.shape[:-1], 1)
         pad = np.zeros(pad_shape, dtype=arr.dtype)
-        padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
-        )
-        batch[self.action_key] = (
-            torch.from_numpy(padded) if is_tensor else padded
-        )
+        padded = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
+        batch[self.action_key] = torch.from_numpy(padded) if is_tensor else padded
         return batch
 
 

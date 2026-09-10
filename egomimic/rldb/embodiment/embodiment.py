@@ -50,8 +50,20 @@ def get_embodiment(index):
     return EMBODIMENT_ID_TO_KEY.get(index, None)
 
 
+# Human demo data written by the vendor-split registry carries vendor-tagged
+# embodiment metadata (e.g. MECKA_BIMANUAL, SCALE_LEFT_ARM). Locally all human
+# demonstration data is ONE embodiment (see the EMBODIMENT docstring; the
+# source lives only in the SQL `lab` field), so those names collapse to
+# HUMAN_*. Robot names (EVA_*) are never aliased.
+_HUMAN_VENDOR_PREFIXES = ("MECKA", "SCALE", "ARIA", "LIGHTWHEEL")
+
+
 def get_embodiment_id(embodiment_name):
-    return EMBODIMENT[embodiment_name.upper()].value
+    name = embodiment_name.upper()
+    vendor, _, suffix = name.partition("_")
+    if vendor in _HUMAN_VENDOR_PREFIXES and suffix:
+        name = f"HUMAN_{suffix}"
+    return EMBODIMENT[name].value
 
 
 class Embodiment(ABC):
@@ -199,12 +211,22 @@ class Embodiment(ABC):
             pred_action = pred_actions[i]
             K_i = _intrinsics_from_batch(batch, i)
             ims = cls.viz(
-                image, action, mode=mode, color="Greens", alpha=gt_alpha,
-                intrinsics=K_i, **kwargs
+                image,
+                action,
+                mode=mode,
+                color="Greens",
+                alpha=gt_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             ims = cls.viz(
-                ims, pred_action, mode=mode, color="Reds", alpha=pred_alpha,
-                intrinsics=K_i, **kwargs
+                ims,
+                pred_action,
+                mode=mode,
+                color="Reds",
+                alpha=pred_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             if annotation_key is not None:
                 ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)

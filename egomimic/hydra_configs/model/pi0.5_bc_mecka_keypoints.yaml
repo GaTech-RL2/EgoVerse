@@ -1,0 +1,44 @@
+defaults:
+  - pi0.5_base
+  - _self_
+
+# pi0.5 BC on mecka data with the 138-D wrist-first MANO KEYPOINT action
+# (per hand: wrist xyz+ypr in its own wrist frame (6) + 21 keypoints in that
+# wrist frame (63); see Human.get_transform_list("keypoints_wristframe_pi")).
+# The vendored openpi PyTorch port hard-codes 32-wide action projections, so
+# PI re-initializes action_in_proj / action_out_proj at `action_dim` after
+# the strict base-weight load (everything else is the pi05 base). 140 =
+# 138 + 2 zero pad (headroom for eva's two grip slots in a later cotrain).
+# Encoding is `legacy_normalized_ypr_rot6d`: the batch action is already
+# quantile-normalized by norm_stats and the converter is a pure pad/slice —
+# no rotation math in the model (the 6 wrist-ypr dims stay ypr; in wrist
+# frame they are near zero, far from the +-pi wrap).
+# Pairs with data=mecka_fold_freeform_opsplit_pi_keypoints and
+# evaluator=eval_pi_keypoints_wristframe.
+robomimic_model:
+  camera_transforms: {}
+  config:
+    # Same M-sample val metrics as the cartesian twins.
+    reverse_kl_samples: 4
+    model:
+      action_dim: 140
+  ac_keys:
+    human_bimanual: "actions_keypoints"
+  domains: ["human_bimanual"]
+
+  action_encoding: "legacy_normalized_ypr_rot6d"
+  # Same prompt as pi0.5_bc_mecka_6d: "State: <bins>" from the 20-D head-frame
+  # ee_pose only (the 138-D keypoint proprio would blow the 128-token budget);
+  # no "Embodiment:" block.
+  proprio_keys_for_prompt: ["observations.state.ee_pose"]
+  embodiment_label: false
+
+  action_converters:
+    rules:
+      HUMAN_BIMANUAL:
+        _target_: egomimic.utils.action_utils.HumanBimanualKeypoints
+        action_dim: 140
+        native_dim: 138
+    # optional fallback if no match is found
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter

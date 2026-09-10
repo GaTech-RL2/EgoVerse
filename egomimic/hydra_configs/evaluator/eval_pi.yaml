@@ -4,6 +4,11 @@ defaults:
 
 _target_: egomimic.eval.eval_pi.PIEvalVideo
 
+# Render the val viz video only when (current_epoch + 1) is a multiple of
+# this; metrics still log on every validation pass. Keep it a multiple of
+# trainer.check_val_every_n_epoch or viz never coincides with a validation run.
+viz_every_n_epochs: 100
+
 # Per-embodiment revert transform. Applied once during validation to project
 # the model's wrist-frame action chunks back to cam (head) frame, then reused
 # for both the cam-frame MSE and the viz video. Each value resolves to a

@@ -5,3 +5,9 @@ defaults:
   - override trainer: ddp_pi
   - override evaluator: eval_pi
   - override hydra/launcher: submitit_pace
+  - _self_
+
+# Optional pre-fit baseline val (metrics at epoch 0; viz still gates on
+# viz_every_n_epochs). Off by default — enable with `val_at_start=true`.
+# Skipped automatically on requeues/checkpoint resumes either way.
+val_at_start: false
