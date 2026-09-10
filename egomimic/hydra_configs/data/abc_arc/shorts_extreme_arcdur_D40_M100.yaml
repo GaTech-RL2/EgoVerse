@@ -1,0 +1,107 @@
+# fold-shorts EXTREME-tempo split (autoresearch shorts-260910-0030).
+# Training set = slowest 100 + fastest 100 episodes by the Step 0 speed heuristic:
+# 200 eps / 2.89 h, tau 0.222-0.634 m/s, CV 0.2254. The tempo band 0.366-0.436 is
+# occupied by NO training episode and is held out as test_mid, an interpolation probe.
+# The natural pool fails the protocol heterogeneity gate (H=0.161 < 0.20), which is
+# why only the tails are sampled. Modes are frame-imbalanced 2.4x (slow 2.05h vs
+# fast 0.84h) because slow episodes are longer -- report test_fast/test_slow apart.
+# Stationery clone of abc_fslongshirt_arc_bc_D40_M100 (2026-09-07, Aidan): task = 'sort the stationery into containers',
+# selector K = 400 -> 793 episodes / 15.9 h of the 2,066 / 41.6 h pool (verified against the
+# 2026-09-04 episode snapshot); folder_path = the Phoenix mirror (all 2,066 present).
+# `image_hw` pins every episode to one size per embodiment, with each episode's
+# intrinsics rescaled by the same per-axis factors (ZarrDataset._scale_intrinsics).
+# These splits happen to be uniform today, but a batch cannot mix image sizes and
+# ABC/mecka ship 640x480, 640x360, 1280x720 and 848x480 -- so adding an episode
+# without this would crash collate rather than resize.
+# ABC-ONLY (no cotraining) ARC-TOKENIZED BC data at D = 0.40 m / M = 100:
+# fold_and_stack_the_t_shirts, yam_bimanual.
+#
+# This is the single-domain arm of the cotrain ablation. The yam block below is
+# byte-for-byte the yam block of
+# abc_fslongshirt_micro_foldclothes_arc_cotrain_D40_M100 -- the same episode selection, same
+# coord_frame, same action space, same arc knobs, same dataloader params. The
+# ONLY difference is that the human_bimanual split is absent. That is what
+# isolates the effect of cotraining: robot data volume is held fixed at 20
+# episodes / 48,286 frames, so any delta against the cotrain run is attributable
+# to the human data, not to seeing more or less robot data.
+#
+# Its time-indexed twin is abc_fslongshirt_bc.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw: [480, 640]
+      # 276 YAM episodes = 10.01 h. Matched to the cotrain run's yam split
+      # so the two see identical robot data; do not change one without the other.
+      key_map:
+        _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.e1_fold.get_transform_list
+        variant: arcdur
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, S=frozenset({'00506dcb-7070-465b-b272-0aebefb2c7e8','008f23fd-ef1f-4797-bbae-cf3d5b36e4fc','01396b95-a88e-4f80-b64e-101d6e9b3b99','024d789a-5c92-4938-85db-6a2475d55564','03dd6686-159c-457d-9db6-315caaba6e52','048071f9-b088-4cd5-a2ed-fcded3b9d104','04da0ccc-814a-4eb4-b8e6-9a9886383852','06cf2154-7ea1-465d-a423-0d6b21b8d2d9','08ba0294-a9c6-48d9-9515-388d88ac7bce','095c5955-eadc-4a84-b58d-6bfb8add43cb','099f4efd-abd4-4303-8b7c-43dbf01cc323','0b68a4f3-ace9-4aa2-8ddd-0db6ea182dc9','0fe7eb5d-4250-4c04-91e6-294c794fb61d','1040047d-619c-4185-a509-6294a49f8906','130301bd-f169-4dea-aa04-72be8134a086','130a22e8-f225-4119-b73b-b8e9b8508117','139ae210-ba88-45f0-ba1b-0d235d380275','154e1edb-8f8d-4645-8ec0-523c3871efd1','15e7d1db-95c2-4850-98c8-d7c05c834ae8','167a159e-51c3-498e-80ba-a748b4b6e6ca','17d5eeaf-35fd-4ae7-ad05-4ec7fbfac89e','1f9270b2-a614-477b-b45d-0e7e9f4fa768','2034a75f-be2c-42c8-ada2-275301998e7a','20740ce9-8245-41e6-9b9d-e2ebd0ae1e2b','2216bfb6-8391-45f3-977a-1335862042ad','247a95ca-6a16-43b5-9bb0-8595e137da37','27d9fb51-e06d-4a72-a628-bb3dff347556','280789fa-406b-48d8-971c-18aec5bd3b9d','28aaf85b-1715-4142-aa7d-3a7030fd96b2','2dd620be-83ef-4d8a-86d0-d36948866c73','2e5623e5-6e79-4711-be82-4480fb045cd7','302cfa74-3143-4d8c-8107-2eef6e14ebe0','303cd1ba-848e-4f57-b6ba-5aefcd281a4f','31d53aa2-fc67-43c5-b20e-b7c60e9f720c','3463f6f4-d7ae-4556-996e-b7c5d37627d4','34f483fd-2029-4b9e-a658-0118b200395c','398ba0f2-998b-4c2f-9eaa-1f72dbaa3d4e','3b56d4b0-f17b-44d7-9d22-09ae2be08e18','3d1801b8-4930-4c96-91f3-011d74401d94','3ddfc08b-3ab6-4d94-8615-a03d40a34342','4757749e-9d58-457f-b67c-1e37433f96ee','479c7291-9d1c-41bc-a5d1-12ed18fa0081','47a62f74-6f25-4036-9089-0b3ec6026bc4','47d0ab1e-2344-46f7-9067-5556c1af430c','49a555dd-1cb6-4d2f-9854-e18f8efe958b','4a7570a4-0210-4a57-93f6-f2081a5f69d7','4b917318-4161-4924-9790-24f37e22a63e','4dc7096e-28ba-412c-8b54-01f0e9c90f4a','4f17afc3-82e3-42a2-8cba-1ba77fb7c726','4f8b39c2-a58a-45ae-a49e-9fb005badbb0','50144aa1-ad3d-479b-9dfd-094061bca7c7','52bbd7cf-d2bb-4816-a5a7-0a432fdff8a9','5359c757-0896-4393-9126-36d2198b4582','541bec9e-7a89-4d3f-9ebc-9c8d1c866146','544127aa-6fa0-47be-99de-5a121511f62d','5485ee3b-f4c3-4ee5-a11d-ea9b021b09ba','5490cb6a-39b3-4c36-98d6-7aa6500dc966','56fbdd19-cdeb-4fd8-a249-c13594fc1171','5791f6d5-5f18-44a5-8d20-dac3098d96e2','5966552e-b0be-4427-a893-833674cfc27f','599c20e1-b7d5-4db9-a3d1-bf2d219b5047','5cb5514f-7c54-4f62-a73b-d469b89ae343','5dbec981-aa92-44f9-bf6f-c9045740d5f8','5f9ede7f-1dd2-4e47-80ad-9e05d373d330','5fe7ac88-e792-41d3-adbd-8cde37e7f2da','63f85bc9-c157-40a0-80e2-e7ab20530d1d','646ea614-2a1d-45aa-a779-d84a8bfcee71','663c5df4-07b2-4bf9-9133-e8513da3be52','66554fa7-3ec7-4104-9204-ca89563fa520','677a0241-7044-4dda-9991-ea45197cf91d','683f53ce-e7c8-4423-a760-59ba4375a1cf','69016cda-a5d9-4341-b121-a4ea50dfc777','6bc0957b-271a-4b73-9981-0ae9f303fac3','6cb594d2-fcd8-469f-8bb6-2a3743981ffc','6cfd2dde-791e-4ba4-9829-502c1b11d797','6db52591-4a7a-4b76-be4e-a26e08e3865c','6ed100a9-0678-4496-b1bb-c18df3ca18d7','6f28a23c-82fa-44f9-a503-5ee7e6bd0730','6f72fbd8-dbc1-4510-a7b8-40de4bb4f42d','70bf31ca-81c7-435a-9acb-12c16182a76b','7191b1ae-e7ae-4f88-b207-8b2fc4f218c1','727b0920-3532-4861-abdd-868bf64cd650','7398f5aa-52a7-4757-b500-ae3f8351f871','73d6a6cd-f38e-41d7-9978-70d81a910132','73e6422a-32cf-4c5c-b32d-afbea1f65ca3','74ec8aa0-4d65-45ec-bf03-fd3d48889483','75674257-7811-464c-89cb-a499d28701ec','76012635-82d4-4ca4-8967-0e107408eaf3','76a61cdc-8040-4a64-b53b-b2172f204af6','770934b1-72cd-4820-82da-0924f715e601','78a26193-99f4-4354-b597-524b45b9ab7e','7b962501-8ea2-4ae1-9f4f-59c89b705044','7e14809e-0845-40e1-8931-6a630eb4d191','7f424a32-2757-4625-84e1-9562e0d73d19','802e28e2-3452-46c8-89ae-3a55b2862f87','8393956f-c1d8-4f01-90d7-021ebcb04041','84aa16db-c2e6-407d-8958-4527afef1620','85effa03-dd18-4455-8b92-a1602852aa84','860a1ca6-4e74-45d5-86b5-4aea8e544b59','88cccc5d-4711-4098-8703-06c836ffc93b','89d140ce-7177-45f7-aacd-a843a427b943','8a1fae4b-9b52-41cc-99d8-d281d2ce5498','8b0dca49-1cdf-4a1a-a04f-fa7f343011cf','8b5fb5e6-eaa5-4862-9fc3-4a6159dcc2b7','8bcbdc81-7e35-4d7e-a2d7-78b95f6db958','8c3a72ae-8573-48b1-8857-e0b405af01b3','8c824e99-b92f-4017-9707-e9750b26465e','8cf61378-0c22-4052-a5d3-e2cd9fdc6d2f','8dfd6af1-20b8-4782-90b5-919627034576','8e375e01-bdf9-4b85-833a-c10e4951e5ad','8e4f9178-1306-439d-8ad6-76b4d9fe4a27','90c81b77-40fc-451e-982c-ce58164a5632','914076c6-c5e9-438f-ad3e-8f0ae85821e0','94e1bd02-6d52-464c-922a-76317d59b260','953af22a-077b-419a-8f44-97ad6a8d02e4','97cad553-5c4a-4826-b8da-dc4df31eb17b','97ce8c40-61a2-42db-9137-61dd93120068','98714a9b-2df7-46d2-8c5e-aa8a5112e7d6','9968606f-6009-44c1-8ed4-7f944b77b18f','9bb27700-71e4-4e42-93f0-12c8358e46b3','9bc8982a-eea3-4f9e-810f-5a8a64845dd5','9c714fc9-03b1-4793-b5bc-707acd43e661','9e7e4a68-543e-43f3-b579-a9196b5d34cb','a49d7573-a2c4-4d63-9085-aab11ee8b76c','a525b4fb-c3a5-4f75-9359-087584c534ee','a6ae337e-293a-4139-84e5-66a40d77a47f','a8abf452-7d73-46d7-a125-78f434623d5a','aa648d66-4dac-4011-baa2-df8c3e1c7593','ab1b887d-19a9-42ad-a887-f7ce35417377','abe755fe-8862-4f93-8111-60f9278f04d6','adee4819-ca9b-45fc-b341-dd0c0bc9f27e','af1e849d-7e9a-4961-97f4-469964aae09a','af6aedbb-38aa-4172-a1ac-3878629a18c8','b1b9d6ae-e5a7-47b0-86b4-374d0e41d267','b1ebd13c-c9da-4a07-9775-80fba047b19f','b34b8dd5-65ac-43da-9fb9-dff247487c01','b472fa23-4893-4ff8-b056-7e4a26150e3e','b56cd209-2735-4419-9cda-1ace66779d81','b59044f5-1bff-4840-a883-75b547c7a405','b80bb12b-2ce2-4893-ac0d-743b3ff3fa22','b9b381ef-1fcd-4e61-9b8c-febd46275b91','bbb4873b-18dc-4785-9e5e-651772c78567','bdd121db-4e8a-42b1-83ad-d3dab83de385','c0b76972-4ea3-4808-8885-3b4971fe3584','c21a455f-6ea2-4d8e-bb3b-a1a43bfb28b2','c2976a3f-82ed-4371-ba08-ac735790f2bc','c39c2535-df51-4b50-8960-3b851980870e','c49db4c0-e607-4e11-a999-762739974921','c7b01f60-b438-41a2-be41-a2bbb5c0bd0a','cb1d2afb-4779-4cc1-b339-fa6c2160d726','cb6a336e-f7ed-4040-904c-cc7f992afd16','cb7cb96a-0b1d-4fbe-a6d9-e4bde31765ab','cd696804-98a5-497d-bdb4-93905263145f','ce5ffc5f-4ff3-49d0-b53f-5cafbdc4b40e','cee1015a-f303-47a5-8511-bad1f887582e','cf85fde7-1b97-4d53-a148-fd58903d34e2','d01c8c01-064e-4b0e-a5c5-38181db272c9','d0cd0238-ff58-476c-9a40-a249d3548374','d19c06a7-1e7f-49c2-bffe-c48f8fc5dfb0','d26ac482-1d5e-4c6f-b3cb-a0e6811ebf3a','d2da5bd7-be20-4ea3-b750-28b9ab71ff06','d353e0ac-b829-4119-9b8e-504def89ca67','d5a102e6-780a-488e-9c57-516d65487616','d6a86cf1-4259-462d-a68e-d26aac35070c','d702d03c-11c9-40b6-b5ac-ccc86ad10526','d7e94215-2aa3-4f4a-a7f5-4bf47c5085e5','d91e472d-9cbc-4699-aead-6043032e8753','d9aae7c3-33bb-432f-814b-00bdf9582c8b','d9ece4bf-09c7-482b-9768-6508241a82a7','da2dc7da-0e4e-47f1-966e-c5a573f6c86c','dac4a116-eca7-4cd2-9cb3-e55907c918ef','dc23b566-5c81-4508-9466-51fae1430764','dc4326a2-eb72-4421-bdc2-bfc9eb01774a','dc6961c6-007b-47d7-b0d4-a5c0003c05e9','de3ecb74-c71f-4406-afcf-45c062fd0cb3','dea27b86-f508-4925-86b1-e4e475fb3ed6','e28b1586-b7be-4db5-aa57-96a03d5e5330','e2c81b9f-5f00-4c6d-bb8b-0047dcf79f3a','e2dd8ea3-1ad0-4b58-9fc9-063e26ac309d','e2ef0ea9-8ff2-45ab-b60d-06bac38ea4d8','e513c708-1628-403f-9707-95d66f0853c9','e535f434-2fe1-4bf6-9df1-a9384b2aae74','e6802008-07fa-464c-89a7-8a93d61d5cd5','e9fb4238-a645-4348-a6f1-b227911ab5b0','ebb8f758-580a-4e54-9048-ee329390499e','efb08354-b200-48eb-9f1a-3288cfaf3836','f06c7985-f741-452b-bb06-845159e8ec28','f085b5ca-3b62-4a0b-9bc1-94cb88338797','f16bcaca-fd8c-4f92-b512-e84be96ff348','f1d9bbb9-75f1-44ac-9b09-537ed141023d','f4acd2bc-07b8-429b-9f73-31dc92df473e','f694d73c-bdde-41a2-b33e-53fb2753e12b','f6c548c8-3f5e-4ef2-a6ed-62f88ae51c58','f7853bb1-57c2-4889-bb22-41c51439741c','f95a33e3-c75b-46a2-bc2c-01d63a7593ca','f9f7df1a-9873-4e9c-b219-2424e8a9c7f3','fa276fed-3f19-4299-9055-a82d56fd1441','fcbf3a6d-97fc-4f87-a614-2e16398d95b0','fd91a7ce-286a-47b3-8a15-f60e78f34128','ffa803c6-0c7b-4e6d-bbf9-29b4d842801e'}): row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the shorts' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and row['episode_hash'] in S"
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+# Duplicated (not interpolated) so hydra.utils.instantiate can resolve without
+# needing to walk up to `train_datasets` after it's been mutated in place.
+valid_datasets:
+  yam_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.e1_resolvers.S3EpisodeResolverWithEmbodimentOverride
+      embodiment_override: yam_bimanual
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      image_hw: [480, 640]
+      key_map:
+        _target_: egomimic.rldb.embodiment.e1_fold.get_keymap
+        horizon: 200
+        embodiment: yam
+        drop_wrist_images: false
+      transform_list:
+        _target_: egomimic.rldb.embodiment.e1_fold.get_transform_list
+        variant: arcdur
+        chunk_length: 200
+        time_rows: 100
+        min_distance_unit: 0.40
+        resampled_vector_length: 100
+        stride: 1
+        rotation_mode: euler
+        velocity_norm: path
+        embodiment: yam
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, S=frozenset({'06f1a719-7ab8-4c46-9ffa-3b31ae6c7b9c','1c4e5f4a-ded5-49a4-8947-ae2225227552','1fcb433a-a6cf-45fe-8cd1-6297b6bcee5d','2fdfea4a-a5a5-4e85-be80-e4adb04ae519','30066845-9483-45e2-8cb5-d5a212d4b9f1','3c676a34-6489-435c-9c6e-a9fdd2a8c210','43aad799-0ab8-4e5f-a359-a55380a34c8b','4dc0d0be-03f1-412f-b0a5-a19216d49541','4fe2d368-89c7-4e8a-ba0b-8db4dee4e87d','584e5896-7498-4fbc-a21a-6bc7a9b78c37','5b1c7b3f-d68a-4cdf-ab4c-d5d52b5113ef','5b997b68-088c-4ef1-a585-45a94da92de7','5bc61afd-f25f-4060-b3b1-ab1d36ff1d1e','61e65581-00fe-4a50-8d1e-fed4ca77b6b0','659a0b79-cc03-4cb1-b77f-b71ff2c12220','6d4076b6-7f22-447c-a6cd-3bcf99c82e98','6e65bba2-a7aa-465b-9911-352c0657aba2','6ec19a36-1823-4129-805b-29cf26f70cf9','72e4f2b8-189d-40c9-a49e-8541319b047d','820e30cc-d89c-47c2-9f82-353262472bf8','8a7f63cc-b6cb-4850-93a0-dacb977f7d03','917f5733-7d53-4a43-8a5f-013d2cd54cc5','bad71da4-2d83-46eb-9de7-27c6308137b1','c23ce775-ab2d-4830-bd55-13358610f73e','d1237172-0579-49b6-a4da-d7d418fa3b8f','d4d65f3c-0c89-49de-a259-5ddc25816707','dde6ba37-8354-4f66-9d77-5959e8b77044','ec59dd84-07c9-45c3-90e5-a886b5c7d4fd','f0908be0-9805-46f9-bcdc-088a44d501c1','f3bc207b-c4f8-4589-b8f9-12b73f71761c'}): row['embodiment'] == 'yam_bimanual' and row['lab'] == 'abc' and row['task'] == 'fold and stack the shorts' and row['zarr_processed_path'] != '' and row['is_deleted'] == False and row['episode_hash'] in S"
+    mode: valid
+    valid_ratio: 0.0
+    bounds_check: false
+
+train_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 6
+
+valid_dataloader_params:
+  yam_bimanual:
+    batch_size: 32
+    num_workers: 6

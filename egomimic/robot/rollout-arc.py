@@ -52,6 +52,20 @@ from egomimic.rldb.zarr.arc_length_tokenizer import (
     ARC_TOK_BIMANUAL_DIM,
     TokenizeBimanualArcLengthCartesian,
 )
+from egomimic.rldb.zarr.e1_arc_tokenizer import (
+    E1_ARCVEL_DIM,
+    TokenizeBimanualArcLengthE1,
+)
+
+# Token layouts this script can send to the robot.
+#   lab         (M+1, 14) chord-norm arc token + trailing velocity row
+#   e1_dur      (M, 16)   waypoints + absolute interval seconds per arm
+#   e1_logdur   (M, 16)   waypoints + log mean slowness / log relative durations
+#   e1_profile  (M, 16)   waypoints + per-waypoint speed (Arc+Vel)
+# The (M,16) rows carry timing in COLUMNS rather than a trailing row, so they
+# are M tokens wide, not M+1 -- every shape check below is layout-aware.
+E1_VELOCITY_MODE = {"e1_dur": "dur", "e1_logdur": "logdur", "e1_profile": "profile"}
+ARC_TOKEN_LAYOUTS = ("lab",) + tuple(E1_VELOCITY_MODE)
 from egomimic.robot.robot_utils import RateLoop
 from egomimic.robot.rollout import (
     PolicyRollout,
@@ -112,6 +126,7 @@ class ArcTokPolicyRollout(PolicyRollout):
         resampled_vector_length=DEFAULT_ARC_RESAMPLED_VECTOR_LENGTH,
         rollout_horizon=DEFAULT_ARC_ROLLOUT_HORIZON,
         arc_dt=DEFAULT_ARC_DT,
+        token_layout="lab",
     ):
         super().__init__(
             arm=arm,
@@ -128,30 +143,53 @@ class ArcTokPolicyRollout(PolicyRollout):
         # D itself is NOT recoverable from the checkpoint (it lives in the
         # data pipeline's tokenizer transform, which is not serialised into
         # config_tree) -- must be passed on the CLI to match training.
+        if token_layout not in ARC_TOKEN_LAYOUTS:
+            raise ValueError(
+                f"[rollout-arc] --arc-token-layout must be one of {ARC_TOKEN_LAYOUTS}, "
+                f"got {token_layout!r}"
+            )
+        self._token_layout = token_layout
+        self._token_rows = int(resampled_vector_length) + (1 if token_layout == "lab" else 0)
+        self._token_dim = ARC_TOK_BIMANUAL_DIM if token_layout == "lab" else E1_ARCVEL_DIM
         M_plus_1 = self._read_action_horizon_from_ckpt(policy_path)
-        if M_plus_1 is not None and M_plus_1 != int(resampled_vector_length) + 1:
+        if M_plus_1 is not None and M_plus_1 != self._token_rows:
             print(
                 f"[rollout-arc] WARNING: checkpoint act_seq={M_plus_1} does not "
                 f"match --arc-resampled-vector-length={resampled_vector_length} "
-                f"(expected M+1={int(resampled_vector_length) + 1}). The "
+                f"for layout {token_layout!r} (expected {self._token_rows}). The "
                 f"detokenize call will raise on a shape mismatch."
             )
 
         # Same class ``ArcTokEvalVideo`` uses for val videos (see
         # ``eval_arctok.py:81``) -- keep deploy identical to eval.
-        self._arc_detokenizer = TokenizeBimanualArcLengthCartesian(
-            action_key="actions_cartesian",
-            output_action_key="actions_cartesian",
-            min_distance_unit=float(min_distance_unit),
-            resampled_vector_length=int(resampled_vector_length),
-            dt=float(arc_dt),
-        )
+        if token_layout == "lab":
+            self._arc_detokenizer = TokenizeBimanualArcLengthCartesian(
+                action_key="actions_cartesian",
+                output_action_key="actions_cartesian",
+                min_distance_unit=float(min_distance_unit),
+                resampled_vector_length=int(resampled_vector_length),
+                dt=float(arc_dt),
+            )
+        else:
+            # velocity_norm="path" matches how the E1 rows were tokenized at
+            # training time; the lab token is chord-normed and keeps its own class.
+            self._arc_detokenizer = TokenizeBimanualArcLengthE1(
+                action_key="actions_cartesian",
+                output_action_key="actions_cartesian",
+                min_distance_unit=float(min_distance_unit),
+                resampled_vector_length=int(resampled_vector_length),
+                dt=float(arc_dt),
+                velocity_norm="path",
+                velocity_mode=E1_VELOCITY_MODE[token_layout],
+            )
         self._M = int(resampled_vector_length)
         self._arc_rollout_horizon = int(rollout_horizon)
         self._arc_dt = float(arc_dt)
         print(
-            f"[rollout-arc] Arc detokenizer: D={min_distance_unit}m "
-            f"M={resampled_vector_length} H={rollout_horizon} dt={arc_dt:.5f}s"
+            f"[rollout-arc] Arc detokenizer: layout={token_layout} "
+            f"D={min_distance_unit}m M={resampled_vector_length} "
+            f"H={rollout_horizon} dt={arc_dt:.5f}s "
+            f"(expects ({self._token_rows}, {self._token_dim}) per sample)"
         )
 
     @staticmethod
@@ -195,15 +233,16 @@ class ArcTokPolicyRollout(PolicyRollout):
         arc_np = arc_out.detach().cpu().numpy().astype(np.float64)
         if arc_np.ndim == 2:
             arc_np = arc_np[None, ...]  # (M+1, 14) -> (1, M+1, 14)
-        if arc_np.ndim != 3 or arc_np.shape[-1] != ARC_TOK_BIMANUAL_DIM:
+        if arc_np.ndim != 3 or arc_np.shape[-1] != self._token_dim:
             raise ValueError(
-                f"[rollout-arc] Expected arc output (B, M+1, "
-                f"{ARC_TOK_BIMANUAL_DIM}), got {arc_np.shape}"
+                f"[rollout-arc] layout={self._token_layout} expects arc output "
+                f"(B, {self._token_rows}, {self._token_dim}), got {arc_np.shape}"
             )
-        if arc_np.shape[1] != self._M + 1:
+        if arc_np.shape[1] != self._token_rows:
             raise ValueError(
-                f"[rollout-arc] Configured for M={self._M} (M+1={self._M + 1} "
-                f"tokens), got {arc_np.shape[1]} tokens in the model output"
+                f"[rollout-arc] layout={self._token_layout} configured for M={self._M} "
+                f"({self._token_rows} token rows), got {arc_np.shape[1]} rows in the "
+                f"model output"
             )
         B = arc_np.shape[0]
         H = self._arc_rollout_horizon
@@ -329,6 +368,7 @@ def main(
     arc_resampled_vector_length=DEFAULT_ARC_RESAMPLED_VECTOR_LENGTH,
     arc_rollout_horizon=DEFAULT_ARC_ROLLOUT_HORIZON,
     arc_dt=DEFAULT_ARC_DT,
+    arc_token_layout="lab",
 ):
     if arms == "both":
         arms_list = ["right", "left"]
@@ -364,6 +404,7 @@ def main(
             resampled_vector_length=arc_resampled_vector_length,
             rollout_horizon=arc_rollout_horizon,
             arc_dt=arc_dt,
+            token_layout=arc_token_layout,
         )
     elif dataset_path is not None:
         rollout_type = "replay"
@@ -546,6 +587,16 @@ def build_arc_arg_parser():
         default=DEFAULT_ARC_DT,
         help="Control period (seconds) used by the arc detokenizer.",
     )
+    parser.add_argument(
+        "--arc-token-layout",
+        choices=ARC_TOKEN_LAYOUTS,
+        default="lab",
+        help=(
+            "Token layout the checkpoint emits. 'lab' is the (M+1,14) chord-norm "
+            "token (default, unchanged behaviour); the e1_* layouts are (M,16) "
+            "with timing in per-arm columns."
+        ),
+    )
     return parser
 
 
@@ -567,6 +618,7 @@ def run_from_args(args):
         arc_resampled_vector_length=args.arc_resampled_vector_length,
         arc_rollout_horizon=args.arc_rollout_horizon,
         arc_dt=args.arc_dt,
+        arc_token_layout=args.arc_token_layout,
     )
 
 
