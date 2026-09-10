@@ -125,8 +125,13 @@ def main():
     ap.add_argument("--root", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--replay-per-cell", type=int, default=1)
+    ap.add_argument(
+        "--embodiments", nargs="+", help="Audit only these downloaded embodiments"
+    )
     a = ap.parse_args()
     paths = sorted(a.root.glob("*/*/shard*/episode_*.zarr"))
+    if a.embodiments:
+        paths = [p for p in paths if p.parent.parent.name in a.embodiments]
     assert paths, "No downloaded episodes found"
     cells = defaultdict(list)
     for path in paths:

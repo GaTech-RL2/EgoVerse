@@ -38,6 +38,7 @@ def main():
     )
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--run-id", default="articulated-20260909")
+    ap.add_argument("--job-tag", default="")
     ap.add_argument("--pool", default="groot-l40s-03")
     ap.add_argument("--workers", type=int, default=40)
     ap.add_argument("--max-steps", type=int, default=1200)
@@ -51,6 +52,8 @@ def main():
         ap.error("invalid shard interval")
     if not re.fullmatch(r"[a-z0-9-]+", a.run_id):
         ap.error("invalid run ID")
+    if a.job_tag and not re.fullmatch(r"[a-z0-9-]+", a.job_tag):
+        ap.error("invalid job tag")
     if a.checkpoint_prefix and not re.fullmatch(
         r"[A-Za-z0-9_/-]+", a.checkpoint_prefix
     ):
@@ -83,6 +86,8 @@ def main():
     job = a.run_id + "-" + a.embodiment.replace("_", "-")
     if a.shard_start != 0 or a.shard_stop != 24:
         job += f"-s{a.shard_start:03d}-s{a.shard_stop:03d}"
+    if a.job_tag:
+        job += "-" + a.job_tag
     prefix = "staged/pushshapes_articulated/" + a.run_id + "/" + a.embodiment
     provenance = prefix + "/runs/" + job
     expected = (a.shard_stop - a.shard_start) * 6 * 125

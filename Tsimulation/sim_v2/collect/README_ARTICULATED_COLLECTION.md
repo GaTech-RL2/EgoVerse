@@ -47,6 +47,10 @@ Gripper openings face local +Y, the socket faces +X, and the suction pad faces
 
 ## Run locally
 
+Cloud collection uses Python 3.12, NumPy 2.2.6, Pymunk 7.3.0, Shapely 2.1.2,
+and Zarr 3.1.3. The launcher records its remaining dependency versions. Local
+payload and replay audits also passed with Python 3.14.7 and Zarr 3.3.0.
+
 Activate the project environment before running Python:
 
 ```bash
@@ -105,6 +109,7 @@ python -m Tsimulation.sim_v2.collect.articulation_audit \
 
 This verifies every downloaded episode's numeric payload, action hash, JPEG
 decoding, and quality bounds, then replays a sample from each downloaded cell.
+Use `--embodiments` to check newly downloaded embodiments separately.
 `articulation_manifest_audit` checks the search-quality records and reset-seed
 uniqueness for every uploaded episode using small archive range reads. Its
 `--snapshot`, `--cache`, and `--output` arguments let later audits reuse already
