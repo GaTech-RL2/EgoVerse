@@ -5,6 +5,7 @@ import base64
 import fcntl
 import os
 import pty
+import re
 import select
 import shlex
 import struct
@@ -16,12 +17,18 @@ from pathlib import Path
 
 ap = argparse.ArgumentParser(description=__doc__)
 ap.add_argument("embodiment", choices=["scoop", "spring", "flipper"])
+ap.add_argument("--workflow")
+ap.add_argument("--checkpoint-suffix", default="")
 a = ap.parse_args()
+if a.checkpoint_suffix and not re.fullmatch(r"[a-z0-9-]+", a.checkpoint_suffix):
+    ap.error("invalid checkpoint suffix")
 source = base64.b64encode(
     zlib.compress(Path(__file__).with_name("articulated_checkpoint.py").read_bytes(), 9)
 ).decode()
-workflow = "articulated-20260909-" + a.embodiment + "-1"
-code = f"""import base64,pathlib,subprocess,zlib
+workflow = a.workflow or "articulated-20260909-" + a.embodiment + "-1"
+if not workflow.startswith("articulated-20260909-" + a.embodiment + "-"):
+    ap.error("workflow does not belong to this embodiment and run")
+code = f"""import base64,pathlib,subprocess,zlib,os
 p=pathlib.Path('/workspace/articulated_checkpoint.py')
 assert not pathlib.Path('/workspace/demos/checkpoint_complete.json').exists(), 'Already checkpointed'
 for f in pathlib.Path('/proc').glob('[0-9]*/cmdline'):
@@ -30,7 +37,7 @@ for f in pathlib.Path('/proc').glob('[0-9]*/cmdline'):
     assert not active, 'Checkpoint already running'
 p.write_bytes(zlib.decompress(base64.b64decode('{source}')))
 log=open('/workspace/checkpoint.log','a')
-child=subprocess.Popen(['/workspace/EgoVerse/emimic/bin/python','-u',str(p)],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+child=subprocess.Popen(['/workspace/EgoVerse/emimic/bin/python','-u',str(p)],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True,env=dict(os.environ,ARTICULATED_CHECKPOINT_SUFFIX='{a.checkpoint_suffix}'))
 print('CHECKPOINT_PROCESS',child.pid,flush=True)
 """
 entry = "bash -lc " + shlex.quote(

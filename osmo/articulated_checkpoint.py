@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import sys
@@ -27,6 +28,10 @@ def main():
     emb = config["embodiments"][0]
     assert emb in ("scoop", "spring", "flipper")
     prefix = "staged/pushshapes_articulated_checkpoints/articulated-20260909/" + emb
+    suffix = os.environ.get("ARTICULATED_CHECKPOINT_SUFFIX", "")
+    if suffix:
+        assert re.fullmatch(r"[a-z0-9-]+", suffix)
+        prefix += "/" + suffix
     client = r2_client()
     client.list_objects_v2(Bucket="rldb", Prefix=prefix, MaxKeys=1)
     processes = {}
@@ -100,9 +105,11 @@ def main():
                 )
             )
         relative = folder.relative_to(root)
-        (folder / "checkpoint_source.json").write_text(
-            json.dumps(dict(sources=sources, episodes=preserved), indent=2) + "\n"
-        )
+        previous = folder / "checkpoint_source.json"
+        provenance = dict(sources=sources, episodes=preserved)
+        if previous.exists():
+            provenance["previous_checkpoint"] = json.loads(previous.read_text())
+        previous.write_text(json.dumps(provenance, indent=2) + "\n")
         archive = archive_dir / ("_".join(relative.parts) + ".tar")
         with tarfile.open(archive, "w") as tar:
             tar.add(folder, arcname=str(relative))

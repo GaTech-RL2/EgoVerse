@@ -9,7 +9,7 @@ import heapq
 import math
 
 import numpy as np
-from shapely import affinity
+from shapely import affinity, prepare
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import unary_union
 
@@ -234,6 +234,8 @@ class ArticulationController:
         obstacles = unary_union(forbidden).buffer(3.0, join_style=2)
         minx, miny, maxx, maxy = footprint.bounds
         allowed = box(8 - minx, 8 - miny, 504 - maxx, 504 - maxy)
+        prepare(obstacles)
+        prepare(allowed)
         if not allowed.covers(Point(target)) or obstacles.contains(Point(target)):
             return []
         polys = list(obstacles.geoms) if hasattr(obstacles, "geoms") else [obstacles]
@@ -253,7 +255,7 @@ class ArticulationController:
             segment = LineString([nodes[i], nodes[j]])
             if not allowed.covers(segment):
                 return False
-            if not segment.intersects(obstacles):
+            if not obstacles.intersects(segment):
                 return True
             if i == 0 and start_inside:
                 return segment.intersection(obstacles).geom_type == "LineString"
@@ -271,12 +273,16 @@ class ArticulationController:
                     indices.append(prev[indices[-1]])
                 return [nodes[k] for k in indices[-2::-1]]
             for j in range(1, len(nodes)):
-                if i == j or not clear(i, j):
+                best = costs.get(j, math.inf)
+                if i == j or cost >= best:
                     continue
                 new = cost + float(np.linalg.norm(nodes[i] - nodes[j]))
-                if new < costs.get(j, math.inf):
-                    costs[j], prev[j] = new, i
-                    heapq.heappush(queue, (new, j))
+                # Visibility is expensive; an edge that cannot improve the
+                # existing path never affects Dijkstra's result.
+                if new >= best or not clear(i, j):
+                    continue
+                costs[j], prev[j] = new, i
+                heapq.heappush(queue, (new, j))
         return []
 
     def __call__(self):
