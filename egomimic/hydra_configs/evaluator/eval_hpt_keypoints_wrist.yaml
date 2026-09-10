@@ -1,0 +1,26 @@
+# HPT twin of eval_pi_keypoints_wristframe: use with a data config that
+# applies the `keypoints_wristframe_pi` (or keypoints_wristframe_ypr)
+# transform mode. The model predicts the 138-D wrist-first action [wrist pose
+# (6) | 21 keypoints (63)] x 2 in each hand's wrist frame; the revert projects
+# the two 63-D keypoint chunks back to head (camera) frame via the head-frame
+# wrist pose in `observations.state.keypoints`, giving a 126-D head-frame
+# `actions_keypoints` for the cam-frame keypoint MSE
+# (Valid/human_bimanual_actions_keypoints_cam_{paired,final}_mse_avg) and the
+# overlay video. Native-frame metrics (paired/final MSE, Frechet, reverse-KL)
+# run on the full 138-D. Same viz cadence/cap as the pi twin.
+defaults:
+  - viz@viz_func: keypoints_wrist
+  - _self_
+
+_target_: egomimic.eval.eval_hpt.HPTEvalVideo
+
+# Render the val viz video only when (current_epoch + 1) is a multiple of this.
+viz_every_n_epochs: 100
+# On viz epochs, render only the first N val batches per rank; metrics still
+# run on every batch. The train_viz wrapper inherits this cap.
+viz_max_batches: 10
+
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_eef_frame_transform_list
+    is_quat: false

@@ -1,0 +1,119 @@
+# MECKA_FOLD_FREEFORM_OPSPLIT_HPT_KEYPOINTS — HPT twin of
+# mecka_fold_freeform_opsplit_pi_keypoints: the SAME mecka FREEFORM
+# fold-clothes episodes (SQL task='folding_clothes', 462 eps / 1.13M frames
+# under processed_v3/mecka/freeform/), the SAME held-out-OPERATOR split (31
+# operators / 50 eps / 10.2 % of frames held out — the lists below must stay
+# byte-identical to every other *_opsplit_* config) and the SAME transform
+# pipeline; the only difference is the keymap's camera name: `keypoints`
+# (front image -> `front_img_1`, the HPT encoder key) instead of
+# `keypoints_pi` (-> `base_0_rgb`, the PaliGemma key).
+#
+# Batch keys (identical to the pi twin apart from the image name):
+#   actions_keypoints          (100, 138)  wrist-first wrist-frame keypoint
+#                                          action: per hand [wrist xyz+ypr in
+#                                          its own current wrist frame (6) |
+#                                          21 MANO keypoints in that wrist
+#                                          frame (63)] x {left, right}
+#   observations.state.keypoints   (138,)  per hand [wrist pose in HEAD frame
+#                                          (6) | keypoints in wrist frame (63)];
+#                                          the HPT `state_keypoints` stem input
+#                                          and what the eval revert (wrist ->
+#                                          head frame) reads
+#   observations.state.ee_pose      (20,)  head-frame palm-origin pose, left
+#                                          wrist Rz(180)-fixed, rot6d, grip-
+#                                          padded — the pi twin's prompt
+#                                          proprio; HPT only uses it if the
+#                                          model config declares a
+#                                          `state_ee_pose` stem (stems are
+#                                          config-driven, unused keys are
+#                                          ignored)
+#   annotations                            task-description track -> the
+#                                          `sampled_prompt` for a Qwen text stem
+#
+# NORMALIZATION: proprio + action keys are quantile-normalized from
+# precomputed stats (norm_stats.precomputed_norm_path). Camera keys are not
+# normalized and the norm-mode keymap strips them, so the pi twin's stats
+# (norm_fold_freeform_opsplit_kp.sbatch -> .../fold_freeform_opsplit_kp/
+# norm_stats) carry exactly this config's key set and load here unchanged —
+# the provenance check in MultiDataset._load_precomputed_stats verifies
+# norm_mode + key set. norm_fold_freeform_opsplit_hpt_kp.sbatch recomputes
+# them from this config if a separate copy is wanted.
+#
+# Pairs with model=hpt_bc_keypoints_wrist_300M and
+# evaluator=eval_hpt_keypoints_wrist
+# (+ `+evaluator@train_viz_evaluator=train_viz_hpt_keypoints_wrist`); see
+# train_zarr_mecka_kp_wrist_hpt.yaml for the composed recipe and
+# scripts/train_hpt_keypoints_fold_freeform_opsplit.sbatch for the launcher.
+#
+# folder_path: shared PACE mirror of processed_v3; all 462 episodes present.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        # no "_pi" suffix -> front image is `front_img_1` (HPT encoder key).
+        keymap_mode: keypoints
+        annotation_key: annotations
+        # keypoints keymap + the ee_pose keys the transform needs for the prompt proprio
+        include_ee_pose: true
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: keypoints_wristframe_pi
+        stride: 1
+        fix_mecka_left_wrist: true
+        pad_proprio_gripper: true
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
+        - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
+        # OPERATOR SPLIT — train = every operator NOT in the held-out set.
+        - "lambda row: str(row.get('operator', '')) not in {'68a8e70d1ffcf0417e08f0e5', '68e2fc680b158ea94ab4f5bc', '6930bf8a6e496b45b1e1122e', '6931784c6e496b45b1e1b1cd', '693a399ec67c9e4814b0c09f', '693b9530c67c9e4814b20ab2', '693c78165cb6c2828a4c2087', '694604945c0479a0fb7f48a4', '6948d23b5c0479a0fb8302b3', '69529a85c0d9448524bc7880', '6954f0b720b100982d812ed8', '6957464720b100982d83b76c', '695d07d783a9fdf2d84d9371', '695d084183a9fdf2d84d955a', '6961c50f83a9fdf2d85ec95d', '69624a8683a9fdf2d86013c0', '6973c3ae89fa4bc311d1bbe5', '69842643f8ca4464d9920799', '698937a5f8ca4464d99dce94', '6992b19ab9d55c9c2d48432c', '699429e18ef0252970048624', '6996d5eded1708063b2fe419', '6999d17c8f173e14271f9890', '69a24256c4216c3e3ce33834', '69a39ec9c4216c3e3ce49734', '69a57a78c4216c3e3ce6323c', '69a725a347e12c9b3390ba33', '69a7943547e12c9b33911c02', '69a84eed47e12c9b339208fd', '69ab87207bf9cbce29a3cb36', '69ae2463d22d99655253f287'}"
+    mode: total
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
+        - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
+        # OPERATOR SPLIT — valid = the 31 held-out operators only.
+        - "lambda row: str(row.get('operator', '')) in {'68a8e70d1ffcf0417e08f0e5', '68e2fc680b158ea94ab4f5bc', '6930bf8a6e496b45b1e1122e', '6931784c6e496b45b1e1b1cd', '693a399ec67c9e4814b0c09f', '693b9530c67c9e4814b20ab2', '693c78165cb6c2828a4c2087', '694604945c0479a0fb7f48a4', '6948d23b5c0479a0fb8302b3', '69529a85c0d9448524bc7880', '6954f0b720b100982d812ed8', '6957464720b100982d83b76c', '695d07d783a9fdf2d84d9371', '695d084183a9fdf2d84d955a', '6961c50f83a9fdf2d85ec95d', '69624a8683a9fdf2d86013c0', '6973c3ae89fa4bc311d1bbe5', '69842643f8ca4464d9920799', '698937a5f8ca4464d99dce94', '6992b19ab9d55c9c2d48432c', '699429e18ef0252970048624', '6996d5eded1708063b2fe419', '6999d17c8f173e14271f9890', '69a24256c4216c3e3ce33834', '69a39ec9c4216c3e3ce49734', '69a57a78c4216c3e3ce6323c', '69a725a347e12c9b3390ba33', '69a7943547e12c9b33911c02', '69a84eed47e12c9b339208fd', '69ab87207bf9cbce29a3cb36', '69ae2463d22d99655253f287'}"
+    mode: total
+
+# Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
+# videos_train_viz/): same operators as train, no shuffle -> same slice every val.
+train_viz_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: total
+
+train_viz_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 2
+    shuffle: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+    shuffle: false
