@@ -17,5 +17,5 @@ train_datasets:
   human_bimanual: null
 
 valid_datasets:
-  eva_bimanual: ${train_datasets.eva_bimanual}
+  eva_bimanual: ${data.train_datasets.eva_bimanual}
   human_bimanual: null
