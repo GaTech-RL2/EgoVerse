@@ -45,7 +45,7 @@ Your raw data
     └─► Convert to Zarr v3 (this guide)
     └─► Validate and preview locally
     └─► Upload to s3://rldb/processed_v3/<assigned_prefix>/<episode_hash>.zarr/
-    └─► RL2 ingestion maintainer stages/registers the episode row
+    └─► EgoVerse registers accepted episodes
     └─► Available for download dynamically through S3MultiDataset
 ```
 
@@ -129,7 +129,7 @@ EgoVerse is hardware-agnostic. Any egocentric camera with a SLAM system that pro
 
 ```bash
 # Clone and install EgoVerse
-git clone git@github.com:GaTech-RL2/EgoVerse.git
+git clone https://github.com/GaTech-RL2/EgoVerse.git
 cd EgoVerse
 uv sync --locked
 ```
@@ -248,7 +248,7 @@ Key field notes:
 - `lab`: short, stable, lowercase string. Once set, do not change it (used in filters).
 - `task`: high-level `task_name` that groups related episodes. Before inventing a new name, check the existing tasks in the episode registry via [`sql_tutorial.ipynb`](egomimic/scripts/tutorials/sql_tutorial.ipynb) (`df.groupby("task").size()`) and reuse one if your episode fits. If no existing task matches, canonicalize your new `task_name` to a short, stable, lowercase string that names a semantically meaningful category (e.g. `fold_clothes`, `object_in_container`) — not a one-off trial description. Put trial-specific detail in `task_description`, `scene`, and `objects`.
 - `embodiment`: must be one of the strings in §9.
-- `robot_name`: the same registered identifier as `embodiment`; record the contributing lab or vendor in `lab`.
+- `rig_name`: the physical capture rig (for example, `aria_gen1`); record the registered data interface in `embodiment` and the contributing lab or vendor in `lab`.
 
 ### 5.2 Inserting a Row
 
@@ -270,7 +270,7 @@ row = TableRow(
     lab            = "rl2",
     task           = "fold_clothes",
     embodiment     = "human_bimanual",
-    robot_name     = "human_bimanual",
+    rig_name       = "aria_gen1",
     task_description = "folding a 2T baby shirt on a blue table",
     scene          = "kitchen_A",
     objects        = "baby_shirt_2T",
@@ -460,7 +460,7 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
 - `fps` must be the actual capture rate of `images.front_1`. Do not set to a target rate if the actual rate differs.
 - `features` must have one entry per array key present in the store.
 - `embodiment` and `task_name` must exactly match the values in the DB row for this episode.
-- `intrinsics` is **mandatory** and is always a `{camera_key: 3×4 K matrix}` dict in `zarr.attrs` (single-camera = one entry, e.g. `{"front_1": K}`). `ZarrWriter.create_and_write` raises if it is not a non-empty dict.
+- New exports require camera intrinsics, supplied through `intrinsics=` as a non-empty `{camera_key: 3×4 K matrix}` dictionary or through `calibration=`. `ZarrWriter.create_and_write` derives legacy `intrinsics` from the calibration block when that argument is omitted. Existing episodes may retain older matrix forms.
 - `extrinsics` must be `None` or a non-empty dictionary of 4×4 `ref_T_cam`
   transforms. Each matrix gives the camera pose in its reference frame. See
   [Coordinate conventions](docs/CONVENTIONS.md). Robot episodes use the arm
@@ -518,7 +518,7 @@ ZarrWriter.create_and_write(
     numeric_data=numeric_arrays,        # left/right.obs_ee_pose, obs_head_pose, ...
     image_data=image_arrays,            # images.front_1, ...
     intrinsics={"front_1": K_front},    # Legacy API; a current calibration= block is also supported
-    # extrinsics=...,                   # Legacy robot arm-base-to-camera transforms, where applicable
+    # extrinsics=...,                   # Legacy camera poses in each robot arm-base frame
     fps=30,
     task_name="...",
     task_description="...",
@@ -828,8 +828,8 @@ for index in range(len(dataset)):
 
 Select keys for the active sides. For Cartesian transformed batches, retain the
 existing `Human.get_keymap("cartesian", has_head_pose=...)` and corresponding
-`Human.get_transform_list(...)` configuration. New hand-array loading is described
-in the dexterous guide. Explicit structural samples are excluded by the resolver;
+`Human.get_transform_list(...)` configuration. For robot-hand data, select the
+arrays declared in the dexterous guide. Explicit structural samples are excluded by the resolver;
 use the local inspector/preview directly to review them.
 
 ### 11.3 Visual Verification
@@ -862,14 +862,13 @@ landmark exports in your conversion pipeline before delivery.
 - [ ] RGB and calibration describe the same image stream, including any crop or resize, for projection consumers.
 - [ ] Annotations use valid retained-frame intervals and plain task text.
 - [ ] The appropriate compatibility or complete dexterous validation command passes; warnings have been reviewed.
-- [ ] A local load and familiar inspector/MP4 check succeed for the intended consumers.
+- [ ] A local load and inspector/MP4 check succeed for the intended consumers.
 - [ ] Estimated/incomplete analysis copies remain `structural_sample`; finished new deliveries declare `complete`.
 - [ ] Episode directories and sibling previews are uploaded under the assigned prefix.
-- [ ] The ingestion maintainer stages/registers the rows and verifies `embodiment`, task, `num_frames`, and `zarr_processed_path`.
 
-External contributors need bucket access for their assigned prefix. The ingestion
-maintainer handles database registration. Existing supported Human/EVA uploads
-need no new vendor metadata backfill.
+External contributors need bucket access for their assigned prefix. EgoVerse
+handles database registration on ingest. Existing supported Human/EVA uploads
+need no new metadata backfill.
 
 ---
 
@@ -880,7 +879,7 @@ need no new vendor metadata backfill.
 To request access to your contribution prefix:
 
 1. Email the consortium leads with your lab name, GitHub handle, and a brief description of the data you intend to contribute.
-2. External contributors receive scoped bucket credentials; internal ingestion maintainers arrange database access separately (§3.3).
+2. Contributors receive bucket credentials scoped to their assigned prefix. Database access is not required.
 
 ### Consortium Leads
 

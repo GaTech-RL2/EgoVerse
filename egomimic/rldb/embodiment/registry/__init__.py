@@ -17,8 +17,6 @@ from pathlib import Path
 
 import yaml
 
-# Do not import the parent embodiment package here. The parent package imports
-# this module when it builds ``EMBODIMENT_CLASSES``.
 REGISTRY_DIR = Path(__file__).parent
 MODEL_FIELDS = frozenset({"urdf", "urdf_sha256", "robot_model", "robot_model_sha256"})
 

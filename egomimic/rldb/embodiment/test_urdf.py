@@ -85,6 +85,55 @@ def test_a_prismatic_joint_slides_along_its_axis(tmp_path) -> None:
     assert np.allclose(poses["upper"][:3, 3], [0.0, 0.25, 1.0])
 
 
+@pytest.mark.parametrize("joint_type", ["revolute", "continuous"])
+def test_an_omitted_axis_uses_the_urdf_x_axis_default(tmp_path, joint_type):
+    text = _TWO_LINK.replace('type="revolute"', f'type="{joint_type}"')
+    text = text.replace('<axis xyz="0 1 0"/>', "")
+    chain = load_urdf(_write(tmp_path, text))
+
+    np.testing.assert_allclose(
+        chain.link_positions({"shoulder": np.pi / 2}, ["tip"]),
+        [[0.0, -1.0, 1.0]], atol=1e-12,
+    )
+
+
+def test_a_single_link_model_does_not_need_its_mesh(tmp_path):
+    text = '''<robot name="palm"><link name="palm"><visual><geometry>
+      <mesh filename="unavailable/palm.stl"/>
+    </geometry></visual></link></robot>'''
+    chain = load_urdf(_write(tmp_path, text))
+
+    assert chain.actuated_joint_names == ()
+    np.testing.assert_array_equal(chain.link_transforms({})["palm"], np.eye(4))
+
+
+def test_mimic_defaults_and_dependencies_do_not_depend_on_document_order(tmp_path):
+    text = _TWO_LINK.replace(
+        '<joint name="shoulder" type="revolute">',
+        '<joint name="shoulder" type="revolute"><mimic joint="wrist"/>',
+    ).replace(
+        '<joint name="wrist" type="fixed">',
+        '<joint name="wrist" type="revolute"><axis xyz="0 1 0"/>',
+    )
+    chain = load_urdf(_write(tmp_path, text))
+
+    assert chain.actuated_joint_names == ("wrist",)
+    np.testing.assert_allclose(
+        chain.link_transforms({"wrist": np.pi / 2})["tip"][:3, :3],
+        np.diag([-1.0, 1.0, -1.0]), atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize("source", ["missing", "shoulder"])
+def test_missing_or_cyclic_mimic_sources_are_refused(tmp_path, source):
+    text = _TWO_LINK.replace(
+        '<joint name="shoulder" type="revolute">',
+        f'<joint name="shoulder" type="revolute"><mimic joint="{source}"/>',
+    )
+    with pytest.raises(UrdfError, match="unresolved mimic source"):
+        load_urdf(_write(tmp_path, text))
+
+
 def test_an_unsupported_joint_type_is_refused(tmp_path) -> None:
     text = _TWO_LINK.replace('type="revolute"', 'type="floating"')
 

@@ -1125,9 +1125,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("paths", nargs="+", type=Path, help="episode .zarr paths")
     for name, rule in waivable_rules().items():
         flag = name.replace("_", "-")
-        # argparse performs %-interpolation on help text. Schema rationales are
-        # ordinary prose and may contain percentages such as the 90% coverage
-        # threshold, so escape them before handing the text to argparse.
+        # Escape literal percent signs in schema help text for argparse.
         help_text = rule["why"].replace("%", "%%")
         parser.add_argument(
             f"--{flag}",
@@ -1145,7 +1143,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="list the rules that passed as well",
     )
     parser.add_argument(
-        "--json", action="store_true", help="print one JSON report per episode"
+        "--json", action="store_true", help="print a JSON array of episode reports"
     )
     return parser
 

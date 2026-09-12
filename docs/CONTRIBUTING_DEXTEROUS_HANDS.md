@@ -13,6 +13,11 @@ entry must specify its DOF, ordered `joint_names`, joint limits, `mano21` keypoi
 topology, and valid slots. Identify the wrist/palm frame used by `obs_ee_pose`.
 When supplying a URDF, also register its pose link, keypoint links, and FK tolerance.
 
+Bundle model assets with the registry under `egomimic/rldb/embodiment/registry/urdf/<vendor-or-platform>/`,
+including the source/version and applicable redistribution licenses and notices.
+Registry model paths are relative to `registry/urdf/`; record each model's SHA-256.
+These files ship with the Python package. Mesh files are unnecessary for FK checks.
+
 Declare the platform and hands in the episode's `morphology` attribute. For example:
 
 ```yaml
@@ -64,9 +69,10 @@ For each active `<side>` (`left` or `right`), provide floating-point arrays:
 | `<side>.obs_ee_pose` | `(T, 7)` | Observed pose of the registered wrist/palm frame |
 
 `J` is the registered hand DOF. Use radians for revolute joints and metres for
-prismatic joints; match the registered signs, zero positions, and limits. For every active side on a platform with arms, also supply
-`<side>.obs_joints` / `<side>.cmd_joints` with shape `(T, arm_dof)`. Platforms with an auxiliary
-chain also require `obs_aux_joints` / `cmd_aux_joints` in `aux.joint_names` order.
+prismatic joints; match the registered signs, zero positions, and limits. For
+every active side on a platform with arms, also supply `<side>.obs_joints` /
+`<side>.cmd_joints` with shape `(T, arm_dof)`. Platforms with an auxiliary chain
+also require `obs_aux_joints` / `cmd_aux_joints` in `aux.joint_names` order.
 
 Store poses and keypoints in the declared episode reference frame, typically
 `robot_base`. Pose layout is `[x, y, z, qw, qx, qy, qz]`, with metre translations
@@ -146,9 +152,9 @@ complete-delivery command just by declaring its status.
 Resolve validation errors and review warnings. Watch the preview across the
 episode: the left/right hands, fingers, fingertips, and motion should align with
 the RGB frames. Review the adjacent JSON report for unavailable overlays or
-calibration gaps, and include both artifacts with the delivery. Estimates and analysis copies must
-remain labeled `structural_sample`; obtain measured calibration and synchronized
-recordings for a complete delivery.
+calibration gaps, and include both artifacts with the delivery. Estimates and
+analysis copies must remain labeled `structural_sample`; obtain measured
+calibration and synchronized recordings for a complete delivery.
 
 The visualizer projects the **supplied keypoints** using the supplied camera
 calibration and registry slot mask. It does not reconstruct keypoints from joints,

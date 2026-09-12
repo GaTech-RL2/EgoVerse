@@ -1,7 +1,4 @@
-"""Shared names and normalization helpers for episode attributes.
-
-The writer and readers depend on this module without depending on each other.
-"""
+"""Episode delivery-status values and normalization helpers."""
 
 from __future__ import annotations
 

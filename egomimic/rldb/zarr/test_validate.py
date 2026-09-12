@@ -95,6 +95,24 @@ def test_a_missing_required_array_is_an_error(tmp_path) -> None:
     assert not report.ok
 
 
+@pytest.mark.parametrize("missing_array", [False, True])
+def test_legacy_validation_entry_point_handles_valid_and_invalid_episodes(tmp_path, missing_array):
+    from egomimic.test_zarr import validate_episode as legacy_validate
+
+    numeric = _eva_numeric()
+    if missing_array:
+        del numeric["right.obs_ee_pose"]
+    path = tmp_path / "eva.zarr"
+    _write_eva(path, numeric=numeric)
+
+    errors, successes = legacy_validate(str(path))
+
+    assert bool(errors) == missing_array
+    assert successes
+    if missing_array:
+        assert any("right.obs_ee_pose" in message for message in errors)
+
+
 def test_a_wrong_width_is_reported_with_the_dimension_that_set_it(tmp_path) -> None:
     numeric = _eva_numeric()
     numeric["left.obs_joints"] = np.zeros((LENGTH, 5))

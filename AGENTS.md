@@ -10,9 +10,9 @@ Do not use `pip install`. Add each dependency to `pyproject.toml`, and then run
 `uv sync`. CI uses `uv sync --locked` and fails if the manifest and lock file do
 not agree.
 
-Set `UV_PROJECT_ENVIRONMENT` if the environment directory is not `.venv`. This
-machine uses `ev`. The locked environment includes several gigabytes of CUDA
-packages. If the home directory has a small quota, set `UV_CACHE_DIR` and
+Set `UV_PROJECT_ENVIRONMENT` if the environment directory is not `.venv`.
+The locked environment includes several gigabytes of CUDA packages. If the home
+directory has a small quota, set `UV_CACHE_DIR` and
 `UV_PYTHON_INSTALL_DIR` to directories on scratch storage.
 
 ## Model settings

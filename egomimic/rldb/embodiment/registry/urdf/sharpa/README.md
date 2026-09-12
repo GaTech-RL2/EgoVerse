@@ -1,9 +1,11 @@
-Kinematic assets supplied under `/coc/flash7/jni66/sharpa` on 2026-09-05.
-The hand files are unchanged copies from `sharpa-urdf-usd-xml`, Wave V3.0.4;
-their upstream license and notice are included. The platform URDF is the loose
-NTH POC1.0 file from the same delivery. SHA-256 values in the registry cover each
-URDF's bytes. Mesh packages are not included or required for kinematics.
+# Sharpa kinematic models
+
+The hand URDFs are unchanged copies from `sharpa-urdf-usd-xml`, Wave V3.0.4.
+Their upstream license and notice are included in this directory. The platform
+URDF describes NTH POC1.0 and was supplied separately from the hand package.
+SHA-256 values in the registry identify each URDF's exact bytes. Mesh packages
+are not included or required for forward kinematics.
 
 Hand keypoints are expressed relative to the declared `ee_pose_link` (palm),
-which differs from the flange root. The platform name describes the delivered
-model; `dexmate_bimanual` is the routing identifier, not product-name verification.
+which differs from the flange root. Use `dexmate_bimanual` as the episode's
+`embodiment` and `dexmate_nth_poc1` as its morphology platform identifier.
