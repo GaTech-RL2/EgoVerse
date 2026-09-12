@@ -1,0 +1,74 @@
+# Two-episode overfit data for the BPP own-episode history verification
+# (docs/plan/2026-09-08_bpp_rollout_history.md, verification section). Two
+# Mecka `folding_clothes` episodes of one training operator
+# (68e0b875c33a1abcb8fc55b9, 1795 frames = 60 s each) prompt each other,
+# which satisfies the prompt dataset's two-per-group rule; train = valid, so
+# a working model drives the loss toward zero. Same resolver / transforms /
+# prompt geometry as data/bpp_folding_clothes_history.yaml.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.prompt_dataset.EpisodePromptMultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_rot6d
+        stride: 1
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['episode_hash'] in ['69b1c9e184028c82aba1269e', '69b1cbcd3fa257258bdafc7d']"
+    mode: total
+    valid_ratio: 0.0
+    prompt_transform_list:
+      _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+      mode: cartesian_rot6d
+      stride: 1
+      chunk_length: 60
+    prompt:
+      chunk_n_actions: 60             # must equal shape_meta.prompt_chunk_n_actions
+      max_sequence_length: 2700       # must equal shape_meta.max_sequence_length
+      prompt_stride: 1
+      group_key: "lambda row: (row['task'], row['operator'])"
+      min_episodes_per_group: 2
+      balance_by: none
+      heldout_groups: []
+      image_size: [224, 224]
+      cache_bytes: 2.0e9
+      action_key: actions_cartesian
+      state_key: observations.state.ee_pose
+      seed: 0
+      ignore: false
+      history:
+        max_chunks: ${model.robomimic_model.prompt.history.max_chunks}
+        gap_frames: 0
+
+# Validate on the same two episodes: for an overfit test valid loss should
+# track train loss.
+valid_datasets:
+  human_bimanual: ${data.train_datasets.human_bimanual}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: true
+# One 10 s clip per episode for the validation videos.
+valid_viz_params:
+  human_bimanual:
+    episodes: all
+    frames_per_episode: 300
+    start_frac: 0.3
+    batch_size: 16
+    num_workers: 4

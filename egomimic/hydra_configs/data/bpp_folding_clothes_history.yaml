@@ -1,0 +1,23 @@
+# bpp_folding_clothes.yaml + own-episode history for the history model
+# (model/bpp_prompt_dit_episode_history.yaml). Both prompt blocks in the base
+# yaml are literals, so `history` is added to both. `max_chunks` interpolates
+# the model's value; this yaml is only ever composed with the history model,
+# so the interpolation always resolves (the base yaml's arm-A caveat does not
+# apply here).
+defaults:
+  - bpp_folding_clothes
+  - _self_
+
+train_datasets:
+  human_bimanual:
+    prompt:
+      history:
+        max_chunks: ${model.robomimic_model.prompt.history.max_chunks}
+        gap_frames: 0
+
+valid_datasets:
+  human_bimanual:
+    prompt:
+      history:
+        max_chunks: ${model.robomimic_model.prompt.history.max_chunks}
+        gap_frames: 0

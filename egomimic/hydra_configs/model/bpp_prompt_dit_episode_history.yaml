@@ -1,0 +1,32 @@
+# Whole-episode prompting + own-episode history
+# (docs/plan/2026-09-08_bpp_rollout_history.md). Same policy as
+# bpp_prompt_dit_episode_folding.yaml; the obs encoder is the
+# HistoryPairPromptObsEncoder subclass, which appends the last
+# `max_chunks` completed chunks of the sample's own episode (frame + state +
+# actions, tokenized like the demo prompt, age-indexed positions, learned
+# demo/self segment embedding) to the prompt decoder's memory. Pair with
+# data/bpp_folding_clothes_history.yaml (or data/bpp_overfit_history.yaml),
+# whose `prompt.history.max_chunks` interpolates the value below.
+#
+# History arms: `model.robomimic_model.prompt.history.max_chunks=5|15`.
+# One checkpoint can be scored with the newest k chunks only via
+# `...history.eval_history_chunks=k` (eval only; null = all).
+defaults:
+  - bpp_prompt_dit_episode_folding
+  - _self_
+
+robomimic_model:
+  prompt:
+    history:
+      enabled: true
+      max_chunks: 15               # sliding window cap (2 s chunks -> 30 s)
+      p_drop_history: 0.2          # whole-history dropout (content zeroed + all chunks masked)
+      p_drop_history_state: 0.0    # per-modality: zero the history proprio for the row
+      p_drop_history_action: 0.0   # per-modality: zero the history actions for the row
+      action_noise_std: 0.0        # gaussian noise on normalized history actions (train only)
+      history_only: false          # mask every demo token (needs use_attention_sink); overfit stage A
+      eval_history_chunks: null    # eval-time slice to the newest k chunks
+  policy:
+    obs_encoder:
+      _target_: egomimic.algo.bpp_history_encoder.HistoryPairPromptObsEncoder
+      history_max_chunks: ${model.robomimic_model.prompt.history.max_chunks}

@@ -26,6 +26,14 @@ Two prompt sampling modes (``prompt.mode``):
   whole-episode prompt from the same (task, operator) group; the adapter only
   renames keys, resizes frames, and applies prompt dropout. See
   docs/2026-09-02_bpp_episode_prompting.md.
+
+Own-episode history (``prompt.history.enabled``, episode_pair only, needs a
+``HistoryPairPromptObsEncoder`` policy): the batch also carries ``history``,
+the last ``max_chunks`` completed chunks of the sample's own episode in the
+prompt's chunk format. The adapter adapts it like the prompt and nests it at
+``obs["prompt"]["metadata"]["history"]`` (the vendored normalizer rejects
+unknown top-level obs keys but passes metadata through). See
+docs/plan/2026-09-08_bpp_rollout_history.md.
 """
 
 import math
@@ -131,6 +139,62 @@ class BPP(Algo):
             self.chunk_n_actions = None
             self.max_prompt_len = None
             self.prompt_chunker = None
+
+        # ---- own-episode history ----
+        history = dict(prompt.get("history") or {}) if self.use_prompt else {}
+        self.use_history = bool(history.get("enabled", False))
+        encoder = getattr(policy, "obs_encoder", None)
+        encoder_cap = getattr(encoder, "history_max_chunks", None)
+        if self.use_history:
+            if self.prompt_mode != "episode_pair":
+                raise ValueError(
+                    "prompt.history.enabled requires prompt.mode=episode_pair"
+                )
+            if encoder_cap is None:
+                raise ValueError(
+                    "prompt.history.enabled requires the policy's obs_encoder to be "
+                    "a HistoryPairPromptObsEncoder "
+                    "(model/bpp_prompt_dit_episode_history.yaml)."
+                )
+            self.history_max_chunks = int(encoder_cap)
+            cfg_cap = history.get("max_chunks")
+            if cfg_cap is not None and int(cfg_cap) != self.history_max_chunks:
+                raise ValueError(
+                    f"prompt.history.max_chunks={cfg_cap} != the encoder's "
+                    f"history_max_chunks={self.history_max_chunks}"
+                )
+            self.p_drop_history = float(history.get("p_drop_history", 0.2))
+            self.p_drop_history_state = float(history.get("p_drop_history_state", 0.0))
+            self.p_drop_history_action = float(
+                history.get("p_drop_history_action", 0.0)
+            )
+            self.history_action_noise_std = float(history.get("action_noise_std", 0.0))
+            self.history_only = bool(history.get("history_only", False))
+            eval_chunks = history.get("eval_history_chunks")
+            self.eval_history_chunks = None if eval_chunks is None else int(eval_chunks)
+            if self.history_only and not getattr(
+                encoder, "attention_sink_enabled", False
+            ):
+                raise ValueError(
+                    "prompt.history.history_only=true requires "
+                    "policy.obs_encoder.use_attention_sink=true: with every demo "
+                    "token masked, a row with no history would have an all-masked "
+                    "memory and NaN the cross-attention softmax."
+                )
+        else:
+            if encoder_cap is not None:
+                raise ValueError(
+                    "The policy's obs_encoder is a HistoryPairPromptObsEncoder but "
+                    "prompt.history.enabled is false; enable it or use "
+                    "PairPromptObsEncoder."
+                )
+            self.history_max_chunks = None
+            self.p_drop_history = 0.0
+            self.p_drop_history_state = 0.0
+            self.p_drop_history_action = 0.0
+            self.history_action_noise_std = 0.0
+            self.history_only = False
+            self.eval_history_chunks = None
 
         # BPP has no multi-head/shared/OT machinery; expose the attributes the
         # HPT evaluator reads so eval_hpt works unchanged.
@@ -254,6 +318,12 @@ class BPP(Algo):
                     # unprompted policy drops it here so the prompt tensors
                     # never reach the device.
                     if self.use_prompt:
+                        processed_batch[embodiment_id][key] = value
+                    continue
+                if key == "history":
+                    # Own-episode history, same treatment: only a history
+                    # policy moves it to the device.
+                    if self.use_history:
                         processed_batch[embodiment_id][key] = value
                     continue
                 key_name = (
@@ -440,11 +510,68 @@ class BPP(Algo):
     def reset(self, action_exec_horizon=None):
         self.nets["policy"].reset(action_exec_horizon=action_exec_horizon)
 
+    def episode_prompt_to_policy(self, prompt):
+        """Deployment: a collated whole-episode prompt with batch keys (e.g.
+        from ``build_episode_prompt``) -> the policy's prompt dict, ready for
+        ``prompt()``. A ``history`` entry in its metadata is adapted too."""
+        prompt = self._to_device(prompt)
+        out = self._episode_prompt(prompt, training=False)
+        history = (prompt.get("metadata") or {}).get("history")
+        if history is not None and self.use_history:
+            out["metadata"]["history"] = self.history_chunk_to_policy(history)
+        return out
+
+    def history_chunk_to_policy(self, chunk):
+        """Deployment: one or more history chunks with batch keys (e.g. from
+        ``build_history_chunk`` + prompt normalization; ``metadata.mask`` is
+        optional) -> the policy's history dict. No eval slicing."""
+        if not self.use_history:
+            raise RuntimeError(
+                "This BPP policy was built without history (prompt.history.enabled)."
+            )
+        return self._adapt_chunks(
+            self._to_device(chunk),
+            training=False,
+            max_len=self.history_max_chunks,
+            name="history",
+        )
+
+    def push_history_chunk(self, chunk) -> int:
+        """Deployment: append one completed chunk (batch keys, B = 1) to the
+        encoder's sliding history cache. Returns the cache length."""
+        return self.nets["policy"].obs_encoder.push_history_chunk(
+            self.history_chunk_to_policy(chunk)
+        )
+
+    def clear_history(self):
+        if self.use_history:
+            self.nets["policy"].obs_encoder.clear_history()
+
+    @property
+    def history_len(self) -> int:
+        if not self.use_history:
+            return 0
+        return int(self.nets["policy"].obs_encoder.history_len)
+
+    def predict_action_deployed(self, _batch, embodiment_id):
+        """Deployment inference after ``prompt()``: receding obs only (the
+        encoder serves the demo prompt and history from its caches), DDIM
+        sample, unnormalize like ``forward_eval``. Returns ``(B, T, D)``."""
+        obs_dict = self._build_obs_dict(
+            _batch, embodiment_id, training=False, deployed=True
+        )
+        result = self.nets["policy"].predict_action(obs_dict)
+        ac_key = self.ac_keys[embodiment_id]
+        pred = result["action"].clone()
+        return self.norm_stats.unnormalize({ac_key: pred}, embodiment_id)[ac_key]
+
     # =====================================================================
     # Batch assembly
     # =====================================================================
 
-    def _build_obs_dict(self, _batch, embodiment_id, training: bool):
+    def _build_obs_dict(
+        self, _batch, embodiment_id, training: bool, deployed: bool = False
+    ):
         """
         Assemble BPP's expected obs_dict from a processed EgoMimic batch:
 
@@ -453,16 +580,28 @@ class BPP(Algo):
                 "prompt": {
                     "obs":      {<prompt obs keys>: (B, P, ...)},
                     "action":   (B, P, chunk_n_actions, action_dim),
-                    "metadata": {"mask": (B, P)},
+                    "metadata": {
+                        "mask": (B, P),
+                        # own-episode history (prompt.history.enabled):
+                        "history": {
+                            "obs":      {<prompt obs keys>: (B, H, ...)},
+                            "action":   (B, H, chunk_n_actions, action_dim),
+                            "metadata": {"mask": (B, H)},
+                        },
+                    },
                 },
             }
 
-        Prompt sampling is batch-roll: each sample is prompted with its batch
-        neighbor's (obs, action-chunk) pair. Prompt frames always go through
-        the eval transform so the demonstration stays in-distribution.
+        Prompt sampling is batch-roll (each sample is prompted with its batch
+        neighbor's (obs, action-chunk) pair) or episode_pair (the batch carries
+        a collated whole-episode prompt). Prompt and history frames always go
+        through the eval transform so the demonstration stays in-distribution.
 
         When the policy has no prompt encoder (``self.use_prompt`` False) the
         ``"prompt"`` entry is omitted entirely and no prompt tensors are built.
+        ``deployed=True`` returns the receding obs only: after ``prompt()`` the
+        encoder serves the demo prompt and history from its caches and
+        refuses a ``prompt`` entry.
         """
         ac_key = self.ac_keys[embodiment_id]
         obs = {}
@@ -498,6 +637,9 @@ class BPP(Algo):
                 if prompt_type == "proprioception":
                     prompt_obs_src[meta_key] = value
 
+        if deployed:
+            return obs
+
         if self.use_prompt and self.prompt_mode == "batch_roll":
             obs["prompt"] = self._batch_roll_prompt(
                 prompt_obs_src, _batch[ac_key], training
@@ -510,15 +652,28 @@ class BPP(Algo):
                     "(data/bpp_folding_clothes.yaml)."
                 )
             obs["prompt"] = self._episode_prompt(_batch["prompt"], training)
+            if self.use_history:
+                if "history" not in _batch:
+                    raise ValueError(
+                        "prompt.history.enabled but the batch carries no `history`; "
+                        "use data with prompt.history.max_chunks > 0 "
+                        "(data/bpp_folding_clothes_history.yaml)."
+                    )
+                obs["prompt"]["metadata"]["history"] = self._episode_history(
+                    _batch["history"], training
+                )
+                if self.history_only:
+                    obs["prompt"] = self._mask_demo_prompt(obs["prompt"])
         return obs
 
-    def _episode_prompt(self, prompt, training: bool):
-        """Adapt a collated whole-episode prompt (batch keys, resized frames,
-        normalized state/actions, ``metadata.mask``) to the policy's prompt
-        dict: rename obs keys to shape_meta names, run the eval image
-        transform, check chunk geometry, apply content dropout."""
+    def _adapt_chunks(self, payload, training: bool, *, max_len: int, name: str):
+        """Adapt a collated chunk payload (batch keys, resized frames,
+        normalized state/actions, ``metadata.mask``; the whole-episode prompt
+        or the own-episode history) to the policy's prompt-dict format: rename
+        obs keys to shape_meta names, run the eval image transform, check the
+        chunk geometry. ``P`` may be 0 (empty history)."""
         obs = {}
-        for batch_key, value in prompt["obs"].items():
+        for batch_key, value in payload["obs"].items():
             meta_key = self.obs_key_map.get(batch_key)
             if meta_key is None:
                 continue
@@ -526,30 +681,140 @@ class BPP(Algo):
             prompt_type = attr.get("prompt_type", "ignore")
             if meta_key in self._rgb_meta_keys and prompt_type == "observation":
                 B, P = value.shape[:2]
-                frames = self.eval_image_augs(value.reshape(B * P, *value.shape[2:]))
-                obs[meta_key] = frames.reshape(B, P, *frames.shape[1:])
+                if P == 0:
+                    obs[meta_key] = value.new_zeros((B, 0) + tuple(attr["shape"]))
+                else:
+                    frames = self.eval_image_augs(
+                        value.reshape(B * P, *value.shape[2:])
+                    )
+                    obs[meta_key] = frames.reshape(B, P, *frames.shape[1:])
             elif (
                 meta_key not in self._rgb_meta_keys and prompt_type == "proprioception"
             ):
                 obs[meta_key] = value
-        action = prompt["action"]
+        action = payload["action"]
         B, P, chunk_n, _ = action.shape
         if chunk_n != self.chunk_n_actions:
             raise ValueError(
-                f"prompt chunk size {chunk_n} != shape_meta.prompt_chunk_n_actions "
+                f"{name} chunk size {chunk_n} != shape_meta.prompt_chunk_n_actions "
                 f"{self.chunk_n_actions}; the data config must interpolate the "
                 "model's prompt_chunk_n_actions."
             )
-        if P > self.max_prompt_len:
-            raise ValueError(
-                f"prompt has {P} chunks > max {self.max_prompt_len} "
-                "(shape_meta.max_sequence_length / prompt_chunk_n_actions)."
-            )
-        mask = prompt["metadata"]["mask"].to(torch.bool)
-        chunked = {"obs": obs, "action": action, "metadata": {"mask": mask}}
+        if P > max_len:
+            raise ValueError(f"{name} has {P} chunks > max {max_len}.")
+        mask = (payload.get("metadata") or {}).get("mask")
+        if mask is None:
+            mask = torch.zeros(B, P, dtype=torch.bool, device=action.device)
+        return {"obs": obs, "action": action, "metadata": {"mask": mask.to(torch.bool)}}
+
+    def _episode_prompt(self, prompt, training: bool):
+        """Whole-episode prompt -> policy prompt dict (+ content dropout)."""
+        chunked = self._adapt_chunks(
+            prompt, training, max_len=self.max_prompt_len, name="prompt"
+        )
         if training and self.p_drop_prompt > 0.0:
-            chunked = self._drop_prompt_content(chunked, B, action.device)
+            action = chunked["action"]
+            chunked = self._drop_prompt_content(chunked, action.shape[0], action.device)
         return chunked
+
+    # ---- own-episode history ----
+
+    def _episode_history(self, history, training: bool):
+        """Own-episode history -> policy history dict. Training: optional
+        action noise, per-modality dropout (state / action content zeroed,
+        mask unchanged) and whole-history dropout (content zeroed AND every
+        chunk masked; safe because the demo tokens stay in the memory).
+        Eval: optional slice to the newest ``eval_history_chunks`` chunks."""
+        chunked = self._adapt_chunks(
+            history, training, max_len=self.history_max_chunks, name="history"
+        )
+        action = chunked["action"]
+        B, device = action.shape[0], action.device
+        if training:
+            if self.history_action_noise_std > 0.0:
+                chunked["action"] = (
+                    action + self.history_action_noise_std * torch.randn_like(action)
+                )
+            chunked = self._drop_history_modalities(chunked, B, device)
+            if self.p_drop_history > 0.0:
+                chunked = self._drop_history(chunked, B, device)
+        elif self.eval_history_chunks is not None:
+            chunked = self._slice_history(chunked, self.eval_history_chunks)
+        return chunked
+
+    def _drop_history_modalities(self, chunked, B, device):
+        def _keep(p):
+            return (torch.rand(B, device=device) >= p).float()
+
+        state_keys = [k for k in chunked["obs"] if k not in self._rgb_meta_keys]
+        if self.p_drop_history_state > 0.0 and state_keys:
+            keep = _keep(self.p_drop_history_state)
+            for k in state_keys:
+                v = chunked["obs"][k]
+                chunked["obs"][k] = v * keep.view(B, *([1] * (v.dim() - 1)))
+        if self.p_drop_history_action > 0.0:
+            keep = _keep(self.p_drop_history_action)
+            chunked["action"] = chunked["action"] * keep.view(B, 1, 1, 1)
+        return chunked
+
+    def _drop_history(self, chunked, B, device):
+        keep = torch.rand(B, device=device) >= self.p_drop_history
+        keepf = keep.float()
+        chunked["action"] = chunked["action"] * keepf.view(B, 1, 1, 1)
+        chunked["obs"] = {
+            k: v * keepf.view(B, *([1] * (v.dim() - 1)))
+            for k, v in chunked["obs"].items()
+        }
+        mask = chunked["metadata"]["mask"] | (~keep)[:, None]
+        chunked["metadata"] = {**chunked["metadata"], "mask": mask}
+        return chunked
+
+    @staticmethod
+    def _slice_history(chunked, k: int):
+        """Keep only the newest ``k`` valid chunks per row (valid chunks are
+        left-aligned), re-padding to the new batch maximum."""
+        mask = chunked["metadata"]["mask"]
+        B, H = mask.shape
+        if H == 0:
+            return chunked
+        n_valid = (~mask).sum(dim=1)
+        keep_n = n_valid.clamp(max=max(int(k), 0))
+        start = n_valid - keep_n
+        H_new = int(keep_n.max())
+        j = torch.arange(H_new, device=mask.device)
+        idx = (start[:, None] + j[None, :]).clamp(max=H - 1)  # (B, H_new)
+        new_mask = j[None, :] >= keep_n[:, None]
+        rows = torch.arange(B, device=mask.device)[:, None]
+
+        def _take(v):
+            out = v[rows, idx]
+            return out * (~new_mask).view(B, H_new, *([1] * (out.dim() - 2))).to(
+                out.dtype
+            )
+
+        return {
+            "obs": {key: _take(v) for key, v in chunked["obs"].items()},
+            "action": _take(chunked["action"]),
+            "metadata": {**chunked["metadata"], "mask": new_mask},
+        }
+
+    @staticmethod
+    def _mask_demo_prompt(prompt):
+        """history_only mode: replace the demo prompt by a single zero chunk
+        that is fully masked. P = 1 keeps every shape and the prompt-cache
+        path valid while skipping the ViT work for the real demo frames; the
+        policy then attends to the sinks and its own history only. Never in
+        place: the mask may be the batch's own tensor."""
+        B = prompt["action"].shape[0]
+        metadata = dict(prompt["metadata"])
+        metadata["mask"] = torch.ones(
+            B, 1, dtype=torch.bool, device=prompt["action"].device
+        )
+        return {
+            "obs": {k: torch.zeros_like(v[:, :1]) for k, v in prompt["obs"].items()},
+            "action": torch.zeros_like(prompt["action"][:, :1]),
+            "metadata": metadata,
+        }
 
     def _drop_prompt_content(self, chunked, B, device):
         # Content dropout: zero the prompt for dropped samples instead of

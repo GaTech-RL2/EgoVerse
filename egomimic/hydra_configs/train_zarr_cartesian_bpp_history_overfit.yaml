@@ -1,0 +1,48 @@
+# Overfit verification for own-episode history
+# (docs/plan/2026-09-08_bpp_rollout_history.md, verification section): two
+# folding episodes of one operator, train = valid.
+#
+#   Stage A (history only, demo prompt masked; proves the history path
+#   carries signal on its own):
+#     python egomimic/trainHydra.py -m --config-name train_zarr_cartesian_bpp_history_overfit \
+#       name=bpp_hist_overfit description=A_history_only \
+#       model.robomimic_model.prompt.history.history_only=true
+#   Stage B (demo prompt + history):
+#     python egomimic/trainHydra.py -m --config-name train_zarr_cartesian_bpp_history_overfit \
+#       name=bpp_hist_overfit description=B_prompt_and_history
+#
+# Attention sinks are on so that history_only rows with no history yet
+# (episode start) still have valid memory keys.
+defaults:
+  - train_zarr_cartesian_bpp_folding_history
+  - override data: bpp_overfit_history
+  - _self_
+
+# Keep every frame: no per-sample bounds rejection / substitution.
+reject_outliers: false
+
+evaluator:
+  viz_func:
+    human_bimanual:
+      annotation_key: null
+
+model:
+  # No MAD gradient clipping: with two episodes the grad-norm distribution is
+  # narrow and the clip fires on a large share of steps
+  # (docs/2026-09-02_bpp_episode_overfit_debugging.md, item 4).
+  enable_grad_norm: false
+  robomimic_model:
+    prompt:
+      history:
+        p_drop_history: 0.0
+    policy:
+      obs_encoder:
+        use_attention_sink: true
+    # No color jitter for an overfit check (same doc, item 5): train and val
+    # see identical frames, so val loss should track train loss.
+    train_image_augs:
+      _target_: torchvision.transforms.Compose
+      transforms:
+        - _target_: torchvision.transforms.Resize
+          size: [224, 224]
+          antialias: true

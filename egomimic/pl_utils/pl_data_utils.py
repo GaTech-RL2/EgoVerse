@@ -272,6 +272,10 @@ def prompt_collate(prompts):
     """Pad a list of per-sample prompts (see ``prompt_dataset.py``) to the
     batch's longest ``P`` and build ``metadata.mask`` (``True`` = padded).
     Port of behavior_prompting's ``collate_prompts`` pair-prompting branch.
+
+    Also used for the own-episode ``history`` payload, where ``P`` may be 0
+    for every sample (episode start): ``pad_sequence`` then yields
+    ``(B, 0, ...)`` tensors and a ``(B, 0)`` mask.
     """
     lengths = torch.tensor([int(p["length"]) for p in prompts], dtype=torch.long)
     obs = {
@@ -290,15 +294,19 @@ def prompt_collate(prompts):
 
 def annotation_collate(batch):
     """Collate that preserves variable-length list-valued keys (e.g. annotation_keys)
-    and pads variable-length ``prompt`` dicts (whole-episode prompts)."""
-    prompts = None
-    if "prompt" in batch[0]:
-        if not all("prompt" in sample for sample in batch):
-            raise ValueError("Every sample in a batch must carry a prompt, or none.")
-        prompts = [sample.pop("prompt") for sample in batch]
+    and pads variable-length ``prompt`` / ``history`` dicts (whole-episode
+    prompts and own-episode history, both padded by ``prompt_collate``)."""
+    padded = {}
+    for key in ("prompt", "history"):
+        if key in batch[0]:
+            if not all(key in sample for sample in batch):
+                raise ValueError(
+                    f"Every sample in a batch must carry a `{key}`, or none."
+                )
+            padded[key] = [sample.pop(key) for sample in batch]
     extracted = _extract_list_keys(batch)
     collated = default_collate(batch)
     collated.update(extracted)
-    if prompts is not None:
-        collated["prompt"] = prompt_collate(prompts)
+    for key, payloads in padded.items():
+        collated[key] = prompt_collate(payloads)
     return collated

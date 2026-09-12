@@ -196,6 +196,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         config_tree=_build_model_config_tree(cfg),
         norm_stats_state=norm_stats.to_state(),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
+        # MAD gradient clipping (ModelWrapper default on); `model.enable_grad_norm=false`
+        # turns it off, e.g. for tiny-data overfit checks where the narrow
+        # grad-norm distribution clips a large share of steps.
+        enable_grad_norm=bool(cfg.model.get("enable_grad_norm", True)),
     )
 
     _log_dataset_frame_counts(datamodule.train_datasets, datamodule.valid_datasets)

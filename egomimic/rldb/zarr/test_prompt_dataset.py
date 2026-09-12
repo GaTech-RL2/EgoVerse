@@ -18,6 +18,7 @@ from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.prompt_dataset import (
     EpisodePromptMultiDataset,
     build_episode_prompt,
+    build_history_chunk,
     read_prompt_chunks,
 )
 from egomimic.rldb.zarr.zarr_dataset_multi import (
@@ -461,3 +462,196 @@ def test_heldout_all_groups_raises(episode_root):
 def test_exclude_self_false_rejected(episode_root):
     with pytest.raises(ValueError, match="exclude_self=False"):
         _dataset(episode_root, mode="total", with_stats=False, exclude_self=False)
+
+
+# ---------------------------------------------------------------------------
+# Own-episode history (prompt.history.max_chunks > 0); see
+# docs/plan/2026-09-08_bpp_rollout_history.md.
+# ---------------------------------------------------------------------------
+
+HIST_MAX = 2
+
+
+def _frame_of(ds, idx):
+    return ds.index_map[idx][1]
+
+
+def _idx_with_chunks(ds, n_chunks, min_extra=0):
+    """A global index whose frame has exactly ``n_chunks`` completed chunks
+    (``t // CHUNK == n_chunks``), at least ``min_extra`` frames past the
+    chunk boundary."""
+    for idx, (_, t) in enumerate(ds.index_map):
+        if t // CHUNK == n_chunks and t - n_chunks * CHUNK >= min_extra:
+            return idx
+    raise AssertionError(f"no frame with {n_chunks} completed chunks")
+
+
+def test_frame_idx_matches_index_map(episode_root):
+    ds = _dataset(episode_root, mode="total")
+    for idx in range(0, len(ds), 31):
+        sample = ds[idx]
+        assert sample["frame_idx"] == _frame_of(ds, idx)
+        assert not sample["substituted"]
+    batch = annotation_collate([ds[0], ds[1]])
+    assert batch["frame_idx"].tolist() == [_frame_of(ds, 0), _frame_of(ds, 1)]
+
+
+def test_history_equals_own_episode_prompt_chunks(episode_root):
+    ds = _dataset(episode_root, mode="total", history={"max_chunks": HIST_MAX})
+    assert ds.use_history and ds.history_max_chunks == HIST_MAX
+    seen_lengths = set()
+    for idx in range(0, len(ds), 13):
+        sample = ds[idx]
+        name, t = ds.index_map[idx]
+        own = ds.build_prompt_for_episode(name)
+        n_done = min(t // CHUNK, own["length"])
+        start = max(0, n_done - HIST_MAX)
+        hist = sample["history"]
+        assert hist["length"] == n_done - start
+        seen_lengths.add(hist["length"])
+        assert torch.equal(hist["action"], own["action"][start:n_done])
+        assert torch.equal(hist["obs"][STATE_KEY], own["obs"][STATE_KEY][start:n_done])
+        assert torch.equal(hist["obs"][IMG_KEY], own["obs"][IMG_KEY][start:n_done])
+        assert hist["obs"][IMG_KEY].dtype == torch.float32
+        # the sample's own frame is never inside its history window
+        assert n_done * CHUNK <= t
+        # helper agrees with __getitem__
+        via_helper = ds.build_history_for_index(idx)
+        assert torch.equal(via_helper["action"], hist["action"])
+    # every length 0..HIST_MAX occurs (episodes are 45-130 frames, CHUNK 30)
+    assert seen_lengths == set(range(HIST_MAX + 1))
+
+
+def test_history_gap_frames(episode_root):
+    gap = 10
+    ds = _dataset(
+        episode_root, mode="total", history={"max_chunks": 3, "gap_frames": gap}
+    )
+    for idx in range(0, len(ds), 17):
+        sample = ds[idx]
+        _, t = ds.index_map[idx]
+        expected = min(3, max(0, (t - gap) // CHUNK))
+        assert sample["history"]["length"] == expected
+
+
+def test_history_zero_at_episode_start(episode_root):
+    ds = _dataset(episode_root, mode="total", history={"max_chunks": HIST_MAX})
+    idx = _idx_with_chunks(ds, 0)
+    hist = ds[idx]["history"]
+    assert hist["length"] == 0
+    assert hist["action"].shape == (0, CHUNK, 12)
+    assert hist["obs"][STATE_KEY].shape == (0, 12)
+    assert hist["obs"][IMG_KEY].shape == (0, 3, 32, 32)
+
+
+def test_history_collate_zero_lengths(episode_root):
+    ds = _dataset(episode_root, mode="total", history={"max_chunks": HIST_MAX})
+    samples = [ds[_idx_with_chunks(ds, n)] for n in (0, 2, 1)]
+    batch = annotation_collate(samples)
+    hist = batch["history"]
+    assert hist["action"].shape == (3, 2, CHUNK, 12)
+    assert hist["obs"][IMG_KEY].shape == (3, 2, 3, 32, 32)
+    assert hist["metadata"]["mask"].tolist() == [
+        [True, True],
+        [False, False],
+        [False, True],
+    ]
+    assert hist["metadata"]["length"].tolist() == [0, 2, 1]
+    assert "prompt" in batch and batch["operator_seen"].shape == (3,)
+    # all-empty batch
+    zero = annotation_collate([ds[_idx_with_chunks(ds, 0)] for _ in range(3)])
+    assert zero["history"]["action"].shape == (3, 0, CHUNK, 12)
+    assert zero["history"]["metadata"]["mask"].shape == (3, 0)
+
+
+def test_history_absent_without_config_or_when_ignored(episode_root):
+    plain = _dataset(episode_root, mode="total")
+    assert not plain.use_history
+    assert "history" not in plain[5]
+    ignored = _dataset(
+        episode_root, mode="total", history={"max_chunks": HIST_MAX}, ignore=True
+    )
+    assert "history" not in ignored[5] and "prompt" not in ignored[5]
+    no_stats = _dataset(
+        episode_root, mode="total", with_stats=False, history={"max_chunks": HIST_MAX}
+    )
+    assert "history" not in no_stats[5]
+    with pytest.raises(ValueError, match="must be >= 0"):
+        _dataset(episode_root, mode="total", history={"max_chunks": -1})
+
+
+def test_substituted_sample_history_uses_served_frame(episode_root, monkeypatch):
+    ds = _dataset(episode_root, mode="total", history={"max_chunks": 3})
+    idx = _idx_with_chunks(ds, 3)  # deep into a long episode
+    name, t_req = ds.index_map[idx]
+    calls = {"n": 0}
+    orig = MultiDataset._check_bounds
+
+    def reject_first(self, data, dataset, local_idx, dataset_name):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return "forced rejection (test)"
+        return orig(self, data, dataset, local_idx, dataset_name)
+
+    monkeypatch.setattr(MultiDataset, "_check_bounds", reject_first)
+    sample = ds[idx]
+    assert sample["substituted"]
+    served = sample["frame_idx"]
+    assert served != t_req
+    expected = ds._history_for(name, served, get_embodiment_id(EMBODIMENT))
+    assert sample["history"]["length"] == expected["length"]
+    assert torch.equal(sample["history"]["action"], expected["action"])
+    assert torch.equal(sample["history"]["obs"][IMG_KEY], expected["obs"][IMG_KEY])
+    # and it is not the requested frame's history unless they coincide
+    requested = ds._history_for(name, t_req, get_embodiment_id(EMBODIMENT))
+    if requested["length"] != expected["length"]:
+        assert sample["history"]["length"] != requested["length"]
+
+
+def test_build_history_chunk_matches_read_prompt_chunks(episode_root):
+    import simplejpeg
+
+    leaf = _leaves(episode_root)["ep_a1"]
+    for s in (0, 30):
+        ref = read_prompt_chunks(
+            leaf,
+            chunk_n_actions=CHUNK,
+            prompt_stride=1,
+            transform_list=_prompt_transforms(),
+            image_size=(32, 32),
+            action_key=ACTION_KEY,
+            state_key=STATE_KEY,
+            chunk_starts=np.array([s]),
+        )
+        # what a rollout buffer would hand over: raw per-key data for one
+        # chunk window, keyed by key_map name
+        T = int(leaf.total_frames)
+        key_map = _key_map()
+        raw = {}
+        for name, spec in key_map.items():
+            zk = spec["zarr_key"]
+            if spec.get("key_type") == "annotation_keys":
+                continue
+            if spec.get("key_type") == "camera_keys":
+                jpeg = leaf.episode_reader.read({zk: (s, None)})[zk]
+                decoded = simplejpeg.decode_jpeg(jpeg, colorspace="RGB")
+                raw[name] = np.transpose(decoded, (2, 0, 1)) / 255.0
+            elif spec.get("horizon") is not None:
+                idx = np.minimum(s + np.arange(CHUNK), T - 1)
+                raw[name] = leaf.episode_reader.read({zk: (0, T)})[zk][idx]
+            else:
+                raw[name] = leaf.episode_reader.read({zk: (0, T)})[zk][s]
+        chunk = build_history_chunk(
+            raw,
+            key_map=key_map,
+            transform_list=_prompt_transforms(),
+            image_size=(32, 32),
+            action_key=ACTION_KEY,
+            state_key=STATE_KEY,
+            chunk_n_actions=CHUNK,
+        )
+        assert chunk["length"] == 1
+        assert chunk["action"].shape == (1, CHUNK, 12)
+        assert torch.equal(chunk["action"][0], ref["action"][0])
+        assert torch.equal(chunk["obs"][STATE_KEY][0], ref["obs"][STATE_KEY][0])
+        assert torch.equal(chunk["obs"][IMG_KEY][0], ref["obs"][IMG_KEY][0])
