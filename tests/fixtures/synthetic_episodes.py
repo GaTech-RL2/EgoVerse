@@ -95,7 +95,10 @@ def write_episode(
                 "right.cmd_gripper": _scalar(T, rng),
             }
         )
-        extrinsics = {"left": np.eye(4), "right": np.eye(4)}
+        extrinsics = {
+            "left": ext_l,
+            "right": ext_r,
+        }  # what the poses were composed through
     if v.has_head_pose:
         numeric["obs_head_pose"] = _pose(T, rng)
     return ZarrWriter.create_and_write(
