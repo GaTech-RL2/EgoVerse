@@ -40,6 +40,14 @@ class DatasetFilter:
             f"episode_hashes={sorted(self.episode_hashes)!r})"
         )
 
+    def cache_key(self) -> tuple:
+        """Hashable identity of this filter's contents (resolve-once memo key)."""
+        return (
+            type(self).__name__,
+            tuple(self.filter_lambdas),
+            tuple(sorted(self.episode_hashes)),
+        )
+
     def matches(self, row: Mapping[str, Any]) -> bool:
         row = dict(row)
         if row.get("is_deleted", False):
@@ -68,6 +76,12 @@ class ScaleAnnotationDatasetFilter(DatasetFilter):
         self.df = build_df_from_tasks(self.tasks)
         self.completed_episode_hashes = set(self.df["SEQUENCE_ID"].unique().tolist())
         super().__init__(filter_lambdas, episode_hashes)
+
+    def cache_key(self) -> tuple:
+        return super().cache_key() + (
+            self.project_name,
+            tuple(sorted(self.completed_episode_hashes)),
+        )
 
     def matches(self, row: Mapping[str, Any]) -> bool:
         if row.get("episode_hash") not in self.completed_episode_hashes:

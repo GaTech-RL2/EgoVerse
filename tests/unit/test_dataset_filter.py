@@ -44,7 +44,17 @@ def test_dataset_filter_matches_requires_bool_result() -> None:
         filters.matches({"episode_hash": "episode-1"})
 
 
+def test_dataset_filter_cache_key_reflects_contents() -> None:
+    a = DatasetFilter(filter_lambdas=["lambda row: True"], episode_hashes=["y", "x"])
+    b = DatasetFilter(filter_lambdas=["lambda row: True"], episode_hashes=["x", "y"])
+    c = DatasetFilter(filter_lambdas=["lambda row: False"], episode_hashes=["x", "y"])
+    assert a.cache_key() == b.cache_key()
+    assert a.cache_key() != c.cache_key()
+    assert hash(a.cache_key())
+
+
 def test_s3_resolver_filters_dataframe_with_dataset_filter(monkeypatch) -> None:
+    zarr_dataset_multi.clear_resolve_cache()
     df = pd.DataFrame(
         [
             {
