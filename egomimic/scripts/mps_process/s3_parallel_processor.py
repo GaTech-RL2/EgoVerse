@@ -47,6 +47,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+
 from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client
 
 # ============================================================================
@@ -141,7 +142,6 @@ class Boto3Backend:
         secret_access_key: Optional[str] = None,
         session_token: Optional[str] = None,
     ):
-        import boto3
         from boto3.s3.transfer import TransferConfig
         from botocore.config import Config
 
