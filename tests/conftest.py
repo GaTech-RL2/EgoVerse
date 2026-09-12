@@ -38,3 +38,13 @@ def pytest_collection_modifyitems(
         item.add_marker(pytest.mark.integration)
         if not run_integration:
             item.add_marker(skip)
+
+
+@pytest.fixture(autouse=True)
+def _reset_hydra_config_singleton():
+    """compose_recipe installs a HydraConfig; without a reset a later test could
+    silently resolve ${hydra:runtime.output_dir} to a previous test's tmp_path."""
+    yield
+    from hydra.core.hydra_config import HydraConfig
+
+    HydraConfig.instance().cfg = None

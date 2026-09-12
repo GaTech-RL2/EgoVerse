@@ -1233,14 +1233,14 @@ class MultiDataset(torch.utils.data.Dataset):
         n_bad = int((~finite).sum())
         if n_bad == 0:
             return X
-        logger.warning(
-            f"[MultiDataset] key={key}: dropping {n_bad}/{X.shape[0]} norm samples "
-            "with non-finite values"
-        )
         if n_bad == X.shape[0]:
             raise ValueError(
                 f"[MultiDataset] key={key}: every collected norm sample is non-finite"
             )
+        logger.warning(
+            f"[MultiDataset] key={key}: dropping {n_bad}/{X.shape[0]} norm samples "
+            "with non-finite values"
+        )
         return X[finite]
 
     @staticmethod

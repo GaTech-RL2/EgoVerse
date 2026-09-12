@@ -22,8 +22,13 @@ class Recipe:
 
 
 def _pi_human(model: str, stride: int) -> Recipe:
-    # The per-vendor *_pi.yaml files cannot compose (see test_data_configs_compose
-    # KNOWN_BROKEN); the shipped human Pi recipe is cotrain_pi_base's human domain.
+    # There is no shipped single-vendor human Pi data config that instantiates:
+    # aria_pi/mecka_pi/scale_pi call Human.get_keymap without keymap_mode (see
+    # KNOWN_BROKEN_INSTANTIATE in test_data_configs_compose). So the human Pi
+    # rows use cotrain_pi_base's human domain with the eva domain nulled and the
+    # vendor's stride. On this branch mecka and scale then differ from each other
+    # only by model config name (pi0.5_bc_{aria,mecka,scale}.yaml are identical);
+    # both rows stay so a future per-vendor divergence is covered.
     return Recipe(
         "train_zarr_cartesian_pi",
         "cotrain_pi_base",
