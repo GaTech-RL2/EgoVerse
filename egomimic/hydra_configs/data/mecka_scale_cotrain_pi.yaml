@@ -2,9 +2,9 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 # Embodiment collapse: mecka + scale are both `human_bimanual` now, so they can no
 # longer be separate cotrain domains. Merged into ONE human_bimanual dataset that
-# loads both labs. JUDGMENT CALL to sanity-check: mecka data carries a head pose
-# and scale does not, so the merged keymap uses has_head_pose=false (scale-
-# compatible) for a consistent representation across both sources.
+# loads both labs. Scale exports carry obs_head_pose (sfs_to_egoverse_zarr.py
+# writes it from the per-frame camera pose), so the merged human keymap keeps
+# the default has_head_pose=true; the cartesian transform pivots on it.
 train_datasets:
   human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -13,7 +13,6 @@ train_datasets:
       folder_path: ${paths.dataset_dir}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        has_head_pose: false
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         stride: 1

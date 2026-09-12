@@ -9,7 +9,6 @@ train_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: cartesian
-        has_head_pose: false
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         mode: cartesian
