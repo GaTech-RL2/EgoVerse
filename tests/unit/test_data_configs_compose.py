@@ -19,12 +19,7 @@ DATA_DIR = Path(_cfg_pkg.__file__).parent / "data"
 DATA_CONFIGS = sorted(p.stem for p in DATA_DIR.glob("*.yaml"))
 
 # name -> reason. Strict xfail: remove the entry once the config is fixed.
-KNOWN_BROKEN_COMPOSE: dict[str, str] = {
-    "cotrain_pi_latent": (
-        "omegaconf UnsupportedValueType: a list is assigned where a primitive is "
-        "expected (config never composes; not touched by this branch)"
-    ),
-}
+KNOWN_BROKEN_COMPOSE: dict[str, str] = {}
 KNOWN_BROKEN_INSTANTIATE: dict[str, str] = {
     **KNOWN_BROKEN_COMPOSE,
     "aria_pi": "Human.get_keymap called without keymap_mode (TypeError)",
@@ -55,6 +50,10 @@ def compose_data(name: str, overrides: list[str] | None = None):
             config_name="train_zarr_cartesian",
             overrides=[f"data={name}", *(overrides or [])],
         )
+    # hydra.utils.instantiate (and so trainHydra) resolves with allow_objects;
+    # without it a list-valued node (cotrain_pi_latent) is rejected as an
+    # UnsupportedValueType even though the config composes and trains.
+    cfg._set_flag("allow_objects", True)
     OmegaConf.resolve(cfg.data)
     return cfg
 
