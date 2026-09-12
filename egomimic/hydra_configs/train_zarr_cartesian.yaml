@@ -17,10 +17,10 @@ mode: train
 
 hydra:
   run:
-    # Dir should be experiment_name/description_{timestamp}
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    # <log_dir>/experiment_name/description_{timestamp}; log_dir defaults to ./logs
+    dir: ${paths.log_dir}/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
   sweep:
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    dir: ${paths.log_dir}/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
 
 launch_params:
   gpus_per_node: 1

@@ -1,15 +1,18 @@
-# path to root directory: $PROJECT_ROOT if set, else the directory the run was
-# launched from (which is also what the relative `hydra.run.dir` is rooted at)
-root_dir: ${oc.env:PROJECT_ROOT,${hydra:runtime.cwd}}
+# path to root directory: $EGOVERSE_ROOT if set, else the launch directory.
+# (Not PROJECT_ROOT: direnv/IDE templates export that name for unrelated trees
+# and would silently relocate every run directory.)
+# Must not use ${hydra:...}: launchers (hydra -m / submitit) resolve
+# hydra.sweep.dir -> paths.log_dir -> here before HydraConfig exists.
+root_dir: ${oc.env:EGOVERSE_ROOT,.}
 
 # # path to data directory
 # data_dir: ${paths.root_dir}/data/
 
-# default folder containing zarr episode datasets
-dataset_dir: /coc/flash7/scratch/egoverseS3ZarrDataset
+# default folder containing zarr episode datasets ($EGOVERSE_DATASET_DIR overrides)
+dataset_dir: ${oc.env:EGOVERSE_DATASET_DIR,/coc/flash7/scratch/egoverseS3ZarrDataset}
 
-# path to logging directory
-log_dir: ${paths.root_dir}/logs/
+# root of all run directories ($EGOVERSE_LOG_DIR overrides); hydra.run.dir is under it
+log_dir: ${oc.env:EGOVERSE_LOG_DIR,${paths.root_dir}/logs}
 
 # path to output directory, created dynamically by hydra
 # path generation pattern is specified in `configs/hydra/default.yaml`

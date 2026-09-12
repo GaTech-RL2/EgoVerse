@@ -90,6 +90,17 @@ Default output format:
 `setup_secret.sh` will allow your current env to download data from cloudflare.
 
 
+### Environment variables
+Every cluster-specific default in the configs can be overridden without editing yaml:
+
+| Variable | Overrides | Default |
+|---|---|---|
+| `EGOVERSE_DATASET_DIR` | `paths.dataset_dir`, the local zarr episode folder | `/coc/flash7/scratch/egoverseS3ZarrDataset` |
+| `EGOVERSE_LOG_DIR` | `paths.log_dir`, root of every run directory | `$EGOVERSE_ROOT/logs` |
+| `EGOVERSE_ROOT` | `paths.root_dir` | the directory you launch from |
+| `EGOVERSE_PI05_WEIGHTS` | pi0.5 base weights directory (`model.robomimic_model.config.pytorch_weight_path`) | lab PACE path |
+| `WANDB_ENTITY`, `WANDB_PROJECT` | `logger.wandb.entity` / `.project` | `rl2-group` / `zarr_test` |
+
 ### Other Settings
 Set `git config --global submodule.recurse true` if you want `git pull` to automatically update the submodule as well.
 Set your wandb project in ``egomimic/hydra_configs/logger/wandb.yaml``
