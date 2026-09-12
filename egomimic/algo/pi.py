@@ -17,12 +17,12 @@ from transformers import AutoTokenizer
 
 from egomimic.algo.algo import Algo
 from egomimic.models.preprocess_pi_obs import (
+    PI_CAMERA_SLOTS,
     _concat_proprio,
     _empty_lang_placeholders,
-    _ensure_bchw,
-    _fill_missing_images,
     _SimpleObservation,
     _to_minus1_1,
+    gather_pi_images,
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_utils import ConverterRegistry
@@ -99,9 +99,9 @@ class PI(Algo):
         self.eval_image_augs = eval_image_augs
         if "image_resolution" in kwargs:
             self.image_resolution = kwargs["image_resolution"]
-        self.pi_cam_keys = kwargs.get(
-            "pi_cam_keys", ["base_0_rgb", "left_wrist_0_rgb", "right_wrist_0_rgb"]
-        )
+        # openpi slot -> dataset camera key. Datasets emit one naming for every
+        # algo; this is the only place the PaliGemma names exist on the way in.
+        self.pi_camera_slots = dict(kwargs.get("pi_camera_slots", PI_CAMERA_SLOTS))
         self.config = config
 
         self.ac_keys = ac_keys
@@ -375,11 +375,9 @@ class PI(Algo):
             proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
-            camera_keys = self.camera_keys.get(embodiment_id, self.pi_cam_keys)
             embodiment_name = get_embodiment(embodiment_id).lower()
             processed_obs, action = self._robomimic_to_pi_data(
                 _batch,
-                camera_keys,
                 proprio_keys,
                 lang_keys,
                 ac_key,
@@ -420,11 +418,9 @@ class PI(Algo):
                 proprio_keys = self.proprio_keys[embodiment_id]
                 lang_keys = self.lang_keys[embodiment_id]
                 ac_key = self.ac_keys[embodiment_id]
-                camera_keys = self.camera_keys.get(embodiment_id, self.pi_cam_keys)
                 embodiment_name = get_embodiment(embodiment_id).lower()
                 processed_obs, action = self._robomimic_to_pi_data(
                     _batch,
-                    camera_keys,
                     proprio_keys,
                     lang_keys,
                     ac_key,
@@ -512,38 +508,29 @@ class PI(Algo):
             log["Policy_Grad_Norms"] = info["policy_grad_norms"]
         return log
 
-    def _robomimic_to_pi_data(
-        self, batch, cam_keys, proprio_keys, lang_keys, ac_key, embodiment
-    ):
-        """ """
+    def _robomimic_to_pi_data(self, batch, proprio_keys, lang_keys, ac_key, embodiment):
+        """Dataset batch -> (openpi observation, 32-D action chunk)."""
         if ac_key not in batch:
             raise KeyError(f"Missing action key '{ac_key}' in batch")
 
         device = self.device
         action = batch[ac_key].to(device)
         image_resolution = getattr(self, "image_resolution", (224, 224))
-        required_cam_keys = getattr(self, "pi_cam_keys", cam_keys)
-
-        present_flags = {
-            k: (
-                k in batch and isinstance(batch[k], torch.Tensor) and batch[k].ndim == 4
-            )
-            for k in required_cam_keys
-        }
 
         emb_id = get_embodiment_id(embodiment)  # embodiment is a name string
         converter = self.action_registry.get(emb_id, ac_key)
         action32 = converter.to32(action)
 
-        # OpenPI expects a fixed camera tuple. Human datasets only provide
-        # `base_0_rgb`, so duplicate that view into the missing wrist slots and
-        # mark those synthesized views as masked out below.
-        raw_images = _fill_missing_images(batch, required_cam_keys, device)
+        # OpenPI expects a fixed camera tuple under its own names. Human data
+        # only has the front camera; the missing wrist slots get a copy of it
+        # and are masked out below.
+        raw_images, present_flags = gather_pi_images(
+            batch, self.pi_camera_slots, device
+        )
 
         # ---- Images (dict[str, Tensor]) ----
         images = {}
-        for k in required_cam_keys:
-            img = _ensure_bchw(raw_images[k])
+        for k, img in raw_images.items():
             img = _to_minus1_1(img)
             if img.shape[2:] != tuple(image_resolution):
                 img = resize_with_pad_torch(img, *image_resolution)
