@@ -1,0 +1,299 @@
+{
+  "episode": "2026-05-02-06-10-27-614455.zarr",
+  "method": "Approximate manual visual identification on the delivered 480x480 front_1 images; not detector output or calibrated measurements.",
+  "initial_rpy": [
+    0,
+    0.35,
+    0
+  ],
+  "landmarks": [
+    {
+      "frame": 0,
+      "side": "left",
+      "slot": 0,
+      "uv": [
+        171,
+        290
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "left",
+      "slot": 4,
+      "uv": [
+        165,
+        214
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "left",
+      "slot": 8,
+      "uv": [
+        188,
+        230
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "left",
+      "slot": 12,
+      "uv": [
+        191,
+        244
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "left",
+      "slot": 16,
+      "uv": [
+        188,
+        258
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "left",
+      "slot": 20,
+      "uv": [
+        183,
+        271
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "right",
+      "slot": 0,
+      "uv": [
+        330,
+        290
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "right",
+      "slot": 4,
+      "uv": [
+        326,
+        210
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "right",
+      "slot": 8,
+      "uv": [
+        314,
+        230
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "right",
+      "slot": 12,
+      "uv": [
+        310,
+        245
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "right",
+      "slot": 16,
+      "uv": [
+        311,
+        259
+      ]
+    },
+    {
+      "frame": 0,
+      "side": "right",
+      "slot": 20,
+      "uv": [
+        316,
+        272
+      ]
+    },
+    {
+      "frame": 90,
+      "side": "left",
+      "slot": 0,
+      "uv": [
+        159,
+        234
+      ]
+    },
+    {
+      "frame": 90,
+      "side": "left",
+      "slot": 4,
+      "uv": [
+        179,
+        160
+      ]
+    },
+    {
+      "frame": 90,
+      "side": "left",
+      "slot": 8,
+      "uv": [
+        200,
+        190
+      ]
+    },
+    {
+      "frame": 90,
+      "side": "left",
+      "slot": 12,
+      "uv": [
+        200,
+        202
+      ]
+    },
+    {
+      "frame": 90,
+      "side": "left",
+      "slot": 16,
+      "uv": [
+        199,
+        216
+      ]
+    },
+    {
+      "frame": 90,
+      "side": "left",
+      "slot": 20,
+      "uv": [
+        188,
+        228
+      ]
+    },
+    {
+      "frame": 90,
+      "side": "right",
+      "slot": 0,
+      "uv": [
+        370,
+        246
+      ]
+    },
+    {
+      "frame": 90,
+      "side": "right",
+      "slot": 4,
+      "uv": [
+        318,
+        234
+      ]
+    },
+    {
+      "frame": 180,
+      "side": "left",
+      "slot": 0,
+      "uv": [
+        153,
+        227
+      ]
+    },
+    {
+      "frame": 180,
+      "side": "left",
+      "slot": 4,
+      "uv": [
+        172,
+        154
+      ]
+    },
+    {
+      "frame": 180,
+      "side": "left",
+      "slot": 8,
+      "uv": [
+        194,
+        184
+      ]
+    },
+    {
+      "frame": 180,
+      "side": "left",
+      "slot": 12,
+      "uv": [
+        194,
+        197
+      ]
+    },
+    {
+      "frame": 180,
+      "side": "left",
+      "slot": 16,
+      "uv": [
+        193,
+        211
+      ]
+    },
+    {
+      "frame": 180,
+      "side": "left",
+      "slot": 20,
+      "uv": [
+        182,
+        221
+      ]
+    },
+    {
+      "frame": 270,
+      "side": "left",
+      "slot": 0,
+      "uv": [
+        189,
+        221
+      ]
+    },
+    {
+      "frame": 270,
+      "side": "left",
+      "slot": 4,
+      "uv": [
+        208,
+        151
+      ]
+    },
+    {
+      "frame": 270,
+      "side": "left",
+      "slot": 8,
+      "uv": [
+        229,
+        180
+      ]
+    },
+    {
+      "frame": 270,
+      "side": "left",
+      "slot": 12,
+      "uv": [
+        229,
+        193
+      ]
+    },
+    {
+      "frame": 270,
+      "side": "left",
+      "slot": 16,
+      "uv": [
+        226,
+        207
+      ]
+    },
+    {
+      "frame": 270,
+      "side": "left",
+      "slot": 20,
+      "uv": [
+        215,
+        217
+      ]
+    }
+  ]
+}

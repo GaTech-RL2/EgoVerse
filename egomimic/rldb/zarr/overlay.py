@@ -10,8 +10,8 @@ import numpy as np
 import simplejpeg
 
 from egomimic.rldb.embodiment import Embodiment
-from egomimic.rldb.zarr.calibration import read_calibration
-from egomimic.utils.pose_utils import _xyzwxyz_to_matrix, cam_frame_to_cam_pixels
+from egomimic.rldb.zarr.camera_coverage import camera_coverage
+from egomimic.utils.pose_utils import cam_frame_to_cam_pixels
 
 
 class OverlayUnavailable(ValueError):
@@ -58,32 +58,10 @@ def decode_frame(group, frame: int, camera="front_1") -> np.ndarray:
 
 def camera_context(group, frame, resolved, camera="front_1"):
     """Resolve current optical camera poses for the stored point frame."""
-    calibration = read_calibration(group.attrs)
-    if calibration is None or calibration.K(camera) is None:
-        raise OverlayUnavailable(f"{camera}: no intrinsics")
-    head = array_for(group, "obs_head_pose")
-    if camera == "front_1" and head is not None:
-        if head.shape[1:] != (7,) or head.shape[0] < episode_length(group):
-            raise OverlayUnavailable("obs_head_pose must have shape (T, 7)")
-        pose = np.asarray(head[frame])
-        if not np.isfinite(pose).all() or not np.isclose(
-            np.linalg.norm(pose[3:]), 1, atol=1e-3
-        ):
-            raise OverlayUnavailable(f"invalid obs_head_pose at frame {frame}")
-        transform = _xyzwxyz_to_matrix(pose[None])[0]
-        return calibration.K(camera), {s: transform for s in resolved.end_effectors}
-    transforms = {}
-    for side in resolved.end_effectors:
-        if side in calibration.arm_bases:
-            transform = calibration.base_T_cam(side, camera)
-        else:
-            transform = calibration.ref_T_cam(camera)
-        if transform is None:
-            raise OverlayUnavailable(
-                f"{camera}: no transform from stored {side} point frame"
-            )
-        transforms[side] = transform
-    return calibration.K(camera), transforms
+    coverage = camera_coverage(group, camera, frame, resolved=resolved)
+    if not coverage.available:
+        raise OverlayUnavailable("; ".join(coverage.missing))
+    return coverage.K, coverage.source_T_cam
 
 
 def keypoint_chunk(group, frame, horizon=1, camera="front_1"):
@@ -125,6 +103,9 @@ def keypoint_chunk(group, frame, horizon=1, camera="front_1"):
 def render_keypoints(group, frame, *, image=None, horizon=1, camera="front_1"):
     """Return an RGB overlay and projection diagnostics for the requested view."""
     image = decode_frame(group, frame, camera) if image is None else image
+    coverage = camera_coverage(group, camera, frame, image_shape=image.shape)
+    if not coverage.available:
+        raise OverlayUnavailable("; ".join(coverage.missing))
     resolved, K, chunk, owned = keypoint_chunk(group, frame, horizon, camera)
     points = chunk.reshape(len(chunk), -1, 3)[:, owned].reshape(-1, 3)
     finite = np.isfinite(points).all(axis=-1)
@@ -146,4 +127,43 @@ def render_keypoints(group, frame, *, image=None, horizon=1, camera="front_1"):
         "inside_image": int(inside.sum()),
         "inside_fraction": float(inside.mean()) if len(inside) else 0.0,
     }
+    diagnostics["coverage"] = coverage.to_jsonable()
+    diagnostics["warnings"] = []
+    if diagnostics["inside_fraction"] < 0.5:
+        diagnostics["warnings"].append(
+            "fewer than half of owned keypoints project inside the image"
+        )
+    if inside.any() and np.linalg.norm(np.ptp(pixels[inside], axis=0)) < 3:
+        diagnostics["warnings"].append(
+            "projected points collapse to a near-single pixel"
+        )
+    edge_pixels, edge_metres = [], []
+    full_points = chunk.reshape(len(chunk), 2, -1, 3)
+    for index, side in enumerate(("left", "right")):
+        if side not in resolved.end_effectors:
+            continue
+        slots = resolved.keypoints(side).valid
+        for a, b in Embodiment.FINGER_EDGES:
+            if a not in slots or b not in slots:
+                continue
+            pair = full_points[:, index, [a, b], :]
+            good = np.isfinite(pair).all(axis=(1, 2)) & (pair[:, :, 2] > 0.01).all(
+                axis=1
+            )
+            if not good.any():
+                continue
+            pair = pair[good]
+            projected = cam_frame_to_cam_pixels(pair.reshape(-1, 3), K)[:, :2].reshape(
+                -1, 2, 2
+            )
+            edge_pixels.extend(
+                np.linalg.norm(projected[:, 1] - projected[:, 0], axis=1).tolist()
+            )
+            edge_metres.extend(np.linalg.norm(pair[:, 1] - pair[:, 0], axis=1).tolist())
+    diagnostics["skeleton_edge_px_range"] = (
+        [min(edge_pixels), max(edge_pixels)] if edge_pixels else None
+    )
+    diagnostics["skeleton_edge_m_range"] = (
+        [min(edge_metres), max(edge_metres)] if edge_metres else None
+    )
     return resolved.viz(image, chunk, intrinsics=K), diagnostics

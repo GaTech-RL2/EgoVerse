@@ -11,6 +11,7 @@ import cv2
 import numpy as np
 import zarr
 
+from egomimic.rldb.zarr.camera_coverage import camera_coverage_report
 from egomimic.rldb.zarr.overlay import (
     OverlayUnavailable,
     decode_frame,
@@ -53,6 +54,8 @@ def render_episode(
         "camera": camera,
         "horizon": horizon,
         "total_frames": total,
+        "camera_coverage": camera_coverage_report(group, start),
+        "provenance": group.attrs.get("preview_provenance"),
         "validation": validate_episode(path).to_jsonable(),
         "frames": [],
     }
@@ -75,6 +78,31 @@ def render_episode(
                     group, frame, image=image, horizon=horizon, camera=camera
                 )
                 diagnostic["available"] = True
+                label = None
+                if diagnostic["coverage"]["estimated"]:
+                    label = "ESTIMATED CAMERA / FK KEYPOINTS - analysis only"
+                elif any(
+                    f["level"] != "ok"
+                    and f["check"]
+                    in (
+                        "pose_degeneracy",
+                        "calibration_degeneracy",
+                        "intrinsics_signature",
+                    )
+                    for f in report["validation"]["findings"]
+                ):
+                    label = "Calibration/pose diagnostics - review JSON"
+                if label:
+                    cv2.rectangle(image, (0, 0), (width, 26), (0, 0, 0), -1)
+                    cv2.putText(
+                        image,
+                        label,
+                        (6, 18),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        min(0.42, width / 1200),
+                        (255, 210, 60),
+                        1,
+                    )
             except (OverlayUnavailable, ValueError, KeyError) as exc:
                 diagnostic = {"available": False, "reason": str(exc)}
                 cv2.rectangle(image, (0, 0), (width, 32), (0, 0, 0), -1)
