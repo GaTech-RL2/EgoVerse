@@ -13,17 +13,16 @@ train_datasets:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         stride: 1
     filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: ((row['task'] == 'Folding Clothes') | (row['task'] == '[flagship] Folding Clothes')) & (row['lab'] == 'scale') & (row['embodiment'] == 'human_bimanual') & (row['is_deleted'] == false)"
     mode: train
 
 valid_datasets:
   human_bimanual:
-    _target_: ${train_datasets.human_bimanual._target_}
-    resolver: ${train_datasets.human_bimanual.resolver}
-    filters:
-      task:
-        - "lambda row: ((row['task'] == 'Folding Clothes') | (row['task'] == '[flagship] Folding Clothes')) & (row['lab'] == 'scale') & (row['embodiment'] == 'human_bimanual') & (row['is_deleted'] == false)"
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters: ${data.train_datasets.human_bimanual.filters}
     mode: valid
 
 train_dataloader_params:

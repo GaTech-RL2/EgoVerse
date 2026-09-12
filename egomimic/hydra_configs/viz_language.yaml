@@ -1,4 +1,5 @@
 defaults:
+  - paths: default
   - data: cotrain_pi_lang
   - evaluator/viz@viz_func: cotrain_lang
   - _self_
