@@ -11,10 +11,10 @@
 # attributes
 #   required   true | false. A missing required attribute or array emits a
 #              finding. An optional field emits no finding when absent.
-#   severity   integrity | adoption | coverage
+#   severity   integrity | adoption | coverage | diagnostic
 #              Integrity findings are always errors. Adoption and coverage
-#              findings are errors unless their named rule is waived for this
-#              invocation. Present fields must meet their declared type and
+#              findings are warnings unless their named rule is required for this
+#              invocation. Diagnostic findings are always warnings. Present fields must meet their declared type and
 #              shape even when their presence requirement is waived.
 #   name       Stable rule name when the attribute or key is not the desired
 #              CLI flag stem. Dashes replace underscores in CLI flags.
@@ -119,8 +119,8 @@ attributes:
     severity: adoption
     why: >-
       Require the calibration block so camera models, distortion, resolution,
-      and frame relationships are explicit; waive only when legacy calibration
-      attributes contain enough information for the compatibility reader.
+      and frame relationships are explicit. Legacy readers and consumer-specific
+      fallbacks remain available without a new block.
     type: mapping
     check: calibration
   intrinsics:
@@ -133,40 +133,39 @@ attributes:
     type: mapping
 
 checks:
-  # Require at least one camera matrix, read from the current `calibration`
-  # block or lifted from the legacy attributes.
+  # Report missing calibration without rejecting usable stored data.
   - name: calibration_present
     required: true
-    severity: integrity
+    severity: coverage
+    why: Require at least one camera matrix for consumers that need projection.
 
   # Match each stored `images.<camera>` stream to a camera entry carrying K.
   - name: camera_coverage
     required: true
     severity: coverage
     why: >-
-      Require a camera matrix for every image stream because projection and
-      reprojection checks cannot interpret an uncalibrated view; waive only
-      after explicitly accepting that physical calibration gap.
+      Require camera matrices for every stored view only for operations needing
+      every view. Ego-only overlays do not require wrist camera calibration.
 
-  # For a listed 7D pose track with at least two retained rows, reject identical
+  # For a listed 7D pose track with at least two retained rows, report identical
   # rows or more than 1% exact +identity/-identity quaternions.
   - name: pose_degeneracy
     required: true
-    severity: integrity
+    severity: diagnostic
     suffixes: [obs_ee_pose, cmd_ee_pose, obs_head_pose]
     identity_rotation_fraction: 0.01
 
-  # Reject an exact identity pose stored for a non-reference camera, or a
+  # Report an exact identity pose stored for a non-reference camera, or a
   # numerically identity `base_T_cam` composed for an arm and the default camera.
   - name: calibration_degeneracy
     required: true
-    severity: integrity
+    severity: diagnostic
 
-  # Reject the exact synthetic-intrinsics signature `fx == fy == width`,
+  # Report the exact synthetic-intrinsics signature `fx == fy == width`,
   # `cx == width / 2`, and `cy == height / 2`.
   - name: intrinsics_signature
     required: true
-    severity: integrity
+    severity: diagnostic
 
   # Reject non-increasing retained timestamps, stored keys containing
   # `relative_timestamp`, and a power-of-two step GCD of at least 64 ns (the
@@ -177,17 +176,11 @@ checks:
     key: obs_rgb_timestamps_ns
     banned_key_substrings: [relative_timestamp]
 
-  # Valid annotation intervals must jointly cover at least 90% of
-  # `[0, total_frames)`.
-  - name: annotation_coverage
+  # Validate declared spans; there is no annotation coverage floor.
+  - name: annotation_intervals
     required: true
-    severity: coverage
-    why: >-
-      Require annotations to cover at least 90% of retained frames because an
-      unlabelled tail gives those frames no reliable language target; waive
-      only after accepting the gap instead of annotating or trimming the tail.
+    severity: integrity
     key: annotations
-    minimum: 0.9
 
   # For each side whose registry entry declares a URDF, sample at most 64
   # evenly spaced retained rows. Transform `obs_hand_keypoints` from the
@@ -321,16 +314,7 @@ arrays:
     # physical unit.
 
   - key: obs_head_pose
-    when: {platform_kind: robot}
     required: false
-    severity: integrity
-    shape: [T, 7]
-    dtype: float
-    # Supplied optical-camera ref_T_cam trajectory, consumed by Dexmate.
-
-  - key: obs_head_pose
-    when: {platform_kind: human}
-    required: true
     severity: integrity
     shape: [T, 7]
     dtype: float

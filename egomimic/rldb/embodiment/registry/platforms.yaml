@@ -65,3 +65,16 @@ dexmate_nth_poc1:
   embodiment_class: egomimic.rldb.embodiment.dexmate.Dexmate
   urdf: sharpa/NTH_POC1_0_URDF_250905v4.urdf
   urdf_sha256: c653765bc970c048559ef3a04bba2e4a2c3294e9fb8dfbf0b5d81fb86a93556e
+
+# Existing ABC episodes have six joints per arm and scalar parallel jaws.
+# No model or calibration constants are inferred from another platform.
+yam_x6:
+  kind: robot
+  embodiment_prefix: yam
+  arity: [bimanual]
+  arm_dof: 6
+  aux: null
+  cameras: [front_1, left_wrist, right_wrist]
+  reference_frame: robot_base
+  default_end_effector: yam_parallel_jaw
+  embodiment_class: egomimic.rldb.embodiment.embodiment.Embodiment

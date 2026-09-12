@@ -87,7 +87,7 @@ def test_the_validator_reads_and_checks_the_status(tmp_path) -> None:
     _write(tmp_path / "legacy.zarr")
     store = zarr.open_group(str(tmp_path / "legacy.zarr"), mode="a")
     del store.attrs["data_status"]
-    required = validate_episode(tmp_path / "legacy.zarr")
+    required = validate_episode(tmp_path / "legacy.zarr", requirements={"data_status": True})
     waived = validate_episode(
         tmp_path / "legacy.zarr", requirements={"data_status": False}
     )

@@ -14,6 +14,26 @@ AUX_DOF = 7
 ARM_DOF = 7
 
 
+def test_missing_optional_model_is_a_limitation(
+    write_dexterous, hand_spec, monkeypatch, tmp_path
+):
+    from dataclasses import replace
+
+    from egomimic.rldb.embodiment.registry import load_end_effectors
+
+    path = write_dexterous()
+    entries = {
+        **load_end_effectors(),
+        hand_spec.name: replace(hand_spec, urdf=str(tmp_path / "missing.urdf")),
+    }
+    monkeypatch.setattr(
+        "egomimic.rldb.embodiment.embodiment.load_end_effectors", lambda: entries
+    )
+    report = validate_episode(path)
+    assert report.ok, report.text()
+    assert any(f.check == "fk_unavailable" for f in report.warnings)
+
+
 def _levels(report) -> dict[str, str]:
     return {f.check: f.level for f in report.findings}
 

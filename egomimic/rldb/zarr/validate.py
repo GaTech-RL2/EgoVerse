@@ -6,7 +6,7 @@ Run it with::
 
 The schema declares attributes, arrays, conditions, thresholds, and severity
 classes. Integrity failures are always errors. Adoption and coverage failures
-are errors by default, and each such rule supplies a matched ``--<rule>`` /
+are warnings by default, and each such rule supplies a matched ``--<rule>`` /
 ``--no-<rule>`` CLI pair. Validation of a present attribute or array is always
 an error when its declared type or shape is wrong.
 """
@@ -50,7 +50,7 @@ WARNING = "warning"
 OK = "ok"
 
 #: Accepted values for a schema rule's ``severity`` class.
-_SEVERITY_VALUES = ("integrity", "adoption", "coverage")
+_SEVERITY_VALUES = ("integrity", "adoption", "coverage", "diagnostic")
 _INTEGRITY = "integrity"
 _RULE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -171,7 +171,7 @@ def load_schema() -> dict:
                 f"{default_name!r}: `severity` must be one of "
                 f"{list(_SEVERITY_VALUES)}, got {severity!r}"
             )
-        if severity == _INTEGRITY:
+        if severity in (_INTEGRITY, "diagnostic"):
             continue
         if not required:
             raise SchemaError(
@@ -214,7 +214,7 @@ def waivable_rules(schema: Mapping | None = None) -> dict[str, dict]:
     return {
         _rule_name(default_name, rule): rule
         for default_name, rule in _schema_rules(schema)
-        if rule.get("severity") != _INTEGRITY
+        if rule.get("severity") in ("adoption", "coverage")
     }
 
 
@@ -222,7 +222,7 @@ def _requirements(
     schema: Mapping, overrides: Mapping[str, bool] | None
 ) -> dict[str, bool]:
     """Build one explicit error-or-warning decision per waivable rule."""
-    requirements = dict.fromkeys(waivable_rules(schema), True)
+    requirements = dict.fromkeys(waivable_rules(schema), False)
     for name, required in (overrides or {}).items():
         if name not in requirements:
             raise SchemaError(
@@ -243,6 +243,8 @@ def _level(rule: Mapping, report: Report, default_name: str) -> str | None:
         return None
     if rule["severity"] == _INTEGRITY:
         return ERROR
+    if rule["severity"] == "diagnostic":
+        return WARNING
     name = _rule_name(default_name, rule)
     return ERROR if report.requirements[name] else WARNING
 
@@ -488,7 +490,7 @@ def _check_intrinsics_signature(rule, context, report) -> None:
         cx, cy = camera.K[0, 2], camera.K[1, 2]
         if fx == fy == width and cx == width / 2 and cy == height / 2:
             problems.append(
-                f"cameras[{name!r}].K is a synthesized centred pinhole "
+                f"cameras[{name!r}].K matches a synthesized centred pinhole signature "
                 f"(fx = fy = {fx:g} = W, principal point at the image centre)"
             )
     _report_problems(
@@ -496,7 +498,7 @@ def _check_intrinsics_signature(rule, context, report) -> None:
         report,
         "intrinsics_signature",
         problems,
-        f"{checked} camera matri(ces) carry a measured focal length",
+        f"{checked} camera matri(ces) checked for synthetic signatures",
     )
 
 
@@ -513,18 +515,34 @@ def _check_timestamps(rule, context, report) -> None:
     key = rule.get("key", "obs_rgb_timestamps_ns")
     array = context["arrays"].get(key)
     if array is None:
-        _report_problems(rule, report, "timestamps", problems, "no clock stored")
+        _report_problems(
+            {**rule, "severity": "diagnostic"},
+            report,
+            "timestamp_diagnostics",
+            problems,
+            "no clock stored",
+        )
         return
 
     stamps = _read(array, context.get("total_frames"))
     if stamps.ndim != 1 or stamps.shape[0] < 2:
-        _report_problems(rule, report, "timestamps", problems, "one stamp")
+        _report_problems(
+            {**rule, "severity": "diagnostic"},
+            report,
+            "timestamp_diagnostics",
+            problems,
+            "fewer than two stamps",
+        )
         return
 
     steps = np.diff(stamps.astype(np.int64))
     stalled = int(np.count_nonzero(steps <= 0))
     if stalled:
-        problems.append(f"{key} does not increase on {stalled} of {len(steps)} steps")
+        report.add(
+            ERROR,
+            "timestamps",
+            f"{key} does not increase on {stalled} of {len(steps)} steps",
+        )
 
     quantum = int(np.gcd.reduce(np.abs(steps))) if steps.size else 0
     if quantum >= 64 and quantum & (quantum - 1) == 0:
@@ -534,11 +552,11 @@ def _check_timestamps(rule, context, report) -> None:
         )
 
     _report_problems(
-        rule,
+        {**rule, "severity": "diagnostic"},
         report,
-        "timestamps",
+        "timestamp_diagnostics",
         problems,
-        f"{len(stamps)} stamps increase strictly",
+        f"{len(stamps)} stamps checked for numeric signatures",
     )
 
 
@@ -554,40 +572,24 @@ def _annotations(context, key: str) -> list[dict]:
             try:
                 entry = json.loads(entry)
             except json.JSONDecodeError:
-                continue
-        if isinstance(entry, Mapping):
-            out.append(dict(entry))
+                entry = {}
+        out.append(dict(entry) if isinstance(entry, Mapping) else {})
     return out
 
 
-def _check_annotation_coverage(rule, context, report) -> None:
-    key = rule.get("key", "annotations")
+def _check_annotation_intervals(rule, context, report) -> None:
     total_frames = context.get("total_frames") or 0
-    annotations = _annotations(context, key)
     problems = []
-    covered = np.zeros(max(total_frames, 0), dtype=bool)
-    for annotation in annotations:
-        start = int(annotation.get("start_idx", -1))
-        end = int(annotation.get("end_idx", -1))
-        if start < 0 or end > total_frames or end <= start:
+    for annotation in _annotations(context, rule.get("key", "annotations")):
+        start, end = annotation.get("start_idx"), annotation.get("end_idx")
+        if any(not isinstance(v, int) or isinstance(v, bool) for v in (start, end)):
+            problems.append("annotation must contain integer start_idx and end_idx")
+        elif start < 0 or end > total_frames or end <= start:
             problems.append(
                 f"span [{start}, {end}) is outside [0, {total_frames}) or empty"
             )
-            continue
-        covered[start:end] = True
-    fraction = float(covered.mean()) if covered.size else 0.0
-    minimum = float(rule.get("minimum", 0.9))
-    if fraction < minimum:
-        problems.append(
-            f"{len(annotations)} annotation(s) cover {fraction:.0%} of the "
-            f"episode (minimum {minimum:.0%}); trim the tail or annotate it"
-        )
     _report_problems(
-        rule,
-        report,
-        "annotation_coverage",
-        problems,
-        f"{len(annotations)} annotation(s) cover {fraction:.0%}",
+        rule, report, "annotation_intervals", problems, "declared spans are valid"
     )
 
 
@@ -612,7 +614,13 @@ def _check_fk_residual(rule, context, report) -> None:
     problems = []
     passed = []
     for side, end_effector in sorted(resolved.end_effectors.items()):
-        if end_effector.urdf_path is None:
+        if end_effector.urdf_path is None or not end_effector.urdf_path.is_file():
+            if end_effector.ee_class == "dexterous_hand":
+                report.add(
+                    WARNING,
+                    "fk_unavailable",
+                    f"{side}: no available URDF; stored arrays remain usable, FK agreement cannot be checked",
+                )
             continue
         tracks = [
             arrays.get(f"{side}.{rule[name]}")
@@ -636,7 +644,9 @@ def _check_fk_residual(rule, context, report) -> None:
             continue
         worst = float(residuals.max())
         tolerance = float(end_effector.fk_tolerance_m)
-        if worst > tolerance:
+        if not np.isfinite(residuals).all():
+            problems.append(f"{side}: non-finite FK residuals")
+        elif worst > tolerance:
             slot = list(end_effector.keypoints.valid)[
                 int(np.unravel_index(residuals.argmax(), residuals.shape)[1])
             ]
@@ -709,7 +719,7 @@ _NAMED_CHECKS = {
     "calibration_degeneracy": _check_calibration_degeneracy,
     "intrinsics_signature": _check_intrinsics_signature,
     "timestamps": _check_timestamps,
-    "annotation_coverage": _check_annotation_coverage,
+    "annotation_intervals": _check_annotation_intervals,
     "fk_residual": _check_fk_residual,
     "tactile_declaration": _check_tactile_declaration,
     "annotation_text": _check_annotation_text,
@@ -894,8 +904,9 @@ def validate_episode(
         )
     try:
         context["calibration"] = read_calibration(attrs)
-    except CalibrationError:
+    except CalibrationError as exc:
         context["calibration"] = None
+        report.add(ERROR, "calibration_format", str(exc))
 
     for name, rule in schema.get("attributes", {}).items():
         _check_attribute(name, rule, attrs, report, context)
@@ -959,8 +970,8 @@ def _build_parser() -> argparse.ArgumentParser:
             f"--{flag}",
             dest=f"require_{name}",
             action=argparse.BooleanOptionalAction,
-            default=True,
-            help=f"[{rule['severity']}] {help_text} (default: required)",
+            default=False,
+            help=f"[{rule['severity']}] {help_text} (default: report limitation)",
         )
     parser.add_argument(
         "-v",

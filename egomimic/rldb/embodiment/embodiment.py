@@ -37,6 +37,7 @@ class EMBODIMENT(Enum):
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
     DEXMATE_BIMANUAL = 7
+    YAM_BIMANUAL = 8
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

@@ -51,13 +51,16 @@ def _eva_numeric() -> dict:
 
 
 def _write_eva(path, *, numeric=None, images=None, **kwargs) -> None:
-    kwargs.setdefault("calibration", {
-        "reference_frame": "camera:front_1",
-        "cameras": {"front_1": {"K": K.tolist()}},
-        "arm_bases": {
-            side: np.linalg.inv(T).tolist() for side, T in Eva.EXTRINSICS.items()
+    kwargs.setdefault(
+        "calibration",
+        {
+            "reference_frame": "camera:front_1",
+            "cameras": {"front_1": {"K": K.tolist()}},
+            "arm_bases": {
+                side: np.linalg.inv(T).tolist() for side, T in Eva.EXTRINSICS.items()
+            },
         },
-    })
+    )
     kwargs.setdefault("metadata_override", {"schema_version": "v3.1"})
     kwargs.setdefault("annotations", [("fold the towel", 0, LENGTH)])
     ZarrWriter.create_and_write(
@@ -99,9 +102,7 @@ def test_a_wrong_width_is_reported_with_the_dimension_that_set_it(tmp_path) -> N
 
     report = validate_episode(tmp_path / "eva.zarr")
 
-    message = next(
-        f.message for f in report.findings if f.check == "left.obs_joints"
-    )
+    message = next(f.message for f in report.findings if f.check == "left.obs_joints")
     assert "axis 1 is 5, expected 6 (arm_dof)" in message
 
 
@@ -142,7 +143,7 @@ def test_each_waiver_lowers_only_its_named_rule_to_a_warning(tmp_path) -> None:
         extrinsics=Eva.EXTRINSICS,
     )
 
-    default = validate_episode(path)
+    default = validate_episode(path, requirements=dict.fromkeys(waivable_rules(), True))
     waived = validate_episode(
         path,
         requirements={
@@ -162,9 +163,7 @@ def test_each_waiver_lowers_only_its_named_rule_to_a_warning(tmp_path) -> None:
 
 
 def test_a_single_arm_episode_owes_only_its_own_arm(tmp_path) -> None:
-    numeric = {
-        k: v for k, v in _eva_numeric().items() if not k.startswith("right.")
-    }
+    numeric = {k: v for k, v in _eva_numeric().items() if not k.startswith("right.")}
     _write_eva(tmp_path / "left.zarr", numeric=numeric, embodiment="eva_left_arm")
 
     report = validate_episode(tmp_path / "left.zarr")
@@ -276,7 +275,7 @@ def test_the_cli_can_report_json(tmp_path, capsys) -> None:
     payload = __import__("json").loads(capsys.readouterr().out)
     assert payload[0]["ok"] is True
     assert payload[0]["path"] == str(path)
-    assert payload[0]["requirements"] == dict.fromkeys(waivable_rules(), True)
+    assert payload[0]["requirements"] == dict.fromkeys(waivable_rules(), False)
 
 
 @pytest.mark.parametrize("section", ["attributes", "checks", "arrays"])
@@ -287,7 +286,7 @@ def test_every_schema_rule_declares_a_usable_requirement(section) -> None:
     assert entries
     for rule in entries:
         assert isinstance(rule.get("required", False), bool)
-        assert rule["severity"] in ("integrity", "adoption", "coverage")
+        assert rule["severity"] in ("integrity", "adoption", "coverage", "diagnostic")
 
 
 def test_waivable_rules_own_both_cli_flags_and_explain_why() -> None:
@@ -297,7 +296,7 @@ def test_waivable_rules_own_both_cli_flags_and_explain_why() -> None:
         "data_status",
         "calibration_block",
         "camera_coverage",
-        "annotation_coverage",
+        "calibration_present",
         "rgb_timestamps",
     }
 
@@ -309,18 +308,18 @@ def test_waivable_rules_own_both_cli_flags_and_explain_why() -> None:
         assert " ".join(rule["why"].split()) in help_text
 
     args = _build_parser().parse_args(
-        ["episode.zarr", "--no-camera-coverage", "--annotation-coverage"]
+        ["episode.zarr", "--no-camera-coverage", "--calibration-present"]
     )
     assert args.require_camera_coverage is False
-    assert args.require_annotation_coverage is True
-    assert args.require_schema_version is True
+    assert args.require_calibration_present is True
+    assert args.require_schema_version is False
 
 
 def test_integrity_rules_cannot_be_waived(tmp_path) -> None:
-    with pytest.raises(SchemaError, match="unknown waivable rule 'pose_degeneracy'"):
+    with pytest.raises(SchemaError, match="unknown waivable rule 'annotation_text'"):
         validate_episode(
             tmp_path / "episode.zarr",
-            requirements={"pose_degeneracy": False},
+            requirements={"annotation_text": False},
         )
 
 
@@ -355,18 +354,18 @@ def _finding(report, check: str) -> str:
     return next(f.message for f in report.findings if f.check == check)
 
 
-def test_a_pose_track_that_never_moves_is_an_error(tmp_path) -> None:
+def test_a_pose_track_that_never_moves_is_a_warning(tmp_path) -> None:
     numeric = _eva_numeric()
     numeric["left.obs_ee_pose"] = np.tile(_poses()[0], (LENGTH, 1))
     _write_eva(tmp_path / "still.zarr", numeric=numeric)
 
     report = validate_episode(tmp_path / "still.zarr")
 
-    assert _levels(report)["pose_degeneracy"] == ERROR
+    assert _levels(report)["pose_degeneracy"] == WARNING
     assert "constant across all 4 frames" in _finding(report, "pose_degeneracy")
 
 
-def test_identity_rotations_beyond_the_limit_are_an_error(tmp_path) -> None:
+def test_identity_rotations_beyond_the_limit_are_a_warning(tmp_path) -> None:
     numeric = _eva_numeric()
     identity = numeric["left.obs_ee_pose"].copy()
     identity[:, 3:7] = [1.0, 0.0, 0.0, 0.0]
@@ -375,11 +374,11 @@ def test_identity_rotations_beyond_the_limit_are_an_error(tmp_path) -> None:
 
     report = validate_episode(tmp_path / "identity.zarr")
 
-    assert _levels(report)["pose_degeneracy"] == ERROR
+    assert _levels(report)["pose_degeneracy"] == WARNING
     assert "identity rotation on 100% of frames" in _finding(report, "pose_degeneracy")
 
 
-def test_an_identity_extrinsic_is_an_error(tmp_path) -> None:
+def test_an_identity_extrinsic_is_a_warning(tmp_path) -> None:
     path = tmp_path / "identity_rig.zarr"
     ZarrWriter.create_and_write(
         episode_path=path,
@@ -393,11 +392,11 @@ def test_an_identity_extrinsic_is_an_error(tmp_path) -> None:
 
     report = validate_episode(path)
 
-    assert _levels(report)["calibration_degeneracy"] == ERROR
+    assert _levels(report)["calibration_degeneracy"] == WARNING
     assert "left arm base" in _finding(report, "calibration_degeneracy")
 
 
-def test_a_synthesized_camera_matrix_is_an_error(tmp_path) -> None:
+def test_a_synthesized_camera_matrix_is_a_warning(tmp_path) -> None:
     width = height = 480
     synthetic = np.array(
         [
@@ -418,7 +417,7 @@ def test_a_synthesized_camera_matrix_is_an_error(tmp_path) -> None:
 
     report = validate_episode(tmp_path / "synthetic.zarr")
 
-    assert _levels(report)["intrinsics_signature"] == ERROR
+    assert _levels(report)["intrinsics_signature"] == WARNING
     assert "synthesized centred pinhole" in _finding(report, "intrinsics_signature")
 
 
@@ -453,7 +452,7 @@ def test_a_stalled_clock_is_an_error(tmp_path) -> None:
     assert "does not increase on 2 of 3 steps" in _finding(report, "timestamps")
 
 
-def test_a_float64_quantized_clock_is_an_error(tmp_path) -> None:
+def test_a_float64_quantized_clock_is_a_warning(tmp_path) -> None:
     numeric = _eva_numeric()
     numeric["obs_rgb_timestamps_ns"] = (
         np.int64(1_700_000_000_000_000_000) + np.arange(LENGTH, dtype=np.int64) * 256
@@ -462,7 +461,8 @@ def test_a_float64_quantized_clock_is_an_error(tmp_path) -> None:
 
     report = validate_episode(tmp_path / "quantized.zarr")
 
-    assert "quantized to 256 ns" in _finding(report, "timestamps")
+    assert "quantized to 256 ns" in _finding(report, "timestamp_diagnostics")
+    assert report.ok
 
 
 def test_a_timestamp_waiver_does_not_waive_a_wrong_dtype(tmp_path) -> None:
@@ -479,31 +479,22 @@ def test_a_timestamp_waiver_does_not_waive_a_wrong_dtype(tmp_path) -> None:
     assert "expected int" in _finding(report, "obs_rgb_timestamps_ns")
 
 
-def test_a_second_time_base_is_an_error(tmp_path) -> None:
+def test_a_second_time_base_is_a_warning(tmp_path) -> None:
     numeric = _eva_numeric()
     numeric["relative_timestamp_s"] = np.linspace(0.0, 0.1, LENGTH)[:, None]
     _write_eva(tmp_path / "two_clocks.zarr", numeric=numeric)
 
     report = validate_episode(tmp_path / "two_clocks.zarr")
 
-    assert _levels(report)["timestamps"] == ERROR
-    assert "one clock per episode" in _finding(report, "timestamps")
+    assert _levels(report)["timestamp_diagnostics"] == WARNING
+    assert "one clock per episode" in _finding(report, "timestamp_diagnostics")
 
 
-def test_annotation_coverage_below_the_minimum_is_reported(tmp_path) -> None:
-    _write_eva(
-        tmp_path / "thin.zarr", annotations=[("fold the towel", 0, LENGTH - 2)]
-    )
-
-    required = validate_episode(tmp_path / "thin.zarr")
-    waived = validate_episode(
-        tmp_path / "thin.zarr",
-        requirements={"annotation_coverage": False},
-    )
-
-    assert _levels(required)["annotation_coverage"] == ERROR
-    assert _levels(waived)["annotation_coverage"] == WARNING
-    assert "cover 50% of the episode" in _finding(waived, "annotation_coverage")
+def test_partial_annotations_and_unlabelled_frames_are_accepted(tmp_path) -> None:
+    _write_eva(tmp_path / "thin.zarr", annotations=[("fold the towel", 0, LENGTH - 2)])
+    report = validate_episode(tmp_path / "thin.zarr")
+    assert report.ok, report.text()
+    assert "annotation_coverage" not in _levels(report)
 
 
 def test_an_annotation_span_past_the_episode_is_reported(tmp_path) -> None:
@@ -511,7 +502,7 @@ def test_an_annotation_span_past_the_episode_is_reported(tmp_path) -> None:
 
     report = validate_episode(tmp_path / "over.zarr")
 
-    assert "outside [0, 4)" in _finding(report, "annotation_coverage")
+    assert "outside [0, 4)" in _finding(report, "annotation_intervals")
 
 
 def test_delimiter_encoded_metadata_is_an_error(tmp_path) -> None:

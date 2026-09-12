@@ -245,3 +245,10 @@ sharpa_wave_v1_right:
     20: right_pinky_fingertip
   fk_tolerance_m: 0.005
   dead_dims: []
+
+# ABC/YAM's aperture array does not imply EVA's kinematics or calibration.
+yam_parallel_jaw:
+  class: parallel_jaw
+  dof: 1
+  action_space: cartesian
+  keypoints: {topology: mano21, valid: [0, 4, 8]}
