@@ -181,6 +181,75 @@ def get_fallback_idx(
     return random.choice(valid_candidates), attempts
 
 
+class PinError(ValueError):
+    """A pinned episode_hash cannot be used: missing, deleted, no processed
+    path, or its embodiment does not match the dataset it was pinned under."""
+
+
+def _check_pins(
+    df: pd.DataFrame, filters: DatasetFilter, expected_embodiment: str | None
+) -> None:
+    pins = filters.episode_hashes
+    if not pins:
+        return
+    # Duplicate rows for one hash would make `row[...]` a Series instead of a
+    # scalar, so collapse to one row per hash before indexing.
+    by_hash = (
+        df.drop_duplicates("episode_hash").set_index("episode_hash", drop=False)
+        if "episode_hash" in df.columns
+        else None
+    )
+    problems: list[str] = []
+    for h in sorted(pins):
+        if by_hash is None or h not in by_hash.index:
+            problems.append(f"{h}: not in app.episodes")
+            continue
+        row = by_hash.loc[h]
+        if not _is_missing_filter_value(row.get("is_deleted")) and bool(
+            row["is_deleted"]
+        ):
+            problems.append(f"{h}: is_deleted")
+        if (
+            _is_missing_filter_value(row.get("zarr_processed_path"))
+            or not str(row["zarr_processed_path"]).strip()
+        ):
+            problems.append(f"{h}: empty zarr_processed_path")
+        if expected_embodiment is not None:
+            emb = str(row.get("embodiment", ""))
+            if emb != expected_embodiment:
+                problems.append(
+                    f"{h}: embodiment '{emb}' != dataset '{expected_embodiment}'"
+                )
+    if problems:
+        name = expected_embodiment or "<unnamed>"
+        raise PinError(
+            f"{len(problems)} pinned episode(s) invalid for dataset '{name}':\n  "
+            + "\n  ".join(problems)
+        )
+
+
+def _warn_embodiment_mismatch(
+    rows: pd.DataFrame, expected_embodiment: str | None, source: str
+) -> None:
+    if expected_embodiment is None or "embodiment" not in rows:
+        return
+    mismatched = rows.loc[rows["embodiment"].astype(str) != expected_embodiment]
+    if len(mismatched):
+        details = sorted(
+            f"{h} ({e})"
+            for h, e in zip(
+                mismatched["episode_hash"], mismatched["embodiment"].astype(str)
+            )
+        )
+        logger.warning(
+            "%s: %d resolved episode(s) have embodiment != dataset '%s': %s",
+            source,
+            len(mismatched),
+            expected_embodiment,
+            details,
+        )
+
+
 class EpisodeResolver:
     """
     Base class for episode resolution utilities.
@@ -272,6 +341,7 @@ class S3EpisodeResolver(EpisodeResolver):
     def resolve(
         self,
         filters: DatasetFilter | None = None,
+        expected_embodiment: str | None = None,
     ) -> dict[str, "ZarrDataset"]:
         """
         Outputs a dict of ZarrDatasets with relevant filters.
@@ -291,6 +361,7 @@ class S3EpisodeResolver(EpisodeResolver):
             filters=filters,
             local_dir=self.folder_path,
             debug=self.debug,
+            expected_embodiment=expected_embodiment,
         )
 
         valid_hashes = {hashes for _, hashes in filtered_paths}
@@ -309,7 +380,9 @@ class S3EpisodeResolver(EpisodeResolver):
 
     @staticmethod
     def _get_filtered_paths(
-        filters: DatasetFilter | None = None, debug: int | bool | None = None
+        filters: DatasetFilter | None = None,
+        debug: int | bool | None = None,
+        expected_embodiment: str | None = None,
     ) -> list[tuple[str, str]]:
         """
         Filters episodes from the SQL episode table according to the criteria specified in `filters`
@@ -327,6 +400,9 @@ class S3EpisodeResolver(EpisodeResolver):
         filters = _ensure_dataset_filter(filters)
         engine = create_default_engine()
         df = episode_table_to_df(engine)
+        # Before the empty-table early return: pins against an empty table are
+        # still invalid and must raise rather than silently resolve to nothing.
+        _check_pins(df, filters, expected_embodiment)
         if df.empty:
             logger.info("Episode table is empty.")
             return []
@@ -335,18 +411,22 @@ class S3EpisodeResolver(EpisodeResolver):
             lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
             axis=1,
         )
-        output = df.loc[mask, ["zarr_processed_path", "episode_hash"]]
-        n_matched_sql = len(output)
+        matched = df.loc[mask]
+        n_matched_sql = len(matched)
 
-        output = output[
-            output["zarr_processed_path"].fillna("").astype(str).str.strip() != ""
+        matched = matched[
+            matched["zarr_processed_path"].fillna("").astype(str).str.strip() != ""
         ]
-        n_skipped_null = n_matched_sql - len(output)
+        n_skipped_null = n_matched_sql - len(matched)
         if n_skipped_null:
             logger.info(
                 "Skipped %d episodes with null/empty zarr_processed_path.",
                 n_skipped_null,
             )
+
+        # Warn only about episodes that actually make it into the dataset.
+        _warn_embodiment_mismatch(matched, expected_embodiment, "S3EpisodeResolver")
+        output = matched[["zarr_processed_path", "episode_hash"]]
 
         if debug is not None and debug is not False:
             k = min(10 if debug is True else int(debug), len(output))
@@ -453,6 +533,7 @@ class S3EpisodeResolver(EpisodeResolver):
         local_dir: Path,
         numworkers: int = 10,
         debug: int | bool | None = None,
+        expected_embodiment: str | None = None,
     ):
         """
         Public API:
@@ -469,7 +550,9 @@ class S3EpisodeResolver(EpisodeResolver):
         filters = _ensure_dataset_filter(filters)
 
         # 1) Resolve episodes from DB
-        filtered_paths = cls._get_filtered_paths(filters, debug=debug)
+        filtered_paths = cls._get_filtered_paths(
+            filters, debug=debug, expected_embodiment=expected_embodiment
+        )
         if not filtered_paths:
             logger.warning("No episodes matched filters.")
             return []
@@ -554,8 +637,12 @@ class SafeS3EpisodeResolver(S3EpisodeResolver):
         self.require_annotations = require_annotations
         self.annotation_key = annotation_key
 
-    def resolve(self, filters=None) -> dict[str, "ZarrDataset"]:
-        datasets = super().resolve(filters=filters)
+    def resolve(
+        self, filters=None, expected_embodiment=None
+    ) -> dict[str, "ZarrDataset"]:
+        datasets = super().resolve(
+            filters=filters, expected_embodiment=expected_embodiment
+        )
         if self.key_map is None:
             return datasets
 
@@ -622,44 +709,74 @@ class LocalEpisodeResolver(EpisodeResolver):
         super().__init__(folder_path, key_map, transform_list)
         self.debug = debug
 
-    @staticmethod
-    def _local_filters_match(
-        metadata: dict,
-        episode_hash: str,
-        filters: DatasetFilter,
-    ) -> bool:
-        return filters.matches(
-            _normalize_filter_row(metadata, episode_hash=episode_hash)
-        )
-
     @classmethod
     def _get_local_filtered_paths(
         cls,
         search_path: Path,
         filters: DatasetFilter | None = None,
         debug: int | bool | None = None,
+        expected_embodiment: str | None = None,
     ):
         filters = _ensure_dataset_filter(filters)
         if not search_path.is_dir():
             logger.warning("Local path does not exist: %s", search_path)
             return []
 
-        filtered = []
+        rows: list[dict] = []  # one normalized attrs row per episode dir
+        paths_by_hash: dict[str, str] = {}
         for p in sorted(search_path.iterdir()):
             if not p.is_dir():
                 continue
-
             episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
-
             try:
                 store = zarr.open_group(str(p), mode="r")
                 metadata = dict(store.attrs)
             except Exception as e:
                 logger.warning("Failed to read metadata for %s: %s", p, e)
                 continue
+            rows.append(_normalize_filter_row(metadata, episode_hash=episode_hash))
+            paths_by_hash[episode_hash] = str(p)
 
-            if cls._local_filters_match(metadata, episode_hash, filters):
-                filtered.append((str(p), episode_hash))
+        if filters.episode_hashes:
+            present = {r["episode_hash"]: r for r in rows}
+            problems = []
+            for h in sorted(filters.episode_hashes):
+                if h not in present:
+                    problems.append(f"{h}: not in local directory {search_path}")
+                elif expected_embodiment is not None:
+                    emb = str(present[h].get("embodiment", ""))
+                    if emb != expected_embodiment:
+                        problems.append(
+                            f"{h}: embodiment '{emb}' != dataset '{expected_embodiment}'"
+                        )
+            if problems:
+                raise PinError(
+                    f"{len(problems)} pinned episode(s) invalid for dataset "
+                    f"'{expected_embodiment or '<unnamed>'}':\n  "
+                    + "\n  ".join(problems)
+                )
+
+        # Evaluate the filters once; both the path list and the mismatch warning
+        # below are derived from the same matched rows.
+        matched = [r for r in rows if filters.matches(r)]
+        filtered = [
+            (paths_by_hash[r["episode_hash"]], r["episode_hash"]) for r in matched
+        ]
+        if expected_embodiment is not None:
+            bad = sorted(
+                (r["episode_hash"], str(r.get("embodiment", "")))
+                for r in matched
+                if str(r.get("embodiment", "")) != expected_embodiment
+            )
+            if bad:
+                details = [f"{h} ({e})" for h, e in bad]
+                logger.warning(
+                    "LocalEpisodeResolver: %d resolved episode(s) have embodiment != "
+                    "dataset '%s': %s",
+                    len(bad),
+                    expected_embodiment,
+                    details,
+                )
 
         if debug is not None and debug is not False:
             k = min(10 if debug is True else int(debug), len(filtered))
@@ -674,6 +791,7 @@ class LocalEpisodeResolver(EpisodeResolver):
         self,
         sync_from_s3=False,
         filters: DatasetFilter | None = None,
+        expected_embodiment: str | None = None,
     ) -> dict[str, "ZarrDataset"]:
         """
         Outputs a dict of ZarrDatasets with relevant filters from local data.
@@ -686,7 +804,10 @@ class LocalEpisodeResolver(EpisodeResolver):
         filters = _ensure_dataset_filter(filters)
 
         filtered_paths = self._get_local_filtered_paths(
-            self.folder_path, filters, debug=self.debug
+            self.folder_path,
+            filters,
+            debug=self.debug,
+            expected_embodiment=expected_embodiment,
         )
 
         valid_folder_names = {folder_name for _, folder_name in filtered_paths}
@@ -962,15 +1083,44 @@ class MultiDataset(torch.utils.data.Dataset):
         return next_idx, attempts
 
     @classmethod
-    def _from_resolver(cls, resolver: EpisodeResolver, **kwargs):
-        """create a MultiDataset from an EpisodeResolver."""
+    def _from_resolver(
+        cls, resolver: EpisodeResolver, dataset_name: str | None = None, **kwargs
+    ):
+        """create a MultiDataset from an EpisodeResolver.
+
+        dataset_name: the config key this dataset is built under (trainHydra passes
+        it). When it names an embodiment, pinned episodes must carry that
+        embodiment (PinError otherwise) and other mismatches are logged.
+
+        Every pinned episode must also end up in the dataset: a pin that
+        filter_lambdas or the debug limit exclude, or that fails to load or is
+        skipped by the resolver, is a PinError rather than a silent drop."""
         sync_from_s3 = kwargs.pop("sync_from_s3", False)
         filters = kwargs.pop("filters", None)
+        expected = None
+        if dataset_name is not None:
+            try:
+                get_embodiment_id(dataset_name)
+                expected = dataset_name
+            except (KeyError, AttributeError):
+                expected = None
 
         if isinstance(resolver, LocalEpisodeResolver):
-            resolved = resolver.resolve(sync_from_s3=sync_from_s3, filters=filters)
+            resolved = resolver.resolve(
+                sync_from_s3=sync_from_s3, filters=filters, expected_embodiment=expected
+            )
         else:
-            resolved = resolver.resolve(filters=filters)
+            resolved = resolver.resolve(filters=filters, expected_embodiment=expected)
+
+        pins = filters.episode_hashes if isinstance(filters, DatasetFilter) else ()
+        dropped = sorted(set(pins) - set(resolved))
+        if dropped:
+            raise PinError(
+                f"{len(dropped)} pinned episode(s) not in dataset "
+                f"'{dataset_name or '<unnamed>'}': {dropped}. They were excluded by "
+                "filter_lambdas or the resolver's debug limit, or failed to load / "
+                "were skipped by the resolver (see the log above)."
+            )
 
         return cls(datasets=resolved, **kwargs)
 
