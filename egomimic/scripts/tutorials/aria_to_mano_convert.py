@@ -42,9 +42,9 @@ from egomimic.rldb.embodiment.human import (
     ARIA_FINGER_EDGES,
     Human,
 )
-from egomimic.scripts.aria_process.aria_utils import fit_mano_to_aria_batched
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, S3EpisodeResolver
+from egomimic.scripts.aria_process.aria_utils import fit_mano_to_aria_batched
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
 
@@ -104,8 +104,8 @@ def gather_aria_keypoints(loader, n_frames):
         if i >= n_frames:
             break
         akp = batch["actions_keypoints"][0, 0]  # (138,)
-        left_kp = akp[6:6 + 63].reshape(21, 3)
-        right_kp = akp[75:75 + 63].reshape(21, 3)
+        left_kp = akp[6 : 6 + 63].reshape(21, 3)
+        right_kp = akp[75 : 75 + 63].reshape(21, 3)
         rows.append(
             {
                 "batch": batch,
@@ -118,11 +118,11 @@ def gather_aria_keypoints(loader, n_frames):
 
 
 FINGER_LEGEND = [
-    ("thumb",  (255, 100, 100)),
-    ("index",  (100, 255, 100)),
+    ("thumb", (255, 100, 100)),
+    ("index", (100, 255, 100)),
     ("middle", (100, 100, 255)),
-    ("ring",   (255, 255, 100)),
-    ("pinky",  (255, 100, 255)),
+    ("ring", (255, 255, 100)),
+    ("pinky", (255, 100, 255)),
 ]
 
 
@@ -132,7 +132,16 @@ def _add_title_bar(panel, lines, bar_h=70):
     bar = np.zeros((bar_h, w, 3), dtype=panel.dtype)
     y = 22
     for line in lines:
-        cv2.putText(bar, line, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(
+            bar,
+            line,
+            (10, y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
         y += 22
     return np.concatenate([bar, panel], axis=0)
 
@@ -141,11 +150,29 @@ def _draw_legend(panel):
     """Draw a finger color legend in the top-right corner of `panel`."""
     x0 = panel.shape[1] - 130
     y = 20
-    cv2.putText(panel, "fingers:", (x0, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1, cv2.LINE_AA)
+    cv2.putText(
+        panel,
+        "fingers:",
+        (x0, y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.5,
+        (255, 255, 255),
+        1,
+        cv2.LINE_AA,
+    )
     y += 18
     for name, color in FINGER_LEGEND:
         cv2.rectangle(panel, (x0, y - 10), (x0 + 14, y + 2), color, -1)
-        cv2.putText(panel, name, (x0 + 20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1, cv2.LINE_AA)
+        cv2.putText(
+            panel,
+            name,
+            (x0 + 20, y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
         y += 16
     return panel
 
@@ -178,21 +205,32 @@ def render_side_by_side(rows, mano_left_canonical, mano_right_canonical):
 
         # Equal-height padding
         h = max(aria_vis.shape[0], mano_vis.shape[0])
+
         def pad(im):
             if im.shape[0] != h:
-                im = cv2.copyMakeBorder(im, 0, h - im.shape[0], 0, 0, cv2.BORDER_CONSTANT)
+                im = cv2.copyMakeBorder(
+                    im, 0, h - im.shape[0], 0, 0, cv2.BORDER_CONSTANT
+                )
             return im
-        aria_vis = pad(aria_vis); mano_vis = pad(mano_vis)
+
+        aria_vis = pad(aria_vis)
+        mano_vis = pad(mano_vis)
         aria_vis = _draw_legend(aria_vis.copy())
         mano_vis = _draw_legend(mano_vis.copy())
 
         aria_vis = _add_title_bar(
             aria_vis,
-            ["LEFT: Aria (original 21 kp/hand)", "edges: Aria layout (palm=5, tips=0-4)"],
+            [
+                "LEFT: Aria (original 21 kp/hand)",
+                "edges: Aria layout (palm=5, tips=0-4)",
+            ],
         )
         mano_vis = _add_title_bar(
             mano_vis,
-            ["RIGHT: Aria->MANO fit (per-frame optimization)", "edges: canonical MANO (wrist=0, thumb=1-4...)"],
+            [
+                "RIGHT: Aria->MANO fit (per-frame optimization)",
+                "edges: canonical MANO (wrist=0, thumb=1-4...)",
+            ],
         )
 
         # Vertical divider strip
@@ -202,8 +240,14 @@ def render_side_by_side(rows, mano_left_canonical, mano_right_canonical):
         # Frame counter footer
         footer = np.zeros((28, combined.shape[1], 3), dtype=combined.dtype)
         cv2.putText(
-            footer, f"frame {i+1}/{n}   |   fit: 400 Adam iters, MANO PCA-45 + beta-10 + global R/t per hand   |   correspondence is hand-coded (see script header)",
-            (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (220, 220, 220), 1, cv2.LINE_AA,
+            footer,
+            f"frame {i+1}/{n}   |   fit: 400 Adam iters, MANO PCA-45 + beta-10 + global R/t per hand   |   correspondence is hand-coded (see script header)",
+            (10, 20),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (220, 220, 220),
+            1,
+            cv2.LINE_AA,
         )
         combined = np.concatenate([combined, footer], axis=0)
         frames.append(combined)
@@ -214,15 +258,33 @@ def main() -> None:
     loader = fetch_episode_loader()
     rows = gather_aria_keypoints(loader, NUM_FRAMES)
 
-    aria_left = torch.stack([r["left_aria_kp"] for r in rows])    # (N, 21, 3)
+    aria_left = torch.stack([r["left_aria_kp"] for r in rows])  # (N, 21, 3)
     aria_right = torch.stack([r["right_aria_kp"] for r in rows])  # (N, 21, 3)
-    print(f"Left aria valid wrist count: {torch.isfinite(aria_left[:,5]).all(-1).sum().item()}/{len(rows)}")
-    print(f"Right aria valid wrist count: {torch.isfinite(aria_right[:,5]).all(-1).sum().item()}/{len(rows)}")
+    print(
+        f"Left aria valid wrist count: {torch.isfinite(aria_left[:,5]).all(-1).sum().item()}/{len(rows)}"
+    )
+    print(
+        f"Right aria valid wrist count: {torch.isfinite(aria_right[:,5]).all(-1).sum().item()}/{len(rows)}"
+    )
 
     print("Fitting LEFT hand...")
-    mano_left = fit_mano_to_aria_batched(aria_left, is_rhand=False, n_iters=NUM_FIT_ITERS, lr=LR, beta_reg=BETA_REG, verbose=True)
+    mano_left = fit_mano_to_aria_batched(
+        aria_left,
+        is_rhand=False,
+        n_iters=NUM_FIT_ITERS,
+        lr=LR,
+        beta_reg=BETA_REG,
+        verbose=True,
+    )
     print("Fitting RIGHT hand...")
-    mano_right = fit_mano_to_aria_batched(aria_right, is_rhand=True, n_iters=NUM_FIT_ITERS, lr=LR, beta_reg=BETA_REG, verbose=True)
+    mano_right = fit_mano_to_aria_batched(
+        aria_right,
+        is_rhand=True,
+        n_iters=NUM_FIT_ITERS,
+        lr=LR,
+        beta_reg=BETA_REG,
+        verbose=True,
+    )
 
     print("Rendering...")
     frames = render_side_by_side(rows, mano_left, mano_right)
@@ -230,7 +292,8 @@ def main() -> None:
     print(f"Wrote {OUT_MP4} ({len(frames)} frames at 10 fps -> {len(frames)/10:.1f}s)")
     # Spot-frame PNGs for static inspection if player misbehaves
     import imageio
-    for idx in [0, len(frames)//3, 2*len(frames)//3, len(frames)-1]:
+
+    for idx in [0, len(frames) // 3, 2 * len(frames) // 3, len(frames) - 1]:
         png_path = SCRATCH_DIR / f"aria_to_mano_frame_{idx:03d}.png"
         imageio.imwrite(png_path, frames[idx])
     print(f"Spot PNGs in {SCRATCH_DIR}/aria_to_mano_frame_*.png")

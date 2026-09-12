@@ -1,17 +1,10 @@
 import logging
-import random
-from typing import Literal
 
-import numpy as np
-import torch
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
-from termcolor import cprint
 from torch.utils.data import DataLoader, default_collate
-from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
-
 
 
 class MultiDataModuleWrapper(LightningDataModule):
@@ -89,8 +82,6 @@ class MultiDataModuleWrapper(LightningDataModule):
         return CombinedLoader(iterables, "max_size_cycle")
 
 
-
-
 def _extract_list_keys(batch):
     """Pop all list-valued keys from *batch* samples and return them separately.
 
@@ -112,5 +103,3 @@ def annotation_collate(batch):
     collated = default_collate(batch)
     collated.update(extracted)
     return collated
-
-

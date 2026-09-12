@@ -4,10 +4,11 @@ Moved out of egomimicUtils; code unchanged.
 """
 
 import math
+
 import torch
 
-
 # ---- moved from egomimicUtils.py (code unchanged) ----
+
 
 def reverse_kl_from_samples(pred_samples, targets):
     M, B, T, D = pred_samples.shape
@@ -26,6 +27,7 @@ def reverse_kl_from_samples(pred_samples, targets):
 
     rkl_each = (log_q_each - log_p_each).mean(dim=-1)  # (B,)
     return rkl_each.mean()
+
 
 def frechet_gaussian_over_time(
     pred: torch.Tensor,

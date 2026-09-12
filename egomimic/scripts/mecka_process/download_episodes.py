@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -116,9 +115,12 @@ def main() -> int:
     try:
         cmd = [
             "s5cmd",
-            "--endpoint-url", endpoint_url,
-            "--numworkers", str(args.numworkers),
-            "run", batch_path,
+            "--endpoint-url",
+            endpoint_url,
+            "--numworkers",
+            str(args.numworkers),
+            "run",
+            batch_path,
         ]
         print(f"Running: {' '.join(cmd)}")
         result = subprocess.run(cmd)

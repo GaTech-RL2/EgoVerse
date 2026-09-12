@@ -987,12 +987,14 @@ def time_distributed(
     )
     return outputs
 
-import einops
-import math
-import torch.nn as nn
 
+import math  # noqa: E402  (kept with the block moved from egomimicUtils.py)
+
+import einops  # noqa: E402  (kept with the block moved from egomimicUtils.py)
+import torch.nn as nn  # noqa: E402  (kept with the block moved from egomimicUtils.py)
 
 # ---- moved from egomimicUtils.py (code unchanged) ----
+
 
 def get_sinusoid_encoding_table(position_start, position_end, d_hid):
     """Sinusoid position encoding table"""
@@ -1013,6 +1015,7 @@ def get_sinusoid_encoding_table(position_start, position_end, d_hid):
     sinusoid_table[:, 1::2] = torch.cos(positions.unsqueeze(1) * div_term[: d_hid // 2])
 
     return sinusoid_table.unsqueeze(0)
+
 
 class EinOpsRearrange(nn.Module):
     def __init__(self, rearrange_expr: str, **kwargs) -> None:
