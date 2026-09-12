@@ -123,6 +123,10 @@ def test_raw_upload_metadata_conversion_staging_and_discovery(tmp_path, monkeypa
         converter = DatasetConverter(uploaded, fps=30, arm="both", convert_mano=False, height=240, width=320)
         path, _ = converter.extract_episode(uploaded / f"{stamp}.vrs", output_dir=output,
                                             dataset_name=episode_hash, task_name=metadata["task"], chunk_timesteps=2)
+        from egomimic.rldb.embodiment.human import ARIA_INTRINSICS_HALF
+
+        np.testing.assert_allclose(zarr.open_group(path, mode="r").attrs["intrinsics"]["front_1"],
+                                   ARIA_INTRINSICS_HALF)
     else:
         from egomimic.scripts.eva_process.eva_to_zarr import convert_episode
 

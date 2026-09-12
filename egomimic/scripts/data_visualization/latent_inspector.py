@@ -8,12 +8,12 @@ the right pane shows:
   - metadata (video_hash, frame_idx, token_idx, embodiment).
 
 Requirements (one-time):
-    pip install dash
+    uv sync --locked
 
 Usage:
-    python egomimic/scripts/data_visualization/latent_inspector.py \\
+    uv run python -m egomimic.scripts.data_visualization.latent_inspector \\
         --latent-dir logs/pick_place/latent_eval/.../latents/epoch_0 \\
-        --zarr-root /storage/project/r-dxu345-0/agao81/pick_place \\
+        --zarr-root /path/to/episodes \\
         --sample 5000 \\
         --port 8050
 

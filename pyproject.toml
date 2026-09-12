@@ -59,6 +59,7 @@ dependencies = [
     "s5cmd",
     "mediapy",
     "pytest",
+    "dash",
     "pre-commit",
     "ruff",
     "scaleapi",

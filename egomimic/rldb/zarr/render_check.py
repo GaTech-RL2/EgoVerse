@@ -1,4 +1,4 @@
-"""Render a local episode's keypoint overlay and write a JSON review report."""
+"""Render a local episode's familiar overlays and write a JSON review report."""
 
 from __future__ import annotations
 
@@ -16,13 +16,14 @@ from egomimic.rldb.zarr.overlay import (
     OverlayUnavailable,
     decode_frame,
     episode_length,
-    render_keypoints,
+    render_overlay,
 )
 from egomimic.rldb.zarr.validate import validate_episode
 
 
 def render_episode(
-    path, out, *, camera="front_1", horizon=1, start=0, max_frames=None, step=1
+    path, out, *, camera="front_1", horizon=1, start=0, max_frames=None, step=1,
+    mode="keypoint",
 ):
     """Stream a preview; missing overlays remain visible and are reported.
 
@@ -30,6 +31,8 @@ def render_episode(
     findings and projection counts; a preview does not certify calibration.
     """
     path, out = Path(path), Path(out)
+    if mode not in ("keypoint", "cartesian", "orientation", "none"):
+        raise ValueError(f"unknown overlay mode {mode!r}")
     if out.resolve().is_relative_to(path.resolve()):
         raise ValueError("write the preview outside the source episode")
     group = zarr.open_group(path, mode="r")
@@ -52,6 +55,7 @@ def render_episode(
     report = {
         "episode": str(path.resolve()),
         "camera": camera,
+        "mode": mode,
         "horizon": horizon,
         "total_frames": total,
         "camera_coverage": camera_coverage_report(group, start),
@@ -74,13 +78,15 @@ def render_episode(
         for frame in frames:
             image = first if frame == start else decode_frame(group, frame, camera)
             try:
-                image, diagnostic = render_keypoints(
-                    group, frame, image=image, horizon=horizon, camera=camera
+                image, diagnostic = render_overlay(
+                    group, frame, mode=mode, image=image, horizon=horizon, camera=camera
                 )
                 diagnostic["available"] = True
                 label = None
-                if diagnostic["coverage"]["estimated"]:
-                    label = "ESTIMATED CAMERA / FK KEYPOINTS - analysis only"
+                if diagnostic["coverage"].get("estimated"):
+                    label = "ESTIMATED DATA - analysis only"
+                elif not report["validation"]["status_eligible"]:
+                    label = f"{report['validation']['data_status']} - ineligible for training"
                 elif any(
                     f["level"] != "ok"
                     and f["check"]
@@ -141,6 +147,8 @@ def main(argv=None):
     parser.add_argument("episode", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--camera", default="front_1")
+    parser.add_argument("--mode", choices=("keypoint", "cartesian", "orientation", "none"), default="keypoint",
+                        help="Inspector mode: supplied keypoints, Cartesian trajectory, current orientation axes, or RGB")
     parser.add_argument("--horizon", type=int, default=1)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--max-frames", type=int)
@@ -155,12 +163,32 @@ def main(argv=None):
             start=args.start,
             max_frames=args.max_frames,
             step=args.step,
+            mode=args.mode,
         )
     except (ValueError, OSError) as exc:
         parser.exit(1, f"render_check: {exc}\n")
     print(
         f"{args.out}: overlays on {report['overlay_frames']}/{len(report['frames'])} frames; report {args.out.with_suffix('.json')}"
     )
+    validation = report["validation"]
+    findings = validation["findings"]
+    errors = sum(f["level"] == "error" for f in findings)
+    warnings = sum(f["level"] == "warning" for f in findings)
+    print(f"Validation: {errors} errors, {warnings} warnings; data_status={validation['data_status']}; "
+          f"status eligible={'yes' if validation['status_eligible'] else 'no'}")
+    for finding in findings:
+        if finding["level"] != "ok":
+            print(f"  {finding['level'].upper()} {finding['check']}: {finding['message']}")
+    notes = set()
+    for frame in report["frames"]:
+        if not frame["available"]:
+            notes.add(f"Overlay unavailable: {frame['reason']}")
+        coverage = frame.get("coverage", {})
+        notes.update(coverage.get("limitations", []))
+        notes.update(frame.get("warnings", []))
+    for note in sorted(notes):
+        print(f"  {note}")
+    print("Render status is separate from delivery validation and eligibility.")
     return 0 if report["overlay_frames"] == len(report["frames"]) else 2
 
 

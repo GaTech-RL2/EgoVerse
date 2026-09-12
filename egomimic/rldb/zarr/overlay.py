@@ -64,6 +64,24 @@ def camera_context(group, frame, resolved, camera="front_1"):
     return coverage.K, coverage.source_T_cam
 
 
+def keypoint_source(group, side, spec):
+    """Choose supplied points and their actual topology, without reconstruction."""
+    suffix = "obs_hand_keypoints" if spec.ee_class == "dexterous_hand" else "obs_keypoints"
+    key = f"{side}.{suffix}"
+    array = array_for(group, key)
+    edges, ranges, root = Embodiment.FINGER_EDGES, Embodiment.FINGER_EDGE_RANGES, 0
+    if array is None and spec.ee_class == "human_hand":
+        from egomimic.rldb.embodiment.human import (
+            ARIA_FINGER_EDGE_RANGES,
+            ARIA_FINGER_EDGES,
+        )
+
+        key = f"{side}.obs_aria_keypoints"
+        array = array_for(group, key)
+        edges, ranges, root = ARIA_FINGER_EDGES, ARIA_FINGER_EDGE_RANGES, 5
+    return array, key, edges, ranges, root
+
+
 def keypoint_chunk(group, frame, horizon=1, camera="front_1"):
     """Load canonical stored keypoints into a single current camera frame."""
     total = episode_length(group)
@@ -79,15 +97,10 @@ def keypoint_chunk(group, frame, horizon=1, camera="front_1"):
             parts.append(np.full((end - frame, 63), np.nan))
             owned.append(np.zeros(21, dtype=bool))
             continue
-        suffix = (
-            "obs_hand_keypoints"
-            if spec.ee_class == "dexterous_hand"
-            else "obs_keypoints"
-        )
-        array = array_for(group, f"{side}.{suffix}")
+        array, key, _, _, _ = keypoint_source(group, side, spec)
         n = spec.keypoints.n_slots
         if array is None or array.shape[0] < total or array.shape[1:] != (3 * n,):
-            raise OverlayUnavailable(f"{side}.{suffix} needs shape (T, {3 * n})")
+            raise OverlayUnavailable(f"{key}: supplied keypoints need shape (T, {3 * n})")
         points = np.asarray(array[frame:end], dtype=float).reshape(end - frame, n, 3)
         invalid = ~np.isfinite(points).all(axis=-1) | (np.abs(points) >= 1e8).any(
             axis=-1
@@ -139,11 +152,14 @@ def render_keypoints(group, frame, *, image=None, horizon=1, camera="front_1"):
         )
     edge_pixels, edge_metres = [], []
     full_points = chunk.reshape(len(chunk), 2, -1, 3)
+    sources = {}
     for index, side in enumerate(("left", "right")):
         if side not in resolved.end_effectors:
             continue
         slots = resolved.keypoints(side).valid
-        for a, b in Embodiment.FINGER_EDGES:
+        _, key, edges, ranges, root = keypoint_source(group, side, resolved.end_effectors[side])
+        sources[side] = (key, edges, ranges, root)
+        for a, b in edges:
             if a not in slots or b not in slots:
                 continue
             pair = full_points[:, index, [a, b], :]
@@ -166,4 +182,67 @@ def render_keypoints(group, frame, *, image=None, horizon=1, camera="front_1"):
     diagnostics["skeleton_edge_m_range"] = (
         [min(edge_metres), max(edge_metres)] if edge_metres else None
     )
+    diagnostics["keypoint_sources"] = {side: source[0] for side, source in sources.items()}
+    if any(source[3] == 5 for source in sources.values()):
+        # Mixed canonical/raw-Aria sides keep independent topology and masks.
+        for index, side in enumerate(("left", "right")):
+            if side not in sources:
+                continue
+            _, edges, ranges, root = sources[side]
+            one_side = np.full_like(chunk, np.nan)
+            one_side[:, index * 63:(index + 1) * 63] = chunk[:, index * 63:(index + 1) * 63]
+            image = resolved.viz(image, one_side, intrinsics=K, finger_edges=edges,
+                                 finger_edge_ranges=ranges, label_slot=root)
+        return image, diagnostics
     return resolved.viz(image, chunk, intrinsics=K), diagnostics
+
+
+def pose_chunk(group, frame, horizon=1, camera="front_1"):
+    """Load the familiar Cartesian pose window into the displayed camera frame."""
+    from scipy.spatial.transform import Rotation
+
+    total = episode_length(group)
+    if horizon < 1 or not 0 <= frame < total:
+        raise OverlayUnavailable("frame/horizon outside episode")
+    resolved = Embodiment.from_attrs(group.attrs)
+    K, transforms = camera_context(group, frame, resolved, camera)
+    end = min(total, frame + horizon)
+    parts = []
+    for side in ("left", "right"):
+        output = np.full((end - frame, 6), np.nan)
+        if side in resolved.end_effectors:
+            array = array_for(group, f"{side}.obs_ee_pose")
+            if array is None or array.shape[0] < total or array.shape[1:] != (7,):
+                raise OverlayUnavailable(f"{side}.obs_ee_pose needs shape (T, 7)")
+            poses = np.asarray(array[frame:end], dtype=float)
+            missing = (np.abs(poses) >= 1e8).all(axis=-1) if resolved.platform.kind == "human" else np.zeros(len(poses), bool)
+            valid = ~missing
+            if not np.isfinite(poses[valid]).all() or not np.allclose(
+                np.linalg.norm(poses[valid, 3:], axis=-1), 1, atol=1e-3
+            ):
+                raise OverlayUnavailable(f"{side}.obs_ee_pose: invalid retained pose")
+            transform = np.linalg.inv(transforms[side])
+            output[valid, :3] = poses[valid, :3] @ transform[:3, :3].T + transform[:3, 3]
+            if valid.any():
+                rotations = transform[:3, :3] @ Rotation.from_quat(poses[valid][:, [4, 5, 6, 3]]).as_matrix()
+                output[valid, 3:] = Rotation.from_matrix(rotations).as_euler("ZYX")
+        parts.append(output)
+    return resolved, K, np.concatenate(parts, axis=-1)
+
+
+def render_overlay(group, frame, *, mode="keypoint", image=None, horizon=1, camera="front_1"):
+    """Shared inspector/artifact modes, backed by the established renderers."""
+    image = decode_frame(group, frame, camera) if image is None else image
+    if mode == "none":
+        return image, {"coverage": {}, "warnings": []}
+    if mode == "keypoint":
+        return render_keypoints(group, frame, image=image, horizon=horizon, camera=camera)
+    if mode not in ("cartesian", "orientation"):
+        raise ValueError(f"unknown overlay mode {mode!r}")
+    coverage = camera_coverage(group, camera, frame, image_shape=image.shape)
+    if not coverage.available:
+        raise OverlayUnavailable("; ".join(coverage.missing))
+    # Orientation shows the current axes; Cartesian shows the future trajectory.
+    resolved, K, chunk = pose_chunk(group, frame, 1 if mode == "orientation" else horizon, camera)
+    rendered = resolved.viz(image, chunk, mode="axes" if mode == "orientation" else "traj", intrinsics=K)
+    return rendered, {"coverage": coverage.to_jsonable(), "pose_frames": len(chunk), "warnings": []}

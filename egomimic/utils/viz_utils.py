@@ -381,7 +381,7 @@ def _viz_keypoints(
     keypoints = {}
     keypoints["left"] = left_keypoints.reshape(-1, n_kp, 3)
     keypoints["right"] = right_keypoints.reshape(-1, n_kp, 3)
-    _default_dot_colors = {"left": (0, 120, 255), "right": (255, 80, 0)}
+    _default_dot_colors = {"left": (255, 120, 0), "right": (0, 80, 255)}
     for hand in ("left", "right"):
         owned = np.ones(n_kp, dtype=bool)
         slots = valid_slots.get(hand, ()) if isinstance(valid_slots, dict) else valid_slots
@@ -423,9 +423,10 @@ def _viz_keypoints(
                     cv2.circle(vis, center, 4, hand_dot_color, -1)
                     cv2.circle(vis, center, 4, (255, 255, 255), 1)  # white border
 
-            # Label topology slot 0 with the side initial.
-            if valid[0]:
-                wrist_px = (int(kps_px[0, 0]) + 6, int(kps_px[0, 1]) - 6)
+            # Raw Aria's palm root is slot 5; canonical MANO uses slot 0.
+            root = kwargs.get("label_slot", 0)
+            if valid[root]:
+                wrist_px = (int(kps_px[root, 0]) + 6, int(kps_px[root, 1]) - 6)
                 cv2.putText(
                     vis,
                     f"{hand[0].upper()}",

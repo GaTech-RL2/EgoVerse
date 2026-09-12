@@ -44,8 +44,7 @@ import numpy as np
 # `Embodiment.viz` method projects the poses and draws the overlay.
 # `projectaria_tools` is optional in the standalone visualization environment.
 # If an embodiment import fails, the browser shows an unavailable badge.
-from egomimic.rldb.zarr.calibration import camera_name, read_calibration
-from egomimic.utils.pose_utils import ee_pose_to_cam_frame
+from egomimic.rldb.zarr.calibration import camera_name
 
 from .images import (
     _bytes_from_zarr_element,
@@ -173,7 +172,14 @@ def episode_meta(dataset_root: str, episode: str, image_key: str) -> dict:
     if has_kp:
         overlays += ["keypoint"]
     n_annot = len(annotation_intervals(dataset_root, episode))
+    try:
+        from egomimic.rldb.zarr.validate import validate_episode
+
+        validation = validate_episode(os.path.join(dataset_root, episode)).text()
+    except Exception as exc:
+        validation = f"Validation unavailable: {exc}"
     return {
+        "validation": validation,
         "frames": _frame_count(grp, image_key),
         "overlays": overlays,
         "n_annot": n_annot,
@@ -252,170 +258,43 @@ def _decode_frame_rgb(grp, img_key: str, frame: int):
         return None
 
 
-def _read_arm_array(grp, suffix: str, frame: int | None = None):
-    """Return {'left': arr, 'right': arr} for keys like 'left.<suffix>'.
-    If `frame` is given, returns that row; else the full (T, D) array."""
-    out = {}
-    for arm in ("left", "right"):
-        a = _resolve_zarr_path(grp, f"{arm}.{suffix}")
-        if a is None:
-            continue
-        try:
-            out[arm] = a[frame] if frame is not None else a[:]
-        except Exception:
-            continue
-    return out
-
-
 def _badge(img_rgb, text: str):
-    """Stamp a small bottom-left badge onto an RGB frame (cv2)."""
+    """Keep capability/status text readable above the bottom annotation."""
     try:
         import cv2
 
-        h = img_rgb.shape[0]
+        h, w = img_rgb.shape[:2]
         fs = max(0.4, h / 1000)
         th = max(1, int(h / 500))
-        y = img_rgb.shape[0] - max(8, int(h * 0.02))
-        cv2.putText(img_rgb, text, (8, y), cv2.FONT_HERSHEY_SIMPLEX, fs,
-                    (0, 0, 0), th + 2, cv2.LINE_AA)
-        cv2.putText(img_rgb, text, (8, y), cv2.FONT_HERSHEY_SIMPLEX, fs,
-                    (255, 210, 90), th, cv2.LINE_AA)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        lines, line = [], ""
+        for word in text.split():
+            candidate = f"{line} {word}".strip()
+            if line and cv2.getTextSize(candidate, font, fs, th)[0][0] > w - 16:
+                lines.append(line)
+                line = word
+            else:
+                line = candidate
+        lines.append(line)
+        if len(lines) > 4:
+            lines = lines[:4]
+            lines[-1] += "..."
+        dy = cv2.getTextSize("Ag", font, fs, th)[0][1] + 10
+        cv2.rectangle(img_rgb, (0, 0), (w, len(lines) * dy + 8), (0, 0, 0), -1)
+        for index, line in enumerate(lines):
+            cv2.putText(img_rgb, line, (8, (index + 1) * dy), font, fs,
+                        (255, 210, 90), th, cv2.LINE_AA)
     except Exception:
         pass
     return img_rgb
 
 
-def _calibration_from_zarr(grp):
-    """Read current or legacy calibration without breaking the inspector.
-
-    Returns:
-        The normalized calibration, or ``None`` if metadata access fails, no
-        calibration is present, or its stored representation is malformed.
-        Invalid calibration disables the overlay instead of the episode view.
-    """
-    try:
-        return read_calibration(dict(grp.attrs))
-    except Exception:
-        return None
-
-
-def _intrinsics_from_zarr(grp):
-    """Return the default camera's normalized 3×4 ``[K_3x3 | 0]`` matrix.
-
-    Return ``None`` if the episode has no valid calibration or if the selected
-    camera has no matrix.
-    """
-    calibration = _calibration_from_zarr(grp)
-    return None if calibration is None else calibration.K()
-
-
-def _extrinsics_from_zarr(grp):
-    """Compose per-arm poses of the calibration's default camera.
-
-    Returns:
-        A dictionary mapping available ``"left"`` and ``"right"`` arms to
-        4×4 ``base_T_cam`` matrices, or ``None`` if none can be composed.
-    """
-    calibration = _calibration_from_zarr(grp)
-    if calibration is None:
-        return None
-    out = {}
-    for arm in ("left", "right"):
-        base_T_cam = calibration.base_T_cam(arm)
-        if base_T_cam is not None:
-            out[arm] = base_T_cam
-    return out or None
-
-
-def _world_T_head(grp, frame: int):
-    """Read one ``world_T_head`` matrix from ``obs_head_pose``.
-
-    Args:
-        grp: An episode Zarr group.
-        frame: The zero-based frame index.
-
-    Returns:
-        A 4×4 matrix. The source pose uses
-        ``[x, y, z, qw, qx, qy, qz]``. The function returns ``None`` if the
-        value is absent, malformed, or outside the array.
-    """
-    arr = _resolve_zarr_path(grp, "obs_head_pose")
-    if arr is None:
-        return None
-    try:
-        from scipy.spatial.transform import Rotation as R
-
-        pose = np.asarray(arr[int(frame)], dtype=float).reshape(-1)
-        if pose.shape[0] != 7:
-            return None
-        quat_wxyz = pose[3:7]
-        quat_xyzw = np.array([quat_wxyz[1], quat_wxyz[2], quat_wxyz[3], quat_wxyz[0]])
-        world_T_head = np.eye(4)
-        world_T_head[:3, :3] = R.from_quat(quat_xyzw).as_matrix()
-        world_T_head[:3, 3] = pose[:3]
-        return world_T_head
-    except Exception:
-        return None
-
-
-def _reference_pose_to_cam_cartesian(seq, ref_T_cam):
-    """Convert reference-frame poses to camera-frame Cartesian poses.
-
-    Args:
-        seq: An ``(N, 7)`` array of
-            ``[x, y, z, qw, qx, qy, qz]`` reference-frame poses.
-        ref_T_cam: A 4×4 camera pose in the reference frame.
-
-    Returns:
-        An ``(N, 6)`` array of camera-frame ``[x, y, z, yaw, pitch, roll]``
-        poses. The Euler angles use ZYX order and radians. The transform is
-        ``inv(ref_T_cam) @ ref_T_pose``.
-    """
-    from scipy.spatial.transform import Rotation as R
-
-    seq = np.asarray(seq, dtype=float).reshape(-1, 7)
-    n = seq.shape[0]
-    quat_xyzw = seq[:, [4, 5, 6, 3]]  # wxyz -> xyzw
-    se3 = np.tile(np.eye(4), (n, 1, 1))
-    se3[:, :3, :3] = R.from_quat(quat_xyzw).as_matrix()
-    se3[:, :3, 3] = seq[:, :3]
-    cam = np.linalg.inv(ref_T_cam) @ se3
-    xyz = cam[:, :3, 3]
-    ypr = R.from_matrix(cam[:, :3, :3]).as_euler("ZYX", degrees=False)
-    return np.concatenate([xyz, ypr], axis=1)
-
-
-def _world_keypoints_to_cam(seq, world_T_head):
-    """Convert 21 world-frame keypoints to a flat camera-frame array.
-
-    Args:
-        seq: An array with 63 XYZ values.
-        world_T_head: The 4×4 head pose in the world frame. The head frame is
-            the camera frame.
-
-    Returns:
-        A flat array with 63 camera-frame XYZ values.
-    """
-    pts = np.asarray(seq, dtype=float).reshape(-1, 3)
-    cam = ee_pose_to_cam_frame(pts, world_T_head)
-    return cam.reshape(-1)
-
-
 # ====================================================================== #
 # Interactive 3D world-frame figure (plotly) — shown below the video.
 # ====================================================================== #
-# Per-arm base colors for keypoint markers / EE markers / traj / axes anchor.
-# These MUST match the 2D keypoint overlay dots (the per-hand `_default_dot_colors`
-# used by the keypoint overlay drawer), which are
-# BGR tuples (passed straight to cv2). Plotly wants RGB, so we reverse each BGR
-# tuple to RGB here -> left renders ORANGE (255,120,0), right renders BLUE
-# (0,80,255), identical to the 2D dots on screen. Defined by reversing the 2D
-# source values (not hardcoded hex) so the two stay in lockstep.
-_2D_DOT_COLORS_BGR = {"left": (0, 120, 255), "right": (255, 80, 0)}  # mirrors _viz_keypoints
-_ARM_COLORS = {
-    arm: f"rgb({bgr[2]},{bgr[1]},{bgr[0]})"  # BGR -> RGB
-    for arm, bgr in _2D_DOT_COLORS_BGR.items()
-}
+# Both surfaces receive RGB arrays; cv2 writes the supplied channel tuples
+# directly, so Plotly uses the same tuples without a BGR conversion.
+_ARM_COLORS = {"left": "rgb(255,120,0)", "right": "rgb(0,80,255)"}
 # Plotly bg to match the dark theme (CANVAS/PANEL are CSS colors from `views`).
 _FIG_BG = "#0e1117"
 
@@ -437,12 +316,12 @@ def _rgb_tuple_to_css(rgb) -> str:
 
 
 def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
-    """Build a plotly `go.Figure` of the WORLD-frame scene at `frame`, showing
+    """Build a plotly `go.Figure` of the stored-frame scene at `frame`, showing
     ONLY the traces that match the selected `overlay` (mirrors the `ds_overlay`
     dropdown so the 3D view and the 2D image overlay stay in sync):
 
       - "cartesian"   -> only the EE trajectory (xyz path) over
-                         [max(0,frame-traj_window), frame], plus small EE
+                         [frame, min(total_frames, frame+traj_window)), plus small EE
                          position markers for context.
       - "orientation" -> only the EE orientation axes (x=red,y=green,z=blue),
                          0.05 m segments along the rotation-matrix columns
@@ -456,7 +335,7 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
     defensive — a missing/short array just drops its trace, never raises.
     `uirevision` is keyed to the embodiment+nframes (a per-episode-stable id) so
     the user's rotate/zoom is preserved across frame changes and only resets on
-    episode change. Coordinates are RAW world xyz — no projection."""
+    episode change. Coordinates are RAW stored xyz — no projection."""
     import plotly.graph_objects as go
 
     AXIS_LEN = 0.05  # metres
@@ -465,43 +344,36 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
     want_kp = overlay == "keypoint"
     want_ee_marker = want_traj or want_axes  # context marker for ee overlays
     emb_cls = _embodiment_class(grp)
-    edges = getattr(emb_cls, "FINGER_EDGES", Human.FINGER_EDGES if Human else [])
-    finger_colors = getattr(emb_cls, "FINGER_COLORS",
-                            Human.FINGER_COLORS if Human else {})
-    edge_ranges = getattr(emb_cls, "FINGER_EDGE_RANGES",
-                          Human.FINGER_EDGE_RANGES if Human else [])
-    # Map each edge index -> finger color (via FINGER_EDGE_RANGES), fall back gray.
-    # FINGER_COLORS are BGR tuples (they're handed to cv2 in the 2D skeleton draw
-    # in `_viz_keypoints`), so reverse BGR -> RGB to make the 3D edges render the
-    # SAME color cv2 paints in 2D.
-    edge_color_css = ["rgb(180,180,180)"] * len(edges)
-    for name, lo, hi in edge_ranges:
-        col = finger_colors.get(name)
-        if col is None:
-            continue
-        col_rgb = tuple(reversed(tuple(col)))  # BGR -> RGB
-        for ei in range(lo, min(hi, len(edges))):
-            edge_color_css[ei] = _rgb_tuple_to_css(col_rgb)
+    finger_colors = getattr(emb_cls, "FINGER_COLORS", Human.FINGER_COLORS if Human else {})
 
     frame = int(frame)
     traces = []
 
+    sources = {}
+    try:
+        from egomimic.rldb.zarr.overlay import keypoint_source
+
+        resolved = Embodiment.from_attrs(grp.attrs)
+    except Exception:
+        resolved = None
+
     def _arm_kp(arm):
-        a = (_resolve_zarr_path(grp, f"{arm}.obs_hand_keypoints")
-             or _resolve_zarr_path(grp, f"{arm}.obs_keypoints")
-             or _resolve_zarr_path(grp, f"{arm}.obs_aria_keypoints"))
-        if a is None or not hasattr(a, "shape") or a.shape[0] == 0:
+        if resolved is None or arm not in resolved.end_effectors:
             return None
-        f = max(0, min(frame, int(a.shape[0]) - 1))
+        spec = resolved.end_effectors[arm]
+        a, key, arm_edges, ranges, root = keypoint_source(grp, arm, spec)
+        sources[arm] = (arm_edges, ranges)
+        total = min(int(grp.attrs.get("total_frames", 0)), a.shape[0]) if a is not None else 0
+        if not 0 <= frame < total:
+            return None
         try:
-            pts = np.asarray(a[f], dtype=float).reshape(-1, 3)
-        except Exception:
+            pts = np.asarray(a[frame], dtype=float).reshape(spec.keypoints.n_slots, 3)
+        except (ValueError, IndexError):
             return None
-        if pts.shape[0] < 1 or not np.all(np.isfinite(pts)):
-            # drop non-finite rows but keep finite ones
-            pts = pts[np.all(np.isfinite(pts), axis=1)]
-            if pts.shape[0] < 1:
-                return None
+        valid = np.isin(np.arange(len(pts)), spec.keypoints.valid)
+        valid &= np.isfinite(pts).all(axis=-1) & (np.abs(pts) < 1e8).all(axis=-1)
+        pts[~valid] = np.nan
+        # Preserve slot indices: deleting a missing point rewires the skeleton.
         return pts
 
     def _arm_ee(arm):
@@ -522,16 +394,20 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
                 hovertext=[f"kp{i}" for i in range(pts.shape[0])],
             ))
             # skeleton edges as one line trace with None breaks between segments.
-            # Per-vertex color so each finger edge renders its FINGER_COLORS hue
-            # (already BGR->RGB reversed above) — matching the 2D cv2 skeleton.
+            # Per-vertex RGB colors match the shared 2D skeleton.
             ex, ey, ez, ec = [], [], [], []
-            for ei, (a_idx, b_idx) in enumerate(edges):
-                if a_idx >= pts.shape[0] or b_idx >= pts.shape[0]:
+            arm_edges, ranges = sources[arm]
+            arm_edge_colors = [arm_css] * len(arm_edges)
+            for finger, start, end in ranges:
+                for edge_i in range(start, min(end, len(arm_edges))):
+                    arm_edge_colors[edge_i] = _rgb_tuple_to_css(finger_colors[finger])
+            for ei, (a_idx, b_idx) in enumerate(arm_edges):
+                if a_idx >= pts.shape[0] or b_idx >= pts.shape[0] or not np.isfinite(pts[[a_idx, b_idx]]).all():
                     continue
                 ex += [pts[a_idx, 0], pts[b_idx, 0], None]
                 ey += [pts[a_idx, 1], pts[b_idx, 1], None]
                 ez += [pts[a_idx, 2], pts[b_idx, 2], None]
-                col = edge_color_css[ei] if ei < len(edge_color_css) else arm_css
+                col = arm_edge_colors[ei]
                 ec += [col, col, col]
             if ex:
                 traces.append(go.Scatter3d(
@@ -573,11 +449,11 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
                             ))
                     except Exception:
                         pass
-            # trajectory over [max(0,frame-traj_window), frame]
+            # trajectory over [frame, min(total_frames, frame+traj_window))
             if want_traj:
                 try:
-                    lo = max(0, frame - int(traj_window))
-                    hi = min(int(ee.shape[0]), frame + 1)
+                    lo = max(0, frame)
+                    hi = min(int(ee.shape[0]), int(grp.attrs["total_frames"]), frame + int(traj_window))
                     if hi - lo >= 2:
                         seg = np.asarray(ee[lo:hi], dtype=float)[:, :3]
                         seg = seg[np.all(np.isfinite(seg), axis=1)]
@@ -636,78 +512,23 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16,
     if overlay in (None, "none"):
         return img_rgb, True, ""
 
-    if overlay == "keypoint":
-        from egomimic.rldb.zarr.overlay import render_keypoints
-
-        try:
-            image, diagnostic = render_keypoints(
-                grp, frame, image=img_rgb, horizon=horizon, camera=camera
-            )
-            return image, True, f"{diagnostic['inside_fraction']:.0%} inside image"
-        except (ValueError, KeyError) as exc:
-            return _badge(img_rgb.copy(), "keypoint overlay unavailable"), False, str(exc)
-
-    emb_cls = _embodiment_class(grp)
-    if emb_cls is None:
-        return _badge(img_rgb.copy(), f"overlay {overlay}: no embodiment"), False, "no emb"
     try:
-        from egomimic.rldb.zarr.camera_coverage import camera_coverage
+        if Embodiment is None:
+            raise ImportError("embodiment dependencies unavailable; RGB browsing remains available")
+        from egomimic.rldb.zarr.overlay import render_overlay
 
-        coverage = camera_coverage(grp, camera, frame, image_shape=img_rgb.shape)
-        if not coverage.available:
-            raise ValueError("; ".join(coverage.missing))
-        intr = coverage.K
-        if overlay in ("cartesian", "orientation"):
-            ee = _read_arm_array(grp, "obs_ee_pose")
-            left, right = ee.get("left"), ee.get("right")
-            if left is None and right is None:
-                return _badge(img_rgb.copy(), f"{overlay}: no ee_pose"), False, "no pose"
-
-            def _chunk(seq, arm):
-                """Return camera-frame poses for one arm and display window.
-
-                Orientation mode returns one pose. Cartesian mode returns at
-                most ``horizon`` poses. The function returns ``None`` if the
-                source poses or camera transform are absent.
-                """
-                if seq is None:
-                    return None
-                ref_T_cam = coverage.source_T_cam.get(arm)
-                if ref_T_cam is None:
-                    return None
-                seq = np.asarray(seq)
-                if overlay == "orientation":
-                    win = seq[frame:frame + 1, :7]
-                else:
-                    lo, hi = max(0, frame), min(
-                        seq.shape[0], int(grp.attrs["total_frames"]), frame + horizon
-                    )
-                    win = seq[lo:hi, :7]
-                if win.shape[0] < 1:
-                    return None
-                return _reference_pose_to_cam_cartesian(win, ref_T_cam)
-
-            lc, rc = _chunk(left, "left"), _chunk(right, "right")
-            n = max(lc.shape[0] if lc is not None else 0,
-                    rc.shape[0] if rc is not None else 0)
-            if n == 0:
-                return _badge(img_rgb.copy(), f"{overlay}: no pts"), False, "off"
-            if lc is None:
-                lc = np.zeros((n, 6))
-            if rc is None:
-                rc = np.zeros((n, 6))
-            # canonical actions_cartesian layout: [L xyz ypr, R xyz ypr] (12-dim)
-            chunk = np.concatenate([lc, rc], axis=1)
-            mode = "traj" if overlay == "cartesian" else "axes"
-            vis = emb_cls.viz(img_rgb.copy(), chunk, mode=mode, intrinsics=intr)
-            return vis, True, ""
-
-
-    except Exception as e:
-        logger.debug("overlay %s failed: %s", overlay, e)
-        return _badge(img_rgb.copy(), f"overlay {overlay}: error"), False, str(e)
-
-    return img_rgb, True, ""
+        image, diagnostic = render_overlay(
+            grp, frame, mode=overlay, image=img_rgb, horizon=horizon, camera=camera
+        )
+        notes = list(diagnostic.get("warnings", []))
+        coverage = diagnostic.get("coverage", {})
+        notes.extend(coverage.get("limitations", []))
+        if coverage.get("estimated"):
+            image = _badge(image, "ESTIMATED DATA - analysis only")
+        return image, True, "; ".join(notes)
+    except Exception as exc:
+        logger.debug("overlay %s unavailable: %s", overlay, exc)
+        return _badge(img_rgb.copy(), f"{overlay} overlay unavailable: {exc}"), False, str(exc)
 
 
 def _annotate_frame(img_rgb, grp, dataset_root: str, episode: str, frame: int):
@@ -728,8 +549,8 @@ def _annotate_frame(img_rgb, grp, dataset_root: str, episode: str, frame: int):
 
 
 def render_frame_jpeg(dataset_root: str, episode: str, frame: int, *,
-                      overlay: str, annotate: bool, image_key: str) -> bytes | None:
-    key = (dataset_root, episode, int(frame), overlay, bool(annotate), image_key)
+                      overlay: str, annotate: bool, image_key: str, horizon: int = 16) -> bytes | None:
+    key = (dataset_root, episode, int(frame), overlay, bool(annotate), image_key, int(horizon))
     with _RENDER_LOCK:
         hit = _RENDER_CACHE.get(key)
         if hit is not None:
@@ -745,7 +566,7 @@ def render_frame_jpeg(dataset_root: str, episode: str, frame: int, *,
     if rgb is None:
         return None
     rgb, _ok, _note = _draw_overlay(
-        rgb, grp, int(frame), overlay, camera=camera_name(img_key) or img_key
+        rgb, grp, int(frame), overlay, horizon=horizon, camera=camera_name(img_key) or img_key
     )
     if annotate:
         rgb = _annotate_frame(rgb, grp, dataset_root, episode, int(frame))
@@ -845,6 +666,8 @@ class DatasetView:
                 html.Div(f"{len(eps)} episodes", id="ds_episode_count",
                          style={"fontSize": "10px", "color": MUTED,
                                 "marginTop": "4px", "marginBottom": "10px"}),
+                html.Div("Horizon (frames)", style=LABEL_STYLE),
+                dcc.Input(id="ds_horizon", type="number", value=16, min=1, max=1000, step=1, debounce=True),
                 html.Div("Action overlay", style=LABEL_STYLE),
                 dcc.RadioItems(id="ds_overlay", options=OVERLAY_OPTIONS,
                                value="cartesian",
@@ -959,10 +782,14 @@ class DatasetView:
             except ValueError:
                 return abort(404)
             overlay = request.args.get("overlay", "none")
+            try:
+                horizon = max(1, min(1000, int(request.args.get("horizon", 16))))
+            except ValueError:
+                return abort(400)
             annotate = request.args.get("annot", "0") == "1"
             data = render_frame_jpeg(
                 self.dataset_root, episode, frame_i, overlay=overlay,
-                annotate=annotate, image_key=self.image_key)
+                annotate=annotate, image_key=self.image_key, horizon=horizon)
             if data is None:
                 return abort(404)
             return Response(data, mimetype="image/jpeg",
@@ -1016,7 +843,7 @@ class DatasetView:
             meta = (f"frames     {n}\n"
                     f"overlays   {', '.join(o for o in m['overlays'] if o != 'none') or '—'}\n"
                     f"annots     {m['n_annot']} interval(s)\n"
-                    f"image_key  {m['img_key']}")
+                    f"image_key  {m['img_key']}\n\n{m.get('validation', '')}")
             intervals = [[iv[0], iv[1], iv[3]]
                          for iv in annotation_intervals(self.dataset_root, episode)]
             # NB: no server-side bulk warm here — the clientside preloader below
@@ -1031,13 +858,13 @@ class DatasetView:
         #  looks up the annotation from the store, so scrub/playback are smooth).
         app.clientside_callback(
             """
-            function(frame, overlay, annotVal, episode, intervals, nframes) {
+            function(frame, overlay, annotVal, episode, intervals, nframes, horizon) {
                 if (!episode) { return ["", "", ""]; }
                 frame = frame || 0;
                 var annotate = annotVal && annotVal.indexOf("on") >= 0;
                 var src = "/dataset_frame/" + episode + "/" + frame +
                           "?overlay=" + (overlay || "none") +
-                          "&annot=" + (annotate ? "1" : "0");
+                          "&annot=" + (annotate ? "1" : "0") + "&horizon=" + (horizon || 16);
                 var label = frame + " / " + Math.max(0, (nframes || 1) - 1);
                 var txt = "(no annotation at this frame)";
                 if (intervals) {
@@ -1061,10 +888,11 @@ class DatasetView:
             Input("ds_episode", "value"),
             Input("ds_ann_store", "data"),
             Input("ds_nframes", "data"),
+            Input("ds_horizon", "value"),
         )
 
         # CLIENTSIDE preloader: when the episode/overlay/annot changes, fetch
-        # every frame URL into the browser's HTTP cache (batched). Without this,
+        # a bounded window of frame URLs into the browser's HTTP cache. Without this,
         # rapidly swapping the <img> src during playback/scrub makes the browser
         # cancel each in-flight load before it paints, so the frame appears to
         # freeze until motion stops. Once cached, each src-swap is an instant
@@ -1072,33 +900,37 @@ class DatasetView:
         # a superseded preload when the user switches episode/overlay.
         app.clientside_callback(
             """
-            function(episode, overlay, annotVal, nframes, curFrame) {
+            function(episode, overlay, annotVal, nframes, horizon, curFrame) {
                 if (!episode || !nframes) { return 0; }
                 var annotate = annotVal && annotVal.indexOf("on") >= 0;
                 var ov = overlay || "none";
-                var token = episode + "|" + ov + "|" + (annotate ? 1 : 0);
+                var token = episode + "|" + ov + "|" + (annotate ? 1 : 0) + "|" + horizon;
                 window._dsTok = token;
-                var n = nframes, start = curFrame || 0;
-                // visit order: current frame FIRST, then forward, wrapping —
-                // so the frame the user is looking at caches first and an
-                // overlay switch updates immediately.
-                var order = [];
-                for (var k = 0; k < n; k++) { order.push((start + k) % n); }
-                var idx = 0;
-                function step() {
-                    if (window._dsTok !== token) { return; }  // superseded -> stop
-                    var b = 0;
-                    // gentle batches (4 / 80ms) so the preloader never saturates
-                    // the browser's connection pool and starve the visible frame.
-                    while (idx < order.length && b < 4) {
-                        var im = new Image();
-                        im.src = "/dataset_frame/" + episode + "/" + order[idx] +
-                                 "?overlay=" + ov + "&annot=" + (annotate ? "1" : "0");
-                        idx++; b++;
-                    }
-                    if (idx < order.length) { setTimeout(step, 80); }
+                // Keep only two requests in flight. The old timer enqueued
+                // thousands of images, delaying the user's next overlay/frame.
+                (window._dsImages || []).forEach(function(im) {
+                    im.onload = im.onerror = null;
+                    im.src = "";
+                });
+                var active = [];
+                window._dsImages = active;
+                var start = curFrame || 0, idx = 0;
+                var count = Math.min(nframes, 120);
+                function next() {
+                    if (window._dsTok !== token || idx >= count) { return; }
+                    var frame = (start + idx++) % nframes;
+                    var im = new Image();
+                    active.push(im);
+                    im.onload = im.onerror = function() {
+                        var i = active.indexOf(im);
+                        if (i >= 0) { active.splice(i, 1); }
+                        setTimeout(next, 80);
+                    };
+                    im.src = "/dataset_frame/" + episode + "/" + frame +
+                             "?overlay=" + ov + "&annot=" + (annotate ? "1" : "0") +
+                             "&horizon=" + (horizon || 16);
                 }
-                step();
+                next(); next();
                 return 0;
             }
             """,
@@ -1107,6 +939,7 @@ class DatasetView:
             Input("ds_overlay", "value"),
             Input("ds_annot", "value"),
             Input("ds_nframes", "data"),
+            Input("ds_horizon", "value"),
             State("ds_frame", "value"),
         )
 
@@ -1173,9 +1006,10 @@ class DatasetView:
             Input("ds_episode", "value"),
             Input("ds_overlay", "value"),
             Input("ds_show3d", "value"),
+            Input("ds_horizon", "value"),
             prevent_initial_call=False,
         )
-        def _update_3d(frame, episode, overlay, show3d):
+        def _update_3d(frame, episode, overlay, show3d, horizon):
             hidden_style = {**_DS_3D_WRAP_STYLE, "display": "none"}
             show = show3d and "on" in show3d
             # hide (and skip building) when the 3D toggle is off or no overlay.
@@ -1187,7 +1021,7 @@ class DatasetView:
             if grp is None:
                 return dash.no_update, _DS_3D_WRAP_STYLE
             try:
-                return build_3d_figure(grp, int(frame or 0), overlay), _DS_3D_WRAP_STYLE
+                return build_3d_figure(grp, int(frame or 0), overlay, traj_window=int(horizon or 16)), _DS_3D_WRAP_STYLE
             except Exception as e:
                 logger.debug("build_3d_figure failed (%s,%s,%s): %s",
                              episode, frame, overlay, e)

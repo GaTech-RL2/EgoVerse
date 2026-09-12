@@ -170,6 +170,14 @@ class DatasetConverter:
                 else:
                     numeric_data[key] = value
 
+        # Match undistort_to_linear's focal length and rotated output size.
+        # Persisting the full-resolution constant for a half-size export shifts
+        # every projection even though both the image and matrix are valid.
+        intrinsics = ARIA_INTRINSICS.copy()
+        intrinsics[0, 0] *= self.height / 480
+        intrinsics[1, 1] *= self.height / 480
+        intrinsics[0, 2] = self.width / 2
+        intrinsics[1, 2] = self.height / 2
         zarr_path = ZarrWriter.create_and_write(
             episode_path=output_dir / f"{episode_name}.zarr",
             numeric_data=numeric_data if numeric_data else None,
@@ -179,7 +187,7 @@ class DatasetConverter:
             task_name=task_name,
             task_description=task_description,
             chunk_timesteps=chunk_timesteps,
-            intrinsics={"front_1": ARIA_INTRINSICS},
+            intrinsics={"front_1": intrinsics},
         )
         if self.save_mp4:
             mp4_path = output_dir / f"{episode_name}.mp4"

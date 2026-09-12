@@ -462,7 +462,7 @@ class Embodiment(ABC):
                 dot_color = ColorPalette.to_rgb(color, value=0.7)
             else:
                 colors = cls.FINGER_COLORS
-                dot_color = cls.DOT_COLOR
+                dot_color = None  # Shared per-side colors from the keypoint renderer.
             return _viz_keypoints(
                 image=image,
                 actions=viz_data,
