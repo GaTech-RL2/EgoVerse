@@ -347,7 +347,8 @@ def _viz_keypoints(
         dot_color: One color for both sides. ``None`` selects a different
             default color for each side.
         n_kp: Number of slots in each side's keypoint block.
-        valid_slots: Slot indices to draw on both sides. ``None`` selects every
+        valid_slots: Slot indices for both sides, or a per-side mapping.
+            ``None`` selects every
             slot. Edges incident to an unselected slot are also omitted.
     """
     actions = np.asarray(actions)
@@ -377,15 +378,16 @@ def _viz_keypoints(
         left_keypoints, right_keypoints = _split_keypoints(
             actions, wrist_in_data=False, n_kp=n_kp
         )
-    owned = np.ones(n_kp, dtype=bool)
-    if valid_slots is not None:
-        owned[:] = False
-        owned[[s for s in valid_slots if 0 <= s < n_kp]] = True
     keypoints = {}
     keypoints["left"] = left_keypoints.reshape(-1, n_kp, 3)
     keypoints["right"] = right_keypoints.reshape(-1, n_kp, 3)
     _default_dot_colors = {"left": (0, 120, 255), "right": (255, 80, 0)}
     for hand in ("left", "right"):
+        owned = np.ones(n_kp, dtype=bool)
+        slots = valid_slots.get(hand, ()) if isinstance(valid_slots, dict) else valid_slots
+        if slots is not None:
+            owned[:] = False
+            owned[[s for s in slots if 0 <= s < n_kp]] = True
         hand_dot_color = (
             dot_color if dot_color is not None else _default_dot_colors[hand]
         )

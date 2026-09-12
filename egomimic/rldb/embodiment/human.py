@@ -20,9 +20,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     XYZWXYZ_to_XYZYPR,
 )
 from egomimic.utils.viz_utils import (
-    ColorPalette,
     _viz_gaze,
-    _viz_keypoints,
 )
 
 ARIA_INTRINSICS = np.array(
@@ -107,29 +105,6 @@ class Human(Embodiment):
     # Pi's _fill_missing_images auto-duplicates the absent wrist keys.
     PI_FRONT_KEY = "base_0_rgb"
     RGB_T_CPF = ARIA_RGB_T_CPF  # `viz` uses this matrix for Aria gaze data.
-    # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
-    FINGER_EDGES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
-        (0, 5), (5, 6), (6, 7), (7, 8),         # index
-        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
-        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
-        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
-    ]
-    FINGER_COLORS = {
-        "thumb": (255, 100, 100),
-        "index": (100, 255, 100),
-        "middle": (100, 100, 255),
-        "ring": (255, 255, 100),
-        "pinky": (255, 100, 255),
-    }
-    FINGER_EDGE_RANGES = [
-        ("thumb", 0, 4),
-        ("index", 4, 8),
-        ("middle", 8, 12),
-        ("ring", 12, 16),
-        ("pinky", 16, 20),
-    ]
-    DOT_COLOR = (255, 165, 0)
 
     @classmethod
     def viz(
@@ -172,39 +147,11 @@ class Human(Embodiment):
                 rgb_T_cpf=cls.RGB_T_CPF,
                 **kwargs,
             )
-        if mode == "keypoints":
-            color = kwargs.get("color", None)
-            if color is not None and ColorPalette.is_valid(color):
-                n = len(cls.FINGER_COLORS)
-                colors = {
-                    finger: ColorPalette.to_rgb(color, value=(i + 1) / (n + 1))
-                    for i, finger in enumerate(cls.FINGER_COLORS)
-                }
-                dot_color = ColorPalette.to_rgb(color, value=0.7)
-            else:
-                colors = cls.FINGER_COLORS
-                dot_color = cls.DOT_COLOR
-            return _viz_keypoints(
-                image=image,
-                actions=viz_data,
-                intrinsics=K,
-                n_kp=21 if keypoint_spec is None else keypoint_spec.n_slots,
-                valid_slots=(
-                    None
-                    if keypoint_spec is None or keypoint_spec.is_complete
-                    else keypoint_spec.valid
-                ),
-                edges=finger_edges if finger_edges is not None else cls.FINGER_EDGES,
-                edge_ranges=(
-                    finger_edge_ranges
-                    if finger_edge_ranges is not None
-                    else cls.FINGER_EDGE_RANGES
-                ),
-                colors=colors,
-                dot_color=dot_color,
-                **kwargs,
-            )
-        return super().viz(image, viz_data, mode=mode, intrinsics=intrinsics, **kwargs)
+        return super().viz(
+            image, viz_data, mode=mode, intrinsics=intrinsics,
+            finger_edges=finger_edges, finger_edge_ranges=finger_edge_ranges,
+            keypoint_spec=keypoint_spec, **kwargs,
+        )
 
     @classmethod
     def get_keymap(

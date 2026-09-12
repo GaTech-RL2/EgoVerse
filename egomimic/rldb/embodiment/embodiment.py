@@ -20,8 +20,10 @@ from egomimic.rldb.zarr.action_chunk_transforms import Transform
 from egomimic.utils.pose_utils import _split_action_pose
 from egomimic.utils.type_utils import _to_numpy
 from egomimic.utils.viz_utils import (
+    ColorPalette,
     _viz_annotations,
     _viz_axes,
+    _viz_keypoints,
     _viz_rotation_txt,
     _viz_traj,
 )
@@ -202,6 +204,13 @@ class ResolvedEmbodiment:
     def get_transform_list(self, *args, **kwargs):
         return self.embodiment_class.get_transform_list(*args, **kwargs)
 
+    def viz(self, image, viz_data, mode="keypoints", **kwargs):
+        """Draw with the resolved per-side slot ownership, including robots."""
+        cls = self.embodiment_class if self.platform.embodiment_class else Embodiment
+        if mode == "keypoints":
+            kwargs.setdefault("keypoint_specs", {s: ee.keypoints for s, ee in self.end_effectors.items()})
+        return cls.viz(image, viz_data, mode=mode, **kwargs)
+
     def describe(self) -> str:
         sides = ", ".join(
             f"{s}={self.end_effectors[s].name}" for s in sorted(self.end_effectors)
@@ -211,6 +220,30 @@ class ResolvedEmbodiment:
 
 class Embodiment(ABC):
     """Define dataset transforms and visualization for an embodiment."""
+
+    # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
+    FINGER_EDGES = [
+        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
+        (0, 5), (5, 6), (6, 7), (7, 8),         # index
+        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
+        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
+        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
+    ]
+    FINGER_COLORS = {
+        "thumb": (255, 100, 100),
+        "index": (100, 255, 100),
+        "middle": (100, 100, 255),
+        "ring": (255, 255, 100),
+        "pinky": (255, 100, 255),
+    }
+    FINGER_EDGE_RANGES = [
+        ("thumb", 0, 4),
+        ("index", 4, 8),
+        ("middle", 8, 12),
+        ("ring", 12, 16),
+        ("pinky", 16, 20),
+    ]
+    DOT_COLOR = (255, 165, 0)
 
     INTRINSICS = None
     EXTRINSICS = None
@@ -407,6 +440,45 @@ class Embodiment(ABC):
         **kwargs,
     ):
         K = intrinsics if intrinsics is not None else cls.INTRINSICS
+        if mode == "keypoints":
+            specs = kwargs.pop("keypoint_specs", None)
+            keypoint_spec = kwargs.pop("keypoint_spec", None)
+            finger_edges = kwargs.pop("finger_edges", None)
+            finger_edge_ranges = kwargs.pop("finger_edge_ranges", None)
+            sizes = {spec.n_slots for spec in (specs or {}).values()}
+            if len(sizes) > 1:
+                raise ValueError("both hands must use the same keypoint topology size")
+            n_kp = next(iter(sizes), 21 if keypoint_spec is None else keypoint_spec.n_slots)
+            valid_slots = None if keypoint_spec is None else keypoint_spec.valid
+            if specs is not None:
+                valid_slots = {side: specs[side].valid if side in specs else () for side in SIDES}
+            color = kwargs.get("color", None)
+            if color is not None and ColorPalette.is_valid(color):
+                n = len(cls.FINGER_COLORS)
+                colors = {
+                    finger: ColorPalette.to_rgb(color, value=(i + 1) / (n + 1))
+                    for i, finger in enumerate(cls.FINGER_COLORS)
+                }
+                dot_color = ColorPalette.to_rgb(color, value=0.7)
+            else:
+                colors = cls.FINGER_COLORS
+                dot_color = cls.DOT_COLOR
+            return _viz_keypoints(
+                image=image,
+                actions=viz_data,
+                intrinsics=K,
+                n_kp=n_kp,
+                valid_slots=valid_slots,
+                edges=finger_edges if finger_edges is not None else cls.FINGER_EDGES,
+                edge_ranges=(
+                    finger_edge_ranges
+                    if finger_edge_ranges is not None
+                    else cls.FINGER_EDGE_RANGES
+                ),
+                colors=colors,
+                dot_color=dot_color,
+                **kwargs,
+            )
         # Pass the bound classmethod so subclass-specific layouts are honored.
         split_pose = cls.split_action_pose
         if mode == "traj":
@@ -446,7 +518,7 @@ class Embodiment(ABC):
                 **kwargs,
             )
         raise ValueError(
-            f"Unsupported mode '{mode}'. Expected one of: ('traj', 'traj+rotation', 'axes', 'annotations')."
+            f"Unsupported mode '{mode}'. Expected one of: ('traj', 'traj+rotation', 'axes', 'annotations', 'keypoints')."
         )
 
     @classmethod
