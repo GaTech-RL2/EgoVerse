@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Literal
@@ -52,6 +53,24 @@ def get_embodiment(index):
 
 def get_embodiment_id(embodiment_name):
     return EMBODIMENT[embodiment_name.upper()].value
+
+
+def _strip_pi_keymap_mode(cls, keymap_mode: str) -> str:
+    """The ``*_pi`` keymap modes emitted PaliGemma camera names from the
+    dataset. Datasets now use one naming for every algo; the Pi wrapper
+    renames onto openpi's slots (egomimic.models.preprocess_pi_obs). The suffix
+    is still accepted so configs saved by earlier runs (eval, resume) rebuild."""
+    if not keymap_mode.endswith("_pi"):
+        return keymap_mode
+    base_mode = keymap_mode[: -len("_pi")]
+    warnings.warn(
+        f"keymap_mode '{keymap_mode}' is deprecated for {cls.__name__}; using "
+        f"'{base_mode}'. Pi maps the dataset camera keys onto base_0_rgb / "
+        "*_wrist_0_rgb itself.",
+        FutureWarning,
+        stacklevel=3,
+    )
+    return base_mode
 
 
 class Embodiment(ABC):

@@ -4,7 +4,7 @@ from typing import Literal
 
 import numpy as np
 
-from egomimic.rldb.embodiment.embodiment import Embodiment
+from egomimic.rldb.embodiment.embodiment import Embodiment, _strip_pi_keymap_mode
 from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
@@ -61,19 +61,12 @@ class Eva(Embodiment):
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
-        # Camera key naming differs by algo:
-        #   "cartesian"     -> dataset-style names (HPT and friends)
-        #   "cartesian_pi"  -> PI/PaliGemma-style names (base_0_rgb, *_wrist_0_rgb)
-        # Everything else (proprio + action) stays identical so the same
-        # transform_list ("cartesian") works either way.
-        if keymap_mode == "cartesian_pi":
-            front_key = "base_0_rgb"
-            right_wrist_key = "right_wrist_0_rgb"
-            left_wrist_key = "left_wrist_0_rgb"
-        else:
-            front_key = cls.VIZ_IMAGE_KEY
-            right_wrist_key = "observations.images.right_wrist_img"
-            left_wrist_key = "observations.images.left_wrist_img"
+        # One camera naming for every algo. Pi renames onto openpi's slots
+        # itself (egomimic.models.preprocess_pi_obs.PI_CAMERA_SLOTS).
+        keymap_mode = _strip_pi_keymap_mode(cls, keymap_mode)
+        front_key = cls.VIZ_IMAGE_KEY
+        right_wrist_key = "observations.images.right_wrist_img"
+        left_wrist_key = "observations.images.left_wrist_img"
 
         key_map = {
             front_key: {

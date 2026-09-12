@@ -108,8 +108,8 @@ def _vendor_filter(cfg, emb: str, vendor: str) -> None:
     with open_dict(cfg):
         cfg.data.train_datasets[emb].filters = filters
         # The vendor configs' valid split is an interpolation to the train node
-        # (so this write is redundant there); cotrain_pi_base copies fields, so
-        # set it explicitly for the Pi human rows.
+        # (so this write is redundant there); set it anyway for configs that
+        # copy fields instead.
         if cfg.data.valid_datasets.get(emb) is not None:
             cfg.data.valid_datasets[emb].filters = filters
 
@@ -174,4 +174,6 @@ def test_pi_real_recipe(tmp_path, monkeypatch, vendor):
     _vendor_filter(cfg, recipe.embodiment, vendor)
     spy = BatchKeySpy(monkeypatch, PI)
     _run(cfg, out)
-    assert "base_0_rgb" in spy.keys[recipe.embodiment]
+    # Dataset camera name reaches the wrapper; the remap onto openpi's slots is
+    # covered by tests/unit/test_pi_camera_slots.py.
+    assert "observations.images.front_img_1" in spy.keys[recipe.embodiment]

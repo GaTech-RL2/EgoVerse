@@ -234,11 +234,9 @@ class PILatentEvalVideo(EvalVideo):
                 ac_key = algo.ac_keys[embodiment_id]
                 proprio_keys = algo.proprio_keys[embodiment_id]
                 lang_keys = algo.lang_keys[embodiment_id]
-                camera_keys = algo.camera_keys.get(embodiment_id, algo.pi_cam_keys)
 
                 processed_obs, _action = algo._robomimic_to_pi_data(
                     _batch,
-                    camera_keys,
                     proprio_keys,
                     lang_keys,
                     ac_key,
