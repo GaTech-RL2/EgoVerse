@@ -102,6 +102,19 @@ def _camera_matrix(value: Any, where: str) -> np.ndarray:
     return arr
 
 
+def _rigid_matrix(value: Any, where: str) -> np.ndarray:
+    """Reject unusable declared transforms before any inversion or projection."""
+    arr = _matrix(value, (4, 4), where)
+    rotation = arr[:3, :3]
+    if not (
+        np.allclose(arr[3], [0, 0, 0, 1], atol=1e-5)
+        and np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-4)
+        and np.isclose(np.linalg.det(rotation), 1, atol=1e-4)
+    ):
+        raise CalibrationError(f"{where}: expected a rigid transform with a proper rotation")
+    return arr
+
+
 @dataclass(frozen=True)
 class CameraCalibration:
     """Normalized calibration metadata for one camera stream.
@@ -368,7 +381,7 @@ def _parse_camera(name: str, block: Any, where: str) -> CameraCalibration:
     K = block.get("K")
 
     model = block.get("model", DEFAULT_CAMERA_MODEL)
-    if model not in CAMERA_MODELS:
+    if not isinstance(model, str) or model not in CAMERA_MODELS:
         raise CalibrationError(
             f"{where}.model: unknown camera model {model!r}; expected one of "
             f"{sorted(CAMERA_MODELS)}"
@@ -405,7 +418,7 @@ def _parse_camera(name: str, block: Any, where: str) -> CameraCalibration:
         ref_T_cam=(
             None
             if ref_T_cam is None
-            else _matrix(ref_T_cam, (4, 4), f"{where}.ref_T_cam")
+            else _rigid_matrix(ref_T_cam, f"{where}.ref_T_cam")
         ),
     )
 
@@ -444,6 +457,8 @@ def parse_calibration(block: Any, where: str = "calibration") -> Calibration:
         name: _parse_camera(name, cam, f"{where}.cameras[{name!r}]")
         for name, cam in raw_cameras.items()
     }
+    if any(not isinstance(name, str) or not name for name in cameras):
+        raise CalibrationError(f"{where}.cameras: names must be non-empty strings")
 
     if "reference_frame" not in block:
         raise CalibrationError(f"{where}: missing required field 'reference_frame'")
@@ -458,7 +473,7 @@ def parse_calibration(block: Any, where: str = "calibration") -> Calibration:
             f"ref_T_armbase matrix, got {raw_arm_bases!r}"
         )
     arm_bases = {
-        side: _matrix(T, (4, 4), f"{where}.arm_bases[{side!r}]")
+        side: _rigid_matrix(T, f"{where}.arm_bases[{side!r}]")
         for side, T in raw_arm_bases.items()
     }
 
@@ -488,7 +503,7 @@ def lift_legacy_calibration(
     Raises:
         CalibrationError: If either attribute is malformed.
     """
-    if not intrinsics and not extrinsics:
+    if (intrinsics is None or isinstance(intrinsics, Mapping) and not intrinsics) and not extrinsics:
         return None
 
     if isinstance(intrinsics, Mapping):
@@ -513,7 +528,7 @@ def lift_legacy_calibration(
                 f"base_T_cam matrix, got {extrinsics!r}"
             )
         for side, base_T_cam in extrinsics.items():
-            matrix = _matrix(base_T_cam, (4, 4), f"extrinsics[{side!r}]")
+            matrix = _rigid_matrix(base_T_cam, f"extrinsics[{side!r}]")
             arm_bases[str(side)] = np.linalg.inv(matrix)
 
     # Legacy extrinsics belong to the front stream, including older camera

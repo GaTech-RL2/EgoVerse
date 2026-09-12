@@ -69,6 +69,9 @@ def camera_coverage(
     attrs = dict(group.attrs)
     resolved = Embodiment.from_attrs(attrs) if resolved is None else resolved
     total = attrs.get("total_frames", 0)
+    if not isinstance(total, int) or isinstance(total, bool) or total <= 0:
+        result.missing.append("total_frames must be a positive integer")
+        return result
     image = _array(group, f"images.{camera}")
     if image is None or not image.shape or image.shape[0] < total:
         result.missing.append(f"images.{camera} missing or shorter than total_frames")
@@ -121,6 +124,8 @@ def camera_coverage(
         result.K = entry.K
         if result.K[0, 0] <= 0 or result.K[1, 1] <= 0:
             result.missing.append("camera focal lengths must be positive")
+        if not np.allclose(result.K[2], [0, 0, 1, 0]) or not np.allclose(result.K[:, 3], 0):
+            result.missing.append("camera K must be [K_3x3 | 0] with last row [0, 0, 1, 0]")
         if not entry.rectified and (entry.model != "PINHOLE" or any(entry.distortion)):
             result.missing.append(
                 f"unrectified {entry.model} projection is not implemented"
@@ -134,6 +139,8 @@ def camera_coverage(
                 f"calibration resolution {entry.resolution} differs from stored image {image_shape[:2][::-1]}"
             )
     provenance = attrs.get("preview_provenance") or {}
+    if not isinstance(provenance, dict):
+        provenance = {}
     result.estimated = camera in provenance.get("estimated_cameras", [])
     if result.estimated:
         result.limitations.append(

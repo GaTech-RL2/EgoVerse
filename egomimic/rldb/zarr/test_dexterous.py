@@ -55,6 +55,7 @@ def write_dexterous(tmp_path, dexterous_registry, hand_track):
             numeric[f"{side}.cmd_hand_joints"] = joints
             numeric[f"{side}.obs_hand_keypoints"] = keypoints
             numeric[f"{side}.obs_joints"] = np.zeros((LENGTH, ARM_DOF))
+            numeric[f"{side}.cmd_joints"] = np.zeros((LENGTH, ARM_DOF))
         numeric["obs_aux_joints"] = np.zeros((LENGTH, AUX_DOF))
         numeric["cmd_aux_joints"] = np.zeros((LENGTH, AUX_DOF))
         numeric["obs_rgb_timestamps_ns"] = np.arange(LENGTH, dtype=np.int64)

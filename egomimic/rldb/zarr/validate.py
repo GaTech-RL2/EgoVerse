@@ -41,6 +41,7 @@ from egomimic.rldb.zarr.calibration import (
     read_calibration,
     uncalibrated_cameras,
 )
+from egomimic.rldb.zarr.episode_attrs import data_status, is_complete
 
 SCHEMA_DIR = Path(__file__).parent / "schema"
 SCHEMA_FILE = SCHEMA_DIR / "episode_v3.yaml"
@@ -99,6 +100,9 @@ class Report:
     path: Path
     findings: list[Finding] = field(default_factory=list)
     requirements: dict[str, bool] = field(default_factory=dict)
+    data_status: str | None = None
+    status_eligible: bool = False
+    capabilities: dict[str, Any] = field(default_factory=dict)
 
     def add(self, level: str, check: str, message: str) -> None:
         self.findings.append(Finding(level, check, message))
@@ -119,6 +123,8 @@ class Report:
         return (
             f"{len(self.findings)} checks, {len(self.errors)} errors, "
             f"{len(self.warnings)} warnings"
+            f"; data_status={self.data_status or 'unknown'}, "
+            f"status eligible={'yes' if self.status_eligible else 'no'}"
         )
 
     def text(self, verbose: bool = False) -> str:
@@ -131,6 +137,10 @@ class Report:
         for finding in self.findings:
             if finding.level != OK or verbose:
                 lines.append(f"  {finding}")
+        for name, capability in self.capabilities.items():
+            if capability["requested"]:
+                result = {True: "available", False: "unavailable", None: "not checked"}[capability["available"]]
+                lines.append(f"  requested {name}: {result}")
         lines.append(f"  {self.summary()}")
         return "\n".join(lines)
 
@@ -139,6 +149,9 @@ class Report:
             "path": str(self.path),
             "requirements": self.requirements,
             "ok": self.ok,
+            "data_status": self.data_status,
+            "status_eligible": self.status_eligible,
+            "capabilities": self.capabilities,
             "findings": [
                 {"level": f.level, "check": f.check, "message": f.message}
                 for f in self.findings
@@ -830,6 +843,45 @@ def _check_array(key: str, rule: dict, arrays: Mapping, report, context, side) -
         report.add(ERROR, key, "; ".join(problems))
     else:
         report.add(OK, key, f"shape {shape} {array.dtype}")
+        _check_numeric_values(key, array, context, report, side)
+
+
+def _check_numeric_values(key, array, context, report, side):
+    """Check retained estimates, respecting Human sentinels and registry slots."""
+    if _dtype_kind(array.dtype) != "float":
+        return
+    values = _read(array, context["total_frames"])
+    resolved = context["resolved"]
+    spec = resolved.end_effectors.get(side)
+    human = resolved.platform.kind == "human"
+    if "keypoints" in key and spec is not None:
+        values = values.reshape(len(values), spec.keypoints.n_slots, 3)
+        values = values[:, spec.keypoints.valid, :]
+        # Legacy human estimates may be missing (all NaN or the Aria 1e9
+        # sentinel). A partial nonfinite point is still corrupt data.
+        missing = np.isnan(values).all(axis=-1) | (np.abs(values) >= 1e8).all(axis=-1)
+        if human and missing.any():
+            report.add(WARNING, key, f"{missing.sum()} missing human keypoint estimates")
+            values = values[~missing]
+    if key.endswith("pose") and values.ndim == 2 and values.shape[1] == 7:
+        missing = (np.abs(values) >= 1e8).all(axis=-1)
+        if human and key != "obs_head_pose" and missing.any():
+            report.add(WARNING, key, f"{missing.sum()} missing human pose estimates")
+            values = values[~missing]
+        norms = np.linalg.norm(values[:, 3:], axis=-1)
+        if not np.isfinite(values).all():
+            report.add(ERROR, key, "nonfinite retained pose values")
+        if not np.all(np.isfinite(norms) & np.isclose(norms, 1, atol=1e-3)):
+            report.add(ERROR, key, "retained quaternions must be finite and unit norm (wxyz)")
+        return
+    if not np.isfinite(values).all():
+        report.add(ERROR, key, "nonfinite retained values in valid slots")
+    if "keypoints" in key and (np.abs(values) >= 1e8).any():
+        report.add(ERROR, key, "invalid retained keypoint estimates in valid slots")
+    if key.endswith("hand_joints") and spec is not None and spec.joint_limits:
+        limits = np.asarray(spec.joint_limits)
+        if ((values < limits[:, 0] - 1e-6) | (values > limits[:, 1] + 1e-6)).any():
+            report.add(ERROR, key, "retained joints exceed registry limits; check units and joint order")
 
 
 def _expand_key(template: str, arrays: Mapping, sides) -> list[tuple[str, str | None]]:
@@ -862,7 +914,8 @@ def _expand_key(template: str, arrays: Mapping, sides) -> list[tuple[str, str | 
 
 
 def validate_episode(
-    path: str | Path, *, requirements: Mapping[str, bool] | None = None
+    path: str | Path, *, requirements: Mapping[str, bool] | None = None,
+    ego_overlay: bool = False,
 ) -> Report:
     """Validate one Zarr episode against ``schema/episode_v3.yaml``.
 
@@ -870,7 +923,9 @@ def validate_episode(
         path: The episode ``.zarr`` directory.
         requirements: Per-rule severity decisions. ``True`` reports a failure
             as an error; ``False`` waives it to a warning. Omitted rules remain
-            required. Integrity rules cannot be overridden.
+            optional. Integrity rules cannot be overridden.
+        ego_overlay: Require a usable front_1 keypoint overlay over retained RGB
+            frames, with explicit dexterous delivery metadata and joint order.
 
     Returns:
         The findings emitted while validating the episode.
@@ -881,62 +936,170 @@ def validate_episode(
     path = Path(path)
     schema = load_schema()
     report = Report(path=path, requirements=_requirements(schema, requirements))
+    report.capabilities["ego_overlay"] = {"requested": ego_overlay, "available": None}
+    try:
+        _validate_store(path, schema, report, ego_overlay)
+    except SchemaError:
+        raise
+    except Exception as exc:
+        # An unreadable array or corrupt episode must not abort a multi-path
+        # invocation. Schema configuration errors above remain programmer errors.
+        report.add(ERROR, "episode", f"cannot validate episode: {type(exc).__name__}: {exc}")
+    return report
+
+
+def _validate_store(path, schema, report, ego_overlay):
     try:
         store = zarr.open_group(str(path), mode="r")
     except Exception as exc:
         report.add(ERROR, "episode", f"cannot open as a zarr group: {exc}")
-        return report
-
+        return
     attrs = dict(store.attrs)
     arrays = {name: store[name] for name in store.array_keys()}
-
-    context: dict[str, Any] = {
+    report.data_status = data_status(attrs)
+    report.status_eligible = is_complete(attrs)
+    context = {
+        "store": store,
         "array_keys": list(arrays),
         "arrays": arrays,
         "attrs": attrs,
-        "features": attrs.get("features") or {},
+        "features": attrs.get("features") if isinstance(attrs.get("features"), Mapping) else {},
         "total_frames": attrs.get("total_frames"),
     }
     embodiment = attrs.get("embodiment")
-    if embodiment:
+    if isinstance(embodiment, str):
         context["named_platform"] = load_embodiment_platforms().get(
             canonical_embodiment_name(embodiment)
         )
     try:
         context["calibration"] = read_calibration(attrs)
-    except CalibrationError as exc:
+    except (CalibrationError, TypeError, ValueError) as exc:
         context["calibration"] = None
         report.add(ERROR, "calibration_format", str(exc))
 
     for name, rule in schema.get("attributes", {}).items():
         _check_attribute(name, rule, attrs, report, context)
-
-    # Named FK and tactile checks need the same resolved platform and
-    # end-effector specifications used later for array conditions and widths.
+    # Validate prerequisites before reading tracks or computing dependent checks.
+    total = context["total_frames"]
+    if not isinstance(total, int) or isinstance(total, bool) or total <= 0:
+        if ego_overlay:
+            report.capabilities["ego_overlay"]["available"] = False
+        return
     resolved = _resolve(attrs, report)
     context["resolved"] = resolved
     if resolved is not None:
         report.add(OK, "embodiment", resolved.describe())
+        for rule in schema.get("arrays", []):
+            for key, side in _expand_key(rule["key"], arrays, resolved.sides):
+                if side is not None and side not in resolved.end_effectors:
+                    continue
+                when = rule.get("when") or {}
+                if when and not _condition_holds(when, resolved, side):
+                    continue
+                _check_array(key, rule, arrays, report, context, side)
 
+    _check_features(context, report, required=ego_overlay)
     for rule in schema.get("checks", []):
         check = _NAMED_CHECKS.get(rule.get("name"))
         if check is None:
             raise SchemaError(f"unknown check {rule.get('name')!r} in the schema")
-        check(rule, context, report)
+        try:
+            check(rule, context, report)
+        except (TypeError, ValueError, IndexError, KeyError, OverflowError) as exc:
+            report.add(ERROR, rule["name"], f"invalid prerequisites: {exc}")
+    if ego_overlay:
+        _check_ego_overlay(context, report)
 
+
+def _check_features(context, report, *, required):
+    features = context["features"]
+    for key, array in context["arrays"].items():
+        if key not in features:
+            report.add(ERROR if required else WARNING, "features", f"missing description for {key}")
+            continue
+        feature = features[key]
+        if not isinstance(feature, Mapping):
+            report.add(ERROR, "features", f"{key}: description must be a mapping")
+            continue
+        shape = feature.get("shape")
+        if not isinstance(shape, (list, tuple)) or not all(
+            isinstance(n, int) and not isinstance(n, bool) and n >= 0 for n in shape
+        ):
+            report.add(ERROR, "features", f"{key}: shape must list nonnegative dimensions")
+        elif not key.startswith("images.") and key != "annotations" and tuple(shape) != array.shape[1:]:
+            report.add(ERROR, "features", f"{key}: described shape {shape} differs from stored {array.shape[1:]}")
+        dtype = feature.get("dtype")
+        if not isinstance(dtype, str):
+            report.add(ERROR, "features", f"{key}: dtype must be a string")
+        elif _dtype_kind(array.dtype) in ("float", "int") and dtype != str(array.dtype):
+            report.add(ERROR, "features", f"{key}: described dtype {dtype} differs from stored {array.dtype}")
+
+
+def _check_ego_overlay(context, report):
+    from egomimic.rldb.zarr.camera_coverage import camera_coverage
+    from egomimic.rldb.zarr.overlay import decode_frame, keypoint_chunk
+
+    store, resolved = context["store"], context["resolved"]
+    problems = []
+    checked = 0
     if resolved is None:
-        return report
-
-    for rule in schema.get("arrays", []):
-        for key, side in _expand_key(rule["key"], arrays, resolved.sides):
-            if side is not None and side not in resolved.end_effectors:
-                continue
-            when = rule.get("when") or {}
-            if when and not _condition_holds(when, resolved, side):
-                continue
-            _check_array(key, rule, arrays, report, context, side)
-
-    return report
+        problems.append("cannot resolve morphology")
+    else:
+        dexterous = any(s.ee_class == "dexterous_hand" for s in resolved.end_effectors.values())
+        if dexterous:
+            if not isinstance(context["attrs"].get("morphology"), Mapping):
+                problems.append("dexterous delivery must declare morphology")
+            timestamps = context["arrays"].get("obs_rgb_timestamps_ns")
+            if timestamps is None or str(timestamps.dtype) != "int64":
+                problems.append("dexterous RGB timestamps must use int64 UTC nanoseconds")
+            for side, spec in resolved.end_effectors.items():
+                if spec.ee_class != "dexterous_hand":
+                    continue
+                for prefix in ("obs", "cmd"):
+                    key = f"{side}.{prefix}_hand_joints"
+                    feature = context["features"].get(key)
+                    if not isinstance(feature, Mapping) or feature.get("joint_names") != list(spec.joint_names):
+                        problems.append(f"{key}: features.joint_names must declare registry joint order")
+            if resolved.platform.aux and resolved.platform.aux.joint_names:
+                for key in ("obs_aux_joints", "cmd_aux_joints"):
+                    feature = context["features"].get(key)
+                    if not isinstance(feature, Mapping) or feature.get("joint_names") != list(resolved.platform.aux.joint_names):
+                        problems.append(f"{key}: features.joint_names must declare registry auxiliary order")
+        calibration = context.get("calibration")
+        entry = None if calibration is None else calibration.cameras.get("front_1")
+        if entry is None or entry.K is None:
+            problems.append("front_1: declared intrinsics required for ego overlay")
+        elif dexterous and (calibration.legacy or entry.resolution is None):
+            problems.append("front_1: dexterous calibration must declare the stored image resolution")
+        if dexterous and not problems:
+            camera_block = context["attrs"].get("calibration", {}).get("cameras", {}).get("front_1", {})
+            if not all(key in camera_block for key in ("model", "rectified")):
+                problems.append("front_1: declare the camera model and rectified image status")
+        if not problems:
+            for frame in range(context["total_frames"]):
+                try:
+                    image = decode_frame(store, frame, "front_1")
+                    coverage = camera_coverage(store, "front_1", frame, resolved=resolved, image_shape=image.shape)
+                    if not coverage.available:
+                        raise ValueError("; ".join(coverage.missing))
+                    feature = context["features"].get("images.front_1", {})
+                    if tuple(feature.get("shape", ())) != image.shape:
+                        raise ValueError("images.front_1: feature shape differs from decoded RGB")
+                    # Consume the same supplied arrays and validity masks as
+                    # the renderer. No FK generation or calibration fitting.
+                    _, _, chunk, owned = keypoint_chunk(store, frame)
+                    points = chunk.reshape(-1, 3)[owned]
+                    if not np.isfinite(points).all():
+                        raise ValueError("front_1: missing/invalid keypoints in active slots")
+                    checked += 1
+                except (ValueError, KeyError, OSError) as exc:
+                    problems.append(f"frame {frame}: {exc}")
+                    break
+    report.capabilities["ego_overlay"] = {
+        "requested": True, "available": not problems,
+        "checked_frames": checked, "missing": problems,
+    }
+    report.add(ERROR if problems else OK, "ego_overlay", "; ".join(problems) if problems else f"front_1 RGB, calibration and keypoints usable over {checked} retained frames")
 
 
 def _resolve(attrs: Mapping, report: Report) -> ResolvedEmbodiment | None:
@@ -973,6 +1136,8 @@ def _build_parser() -> argparse.ArgumentParser:
             default=False,
             help=f"[{rule['severity']}] {help_text} (default: report limitation)",
         )
+    parser.add_argument("--ego-overlay", action="store_true",
+                        help="Require front_1 RGB, supplied keypoints and optical camera transforms over every retained frame")
     parser.add_argument(
         "-v",
         "--verbose",
@@ -989,18 +1154,23 @@ def main(argv: list[str] | None = None) -> int:
     """Validate CLI paths and return an exit status.
 
     Returns:
-        ``0`` if every report has no errors, otherwise ``1``.
+        ``1`` for validation errors; ``3`` for a valid but ineligible status
+        when --data-status is requested; otherwise ``0``.
     """
     parser = _build_parser()
     args = parser.parse_args(argv)
     requirements = {name: getattr(args, f"require_{name}") for name in waivable_rules()}
-    reports = [validate_episode(p, requirements=requirements) for p in args.paths]
+    reports = [validate_episode(p, requirements=requirements, ego_overlay=args.ego_overlay) for p in args.paths]
     if args.json:
         print(json.dumps([r.to_jsonable() for r in reports], indent=2))
     else:
         for report in reports:
             print(report.text(verbose=args.verbose))
-    return 0 if all(r.ok for r in reports) else 1
+    if not all(r.ok for r in reports):
+        return 1
+    if args.require_data_status and any(not r.status_eligible for r in reports):
+        return 3
+    return 0
 
 
 if __name__ == "__main__":

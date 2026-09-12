@@ -240,6 +240,28 @@ arrays:
     shape: [T, arm_dof]
     dtype: float
 
+  # Full robot-hand deliveries include the platform's arm commands and state.
+  # Keep these optional for established parallel-jaw/Human representations.
+  - key: "{side}.obs_joints"
+    when: {has_arm_chain: true, end_effector_class: dexterous_hand}
+    required: true
+    severity: integrity
+    shape: [T, arm_dof]
+    dtype: float
+
+  - key: "{side}.cmd_joints"
+    when: {has_arm_chain: true, end_effector_class: dexterous_hand}
+    required: true
+    severity: integrity
+    shape: [T, arm_dof]
+    dtype: float
+
+  - key: "{side}.obs_wrist_pose"
+    required: false
+    severity: integrity
+    shape: [T, 7]
+    dtype: float
+
   - key: "{side}.obs_gripper"
     when: {end_effector_class: parallel_jaw}
     required: true
