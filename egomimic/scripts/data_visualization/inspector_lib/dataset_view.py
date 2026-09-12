@@ -137,7 +137,7 @@ def _frame_count(grp, image_key: str) -> int:
     for key in _candidate_image_keys(grp, image_key):
         arr = _resolve_zarr_path(grp, key)
         if arr is not None and hasattr(arr, "shape") and len(arr.shape) >= 1:
-            return int(arr.shape[0])
+            return min(int(arr.shape[0]), int(grp.attrs.get("total_frames", arr.shape[0])))
     return 0
 
 
@@ -487,7 +487,8 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
     traces = []
 
     def _arm_kp(arm):
-        a = (_resolve_zarr_path(grp, f"{arm}.obs_keypoints")
+        a = (_resolve_zarr_path(grp, f"{arm}.obs_hand_keypoints")
+             or _resolve_zarr_path(grp, f"{arm}.obs_keypoints")
              or _resolve_zarr_path(grp, f"{arm}.obs_aria_keypoints"))
         if a is None or not hasattr(a, "shape") or a.shape[0] == 0:
             return None
@@ -634,6 +635,15 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
     if overlay in (None, "none"):
         return img_rgb, True, ""
 
+    if overlay == "keypoint":
+        from egomimic.rldb.zarr.overlay import render_keypoints
+
+        try:
+            image, diagnostic = render_keypoints(grp, frame, image=img_rgb, horizon=horizon)
+            return image, True, f"{diagnostic['inside_fraction']:.0%} inside image"
+        except (ValueError, KeyError) as exc:
+            return _badge(img_rgb.copy(), "keypoint overlay unavailable"), False, str(exc)
+
     emb_cls = _embodiment_class(grp)
     if emb_cls is None:
         return _badge(img_rgb.copy(), f"overlay {overlay}: no embodiment"), False, "no emb"
@@ -698,34 +708,6 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
             vis = emb_cls.viz(img_rgb.copy(), chunk, mode=mode, intrinsics=intr)
             return vis, True, ""
 
-        if overlay == "keypoint":
-            if not hasattr(emb_cls, "viz"):
-                return _badge(img_rgb.copy(), "keypoint: viz unavailable"), False, "no viz"
-            # Keypoints are a head-frame (human) concept; eva has none -> badge.
-            if world_T_head is None:
-                return _badge(img_rgb.copy(), "keypoint: no keypoints"), False, "no kp"
-            parts = []
-            for arm in ("left", "right"):
-                a = (_resolve_zarr_path(grp, f"{arm}.obs_keypoints")
-                     or _resolve_zarr_path(grp, f"{arm}.obs_aria_keypoints"))
-                if a is None:
-                    parts.append(np.zeros(63))
-                    continue
-                parts.append(_world_keypoints_to_cam(a[frame], world_T_head))
-            if all(np.allclose(p, 0) for p in parts):
-                return _badge(img_rgb.copy(), "keypoint: no pts"), False, "off"
-            # canonical keypoints (wrist_in_data=False) layout: [L 63, R 63];
-            # <EmbClass>.viz(mode="keypoints") supplies the MANO edges/colors/
-            # edge_ranges. Only Human supports keypoints; if the resolved class
-            # doesn't, report via badge rather than reintroducing a low-level draw call.
-            kp = np.concatenate(parts).reshape(1, -1)
-            try:
-                vis = emb_cls.viz(img_rgb.copy(), kp, mode="keypoints", intrinsics=intr)
-            except ValueError:
-                return (_badge(img_rgb.copy(),
-                               f"keypoint: {emb_cls.__name__} has no keypoints mode"),
-                        False, "no kp mode")
-            return vis, True, ""
 
     except Exception as e:
         logger.debug("overlay %s failed: %s", overlay, e)
