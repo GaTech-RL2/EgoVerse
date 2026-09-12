@@ -4,7 +4,7 @@
 ``joint_names`` order. ``obs_hand_keypoints`` stores all slots in the declared
 topology in the same episode coordinate frame as ``obs_ee_pose``. The registry
 URDF and ``keypoint_links`` mapping convert the joint configuration into
-hand-root-frame positions for the valid slots. This module transforms the
+pose-link-frame positions for the valid slots. This module transforms the
 stored keypoints into that frame and returns their Euclidean distance from the
 forward-kinematics positions.
 """
@@ -39,14 +39,14 @@ def load_chain(spec: EndEffectorSpec) -> UrdfChain:
         UrdfError: If the entry declares no URDF or the file cannot be parsed
             as a supported kinematic tree.
     """
-    path = spec.urdf_path
+    path = spec.asset_path("urdf", verify=True)
     if path is None:
         raise UrdfError(f"end-effector {spec.name!r} declares no `urdf`")
     return _chain(str(path))
 
 
 def fk_keypoints(spec: EndEffectorSpec, joints: np.ndarray) -> np.ndarray:
-    """Return the hand-root-frame keypoints implied by a joint track.
+    """Return the pose-link-frame keypoints implied by a joint track.
 
     Args:
         spec: A registry entry declaring ``urdf``, ``joint_names`` and
@@ -55,7 +55,7 @@ def fk_keypoints(spec: EndEffectorSpec, joints: np.ndarray) -> np.ndarray:
             the entry's ``joint_names`` order.
 
     Returns:
-        A ``(T, n_valid, 3)`` array of hand-root-frame positions. Axis 1 follows
+        A ``(T, n_valid, 3)`` array of pose-link-frame positions. Axis 1 follows
         ``keypoint_links``, which the registry loader sorts by slot index.
 
     Raises:
@@ -78,9 +78,16 @@ def fk_keypoints(spec: EndEffectorSpec, joints: np.ndarray) -> np.ndarray:
             f"it actuates {list(chain.actuated_joint_names)}"
         )
     links = [link for _, link in spec.keypoint_links]
-    return np.stack(
-        [chain.link_positions(dict(zip(spec.joint_names, row)), links) for row in joints]
-    )
+    pose_link = spec.ee_pose_link or chain.root
+    missing = set([pose_link, *links]) - chain.links
+    if missing:
+        raise UrdfError(f"link(s) {sorted(missing)} are not in {spec.urdf}")
+    positions = []
+    for row in joints:
+        poses = chain.link_transforms(dict(zip(spec.joint_names, row)))
+        pose_T_root = np.linalg.inv(poses[pose_link])
+        positions.append([(pose_T_root @ poses[link])[:3, 3] for link in links])
+    return np.asarray(positions).reshape(len(joints), len(links), 3)
 
 
 def keypoint_residuals(
@@ -97,7 +104,7 @@ def keypoint_residuals(
         joints: A ``(T, dof)`` joint array in ``joint_names`` order.
         keypoints: A ``(T, 3 * n_slots)`` array of the vendor's keypoints, in
             the same frame as ``ee_poses``.
-        ee_poses: A ``(T, 7)`` array of ``[x, y, z, qw, qx, qy, qz]`` hand-root
+        ee_poses: A ``(T, 7)`` array of ``[x, y, z, qw, qx, qy, qz]`` pose-link
             poses in that frame.
 
     Returns:
@@ -125,7 +132,7 @@ def keypoint_residuals(
     root_T_world = np.linalg.inv(_xyzwxyz_to_matrix(ee_poses))
     valid = list(spec.keypoints.valid)
     stored = keypoints.reshape(-1, n_slots, 3)[:, valid, :]
-    # Convert episode-frame points to the hand-root frame returned by FK.
+    # Convert episode-frame points to the pose-link frame returned by FK.
     stored_root = np.einsum("tij,tkj->tki", root_T_world[:, :3, :3], stored)
     stored_root += root_T_world[:, None, :3, 3]
     return np.linalg.norm(fk_keypoints(spec, joints) - stored_root, axis=-1)

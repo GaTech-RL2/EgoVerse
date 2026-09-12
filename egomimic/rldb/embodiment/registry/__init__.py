@@ -10,6 +10,8 @@ calibration values.
 from __future__ import annotations
 
 import functools
+import hashlib
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,6 +20,7 @@ import yaml
 # Do not import the parent embodiment package here. The parent package imports
 # this module when it builds ``EMBODIMENT_CLASSES``.
 REGISTRY_DIR = Path(__file__).parent
+MODEL_FIELDS = frozenset({"urdf", "urdf_sha256", "robot_model", "robot_model_sha256"})
 
 PLATFORM_KINDS = frozenset({"robot", "human"})
 END_EFFECTOR_CLASSES = frozenset({"parallel_jaw", "human_hand", "dexterous_hand"})
@@ -25,7 +28,7 @@ ACTION_SPACES = frozenset({"cartesian", "keypoints"})
 #: Number of keypoint slots in each supported topology.
 TOPOLOGY_SLOTS = {"mano21": 21}
 
-_PLATFORM_FIELDS = frozenset(
+_PLATFORM_FIELDS = MODEL_FIELDS | frozenset(
     {
         "kind",
         "embodiment_prefix",
@@ -38,7 +41,7 @@ _PLATFORM_FIELDS = frozenset(
         "embodiment_class",
     }
 )
-_END_EFFECTOR_FIELDS = frozenset(
+_END_EFFECTOR_FIELDS = MODEL_FIELDS | frozenset(
     {
         "class",
         "dof",
@@ -51,6 +54,7 @@ _END_EFFECTOR_FIELDS = frozenset(
         "fk_tolerance_m",
         "dead_dims",
         "tactile",
+        "ee_pose_link",
     }
 )
 _AUX_FIELDS = frozenset({"dof", "joint_names"})
@@ -122,8 +126,57 @@ class TactileSpec:
         return self.taxels * self.channels
 
 
+class ModelAssets:
+    """Optional model references; stored-array readers never open these assets."""
+
+    def asset_path(self, kind: str = "urdf", *, verify: bool = False) -> Path | None:
+        if kind not in ("urdf", "robot_model"):
+            raise ValueError(f"unknown model kind {kind!r}")
+        value = getattr(self, kind)
+        if value is None:
+            return None
+        path = Path(value)
+        if not path.is_absolute():
+            path = REGISTRY_DIR / "urdf" / path
+        expected = getattr(self, f"{kind}_sha256")
+        if verify and expected is not None:
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+            if actual != expected:
+                raise RegistryError(
+                    f"{path}: SHA-256 mismatch: expected {expected}, got {actual}"
+                )
+        return path
+
+    @property
+    def urdf_path(self) -> Path | None:
+        return self.asset_path("urdf")
+
+    @property
+    def robot_model_path(self) -> Path | None:
+        return self.asset_path("robot_model")
+
+
+def _parse_models(block: dict, where: str) -> dict:
+    result = {field: block.get(field) for field in MODEL_FIELDS}
+    for kind in ("urdf", "robot_model"):
+        path, digest = result[kind], result[f"{kind}_sha256"]
+        if path is not None and (not isinstance(path, str) or not path.strip()):
+            raise RegistryError(f"{where}: {kind} must be a non-empty path")
+        if digest is not None:
+            if (
+                path is None
+                or not isinstance(digest, str)
+                or not re.fullmatch(r"[a-fA-F0-9]{64}", digest)
+            ):
+                raise RegistryError(
+                    f"{where}: {kind}_sha256 needs a path and a 64-digit SHA-256"
+                )
+            result[f"{kind}_sha256"] = digest.lower()
+    return result
+
+
 @dataclass(frozen=True)
-class EndEffectorSpec:
+class EndEffectorSpec(ModelAssets):
     """Store one validated entry from ``end_effectors.yaml``.
 
     ``keypoints`` defines the topology and the slots present on this
@@ -139,23 +192,14 @@ class EndEffectorSpec:
     joint_names: tuple[str, ...] = ()
     joint_limits: tuple[tuple[float, float], ...] = ()
     urdf: str | None = None
+    urdf_sha256: str | None = None
+    robot_model: str | None = None
+    robot_model_sha256: str | None = None
+    ee_pose_link: str | None = None
     keypoint_links: tuple[tuple[int, str], ...] = ()
     fk_tolerance_m: float | None = None
     dead_dims: tuple[int, ...] = ()
     tactile: TactileSpec | None = None
-
-    @property
-    def urdf_path(self) -> Path | None:
-        """Resolve the registry's ``urdf`` value to a filesystem path.
-
-        Returns:
-            ``None`` when no URDF is declared. Absolute values are returned
-            unchanged; relative values are resolved below ``registry/urdf``.
-        """
-        if self.urdf is None:
-            return None
-        path = Path(self.urdf)
-        return path if path.is_absolute() else REGISTRY_DIR / "urdf" / path
 
     @property
     def keypoint_link_map(self) -> dict[int, str]:
@@ -164,7 +208,7 @@ class EndEffectorSpec:
 
 
 @dataclass(frozen=True)
-class PlatformSpec:
+class PlatformSpec(ModelAssets):
     """Store one validated entry from ``platforms.yaml``.
 
     The entry defines the arm configurations, joint counts, image streams,
@@ -179,8 +223,16 @@ class PlatformSpec:
     aux: AuxChainSpec | None
     cameras: tuple[str, ...]
     reference_frame: str
-    default_end_effector: str
+    default_end_effector: str | dict[str, str]
     embodiment_class: str | None = None
+    urdf: str | None = None
+    urdf_sha256: str | None = None
+    robot_model: str | None = None
+    robot_model_sha256: str | None = None
+
+    def default_for_side(self, side: str) -> str:
+        default = self.default_end_effector
+        return default if isinstance(default, str) else default[side]
 
     @property
     def embodiments(self) -> tuple[str, ...]:
@@ -304,7 +356,9 @@ def _parse_tactile(raw, where: str) -> TactileSpec | None:
     if raw is None:
         return None
     if not isinstance(raw, dict):
-        raise RegistryError(f"{where}: `tactile` must be null or a mapping, got {raw!r}")
+        raise RegistryError(
+            f"{where}: `tactile` must be null or a mapping, got {raw!r}"
+        )
     _check_fields(raw, _TACTILE_FIELDS, f"{where}.tactile")
     taxels = _require(raw, "taxels", f"{where}.tactile")
     if not isinstance(taxels, int) or isinstance(taxels, bool) or taxels <= 0:
@@ -388,6 +442,13 @@ def _parse_end_effector(name: str, block: dict) -> EndEffectorSpec:
         block.get("keypoint_links"), keypoints, where
     )
     urdf = block.get("urdf")
+    ee_pose_link = block.get("ee_pose_link")
+    if ee_pose_link is not None and (
+        not urdf or not isinstance(ee_pose_link, str) or not ee_pose_link.strip()
+    ):
+        raise RegistryError(
+            f"{where}: ee_pose_link needs a URDF and a non-empty link name"
+        )
     tolerance = block.get("fk_tolerance_m")
     if urdf is not None:
         # FK validation needs a joint-column mapping, a link for every valid
@@ -417,9 +478,7 @@ def _parse_end_effector(name: str, block: dict) -> EndEffectorSpec:
             "forward kinematics over"
         )
     elif keypoint_links:
-        raise RegistryError(
-            f"{where}: `keypoint_links` has no effect without a `urdf`"
-        )
+        raise RegistryError(f"{where}: `keypoint_links` has no effect without a `urdf`")
 
     return EndEffectorSpec(
         name=name,
@@ -429,7 +488,8 @@ def _parse_end_effector(name: str, block: dict) -> EndEffectorSpec:
         keypoints=keypoints,
         joint_names=joint_names,
         joint_limits=tuple(limits),
-        urdf=urdf,
+        **_parse_models(block, where),
+        ee_pose_link=ee_pose_link,
         keypoint_links=keypoint_links,
         fk_tolerance_m=None if tolerance is None else float(tolerance),
         dead_dims=dead_dims,
@@ -454,6 +514,8 @@ def _parse_platform(name: str, block: dict, end_effectors: dict[str, EndEffector
         raise RegistryError(f"{where}: `arity` must be a non-empty list")
     if len(set(arity)) != len(arity):
         raise RegistryError(f"{where}: duplicate entries in arity {list(arity)}")
+    if set(arity) - {"left_arm", "right_arm", "bimanual"}:
+        raise RegistryError(f"{where}: unsupported arity {arity}")
 
     arm_dof = _require(block, "arm_dof", where)
     if arm_dof is not None and (not isinstance(arm_dof, int) or arm_dof <= 0):
@@ -482,7 +544,22 @@ def _parse_platform(name: str, block: dict, end_effectors: dict[str, EndEffector
         )
 
     default_end_effector = _require(block, "default_end_effector", where)
-    if default_end_effector not in end_effectors:
+    sides = {
+        s
+        for a in arity
+        for s in (("left", "right") if a == "bimanual" else (a.removesuffix("_arm"),))
+    }
+    defaults = default_end_effector
+    if isinstance(defaults, str):
+        defaults = {side: defaults for side in sides}
+    if not isinstance(defaults, dict) or set(defaults) != sides:
+        raise RegistryError(
+            f"{where}: default_end_effector must cover active sides {sorted(sides)}"
+        )
+    if any(
+        not isinstance(value, str) or value not in end_effectors
+        for value in defaults.values()
+    ):
         raise RegistryError(
             f"{where}: default_end_effector {default_end_effector!r} is not in "
             f"end_effectors.yaml; known: {sorted(end_effectors)}"
@@ -499,6 +576,7 @@ def _parse_platform(name: str, block: dict, end_effectors: dict[str, EndEffector
         reference_frame=reference_frame,
         default_end_effector=default_end_effector,
         embodiment_class=block.get("embodiment_class"),
+        **_parse_models(block, where),
     )
 
 

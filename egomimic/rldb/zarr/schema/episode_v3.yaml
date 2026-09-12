@@ -321,6 +321,14 @@ arrays:
     # physical unit.
 
   - key: obs_head_pose
+    when: {platform_kind: robot}
+    required: false
+    severity: integrity
+    shape: [T, 7]
+    dtype: float
+    # Supplied optical-camera ref_T_cam trajectory, consumed by Dexmate.
+
+  - key: obs_head_pose
     when: {platform_kind: human}
     required: true
     severity: integrity

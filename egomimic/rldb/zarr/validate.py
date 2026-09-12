@@ -306,7 +306,7 @@ def _check_embodiment_name(value, attrs, context) -> str | None:
 
 def _check_morphology(value, attrs, context) -> str | None:
     try:
-        resolved = Embodiment.resolve(value)
+        resolved = Embodiment.from_attrs(attrs)
     except (TypeError, ValueError) as exc:
         return str(exc)
     named = context.get("named_platform")
@@ -792,9 +792,7 @@ def _check_array(key: str, rule: dict, arrays: Mapping, report, context, side) -
     problems = []
     if expected is not None:
         if len(shape) != len(expected):
-            problems.append(
-                f"expected {len(expected)} dimension(s), got shape {shape}"
-            )
+            problems.append(f"expected {len(expected)} dimension(s), got shape {shape}")
         else:
             for axis, token in enumerate(expected):
                 want = _dimension(token, context, side)
@@ -931,14 +929,11 @@ def validate_episode(
 
 
 def _resolve(attrs: Mapping, report: Report) -> ResolvedEmbodiment | None:
-    """Resolve morphology first, then fall back to the embodiment name."""
-    for spec in (attrs.get("morphology"), attrs.get("embodiment")):
-        if not spec:
-            continue
-        try:
-            return Embodiment.resolve(spec)
-        except (TypeError, ValueError):
-            continue
+    """Honor explicit morphology and constrain it to the named active sides."""
+    try:
+        return Embodiment.from_attrs(attrs)
+    except (TypeError, ValueError):
+        pass
     report.add(
         ERROR,
         "embodiment",

@@ -36,6 +36,7 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    DEXMATE_BIMANUAL = 7
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
@@ -257,10 +258,13 @@ class Embodiment(ABC):
                 f"{sorted(load_embodiment_platforms())}"
             )
         end_effectors = load_end_effectors()
-        default = end_effectors[platform.default_end_effector]
+        arity = name.removeprefix(f"{platform.embodiment_prefix}_")
+        sides = SIDES if arity == "bimanual" else (arity.removesuffix("_arm"),)
         return ResolvedEmbodiment(
             platform=platform,
-            end_effectors={side: default for side in SIDES},
+            end_effectors={
+                side: end_effectors[platform.default_for_side(side)] for side in sides
+            },
             embodiment_name=name,
         )
 
@@ -276,9 +280,19 @@ class Embodiment(ABC):
             )
 
         end_effectors = load_end_effectors()
+        name = morphology.get("embodiment")
+        named = cls._resolve_name(name) if name else None
+        if named is not None and named.platform.name != platform.name:
+            raise ValueError("morphology.platform disagrees with embodiment")
+        active = set()
+        for arity in platform.arity:
+            active.update(SIDES if arity == "bimanual" else (arity.removesuffix("_arm"),))
+        sides = named.sides if named is not None else tuple(s for s in SIDES if s in active)
         declared = morphology.get("end_effector", platform.default_end_effector)
         if isinstance(declared, str):
-            declared = {side: declared for side in SIDES}
+            declared = {side: declared for side in sides}
+        elif "end_effector" not in morphology and isinstance(declared, Mapping):
+            declared = {side: declared[side] for side in sides}
         if not isinstance(declared, Mapping) or not declared:
             raise ValueError(
                 "morphology.end_effector must be an end-effector name or a "
@@ -299,11 +313,29 @@ class Embodiment(ABC):
                 )
             resolved[side] = end_effectors[ee_name]
 
+        if named is not None and set(resolved) != set(sides):
+            raise ValueError(
+                f"morphology.end_effector must agree with {name!r} active sides {sides}"
+            )
+        selected_arity = "bimanual" if set(resolved) == set(SIDES) else f"{next(iter(resolved))}_arm"
+        if selected_arity not in platform.arity:
+            raise ValueError(f"morphology.end_effector selects unsupported arity {selected_arity!r}")
+
         return ResolvedEmbodiment(
             platform=platform,
             end_effectors=resolved,
-            embodiment_name=morphology.get("embodiment"),
+            embodiment_name=named.embodiment_name if named is not None else None,
         )
+
+    @classmethod
+    def from_attrs(cls, attrs: Mapping) -> ResolvedEmbodiment:
+        """Resolve episode morphology with its name's active-side constraint."""
+        morphology = attrs.get("morphology")
+        if morphology is not None:
+            if not isinstance(morphology, Mapping):
+                raise ValueError("morphology must be a mapping")
+            return cls.resolve({**morphology, "embodiment": attrs.get("embodiment")})
+        return cls.resolve(attrs.get("embodiment"))
 
     @classmethod
     def split_action_pose(cls, actions):
@@ -471,12 +503,22 @@ class Embodiment(ABC):
             pred_action = pred_actions[i]
             K_i = _intrinsics_from_batch(batch, i)
             ims = cls.viz(
-                image, action, mode=mode, color="Greens", alpha=gt_alpha,
-                intrinsics=K_i, **kwargs
+                image,
+                action,
+                mode=mode,
+                color="Greens",
+                alpha=gt_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             ims = cls.viz(
-                ims, pred_action, mode=mode, color="Reds", alpha=pred_alpha,
-                intrinsics=K_i, **kwargs
+                ims,
+                pred_action,
+                mode=mode,
+                color="Reds",
+                alpha=pred_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             if annotation_key is not None:
                 ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)

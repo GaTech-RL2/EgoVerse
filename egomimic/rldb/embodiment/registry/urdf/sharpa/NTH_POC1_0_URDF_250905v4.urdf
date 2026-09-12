@@ -1,0 +1,1694 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.5.1-0-g916b5db  Build Version: 1.5.7152.31018
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="NTH_POC1_0_URDF_250905v4">
+  <link
+    name="root_link">
+    <inertial>
+      <origin
+        xyz="-0.0184786856613065 -0.000102084291787259 0.104916151107629"
+        rpy="0 0 0" />
+      <mass
+        value="56.4434111667449" />
+      <inertia
+        ixx="1.34497846193023"
+        ixy="-0.000787673142523107"
+        ixz="0.00528116832192039"
+        iyy="1.62642103146912"
+        iyz="-0.000263498739813837"
+        izz="2.86201796317586" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/root_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/root_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="lower_body_base_link">
+    <inertial>
+      <origin
+        xyz="-0.0587035400500217 0.0117360175818239 -0.00173432954358569"
+        rpy="0 0 0" />
+      <mass
+        value="2.54242669922072" />
+      <inertia
+        ixx="0.0272432231509567"
+        ixy="-1.27189496015957E-05"
+        ixz="-6.43525538151852E-06"
+        iyy="0.0113902497609071"
+        iyz="-4.29682535593923E-07"
+        izz="0.0177546015763903" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.890196078431372 0.890196078431372 0.913725490196078 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="root_link_to_lower_body_base"
+    type="fixed">
+    <origin
+      xyz="-0.1 0 0.236"
+      rpy="0 -1.5707963267949 -1.5707963267949" />
+    <parent
+      link="root_link" />
+    <child
+      link="lower_body_base_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="lower_body_link_1">
+    <inertial>
+      <origin
+        xyz="0.165029863465353 -0.000156368081545358 0.00951391702551229"
+        rpy="0 0 0" />
+      <mass
+        value="9.08312531233435" />
+      <inertia
+        ixx="0.0165057722239397"
+        ixy="1.14684496844261E-06"
+        ixz="-1.76568237574129E-06"
+        iyy="0.0201221317361396"
+        iyz="4.38467000106394E-06"
+        izz="0.0205175626284051" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lower_body_joint_1"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="lower_body_base_link" />
+    <child
+      link="lower_body_link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="1.5708"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="lower_body_link_2">
+    <inertial>
+      <origin
+        xyz="0.170139810460479 0 0.0065412744909832"
+        rpy="0 0 0" />
+      <mass
+        value="1.59748595175515" />
+      <inertia
+        ixx="0.00270525099196692"
+        ixy="-1.17908292879065E-17"
+        ixz="1.80791385445571E-07"
+        iyy="0.0206749807696848"
+        iyz="-2.06577816507356E-18"
+        izz="0.0233344282244372" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.890196078431372 0.890196078431372 0.913725490196078 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lower_body_joint_2"
+    type="revolute">
+    <origin
+      xyz="0.33 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="lower_body_link_1" />
+    <child
+      link="lower_body_link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.4435"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="lower_body_link_3">
+    <inertial>
+      <origin
+        xyz="7.53750632842554E-06 -0.0585237118321556 0.00234289258620292"
+        rpy="0 0 0" />
+      <mass
+        value="7.88966061010432" />
+      <inertia
+        ixx="0.0199432273159642"
+        ixy="1.15454642500356E-06"
+        ixz="-2.0165642839723E-07"
+        iyy="0.0173545331580274"
+        iyz="0.00100547711901862"
+        izz="0.0215821775443948" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_link_3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_link_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lower_body_joint_3"
+    type="revolute">
+    <origin
+      xyz="0.34 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="lower_body_link_2" />
+    <child
+      link="lower_body_link_3" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-0.3491"
+      upper="2.2689"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="lower_body_link_4">
+    <inertial>
+      <origin
+        xyz="-4.39135183595757E-06 0.0854022157856914 -0.0399856812040228"
+        rpy="0 0 0" />
+      <mass
+        value="1.36079299930919" />
+      <inertia
+        ixx="0.0122757009750047"
+        ixy="3.22426100171549E-07"
+        ixz="5.46321098614751E-07"
+        iyy="0.0118159643968845"
+        iyz="-0.00267452403992844"
+        izz="0.00419514022076072" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_link_4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_link_4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lower_body_joint_4"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy=" 0 -1.5707963267949 -1.5707963267949" />
+    <parent
+      link="lower_body_link_3" />
+    <child
+      link="lower_body_link_4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-0.3491"
+      upper="0.3491"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="lower_body_link_5">
+    <inertial>
+      <origin
+        xyz="-0.000222542492526373 2.4679099100422E-05 0.155307902361447"
+        rpy="0 0 0" />
+      <mass
+        value="2.77067514108533" />
+      <inertia
+        ixx="0.00452280609148909"
+        ixy="-4.59197817324491E-07"
+        ixz="2.58578353586352E-06"
+        iyy="0.00452392952874138"
+        iyz="6.55049645547911E-07"
+        izz="0.00521059823694375" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_link_5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/lower_body_link_5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lower_body_joint_5"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="-1.5707963267949 0 0" />
+    <parent
+      link="lower_body_link_4" />
+    <child
+      link="lower_body_link_5" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.5708"
+      upper="1.5708"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="torso_base_link">
+    <inertial>
+      <origin
+        xyz="-0.0298982077366102 -1.14165209770883E-06 0.309136202855386"
+        rpy="0 0 0" />
+      <mass
+        value="3.04827519860763" />
+      <inertia
+        ixx="0.0319769578064516"
+        ixy="-1.72194452831462E-09"
+        ixz="-0.000945381996631585"
+        iyy="0.0282849167267633"
+        iyz="-3.70960255348918E-07"
+        izz="0.0107364737522558" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/torso_base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.890196078431372 0.890196078431372 0.913725490196078 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/torso_base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lower_body_link_5_to_torso_base"
+    type="fixed">
+    <origin
+      xyz="0 0 0"
+      rpy="0 0 -1.5707963267949" />
+    <parent
+      link="lower_body_link_5" />
+    <child
+      link="torso_base_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="left_arm_base_link">
+    <inertial>
+      <origin
+        xyz="0.00008857 0.00000000 -0.05067656"
+        rpy="0 0 0" />
+      <mass
+        value="1.29460000" />
+      <inertia
+        ixx="0.00149285"
+        ixy="0.00000000"
+        ixz="0.00000369"
+        iyy="0.00148701"
+        iyz="0.00000000"
+        izz="0.00145180" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="torso_base_to_left_arm_base"
+    type="fixed">
+    <origin
+      xyz="0 0.01 0.4"
+      rpy="1.5707963267949 0 0" />
+    <parent
+      link="torso_base_link" />
+    <child
+      link="left_arm_base_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="left_arm_Link_1">
+    <inertial>
+      <origin
+        xyz="-0.00000129 -0.00169441 0.02311053"
+        rpy="0 0 0" />
+      <mass
+        value="2.04070000" />
+      <inertia
+        ixx="0.00420887"
+        ixy="0.00000009"
+        ixz="-0.00000003"
+        iyy="0.00500406"
+        iyz="0.00007995"
+        izz="0.00220293" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_arm_joint_1"
+    type="revolute">
+    <origin
+      xyz="0 0 -0.19"
+      rpy="0 0 1.5707963267949" />
+    <parent
+      link="left_arm_base_link" />
+    <child
+      link="left_arm_Link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="108"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="left_arm_Link_2">
+    <inertial>
+      <origin
+        xyz="-0.00000175 0.04771799 0.00151217"
+        rpy="0 0 0" />
+      <mass
+        value="1.94320000" />
+      <inertia
+        ixx="0.00917383"
+        ixy="0.00000006"
+        ixz="0.00000014"
+        iyy="0.00398618"
+        iyz="-0.00014023"
+        izz="0.00768161" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_arm_joint_2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="0 1.5707963267949 1.5707963267949" />
+    <parent
+      link="left_arm_Link_1" />
+    <child
+      link="left_arm_Link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.0944"
+      upper="2.0944"
+      effort="108"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="left_arm_Link_3">
+    <inertial>
+      <origin
+        xyz="0.00585009 -0.00090254 0.05683181"
+        rpy="0 0 0" />
+      <mass
+        value="1.69130000" />
+      <inertia
+        ixx="0.00560181"
+        ixy="-0.00001853"
+        ixz="-0.00064506"
+        iyy="0.00606170"
+        iyz="0.00008675"
+        izz="0.00176056" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_arm_joint_3"
+    type="revolute">
+    <origin
+      xyz="0 0.287 0"
+      rpy="-1.5707963267949 0 3.14159265358979" />
+    <parent
+      link="left_arm_Link_2" />
+    <child
+      link="left_arm_Link_3" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="66"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="left_arm_Link_4">
+    <inertial>
+      <origin
+        xyz="0.00776092 0.03739940 -0.00157117"
+        rpy="0 0 0" />
+      <mass
+        value="1.52160000 " />
+      <inertia
+        ixx="0.00514101"
+        ixy="0.00053597"
+        ixz="0.00001857"
+        iyy="0.00273112"
+        iyz="0.00008947"
+        izz="0.00421535" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_arm_joint_4"
+    type="revolute">
+    <origin
+      xyz="0.018 0 0"
+      rpy="-1.5707963267949 0 3.14159265358979" />
+    <parent
+      link="left_arm_Link_3" />
+    <child
+      link="left_arm_Link_4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.0472"
+      upper="2.5307"
+      effort="66"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="left_arm_Link_5">
+    <inertial>
+      <origin
+        xyz="0.00000000 -0.00002742 0.11442160"
+        rpy="0 0 0" />
+      <mass
+        value="2.00990000 " />
+      <inertia
+        ixx="0.00632639"
+        ixy="-0.00000013"
+        ixz="-0.00000008"
+        iyy="0.00556694"
+        iyz="0.00000605"
+        izz="0.00259662" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_arm_joint_5"
+    type="revolute">
+    <origin
+      xyz="0.018 0.318 0"
+      rpy="1.5707963267949 0 0" />
+    <parent
+      link="left_arm_Link_4" />
+    <child
+      link="left_arm_Link_5" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="18"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="left_arm_Link_6">
+    <inertial>
+      <origin
+        xyz="0.00000000 -0.00358308 0.00000000"
+        rpy="0 0 0" />
+      <mass
+        value="0.69023365" />
+      <inertia
+        ixx="0.00046869"
+        ixy="0.00000000"
+        ixz="0.00000000"
+        iyy="0.00052582"
+        iyz="0.00000000"
+        izz="0.00043490" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_6.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_arm_joint_6"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="0 1.5707963267949 1.5707963267949" />
+    <parent
+      link="left_arm_Link_5" />
+    <child
+      link="left_arm_Link_6" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.0472"
+      upper="1.0472"
+      effort="18"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="left_arm_Link_7">
+    <inertial>
+      <origin
+        xyz="0.01918054 -0.00005698 0.00598456"
+        rpy="0 0 0" />
+      <mass
+        value="0.68618093" />
+      <inertia
+        ixx="0.00135882"
+        ixy="-0.00000153"
+        ixz="-0.00007345"
+        iyy="0.00181313"
+        iyz="-0.00000034"
+        izz="0.00093378" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_7.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_arm_Link_7.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_arm_joint_7"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="-1.5707963267949 0 0" />
+    <parent
+      link="left_arm_Link_6" />
+    <child
+      link="left_arm_Link_7" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.5708"
+      upper="1.5708"
+      effort="18"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="left_hand_base_link">
+    <inertial>
+      <origin
+        xyz="0.00215970 -0.01359782 0.09042112"
+        rpy="0 0 0" />
+      <mass
+        value="1.222" />
+      <inertia
+        ixx="0.00509738"
+        ixy="-0.00017910"
+        ixz="-0.00007144"
+        iyy="0.00353775"
+        iyz="0.00045824"
+        izz="0.00189879" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_hand_base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/left_hand_base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_arm_link_7_to_hand_base"
+    type="fixed">
+    <origin
+      xyz="0.071 0 0"
+      rpy="0 -1.5707963267949 3.1415926535" />
+    <parent
+      link="left_arm_Link_7" />
+    <child
+      link="left_hand_base_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="right_arm_base_link">
+    <inertial>
+      <origin
+        xyz="0.00008857 0.00000000 0.05067656"
+        rpy="0 0 0" />
+      <mass
+        value="1.29460000" />
+      <inertia
+        ixx="0.00149285"
+        ixy="0.00000000"
+        ixz="-0.00000369"
+        iyy="0.00148701"
+        iyz="0.00000000"
+        izz="0.00145180" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="torso_base_to_right_arm_base"
+    type="fixed">
+    <origin
+      xyz="0 -0.01 0.4"
+      rpy="1.5707963267949 0 0" />
+    <parent
+      link="torso_base_link" />
+    <child
+      link="right_arm_base_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="right_arm_Link_1">
+    <inertial>
+      <origin
+        xyz="-0.00000129 0.00169441 -0.02311053"
+        rpy="0 0 0" />
+      <mass
+        value="2.04070000" />
+      <inertia
+        ixx="0.00420887"
+        ixy="-0.00000009"
+        ixz="0.00000003"
+        iyy="0.00500406"
+        iyz="0.00007995"
+        izz="0.00220293" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_arm_joint_1"
+    type="revolute">
+    <origin
+      xyz="0 0 0.19"
+      rpy="0 0 1.5707963267949" />
+    <parent
+      link="right_arm_base_link" />
+    <child
+      link="right_arm_Link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="108"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="right_arm_Link_2">
+    <inertial>
+      <origin
+        xyz="-0.00000175 0.04771799 0.00151217"
+        rpy="0 0 0" />
+      <mass
+        value="1.94320000" />
+      <inertia
+        ixx="0.00917383"
+        ixy="0.00000006"
+        ixz="0.00000014"
+        iyy="0.00398618"
+        iyz="-0.00014023"
+        izz="0.00768161" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_arm_joint_2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5707963267949 -1.5707963267949 0" />
+    <parent
+      link="right_arm_Link_1" />
+    <child
+      link="right_arm_Link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.0944"
+      upper="2.0944"
+      effort="108"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="right_arm_Link_3">
+    <inertial>
+      <origin
+        xyz="0.00585009 0.00090254 -0.05683181"
+        rpy="0 0 0" />
+      <mass
+        value="1.69130000" />
+      <inertia
+        ixx="0.00560181"
+        ixy="0.00001853"
+        ixz="0.00064506"
+        iyy="0.00606170"
+        iyz="0.00008675"
+        izz="0.00176056" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_arm_joint_3"
+    type="revolute">
+    <origin
+      xyz="0 0.287 0"
+      rpy="1.5707963267949 0 3.14159265358979" />
+    <parent
+      link="right_arm_Link_2" />
+    <child
+      link="right_arm_Link_3" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="66"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="right_arm_Link_4">
+    <inertial>
+      <origin
+        xyz="0.00776092 0.03739940 -0.00157117"
+        rpy="0 0 0" />
+      <mass
+        value="1.52160000 " />
+      <inertia
+        ixx="0.00514101"
+        ixy="0.00053597"
+        ixz="0.00001857"
+        iyy="0.00273112"
+        iyz="0.00008947"
+        izz="0.00421535" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_arm_joint_4"
+    type="revolute">
+    <origin
+      xyz="0.018 0 0"
+      rpy="1.5707963267949 0 3.14159265358979" />
+    <parent
+      link="right_arm_Link_3" />
+    <child
+      link="right_arm_Link_4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.0472"
+      upper="2.5307"
+      effort="66"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="right_arm_Link_5">
+    <inertial>
+      <origin
+        xyz="0.00000000 -0.00004516 -0.11193081"
+        rpy="0 0 0" />
+      <mass
+        value="2.00990000 " />
+      <inertia
+        ixx="0.00641754"
+        ixy="-0.00000001"
+        ixz="0.00000016"
+        iyy="0.00551642"
+        iyz="-0.00001005"
+        izz="0.00282549" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_arm_joint_5"
+    type="revolute">
+    <origin
+      xyz="0.018 0.318 0"
+      rpy="-1.5707963267949 0 0" />
+    <parent
+      link="right_arm_Link_4" />
+    <child
+      link="right_arm_Link_5" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="18"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="right_arm_Link_6">
+    <inertial>
+      <origin
+        xyz="0.00000000 -0.00240606 0.00000000"
+        rpy="0 0 0" />
+      <mass
+        value="0.69023365" />
+      <inertia
+        ixx="0.00046617"
+        ixy="0.00000000"
+        ixz="0.00000000"
+        iyy="0.00052708"
+        iyz="0.00000000"
+        izz="0.00043221" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_6.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_arm_joint_6"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5707963267949 -1.5707963267949 0" />
+    <parent
+      link="right_arm_Link_5" />
+    <child
+      link="right_arm_Link_6" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.0472"
+      upper="1.0472"
+      effort="18"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="right_arm_Link_7">
+    <inertial>
+      <origin
+        xyz="0.01918055 -0.00004776 -0.00598453"
+        rpy="0 0 0" />
+      <mass
+        value="0.68618093" />
+      <inertia
+        ixx="0.00135882"
+        ixy="-0.00000166"
+        ixz="0.00007345"
+        iyy="0.00181313"
+        iyz="0.00000025"
+        izz="0.00093378" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_7.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_arm_Link_7.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_arm_joint_7"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5707963267949 0 0" />
+    <parent
+      link="right_arm_Link_6" />
+    <child
+      link="right_arm_Link_7" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.5708"
+      upper="1.5708"
+      effort="18"
+      velocity="3.1416" />
+  </joint>
+  <link
+    name="right_hand_base_link">
+    <inertial>
+      <origin
+        xyz="0.00216888 0.01359932 0.09035271"
+        rpy="0 0 0" />
+      <mass
+        value="1.222" />
+      <inertia
+        ixx="0.00509738"
+        ixy="0.00017910"
+        ixz="-0.00007144"
+        iyy="0.00353775"
+        iyz="-0.00045824"
+        izz="0.00189879" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_hand_base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/right_hand_base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_arm_link_7_to_hand_base"
+    type="fixed">
+    <origin
+      xyz="0.071 0 0"
+      rpy="0 1.5707963267949 0" />
+    <parent
+      link="right_arm_Link_7" />
+    <child
+      link="right_hand_base_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="neck_base_link">
+    <inertial>
+      <origin
+        xyz="-2.63207225098538E-05 1.46460289692099E-05 0.0901138901606457"
+        rpy="0 0 0" />
+      <mass
+        value="0.265784041883044" />
+      <inertia
+        ixx="9.47631853701578E-05"
+        ixy="-3.28850035037462E-08"
+        ixz="-2.81080959222628E-07"
+        iyy="0.000111730851545434"
+        iyz="4.80747699719529E-08"
+        izz="9.3155811180794E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/neck_base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/neck_base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="torso_base_to_neck_base"
+    type="fixed">
+    <origin
+      xyz="0.02 0 0.4"
+      rpy="0 0 0" />
+    <parent
+      link="torso_base_link" />
+    <child
+      link="neck_base_link" />
+    <axis
+      xyz="0 0 0" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="neck_link_1">
+    <inertial>
+      <origin
+        xyz="0.0525786162394318 -0.00827674401179803 -0.0126074857970382"
+        rpy="0 0 0" />
+      <mass
+        value="0.496784036026677" />
+      <inertia
+        ixx="0.00023979948195049"
+        ixy="4.26244148899806E-05"
+        ixz="-2.52526334276493E-05"
+        iyy="0.000383558530652921"
+        iyz="2.86019505013808E-05"
+        izz="0.000412570720578719" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/neck_link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/neck_link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="neck_joint_1"
+    type="revolute">
+    <origin
+      xyz="0 0 0.15"
+      rpy="0 0 0" />
+    <parent
+      link="neck_base_link" />
+    <child
+      link="neck_link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.5708"
+      upper="1.5708"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="neck_link_2">
+    <inertial>
+      <origin
+        xyz="0.0121002087250663 0.0179509461578098 -0.0267765939392324"
+        rpy="0 0 0" />
+      <mass
+        value="0.171948104362202" />
+      <inertia
+        ixx="0.000158914664103392"
+        ixy="-5.56005450188767E-05"
+        ixz="-1.97325824701375E-05"
+        iyy="0.000111229630250077"
+        iyz="-2.38966442218593E-05"
+        izz="0.000195949296438252" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/neck_link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.866666666666667 0.866666666666667 0.890196078431372 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/neck_link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="neck_joint_2"
+    type="revolute">
+    <origin
+      xyz="0.0600000000003273 0 0"
+      rpy="1.5707963267949 0 0" />
+    <parent
+      link="neck_link_1" />
+    <child
+      link="neck_link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.5708"
+      upper="0.5236"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="head_base_link">
+    <inertial>
+      <origin
+        xyz="0.0581344973225611 -7.71391088911296E-07 7.30531672932244E-08"
+        rpy="0 0 0" />
+      <mass
+        value="0.273422412996577" />
+      <inertia
+        ixx="0.000158453878540657"
+        ixy="-4.95087827376891E-09"
+        ixz="1.10578995629627E-10"
+        iyy="4.6155927340597E-05"
+        iyz="1.21934340541696E-08"
+        izz="0.000167696362803972" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/head_base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.890196078431372 0.890196078431372 0.913725490196078 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://north_poc1_0_description/meshes/head_base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="neck_link_2_to_head_base"
+    type="fixed">
+    <origin
+      xyz="0 0.050000000000282 0"
+      rpy="-1.57079632679381 0 0" />
+    <parent
+      link="neck_link_2" />
+    <child
+      link="head_base_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+</robot>

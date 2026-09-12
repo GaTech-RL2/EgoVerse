@@ -37,3 +37,31 @@ human_body:
   reference_frame: slam_world
   default_end_effector: mano_hand
   embodiment_class: egomimic.rldb.embodiment.human.Human
+
+dexmate_nth_poc1:
+  kind: robot
+  embodiment_prefix: dexmate
+  arity:
+  - bimanual
+  arm_dof: 7
+  aux:
+    dof: 7
+    joint_names:
+    - lower_body_joint_1
+    - lower_body_joint_2
+    - lower_body_joint_3
+    - lower_body_joint_4
+    - lower_body_joint_5
+    - neck_joint_1
+    - neck_joint_2
+  cameras:
+  - front_1
+  - left_wrist
+  - right_wrist
+  reference_frame: robot_base
+  default_end_effector:
+    left: sharpa_wave_v1_left
+    right: sharpa_wave_v1_right
+  embodiment_class: egomimic.rldb.embodiment.dexmate.Dexmate
+  urdf: sharpa/NTH_POC1_0_URDF_250905v4.urdf
+  urdf_sha256: c653765bc970c048559ef3a04bba2e4a2c3294e9fb8dfbf0b5d81fb86a93556e

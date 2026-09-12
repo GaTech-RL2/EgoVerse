@@ -54,7 +54,14 @@ def test_registry_agrees_with_the_class_dict() -> None:
 def test_default_end_effectors_and_action_spaces_exist() -> None:
     end_effectors = load_end_effectors()
     for platform in load_platforms().values():
-        assert platform.default_end_effector in end_effectors
+        for arity in platform.arity:
+            sides = (
+                ("left", "right")
+                if arity == "bimanual"
+                else (arity.removesuffix("_arm"),)
+            )
+            for side in sides:
+                assert platform.default_for_side(side) in end_effectors
     for spec in end_effectors.values():
         assert spec.action_space in ACTION_SPACES
 

@@ -40,3 +40,208 @@ mano_hand:
   dof: null
   action_space: keypoints
   keypoints: {topology: mano21, valid: all}
+
+sharpa_wave_v1_left:
+  class: dexterous_hand
+  dof: 22
+  action_space: keypoints
+  joint_names:
+  - left_thumb_CMC_FE
+  - left_thumb_CMC_AA
+  - left_thumb_MCP_FE
+  - left_thumb_MCP_AA
+  - left_thumb_IP
+  - left_index_MCP_FE
+  - left_index_MCP_AA
+  - left_index_PIP
+  - left_index_DIP
+  - left_middle_MCP_FE
+  - left_middle_MCP_AA
+  - left_middle_PIP
+  - left_middle_DIP
+  - left_ring_MCP_FE
+  - left_ring_MCP_AA
+  - left_ring_PIP
+  - left_ring_DIP
+  - left_pinky_CMC
+  - left_pinky_MCP_FE
+  - left_pinky_MCP_AA
+  - left_pinky_PIP
+  - left_pinky_DIP
+  joint_limits:
+  - - -0.1745
+    - 1.9199
+  - - -0.3491
+    - 0.3491
+  - - -0.5236
+    - 1.3963
+  - - -0.3491
+    - 0.3491
+  - - 0.0
+    - 1.7453
+  - - -0.17453293
+    - 1.5708
+  - - -0.3491
+    - 0.3491
+  - - 0.0
+    - 1.7453
+  - - 0.0
+    - 1.3963
+  - - -0.17453293
+    - 1.5708
+  - - -0.3491
+    - 0.3491
+  - - 0.0
+    - 1.7453
+  - - 0.0
+    - 1.3963
+  - - -0.17453293
+    - 1.5708
+  - - -0.3491
+    - 0.3491
+  - - 0.0
+    - 1.7453
+  - - 0.0
+    - 1.3963
+  - - 0.0
+    - 0.2618
+  - - -0.17453293
+    - 1.5708
+  - - -0.3491
+    - 0.3491
+  - - 0.0
+    - 1.7453
+  - - 0.0
+    - 1.3963
+  keypoints:
+    topology: mano21
+    valid: all
+  urdf: sharpa/left_sharpa_wave_with_flange.urdf
+  urdf_sha256: 6ea8d2c563c6d4ba56f5f4b04aa7d339f5b703ac8e5ec02404ca5f632d7c28a2
+  ee_pose_link: left_hand_C_MC
+  keypoint_links:
+    0: left_hand_C_MC
+    1: left_thumb_MC
+    2: left_thumb_PP
+    3: left_thumb_DP
+    4: left_thumb_fingertip
+    5: left_index_PP
+    6: left_index_MP
+    7: left_index_DP
+    8: left_index_fingertip
+    9: left_middle_PP
+    10: left_middle_MP
+    11: left_middle_DP
+    12: left_middle_fingertip
+    13: left_ring_PP
+    14: left_ring_MP
+    15: left_ring_DP
+    16: left_ring_fingertip
+    17: left_pinky_PP
+    18: left_pinky_MP
+    19: left_pinky_DP
+    20: left_pinky_fingertip
+  fk_tolerance_m: 0.005
+  dead_dims: []
+sharpa_wave_v1_right:
+  class: dexterous_hand
+  dof: 22
+  action_space: keypoints
+  joint_names:
+  - right_thumb_CMC_FE
+  - right_thumb_CMC_AA
+  - right_thumb_MCP_FE
+  - right_thumb_MCP_AA
+  - right_thumb_IP
+  - right_index_MCP_FE
+  - right_index_MCP_AA
+  - right_index_PIP
+  - right_index_DIP
+  - right_middle_MCP_FE
+  - right_middle_MCP_AA
+  - right_middle_PIP
+  - right_middle_DIP
+  - right_ring_MCP_FE
+  - right_ring_MCP_AA
+  - right_ring_PIP
+  - right_ring_DIP
+  - right_pinky_CMC
+  - right_pinky_MCP_FE
+  - right_pinky_MCP_AA
+  - right_pinky_PIP
+  - right_pinky_DIP
+  joint_limits:
+  - - -0.1745
+    - 1.9199
+  - - -0.3491
+    - 0.3491
+  - - -0.5236
+    - 1.3963
+  - - -0.3491
+    - 0.3491
+  - - 0.0
+    - 1.7453
+  - - -0.17453293
+    - 1.5708
+  - - -0.3491
+    - 0.3491
+  - - 0.0
+    - 1.7453
+  - - 0.0
+    - 1.3963
+  - - -0.17453293
+    - 1.5708
+  - - -0.3491
+    - 0.3491
+  - - 0.0
+    - 1.7453
+  - - 0.0
+    - 1.3963
+  - - -0.17453293
+    - 1.5708
+  - - -0.3491
+    - 0.3491
+  - - 0.0
+    - 1.7453
+  - - 0.0
+    - 1.3963
+  - - 0.0
+    - 0.2618
+  - - -0.17453293
+    - 1.5708
+  - - -0.3491
+    - 0.3491
+  - - 0.0
+    - 1.7453
+  - - 0.0
+    - 1.3963
+  keypoints:
+    topology: mano21
+    valid: all
+  urdf: sharpa/right_sharpa_wave_with_flange.urdf
+  urdf_sha256: 261c1a5284e04bc9690e0f5ac39d7a7cace0a16d335d663a1d3c7fcf4e4daf31
+  ee_pose_link: right_hand_C_MC
+  keypoint_links:
+    0: right_hand_C_MC
+    1: right_thumb_MC
+    2: right_thumb_PP
+    3: right_thumb_DP
+    4: right_thumb_fingertip
+    5: right_index_PP
+    6: right_index_MP
+    7: right_index_DP
+    8: right_index_fingertip
+    9: right_middle_PP
+    10: right_middle_MP
+    11: right_middle_DP
+    12: right_middle_fingertip
+    13: right_ring_PP
+    14: right_ring_MP
+    15: right_ring_DP
+    16: right_ring_fingertip
+    17: right_pinky_PP
+    18: right_pinky_MP
+    19: right_pinky_DP
+    20: right_pinky_fingertip
+  fk_tolerance_m: 0.005
+  dead_dims: []

@@ -71,7 +71,7 @@ where = ["."]
 
 # Include the registry and schema YAML files in built distributions.
 [tool.setuptools.package-data]
-"egomimic.rldb.embodiment.registry" = ["*.yaml"]
+"egomimic.rldb.embodiment.registry" = ["*.yaml", "urdf/sharpa/*"]
 "egomimic.rldb.zarr" = ["schema/*.yaml"]
 
 [tool.pytest.ini_options]
