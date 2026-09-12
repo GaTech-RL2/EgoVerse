@@ -331,11 +331,13 @@ def _viz_keypoints(
     valid_slots=None,
     **kwargs,
 ):
-    """Project one keypoint tensor per hand onto the image.
+    """Project a single frame or a whole action chunk onto one observation image.
 
     Args:
         image: The frame to draw on.
-        actions: An array whose last axis contains left then right blocks. Each
+        actions: A (D,) frame or (T, D) chunk, already in the displayed
+            observation camera frame. Every frame is drawn, with skeleton edges
+            confined to that frame. The last axis holds left then right blocks. Each
             block contains ``3 * n_kp`` keypoint coordinates, optionally
             preceded by XYZ plus YPR or XYZ plus a quaternion.
         intrinsics: The camera matrix that projects camera-frame points.
@@ -348,6 +350,12 @@ def _viz_keypoints(
         valid_slots: Slot indices to draw on both sides. ``None`` selects every
             slot. Edges incident to an unselected slot are also omitted.
     """
+    actions = np.asarray(actions)
+    if actions.ndim not in (1, 2):
+        raise ValueError(f"keypoint rendering expects (D,) or (T, D), got {actions.shape}")
+    expected = [2 * (3 * int(n_kp) + pose) for pose in (0, 6, 7)]
+    if actions.shape[-1] not in expected:
+        raise ValueError(f"keypoint width {actions.shape[-1]} is not one of {expected}")
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
 
@@ -374,53 +382,57 @@ def _viz_keypoints(
         owned[:] = False
         owned[[s for s in valid_slots if 0 <= s < n_kp]] = True
     keypoints = {}
-    keypoints["left"] = left_keypoints.reshape(-1, 3)
-    keypoints["right"] = right_keypoints.reshape(-1, 3)
+    keypoints["left"] = left_keypoints.reshape(-1, n_kp, 3)
+    keypoints["right"] = right_keypoints.reshape(-1, n_kp, 3)
     _default_dot_colors = {"left": (0, 120, 255), "right": (255, 80, 0)}
     for hand in ("left", "right"):
         hand_dot_color = (
             dot_color if dot_color is not None else _default_dot_colors[hand]
         )
-        kps_cam = keypoints[hand]
-        # Project this side's ``(n_kp, 3)`` camera-frame points to pixels.
-        kps_px = cam_frame_to_cam_pixels(kps_cam, intrinsics)
+        for kps_cam in keypoints[hand]:
+            # Project this side's ``(n_kp, 3)`` camera-frame points to pixels.
+            finite = np.isfinite(kps_cam).all(axis=-1) & (np.abs(kps_cam) < 1e8).all(axis=-1)
+            # Invalid estimates must not create projections or incident edges.
+            safe = np.where(finite[:, None], kps_cam, [0.0, 0.0, -1.0])
+            with np.errstate(divide="ignore", invalid="ignore"):
+                kps_px = cam_frame_to_cam_pixels(safe, intrinsics)
 
-        # Identify drawable keypoints: owned by this end-effector, in front of
-        # the camera, and inside the image.
-        valid = kps_cam[:, 2] > 0.01
-        valid &= (kps_px[:, 0] >= 0) & (kps_px[:, 0] < w)
-        valid &= (kps_px[:, 1] >= 0) & (kps_px[:, 1] < h)
-        valid &= owned[: len(valid)]
+            # Identify drawable keypoints: owned by this end-effector, in front of
+            # the camera, and inside the image.
+            valid = finite & (kps_cam[:, 2] > 0.01)
+            valid &= (kps_px[:, 0] >= 0) & (kps_px[:, 0] < w)
+            valid &= (kps_px[:, 1] >= 0) & (kps_px[:, 1] < h)
+            valid &= owned
 
-        # Draw skeleton edges whose endpoints are both drawable.
-        for finger, start, end in edge_ranges:
-            color = colors[finger]
-            for edge_idx in range(start, min(end, len(edges))):
-                i, j = edges[edge_idx]
-                if i < len(valid) and j < len(valid) and valid[i] and valid[j]:
-                    p1 = (int(kps_px[i, 0]), int(kps_px[i, 1]))
-                    p2 = (int(kps_px[j, 0]), int(kps_px[j, 1]))
-                    cv2.line(vis, p1, p2, color, 2)
+            # Draw skeleton edges whose endpoints are both drawable.
+            for finger, start, end in edge_ranges:
+                color = colors[finger]
+                for edge_idx in range(start, min(end, len(edges))):
+                    i, j = edges[edge_idx]
+                    if 0 <= i < len(valid) and 0 <= j < len(valid) and valid[i] and valid[j]:
+                        p1 = (int(kps_px[i, 0]), int(kps_px[i, 1]))
+                        p2 = (int(kps_px[j, 0]), int(kps_px[j, 1]))
+                        cv2.line(vis, p1, p2, color, 2)
 
-        # Draw keypoint dots on top
-        for k in range(n_kp):
-            if valid[k]:
-                center = (int(kps_px[k, 0]), int(kps_px[k, 1]))
-                cv2.circle(vis, center, 4, hand_dot_color, -1)
-                cv2.circle(vis, center, 4, (255, 255, 255), 1)  # white border
+            # Draw keypoint dots on top
+            for k in range(n_kp):
+                if valid[k]:
+                    center = (int(kps_px[k, 0]), int(kps_px[k, 1]))
+                    cv2.circle(vis, center, 4, hand_dot_color, -1)
+                    cv2.circle(vis, center, 4, (255, 255, 255), 1)  # white border
 
-        # Label topology slot 0 with the side initial.
-        if valid[0]:
-            wrist_px = (int(kps_px[0, 0]) + 6, int(kps_px[0, 1]) - 6)
-            cv2.putText(
-                vis,
-                f"{hand[0].upper()}",
-                wrist_px,
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                hand_dot_color,
-                2,
-            )
+            # Label topology slot 0 with the side initial.
+            if valid[0]:
+                wrist_px = (int(kps_px[0, 0]) + 6, int(kps_px[0, 1]) - 6)
+                cv2.putText(
+                    vis,
+                    f"{hand[0].upper()}",
+                    wrist_px,
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    hand_dot_color,
+                    2,
+                )
 
     if alpha < 1.0:
         vis = cv2.addWeighted(vis, alpha, base, 1.0 - alpha, 0)
