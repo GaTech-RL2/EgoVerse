@@ -1165,7 +1165,9 @@ class MultiDataset(torch.utils.data.Dataset):
 
         computing_start = time.time()
         for k in norm_keys:
-            collected[k] = np.concatenate(collected[k], axis=0)
+            collected[k] = self._drop_nonfinite_rows(
+                np.concatenate(collected[k], axis=0), k
+            )
             stats_np = self._compute_stats_for_array(collected[k])
             self.norm_stats[embodiment][k] = {
                 name: np.asarray(arr, dtype=np.float32)
@@ -1216,6 +1218,30 @@ class MultiDataset(torch.utils.data.Dataset):
                 cur += take
                 pbar.update(take)
         return collected
+
+    @staticmethod
+    def _drop_nonfinite_rows(X: np.ndarray, key: str) -> np.ndarray:
+        """Drop norm samples (rows of X, shape (N, ...)) containing NaN/Inf.
+
+        np.percentile/mean propagate NaN, and a NaN quantile then poisons every
+        normalized sample of that key (the per-sample bounds check cannot flag
+        NaN bounds). Episodes with a non-finite feature (e.g. an all-NaN gripper
+        command) are still rejected sample-by-sample at train time; they must
+        not shape the statistics.
+        """
+        finite = np.isfinite(X).reshape(X.shape[0], -1).all(axis=1)
+        n_bad = int((~finite).sum())
+        if n_bad == 0:
+            return X
+        if n_bad == X.shape[0]:
+            raise ValueError(
+                f"[MultiDataset] key={key}: every collected norm sample is non-finite"
+            )
+        logger.warning(
+            f"[MultiDataset] key={key}: dropping {n_bad}/{X.shape[0]} norm samples "
+            "with non-finite values"
+        )
+        return X[finite]
 
     @staticmethod
     def _compute_stats_for_array(X):
@@ -1753,13 +1779,18 @@ class ZarrDataset(torch.utils.data.Dataset):
                     # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
                     # some contributors store 3x3 (e.g. microagi).
                     K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
+                if K.shape != (
+                    3,
+                    4,
+                ):  # unexpected -> sentinel (viz falls back to const)
                     K = np.full((3, 4), np.nan, dtype=np.float32)
             else:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             _ = origin  # preserved for symmetry with prior API
             return data
 
