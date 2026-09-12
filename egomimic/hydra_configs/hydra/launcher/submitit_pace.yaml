@@ -14,6 +14,13 @@ gres: "gpu:h200:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'
 qos: "inferno"                                        # Slurm QoS
 mem_per_gpu: 250G
 timeout_min: 2880                                   # Timeout in minutes (48 hours)
+
+# Seconds before the *time limit* that Slurm sends the USR2 warning, in which
+# PreemptionCheckpoint writes a full checkpoint (the launcher default of 120 s
+# is too short for a multi-GB pi0.5 checkpoint on NFS). On *preemption* the
+# window is the partition's GraceTime instead (300 s on overcap; rl2-lab does
+# not preempt) and this setting has no effect.
+signal_delay_s: 600
 # exclude: "protocol, puma"     # Nodes to exclude
 additional_parameters:
   requeue: true
