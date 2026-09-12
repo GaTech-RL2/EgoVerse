@@ -225,7 +225,8 @@ class Human(Embodiment):
         annotation_key: str = None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
-        config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
+        config: ``has_head_pose`` (False only for contributors that truly omit
+        ``obs_head_pose``; incompatible with cartesian modes, which pivot on it) and ``include_aria_keypoints``
         (Aria=True). ``norm_mode``/``annotation_key`` behave as in the base.
         """
         key_map = cls._get_keymap(
