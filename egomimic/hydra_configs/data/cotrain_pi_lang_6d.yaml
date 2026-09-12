@@ -2,10 +2,13 @@ defaults:
   - cotrain_pi_lang
   - _self_
 
-# Same dense-language cotrain data as `cotrain_pi_lang`, but the cartesian action
-# chunk is expressed with the continuous 6D rotation representation
-# (xyz+6D per arm, +gripper for eva) instead of xyz+ypr. Pairs with the
-# `cartesian_normalized_rot6d` action_encoding (model=pi0.5_cotrain_eva_aria_6d).
+# Same dense-language cotrain data as `cotrain_pi_lang`, with the cartesian
+# action chunk (and proprio ee_pose) in the continuous 6D rotation layout
+# (xyz+6D per arm, +gripper for eva). cotrain_pi_base already defaults both
+# embodiments to `cartesian_6d`; the explicit mode below only pins it (as
+# obj_gen_pi_lang_6d does), so this config keeps its meaning if the base
+# default moves. Pairs with model=pi0.5_cotrain_eva_aria_6d and
+# evaluator=eval_pi_camframe_6d.
 # Valid datasets inherit the train resolver via `${...}` interpolation in
 # cotrain_pi_base, so overriding the train transform mode is sufficient.
 train_datasets:

@@ -1,0 +1,18 @@
+# Composed recipe: ~300M HPT (+ Qwen text stem) BC on the 18-D wrist-frame
+# 6D-rotation cartesian action, mecka FLAGSHIP fold-clothes, seen/unseen
+# operator split (see data/mecka_fold_flagship_opsplit_hpt_6d.yaml).
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_6d_hpt \
+#     norm_stats.precomputed_norm_path=<out>/norm_stats
+#
+# The norm stats must come from data=mecka_fold_flagship_opsplit_hpt_6d (see
+# that file for the precompute command / scripts/norm_fold_flagship_opsplit_hpt_6d.sbatch).
+defaults:
+  - train_zarr_cartesian
+  # Second eval head: metrics + videos on the SEEN-operator val each val
+  # (train_viz/). (A plain entry, so it must precede the overrides.)
+  - evaluator@train_viz_evaluator: train_viz_hpt_wristframe_6d
+  - override model: hpt_bc_mecka_6d_300M
+  - override data: mecka_fold_flagship_opsplit_hpt_6d
+  - override evaluator: eval_hpt_wristframe_6d
+  - _self_

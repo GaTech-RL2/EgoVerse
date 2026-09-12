@@ -52,17 +52,17 @@ class TrainVizEvalVideo(EvalVideo):
         return os.path.join(self.root_dir(), "videos_train_viz")
 
     def compute_metrics_and_viz(self, batch, do_viz=True):
-        # The M-sample metrics (reverse KL / best-of-M) multiply eval sampling
-        # cost; keep them on the canonical valid loader only — the train pass
-        # is a spot check, not the metric of record.
+        # The M-sample metrics (best-of-M / sample diversity) multiply eval
+        # sampling cost; keep them on the canonical valid loader only — the
+        # train pass is a spot check, not the metric of record.
         algo = self.base.model
-        saved_rkl = getattr(algo, "rkl_samples", 1)
-        algo.rkl_samples = 1
+        saved_samples = getattr(algo, "val_samples", 1)
+        algo.val_samples = 1
         try:
             metrics, images_dict = self.base.compute_metrics_and_viz(
                 batch, do_viz=do_viz
             )
         finally:
-            algo.rkl_samples = saved_rkl
+            algo.val_samples = saved_samples
         metrics = {f"train_viz/{k}": v for k, v in metrics.items()}
         return metrics, images_dict

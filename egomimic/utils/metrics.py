@@ -3,29 +3,10 @@
 Moved out of egomimicUtils; code unchanged.
 """
 
-import math
 import torch
-
 
 # ---- moved from egomimicUtils.py (code unchanged) ----
 
-def reverse_kl_from_samples(pred_samples, targets):
-    M, B, T, D = pred_samples.shape
-
-    TD = T * D
-    const = -0.5 * TD * math.log(2.0 * math.pi)
-
-    A = pred_samples.permute(1, 0, 2, 3).reshape(B, M, TD)  # (B,M,TD)
-    MU = targets.reshape(B, 1, TD)  # (B,1,TD)
-
-    d2 = torch.cdist(A, A).pow(2)  # (B,M,M)
-    log_q_each = torch.logsumexp(const - 0.5 * d2, dim=-1) - math.log(M)  # (B,M)
-
-    d2p = ((A - MU) ** 2).sum(dim=-1)  # (B,M)
-    log_p_each = const - 0.5 * d2p  # (B,M)
-
-    rkl_each = (log_q_each - log_p_each).mean(dim=-1)  # (B,)
-    return rkl_each.mean()
 
 def frechet_gaussian_over_time(
     pred: torch.Tensor,
@@ -113,6 +94,7 @@ def frechet_gaussian_over_time(
 
 
 # ---- moved from egomimicUtils.py (deleted on main in #561; code unchanged) ----
+
 
 def dtw_distance(pred: torch.Tensor, tgt: torch.Tensor, normalize: bool = True):
     """Batched dynamic-time-warping distance between (B, T1, D) and (B, T2, D)

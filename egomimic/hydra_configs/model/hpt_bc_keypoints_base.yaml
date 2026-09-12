@@ -6,7 +6,6 @@ robomimic_model:
     human_bimanual: "actions_keypoints"
 
   diffusion: true
-  reverse_kl_samples: 8
 
   trunk:
     embed_dim: 256

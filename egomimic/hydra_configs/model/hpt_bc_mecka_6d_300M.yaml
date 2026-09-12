@@ -1,41 +1,39 @@
-# HPT_BC_KEYPOINTS_WRIST_300M — ~300M-parameter HPT flow-matching BC on the
-# 138-D wrist-frame MANO keypoint action, with a frozen Qwen3-Embedding text
-# stem for the task prompt ("300M hpt qwen", Simar 2026-09-09).
+# HPT_BC_MECKA_6D_300M — ~300M-parameter HPT flow-matching BC on the 18-D
+# WRIST-frame cartesian action with the continuous 6D rotation, plus a frozen
+# Qwen3-Embedding text stem for the task prompt. HPT twin of pi0.5_bc_mecka_6d.
 #
-# Data: mecka_fold_freeform_opsplit_hpt_keypoints — action `actions_keypoints`,
-# per hand [wrist xyz+ypr in its own wrist frame (6) | 21 keypoints in that
-# wrist frame (63)] x {left, right}, quantile-normalized from precomputed
-# stats. Inputs: front image (ResNet), the 138-D
-# `observations.state.keypoints` (wrist pose in head frame + keypoints in
-# wrist frame, per hand — Aniketh's keypoint-ablation recipe), and the sampled
-# annotation through the Qwen per-token stem. Drop the text stem with
+# Data: a `cartesian_wristframe_6d` data config with `keymap_mode: cartesian`
+# (front image -> `front_img_1`, the HPT encoder key), e.g.
+# mecka_fold_flagship_opsplit_hpt_6d. Action `actions_cartesian` = per arm
+# [xyz | 6D rotation] (18) relative to that wrist's current pose; proprio
+# `observations.state.ee_pose` = head-frame wrist poses, 6D-encoded and padded
+# 18 -> 20 (pad_proprio_gripper; zero grip slots at 9/19). Both are
+# quantile-normalized from precomputed stats. Inputs: front image (ResNet), the
+# 20-D ee_pose through the `state_ee_pose` stem, and one annotation sampled per
+# batch item through the Qwen per-token stem. Drop the text stem with
 #   ~model.robomimic_model.shared_stem_specs.annotation model.robomimic_model.shared_obs_keys=[front_img_1]
 #
-# Widths follow the lab's 300M reference recipe (hpt_bc_flow_mecka_300M.yaml on
-# aniketh/hpt-run-configs; also the basis of the arc-E1 300M cotrain configs):
-# embed_dim 840, 10 trunk heads, cross-attn 18 latents x 10 heads x 140
-# dim_head, head hidden_dim 320 / 5 heads / mlp 5x5. embed_dim is the shared
-# bus width — every stem in/out, modality_embed_dim, encoder output and the
-# head cond_dim move with it. num_blocks is set so the TRAINABLE count
-# (frozen Qwen excluded) lands at ~300M. Measured by instantiating this
-# config on 2026-09-09, when it still had a 20-D `state_ee_pose` stem: 24
-# blocks = 312.2M trainable (trunk 203.5M = 8.48M/block, heads 74.3M, stems
-# 22.7M, ResNet 11.6M; Qwen 595.8M frozen). That stem (5.44M, measured
-# 2026-09-10) is gone now that the keypoint data carries no ee_pose, so
-# 23 blocks ~= 312.2 - 8.48 - 5.44 ~= 298.3M.
+# Widths follow the lab's 300M reference (hpt_bc_flow_mecka_300M on
+# aniketh/hpt-run-configs): embed_dim 840, 10 trunk heads, cross-attn 18
+# latents x 10 heads x 140 dim_head, head hidden_dim 320 / 5 heads / mlp 5x5.
+# num_blocks is set so the TRAINABLE count (frozen Qwen excluded) lands at
+# ~300M. Measured by instantiating this config on 2026-09-11: 23 blocks =
+# 298.1M trainable (trunk 195.0M = 8.48M/block, head 74.2M, ResNet 11.6M,
+# image stem 6.1M, Qwen stem projection 5.6M, ee_pose stem 5.4M; Qwen 595.8M
+# frozen). 24 blocks would be 306.5M.
 #
-# Constant LR 5e-5, no scheduler — the setting of Aniketh's
-# mecka_fold_*_300M_constlr_5e5 ablation (W&B rl2-group/egoverse-ablations),
-# whose keypoint arm fit best. hpt_bc_keypoints_base's CosineAnnealingLR
-# (T_max=1400 STEPS) sawtooths over a long run and is deliberately not used.
+# Constant LR 5e-5, no scheduler (the setting of the mecka_fold_*_300M
+# constlr_5e5 ablations; the CosineAnnealingLR of hpt_bc_flow_mecka sawtooths
+# over a long run).
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hpt.HPT
   camera_transforms: {}
   ac_keys:
-    human_bimanual: "actions_keypoints"
+    human_bimanual: "actions_cartesian"
 
   diffusion: true
+  6dof: true
 
   # Prompt for the Qwen stem: one annotation sampled per batch item from the
   # `annotations` track (the data config's keymap exposes it).
@@ -70,13 +68,13 @@ robomimic_model:
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        human_bimanual: 138
+        human_bimanual: 18
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 840
         hidden_dim: 320
-        act_dim: 138
+        act_dim: 18
         act_seq: 100
         n_heads: 5
         dropout: 0.1
@@ -115,9 +113,10 @@ robomimic_model:
 
   stem_specs:
     human_bimanual:
-      state_keypoints:
+      # 20-D: 6D-encoded head-frame wrist poses (18) + zero grip pads (2).
+      state_ee_pose:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
-        input_dim: 138
+        input_dim: 20
         output_dim: 840
         widths: [840]
         specs:

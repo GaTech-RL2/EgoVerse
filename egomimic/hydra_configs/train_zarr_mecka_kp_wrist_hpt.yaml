@@ -1,14 +1,11 @@
 # Composed recipe: ~300M HPT (+ Qwen text stem) BC on the 138-D wrist-frame
 # MANO keypoint action, mecka freeform fold-clothes, held-out-operator split.
-# HPT twin of the pi0.5 keypoint fit test
-# (data=mecka_fold_freeform_opsplit_pi_keypoints model=pi0.5_bc_mecka_keypoints
-# evaluator=eval_pi_keypoints_wristframe on train_zarr_cartesian_pi).
 #
 #   python egomimic/trainHydra.py --config-name=train_zarr_mecka_kp_wrist_hpt \
-#     norm_stats.precomputed_norm_path=<.../fold_freeform_opsplit_kp/norm_stats>
+#     norm_stats.precomputed_norm_path=<out>/norm_stats
 #
-# See scripts/train_hpt_keypoints_fold_freeform_opsplit.sbatch for the
-# launcher (cadence overrides, W&B, offline HF cache).
+# The norm stats must come from data=mecka_fold_freeform_opsplit_hpt_keypoints
+# (see that file for the precompute command).
 defaults:
   - train_zarr_cartesian
   # Second eval head: metrics + videos on TRAIN data each val (train_viz/).

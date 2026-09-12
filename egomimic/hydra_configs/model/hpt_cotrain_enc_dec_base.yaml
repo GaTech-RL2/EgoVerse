@@ -6,7 +6,6 @@ robomimic_model:
     human_bimanual: "actions_cartesian"
     eva_bimanual: "actions_joints"
   
-  reverse_kl_samples: 8
 
   6dof: true
   trunk:

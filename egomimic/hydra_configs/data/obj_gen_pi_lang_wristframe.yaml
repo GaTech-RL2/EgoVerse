@@ -2,11 +2,11 @@ defaults:
   - cotrain_pi_base
   - _self_
 
-# Wristframe variant of motion_gen_pi_lang: annotated-only eva + annotated-only
+# Wristframe variant of obj_gen_pi_lang: annotated-only eva + annotated-only
 # aria (base/object descriptions). Actions are expressed in each wrist's own
-# frame (cartesian_wristframe_ypr) instead of the head/camera frame. Pair with
-# evaluator=eval_pi so the revert transform projects predictions back to cam
-# frame for the viz video.
+# frame (cartesian_wristframe_6d) instead of the head/camera frame. Pair with
+# evaluator=eval_pi_wristframe_6d so the revert transform projects predictions
+# back to cam frame for the viz video.
 
 train_datasets:
   eva_bimanual:
@@ -15,7 +15,7 @@ train_datasets:
       key_map:
         keymap_mode: cartesian_pi
       transform_list:
-        mode: cartesian_wristframe_ypr
+        mode: cartesian_wristframe_6d
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: "dense-language"
@@ -27,7 +27,7 @@ train_datasets:
       key_map:
         keymap_mode: cartesian_pi
       transform_list:
-        mode: cartesian_wristframe_ypr
+        mode: cartesian_wristframe_6d
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: "dense-language"

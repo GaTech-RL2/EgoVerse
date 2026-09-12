@@ -1,11 +1,13 @@
 # MECKA_FOLD_FREEFORM_PI_6D — pi0.5 BC on the mecka FREEFORM fold-clothes
-# episodes only, stored under the human_bimanual embodiment. The freeform twin
-# of mecka_fold_flagship_pi_6d (1,607 short flagship episodes): SQL
+# episodes only, stored under the human_bimanual embodiment: SQL
 # task='folding_clothes', 462 eps / 1.13M frames under
 # processed_v3/mecka/freeform/. "freeform" is only visible in
 # zarr_processed_path, so the filter keys on '/mecka/freeform/' and accepts
 # either fold-clothes task spelling (the flagship 'fold_clothes' rows fail the
 # path check, so this resolves to the 462).
+#
+# RANDOM-EPISODE split (valid_ratio 0.05). For the held-out-OPERATOR split use
+# mecka_fold_freeform_opsplit_pi_6d instead.
 #
 # WRIST-frame cartesian actions with the continuous 6D rotation (18D =
 # xyz+6D per arm, no gripper): each arm's 100-step chunk is expressed
@@ -22,7 +24,7 @@
 # (+ `+evaluator@train_viz_evaluator=train_viz_pi_wristframe_6d` for the train-set
 # spot-check head). The cam-frame twin is mecka_fold_freeform_pi_cam6d.
 #
-# Norm stats: precompute on a CPU node (scripts/norm_fold_freeform_wrist6d.sbatch) with
+# Norm stats: precompute on a CPU node with
 #   precompute_norm_stats.py --data mecka_fold_freeform_pi_6d --model pi0.5_bc_mecka_6d
 # and point training at norm_stats.precomputed_norm_path=<out>/norm_stats.
 #

@@ -25,7 +25,6 @@ robomimic_model:
   multitask: false
   pretrained: false
   pretrained_checkpoint: "" # TODO
-  reverse_kl_samples: 8
   
   domains: ["human_bimanual"]
   shared_obs_keys: ["front_img_1"]

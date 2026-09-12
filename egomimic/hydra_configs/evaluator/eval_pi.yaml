@@ -1,23 +1,11 @@
 defaults:
-  - viz@viz_func: pi_cartesian_lang
+  - eval_pi_camframe_6d
   - _self_
 
-_target_: egomimic.eval.eval_pi.PIEvalVideo
-
-# Render the val viz video only when (current_epoch + 1) is a multiple of
-# this; metrics still log on every validation pass. Keep it a multiple of
-# trainer.check_val_every_n_epoch or viz never coincides with a validation run.
-viz_every_n_epochs: 100
-
-# Per-embodiment revert transform. Applied once during validation to project
-# the model's wrist-frame action chunks back to cam (head) frame, then reused
-# for both the cam-frame MSE and the viz video. Each value resolves to a
-# list[Transform] via its ``_target_``. Must match whichever viz config is
-# mounted above.
-transform_lists:
-  eva_bimanual:
-    _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
-    is_quat: false
-  human_bimanual:
-    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
-    is_quat: false
+# Back-compat alias so `evaluator=eval_pi` (the train_zarr_cartesian_pi default
+# on main) keeps composing. PI now only trains on the continuous-6D action
+# layout, so the xyz+ypr wrist-frame revert this file used to carry matches no
+# PI data config any more. It resolves to the cam-frame 6D evaluator — the new
+# train_zarr_cartesian_pi default, paired with the `cartesian_6d` data mode
+# (the cotrain_pi_base default). For wrist-frame data
+# (`cartesian_wristframe_6d`) use evaluator=eval_pi_wristframe_6d instead.

@@ -6,12 +6,10 @@ import torch
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 from egomimic.utils.action_utils import _reconstruct_R_from_cols, _ypr_to_matrix
-from egomimic.utils.metrics import (
-    dtw_distance,
-    frechet_gaussian_over_time,
-    reverse_kl_from_samples,
-)
+from egomimic.utils.metrics import dtw_distance, frechet_gaussian_over_time
 from egomimic.utils.pose_utils import bimanual_cartesian_layout
+
+_RAD2DEG = 180.0 / math.pi
 
 
 def _paired_mse(pred: torch.Tensor, gt: torch.Tensor) -> torch.Tensor:
@@ -20,16 +18,15 @@ def _paired_mse(pred: torch.Tensor, gt: torch.Tensor) -> torch.Tensor:
 
 
 def _split_mse(pred_t: torch.Tensor, gt_t: torch.Tensor):
-    """(translation MSE, rotation MSE) over a bimanual cartesian vector, so a
-    translation problem reads apart from a rotation one. Handles all four
-    native widths via ``bimanual_cartesian_layout``:
-      - native model output: 18D (human) / 20D (robot) continuous 6D cols —
-        clean (6D has no ±π wrap).
-      - reverted cam-frame output: 12D (human) / 14D (robot) ypr — keeps the
-        ±π caveat (the headline cam MSE is wrap-corrected; this split is a
-        secondary diagnostic; see ``_rot_geodesic_error`` for the wrap- and
-        gimbal-free rotation error).
-    Returns (None, None) for an unknown width.
+    """(translation MSE, rotation-channel MSE) over a bimanual cartesian
+    vector, so a translation problem reads apart from a rotation one. The
+    rotation channels are whatever the layout holds: the continuous 6D
+    rotation-matrix columns for the native 18D (human) / 20D (robot) widths,
+    yaw/pitch/roll for the 12/14D widths. Either way this is a plain
+    per-channel MSE (pre-Gram-Schmidt, axis-dependent, unitless for 6D; ±π
+    wrap and gimbal lock for ypr), i.e. a training-tracking diagnostic, not a
+    rotation error — see ``_rot_geodesic_error`` for that. Returns
+    (None, None) for an unknown width.
     """
     layout = bimanual_cartesian_layout(pred_t.shape[-1])
     if layout is None:
@@ -47,7 +44,7 @@ def _rot_geodesic_error(pred: torch.Tensor, gt: torch.Tensor):
     Euler-free: per arm, builds proper rotation matrices (``_ypr_to_matrix``
     for the 12/14-dim ypr widths; Gram-Schmidt on the two 6D columns for the
     18/20-dim widths — the same reconstruction the model decode uses) and
-    takes ``arccos((tr(R_pred^T R_gt) - 1) / 2)``. Unlike the ypr MSE this is
+    takes ``arccos((tr(R_pred^T R_gt) - 1) / 2)``. Unlike a ypr MSE this is
     immune to the ±π wrap AND to the yaw/roll degeneracy at pitch ≈ ±π/2,
     where two nearly identical orientations can differ by ~π in both yaw and
     roll. Returns None for an unknown width.
@@ -74,34 +71,28 @@ def _rot_geodesic_error(pred: torch.Tensor, gt: torch.Tensor):
     return torch.stack(errs, dim=-1).mean().float()
 
 
-def _wrap_aware_mse(pred: torch.Tensor, gt: torch.Tensor):
-    """(wrapped, unwrapped) MSE over a bimanual cartesian YPR vector.
-
-    Euler angles wrap at ±π: a prediction of +π-ε against a target of -π+ε is
-    physically near-perfect but scores ~(2π)² per dim unwrapped, and a handful
-    of wrap events dominates the batch average. Wrap the rotation-dim errors
-    to (-π, π] before squaring; positions/grippers are untouched. Falls back
-    to plain MSE when the trailing width has no known layout.
-    """
-    diff = (pred - gt).float()
-    nowrap = diff.pow(2).mean()
-    layout = bimanual_cartesian_layout(diff.shape[-1])
-    # 6D-rotation layouts (18/20) have no angle dims — only wrap YPR widths.
-    if layout is None or len(layout["rot"]) != 6:
-        return nowrap, nowrap
-    rot = list(layout["rot"])
-    diff[..., rot] = torch.remainder(diff[..., rot] + math.pi, 2 * math.pi) - math.pi
-    return diff.pow(2).mean(), nowrap
-
-
 class PIEvalVideo(EvalVideo):
     """
-    Eval class for PI models. Per embodiment, computes:
-      - val loss (flow-matching loss, same as training; also aggregated as ``Valid/action_loss``)
-      - paired/final MSE in the model's native wrist frame
-      - paired/final MSE in cam frame, when a ``transform_lists`` entry is configured
-    The revert transform is applied once and reused for both the cam-frame MSE
-    and the viz video.
+    Eval class for PI models. Per embodiment, on the model's native
+    (unnormalized xyz+6D) output, computes:
+      - ``action_loss``: flow-matching val loss, same as training (also logged
+        per embodiment as ``<name>_loss``)
+      - ``xyz_paired_mse_avg`` / ``xyz_final_mse_avg``: position MSE (m²) over
+        the chunk / at the last timestep (longest-horizon, hardest prediction)
+      - ``rot_err_deg_avg`` / ``rot_err_deg_final``: geodesic rotation error
+        in degrees between the Gram-Schmidt-decoded prediction and gt
+      - ``rot6d_paired_mse_avg``: MSE over the raw 6D rotation columns (the
+        channels the loss regresses, up to per-dim normalization); a
+        training-tracking diagnostic, not a rotation error
+      - ``xyz_dtw_avg`` / ``xyz_frechet_gauss_avg``: temporal-misalignment-
+        tolerant DTW and time-distribution Fréchet distance on xyz only
+      - ``bestof{M}_paired_mse`` / ``sample_diversity_M{M}``: multimodal
+        coverage and spread from M stochastic draws, only when the algo's
+        ``val_samples`` > 1
+
+    Metrics are frame-invariant (the cam-frame revert is a rigid transform
+    shared by prediction and gt), so the ``transform_lists`` revert runs only
+    when rendering the viz video (``do_viz``), never for metrics.
     """
 
     def compute_metrics_and_viz(self, batch, do_viz=True):
@@ -113,9 +104,6 @@ class PIEvalVideo(EvalVideo):
         total_loss = None
         n_loss_embodiments = 0
 
-        # The ``_xyz_`` / ``_ypr_`` split-MSE keys keep their names for
-        # dashboard continuity; ``_ypr_`` denotes "rotation channels"
-        # regardless of encoding (see ``_split_mse``).
         for embodiment_id, _batch in batch.items():
             _batch = algo.norm_stats.unnormalize(_batch, embodiment_id)
             embodiment_name = get_embodiment(embodiment_id).lower()
@@ -134,61 +122,54 @@ class PIEvalVideo(EvalVideo):
             if pred_key in preds:
                 pred_cpu = preds[pred_key].cpu()
                 gt_cpu = _batch[ac_key].cpu()
-                metrics[f"Valid/{pred_key}_paired_mse_avg"] = _paired_mse(
-                    pred_cpu, gt_cpu
-                )
-                # Last-timestep-only MSE: the end of the chunk is the
-                # longest-horizon (hardest) prediction, so this reads as a
-                # worst-end signal vs the chunk-wide ``paired`` average.
-                metrics[f"Valid/{pred_key}_final_mse_avg"] = _paired_mse(
-                    pred_cpu[:, -1], gt_cpu[:, -1]
-                )
-                xyz_p, ypr_p = _split_mse(pred_cpu, gt_cpu)
+                layout = bimanual_cartesian_layout(pred_cpu.shape[-1])
+
+                xyz_p, rot_p = _split_mse(pred_cpu, gt_cpu)
                 if xyz_p is not None:
                     metrics[f"Valid/{pred_key}_xyz_paired_mse_avg"] = xyz_p
-                    metrics[f"Valid/{pred_key}_ypr_paired_mse_avg"] = ypr_p
-                # Geodesic rotation error (radians) on the native 6D output:
-                # the rotation the decode actually produces after Gram-Schmidt,
-                # measured on the manifold rather than per 6D component.
+                    metrics[f"Valid/{pred_key}_rot6d_paired_mse_avg"] = rot_p
+                    xyz_idx = list(layout["xyz"])
+                    metrics[f"Valid/{pred_key}_xyz_final_mse_avg"] = _paired_mse(
+                        pred_cpu[:, -1, xyz_idx], gt_cpu[:, -1, xyz_idx]
+                    )
+                    # Distributional / alignment metrics on the position
+                    # channels only (metres), so a unitless 6D column never
+                    # trades off against a metre. DTW forgives temporal
+                    # misalignment (a correct motion executed early/late scores
+                    # near zero where paired MSE penalizes it); Fréchet
+                    # compares the time-distribution shape of the motion.
+                    pred_xyz = preds[pred_key][..., xyz_idx]
+                    gt_xyz = _batch[ac_key][..., xyz_idx].to(pred_xyz.device)
+                    metrics[f"Valid/{pred_key}_xyz_dtw_avg"] = (
+                        dtw_distance(pred_xyz, gt_xyz).mean().item()
+                    )
+                    metrics[f"Valid/{pred_key}_xyz_frechet_gauss_avg"] = (
+                        frechet_gaussian_over_time(pred_xyz, gt_xyz).mean().item()
+                    )
+
+                # Rotation error on the manifold, in degrees: the rotation the
+                # decode actually produces after Gram-Schmidt, independent of
+                # the 6D/ypr format and free of wrap / gimbal artefacts.
                 geo = _rot_geodesic_error(pred_cpu, gt_cpu)
                 if geo is not None:
-                    metrics[f"Valid/{pred_key}_rot_geodesic_avg"] = geo
+                    metrics[f"Valid/{pred_key}_rot_err_deg_avg"] = geo * _RAD2DEG
+                    metrics[f"Valid/{pred_key}_rot_err_deg_final"] = (
+                        _rot_geodesic_error(pred_cpu[:, -1], gt_cpu[:, -1]) * _RAD2DEG
+                    )
 
-                # Distributional metrics (native frame only). Fréchet compares
-                # the time-distribution shape of the single prediction; reverse
-                # KL needs M independent stochastic samples and is gated on the
-                # algo's ``rkl_samples`` (M extra sampling passes per batch).
-                fd = frechet_gaussian_over_time(preds[pred_key], _batch[ac_key])
-                metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = fd.mean().item()
-                metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
-                metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
-
-                # DTW: trajectory similarity tolerant to temporal misalignment
-                # — a correct motion executed early/late scores near zero here
-                # while paired MSE penalizes it. Normalized per path step, so
-                # units are avg per-frame euclidean distance in native space.
-                dtw = dtw_distance(preds[pred_key], _batch[ac_key])
-                metrics[f"Valid/{pred_key}_dtw_avg"] = dtw.mean().item()
-
-                if getattr(algo, "rkl_samples", 1) and algo.rkl_samples > 1:
-                    M = int(algo.rkl_samples)
-                    gt_tensor = _batch[ac_key].to(algo.device)
+                M = int(getattr(algo, "val_samples", 1) or 1)
+                if M > 1:
                     # Feed the ORIGINAL normalized batch element, not the loop's
                     # unnormalized ``_batch`` — ``norm_stats.unnormalize`` also
                     # denormalizes proprio obs keys, so sampling must run on the
                     # normalized obs (same as ``forward_eval``).
                     samples = algo.sample_action_chunks(
                         batch[embodiment_id], embodiment_id, M
-                    )
-                    rkl = reverse_kl_from_samples(samples, gt_tensor)
-                    metrics[f"Valid/{pred_key}_reverse_kl_M{M}"] = rkl.item()
-
-                    # Best-of-K coverage from the SAME M samples (no extra
-                    # sampling): per-sample paired MSE to GT, reduced over the
-                    # chunk. ``bestof`` = does the policy produce a good action
-                    # in M tries (multimodal coverage); ``mean`` = avg sample
-                    # quality; ``worstof`` = how bad the worst draw is;
-                    # ``diversity`` = mean per-element std across samples.
+                    )  # (M, B, T, D)
+                    gt_tensor = _batch[ac_key].to(samples.device)
+                    # ``bestof`` = does the policy produce a good chunk in M
+                    # tries (multimodal coverage); ``diversity`` = mean
+                    # per-element std across the M draws (spread).
                     per_sample_mse = (
                         ((samples - gt_tensor.unsqueeze(0)) ** 2)
                         .flatten(start_dim=2)
@@ -197,61 +178,27 @@ class PIEvalVideo(EvalVideo):
                     metrics[f"Valid/{pred_key}_bestof{M}_paired_mse"] = (
                         per_sample_mse.min(dim=0).values.mean().item()
                     )
-                    metrics[f"Valid/{pred_key}_mean{M}_paired_mse"] = (
-                        per_sample_mse.mean().item()
-                    )
-                    metrics[f"Valid/{pred_key}_worstof{M}_paired_mse"] = (
-                        per_sample_mse.max(dim=0).values.mean().item()
-                    )
                     metrics[f"Valid/{pred_key}_sample_diversity_M{M}"] = (
                         samples.std(dim=0).mean().item()
                     )
 
-            transform_list = self.transform_lists.get(embodiment_name)
-            gt_batch_viz = _batch
-            preds_for_viz = preds
-            if transform_list is not None and pred_key in preds:
-                pred_batch = copy.deepcopy(_batch)
-                pred_batch[ac_key] = preds[pred_key]
-                gt_t = Embodiment.apply_transform(_batch, transform_list)
-                pred_t = Embodiment.apply_transform(pred_batch, transform_list)
-                # apply_transform drops keys whose shape[0] != batch_size
-                # (e.g. ``embodiment``, ``annotations``). Merge to preserve them.
-                gt_batch_viz = {**_batch, **gt_t}
-                pred_batch_viz = {**_batch, **pred_t}
-
-                # Cam-frame vectors are xyz+YPR — wrap angle errors to ±π so
-                # boundary predictions don't blow up the MSE. The unwrapped
-                # value is kept as ``*_nowrap`` to quantify the inflation.
-                paired_w, paired_nw = _wrap_aware_mse(
-                    pred_batch_viz[ac_key].cpu(), gt_batch_viz[ac_key].cpu()
-                )
-                final_w, final_nw = _wrap_aware_mse(
-                    pred_batch_viz[ac_key][:, -1].cpu(),
-                    gt_batch_viz[ac_key][:, -1].cpu(),
-                )
-                metrics[f"Valid/{pred_key}_cam_paired_mse_avg"] = paired_w
-                metrics[f"Valid/{pred_key}_cam_final_mse_avg"] = final_w
-                metrics[f"Valid/{pred_key}_cam_paired_mse_nowrap"] = paired_nw
-                metrics[f"Valid/{pred_key}_cam_final_mse_nowrap"] = final_nw
-                cam_pred = torch.as_tensor(pred_batch_viz[ac_key]).cpu()
-                cam_gt = torch.as_tensor(gt_batch_viz[ac_key]).cpu()
-                xyz_cp, ypr_cp = _split_mse(cam_pred, cam_gt)
-                if xyz_cp is not None:
-                    metrics[f"Valid/{pred_key}_cam_xyz_paired_mse_avg"] = xyz_cp
-                    metrics[f"Valid/{pred_key}_cam_ypr_paired_mse_avg"] = ypr_cp
-                # Cam-frame rotation error on the manifold: the ypr MSE above
-                # is wrap-corrected but still degenerate near pitch = ±π/2
-                # (yaw and roll trade off), which can score a near-perfect
-                # orientation as ~π² per dim. This one can't.
-                geo_c = _rot_geodesic_error(cam_pred, cam_gt)
-                if geo_c is not None:
-                    metrics[f"Valid/{pred_key}_cam_rot_geodesic_avg"] = geo_c
-
-                preds_for_viz = dict(preds)
-                preds_for_viz[pred_key] = pred_batch_viz[ac_key]
-
             if do_viz:
+                gt_batch_viz = _batch
+                preds_for_viz = preds
+                transform_list = self.transform_lists.get(embodiment_name)
+                if transform_list is not None and pred_key in preds:
+                    # Revert to cam (head) frame + xyz+ypr layout for the
+                    # overlay only; the metrics above are frame-invariant.
+                    pred_batch = copy.deepcopy(_batch)
+                    pred_batch[ac_key] = preds[pred_key]
+                    gt_t = Embodiment.apply_transform(_batch, transform_list)
+                    pred_t = Embodiment.apply_transform(pred_batch, transform_list)
+                    # apply_transform drops keys whose shape[0] != batch_size
+                    # (e.g. ``embodiment``, ``annotations``). Merge to preserve them.
+                    gt_batch_viz = {**_batch, **gt_t}
+                    pred_batch_viz = {**_batch, **pred_t}
+                    preds_for_viz = dict(preds)
+                    preds_for_viz[pred_key] = pred_batch_viz[ac_key]
                 ims = self._visualize_preds(preds_for_viz, gt_batch_viz)
                 images_dict[embodiment_id] = ims
 
