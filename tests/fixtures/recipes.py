@@ -57,13 +57,29 @@ RECIPES: dict[tuple[str, str], Recipe] = {
 
 
 def common_overrides(
-    emb: str, data_dir, out_dir, *, batch_size: int, num_workers: int
+    emb: str,
+    data_dir,
+    out_dir,
+    *,
+    batch_size: int,
+    num_workers: int,
+    episode_hashes: tuple[str, ...] | None = None,
 ) -> list[str]:
-    return [
+    overrides = [
         f"paths.dataset_dir={data_dir}",
         f"paths.output_dir={out_dir}",
         f"data.train_datasets.{emb}.resolver._target_={LOCAL_RESOLVER}",
+        # Reset to null first: some real configs' filters dict (e.g. eva_pi's
+        # embodiment-only lambda) is struct-locked to its own keys, so a plain
+        # merge that introduces `episode_hashes` would fail. Force-adding onto
+        # a null value has no such restriction.
         f"data.train_datasets.{emb}.filters=null",
+    ]
+    if episode_hashes:
+        pins = ", ".join(episode_hashes)
+        filters = f"{{_target_: egomimic.rldb.filters.DatasetFilter, episode_hashes: [{pins}]}}"
+        overrides.append(f"++data.train_datasets.{emb}.filters={filters}")
+    overrides += [
         f"data.train_dataloader_params.{emb}.batch_size={batch_size}",
         f"data.train_dataloader_params.{emb}.num_workers={num_workers}",
         f"data.valid_dataloader_params.{emb}.batch_size={batch_size}",
@@ -75,6 +91,7 @@ def common_overrides(
         "norm_stats.save_cache_dir=null",
         f"norm_stats.num_workers={num_workers}",
     ]
+    return overrides
 
 
 def cpu_trainer_overrides(steps: int = 2) -> list[str]:

@@ -47,10 +47,17 @@ def _run(cfg) -> float:
 def test_hpt_train_step(tmp_path, monkeypatch, vendor):
     hermetic_env(monkeypatch)
     recipe = RECIPES[(vendor, "hpt")]
-    data, out = write_fixtures(tmp_path, vendor)
+    data, out, hashes = write_fixtures(tmp_path, vendor)
     cfg = compose_recipe(
         recipe,
-        common_overrides(recipe.embodiment, data, out, batch_size=2, num_workers=0)
+        common_overrides(
+            recipe.embodiment,
+            data,
+            out,
+            batch_size=2,
+            num_workers=0,
+            episode_hashes=hashes,
+        )
         + cpu_trainer_overrides(STEPS)
         + hpt_small_overrides(recipe.embodiment),
         out,
@@ -91,10 +98,17 @@ def test_pi_train_step(tmp_path, monkeypatch, vendor):
         "expect",
         {"state_dim": STATE_DIM[recipe.embodiment], "wrist_present": is_eva},
     )
-    data, out = write_fixtures(tmp_path, vendor)
+    data, out, hashes = write_fixtures(tmp_path, vendor)
     cfg = compose_recipe(
         recipe,
-        common_overrides(recipe.embodiment, data, out, batch_size=2, num_workers=0)
+        common_overrides(
+            recipe.embodiment,
+            data,
+            out,
+            batch_size=2,
+            num_workers=0,
+            episode_hashes=hashes,
+        )
         + cpu_trainer_overrides(STEPS)
         + pi_cpu_overrides(),
         out,
