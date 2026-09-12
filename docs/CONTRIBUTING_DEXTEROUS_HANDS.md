@@ -37,6 +37,22 @@ Map your source joint order to the registry before export. In `features`, add a
 when the registry names that chain), exactly matching registry order. This is
 your declaration of column meaning; matching shapes cannot prove physical
 order. `ZarrWriter` accepts these descriptions through `metadata_override`.
+Its `features` override replaces the whole mapping, so include every exported
+array's `dtype` and `shape` alongside the joint-name declarations, following
+the writer's feature format in the general guide.
+For example, a hand description has the form:
+
+```python
+features["left.obs_hand_joints"] = {
+    "dtype": str(left_observed_joints.dtype),
+    "shape": [left_observed_joints.shape[1]],
+    "joint_names": list(resolved.end_effectors["left"].joint_names),
+}
+```
+
+Here `resolved = Embodiment.from_attrs(episode_attributes)` uses the registered
+hardware. Populate this declaration only after mapping the source columns to
+that order; copying the names does not reorder the numeric data.
 
 For each active `<side>` (`left` or `right`), provide floating-point arrays:
 
@@ -87,11 +103,12 @@ mapping in the registry.
   coefficients where applicable, and `rectified`. Supply rectified images and
   matching intrinsics for the current overlay tool; update `K` after resizing or
   cropping.
-- Supply `obs_head_pose` with shape `(T, 7)`: the **optical ego camera's pose in
+- For moving ego cameras, supply `obs_head_pose` with shape `(T, 7)`: the **optical ego camera's pose in
   the episode reference frame at each RGB frame**. Include the calibrated offset
   from the tracked head/device to the optical camera. Optical axes are +X right,
   +Y down, +Z forward. A constant trajectory is appropriate only when the camera
-  is fixed in that reference frame.
+  is fixed in that reference frame. An explicitly fixed camera may instead supply
+  a valid `calibration.cameras.front_1.ref_T_cam`.
 - Calibrate additional camera streams separately. A static camera uses
   `calibration.cameras.<name>.ref_T_cam` (`4×4`, camera-to-reference transform).
   The current visualizer reads per-frame poses for `front_1` only; moving
