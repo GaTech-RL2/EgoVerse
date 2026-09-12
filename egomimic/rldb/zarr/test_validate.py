@@ -172,7 +172,7 @@ def test_a_single_arm_episode_owes_only_its_own_arm(tmp_path) -> None:
     assert "right.obs_ee_pose" not in _levels(report)
 
 
-def test_a_human_episode_owes_keypoints_and_a_head_pose(tmp_path) -> None:
+def test_a_human_episode_checks_supplied_keypoints_without_requiring_them(tmp_path) -> None:
     path = tmp_path / "human.zarr"
     numeric = {
         "left.obs_ee_pose": _poses(),
@@ -197,7 +197,7 @@ def test_a_human_episode_owes_keypoints_and_a_head_pose(tmp_path) -> None:
     assert levels["left.obs_keypoints"] == OK
     assert levels["obs_head_pose"] == OK
     # The registry declares 21 MANO slots with three coordinates per slot.
-    assert levels["right.obs_keypoints"] == ERROR
+    assert "right.obs_keypoints" not in levels
     # The human platform has neither an arm chain nor a parallel jaw, so those
     # conditional rules do not run.
     assert "left.obs_gripper" not in levels

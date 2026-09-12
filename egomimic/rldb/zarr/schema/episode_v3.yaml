@@ -126,7 +126,8 @@ attributes:
   intrinsics:
     required: false
     severity: integrity
-    type: mapping
+    # The compatibility reader accepts a bare matrix or camera-name mapping.
+    check: calibration
   extrinsics:
     required: false
     severity: integrity
@@ -282,7 +283,14 @@ arrays:
 
   - key: "{side}.obs_keypoints"
     when: {end_effector_class: human_hand}
-    required: true
+    required: false
+    severity: integrity
+    shape: [T, kp3]
+    dtype: float
+
+  - key: "{side}.obs_aria_keypoints"
+    when: {end_effector_class: human_hand}
+    required: false
     severity: integrity
     shape: [T, kp3]
     dtype: float

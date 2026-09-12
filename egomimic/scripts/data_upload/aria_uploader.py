@@ -1,6 +1,9 @@
 import asyncio
 
-from abstract_upload import Uploader
+if __package__:
+    from .abstract_upload import Uploader
+else:  # Retain direct script invocation.
+    from abstract_upload import Uploader
 
 
 def aria_uploader():

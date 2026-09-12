@@ -56,3 +56,28 @@ def test_old_episodes_remain_usable_without_rewrite(tmp_path, embodiment):
         f.check == "obs_head_pose" and f.level == ERROR
         for f in validate_episode(path).findings
     )
+
+
+@pytest.mark.parametrize("keypoints", [None, "obs_keypoints", "obs_aria_keypoints"])
+@pytest.mark.parametrize("matrix", [True, False])
+def test_legacy_human_pose_only_and_aria_with_old_intrinsics(tmp_path, keypoints, matrix):
+    from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
+    from egomimic.rldb.zarr.zarr_writer import ZarrWriter
+
+    path = tmp_path / "human.zarr"
+    numeric = {f"{side}.obs_ee_pose": _poses() for side in ("left", "right")}
+    if keypoints:
+        numeric.update({f"{side}.{keypoints}": np.zeros((4, 63)) for side in ("left", "right")})
+    ZarrWriter.create_and_write(path, numeric_data=numeric, embodiment="human_bimanual", chunk_timesteps=4,
+                               intrinsics={"front_1": np.eye(3, 4)})
+    group = zarr.open_group(path, mode="a")
+    K = [[200., 0, 160], [0, 200, 120], [0, 0, 1]]
+    group.attrs["intrinsics"] = K if matrix else {"front_1": K}
+    before = (path / "zarr.json").read_bytes()
+    assert validate_episode(path).ok, validate_episode(path).text()
+    sample = ZarrDataset(path, {"pose": {"zarr_key": "left.obs_ee_pose"}})[0]
+    np.testing.assert_allclose(sample["pose"], _poses()[0])
+    assert (path / "zarr.json").read_bytes() == before
+    if keypoints:
+        group[f"left.{keypoints}"].resize((4, 62))
+        assert not validate_episode(path).ok

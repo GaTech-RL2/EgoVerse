@@ -675,6 +675,11 @@ class ZarrWriter:
                 self.remove_key(self.episode_path, annotation_key)
         store = zarr.open(str(self.episode_path), mode="a", zarr_format=3)
         self._write_annotations(store, annotations, annotation_key)
+        # Appending labels to an existing episode must also update discovery
+        # metadata; preserve the descriptions of all other arrays.
+        features = dict(store.attrs.get("features", {}))
+        features[annotation_key] = self._features[annotation_key]
+        store.attrs["features"] = features
 
     def _write_annotations(
         self,
