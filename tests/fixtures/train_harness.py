@@ -12,6 +12,7 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import open_dict
 
 import egomimic.trainHydra as train_hydra
+from egomimic.rldb.zarr import zarr_dataset_multi
 from fixtures.synthetic_episodes import write_episode
 
 STATE_DIM = {"eva_bimanual": 14, "human_bimanual": 12}
@@ -50,6 +51,7 @@ def reset_hydra_config() -> None:
 def hermetic_env(monkeypatch, hf_offline: bool = True) -> None:
     """No network, no wandb, no ~/.egoverse_env, and no Lightning Slurm plugin
     inside an srun step."""
+    zarr_dataset_multi.clear_resolve_cache()
     if hf_offline:
         _hf_offline(monkeypatch)
     monkeypatch.setenv("WANDB_MODE", "disabled")

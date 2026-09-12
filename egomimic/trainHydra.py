@@ -20,7 +20,11 @@ import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf reso
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, PinError
+from egomimic.rldb.zarr.zarr_dataset_multi import (
+    MultiDataset,
+    PinError,
+    clear_resolve_cache,
+)
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
@@ -137,6 +141,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         set_global_seed(cfg.seed)
     else:
         raise ValueError("Seed must be provided in cfg for reproducibility!")
+
+    clear_resolve_cache()
 
     load_env()
 
