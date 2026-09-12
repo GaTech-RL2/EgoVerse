@@ -72,13 +72,15 @@ def _hf_offline(monkeypatch) -> None:
     monkeypatch.setattr(transformers.utils.hub, "_is_offline_mode", True)
 
 
-def write_fixtures(tmp_path: Path, vendor: str, n: int = 3) -> tuple[Path, Path]:
+def write_fixtures(
+    tmp_path: Path, vendor: str, n: int = 3
+) -> tuple[Path, Path, tuple[str, ...]]:
     data, out = tmp_path / "data", tmp_path / "out"
     data.mkdir()
     out.mkdir()
     for i in range(n):
         write_episode(data, vendor, seed=i)
-    return data, out
+    return data, out, tuple(f"{vendor}_{i:02d}" for i in range(n))
 
 
 class BatchKeySpy:

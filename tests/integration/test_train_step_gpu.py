@@ -33,22 +33,18 @@ pytestmark = [
 
 VENDOR_NAMES = ["eva", "aria", "mecka", "scale"]
 # Known-good episodes: the ones the shipped per-vendor HPT configs pin
-# (data/eva.yaml, data/aria.yaml). Deterministic, and a regression here means
-# the recipe broke, not that the S3 resolver handed us a different episode.
-# Two shipped pins are unusable (checked against app.episodes 2026-09-12):
-#   data/scale.yaml pins 2026-03-16-01-22-26-448000, recorded as eva_bimanual
-#   (stale after the 2026-05 scale reprocess); data/mecka.yaml pins
-#   69199812208123403bbdb24f, which is not in the table at all.
-# Those vendors fall back to lab + embodiment with resolver.debug=2. The S3
-# resolver's order is not deterministic, and one rl2 eva episode
-# (2026-03-28-19-49-52-786000) has an all-NaN gripper command, so pin
-# whenever a pin exists.
+# (data/eva.yaml, data/aria.yaml, data/scale.yaml, data/mecka.yaml).
+# Deterministic, and a regression here means the recipe broke, not that the
+# S3 resolver handed us a different episode. All four vendors are pinned now;
+# data/scale.yaml and data/mecka.yaml carry the same pins recorded below
+# (checked against app.episodes 2026-09-12, after the 2026-05 scale reprocess
+# and the 2026-07-27 mecka reload).
 PINNED_EPISODES = {
     "eva": ["2025-12-26-18-07-46-296000"],
     "aria": ["2025-09-20-17-47-54-000000"],
+    "scale": ["2026-04-30-09-41-51-255837"],
+    "mecka": ["6972164b391867c01c9d3265"],
 }
-# `lab` column of app.episodes for the fallback vendors (queried 2026-09-12).
-VENDOR_SQL_LAB = {"mecka": "mecka", "scale": "scale"}
 STEPS = 5
 
 
@@ -59,12 +55,7 @@ def _pi_ckpt() -> Path:
 
 
 def _gpu_overrides(emb: str, out: Path, vendor: str) -> list[str]:
-    debug = (
-        []
-        if vendor in PINNED_EPISODES
-        else [f"+data.train_datasets.{emb}.resolver.debug=2"]
-    )
-    return debug + [
+    return [
         f"paths.output_dir={out}",
         f"data.train_dataloader_params.{emb}.batch_size=4",
         f"data.train_dataloader_params.{emb}.num_workers=4",
@@ -91,19 +82,11 @@ def _gpu_overrides(emb: str, out: Path, vendor: str) -> list[str]:
 
 
 def _vendor_filter(cfg, emb: str, vendor: str) -> None:
-    """Real configs pick episodes by SQL; pin this vendor's known-good episodes
-    (or its lab, limited by debug=2) so the run is deterministic."""
-    if vendor in PINNED_EPISODES:
-        hashes = ", ".join(f"'{h}'" for h in PINNED_EPISODES[vendor])
-        lam = f"lambda row: row['episode_hash'] in {{{hashes}}}"
-    else:
-        lam = (
-            f"lambda row: (row['lab'] == '{VENDOR_SQL_LAB[vendor]}') "
-            f"& (row['embodiment'] == '{emb}') & (row['is_deleted'] == False)"
-        )
+    """Pin this vendor's known-good episodes through DatasetFilter.episode_hashes
+    so the run is deterministic and a stale pin fails at resolve (PinError)."""
     filters = {
         "_target_": "egomimic.rldb.filters.DatasetFilter",
-        "filter_lambdas": [lam],
+        "episode_hashes": list(PINNED_EPISODES[vendor]),
     }
     with open_dict(cfg):
         cfg.data.train_datasets[emb].filters = filters
