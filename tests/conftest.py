@@ -6,9 +6,14 @@ every test under it is marked ``integration`` and skipped unless ``--integration
 is passed.
 """
 
+import sys
 from pathlib import Path
 
 import pytest
+
+sys.path.insert(
+    0, str(Path(__file__).parent)
+)  # makes `fixtures.*` importable from any test dir
 
 INTEGRATION_DIR = Path(__file__).parent / "integration"
 
