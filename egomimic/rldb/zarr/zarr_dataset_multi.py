@@ -997,6 +997,21 @@ class MultiDataset(torch.utils.data.Dataset):
         return None
 
     def __getitem__(self, idx, _attempts: int | None = None):
+        return self._getitem_with_index(idx, _attempts=_attempts)[0]
+
+    def _getitem_with_index(
+        self, idx, _attempts: int | None = None
+    ) -> tuple[dict, int]:
+        """``__getitem__`` that also returns the global index actually served.
+
+        On a bounds/NaN rejection or a leaf failure the sample is served from
+        a random other index of the same episode (``_next_after_failure``);
+        ``data["substituted"]`` records that this happened, and the returned
+        index tells which frame it was. For a nested ``MultiDataset`` leaf the
+        index is this dataset's served ``idx`` (the leaf's own index is local
+        to the leaf); the frame within the episode is always
+        ``data["frame_idx"]``, written by ``ZarrDataset.__getitem__``.
+        """
         attempts = _attempts
         requested_idx = idx
         while True:
@@ -1018,7 +1033,7 @@ class MultiDataset(torch.utils.data.Dataset):
             # If this leaf is itself a MultiDataset, it already ran bounds +
             # normalize for its returned sample. Pass through unchanged.
             if isinstance(dataset, MultiDataset):
-                return self._mark_substituted(data, idx != requested_idx)
+                return self._mark_substituted(data, idx != requested_idx), idx
 
             violation = self._check_bounds(data, dataset, local_idx, dataset_name)
             if violation is not None:
@@ -1034,7 +1049,7 @@ class MultiDataset(torch.utils.data.Dataset):
             # Bounds passed — normalize and return.
             if self.norm_stats and data.get("embodiment") in self.norm_stats:
                 data = self.normalize(data, data["embodiment"])
-            return self._mark_substituted(data, idx != requested_idx)
+            return self._mark_substituted(data, idx != requested_idx), idx
 
     @staticmethod
     def _mark_substituted(data: dict, substituted: bool) -> dict:
@@ -1867,6 +1882,10 @@ class ZarrDataset(torch.utils.data.Dataset):
             # frame than the one requested. Downstream (eval) uses it to mask
             # substituted samples out of metrics and validation videos.
             data["substituted"] = idx != origin
+            # The frame actually served (differs from the requested one after
+            # a decode-failure retry). Collates to a (B,) long tensor; the
+            # prompt dataset slices own-episode history from it.
+            data["frame_idx"] = int(idx)
             return data
 
 

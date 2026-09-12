@@ -1,0 +1,11 @@
+# folding_clothes, whole-episode prompt + own-episode history
+# (docs/plan/2026-09-08_bpp_rollout_history.md). Same run settings as
+# train_zarr_cartesian_bpp_folding.yaml; only the model (history encoder) and
+# data (history payload) change. History cap arms:
+#   model.robomimic_model.prompt.history.max_chunks=5   (10 s)
+#   model.robomimic_model.prompt.history.max_chunks=15  (30 s, default)
+defaults:
+  - train_zarr_cartesian_bpp_folding
+  - override model: bpp_prompt_dit_episode_history
+  - override data: bpp_folding_clothes_history
+  - _self_

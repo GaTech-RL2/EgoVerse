@@ -23,6 +23,13 @@ Prompts are only attached once normalization stats have been set on the
 dataset (``set_norm_stats_from``). Before that (shape probing and norm-stat
 inference in ``trainHydra``) samples are plain rollout samples, so the default
 collate keeps working.
+
+Own-episode history (``prompt.history.max_chunks > 0``, see
+docs/plan/2026-09-08_bpp_rollout_history.md): every sample also carries
+``history``, the same payload shape as ``prompt`` but holding the last
+``max_chunks`` chunks of the sample's *own* episode that end before its frame
+(chunk grid anchored at the episode start, so it is a slice of the cached
+whole-episode chunks). ``length`` may be 0 near the episode start.
 """
 
 from __future__ import annotations
@@ -86,7 +93,6 @@ def read_prompt_chunks(
     window = chunk_n_actions * prompt_stride
     if chunk_starts is None:
         chunk_starts = np.arange(0, T, window)
-    reader = leaf.episode_reader
     image_keys = set(leaf._image_keys)
 
     numeric_zarr_keys = {
@@ -95,7 +101,7 @@ def read_prompt_chunks(
         if spec.get("key_type") != "annotation_keys"
         and spec["zarr_key"] not in image_keys
     }
-    full = reader.read({zk: (0, T) for zk in numeric_zarr_keys})
+    full = leaf.episode_reader.read({zk: (0, T) for zk in numeric_zarr_keys})
 
     camera_names = [
         name
@@ -103,48 +109,132 @@ def read_prompt_chunks(
         if spec.get("key_type") != "annotation_keys" and spec["zarr_key"] in image_keys
     ]
 
-    images = {name: [] for name in camera_names}
-    states, actions = [], []
-    for s in chunk_starts:
-        s = int(s)
-        data = {}
-        for name, spec in leaf.key_map.items():
-            zk = spec["zarr_key"]
-            if spec.get("key_type") == "annotation_keys":
-                continue
-            if zk in image_keys:
-                raw = reader.read({zk: (s, None)})[zk]
-                decoded = simplejpeg.decode_jpeg(raw, colorspace="RGB")
-                data[name] = np.transpose(decoded, (2, 0, 1)) / 255.0
-            elif spec.get("horizon") is not None:
-                idx = np.minimum(s + prompt_stride * np.arange(chunk_n_actions), T - 1)
-                data[name] = np.asarray(full[zk])[idx]
-            else:
-                data[name] = np.asarray(full[zk])[s]
-        for transform in transform_list or []:
-            data = transform.transform(data)
-
-        for name in camera_names:
-            img = torch.from_numpy(np.ascontiguousarray(data[name])).float()
-            if image_size is not None:
-                img = TF.resize(img, list(image_size), antialias=True)
-            images[name].append((img.clamp(0, 1) * 255.0).round().to(torch.uint8))
-        states.append(np.asarray(data[state_key], dtype=np.float32))
-        act = np.asarray(data[action_key], dtype=np.float32)
-        if act.shape[0] != action_steps:
-            raise ValueError(
-                f"prompt transform emitted {act.shape[0]} action steps per chunk, "
-                f"expected {action_steps}; build the prompt transform list with "
-                f"chunk_length={action_steps}."
-            )
-        actions.append(act)
-
-    obs = {name: torch.stack(images[name]) for name in camera_names}
-    obs[state_key] = torch.from_numpy(np.stack(states))
+    chunks = [
+        assemble_chunk(
+            _read_raw_chunk(leaf, int(s), full, chunk_n_actions, prompt_stride),
+            transform_list=transform_list,
+            camera_names=camera_names,
+            state_key=state_key,
+            action_key=action_key,
+            image_size=image_size,
+            action_steps=action_steps,
+        )
+        for s in chunk_starts
+    ]
+    obs = {name: torch.stack([c["obs"][name] for c in chunks]) for name in camera_names}
+    obs[state_key] = torch.stack([c["obs"][state_key] for c in chunks])
     return {
         "obs": obs,
-        "action": torch.from_numpy(np.stack(actions)),
+        "action": torch.stack([c["action"] for c in chunks]),
         "length": int(len(chunk_starts)),
+    }
+
+
+def _read_raw_chunk(
+    leaf: ZarrDataset, s: int, full: dict, chunk_n_actions: int, prompt_stride: int
+) -> dict:
+    """Raw per-key data for the chunk starting at frame ``s``, keyed by
+    key_map name (annotation keys skipped): images decoded to ``(3, H, W)``
+    float in [0, 1] at ``s``; windowed keys (``horizon`` set) as
+    ``(chunk_n_actions, ...)`` over the chunk, index-clamped past the episode
+    end like ``_pad_sequences``; every other key at frame ``s``. ``full`` is
+    the whole-episode read of the numeric zarr keys."""
+    T = int(leaf.total_frames)
+    image_keys = set(leaf._image_keys)
+    data = {}
+    for name, spec in leaf.key_map.items():
+        zk = spec["zarr_key"]
+        if spec.get("key_type") == "annotation_keys":
+            continue
+        if zk in image_keys:
+            raw = leaf.episode_reader.read({zk: (s, None)})[zk]
+            decoded = simplejpeg.decode_jpeg(raw, colorspace="RGB")
+            data[name] = np.transpose(decoded, (2, 0, 1)) / 255.0
+        elif spec.get("horizon") is not None:
+            idx = np.minimum(s + prompt_stride * np.arange(chunk_n_actions), T - 1)
+            data[name] = np.asarray(full[zk])[idx]
+        else:
+            data[name] = np.asarray(full[zk])[s]
+    return data
+
+
+def assemble_chunk(
+    raw: dict,
+    *,
+    transform_list: list,
+    camera_names: list,
+    state_key: str,
+    action_key: str,
+    image_size: tuple[int, int] | None,
+    action_steps: int,
+) -> dict:
+    """Run ``transform_list`` on one chunk's raw data (``_read_raw_chunk``
+    layout) and pack it as one prompt/history chunk:
+    ``{"obs": {<camera>: uint8 (3, h, w), state_key: float32 (D,)},
+    "action": float32 (action_steps, D_act)}``."""
+    data = dict(raw)
+    for transform in transform_list or []:
+        data = transform.transform(data)
+    obs = {}
+    for name in camera_names:
+        img = torch.from_numpy(np.ascontiguousarray(data[name])).float()
+        if image_size is not None:
+            img = TF.resize(img, list(image_size), antialias=True)
+        obs[name] = (img.clamp(0, 1) * 255.0).round().to(torch.uint8)
+    obs[state_key] = torch.from_numpy(np.asarray(data[state_key], dtype=np.float32))
+    act = np.asarray(data[action_key], dtype=np.float32)
+    if act.shape[0] != action_steps:
+        raise ValueError(
+            f"prompt transform emitted {act.shape[0]} action steps per chunk, "
+            f"expected {action_steps}; build the prompt transform list with "
+            f"chunk_length={action_steps}."
+        )
+    return {"obs": obs, "action": torch.from_numpy(act)}
+
+
+def build_history_chunk(
+    raw_chunk: dict,
+    *,
+    key_map: dict,
+    transform_list: list,
+    image_size: tuple[int, int] | None = (224, 224),
+    action_key: str = "actions_cartesian",
+    state_key: str = "observations.state.ee_pose",
+    action_steps: int | None = None,
+    chunk_n_actions: int | None = None,
+) -> dict:
+    """Deployment helper: build one *unnormalized* history chunk from raw data
+    a rollout buffered for one chunk window, in the ``_read_raw_chunk`` layout
+    keyed by key_map name (camera keys ``(3, H, W)`` float in [0, 1] at the
+    chunk start, windowed keys ``(chunk_n_actions, ...)`` over the window,
+    others at the chunk start). Same transforms and packing as the training
+    prompt/history chunks. Returns ``{"obs": {k: (1, ...)}, "action":
+    (1, action_steps, D_act), "length": 1}``; normalize it like a prompt
+    (``EpisodePromptMultiDataset._normalize_prompt``) before
+    ``BPP.push_history_chunk``.
+    """
+    if action_steps is None:
+        if chunk_n_actions is None:
+            raise ValueError(
+                "build_history_chunk needs action_steps or chunk_n_actions"
+            )
+        action_steps = int(chunk_n_actions)
+    camera_names = [
+        name for name, spec in key_map.items() if spec.get("key_type") == "camera_keys"
+    ]
+    chunk = assemble_chunk(
+        raw_chunk,
+        transform_list=transform_list,
+        camera_names=camera_names,
+        state_key=state_key,
+        action_key=action_key,
+        image_size=image_size,
+        action_steps=action_steps,
+    )
+    return {
+        "obs": {k: v.unsqueeze(0) for k, v in chunk["obs"].items()},
+        "action": chunk["action"].unsqueeze(0),
+        "length": 1,
     }
 
 
@@ -234,6 +324,12 @@ class EpisodePromptMultiDataset(MultiDataset):
     - ``action_key`` / ``state_key``: post-transform keys ("actions_cartesian",
       "observations.state.ee_pose").
     - ``seed``: RNG seed for the split and prompt draws.
+    - ``history``: optional ``{max_chunks, gap_frames}``. ``max_chunks > 0``
+      attaches ``history`` to every sample: the last ``max_chunks`` chunks of
+      the sample's own episode (same grid and reader as the prompt, so a
+      slice of the cached whole-episode chunks) whose window ends at least
+      ``gap_frames`` (default 0) before the sample's served frame. Empty
+      (``length`` 0) near the episode start. Default: off.
     """
 
     def __init__(
@@ -249,6 +345,7 @@ class EpisodePromptMultiDataset(MultiDataset):
         if state is not None:
             super().__init__(datasets=None, state=state, **kwargs)
             self._ignore_prompt = True
+            self.use_history = False
             return
         if datasets is None:
             raise ValueError("EpisodePromptMultiDataset requires `datasets`.")
@@ -303,6 +400,15 @@ class EpisodePromptMultiDataset(MultiDataset):
             )
         self.prompt_transform_list = list(prompt_transform_list)
         self._ignore_prompt = bool(cfg.get("ignore", False))
+        history_cfg = dict(cfg.get("history") or {})
+        self.history_max_chunks = int(history_cfg.get("max_chunks", 0))
+        self.history_gap_frames = int(history_cfg.get("gap_frames", 0))
+        if self.history_max_chunks < 0 or self.history_gap_frames < 0:
+            raise ValueError(
+                "prompt.history.max_chunks and gap_frames must be >= 0, got "
+                f"{self.history_max_chunks} / {self.history_gap_frames}"
+            )
+        self.use_history = self.history_max_chunks > 0
         self._rng: random.Random | None = None
         self._cache: OrderedDict[str, dict] = OrderedDict()
         self._cache_size = 0
@@ -461,7 +567,8 @@ class EpisodePromptMultiDataset(MultiDataset):
 
         logger.info(
             "EpisodePromptMultiDataset[%s]: %d episodes in %d groups "
-            "(chunk_n=%d, stride=%d, max_len=%d, balance_by=%s)",
+            "(chunk_n=%d, stride=%d, max_len=%d, balance_by=%s, "
+            "history_max_chunks=%d, history_gap_frames=%d)",
             mode,
             len(chosen),
             len(self.group_names),
@@ -469,6 +576,8 @@ class EpisodePromptMultiDataset(MultiDataset):
             self.prompt_stride,
             self.max_sequence_length,
             self.balance_by,
+            self.history_max_chunks,
+            self.history_gap_frames,
         )
         for i, g in enumerate(self.group_names):
             logger.info(
@@ -575,21 +684,65 @@ class EpisodePromptMultiDataset(MultiDataset):
             action = self._apply_norm_one(action, action_stats)
         return {"obs": obs, "action": action, "length": int(prompt["length"])}
 
+    def _embodiment_id_of(self, episode_name: str):
+        embodiment_id = self.datasets[episode_name].embodiment
+        if isinstance(embodiment_id, str):
+            from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+            embodiment_id = get_embodiment_id(embodiment_id)
+        return embodiment_id
+
     def build_prompt_for_episode(self, episode_name: str, embodiment_id=None) -> dict:
         """Normalized prompt for one episode (deployment helper; same code path
         as training)."""
         prompt = self._raw_prompt(episode_name)
         if embodiment_id is None:
-            embodiment_id = self.datasets[episode_name].embodiment
-            if isinstance(embodiment_id, str):
-                from egomimic.rldb.embodiment.embodiment import get_embodiment_id
-
-                embodiment_id = get_embodiment_id(embodiment_id)
+            embodiment_id = self._embodiment_id_of(episode_name)
         return self._normalize_prompt(prompt, embodiment_id)
 
+    # ------------------------------------------------------------------
+    # Own-episode history
+    # ------------------------------------------------------------------
+
+    def _history_for(self, episode_name: str, t: int, embodiment_id) -> dict:
+        """Normalized history for a sample at served frame ``t`` of
+        ``episode_name``: the last ``history_max_chunks`` chunks of the own
+        episode (same grid as the prompt, ``p * chunk_n_actions *
+        prompt_stride``) whose window ends at or before ``t -
+        history_gap_frames``. A slice of the cached whole-episode chunks, so
+        no extra IO once the episode is in the LRU."""
+        own = self._raw_prompt(episode_name)
+        window = self.chunk_n_actions * self.prompt_stride
+        n_done = max(0, (int(t) - self.history_gap_frames) // window)
+        n_done = min(n_done, int(own["length"]))
+        # max(0, ...): a negative start would wrap around and silently return
+        # nothing for the first ``max_chunks`` chunks of every episode.
+        start = max(0, n_done - self.history_max_chunks)
+        sliced = {
+            "obs": {k: v[start:n_done] for k, v in own["obs"].items()},
+            "action": own["action"][start:n_done],
+            "length": n_done - start,
+        }
+        return self._normalize_prompt(sliced, embodiment_id)
+
+    def build_history_for_index(self, idx: int) -> dict:
+        """History a sample at (requested, unsubstituted) global index ``idx``
+        would carry (test / deployment helper)."""
+        episode_name, t = self.index_map[idx]
+        return self._history_for(
+            episode_name, int(t), self._embodiment_id_of(episode_name)
+        )
+
     def __getitem__(self, idx, _attempts: int | None = None):
-        data = super().__getitem__(idx, _attempts=_attempts)
-        dataset_name, _ = self.index_map[idx]
+        data, served = self._getitem_with_index(idx, _attempts=_attempts)
+        # The served index may differ from ``idx`` after a bounds/NaN
+        # substitution, but never leaves the episode; the served frame is the
+        # leaf's ``frame_idx`` (set by ZarrDataset.__getitem__).
+        dataset_name, served_local = self.index_map[served]
+        frame_idx = data.get("frame_idx")
+        if torch.is_tensor(frame_idx):
+            frame_idx = int(frame_idx.item())
+        t = int(served_local if frame_idx is None else frame_idx)
         group = self._group_of_episode[dataset_name]
         data["group_idx"] = int(self._group_index[group])
         data["operator_seen"] = int(self._operator_seen[dataset_name])
@@ -611,6 +764,8 @@ class EpisodePromptMultiDataset(MultiDataset):
             emb = int(emb.item())
         data["prompt"] = self._normalize_prompt(self._raw_prompt(prompt_name), emb)
         data["prompt_episode_idx"] = int(self._episode_index[prompt_name])
+        if self.use_history:
+            data["history"] = self._history_for(dataset_name, t, emb)
         return data
 
 
@@ -629,7 +784,8 @@ def build_episode_prompt(
     episode using the same reader, transforms and stats as training. Returns
     ``{"obs": {key: (1, P, ...)}, "action": (1, P, chunk_n, D),
     "metadata": {"mask": (1, P) all False}}`` with batch-key names; the BPP
-    adapter renames keys to shape_meta names in ``episode_prompt_to_policy``.
+    adapter renames keys to shape_meta names in
+    ``BPP.episode_prompt_to_policy``.
     """
     leaf = ZarrDataset(Path(episode_path), key_map=key_map, transform_list=None)
     raw = read_prompt_chunks(
