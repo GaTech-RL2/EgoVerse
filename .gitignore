@@ -49,4 +49,8 @@ scratch/
 sample_data/
 external_ckpts/
 external/MANO/
+
+# setuptools build output
+build/
+dist/
 docs/
