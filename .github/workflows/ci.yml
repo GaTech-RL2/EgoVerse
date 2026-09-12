@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUFF_VERSION: "0.8.6" # keep in sync with .pre-commit-config.yaml
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - name: ruff check
+        run: uvx ruff@${RUFF_VERSION} check egomimic tests
+      # Whole-repo formatting is not clean yet; mirror pre-commit and check only
+      # the Python files this PR touches.
+      # Diff by SHA, not by `origin/<base_ref>`: on stacked PRs the base ref
+      # (e.g. graphite-base/N) can be missing at checkout, and a bad revision
+      # must fail the job rather than report "no python files changed".
+      - name: ruff format (changed files)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          files=$(git diff --name-only --diff-filter=AM "${BASE_SHA}...HEAD" -- '*.py' ':(exclude)external/')
+          if [ -n "$files" ]; then uvx ruff@${RUFF_VERSION} format --check $files; else echo "no python files changed"; fi
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - name: Install locked environment
+        run: uv sync --locked
+      - name: Unit tests (hermetic; includes the Hydra compose test over every config)
+        run: uv run pytest tests/unit -q -p no:cacheprovider
+
+  wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - name: Build wheel
+        run: uv build --wheel
+      # Wheel *contents* are asserted by tests/unit/test_packaging.py; this only
+      # proves the built wheel installs and imports outside the checkout.
+      - name: Install into a fresh venv and import
+        run: |
+          uv venv smoke --python 3.11
+          uv pip install --python smoke/bin/python --no-deps dist/*.whl
+          cd /tmp && "${GITHUB_WORKSPACE}/smoke/bin/python" -c "import egomimic, os; p = os.path.dirname(egomimic.__file__); assert 'site-packages' in p, p; print(p)"

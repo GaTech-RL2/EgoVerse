@@ -26,11 +26,9 @@ Usage (on aria-head-node, Ray cluster up):
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
 
 from sqlalchemy import text
 
@@ -47,7 +45,8 @@ def _r2_cfg():
         "endpoint": os.environ.get("R2_ENDPOINT_URL")
         or os.environ.get("AWS_ENDPOINT_URL_S3")
         or os.environ.get("S3_ENDPOINT"),
-        "key": os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get("AWS_ACCESS_KEY_ID"),
+        "key": os.environ.get("R2_ACCESS_KEY_ID")
+        or os.environ.get("AWS_ACCESS_KEY_ID"),
         "secret": os.environ.get("R2_SECRET_ACCESS_KEY")
         or os.environ.get("AWS_SECRET_ACCESS_KEY"),
     }
@@ -57,8 +56,11 @@ def _s3_client(cfg):
     import boto3
 
     return boto3.client(
-        "s3", endpoint_url=cfg["endpoint"], region_name="auto",
-        aws_access_key_id=cfg["key"], aws_secret_access_key=cfg["secret"],
+        "s3",
+        endpoint_url=cfg["endpoint"],
+        region_name="auto",
+        aws_access_key_id=cfg["key"],
+        aws_secret_access_key=cfg["secret"],
     )
 
 
@@ -84,23 +86,25 @@ def find_zarr_prefixes(s3, base):
             token = resp.get("NextContinuationToken")
 
 
-
-
 def read_batch(prefixes, folder, cfg):
     """Read the zarr.json for a batch of prefixes -> list[row dict]. FULLY
     self-contained (only stdlib + boto3, imported inside) so it runs on any Ray
     worker regardless of whether egomimic / ~/.egoverse_env are present there."""
     import json as _json
     import re as _re
-    from datetime import datetime as _dt, timezone as _tz
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
 
     import boto3
 
     bucket = "rldb"
     ts_re = _re.compile(r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d{6}$")
     s3 = boto3.client(
-        "s3", endpoint_url=cfg["endpoint"], region_name="auto",
-        aws_access_key_id=cfg["key"], aws_secret_access_key=cfg["secret"],
+        "s3",
+        endpoint_url=cfg["endpoint"],
+        region_name="auto",
+        aws_access_key_id=cfg["key"],
+        aws_secret_access_key=cfg["secret"],
     )
     out = []
     for zp in prefixes:
@@ -117,25 +121,29 @@ def read_batch(prefixes, folder, cfg):
         created_at = None
         if ts_re.match(episode_hash):
             try:
-                created_at = _dt.strptime(
-                    episode_hash, "%Y-%m-%d-%H-%M-%S-%f"
-                ).replace(tzinfo=_tz.utc).isoformat()
+                created_at = (
+                    _dt.strptime(episode_hash, "%Y-%m-%d-%H-%M-%S-%f")
+                    .replace(tzinfo=_tz.utc)
+                    .isoformat()
+                )
             except ValueError:
                 created_at = None
         feats = attrs.get("features")
-        out.append({
-            "episode_hash": episode_hash,
-            "embodiment": attrs.get("embodiment"),
-            "task": attrs.get("task_name"),
-            "task_description": attrs.get("task_description"),
-            "num_frames": attrs.get("total_frames"),
-            "zarr_processed_path": f"s3://{bucket}/{zp.rstrip('/')}",
-            "fps": attrs.get("fps"),
-            "has_annotations": isinstance(feats, dict) and "annotations" in feats,
-            "source_folder": folder,
-            "created_at": created_at,
-            "raw_attrs": _json.dumps(attrs),
-        })
+        out.append(
+            {
+                "episode_hash": episode_hash,
+                "embodiment": attrs.get("embodiment"),
+                "task": attrs.get("task_name"),
+                "task_description": attrs.get("task_description"),
+                "num_frames": attrs.get("total_frames"),
+                "zarr_processed_path": f"s3://{bucket}/{zp.rstrip('/')}",
+                "fps": attrs.get("fps"),
+                "has_annotations": isinstance(feats, dict) and "annotations" in feats,
+                "source_folder": folder,
+                "created_at": created_at,
+                "raw_attrs": _json.dumps(attrs),
+            }
+        )
     return out
 
 
@@ -170,17 +178,38 @@ _INSERT = """
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--folder", required=True,
-                    help="Subfolder under processed_v3/ to scan (e.g. microagi).")
-    ap.add_argument("--staging-table", default=None,
-                    help="Fully-qualified staging table (default app.staging_<folder>).")
-    ap.add_argument("--limit", type=int, default=None, help="Stop after N zarrs (testing).")
-    ap.add_argument("--batch-size", type=int, default=400,
-                    help="Zarrs per Ray task / insert batch (default 400).")
-    ap.add_argument("--workers", type=int, default=48,
-                    help="Local threads when --no-ray (default 48).")
-    ap.add_argument("--ray", dest="use_ray", action="store_true", default=True,
-                    help="Distribute the metadata reads across the Ray cluster (default).")
+    ap.add_argument(
+        "--folder",
+        required=True,
+        help="Subfolder under processed_v3/ to scan (e.g. microagi).",
+    )
+    ap.add_argument(
+        "--staging-table",
+        default=None,
+        help="Fully-qualified staging table (default app.staging_<folder>).",
+    )
+    ap.add_argument(
+        "--limit", type=int, default=None, help="Stop after N zarrs (testing)."
+    )
+    ap.add_argument(
+        "--batch-size",
+        type=int,
+        default=400,
+        help="Zarrs per Ray task / insert batch (default 400).",
+    )
+    ap.add_argument(
+        "--workers",
+        type=int,
+        default=48,
+        help="Local threads when --no-ray (default 48).",
+    )
+    ap.add_argument(
+        "--ray",
+        dest="use_ray",
+        action="store_true",
+        default=True,
+        help="Distribute the metadata reads across the Ray cluster (default).",
+    )
     ap.add_argument("--no-ray", dest="use_ray", action="store_false")
     args = ap.parse_args()
 
@@ -198,7 +227,10 @@ def main() -> int:
     if args.limit is not None:
         prefixes = prefixes[: args.limit]
     print(f"Found {len(prefixes)} .zarr prefixes.", flush=True)
-    batches = [prefixes[i:i + args.batch_size] for i in range(0, len(prefixes), args.batch_size)]
+    batches = [
+        prefixes[i : i + args.batch_size]
+        for i in range(0, len(prefixes), args.batch_size)
+    ]
 
     # 2) create the staging table fresh.
     with engine.begin() as conn:
@@ -218,11 +250,14 @@ def main() -> int:
     # 3) read metadata (distributed) and stream the rows into the table.
     if args.use_ray:
         import ray
+
         ray.init(address="auto", ignore_reinit_error=True)
         remote_read = ray.remote(num_cpus=1)(read_batch)
         futures = [remote_read.remote(b, folder, cfg) for b in batches]
-        print(f"Submitted {len(futures)} Ray tasks across the cluster; streaming inserts...",
-              flush=True)
+        print(
+            f"Submitted {len(futures)} Ray tasks across the cluster; streaming inserts...",
+            flush=True,
+        )
         pending = list(futures)
         while pending:
             ready, pending = ray.wait(pending, num_returns=1, timeout=None)
@@ -241,7 +276,9 @@ def main() -> int:
     # 4) summary.
     with engine.connect() as conn:
         n = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
-        fill = conn.execute(text(f"""
+        fill = (
+            conn.execute(
+                text(f"""
             SELECT
               COUNT(*) FILTER (WHERE embodiment IS NOT NULL)          AS embodiment,
               COUNT(*) FILTER (WHERE task IS NOT NULL)                AS task,
@@ -251,11 +288,17 @@ def main() -> int:
               COUNT(*) FILTER (WHERE created_at IS NOT NULL)          AS created_at,
               COUNT(*) FILTER (WHERE has_annotations)                AS has_annotations
             FROM {table}
-        """)).mappings().first()
-        sample = conn.execute(text(f"""
+        """)
+            )
+            .mappings()
+            .first()
+        )
+        sample = conn.execute(
+            text(f"""
             SELECT episode_hash, embodiment, task, num_frames, created_at, has_annotations
             FROM {table} ORDER BY episode_hash LIMIT 5
-        """)).all()
+        """)
+        ).all()
 
     print(f"\nStaged {n} rows into {table} (of {len(prefixes)} prefixes scanned)")
     print(f"  column fill counts (of {n} rows):")
@@ -263,8 +306,10 @@ def main() -> int:
         print(f"    {k:20} {v}")
     print("  sample rows:")
     for s in sample:
-        print(f"    {s.episode_hash}  emb={s.embodiment} task={s.task!r} "
-              f"nf={s.num_frames} created_at={s.created_at} ann={s.has_annotations}")
+        print(
+            f"    {s.episode_hash}  emb={s.embodiment} task={s.task!r} "
+            f"nf={s.num_frames} created_at={s.created_at} ann={s.has_annotations}"
+        )
     engine.dispose()
     return 0
 
