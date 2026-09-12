@@ -14,7 +14,6 @@ import os
 from subprocess import run
 
 import hydra
-import pandas as pd
 from omegaconf import OmegaConf
 from scaleapi import ScaleClient
 
@@ -29,7 +28,6 @@ from egomimic.utils.scale_utils import (
     get_available_hashes,
     get_episode_hash_to_tid,
     get_tasks,
-    get_tid_to_episode_hash,
     load_scale_annotation_csv,
 )
 

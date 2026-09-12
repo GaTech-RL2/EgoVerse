@@ -1,6 +1,9 @@
 import os
+
 from cloudpathlib import S3Path
-from egomimic.utils.aws.aws_data_utils import load_env, get_cloudpathlib_s3_client
+
+from egomimic.utils.aws.aws_data_utils import get_cloudpathlib_s3_client, load_env
+
 
 def clean_mps_remote(raw_remote_prefix: str):
     load_env()
@@ -28,15 +31,12 @@ def clean_mps_remote(raw_remote_prefix: str):
         if depth == 0:
             if can_prune:
                 dirnames[:] = [
-                    d
-                    for d in dirnames
-                    if d.startswith("mps_") and d.endswith("_vrs")
+                    d for d in dirnames if d.startswith("mps_") and d.endswith("_vrs")
                 ]
 
         elif depth == 1:
             d0 = rel_parts[0]
             if d0.startswith("mps_") and d0.endswith("_vrs"):
-                name = d0[len("mps_") : -len("_vrs")]
                 has_hand = "hand_tracking" in dirnames
                 has_slam = "slam" in dirnames
                 has_gaze = "eye_gaze" in dirnames
@@ -52,8 +52,9 @@ def clean_mps_remote(raw_remote_prefix: str):
         print(f"Deleting {path.name}")
         path.rmtree()
 
+
 if __name__ == "__main__":
     raw_remote_prefix = os.environ.get(
-            "RAW_REMOTE_PREFIX", "s3://rldb/raw_v2/aria"
-        ).rstrip("/")
+        "RAW_REMOTE_PREFIX", "s3://rldb/raw_v2/aria"
+    ).rstrip("/")
     clean_mps_remote(raw_remote_prefix)

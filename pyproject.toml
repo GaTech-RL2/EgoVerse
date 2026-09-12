@@ -60,7 +60,7 @@ dependencies = [
     "mediapy",
     "pytest",
     "pre-commit",
-    "ruff",
+    "ruff==0.8.6",  # keep in sync with .pre-commit-config.yaml and ci.yml
     "scaleapi",
     "openai",
     "scikit-learn>=1.8.0",

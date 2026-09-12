@@ -1,7 +1,8 @@
 import numpy as np
+import scipy
 from scipy.interpolate import interp1d
+from scipy.spatial.transform import Rotation, Slerp
 from scipy.spatial.transform import Rotation as R
-from scipy.spatial.transform import Slerp
 
 
 def xyzw_to_wxyz(xyzw):
@@ -256,11 +257,9 @@ def _split_keypoints(keypoints, wrist_in_data: bool = False, is_quat: bool = Tru
         right_keypoints = keypoints[..., 63:]
         return left_keypoints, right_keypoints
 
-from scipy.spatial.transform import Rotation
-import scipy
-
 
 # ---- moved from egomimicUtils.py (code unchanged) ----
+
 
 def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
     """
@@ -274,6 +273,7 @@ def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
 
     ee_pose_grip_cam = np.linalg.inv(T_cam_base) @ ee_pose_base.T
     return ee_pose_grip_cam.T[:, :3]
+
 
 def base_frame_to_cam_frame(base_frame, T_cam_base):
     """
@@ -292,6 +292,7 @@ def base_frame_to_cam_frame(base_frame, T_cam_base):
     ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
 
+
 def cam_frame_to_base_frame(cam_frame, T_cam_base):
     """
     cam_frame: (N, 6) (x, y, z, yaw, pitch, roll)
@@ -308,6 +309,7 @@ def cam_frame_to_base_frame(cam_frame, T_cam_base):
     xyz = base_frame[:, :3, 3]
     ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
+
 
 def pose_to_transform(pose):
     """
@@ -340,6 +342,7 @@ def pose_to_transform(pose):
     T[:3, 3] = [x, y, z]
     return T
 
+
 def transform_to_pose(T):
     """
     Convert a 4x4 homogeneous transform back to a 6D pose [x, y, z, yaw, pitch, roll].
@@ -361,6 +364,7 @@ def transform_to_pose(T):
         roll = np.arctan2(-R[0, 1], R[1, 1])
     return np.array([x, y, z, yaw, pitch, roll])
 
+
 def cam_frame_to_cam_pixels(ee_pose_cam, intrinsics):
     """
     camera frame 3d coordinates to pixels in camera frame
@@ -377,6 +381,7 @@ def cam_frame_to_cam_pixels(ee_pose_cam, intrinsics):
     # print("2d pos cam frame: ", px_val)
 
     return px_val.T
+
 
 def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
     """
@@ -437,6 +442,7 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
 
     return np.stack(outputs, axis=0)  # (B, seq_length, D)
 
+
 def interpolate_arr(v, seq_length):
     """
     v: (B, T, D)
@@ -456,6 +462,7 @@ def interpolate_arr(v, seq_length):
         interpolated.append(interp(np.linspace(0, 1, seq_length)))
 
     return np.array(interpolated)
+
 
 def get_vector_from_yaw_pitch(
     yaw_rads: float,

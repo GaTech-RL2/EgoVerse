@@ -651,7 +651,6 @@ def collect_demo(
     # Demo recording state
     demo_data = dict()
 
-    camera_names = robot_interface.recorders.keys()
     cmd_pos = dict()
     cmd_quat = dict()
     cmd_joints = dict()
@@ -708,8 +707,13 @@ def collect_demo(
                                 pbar.close()
                                 pbar = None
                             collecting_data = False
-                            
-                            save_demo(demo_data, demo_dir, episode_id, robot_interface.camera_res)
+
+                            save_demo(
+                                demo_data,
+                                demo_dir,
+                                episode_id,
+                                robot_interface.camera_res,
+                            )
                             print("\nSaving DEMO ------------------------------")
                             if auto_episode_id is not None:
                                 auto_episode_id += 1
@@ -870,27 +874,27 @@ def collect_demo(
                             if arm == "right":
                                 arm_offset = 7
                             current_joints = robot_interface.get_joints(arm)
-                            robot_joint_action[
-                                arm_offset : arm_offset + 7
-                            ] = current_joints
+                            robot_joint_action[arm_offset : arm_offset + 7] = (
+                                current_joints
+                            )
                             if prev_cmd_joint[arm] is not None:
-                                cmd_joint_action[
-                                    arm_offset : arm_offset + 7
-                                ] = prev_cmd_joint[arm]
+                                cmd_joint_action[arm_offset : arm_offset + 7] = (
+                                    prev_cmd_joint[arm]
+                                )
                             else:
-                                cmd_joint_action[
-                                    arm_offset : arm_offset + 7
-                                ] = current_joints
+                                cmd_joint_action[arm_offset : arm_offset + 7] = (
+                                    current_joints
+                                )
                             if prev_cmd_eepose[arm] is not None:
-                                cmd_eepose_action[
-                                    arm_offset : arm_offset + 7
-                                ] = prev_cmd_eepose[arm]
+                                cmd_eepose_action[arm_offset : arm_offset + 7] = (
+                                    prev_cmd_eepose[arm]
+                                )
                             else:
                                 xyz, rot = robot_interface.get_pose(arm, se3=False)
-                                cmd_eepose_action[
-                                    arm_offset : arm_offset + 6
-                                ] = np.concatenate(
-                                    [xyz, rot.as_euler("ZYX", degrees=False)]
+                                cmd_eepose_action[arm_offset : arm_offset + 6] = (
+                                    np.concatenate(
+                                        [xyz, rot.as_euler("ZYX", degrees=False)]
+                                    )
                                 )
                                 cmd_eepose_action[arm_offset + 6] = current_joints[6]
 
@@ -913,7 +917,12 @@ def collect_demo(
                             collecting_data = False
                             pbar.close()
                             pbar = None
-                            save_demo(demo_data, demo_dir, episode_id, robot_interface.camera_res)
+                            save_demo(
+                                demo_data,
+                                demo_dir,
+                                episode_id,
+                                robot_interface.camera_res,
+                            )
                             print("Episode length reached, stopping recording.")
                             print("Saving DEMO ------------------------------")
                             if auto_episode_id is not None:
