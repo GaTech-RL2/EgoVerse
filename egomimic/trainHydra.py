@@ -1,6 +1,5 @@
 import copy
 import os
-import signal
 from typing import Any, Dict, List, Optional, Tuple
 
 import hydra
@@ -19,6 +18,7 @@ from tabulate import tabulate
 import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf resolvers
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.pl_utils.preemption import PreemptionCheckpoint
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
@@ -234,10 +234,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     if cfg.get("mmap_checkpoint", True):
         plugins.append(MmapCheckpointIO())
     if os.environ.get("SLURM_JOB_ID"):
-        # requeue_signal is a single signal, not a list -- SignalConnector passes
-        # it straight to signal.getsignal(), which raises TypeError on a list.
-        plugins.append(SLURMEnvironment(requeue_signal=signal.SIGUSR1))
-        print("SLURM REQUEUE ENABLED")
+        # Preemption is handled by PreemptionCheckpoint (save last.ckpt, then
+        # chain to submitit's requeue). Lightning's own auto-requeue is disabled:
+        # it listened on SIGUSR1, which neither submitit nor Slurm ever sends.
+        plugins.append(SLURMEnvironment(auto_requeue=False))
+        callbacks.append(PreemptionCheckpoint())
+        log.info("Slurm preemption checkpointing enabled")
     trainer: Trainer = hydra.utils.instantiate(
         cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )
@@ -262,8 +264,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         last_ckpt_path = os.path.join(
             trainer.default_root_dir, "checkpoints", "last.ckpt"
         )
-        log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
-        cfg.ckpt_path = last_ckpt_path
+        if os.path.exists(last_ckpt_path):
+            log.info(f"Detected SLURM requeue — resuming from {last_ckpt_path}")
+            cfg.ckpt_path = last_ckpt_path
+        else:
+            # Preempted before the first checkpoint (e.g. during dataset setup).
+            log.warning(
+                f"Detected SLURM requeue but {last_ckpt_path} does not exist; "
+                "starting from scratch"
+            )
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
