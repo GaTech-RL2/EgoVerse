@@ -54,7 +54,8 @@ STEPS = 5
 
 def _pi_ckpt() -> Path:
     default = Path(egomimic.__file__).parent / "algo/pi_checkpoints/pi05_base_pytorch"
-    return Path(os.environ.get("EGOVERSE_PI05_CKPT", default))
+    # Same variable the model config reads (README, "Environment variables").
+    return Path(os.environ.get("EGOVERSE_PI05_WEIGHTS", default))
 
 
 def _gpu_overrides(emb: str, out: Path, vendor: str) -> list[str]:
@@ -153,7 +154,7 @@ def test_pi_real_recipe(tmp_path, monkeypatch, vendor):
 
     ckpt = _pi_ckpt()
     if not (ckpt / "model.safetensors").is_file():
-        pytest.skip(f"no Pi checkpoint at {ckpt} (set EGOVERSE_PI05_CKPT)")
+        pytest.skip(f"no Pi checkpoint at {ckpt} (set EGOVERSE_PI05_WEIGHTS)")
     hermetic_env(monkeypatch)
     recipe = RECIPES[(vendor, "pi")]
     out = tmp_path / "out"
