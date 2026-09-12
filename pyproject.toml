@@ -64,10 +64,27 @@ dependencies = [
     "scaleapi",
     "openai",
     "scikit-learn>=1.8.0",
+    "scipy",
 ]
+
+# Not declared: `openpi` (egomimic/algo/pi.py). The fork at external/openpi pins
+# lerobot -> av>=14.2, which conflicts with av==12.0.0 above, so it cannot be a
+# resolvable extra. Install it without its dependencies, as the lab venv does:
+#     uv pip install --no-deps -e external/openpi
+# then apply openpi's `transformers_replace` patch (README, "Installation").
+# `uv sync` reinstalls transformers and silently undoes that patch.
+#
+# Also not declared: `scale_sensor_fusion_io` (PyPI: scale-sensor-fusion-io),
+# imported only by the Scale converter under external/scale/scripts, which is
+# not part of this package; install it by hand when running that converter.
+# The Ray data-processing image keeps its own requirements-ray.txt.
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["egomimic*"]
+
+[tool.setuptools.package-data]
+egomimic = ["hydra_configs/**/*.yaml", "resources/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

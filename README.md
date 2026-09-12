@@ -40,16 +40,31 @@ git clone git@github.com:GaTech-RL2/EgoVerse.git
 cd EgoVerse
 uv venv emimic --python 3.11
 source emimic/bin/activate
-uv pip install -r requirements.txt
 uv pip install -e .
 uv run pre-commit install
 ```
+
+`pyproject.toml` (locked in `uv.lock`) is the only dependency spec for the
+package. Two things live outside it: `requirements-ray.txt` (the Ray
+data-processing image) and `scale_sensor_fusion_io`, needed only by the Scale
+converter under `external/scale/scripts` (`uv pip install scale-sensor-fusion-io`).
+
+For the Pi0.5 policy also install the `openpi` fork from the submodule. It is
+installed without its own dependencies (its `lerobot` pin needs `av>=14.2`,
+which conflicts with our `av==12.0.0`), then its `transformers` patch is copied in:
+```
+git submodule update --init external/openpi
+uv pip install --no-deps -e external/openpi
+cp -r external/openpi/src/openpi/models_pytorch/transformers_replace/* emimic/lib/python3.11/site-packages/transformers/
+```
+Re-run the `cp` after any `uv sync` or `transformers` reinstall, which silently
+undoes the patch. See `pi05.md` for details.
 
 ### Conda
 ```
 git clone --recursive git@github.com:GaTech-RL2/EgoVerse.git
 cd EgoVerse
-conda env create -f environment.yaml
+conda create -n emimic python=3.11
 conda activate emimic
 pip install -e .
 pre-commit install
