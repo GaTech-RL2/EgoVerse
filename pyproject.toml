@@ -99,6 +99,7 @@ norecursedirs = [
 ]
 markers = [
     "integration: needs cluster data, credentials, a GPU, or optional extras; skipped unless --integration is passed",
+    "gpu: needs a CUDA device; run with --integration -m gpu on a GPU node",
 ]
 
 [tool.pyright]
