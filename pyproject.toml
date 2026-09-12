@@ -68,3 +68,10 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.pyright]
+venvPath = "."
+venv = "emimic"
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+exclude = ["emimic", "external", "logs", "scratch", "assets", "**/__pycache__", "**/*.egg-info"]
