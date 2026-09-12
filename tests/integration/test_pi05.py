@@ -3,9 +3,11 @@ from types import SimpleNamespace
 import pytest
 import torch
 
-import egomimic.algo.pi as pi_module
-from egomimic.algo.pi import PI
-from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+pytest.importorskip("openpi", reason="requires the openpi checkout (external/openpi)")
+
+import egomimic.algo.pi as pi_module  # noqa: E402
+from egomimic.algo.pi import PI  # noqa: E402
+from egomimic.rldb.embodiment.embodiment import get_embodiment_id  # noqa: E402
 
 
 class _StubNormStats:

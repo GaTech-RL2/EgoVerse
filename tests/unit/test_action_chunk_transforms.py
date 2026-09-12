@@ -2,13 +2,17 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation as R
 
+from egomimic.rldb.embodiment.eva import (
+    _build_eva_bimanual_transform_list as build_eva_bimanual_transform_list,
+)
+from egomimic.rldb.embodiment.human import (
+    _build_human_cartesian_bimanual_transform_list as build_human_bimanual_transform_list,
+)
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     ConcatKeys,
     InterpolatePose,
     XYZWXYZ_to_XYZYPR,
-    build_human_bimanual_transform_list,
-    build_eva_bimanual_transform_list,
 )
 from egomimic.utils.pose_utils import _xyzwxyz_to_matrix
 
@@ -36,9 +40,9 @@ def _assert_snapshot(
     expected_shapes: dict[str, tuple],
 ) -> None:
     name, keys, shapes = snapshots[idx]
-    assert name == expected_name, (
-        f"step {idx}: transform mismatch; expected {expected_name}, got {name}"
-    )
+    assert (
+        name == expected_name
+    ), f"step {idx}: transform mismatch; expected {expected_name}, got {name}"
 
     missing = expected_keys - keys
     extra = keys - expected_keys
@@ -87,7 +91,7 @@ def test_action_chunk_coordinate_frame_transform_accepts_quat_wxyz_input() -> No
         target_world="target_world",
         chunk_world="chunk_world",
         transformed_key_name="chunk_target",
-        is_quat=True,
+        mode="xyzwxyz",
     )
 
     batch = {
@@ -122,7 +126,7 @@ def test_action_chunk_coordinate_frame_transform_ypr_mode_invalid_chunk_shape_ra
         target_world="target_world",
         chunk_world="chunk_world",
         transformed_key_name="chunk_target",
-        is_quat=False,
+        mode="xyzypr",
     )
     batch = {
         "target_world": np.zeros(6, dtype=np.float64),
@@ -140,7 +144,7 @@ def test_action_chunk_coordinate_frame_transform_quat_mode_invalid_chunk_shape_r
         target_world="target_world",
         chunk_world="chunk_world",
         transformed_key_name="chunk_target",
-        is_quat=True,
+        mode="xyzwxyz",
     )
     batch = {
         "target_world": np.array([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float64),
@@ -156,7 +160,7 @@ def test_action_chunk_coordinate_frame_transform_invalid_target_shape_raises() -
         target_world="target_world",
         chunk_world="chunk_world",
         transformed_key_name="chunk_target",
-        is_quat=False,
+        mode="xyzypr",
     )
     batch = {
         "target_world": np.zeros((2, 6), dtype=np.float64),
@@ -176,7 +180,7 @@ def test_interpolate_pose_quat_wxyz_slerp_happy_path() -> None:
         new_chunk_length=5,
         action_key="actions",
         output_action_key="actions_out",
-        is_quat=True,
+        mode="xyzwxyz",
     )
     batch = {
         "actions": np.array(
@@ -207,7 +211,7 @@ def test_interpolate_pose_quat_wxyz_invalid_shape_raises() -> None:
         new_chunk_length=4,
         action_key="actions",
         output_action_key="actions_out",
-        is_quat=True,
+        mode="xyzwxyz",
     )
     batch = {"actions": np.zeros((2, 6), dtype=np.float64)}
     with pytest.raises(ValueError, match=r"InterpolatePose expects \(T, 7\)"):
@@ -324,8 +328,8 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
         "right.cmd_ee_pose": cmd_pose.copy(),
         "left.obs_ee_pose": obs_pose.copy(),
         "right.obs_ee_pose": obs_pose.copy(),
-        "left.gripper": np.zeros((5, 1), dtype=np.float64),
-        "right.gripper": np.zeros((5, 1), dtype=np.float64),
+        "left.cmd_gripper": np.zeros((5, 1), dtype=np.float64),
+        "right.cmd_gripper": np.zeros((5, 1), dtype=np.float64),
         "left.obs_gripper": np.zeros((1,), dtype=np.float64),
         "right.obs_gripper": np.zeros((1,), dtype=np.float64),
     }
@@ -344,6 +348,7 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
         "ConcatKeys",
         "ConcatKeys",
         "DeleteKeys",
+        "NumpyToTensor",
     ]
     assert [name for name, _, _ in snapshots] == expected_names
 
@@ -354,8 +359,8 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
         "right.cmd_ee_pose",
         "left.obs_ee_pose",
         "right.obs_ee_pose",
-        "left.gripper",
-        "right.gripper",
+        "left.cmd_gripper",
+        "right.cmd_gripper",
         "left.obs_gripper",
         "right.obs_gripper",
     }
@@ -372,8 +377,8 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
             "right.cmd_ee_pose": (5, 7),
             "left.obs_ee_pose": (7,),
             "right.obs_ee_pose": (7,),
-            "left.gripper": (5, 1),
-            "right.gripper": (5, 1),
+            "left.cmd_gripper": (5, 1),
+            "right.cmd_gripper": (5, 1),
             "left.obs_gripper": (1,),
             "right.obs_gripper": (1,),
             "left.cmd_ee_pose_camframe": (5, 7),
@@ -465,6 +470,16 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
         snapshots,
         11,
         "DeleteKeys",
+        {"actions_cartesian", "observations.state.ee_pose"},
+        {
+            "actions_cartesian": (4, 14),
+            "observations.state.ee_pose": (14,),
+        },
+    )
+    _assert_snapshot(
+        snapshots,
+        12,
+        "NumpyToTensor",
         {"actions_cartesian", "observations.state.ee_pose"},
         {
             "actions_cartesian": (4, 14),
