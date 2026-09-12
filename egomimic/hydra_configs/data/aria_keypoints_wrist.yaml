@@ -20,7 +20,7 @@ train_datasets:
     mode: total
 
 valid_datasets:
-  human_bimanual: ${train_datasets.human_bimanual}
+  human_bimanual: ${data.train_datasets.human_bimanual}
 
 train_dataloader_params:
   human_bimanual:

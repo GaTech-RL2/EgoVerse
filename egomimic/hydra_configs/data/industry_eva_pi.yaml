@@ -39,14 +39,14 @@ train_datasets:
 
 valid_datasets:
   eva_bimanual:
-    _target_: ${train_datasets.eva_bimanual._target_}
-    resolver: ${train_datasets.eva_bimanual.resolver}
-    filters: ${train_datasets.eva_bimanual.filters}
+    _target_: ${data.train_datasets.eva_bimanual._target_}
+    resolver: ${data.train_datasets.eva_bimanual.resolver}
+    filters: ${data.train_datasets.eva_bimanual.filters}
     mode: valid
   human_bimanual:
-    _target_: ${train_datasets.human_bimanual._target_}
-    resolver: ${train_datasets.human_bimanual.resolver}
-    filters: ${train_datasets.human_bimanual.filters}
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters: ${data.train_datasets.human_bimanual.filters}
     mode: valid
 
 train_dataloader_params:
