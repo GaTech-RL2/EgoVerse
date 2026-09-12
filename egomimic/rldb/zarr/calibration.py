@@ -175,19 +175,10 @@ class Calibration:
     def default_camera(self) -> str | None:
         """Select a camera when the caller does not name one.
 
-        Selection order is the declared reference camera, ``front_1``, the
-        first name containing ``front`` (case-insensitive), and finally the
-        first declared camera.
+        Prefer a front image stream, independently of the coordinate reference.
+        Geometry consumers should pass the camera of their actual image.
         """
-        reference = self.reference_camera
-        if reference is not None and reference in self.cameras:
-            return reference
-        if LEGACY_REFERENCE_CAMERA in self.cameras:
-            return LEGACY_REFERENCE_CAMERA
-        front = next((n for n in self.cameras if "front" in n.lower()), None)
-        if front is not None:
-            return front
-        return next(iter(self.cameras), None)
+        return select_image_camera(self.cameras)
 
     def K(self, camera: str | None = None) -> np.ndarray | None:
         """Return one camera's normalized 3×4 ``[K_3x3 | 0]`` matrix.
@@ -272,6 +263,14 @@ class Calibration:
         return out
 
 
+def select_image_camera(names) -> str | None:
+    """Select the conventional primary image, never the coordinate reference."""
+    names = list(names)
+    if LEGACY_REFERENCE_CAMERA in names:
+        return LEGACY_REFERENCE_CAMERA
+    return next((n for n in names if "front" in n.lower()), next(iter(names), None))
+
+
 def camera_name(image_key: str) -> str | None:
     """Extract the camera name after the final ``images.`` in an array key.
 
@@ -281,6 +280,7 @@ def camera_name(image_key: str) -> str | None:
     Returns:
         The camera name, or ``None`` if the key names no image stream.
     """
+    image_key = image_key.replace("/", ".")
     marker = IMAGE_KEY_PREFIX
     index = image_key.rfind(marker)
     if index == -1:
@@ -516,18 +516,12 @@ def lift_legacy_calibration(
             matrix = _matrix(base_T_cam, (4, 4), f"extrinsics[{side!r}]")
             arm_bases[str(side)] = np.linalg.inv(matrix)
 
-    # Legacy extrinsics are poses of ``front_1`` in each arm base. Declare that
-    # camera even without intrinsics so ``base_T_cam`` remains composable.
-    if arm_bases and LEGACY_REFERENCE_CAMERA not in cameras:
-        cameras[LEGACY_REFERENCE_CAMERA] = CameraCalibration(
-            name=LEGACY_REFERENCE_CAMERA
-        )
-
-    reference_frame = (
-        f"{CAMERA_FRAME_PREFIX}{LEGACY_REFERENCE_CAMERA}"
-        if LEGACY_REFERENCE_CAMERA in cameras
-        else f"{CAMERA_FRAME_PREFIX}{next(iter(cameras))}"
-    )
+    # Legacy extrinsics belong to the front stream, including older camera
+    # names such as ``camera_front``. Do not create an unrelated front_1 view.
+    primary = select_image_camera(cameras) or LEGACY_REFERENCE_CAMERA
+    if arm_bases and primary not in cameras:
+        cameras[primary] = CameraCalibration(name=primary)
+    reference_frame = f"{CAMERA_FRAME_PREFIX}{primary}"
     return Calibration(
         reference_frame=reference_frame,
         cameras=cameras,

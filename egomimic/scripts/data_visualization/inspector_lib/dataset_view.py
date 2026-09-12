@@ -44,7 +44,7 @@ import numpy as np
 # `Embodiment.viz` method projects the poses and draws the overlay.
 # `projectaria_tools` is optional in the standalone visualization environment.
 # If an embodiment import fails, the browser shows an unavailable badge.
-from egomimic.rldb.zarr.calibration import read_calibration
+from egomimic.rldb.zarr.calibration import camera_name, read_calibration
 from egomimic.utils.pose_utils import ee_pose_to_cam_frame
 
 from .images import (
@@ -621,7 +621,8 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
     return fig
 
 
-def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
+def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16,
+                  camera: str = "front_1"):
     """Best-effort overlay. Returns (rgb, ok, note). On any failure returns
     the clean frame with ok=False and a short note, never raises.
 
@@ -639,7 +640,9 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
         from egomimic.rldb.zarr.overlay import render_keypoints
 
         try:
-            image, diagnostic = render_keypoints(grp, frame, image=img_rgb, horizon=horizon)
+            image, diagnostic = render_keypoints(
+                grp, frame, image=img_rgb, horizon=horizon, camera=camera
+            )
             return image, True, f"{diagnostic['inside_fraction']:.0%} inside image"
         except (ValueError, KeyError) as exc:
             return _badge(img_rgb.copy(), "keypoint overlay unavailable"), False, str(exc)
@@ -647,20 +650,13 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
     emb_cls = _embodiment_class(grp)
     if emb_cls is None:
         return _badge(img_rgb.copy(), f"overlay {overlay}: no embodiment"), False, "no emb"
-    intr = _intrinsics_from_zarr(grp)
-    if intr is None:
-        return _badge(img_rgb.copy(), f"overlay {overlay}: no intrinsics"), False, "no K"
-
-    # Select the transform that locates the camera in the pose reference frame.
-    # Human episodes use one `world_T_head` for both arms at each frame.
-    # EVA episodes use one static `base_T_cam` matrix for each arm.
-    world_T_head = _world_T_head(grp, frame)
-    extr = _extrinsics_from_zarr(grp)
-    if world_T_head is None and not extr:
-        return _badge(img_rgb.copy(),
-                      f"overlay {overlay}: no head pose / extrinsics"), False, "no cam"
-
     try:
+        from egomimic.rldb.zarr.camera_coverage import camera_coverage
+
+        coverage = camera_coverage(grp, camera, frame, image_shape=img_rgb.shape)
+        if not coverage.available:
+            raise ValueError("; ".join(coverage.missing))
+        intr = coverage.K
         if overlay in ("cartesian", "orientation"):
             ee = _read_arm_array(grp, "obs_ee_pose")
             left, right = ee.get("left"), ee.get("right")
@@ -676,18 +672,16 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
                 """
                 if seq is None:
                     return None
-                ref_T_cam = (
-                    world_T_head
-                    if world_T_head is not None
-                    else (extr or {}).get(arm)
-                )
+                ref_T_cam = coverage.source_T_cam.get(arm)
                 if ref_T_cam is None:
                     return None
                 seq = np.asarray(seq)
                 if overlay == "orientation":
                     win = seq[frame:frame + 1, :7]
                 else:
-                    lo, hi = max(0, frame), min(seq.shape[0], frame + horizon)
+                    lo, hi = max(0, frame), min(
+                        seq.shape[0], int(grp.attrs["total_frames"]), frame + horizon
+                    )
                     win = seq[lo:hi, :7]
                 if win.shape[0] < 1:
                     return None
@@ -735,7 +729,7 @@ def _annotate_frame(img_rgb, grp, dataset_root: str, episode: str, frame: int):
 
 def render_frame_jpeg(dataset_root: str, episode: str, frame: int, *,
                       overlay: str, annotate: bool, image_key: str) -> bytes | None:
-    key = (dataset_root, episode, int(frame), overlay, bool(annotate))
+    key = (dataset_root, episode, int(frame), overlay, bool(annotate), image_key)
     with _RENDER_LOCK:
         hit = _RENDER_CACHE.get(key)
         if hit is not None:
@@ -750,7 +744,9 @@ def render_frame_jpeg(dataset_root: str, episode: str, frame: int, *,
     rgb = _decode_frame_rgb(grp, img_key, frame)
     if rgb is None:
         return None
-    rgb, _ok, _note = _draw_overlay(rgb, grp, int(frame), overlay)
+    rgb, _ok, _note = _draw_overlay(
+        rgb, grp, int(frame), overlay, camera=camera_name(img_key) or img_key
+    )
     if annotate:
         rgb = _annotate_frame(rgb, grp, dataset_root, episode, int(frame))
     try:

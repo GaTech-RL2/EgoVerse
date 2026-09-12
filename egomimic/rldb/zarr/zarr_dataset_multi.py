@@ -44,7 +44,12 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.action_chunk_transforms import base_T_cam_pose_key
-from egomimic.rldb.zarr.calibration import Calibration, read_calibration
+from egomimic.rldb.zarr.calibration import (
+    Calibration,
+    camera_name,
+    read_calibration,
+    select_image_camera,
+)
 from egomimic.rldb.zarr.episode_attrs import data_status, is_complete
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
@@ -1555,9 +1560,9 @@ class ZarrDataset(torch.utils.data.Dataset):
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
+        self.key_map = key_map
         self.init_episode()
 
-        self.key_map = key_map
         self.transform = transform_list
         super().__init__()
 
@@ -1572,6 +1577,13 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()
+        cameras = [
+            name for spec in self.key_map.values()
+            if (name := camera_name(spec["zarr_key"])) is not None
+        ]
+        self.image_camera = select_image_camera(cameras)
+        if self.image_camera is None and self.calibration is not None:
+            self.image_camera = self.calibration.default_camera()
         self._extrinsic_poses = self._build_extrinsic_poses()
 
     @property
@@ -1585,7 +1597,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         return self.episode_reader.calibration
 
     def _build_extrinsic_poses(self) -> dict[str, np.ndarray]:
-        """Build transform-input poses for the calibration's default camera.
+        """Build transform-input poses for the image selected by the keymap.
 
         For each arm with enough calibration to compose ``base_T_cam``, convert
         the matrix to the pose layout consumed by the transform pipeline.
@@ -1601,7 +1613,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             return {}
         poses = {}
         for side in ("left", "right"):
-            base_T_cam = calibration.base_T_cam(side)
+            base_T_cam = calibration.base_T_cam(side, self.image_camera)
             if base_T_cam is not None:
                 poses[base_T_cam_pose_key(side)] = _matrix_to_xyzwxyz(
                     base_T_cam[None, :]
@@ -1788,12 +1800,12 @@ class ZarrDataset(torch.utils.data.Dataset):
                     data[k] = torch.from_numpy(v).to(torch.float32)
 
             data["embodiment"] = get_embodiment_id(self.embodiment)
-            # ``Calibration.K()`` applies the default-camera selection and the
+            # Bind K to the same image as the transform-input poses. The
             # parser has already normalized a 3x3 K to 3x4. A missing matrix is
             # represented by NaNs, which ``_intrinsics_from_batch`` interprets
             # as a request for the embodiment-class fallback.
             calibration = self.calibration
-            K = None if calibration is None else calibration.K()
+            K = None if calibration is None else calibration.K(self.image_camera)
             if K is None:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
             else:

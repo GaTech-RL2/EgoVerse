@@ -440,3 +440,43 @@ def test_a_transform_fallback_never_overrides_a_batch_value() -> None:
 
     np.testing.assert_array_equal(out["target"], identity_pose)
     np.testing.assert_allclose(out["out"][:, :3], 0.0, atol=1e-12)
+
+
+@pytest.mark.parametrize("front", ["front_1", "camera_front"])
+def test_image_keymap_binds_intrinsics_and_pose_independently_of_reference(tmp_path, front):
+    path = tmp_path / "camera.zarr"
+    front_pose = np.eye(4)
+    front_pose[0, 3] = 0.25
+    base_pose = np.eye(4)
+    base_pose[1, 3] = 0.1
+    ZarrWriter.create_and_write(
+        path,
+        numeric_data={"left.obs_ee_pose": np.tile([0, 0, 1, 1, 0, 0, 0], (2, 1)).astype(float)},
+        image_data={f"images.{front}": np.full((2, 16, 16, 3), 40, np.uint8)},
+        embodiment="eva_bimanual",
+        calibration={
+            "reference_frame": "camera:left_wrist",
+            "cameras": {
+                "left_wrist": {"K": (K_FRONT * 2).tolist()},
+                front: {"K": K_FRONT.tolist(), "ref_T_cam": front_pose.tolist()},
+            },
+            "arm_bases": {"left": base_pose.tolist()},
+        },
+    )
+    dataset = ZarrDataset(path, key_map={
+        "image": {"zarr_key": f"images.{front}", "key_type": "camera_keys"},
+        "pose": {"zarr_key": "left.obs_ee_pose"},
+    })
+    sample = dataset[0]
+    assert sample["image"].shape == (3, 16, 16)
+    np.testing.assert_allclose(sample["intrinsics"], K_FRONT)
+    np.testing.assert_allclose(sample["left_base_T_cam_pose"][:3], [0.25, -0.1, 0])
+
+
+def test_legacy_extrinsics_follow_the_existing_front_camera_name():
+    calibration = lift_legacy_calibration(
+        {"left_wrist": K_FRONT.tolist(), "camera_front": K_FRONT.tolist()},
+        {"left": np.eye(4).tolist()},
+    )
+    assert calibration.reference_camera == "camera_front"
+    np.testing.assert_allclose(calibration.base_T_cam("left", "camera_front"), np.eye(4))

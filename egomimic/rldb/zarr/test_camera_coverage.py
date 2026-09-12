@@ -113,3 +113,27 @@ def test_legacy_aria_fallback_is_limited_to_known_rectified_image_sizes(
     assert not camera_coverage(group, image_shape=(360, 640, 3)).available
     group.attrs["embodiment"] = "human_bimanual"
     assert not camera_coverage(group, image_shape=(480, 640, 3)).available
+
+
+def test_inspector_uses_displayed_camera_when_reference_and_ego_are_different(overlay_episode):
+    from egomimic.rldb.zarr.overlay import decode_frame, render_keypoints
+    from egomimic.scripts.data_visualization.inspector_lib.dataset_view import (
+        _draw_overlay,
+    )
+
+    group = zarr.open_group(overlay_episode, mode="a")
+    image = decode_frame(group, 0)
+    group.create_array("images.left_wrist", data=np.tile(image, (4, 1, 1, 1)))
+    group.attrs["calibration"] = {
+        "reference_frame": "camera:left_wrist",
+        "cameras": {
+            "front_1": {"K": group.attrs["intrinsics"]["front_1"]},
+            "left_wrist": {"K": [[20, 0, 32, 0], [0, 20, 32, 0], [0, 0, 1, 0]]},
+        },
+    }
+    group["obs_head_pose"][0, 0] = 0.2
+    expected, _ = render_keypoints(group, 0, image=image, camera="left_wrist", horizon=3)
+    actual, ok, _ = _draw_overlay(image, group, 0, "keypoint", horizon=3, camera="left_wrist")
+    assert ok
+    np.testing.assert_array_equal(actual, expected)
+    assert not np.array_equal(actual, render_keypoints(group, 0, image=image, horizon=3)[0])
