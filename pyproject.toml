@@ -69,6 +69,21 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [
+    "external",
+    "emimic",
+    "logs",
+    "scratch",
+    "stanford_repo",  # pytest matches norecursedirs against basenames
+    ".*",
+    "*.egg-info",
+]
+markers = [
+    "integration: needs cluster data, credentials, a GPU, or optional extras; skipped unless --integration is passed",
+]
+
 [tool.pyright]
 venvPath = "."
 venv = "emimic"
