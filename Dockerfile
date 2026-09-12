@@ -70,7 +70,6 @@ WORKDIR /home/robot/robot_ws
 # 5) copy only the env + requirements first (so pip/mamba stays cached)
 # adjust paths below to match your repo layout on host
 COPY egomimic/robot/eva/stanford_repo/conda_environments/py310_environment.yaml /tmp/py310_environment.yaml
-COPY requirements.txt /tmp/requirements.txt
 
 # 6) create mamba env (its own layer)
 RUN micromamba create -y -f /tmp/py310_environment.yaml -n arx-py310 && \
@@ -108,8 +107,12 @@ RUN echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc && \
 WORKDIR /home/robot/robot_ws
 
 # 11) python deps (outside mamba, your original flow)
-RUN pip install -r /tmp/requirements.txt && \
-    pip install -e . && \
+# TODO: this step cannot succeed as written. `pip` here is the arx-py310 mamba
+# env's, and pyproject.toml requires Python >= 3.11, so pip refuses `-e .`.
+# It previously also installed requirements.txt (torch 2.6.0), which is gone:
+# pyproject.toml + uv.lock (torch 2.7.1) are now the only dependency spec.
+# Decide what the robot image actually needs from egomimic and install that.
+RUN pip install -e . && \
     pip install -e egomimic/robot/oculus_reader/. && \
     pip install pybullet pybind11 h5py
 
