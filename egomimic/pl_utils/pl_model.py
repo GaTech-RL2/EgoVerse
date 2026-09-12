@@ -13,6 +13,16 @@ import egomimic.utils.tensor_utils as TensorUtils
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
+def _barrier() -> None:
+    """``torch.distributed.barrier()`` that is a no-op outside a process group.
+
+    Single-process runs (the CPU smoke test, ``devices=1`` without DDP) never
+    call ``init_process_group``; an unguarded barrier raises there.
+    """
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
+        torch.distributed.barrier()
+
+
 class ModelWrapper(LightningModule):
     """
     Wrapper class around robomimic models to ensure compatibility with Pytorch Lightning.
@@ -224,7 +234,7 @@ class ModelWrapper(LightningModule):
             f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
             flush=True,
         )
-        torch.distributed.barrier()
+        _barrier()
         print(
             f"Rank {self.global_rank} on validation end, all ranks synchronized",
             flush=True,
@@ -283,7 +293,7 @@ class ModelWrapper(LightningModule):
             f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
             flush=True,
         )
-        torch.distributed.barrier()
+        _barrier()
         print(
             f"Rank {self.global_rank} on fit start, all ranks synchronized", flush=True
         )
