@@ -184,6 +184,64 @@ class MmapCheckpointIO(TorchCheckpointIO):
             return pl_load(path, map_location=map_location, weights_only=weights_only)
 
 
+def _resolve_mode(cfg: DictConfig) -> str:
+    """``mode`` key, else the legacy ``train`` / ``eval`` booleans."""
+    if cfg.get("mode") is not None:
+        return cfg.mode
+    if cfg.get("train", False):
+        return "train"
+    if cfg.get("eval", False):
+        return "eval"
+    raise ValueError("Config must specify either `mode` or `train`/`eval` booleans")
+
+
+def _train_viz_enabled(cfg: DictConfig) -> bool:
+    """The train_viz head (metrics + video on TRAIN data each validation) is on
+    by default for training runs with an evaluator; ``train_viz=false`` turns
+    it off, including the heads a data/top-level config declares itself."""
+    return (
+        bool(cfg.get("train_viz", True))
+        and _resolve_mode(cfg) == "train"
+        and cfg.get("evaluator") is not None
+    )
+
+
+def _train_viz_datasets(cfg: DictConfig, train_datasets: dict, instantiate):
+    """Datasets for the train_viz loader and, when they are derived here, its
+    loader params (None = leave ``data.train_viz_dataloader_params`` to Hydra).
+
+    A data config's own ``train_viz_datasets`` win. Otherwise the train split
+    itself is reused (same dataset objects, so no second resolve) through an
+    unshuffled loader with the valid loader's params."""
+    if not _train_viz_enabled(cfg):
+        return {}, None
+    explicit = cfg.data.get("train_viz_datasets")
+    if explicit is not None:
+        return {
+            name: None if node is None else instantiate(node, dataset_name=name)
+            for name, node in explicit.items()
+        }, None
+    valid_params = cfg.data.get("valid_dataloader_params") or {}
+    params = {
+        name: {**OmegaConf.to_container(valid_params[name]), "shuffle": False}
+        for name in train_datasets
+        if name in valid_params
+    }
+    return {name: train_datasets[name] for name in params}, params
+
+
+def _build_train_viz_evaluator(cfg: DictConfig):
+    """``train_viz_evaluator`` if configured, else a TrainVizEvalVideo around a
+    second instance of the canonical evaluator (own frame buffers)."""
+    if not _train_viz_enabled(cfg):
+        return None
+    if cfg.get("train_viz_evaluator") is not None:
+        return hydra.utils.instantiate(cfg.train_viz_evaluator)
+    from egomimic.eval.eval_train_viz import TrainVizEvalVideo
+
+    return TrainVizEvalVideo(hydra.utils.instantiate(cfg.evaluator))
+
+
 @task_wrapper
 def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
@@ -205,8 +263,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     load_env()
 
-    # One SQL pull / path resolution per dataset spec across train, valid and
-    # the norm-stat copies; dropped on exit so nothing outlives this run.
+    # One SQL pull / path resolution per dataset spec across train, valid,
+    # train_viz and the norm-stat copies; dropped on exit so nothing outlives
+    # this run.
     with resolve_once():
         train_datasets = {}
         for dataset_name in cfg.data.train_datasets:
@@ -220,12 +279,24 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 cfg.data.valid_datasets[dataset_name], dataset_name=dataset_name
             )
 
+        train_viz_datasets, train_viz_params = _train_viz_datasets(
+            cfg, train_datasets, instantiate=_instantiate_dataset
+        )
+
         log.info(f"Instantiating datamodule <{cfg.data._target_}>")
         assert (
             "MultiDataModuleWrapper" in cfg.data._target_
         ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+        datamodule_kwargs = dict(
+            train_datasets=train_datasets, valid_datasets=valid_datasets
+        )
+        # Always passed, so train_viz=false also drops a data config's own
+        # train_viz_datasets.
+        datamodule_kwargs["train_viz_datasets"] = train_viz_datasets
+        if train_viz_params is not None:
+            datamodule_kwargs["train_viz_dataloader_params"] = train_viz_params
         datamodule: LightningDataModule = hydra.utils.instantiate(
-            cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
+            cfg.data, **datamodule_kwargs
         )
 
         # Stats-only MultiDataset (no graph of its own; explicitly populated from
@@ -239,6 +310,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         from egomimic.rldb.zarr import norm_cache
 
         sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
+        pool_horizon = bool(
+            OmegaConf.select(cfg, "norm_stats.pool_horizon", default=False)
+        )
         explicit_path = OmegaConf.select(
             cfg, "norm_stats.precomputed_norm_path", default=None
         )
@@ -274,6 +348,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                     episodes,
                     cfg.data.train_datasets[dataset_name],
                     sample_frac,
+                    pool_horizon,
                 )
                 key = norm_cache.norm_cache_key(inputs)
                 cached = norm_cache.find_cached(cache_dir, dataset_name, key, emb)
@@ -289,6 +364,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 precomputed_norm_path=explicit_path
                 if explicit_path is not None
                 else cached,
+                pool_horizon=pool_horizon,
             )
             if key is not None and cached is None:
                 if norm_stats.norm_stats.get(emb):
@@ -316,6 +392,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         ds.set_norm_stats_from(norm_stats)
     for ds in datamodule.valid_datasets.values():
         ds.set_norm_stats_from(norm_stats)
+    for ds in getattr(datamodule, "train_viz_datasets", {}).values():
+        ds.set_norm_stats_from(norm_stats)
 
     _prepare_checkpoint_resume(cfg)
 
@@ -331,15 +409,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
 
-    # Resolve mode: support both new `mode` key and legacy `train`/`eval` booleans
-    if cfg.get("mode") is not None:
-        mode = cfg.mode
-    elif cfg.get("train", False):
-        mode = "train"
-    elif cfg.get("eval", False):
-        mode = "eval"
-    else:
-        raise ValueError("Config must specify either `mode` or `train`/`eval` booleans")
+    mode = _resolve_mode(cfg)
 
     # In eval mode, apply trainer overrides from the eval object and disable logger
     if mode == "eval":
@@ -392,6 +462,23 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj.trainer = trainer
             eval_obj.model = model.model
             model.evaluator = eval_obj
+        train_viz_eval_obj = (
+            _build_train_viz_evaluator(cfg) if datamodule.train_viz_datasets else None
+        )
+        if train_viz_eval_obj is not None:
+            train_viz_eval_obj.trainer = trainer
+            train_viz_eval_obj.model = model.model
+            model.train_viz_evaluator = train_viz_eval_obj
+        # Pre-fit baseline val. Skipped on requeues AND checkpoint resumes:
+        # trainer.validate here runs BEFORE fit restores ckpt_path weights, so
+        # on a resume it would score the un-resumed base model.
+        # (_prepare_checkpoint_resume already folded a requeue into ckpt_path.)
+        if cfg.get("val_at_start", False) and not cfg.get("ckpt_path"):
+            log.info(
+                "val_at_start: running validation at epoch 0 (pre-fit baseline; "
+                "the overlay video follows evaluator.viz_every_n_epochs)"
+            )
+            trainer.validate(model=model, datamodule=datamodule)
         log.info("Starting training!")
         trainer.fit(
             model=model,

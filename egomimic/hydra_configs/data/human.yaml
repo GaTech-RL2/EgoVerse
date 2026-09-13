@@ -1,8 +1,14 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
-# Canonical human (ex-aria) cartesian data config, keyed by the collapsed
-# embodiment human_bimanual (episodes reprocessed to embodiment="human_bimanual"
-# + intrinsics in zarr.json).
+# Canonical human cartesian data config, keyed by the collapsed embodiment
+# human_bimanual (episodes reprocessed to embodiment="human_bimanual" +
+# intrinsics in zarr.json).
+# Action: the 144-D wrist-frame hand-keypoint action (`keypoints_wristframe_6d`)
+# with the head-frame `observations.state.keypoints` proprio and, via
+# include_ee_pose, the cartesian head-frame `observations.state.ee_pose` the
+# pi0.5 prompt discretizes (HPT ignores it: no stem consumes it). Override
+# `resolver.key_map.keymap_mode=cartesian resolver.transform_list.mode=cartesian`
+# (and include_ee_pose=false on both) for the cartesian action.
 # NOTE: the filter selects on the SQL value 'human_bimanual'. This ASSUMES the SQL
 # embodiment/robot_name column has been migrated from the old vendor values
 # ('aria_bimanual'). Until that migration lands, this dataset matches zero rows.
@@ -14,10 +20,15 @@ train_datasets:
       folder_path: ${paths.dataset_dir}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: keypoints
+        include_ee_pose: true
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian
+        mode: keypoints_wristframe_6d
+        include_ee_pose: true
+        # 18 -> 20-D ee_pose proprio (zero grip slots at 9/19) so the pi0.5
+        # State: prompt bins align with the robot 20-D layout on every config.
+        pad_proprio_gripper: true
         stride: 3
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter

@@ -2,9 +2,12 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 # Embodiment collapse: mecka + scale are both `human_bimanual` now, so they can no
 # longer be separate cotrain domains. Merged into ONE human_bimanual dataset that
-# loads both labs. Scale exports carry obs_head_pose (sfs_to_egoverse_zarr.py
+# loads both labs, on the 144-D wrist-frame hand-keypoint action (see
+# data/human.yaml). Scale exports carry obs_head_pose (sfs_to_egoverse_zarr.py
 # writes it from the per-frame camera pose), so the merged human keymap keeps
-# the default has_head_pose=true; the cartesian transform pivots on it.
+# the default has_head_pose=true. fix_mecka_left_wrist is OFF: it would also
+# flip the scale episodes' left ee_pose; split the labs into separate configs
+# (mecka_all_6d, ...) when the prompt state must be exact.
 train_datasets:
   human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -13,10 +16,15 @@ train_datasets:
       folder_path: ${paths.dataset_dir}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: keypoints
+        include_ee_pose: true
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian
+        mode: keypoints_wristframe_6d
+        include_ee_pose: true
+        # 18 -> 20-D ee_pose proprio (zero grip slots at 9/19) so the pi0.5
+        # State: prompt bins align with the robot 20-D layout on every config.
+        pad_proprio_gripper: true
         stride: 1
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter

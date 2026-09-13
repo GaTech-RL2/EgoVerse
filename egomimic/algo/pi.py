@@ -25,7 +25,7 @@ from egomimic.models.preprocess_pi_obs import (
     gather_pi_images,
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.utils.action_utils import ConverterRegistry
+from egomimic.utils.action_utils import ConverterRegistry, pad_to_width
 
 logger = logging.getLogger(__name__)
 # Ensure logger propagates to root logger and has appropriate level
@@ -195,8 +195,44 @@ class PI(Algo):
                 "No pytorch_weight_path: no base weights loaded. The weights must "
                 "come from a checkpoint; otherwise this trains from scratch."
             )
+        # openpi's PyTorch port hard-codes 32-wide action projections
+        # regardless of ``Pi0Config.action_dim``. Wider action spaces (the
+        # 144-D hand-keypoint action, or a cotrain that pads eva's 20-D into
+        # the same vector) need ``action_dim``-wide ones, swapped in AFTER the
+        # (strict) base-weight load. Only these two layers start fresh;
+        # ``sample_actions`` already draws its noise at ``config.action_dim``.
+        self.action_dim = int(self.config.model.action_dim)
+        if self.action_dim != 32:
+            self._resize_action_projections(self.action_dim)
         self.nets = nn.ModuleDict()
         self.nets["policy"] = self.model
+
+    def _resize_action_projections(self, action_dim: int) -> None:
+        target = (
+            self.model.module
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else self.model
+        )
+        old_in, old_out = target.action_in_proj, target.action_out_proj
+        width = old_in.out_features
+        new_in = nn.Linear(action_dim, width).to(
+            dtype=old_in.weight.dtype, device=old_in.weight.device
+        )
+        new_out = nn.Linear(width, action_dim).to(
+            dtype=old_out.weight.dtype, device=old_out.weight.device
+        )
+        target.action_in_proj = new_in
+        target.action_out_proj = new_out
+        logger.warning(
+            "action_dim=%d != 32: re-initialized action_in_proj (%d->%d) and "
+            "action_out_proj (%d->%d); the pretrained 32-wide projections are "
+            "discarded, everything else comes from the base checkpoint.",
+            action_dim,
+            action_dim,
+            width,
+            width,
+            action_dim,
+        )
 
     def _control_mode_for(self, emb_name: str | None) -> str:
         if self.control_mode and emb_name is not None:
@@ -421,13 +457,7 @@ class PI(Algo):
             )
 
             losses = self.nets["policy"].forward(processed_obs, action)
-
-            if isinstance(losses, list | tuple):
-                losses = torch.stack(losses)
-            elif not isinstance(losses, torch.Tensor):
-                losses = torch.tensor(losses, device=action.device, dtype=torch.float32)
-
-            loss = losses.mean()
+            loss = self._reduce_loss(losses, _batch[ac_key], embodiment_id, ac_key)
 
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
@@ -465,13 +495,9 @@ class PI(Algo):
 
                 # Flow-matching val loss — same call as forward_training.
                 losses = self.nets["policy"].forward(processed_obs, action)
-                if isinstance(losses, (list, tuple)):
-                    losses = torch.stack(losses)
-                elif not isinstance(losses, torch.Tensor):
-                    losses = torch.tensor(
-                        losses, device=action.device, dtype=torch.float32
-                    )
-                unnorm_preds[f"{embodiment_name}_loss"] = losses.mean()
+                unnorm_preds[f"{embodiment_name}_loss"] = self._reduce_loss(
+                    losses, _batch[ac_key], embodiment_id, ac_key
+                )
 
                 pred_actions = self.nets["policy"].sample_actions(
                     device=self.device,
@@ -480,21 +506,47 @@ class PI(Algo):
                     num_steps=self.num_steps,
                 )
 
-                predictions = OrderedDict()
-                ref = _batch[ac_key]
-                B, T, D = ref.shape
-
-                converter = self.action_registry.get(embodiment_id, ac_key)
-                pred_actions_orig = converter.from32(pred_actions)
-
-                pred = pred_actions_orig[:, :T, :D]
-                predictions[ac_key] = pred
-
-                unnorm_actions = self.norm_stats.unnormalize(predictions, embodiment_id)
+                unnorm_actions = self._postprocess_sampled_actions(
+                    pred_actions, _batch, embodiment_id, ac_key
+                )
                 for key in unnorm_actions:
                     unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
 
         return unnorm_preds
+
+    def _reduce_loss(self, losses, action, embodiment_id, ac_key) -> torch.Tensor:
+        """Mean flow-matching loss over the embodiment's packed action width.
+
+        openpi returns the per-element loss ``(B, H, action_dim)``. With
+        ``action_dim`` widened for the 144-D keypoint action, a narrower
+        embodiment (eva's 32-slot cartesian layout) would otherwise average
+        its loss over 112 zero-padded "predict the noise" dims and contribute
+        a fraction of the gradient signal it had at width 32; restrict the
+        mean to the slots the converter actually packs.
+        """
+        if isinstance(losses, (list, tuple)):
+            losses = torch.stack(losses)
+        elif not isinstance(losses, torch.Tensor):
+            losses = torch.tensor(losses, device=action.device, dtype=torch.float32)
+        if losses.ndim == 3:
+            converter = self.action_registry.get(embodiment_id, ac_key)
+            width = converter.to32_norm_6d(action[:1, :1]).shape[-1]
+            losses = losses[..., :width]
+        return losses.mean()
+
+    def _postprocess_sampled_actions(self, pred_actions, _batch, embodiment_id, ac_key):
+        """Raw ``sample_actions`` output -> unnormalized native action dict.
+
+        Unpack the normalized native action (xyz+6D(+gripper) or the 144-D
+        keypoint vector) from the model's action vector, then unnormalize via
+        the standard pipeline (stats were computed on the native layout)."""
+        ref = _batch[ac_key]
+        _, T, D = ref.shape
+        converter = self.action_registry.get(embodiment_id, ac_key)
+        predictions = OrderedDict()
+        pred_native = converter.from32_norm_6d(pred_actions)
+        predictions[ac_key] = pred_native[:, :T, :D]
+        return self.norm_stats.unnormalize(predictions, embodiment_id)
 
     @override
     def compute_losses(self, predictions, batch):
@@ -545,7 +597,7 @@ class PI(Algo):
         return log
 
     def _robomimic_to_pi_data(self, batch, proprio_keys, lang_keys, ac_key, embodiment):
-        """Dataset batch -> (openpi observation, 32-D action chunk)."""
+        """Dataset batch -> (openpi observation, ``action_dim``-wide action chunk)."""
         if ac_key not in batch:
             raise KeyError(f"Missing action key '{ac_key}' in batch")
 
@@ -555,7 +607,10 @@ class PI(Algo):
 
         emb_id = get_embodiment_id(embodiment)  # embodiment is a name string
         converter = self.action_registry.get(emb_id, ac_key)
-        action32 = converter.to32(action)
+        # The action is already normalized and in its native layout (the
+        # ypr->6D conversion happened in the data transforms). Pack it into
+        # the canonical block layout and zero-pad up to the model width.
+        action32 = pad_to_width(converter.to32_norm_6d(action), self.action_dim)
 
         # OpenPI expects a fixed camera tuple under its own names. Human data
         # only has the front camera; the missing wrist slots get a copy of it
@@ -630,40 +685,3 @@ class PI(Algo):
             return batch.clone()
         else:
             return batch  # Return as is for non-tensor types
-
-    def _extract_xyz(self, x):
-        """
-        Extract xyz (3D position) and rotation from 6DoF or 6DoF+gripper actions.
-
-        Supports:
-        - 6: 6DoF (single arm)
-        - 7: 6DoF + gripper (single arm)
-        - 12: 2 arms × 6DoF
-        - 14: 2 arms × (6DoF + gripper)
-
-        Returns:
-            xyz: Tensor with only xyz per arm (shape: ..., 3) or (..., 6) for dual-arm.
-            rot: Tensor with only rotation per arm (shape: ..., 3) or (..., 6) for dual-arm.
-        """
-        if x.shape[-1] == 6:
-            return x[..., :3], x[..., 3:6]
-        elif x.shape[-1] == 7:
-            return x[..., :3], x[..., 3:6]
-        elif x.shape[-1] == 12:
-            xyz_right = x[..., :3]
-            rot_right = x[..., 3:6]
-            xyz_left = x[..., 6:9]
-            rot_left = x[..., 9:12]
-            return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat(
-                [rot_right, rot_left], dim=-1
-            )
-        elif x.shape[-1] == 14:
-            xyz_right = x[..., :3]
-            rot_right = x[..., 3:6]
-            xyz_left = x[..., 7:10]
-            rot_left = x[..., 10:13]
-            return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat(
-                [rot_right, rot_left], dim=-1
-            )
-        else:
-            raise ValueError(f"Unexpected shape for 6DoF input: {x.shape}")

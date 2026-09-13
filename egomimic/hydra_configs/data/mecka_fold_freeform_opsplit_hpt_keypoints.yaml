@@ -1,0 +1,51 @@
+defaults:
+  - mecka_fold_freeform_opsplit_6d
+  - _self_
+
+# MECKA_FOLD_FREEFORM_OPSPLIT_HPT_KEYPOINTS: HPT keypoint-action twin of
+# mecka_fold_freeform_opsplit_6d: the SAME mecka FREEFORM fold-clothes
+# episodes and the SAME held-out-OPERATOR split (`held_out_operators`, the
+# filters, the train_viz slice and the loader params are all inherited; edit
+# the operator list only in the parent). Only the keymap and transform differ:
+#
+#   keymap_mode: keypoints
+#   mode: keypoints_wristframe_6d
+#
+# Batch keys:
+#   actions_keypoints          (100, 144)  wrist-first wrist-frame keypoint
+#                                          action: per hand [wrist xyz+rot6d in
+#                                          its own current wrist frame (9) |
+#                                          21 MANO keypoints in that wrist
+#                                          frame (63)] x {left, right}
+#   observations.state.keypoints   (144,)  per hand [wrist pose in HEAD frame
+#                                          (9) | keypoints in wrist frame (63)];
+#                                          the HPT `state_keypoints` stem input
+#                                          and what the eval revert (wrist ->
+#                                          head frame) reads
+#   annotations                            task-description track -> the
+#                                          `sampled_prompt` for a Qwen text stem
+#
+# There is no `observations.state.ee_pose` (include_ee_pose off: HPT has no
+# stem for it), so pad_proprio_gripper is off. fix_mecka_left_wrist stays ON:
+# in keypoint modes it corrects the left `obs/action_wrist_pose` keys, which
+# carry the same double-mirrored rotation as the ee_pose on processed_v3.
+#
+# NORMALIZATION: proprio + action keys are quantile-normalized; precompute on
+# a CPU node with
+#   python egomimic/scripts/precompute_norm_stats.py --config-name train_zarr_mecka_kp_wrist_hpt \
+#     --data mecka_fold_freeform_opsplit_hpt_keypoints --model hpt_bc_keypoints_wrist_300M --out <out>
+#
+# Pairs with model=hpt_bc_keypoints_wrist_300M and
+# evaluator=eval_hpt_keypoints_wrist (the inherited train_viz slice gets the
+# default head wrapping it); see train_zarr_mecka_kp_wrist_hpt.yaml for the
+# composed recipe.
+
+train_datasets:
+  human_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: keypoints
+      transform_list:
+        mode: keypoints_wristframe_6d
+        fix_mecka_left_wrist: true
+        pad_proprio_gripper: false

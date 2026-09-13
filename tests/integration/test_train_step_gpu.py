@@ -132,7 +132,12 @@ def test_hpt_real_recipe(tmp_path, monkeypatch, vendor):
     _vendor_filter(cfg, recipe.embodiment, vendor)
     spy = BatchKeySpy(monkeypatch, HPT)
     _run(cfg, out)
-    assert "actions_cartesian" in spy.keys[recipe.embodiment]
+    action_key = (
+        "actions_cartesian"
+        if recipe.embodiment == "eva_bimanual"
+        else "actions_keypoints"  # human data defaults to hand keypoints
+    )
+    assert action_key in spy.keys[recipe.embodiment]
 
 
 @pytest.mark.parametrize("vendor", VENDOR_NAMES)

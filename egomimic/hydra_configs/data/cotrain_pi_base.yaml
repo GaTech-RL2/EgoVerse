@@ -1,3 +1,19 @@
+# Base for every pi0.5 data config.
+#
+# eva: wrist-relative cartesian actions (`cartesian_wristframe_6d`: each arm's
+#   chunk in its current EEF frame, xyz+6D+gripper per arm, 20D) with the
+#   cam-frame proprio ee_pose in the same 6D layout. Cam-frame runs override
+#   the mode to `cartesian_6d` on the command line.
+# human: the 144-D wrist-first hand-keypoint action (`keypoints_wristframe_6d`:
+#   per hand [wrist xyz | wrist rot6d | 21 MANO keypoints] in that wrist's
+#   frame) with the head-frame `observations.state.keypoints` proprio, plus
+#   (`include_ee_pose`) the cartesian head-frame `observations.state.ee_pose`
+#   that the pi0.5 prompt discretizes into its `State:` block, so a keypoint
+#   run shares its prompt state with the cartesian runs. The cartesian human
+#   modes stay available by overriding
+#   `resolver.key_map.keymap_mode=cartesian` + `resolver.transform_list.mode=cartesian_6d`
+#   (and dropping include_ee_pose) together with a cartesian PI model config.
+# Norm stats must be computed on these layouts.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -12,7 +28,7 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian
+        mode: cartesian_wristframe_6d
     filters: null
     mode: train
     valid_ratio: 0.05
@@ -23,11 +39,16 @@ train_datasets:
       folder_path: ${paths.dataset_dir}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: keypoints
+        include_ee_pose: true
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian
+        mode: keypoints_wristframe_6d
+        include_ee_pose: true
+        # 18 -> 20-D ee_pose proprio (zero grip slots at 9/19) so the pi0.5
+        # State: prompt bins align with the robot 20-D layout on every config.
+        pad_proprio_gripper: true
         stride: 3
     filters: null
     mode: train

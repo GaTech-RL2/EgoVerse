@@ -4,7 +4,8 @@ robomimic_model:
   camera_transforms: {}
 
   dims:
-    eva_bimanual: {proprio: 14, action: 14}
+    # cartesian_wristframe_6d (data/eva.yaml): [xyz | rot6d | grip] x 2.
+    eva_bimanual: {proprio: 20, action: 20}
 
   diffusion: true 
   6dof: true
@@ -31,7 +32,6 @@ robomimic_model:
   multitask: false
   pretrained: false
   pretrained_checkpoint: "" # TODO
-  reverse_kl_samples: 8
   
   domains: ["eva_bimanual"]
   shared_obs_keys: ["front_img_1"]
