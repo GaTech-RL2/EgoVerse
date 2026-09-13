@@ -124,8 +124,15 @@ def _run(cfg, out: Path) -> float:
     assert ckpt.exists(), (
         sorted(ckpt_dir.glob("*")) if ckpt_dir.exists() else "no checkpoints dir"
     )
-    state = torch.load(ckpt, map_location="cpu", weights_only=False)["state_dict"]
-    assert state, "empty state_dict"
+    # mmap: a Pi checkpoint is ~21 GB, and reading it all back only to compare
+    # keys and shapes cost ~6 min per test on NFS. Tensor data is never touched.
+    state = torch.load(ckpt, map_location="cpu", weights_only=False, mmap=True)[
+        "state_dict"
+    ]
+    live = objects["model"].state_dict()
+    assert state.keys() == live.keys(), sorted(state.keys() ^ live.keys())[:10]
+    bad = [k for k, v in live.items() if state[k].shape != v.shape]
+    assert not bad, bad[:10]
     return loss
 
 
