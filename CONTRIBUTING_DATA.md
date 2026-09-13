@@ -327,6 +327,11 @@ Arrays MAY extend past `total_frames` with zero-padding (writers commonly pad to
 boundary — e.g. `ZarrWriter` pads to `chunk_timesteps`); consumers must slice
 `[:total_frames]` and never interpret the padded tail as data.
 
+Every `(T, 7)` pose array below is XYZWXYZ with a **unit-norm quaternion** in each frame. A frame
+with no pose (tracking loss, undetected hand) is marked by writing **all 7 values `0`** or
+**all 7 values `1e9`** (any magnitude ≥ `1e8` counts); those frames are exempt from the norm check.
+Any other non-unit quaternion — NaN included — is an error in `egoverse validate`.
+
 #### Images
 
 | Key | Shape | Dtype | Notes |
@@ -446,6 +451,42 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
 - `embodiment` and `task_name` must exactly match the values in the DB row for this episode.
 - `intrinsics` is **mandatory** and is always a `{camera_key: 3×4 K matrix}` dict in `zarr.attrs` (single-camera = one entry, e.g. `{"front_1": K}`). `ZarrWriter.create_and_write` raises if it is not a non-empty dict.
 - `extrinsics` is **either `None` or a non-empty `dict`** of 4×4 world↔cam transforms (robots key per-arm, e.g. `{"left": T, "right": T}`); egocentric human contributors omit it (`None`). `ZarrWriter.create_and_write` raises if it is anything other than `None` or a non-empty dict.
+
+The canonical table is generated from `egomimic/rldb/zarr/schema.py`:
+
+<!-- schema:begin -->
+Format version: `1.0` (readers accept majors [0, 1]).
+
+**Required attrs**
+
+| Key | Type | Meaning |
+|---|---|---|
+| `format_version` | str | Episode format version, "MAJOR.MINOR". Missing = legacy v0. |
+| `embodiment` | str | Embodiment identifier, e.g. "human_bimanual" (must match the DB row). |
+| `total_frames` | int | Number of valid frames (not padded). |
+| `fps` | int | Capture frame rate; 30 or 60. |
+| `task_name` | str | Task name (must match the DB row). |
+| `task_description` | str | Free-text description of the trial. |
+| `intrinsics` | dict | {camera_key: 3x4 K matrix}; non-empty; projection uses the 'front' entry. |
+| `features` | dict | One entry per array key: {dtype, shape, names}; images dtype 'jpeg', annotations 'json'. |
+
+**Optional attrs**
+
+| Key | Type | Meaning |
+|---|---|---|
+| `extrinsics` | dict \| None | None, or a non-empty dict of 4x4 world<-cam transforms keyed per arm. |
+| `provenance` | dict | writer, egomimic_version, git_sha, created_at, converter, source_uri. |
+
+**`features[<key>].dtype`**
+
+| Key | Type | Meaning |
+|---|---|---|
+| `numeric` | numpy dtype string | shape = per-frame shape, names = dimension labels (e.g. ["dim_0"]). |
+| `jpeg` | "jpeg" | Images: shape [H, W, 3], names ["height", "width", "channel"]. |
+| `json` | "json" | Annotations: shape [N], names ["json"], format "annotation_v1". |
+
+**Pose arrays** (`left.obs_ee_pose`, `right.obs_ee_pose`, `left.obs_wrist_pose`, `right.obs_wrist_pose`, `obs_head_pose`, `left.cmd_ee_pose`, `right.cmd_ee_pose`): shape `(T, 7)` = xyz + wxyz quaternion, unit-norm within 0.0001. A missing frame is exempt from the norm check; mark it with all 7 values `0`, or all 7 with magnitude >= 1e+08 (write `1e9`). Any other frame with a non-unit quaternion, NaN included, is an error.
+<!-- schema:end -->
 
 ### 6.4 Storage / Chunking
 
@@ -745,188 +786,17 @@ ray.get(tasks)
 
 ### 11.1 Automated Checks
 
-Run these checks on every episode before uploading:
+Run the validator on every episode before uploading:
 
-```python
-import zarr, numpy as np
-import json
-from pathlib import Path
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrEpisode
-import simplejpeg
-
-def validate_episode(zarr_path: str) -> tuple[list[str], list[str]]:
-    """Returns (errors, successes). Empty errors list = pass."""
-    errors: list[str] = []
-    successes: list[str] = []
-    ep = ZarrEpisode(zarr_path)
-    meta = ep.metadata
-    T = meta["total_frames"]
-    store = zarr.open(zarr_path, mode="r")
-
-    # ── Metadata ────────────────────────────────────────────────────────────
-    for field in ("embodiment", "total_frames", "fps", "task_name", "features"):
-        if field not in meta:
-            errors.append(f"Missing metadata field: {field}")
-        else:
-            successes.append(f"metadata field present: {field}")
-
-    if meta.get("fps", 0) not in (30, 60):
-        errors.append(f"Unexpected fps={meta['fps']}. Expected 30 or 60.")
-    else:
-        successes.append(f"fps={meta['fps']} is valid")
-
-    # ── Embodiment identifier (must resolve to a valid id; see §9) ──────────
-    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
-    try:
-        get_embodiment_id(meta.get("embodiment", ""))
-        successes.append(f"embodiment={meta.get('embodiment')} is a valid identifier")
-    except (KeyError, AttributeError):
-        errors.append(f"embodiment={meta.get('embodiment')!r} is not a valid identifier (see §9)")
-
-    # ── Camera intrinsics (MANDATORY; {camera_key: 3x4 K matrix} dict) ──────
-    intr = meta.get("intrinsics")
-    if not isinstance(intr, dict) or not intr:
-        errors.append("intrinsics: missing or not a non-empty {camera_key: 3x4} dict")
-    else:
-        if not any("front" in str(k).lower() for k in intr):
-            errors.append(f"intrinsics: no front-camera entry (keys: {list(intr)})")
-        for cam, K in intr.items():
-            if np.asarray(K, dtype=float).shape != (3, 4):
-                errors.append(f"intrinsics['{cam}']: expected 3x4 K, got shape {np.asarray(K).shape}")
-            else:
-                successes.append(f"intrinsics['{cam}']: 3x4 OK")
-
-    # ── Camera extrinsics (OPTIONAL; None, or a non-empty dict of transforms) ─
-    if "extrinsics" in meta and meta["extrinsics"] is not None:
-        extr = meta["extrinsics"]
-        if not isinstance(extr, dict) or not extr:
-            errors.append("extrinsics: present but not a non-empty dict (must be None or a dict)")
-        else:
-            successes.append(f"extrinsics: non-empty dict OK (keys: {list(extr)})")
-
-    # ── Frame counts ────────────────────────────────────────────────────────
-    features = meta.get("features", {})
-    for key in store.keys():
-        node = store[key]
-        if not isinstance(node, zarr.Array):
-            continue
-        if features.get(key, {}).get("dtype") == "json":
-            continue
-        arr_len = node.shape[0]
-        if arr_len < T:
-            errors.append(f"{key}: array length {arr_len} < total_frames {T}")
-        else:
-            successes.append(f"{key}: frame count OK ({arr_len} >= {T})")
-
-    # ── Required keys ───────────────────────────────────────────────────────
-    required = ["images.front_1", "left.obs_ee_pose", "right.obs_ee_pose"]
-    for key in required:
-        if key not in store:
-            errors.append(f"Missing required key: {key}")
-        else:
-            successes.append(f"required key present: {key}")
-
-    # ── Pose shapes and norms ───────────────────────────────────────────────
-    required_poses = ("left.obs_ee_pose", "right.obs_ee_pose")
-    optional_poses = ("left.obs_wrist_pose", "right.obs_wrist_pose", "obs_head_pose", "left.cmd_ee_pose", "right.cmd_ee_pose")
-    for key in required_poses + optional_poses:
-        if key in store:
-            arr = store[key][:]
-            if arr.shape != (T, 7) and arr.shape[0] >= T:
-                arr = arr[:T]
-            if arr.shape[-1] != 7:
-                errors.append(f"{key}: expected shape (T, 7), got {arr.shape}")
-                continue
-            else:
-                successes.append(f"{key}: shape OK (T, 7)")
-            quat = arr[:, 3:7]
-            norms = np.linalg.norm(quat, axis=1)
-            if not np.allclose(norms, 1.0, atol=1e-4):
-                bad = np.where(np.abs(norms - 1.0) > 1e-4)[0]
-                errors.append(f"{key}: {len(bad)} frames with non-unit quaternions (e.g. frame {bad[0]}, norm={norms[bad[0]]:.6f})")
-            else:
-                successes.append(f"{key}: all quaternions unit-norm")
-
-    # ── Gripper shapes (optional) ───────────────────────────────────────────
-    for key in ("left.obs_gripper", "right.obs_gripper", "left.gripper", "right.gripper"):
-        if key in store:
-            arr = store[key][:]
-            if arr.shape[0] < T:
-                errors.append(f"{key}: array length {arr.shape[0]} < total_frames {T}")
-                continue
-            if arr.ndim != 2 or arr.shape[-1] != 1:
-                errors.append(f"{key}: expected shape (T, 1), got {arr.shape}")
-            else:
-                successes.append(f"{key}: gripper shape OK (T, 1)")
-
-    # ── Keypoint shapes ─────────────────────────────────────────────────────
-    for key in ("left.obs_keypoints", "right.obs_keypoints"):
-        if key in store:
-            arr = store[key][:]
-            if arr.shape[-1] != 63:
-                errors.append(f"{key}: expected last dim 63 (21×3), got {arr.shape[-1]}")
-            else:
-                successes.append(f"{key}: keypoint shape OK (last dim = 63)")
-
-    # ── Annotation format (JSON-encoded records) ────────────────────────────
-    annotation_keys = [k for k, f in features.items() if f.get("dtype") == "json" and k in store]
-    for key in annotation_keys:
-        node = store[key]
-        n = node.shape[0]
-        bad = 0
-        first_err = None
-        for i in range(n):
-            raw = node[i]
-            # Unwrap any nested 0-d object/bytes ndarrays down to raw bytes.
-            while isinstance(raw, np.ndarray):
-                raw = raw.item() if raw.shape == () else raw.flat[0]
-            if isinstance(raw, np.bytes_):
-                raw = bytes(raw)
-            try:
-                rec = json.loads(raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw)
-                if not isinstance(rec, dict):
-                    raise ValueError(f"record is {type(rec).__name__}, expected dict")
-                for field, expected in (("text", str), ("start_idx", int), ("end_idx", int)):
-                    if field not in rec:
-                        raise ValueError(f"missing field '{field}'")
-                    if not isinstance(rec[field], expected):
-                        raise ValueError(f"field '{field}' is {type(rec[field]).__name__}, expected {expected.__name__}")
-                if not (0 <= rec["start_idx"] <= rec["end_idx"] <= T):
-                    raise ValueError(f"index range invalid: start={rec['start_idx']}, end={rec['end_idx']}, T={T}")
-            except Exception as e:
-                bad += 1
-                if first_err is None:
-                    first_err = (i, str(e))
-        if bad:
-            errors.append(f"{key}: {bad}/{n} annotations malformed (e.g. index {first_err[0]}: {first_err[1]})")
-        else:
-            successes.append(f"{key}: all {n} annotations well-formed")
-
-    # ── Image decodability (spot-check first frame of each JPEG key) ────────
-    jpeg_keys = [k for k, f in features.items() if f.get("dtype") == "jpeg" and k in store]
-    for key in jpeg_keys:
-        data = ep.read({key: (0, None)})
-        try:
-            frame = simplejpeg.decode_jpeg(bytes(data[key]), colorspace="RGB")
-            if frame.ndim != 3 or frame.shape[2] != 3:
-                errors.append(f"{key}: decoded frame has unexpected shape {frame.shape}")
-            else:
-                successes.append(f"{key}: frame 0 decoded OK, shape={frame.shape}")
-        except Exception as e:
-            errors.append(f"{key}: failed to decode frame 0: {e}")
-
-    return errors, successes
-
-# Usage
-errors, successes = validate_episode("/storage/project/r-dxu345-0/shared/pick_place/2026-03-17-18-09-03-000000")
-for s in successes:
-    print("OK:", s)
-if errors:
-    for e in errors:
-        print("ERROR:", e)
-else:
-    print("All checks passed.")
+```bash
+egoverse validate /path/to/episodes/         # a directory of episode dirs, or one episode
 ```
+
+It prints `OK` / `WARN` / `FAIL` per episode and exits 1 if any episode has errors. The
+checks (required attrs, fps, embodiment id, intrinsics shape, extrinsics None-or-non-empty-dict, frame counts, pose
+and gripper shapes, quaternion norms, annotation records, JPEG decodability, `format_version`)
+live in `egomimic/rldb/zarr/schema.py::validate_episode`; `egoverse schema` prints the attrs
+schema those checks enforce.
 
 ### 11.2 End-to-End Load Test
 
@@ -1023,7 +893,7 @@ Complete every item before considering an episode ready for upload.
 **Zarr format**
 - [ ] `obs_head_pose` is present (required for all contributors).
 - [ ] `left.obs_ee_pose` and `right.obs_ee_pose` are present if hand tracking is available.
-- [ ] All `obs_ee_pose` arrays have shape `(T, 7)` and unit-norm quaternions.
+- [ ] All `obs_ee_pose` arrays have shape `(T, 7)` and unit-norm quaternions (missing frames: all-`0` or all-`1e9` rows).
 - [ ] All `obs_keypoints` arrays have shape `(T, 63)`.
 - [ ] `features` dict in `zarr.attrs` has one entry per array key.
 - [ ] `embodiment` and `task_name` in `zarr.attrs` match the DB row values.
@@ -1093,4 +963,4 @@ To get credentials for the EgoVerse data bucket and episode registry:
 If you encounter processing errors, S3 permission issues, or schema questions, post in `#egoverse-onboarding` with:
 - Your episode hash(es)
 - The error message or symptom
-- The output of `validate_episode()` for the affected episode
+- The output of `egoverse validate <episode>` for the affected episode

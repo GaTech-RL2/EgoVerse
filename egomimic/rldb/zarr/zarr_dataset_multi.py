@@ -21,6 +21,7 @@ Each episode is self-contained with its own metadata, enabling:
 from __future__ import annotations
 
 import copy
+import functools
 import json
 import logging
 import math
@@ -44,6 +45,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.resolve_memo import memoized
+from egomimic.rldb.zarr.schema import SchemaVersionError, check_format_version
 from egomimic.utils.env import load_env
 
 
@@ -67,6 +69,15 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
+
+
+@functools.cache
+def _warn_legacy_once() -> None:
+    logger.warning(
+        "Reading episodes with no format_version as legacy v0 (warned once); "
+        "`egoverse validate` lists them. Re-export with the current ZarrWriter to stamp them."
+    )
+
 
 SEED = 42
 
@@ -317,6 +328,8 @@ class EpisodeResolver:
                     transform_list=self.transform_list,
                 )
                 datasets[name] = ds_obj
+            except SchemaVersionError:
+                raise
             except Exception as e:
                 logger.error(f"Failed to load dataset at {p}: {e}")
                 skipped.append(p.name)
@@ -2064,6 +2077,7 @@ class ZarrEpisode:
         "_store",
         "metadata",
         "keys",
+        "format_version",
     )
 
     def __init__(self, path: str | Path):
@@ -2075,6 +2089,12 @@ class ZarrEpisode:
         self._path = Path(path)
         self._store = zarr.open_group(str(self._path), mode="r")
         self.metadata = dict(self._store.attrs)
+        try:
+            self.format_version = check_format_version(self.metadata)
+        except SchemaVersionError as e:
+            raise SchemaVersionError(f"{self._path}: {e}") from None
+        if self.format_version == "0.0":
+            _warn_legacy_once()
         self.keys = self.metadata["features"]
 
     @property

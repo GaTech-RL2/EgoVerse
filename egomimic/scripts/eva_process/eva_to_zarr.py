@@ -165,8 +165,12 @@ def convert_episode(
     task_description: str = "",
     save_mp4: bool = False,
     chunk_timesteps: int = 100,
+    source_uri: str | None = None,
 ) -> tuple[Path, Path]:
     """Process one HDF5 file and write a .zarr episode.
+
+    source_uri (recorded in the zarr provenance, e.g. the s3:// URL the file was
+    downloaded from) defaults to raw_path as a file:// URI.
 
     Returns the zarr episode path on success.
     """
@@ -197,6 +201,8 @@ def convert_episode(
         chunk_timesteps=chunk_timesteps,
         intrinsics={"front_1": Eva.INTRINSICS},
         extrinsics=Eva.EXTRINSICS,
+        converter="egomimic.scripts.eva_process.eva_to_zarr",  # not __name__: "__main__" as a script
+        source_uri=source_uri or Path(raw_path).resolve().as_uri(),
     )
 
     logger.info("Wrote zarr episode: %s", zarr_path)
@@ -240,6 +246,7 @@ def main(args) -> None:
             task_description=args.task_description,
             save_mp4=args.save_mp4,
             chunk_timesteps=args.chunk_timesteps,
+            source_uri=getattr(args, "source_uri", None),
         )
         return zarr_path, mp4_path
     except Exception:

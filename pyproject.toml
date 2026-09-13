@@ -79,6 +79,9 @@ dependencies = [
 # not part of this package; install it by hand when running that converter.
 # The Ray data-processing image keeps its own requirements-ray.txt.
 
+[project.scripts]
+egoverse = "egomimic.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["egomimic*"]
