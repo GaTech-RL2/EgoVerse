@@ -777,8 +777,7 @@ class PILatentEvalVideo(EvalVideo):
         import os
         import re
 
-        import torch
-
+        from egomimic.utils.checkpoint_utils import load_checkpoint_weights
         from egomimic.utils.hydra_resolvers import (
             model_time_from_ckpt,
             model_type_from_ckpt,
@@ -831,9 +830,7 @@ class PILatentEvalVideo(EvalVideo):
         ckpt_path = cfg.get("ckpt_path")
         pretrained = bool(cfg.get("pretrained", False))
         if ckpt_path and not pretrained:
-            checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-            model.load_state_dict(checkpoint["state_dict"], strict=False)
-            log.info(f"Loaded weights from {ckpt_path}")
+            load_checkpoint_weights(model, ckpt_path)
         elif ckpt_path and pretrained:
             log.info(
                 f"pretrained=true → skipping checkpoint load. "
