@@ -191,7 +191,10 @@ class PI(Algo):
                 sum(p.numel() for p in target.parameters()),
             )
         else:
-            logger.warning("No pytorch_weight_path specified — training from scratch")
+            logger.warning(
+                "No pytorch_weight_path: no base weights loaded. The weights must "
+                "come from a checkpoint; otherwise this trains from scratch."
+            )
         self.nets = nn.ModuleDict()
         self.nets["policy"] = self.model
 
