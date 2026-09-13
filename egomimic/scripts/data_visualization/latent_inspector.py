@@ -116,8 +116,10 @@ def main():
         return
 
     if not args.zarr_root:
-        raise SystemExit("--zarr-root is required for the latent scatter/browser "
-                         "(omit it only with --dataset-path).")
+        raise SystemExit(
+            "--zarr-root is required for the latent scatter/browser "
+            "(omit it only with --dataset-path)."
+        )
 
     if args.root:
         runs = discover_runs(args.root)

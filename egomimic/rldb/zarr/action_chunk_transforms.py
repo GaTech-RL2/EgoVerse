@@ -535,12 +535,8 @@ class PadGripperZeros(Transform):
             )
         pad_shape = (*arr.shape[:-1], 1)
         pad = np.zeros(pad_shape, dtype=arr.dtype)
-        padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
-        )
-        batch[self.action_key] = (
-            torch.from_numpy(padded) if is_tensor else padded
-        )
+        padded = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
+        batch[self.action_key] = torch.from_numpy(padded) if is_tensor else padded
         return batch
 
 

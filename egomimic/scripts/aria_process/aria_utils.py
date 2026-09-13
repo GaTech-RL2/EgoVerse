@@ -32,12 +32,27 @@ T_ROT_CAM = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
 #   0 wrist, 1-4 thumb (CMC, MCP, IP, tip), 5-8 index, 9-12 middle,
 #   13-16 ring, 17-20 pinky
 OTAHERI_TO_CANONICAL = [
-    0,              # wrist
-    13, 14, 15, 16, # thumb (3 joints + tip)
-    1, 2, 3, 17,    # index
-    4, 5, 6, 18,    # middle
-    10, 11, 12, 19, # ring
-    7, 8, 9, 20,    # pinky
+    0,  # wrist
+    13,
+    14,
+    15,
+    16,  # thumb (3 joints + tip)
+    1,
+    2,
+    3,
+    17,  # index
+    4,
+    5,
+    6,
+    18,  # middle
+    10,
+    11,
+    12,
+    19,  # ring
+    7,
+    8,
+    9,
+    20,  # pinky
 ]
 
 # Aria's 21-keypoint layout: 0-4 fingertips (thumb..pinky), 5 palm root/wrist,
@@ -46,26 +61,26 @@ OTAHERI_TO_CANONICAL = [
 # Aria idx -> otaheri MANO target idx; MANO's thumb CMC has no Aria source and
 # is filled in by MANO's kinematic prior.
 ARIA_TO_OTAHERI = {
-    5: 0,    # wrist
-    6: 14,   # thumb MCP
-    7: 15,   # thumb IP
-    0: 16,   # thumb tip
-    8: 1,    # index1
-    9: 2,    # index2
-    10: 3,   # index3
-    1: 17,   # index tip
-    11: 4,   # middle1
-    12: 5,   # middle2
-    13: 6,   # middle3
-    2: 18,   # middle tip
+    5: 0,  # wrist
+    6: 14,  # thumb MCP
+    7: 15,  # thumb IP
+    0: 16,  # thumb tip
+    8: 1,  # index1
+    9: 2,  # index2
+    10: 3,  # index3
+    1: 17,  # index tip
+    11: 4,  # middle1
+    12: 5,  # middle2
+    13: 6,  # middle3
+    2: 18,  # middle tip
     14: 10,  # ring1
     15: 11,  # ring2
     16: 12,  # ring3
-    3: 19,   # ring tip
-    17: 7,   # pinky1
-    18: 8,   # pinky2
-    19: 9,   # pinky3
-    4: 20,   # pinky tip
+    3: 19,  # ring tip
+    17: 7,  # pinky1
+    18: 8,  # pinky2
+    19: 9,  # pinky3
+    4: 20,  # pinky tip
 }
 ARIA_IDX_USED = list(ARIA_TO_OTAHERI.keys())  # length 20
 MANO_IDX_TARGET = [ARIA_TO_OTAHERI[a] for a in ARIA_IDX_USED]  # length 20
@@ -171,7 +186,9 @@ def fit_mano_to_aria_batched(
     # Cosine-decay the LR to 5% of peak over the budget. A constant high LR
     # oscillates at long iteration counts and degrades the fit (~5.2mm vs 4.7mm
     # corresponded-finger err); the decay is load-bearing, not optional.
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=n_iters, eta_min=lr * 0.05)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(
+        opt, T_max=n_iters, eta_min=lr * 0.05
+    )
 
     aria_idx_t = torch.tensor(ARIA_IDX_USED, device=device, dtype=torch.long)
     mano_idx_t = torch.tensor(MANO_IDX_TARGET, device=device, dtype=torch.long)
@@ -182,8 +199,12 @@ def fit_mano_to_aria_batched(
 
     for step in range(n_iters):
         out = model(
-            betas=beta, global_orient=R_global, hand_pose=theta,
-            transl=t_global, return_verts=True, return_tips=True,
+            betas=beta,
+            global_orient=R_global,
+            hand_pose=theta,
+            transl=t_global,
+            return_verts=True,
+            return_tips=True,
         )
         pred = out.joints.index_select(1, mano_idx_t)  # (N, 20, 3)
 
@@ -198,12 +219,18 @@ def fit_mano_to_aria_batched(
         opt.step()
         sched.step()
         if verbose and (step % 50 == 0 or step == n_iters - 1):
-            print(f"    iter {step:4d}  pos={pos_loss.item():.5f}  reg={reg_loss.item():.5f}")
+            print(
+                f"    iter {step:4d}  pos={pos_loss.item():.5f}  reg={reg_loss.item():.5f}"
+            )
 
     with torch.no_grad():
         out = model(
-            betas=beta, global_orient=R_global, hand_pose=theta,
-            transl=t_global, return_verts=True, return_tips=True,
+            betas=beta,
+            global_orient=R_global,
+            hand_pose=theta,
+            transl=t_global,
+            return_verts=True,
+            return_tips=True,
         )
         mano_kp = out.joints.detach().cpu()  # (N, 21, 3) otaheri order
 
@@ -233,11 +260,15 @@ def convert_aria_keypoints_to_mano(
     Output is in the same coordinate frame as the input. Fits are batched in
     chunks of `chunk_size` frames to bound memory.
     """
-    kp = torch.as_tensor(np.asarray(keypoints_t63), dtype=torch.float32).reshape(-1, 21, 3)
+    kp = torch.as_tensor(np.asarray(keypoints_t63), dtype=torch.float32).reshape(
+        -1, 21, 3
+    )
     if kp.shape[0] == 0:
         return np.asarray(keypoints_t63, dtype=np.float64).reshape(-1, 63)
     # Sentinel (1e9) -> NaN so the fit's validity masks apply.
-    kp = torch.where(kp.abs() < _ARIA_INVALID_SENTINEL, kp, torch.full_like(kp, float("nan")))
+    kp = torch.where(
+        kp.abs() < _ARIA_INVALID_SENTINEL, kp, torch.full_like(kp, float("nan"))
+    )
     outs = []
     for s in range(0, kp.shape[0], chunk_size):
         outs.append(
@@ -1051,9 +1082,7 @@ class AriaVRSExtractor:
                 right_T_t = sp.SE3.from_matrix(right_T_t)
                 right_T_t = world_device_T_t @ right_T_t
                 right_T_t = sp.SE3.from_matrix(
-                    T_rot_orientation(
-                        right_T_t.to_matrix(), T_ROT_CAM
-                    )
+                    T_rot_orientation(right_T_t.to_matrix(), T_ROT_CAM)
                 )
                 right_quat_and_translation = quat_translation_swap(
                     right_T_t.to_quat_and_translation()
