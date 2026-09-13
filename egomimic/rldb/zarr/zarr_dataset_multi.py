@@ -44,11 +44,20 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.resolve_memo import memoized
-from egomimic.utils.aws.aws_data_utils import load_env
-from egomimic.utils.aws.aws_sql import (
-    create_default_engine,
-    episode_table_to_df,
-)
+from egomimic.utils.env import load_env
+
+
+def create_default_engine():
+    from egomimic.utils.aws.aws_sql import create_default_engine as _f
+
+    return _f()
+
+
+def episode_table_to_df(engine):
+    from egomimic.utils.aws.aws_sql import episode_table_to_df as _f
+
+    return _f(engine)
+
 
 if TYPE_CHECKING:
     # Annotation-only import — avoids a runtime circular import with
