@@ -148,3 +148,11 @@ def test_visualize_preds_uses_embodiment_specific_camera_transform(monkeypatch):
     assert all(
         call["extrinsics"] is not eva_transform.extrinsics for call in draw_calls
     )
+
+
+def test_transformers_overlay_is_applied():
+    """Fails when a transformers reinstall reverted openpi's patch; the message
+    names the fix command."""
+    from egomimic import openpi_patch
+
+    openpi_patch.check()

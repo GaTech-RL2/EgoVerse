@@ -15,6 +15,7 @@ from openpi.shared.image_tools import resize_with_pad_torch
 from overrides import override
 from transformers import AutoTokenizer
 
+from egomimic import openpi_patch
 from egomimic.algo.algo import Algo
 from egomimic.models.preprocess_pi_obs import (
     PI_CAMERA_SLOTS,
@@ -169,6 +170,9 @@ class PI(Algo):
             pi05=getattr(config.model, "pi05", False),
         )
 
+        # Fail here, with the fix command, rather than deep inside openpi when a
+        # transformers reinstall has reverted its transformers_replace overlay.
+        openpi_patch.check()
         self.model = openpi.models_pytorch.pi0_pytorch.PI0Pytorch(model_cfg)
 
         if self.config.pytorch_weight_path is not None:

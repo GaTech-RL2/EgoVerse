@@ -107,6 +107,12 @@ def pi_unavailable() -> str | None:
     except ImportError:
         # openpi is not in uv.lock (pyproject explains); CI installs it by hand.
         return "openpi not importable in this venv (see pi05.md); Pi cases run by hand"
+    from egomimic import openpi_patch
+
+    try:
+        openpi_patch.check()  # PI.__init__ runs it even when the network is stubbed
+    except RuntimeError as e:
+        return str(e)
     from huggingface_hub import try_to_load_from_cache
 
     if try_to_load_from_cache(PI_TOKENIZER, "tokenizer_config.json") is None:
