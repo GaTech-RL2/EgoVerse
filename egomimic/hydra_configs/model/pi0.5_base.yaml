@@ -3,7 +3,8 @@ robomimic_model:
   _target_: egomimic.algo.pi.PI
   config:
     pytorch_training_precision: bfloat16
-    pytorch_weight_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
+    # directory holding model.safetensors of the pi0.5 base ($EGOVERSE_PI05_WEIGHTS overrides)
+    pytorch_weight_path: ${oc.env:EGOVERSE_PI05_WEIGHTS,/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch}
     model:
       pi05: true
       action_dim: 32
