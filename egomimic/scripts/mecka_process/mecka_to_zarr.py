@@ -16,17 +16,80 @@ import time
 import traceback
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
+from urllib.parse import urlsplit
 
 import cv2
 import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation
 
-from egomimic.rldb.embodiment.embodiment import EMBODIMENT
+from egomimic.rldb.embodiment.human import MECKA_INTRINSICS
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# The --arm flag picks the embodiment name written to zarr.json. All Mecka data
+# is human data; the vendor is recorded only in the SQL `lab` column (see
+# egomimic/rldb/embodiment/embodiment.py). `arm` does not change which hands
+# are extracted (MeckaExtractor._extract_hand_data always returns both).
+ARM_TO_EMBODIMENT = {
+    "both": "human_bimanual",
+    "left": "human_left_arm",
+    "right": "human_right_arm",
+}
+
+
+def write_episode_zarr(
+    episode_feats: dict[str, np.ndarray],
+    annotations_df: pd.DataFrame,
+    episode_id: str,
+    output_dir: Path,
+    *,
+    embodiment: str,
+    task_name: str,
+    task_description: str = "",
+    fps: int = 30,
+    metadata_override: dict | None = None,
+    source_uri: str | None = None,
+) -> Path:
+    """Write one extracted Mecka episode as ``<output_dir>/<episode_id>.zarr``.
+
+    ``images.*`` arrays go to the image store, everything else is numeric.
+    Annotation rows (``label``, ``start_time``, ``end_time`` in seconds) become
+    ``(label, start_idx, end_idx)`` frame spans, clipped to the episode (the
+    extractor cuts it to the shortest stream); rows with a blank label or that
+    start past the end are dropped. Intrinsics are ``MECKA_INTRINSICS``
+    (already scaled to the 640x360 frames the extractor emits).
+    """
+    numeric_data = {k: v for k, v in episode_feats.items() if "images" not in k}
+    image_data = {k: v for k, v in episode_feats.items() if "images" in k}
+    total_frames = len(next(iter(episode_feats.values())))
+    annotations: list[tuple[str, int, int]] = []
+    for _, row in annotations_df.iterrows():
+        label = row.get("label", row.get("Labels", ""))
+        start_idx = int(row["start_time"] * fps)
+        end_idx = min(int(row["end_time"] * fps), total_frames)
+        if pd.isna(label) or start_idx >= total_frames:
+            logger.warning(f"Skipping annotation row {row.to_dict()}")
+            continue
+        annotations.append((str(label).replace("_", " "), start_idx, end_idx))
+    episode_zarr_path = Path(output_dir) / f"{episode_id}.zarr"
+    ZarrWriter.create_and_write(
+        episode_path=episode_zarr_path,
+        numeric_data=numeric_data,
+        image_data=image_data,
+        annotations=annotations,
+        fps=fps,
+        embodiment=embodiment,
+        task_name=task_name,
+        task_description=task_description,
+        intrinsics={"front_1": MECKA_INTRINSICS},
+        converter="egomimic.scripts.mecka_process.mecka_to_zarr",  # not __name__: "__main__" as a script
+        source_uri=source_uri,
+        metadata_override=metadata_override,
+    )
+    return episode_zarr_path
 
 
 def download_with_retry(
@@ -122,31 +185,18 @@ def pose_to_transform(pose: np.ndarray) -> np.ndarray:
     return T
 
 
-def extract_mecka_metadata(
-    episode_meta: dict,
-    data_dir: Optional[Path] = None,
-) -> dict:
+def extract_mecka_metadata(episode_meta: dict) -> dict:
     """
     Extract Mecka metadata dict from episode JSON for Zarr metadata_override.
 
     Args:
         episode_meta: Raw episode dict from RL2 JSON (id, user_id, duration, etc.).
-        data_dir: Optional directory containing intrinsics.json to load.
 
     Returns:
         Dict with episode_id, user_id, duration, environment_id, scene_id,
-        scene_desc, objects, intrinsics (from file or {}).
+        scene_desc, objects. Intrinsics are not taken from the episode: every
+        episode is written with the fixed ``MECKA_INTRINSICS``.
     """
-    intrinsics: dict = {}
-    if data_dir is not None:
-        intrinsics_path = data_dir / "intrinsics.json"
-        if intrinsics_path.exists():
-            try:
-                with open(intrinsics_path, "r") as f:
-                    intrinsics = json.load(f)
-            except Exception as e:
-                logger.warning(f"Could not load intrinsics from {intrinsics_path}: {e}")
-
     return {
         "episode_id": episode_meta.get("id"),
         "user_id": episode_meta.get("user_id"),
@@ -155,7 +205,6 @@ def extract_mecka_metadata(
         "scene_id": episode_meta.get("scene_id"),
         "scene_desc": episode_meta.get("scene_desc"),
         "objects": episode_meta.get("objects", []),
-        "intrinsics": intrinsics if intrinsics else episode_meta.get("intrinsics", {}),
     }
 
 
@@ -333,15 +382,6 @@ class MeckaExtractor:
                 download_with_retry(
                     episode_meta["urls"]["annotations"], annotations_path
                 )
-                intrinsics_path = temp_dir / "intrinsics.json"
-                if "intrinsics" in episode_meta.get("urls", {}):
-                    try:
-                        download_with_retry(
-                            episode_meta["urls"]["intrinsics"], intrinsics_path
-                        )
-                    except Exception as e:
-                        logger.warning(f"Could not download intrinsics: {e}")
-                data_dir = temp_dir
             else:
                 logger.info(
                     f"Loading data files from local directory: {local_data_dir}"
@@ -366,7 +406,6 @@ class MeckaExtractor:
                         raise FileNotFoundError(
                             f"Missing required file for local load: {p}"
                         )
-                data_dir = local_data_dir
 
             hands_df = pd.read_csv(hands_path)
             egomotion = np.loadtxt(egomotion_path)
@@ -409,7 +448,9 @@ class MeckaExtractor:
             hand_poses_world = hand_poses_world[:num_frames]
             wrist_poses_world = wrist_poses_world[:num_frames]
             hand_keypoints_world = hand_keypoints_world[:num_frames]
-            actions_head_cartesian_world = MeckaExtractor._extract_head_poses(egomotion)
+            actions_head_cartesian_world = MeckaExtractor._extract_head_poses(
+                egomotion[:num_frames]
+            )
             # Flatten 21×3 keypoints to 63 per hand for Zarr schema
             # hand_index 0=left, 1=right
             right_keypoints = hand_keypoints_world[:, 1, :, :].reshape(num_frames, 63)
@@ -427,7 +468,7 @@ class MeckaExtractor:
                 "left.obs_wrist_pose": wrist_poses_world[:, :7],
             }
 
-            mecka_metadata = extract_mecka_metadata(episode_meta, data_dir)
+            mecka_metadata = extract_mecka_metadata(episode_meta)
 
             logger.info(f"Extracted {num_frames} frames")
             return episode_feats, annotations_df, episode_meta, mecka_metadata
@@ -501,6 +542,8 @@ class MeckaExtractor:
                 - hand_keypoints_world: (T, 2, 21, 3) [left_21kp, right_21kp] in world.
         """
         num_frames = len(frames_df)
+        # A hand not detected in a frame keeps all-zero pose/keypoint rows;
+        # egoverse validate treats an all-zero 7-DoF pose row as a missing frame.
         hand_poses = np.zeros((num_frames, 14))
         hand_keypoints = np.zeros((num_frames, 2, 21, 3))
         wrist_poses = np.zeros((num_frames, 14))
@@ -652,6 +695,8 @@ class MeckaDatasetConverter:
         arm: str = "both",
         local_data_dir: Optional[Path] = None,
         task_description: str = "",
+        task_name: str = "",
+        save_mp4: bool = True,
     ):
         """
         Initialize the Mecka-to-Zarr converter and run feature extraction.
@@ -665,9 +710,14 @@ class MeckaDatasetConverter:
             episode_json_path: Path to episode JSON (RL2 format).
             output_dir: Directory to write Zarr store and preview MP4.
             repo_id: Dataset repository identifier (e.g. "mecka/demo").
-            arm: Which hand(s) to include ("left", "right", or "both").
+            arm: Embodiment label to write ("both" -> human_bimanual,
+                "left"/"right" -> human_left_arm / human_right_arm). Both
+                hands are always extracted.
             local_data_dir: Optional path to pre-downloaded episode files; skips download.
             task_description: Optional task label for annotations.
+            task_name: ``task_name`` written to zarr.json; must match the
+                episode's DB row (e.g. "fold_clothes").
+            save_mp4: Also write a half-resolution preview MP4.
         """
         self.episode_json_path = episode_json_path
         self.repo_id = repo_id
@@ -678,15 +728,14 @@ class MeckaDatasetConverter:
         self.output_dir = Path(output_dir)
         self.fps = 30
         self.task_description = task_description
+        self.task_name = task_name
+        self.save_mp4 = save_mp4
 
-        if arm == "both":
-            emb = EMBODIMENT.MECKA_BIMANUAL
-        elif arm == "left":
-            emb = EMBODIMENT.MECKA_LEFT_ARM
-        else:
-            emb = EMBODIMENT.MECKA_RIGHT_ARM
-
-        self.embodiment = emb.name
+        if arm not in ARM_TO_EMBODIMENT:
+            raise ValueError(
+                f"arm must be one of {sorted(ARM_TO_EMBODIMENT)}, got {arm!r}"
+            )
+        self.embodiment = ARM_TO_EMBODIMENT[arm]
 
         logger.info("Processing episode to extract features...")
         (
@@ -700,50 +749,36 @@ class MeckaDatasetConverter:
             local_data_dir=self.local_data_dir,
         )
 
-    def extract_episode(self) -> None:
+    def extract_episode(self) -> Path:
         """
-        Write extracted episode features to Zarr and save a preview MP4.
-
-
-        Splits episode_feats into numeric_data and image_data, parses annotations
-        from annotations_df (label, start_time, end_time), and calls ZarrWriter.
-        Generates a half-resolution H.264 preview video alongside the Zarr store.
+        Write the extracted episode to Zarr and, unless ``save_mp4`` is off, a
+        half-resolution H.264 preview next to it. Returns the zarr path.
         """
-        numeric_data = {}
-        image_data = {}
-        annotations = []
-        image_frames = np.empty((0, 360, 640, 3), dtype=np.uint8)
-
-        # Split episode_feats into numeric vs image arrays for ZarrWriter
-        for key, value in self.episode_feats.items():
-            if "images" in key:
-                image_data[key] = value
-                image_frames = np.vstack([image_frames, value])
-            else:
-                numeric_data[key] = value
-
-        # Parse annotations: label, start_time, end_time -> (label, start_idx, end_idx)
-        fps = 30  # Mecka/RL2 video fps
-        for _, row in self.annotations_df.iterrows():
-            label = row.get("label", row.get("Labels", ""))
-            label = label.replace("_", " ")
-            start_idx = int(row["start_time"] * fps)
-            end_idx = int(row["end_time"] * fps)
-            annotations.append((label, start_idx, end_idx))
-
-        episode_zarr_path = self.output_dir / f"{self.episode_meta['id']}.zarr"
-        ZarrWriter.create_and_write(
-            episode_path=episode_zarr_path,
-            numeric_data=numeric_data,
-            image_data=image_data,
-            annotations=annotations,
-            fps=self.fps,
+        episode_id = str(self.episode_meta["id"])
+        if self.local_data_dir is not None:
+            source_uri = self.local_data_dir.resolve().as_uri()
+        else:
+            # Drop the query string: download URLs may be pre-signed.
+            source_uri = urlsplit(self.episode_meta["urls"]["video"])
+            source_uri = source_uri._replace(query="", fragment="").geturl()
+        path = write_episode_zarr(
+            self.episode_feats,
+            self.annotations_df,
+            episode_id,
+            self.output_dir,
             embodiment=self.embodiment,
+            task_name=self.task_name,
             task_description=self.task_description,
+            fps=self.fps,
             metadata_override=self.mecka_metadata,
+            source_uri=source_uri,
         )
-        mp4_path = self.output_dir / f"{self.episode_meta['id']}.mp4"
-        self.save_preview_mp4(image_frames, mp4_path)
+        if self.save_mp4:
+            self.save_preview_mp4(
+                self.episode_feats["images.front_1"],
+                self.output_dir / f"{episode_id}.mp4",
+            )
+        return path
 
     def save_preview_mp4(
         self, image_frames: np.ndarray, output_path: Path, fps: int = 30
@@ -880,9 +915,21 @@ def main() -> None:
     parser.add_argument(
         "--arm",
         default="both",
-        choices=["left", "right", "both"],
-        help="Which arm(s) to include",
+        choices=list(ARM_TO_EMBODIMENT),
+        help=(
+            "embodiment label to write (both -> human_bimanual, "
+            "left/right -> human_{left,right}_arm)"
+        ),
     )
+    parser.add_argument(
+        "--task-name",
+        default="",
+        help="task_name written to zarr.json (must match the DB row, e.g. fold_clothes)",
+    )
+    parser.add_argument(
+        "--task-description", default="", help="task_description written to zarr.json"
+    )
+    parser.add_argument("--no-mp4", action="store_true", help="skip the preview MP4")
     parser.add_argument(
         "--video-encoding", action="store_true", help="Encode images as video in zarr"
     )
@@ -907,6 +954,9 @@ def main() -> None:
             repo_id=args.repo_id,
             arm=args.arm,
             local_data_dir=args.local_data_dir,
+            task_name=args.task_name,
+            task_description=args.task_description,
+            save_mp4=not args.no_mp4,
         )
 
         converter.extract_episode()
