@@ -1,14 +1,12 @@
+# Default data for train_zarr_cartesian_pi: every eva_bimanual episode, with
+# language annotations (inherited from cotrain_pi_base). Not a camera-naming
+# twin of data=eva -- that one is a single pinned episode with no annotations.
 defaults:
   - cotrain_pi_base
   - _self_
 
 train_datasets:
   eva_bimanual:
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: ${paths.dataset_dir}
-      key_map:
-        keymap_mode: cartesian_pi
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

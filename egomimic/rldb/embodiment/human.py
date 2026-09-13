@@ -4,7 +4,7 @@ from typing import Literal
 
 import numpy as np
 
-from egomimic.rldb.embodiment.embodiment import Embodiment
+from egomimic.rldb.embodiment.embodiment import Embodiment, _strip_pi_keymap_mode
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
@@ -122,9 +122,6 @@ class Human(Embodiment):
 
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
-    # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
-    # Pi's _fill_missing_images auto-duplicates the absent wrist keys.
-    PI_FRONT_KEY = "base_0_rgb"
     T_RGB_CPF = ARIA_T_RGB_CPF  # for the opt-in aria gaze viz
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
@@ -256,13 +253,12 @@ class Human(Embodiment):
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
     ):
-        """Canonical MANO keymap. A ``_pi`` suffix swaps the front image key to
-        ``PI_FRONT_KEY``; ``include_aria_keypoints`` additionally exposes the raw
-        Aria-layout proprio keypoints alongside the MANO ones.
+        """Canonical MANO keymap. ``include_aria_keypoints`` additionally exposes
+        the raw Aria-layout proprio keypoints alongside the MANO ones. The front
+        image is always ``VIZ_IMAGE_KEY``; Pi renames it onto its own slot.
         """
-        is_pi = keymap_mode.endswith("_pi")
-        base_mode = keymap_mode[: -len("_pi")] if is_pi else keymap_mode
-        front_key = cls.PI_FRONT_KEY if is_pi else cls.VIZ_IMAGE_KEY
+        base_mode = _strip_pi_keymap_mode(cls, keymap_mode)
+        front_key = cls.VIZ_IMAGE_KEY
         horizon = cls.ACTION_HORIZON
 
         if base_mode == "cartesian":
@@ -345,7 +341,7 @@ class Human(Embodiment):
         else:
             raise ValueError(
                 f"Unsupported keymap_mode '{keymap_mode}' for {cls.__name__}. "
-                "Expected 'cartesian' or 'keypoints' (optionally with a '_pi' suffix)."
+                "Expected 'cartesian' or 'keypoints'."
             )
 
         if has_head_pose:
