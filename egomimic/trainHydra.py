@@ -19,6 +19,7 @@ from tabulate import tabulate
 import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf resolvers
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.resolve_memo import resolve_once
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, PinError
@@ -172,6 +173,17 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         )
         norm_stats.populate_from_datasets(datamodule.train_datasets)
 
+        from egomimic.rldb.zarr import norm_cache
+
+        sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
+        explicit_path = OmegaConf.select(
+            cfg, "norm_stats.precomputed_norm_path", default=None
+        )
+        # Code default is False so configs without the key keep the old behaviour
+        # (always recompute); the shipped configs set norm_stats.use_cache=true.
+        use_cache = bool(OmegaConf.select(cfg, "norm_stats.use_cache", default=False))
+        cache_dir = OmegaConf.select(cfg, "norm_stats.cache_dir", default=None)
+
         for dataset_name, dataset in datamodule.train_datasets.items():
             log.info(f"Inferring shapes for dataset <{dataset_name}>")
             norm_stats.infer_shapes_from_batch(dataset[0])
@@ -186,18 +198,46 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             norm_dataset = _instantiate_dataset(
                 instantiate_copy, dataset_name=dataset_name
             )
+
+            emb = get_embodiment_id(dataset_name)
+            key = inputs = cached = None
+            if explicit_path is None and use_cache and cache_dir:
+                episodes = {
+                    h: norm_cache.episode_fingerprint(getattr(ds, "episode_path", None))
+                    for h, ds in dataset.datasets.items()
+                }
+                inputs = norm_cache.cache_inputs(
+                    dataset_name,
+                    episodes,
+                    cfg.data.train_datasets[dataset_name],
+                    sample_frac,
+                )
+                key = norm_cache.norm_cache_key(inputs)
+                cached = norm_cache.find_cached(cache_dir, dataset_name, key, emb)
+                if cached is not None:
+                    log.info(f"norm stats for <{dataset_name}>: cache hit {cached}")
+
             # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
             norm_stats.infer_norm_from_dataset(
                 norm_dataset,
                 dataset_name,
-                sample_frac=OmegaConf.select(
-                    cfg, "norm_stats.sample_frac", default=1.0
-                ),
+                sample_frac=sample_frac,
                 num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
-                precomputed_norm_path=OmegaConf.select(
-                    cfg, "norm_stats.precomputed_norm_path", default=None
-                ),
+                precomputed_norm_path=explicit_path
+                if explicit_path is not None
+                else cached,
             )
+            if key is not None and cached is None:
+                if norm_stats.norm_stats.get(emb):
+                    norm_cache.write_cached(
+                        cache_dir,
+                        dataset_name,
+                        key,
+                        inputs,
+                        emb,
+                        norm_stats.norm_stats[emb],
+                        norm_stats._norm_run_metadata,
+                    )
             # Cache norm stats if save_cache_dir is set
             save_cache_dir = OmegaConf.select(
                 cfg, "norm_stats.save_cache_dir", default=None
