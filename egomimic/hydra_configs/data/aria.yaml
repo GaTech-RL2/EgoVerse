@@ -15,8 +15,7 @@ train_datasets:
         stride: 3
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
-      filter_lambdas:
-        - "lambda row: row['episode_hash'] == '2025-09-20-17-47-54-000000'"
+      episode_hashes: ["2025-09-20-17-47-54-000000"]
     mode: total
 
 valid_datasets:

@@ -71,6 +71,7 @@ def build_dataset(
     task: str,
     embodiment: str,
     resolver,
+    dataset_name: str | None = None,
     hashes: list[str] | None = None,
     frames_per_episode: int | None = 128,
     stride: int | None = None,
@@ -94,6 +95,7 @@ def build_dataset(
         logger.info("[build_dataset] %s | random mode | filter=%s", embodiment, lam)
         return MultiDataset._from_resolver(
             resolver,
+            dataset_name=dataset_name,
             filters=filters,
             mode="total",
             valid_ratio=valid_ratio,
@@ -123,6 +125,7 @@ def build_dataset(
         )
         base = MultiDataset._from_resolver(
             resolver,
+            dataset_name=dataset_name,
             filters=filters,
             mode="total",
             valid_ratio=valid_ratio,
