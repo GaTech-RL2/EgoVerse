@@ -81,6 +81,7 @@ class PI(Algo):
         self.sampling_mode = sampling_mode
         self.annotation_key = annotation_key
         self.default_prompt = default_prompt
+        self._empty_prompt_warned: set[tuple[str, str]] = set()
         self.proprio_in_prompt = proprio_in_prompt
         self.embodiment_label = embodiment_label
         self.state_num_bins = state_num_bins
@@ -230,6 +231,24 @@ class PI(Algo):
         bins = np.digitize(state, bins=self._state_bin_edges) - 1
         return " ".join(map(str, bins.tolist()))
 
+    def _warn_empty_prompt_once(self, embodiment_name: str, reason: str) -> None:
+        """Warn once per (embodiment, reason) that samples fall back to
+        ``default_prompt``, calling out when that prompt is empty."""
+        if (embodiment_name, reason) in self._empty_prompt_warned:
+            return
+        self._empty_prompt_warned.add((embodiment_name, reason))
+        fallback = (
+            "an EMPTY prompt" if not self.default_prompt else repr(self.default_prompt)
+        )
+        logger.warning(
+            "PI prompt fallback for embodiment %s: %s; using default_prompt, which "
+            "is %s. Set annotation_key in the data config or set "
+            "model.robomimic_model.default_prompt.",
+            embodiment_name,
+            reason,
+            fallback,
+        )
+
     def _build_prompts(
         self, _batch, embodiment_name: str, batch_size: int
     ) -> list[str]:
@@ -241,11 +260,25 @@ class PI(Algo):
         DataLoader per embodiment), so we don't re-derive it per sample.
         """
         if self.annotation_key is None or self.annotation_key not in _batch:
+            if self.annotation_key is not None:
+                self._warn_empty_prompt_once(
+                    embodiment_name,
+                    f"annotation_key '{self.annotation_key}' is not in the batch "
+                    "(the data config does not load it)",
+                )
+            elif not self.default_prompt:
+                self._warn_empty_prompt_once(
+                    embodiment_name, "annotation_key is not set"
+                )
             prompts = [self.default_prompt] * batch_size
         else:
             prompts = []
             for sample in _batch[self.annotation_key]:
                 if not sample:
+                    self._warn_empty_prompt_once(
+                        embodiment_name,
+                        f"some samples have no '{self.annotation_key}'",
+                    )
                     prompts.append(self.default_prompt)
                 elif self.sampling_mode == "random":
                     prompts.append(sample[random.randint(0, len(sample) - 1)])
