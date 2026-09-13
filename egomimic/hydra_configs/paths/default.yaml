@@ -14,6 +14,9 @@ dataset_dir: ${oc.env:EGOVERSE_DATASET_DIR,/coc/flash7/scratch/egoverseS3ZarrDat
 # root of all run directories ($EGOVERSE_LOG_DIR overrides); hydra.run.dir is under it
 log_dir: ${oc.env:EGOVERSE_LOG_DIR,${paths.root_dir}/logs}
 
+# shared cache root ($EGOVERSE_CACHE_DIR overrides): norm stats keyed by content live under it
+cache_dir: ${oc.env:EGOVERSE_CACHE_DIR,${paths.log_dir}/cache}
+
 # path to output directory, created dynamically by hydra
 # path generation pattern is specified in `configs/hydra/default.yaml`
 # use it to store all files generated during the run, like ckpts and metrics

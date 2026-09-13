@@ -68,6 +68,9 @@ def common_overrides(
     overrides = [
         f"paths.dataset_dir={data_dir}",
         f"paths.output_dir={out_dir}",
+        # Keep the norm-stat cache per test: the fixtures' made-up hashes must
+        # never share entries in the checkout's logs/cache.
+        f"paths.cache_dir={out_dir}/cache",
         f"data.train_datasets.{emb}.resolver._target_={LOCAL_RESOLVER}",
         # Reset to null first: some real configs' filters dict (e.g. eva_pi's
         # embodiment-only lambda) is struct-locked to its own keys, so a plain
