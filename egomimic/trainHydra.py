@@ -23,6 +23,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.resolve_memo import resolve_once
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, PinError
+from egomimic.utils.checkpoint_utils import load_checkpoint_weights
 from egomimic.utils.env import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
@@ -34,7 +35,13 @@ OmegaConf.register_new_resolver("eval", eval)
 log = RankedLogger(__name__, rank_zero_only=True)
 
 
+_PI_WEIGHT_KEY = "model.robomimic_model.config.pytorch_weight_path"
+
+
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
+    """The config tree ``ModelWrapper`` receives. Only this copy skips the PI base
+    weights (see ``_weights_from_checkpoint``); ``cfg`` keeps the real path for
+    the logged hyperparameters."""
     model_cfg = copy.deepcopy(cfg.model)
     if (
         "robomimic_model" in model_cfg
@@ -42,7 +49,62 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
         and "norm_stats" in model_cfg.robomimic_model
     ):
         model_cfg.robomimic_model.norm_stats = None
-    return OmegaConf.create({"model": model_cfg})
+    tree = OmegaConf.create({"model": model_cfg})
+    has_weights = OmegaConf.select(tree, _PI_WEIGHT_KEY, default=None) is not None
+    if has_weights and _weights_from_checkpoint(cfg):
+        log.info(
+            f"Loading every weight from {cfg.ckpt_path}: {_PI_WEIGHT_KEY}=null "
+            "for the model (the base safetensors need not exist here)"
+        )
+        OmegaConf.update(tree, _PI_WEIGHT_KEY, None)
+    return tree
+
+
+def _requeue_resume_path(cfg: DictConfig) -> Optional[str]:
+    """``<checkpoint dir>/last.ckpt`` when this process is a Slurm requeue
+    (``SLURM_RESTART_COUNT`` > 0), else None. The dir is the ModelCheckpoint
+    callback's ``dirpath`` (``<run>/checkpoints`` when unset), read from ``cfg``
+    so this can run before the callbacks and Trainer exist."""
+    if not os.environ.get("SLURM_JOB_ID"):
+        return None
+    if os.environ.get("SLURM_RESTART_COUNT", "0") == "0":
+        return None
+    ckpt_dir = OmegaConf.select(
+        cfg, "callbacks.model_checkpoint.dirpath", default=None
+    ) or os.path.join(cfg.trainer.default_root_dir, "checkpoints")
+    return os.path.join(ckpt_dir, "last.ckpt")
+
+
+def _prepare_checkpoint_resume(cfg: DictConfig) -> None:
+    """Settle ``cfg.ckpt_path`` before the model config tree is built: a requeued
+    job resumes from ``last.ckpt`` if it exists; one preempted before its first
+    checkpoint keeps the launch-time ``ckpt_path`` (warning)."""
+    requeue = _requeue_resume_path(cfg)
+    if requeue is None:
+        return
+    if os.path.isfile(requeue):
+        log.info(f"Detected SLURM requeue — resuming from {requeue}")
+        cfg.ckpt_path = requeue
+        return
+    fallback = cfg.get("ckpt_path")
+    log.warning(
+        f"SLURM requeue detected but {requeue} does not exist; falling back to "
+        f"ckpt_path={fallback}" + ("" if fallback else " (training starts over)")
+    )
+
+
+def _weights_from_checkpoint(cfg: DictConfig) -> bool:
+    """True when ``cfg.ckpt_path`` is a checkpoint file whose state_dict will
+    overwrite every weight, so PI need not read its base safetensors (it treats
+    ``pytorch_weight_path=None`` as "no pretrained weights").
+
+    Requires an existing file: Lightning's special values (``last``, ``best``,
+    ``hpc``, ``registry:...``) may resolve to no checkpoint, which would then
+    train from random init. ``pretrained=true`` is eval_latent's flag: there
+    ``ckpt_path`` only routes the output dir and the base weights ARE the model
+    under evaluation (elsewhere the flag is unused and just keeps them)."""
+    ckpt_path = cfg.get("ckpt_path")
+    return bool(ckpt_path) and os.path.isfile(ckpt_path) and not cfg.get("pretrained")
 
 
 def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> None:
@@ -256,6 +318,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for ds in datamodule.valid_datasets.values():
         ds.set_norm_stats_from(norm_stats)
 
+    _prepare_checkpoint_resume(cfg)
+
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = ModelWrapper(
         config_tree=_build_model_config_tree(cfg),
@@ -321,16 +385,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Logging hyperparameters!")
         log_hyperparameters(object_dict)
 
-    if (
-        os.environ.get("SLURM_JOB_ID")
-        and os.environ.get("SLURM_RESTART_COUNT", "0") != "0"
-    ):
-        last_ckpt_path = os.path.join(
-            trainer.default_root_dir, "checkpoints", "last.ckpt"
-        )
-        log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
-        cfg.ckpt_path = last_ckpt_path
-
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
     if mode == "train":
@@ -357,11 +411,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             # Default: load checkpoint + validate (unchanged from main)
             ckpt_path = cfg.get("ckpt_path")
             if ckpt_path:
-                checkpoint = torch.load(
-                    ckpt_path, map_location="cpu", weights_only=False
-                )
-                model.load_state_dict(checkpoint["state_dict"], strict=False)
-                log.info(f"Loaded weights from {ckpt_path}")
+                load_checkpoint_weights(model, ckpt_path)
             log.info("Starting evaluation!")
             trainer.validate(model=model, datamodule=datamodule)
     else:
