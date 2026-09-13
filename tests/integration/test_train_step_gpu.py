@@ -133,8 +133,7 @@ def _run(cfg, out: Path) -> float:
 def test_hpt_real_recipe(tmp_path, monkeypatch, vendor):
     from egomimic.algo.hpt import HPT
 
-    hermetic_env(monkeypatch)
-    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)  # ResNet weights may download
+    hermetic_env(monkeypatch, hf_offline=False)  # ResNet weights may download
     recipe = RECIPES[(vendor, "hpt")]
     out = tmp_path / "out"
     out.mkdir()

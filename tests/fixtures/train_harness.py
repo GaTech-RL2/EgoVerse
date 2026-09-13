@@ -47,15 +47,29 @@ def reset_hydra_config() -> None:
     HydraConfig.instance().cfg = None
 
 
-def hermetic_env(monkeypatch) -> None:
+def hermetic_env(monkeypatch, hf_offline: bool = True) -> None:
     """No network, no wandb, no ~/.egoverse_env, and no Lightning Slurm plugin
     inside an srun step."""
-    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    if hf_offline:
+        _hf_offline(monkeypatch)
     monkeypatch.setenv("WANDB_MODE", "disabled")
     monkeypatch.setenv("TOKENIZERS_PARALLELISM", "false")
     monkeypatch.setenv("SLURM_JOB_NAME", "bash")
     monkeypatch.delenv("SLURM_JOB_ID", raising=False)
     monkeypatch.setattr(train_hydra, "load_env", lambda *a, **k: None)
+
+
+def _hf_offline(monkeypatch) -> None:
+    # huggingface_hub and transformers read HF_HUB_OFFLINE once, at import, and
+    # collection has imported both by now, so the env var alone is ignored.
+    # Online, AutoTokenizer probes the gated repo for optional files the cache
+    # never recorded as missing (chat_template.jinja) and fails with a 401.
+    import huggingface_hub.constants
+    import transformers.utils.hub
+
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_OFFLINE", True)
+    monkeypatch.setattr(transformers.utils.hub, "_is_offline_mode", True)
 
 
 def write_fixtures(tmp_path: Path, vendor: str, n: int = 3) -> tuple[Path, Path]:

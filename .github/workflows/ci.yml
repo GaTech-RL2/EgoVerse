@@ -67,6 +67,7 @@ jobs:
       - name: Unit tests (hermetic; includes the Hydra compose test over every config)
         env:
           EGOVERSE_REQUIRE_PI: "1" # fail instead of skipping the Pi train-step tests
+          HF_HUB_OFFLINE: "1" # only the tokenizer files are cached; the gated repo 401s without a token
         run: uv run --no-sync pytest tests/unit -q -p no:cacheprovider
 
   wheel:
