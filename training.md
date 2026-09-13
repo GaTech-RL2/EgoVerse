@@ -278,6 +278,8 @@ python egomimic/trainHydra.py -m \
     launch_params.gpus_per_node=4
 ```
 
+Norm stats are cached automatically under `paths.cache_dir/norm_stats/<dataset>/<sha256>.json`, keyed by the resolved episode set (each episode's hash plus a fingerprint of its group and array metadata files, so a re-export under the same hash or an array added or rewritten in place, e.g. re-annotation, misses), the dataset recipe (keymap, transforms, filters, mode, and the dataset class the resolver loads), `sample_frac`, and the source of the egomimic modules the recipe's code comes from (`zarr_dataset_multi.py`, each `_target_`'s module, and the egomimic modules those import at top level). `norm_mode` is not in the key: every stat is computed either way. A run with the same inputs loads the file instead of recomputing, and `norm_stats.precomputed_norm_path` still overrides everything. Not in the key: code reached another way that alters the sampled values (e.g. the keymap tweak in `trainHydra.py`; bump `KEY_VERSION` in `egomimic/rldb/zarr/norm_cache.py` with it) and chunk data overwritten in place without touching array metadata; set `norm_stats.use_cache=false` after either.
+
 ## Eval (using multirun.yaml from a previous training run)
 
 ``` bash

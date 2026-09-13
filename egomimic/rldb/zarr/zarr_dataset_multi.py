@@ -1344,7 +1344,12 @@ class MultiDataset(torch.utils.data.Dataset):
                         "embodiment collapse — recompute norm stats instead of "
                         "reusing a pre-collapse norm_stats.json."
                     )
-                self.norm_stats[embodiment] = payload["stats"][str(embodiment)]
+                # JSON gives back nested lists; a fresh computation stores
+                # float32 arrays, so convert to keep both paths identical.
+                self.norm_stats[embodiment] = {
+                    k: {n: np.asarray(a, dtype=np.float32) for n, a in d.items()}
+                    for k, d in payload["stats"][str(embodiment)].items()
+                }
                 self._norm_run_metadata = payload.get("norm_run_metadata", None)
                 logger.info(
                     f"[MultiDataset] Loaded precomputed stats for embodiment={embodiment}"

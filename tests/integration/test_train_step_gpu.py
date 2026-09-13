@@ -57,6 +57,7 @@ def _pi_ckpt() -> Path:
 def _gpu_overrides(emb: str, out: Path, vendor: str) -> list[str]:
     return [
         f"paths.output_dir={out}",
+        f"paths.cache_dir={out}/cache",  # never reuse stats from an earlier run
         f"data.train_dataloader_params.{emb}.batch_size=4",
         f"data.train_dataloader_params.{emb}.num_workers=4",
         f"data.valid_dataloader_params.{emb}.batch_size=4",
