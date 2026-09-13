@@ -10,6 +10,15 @@ robomimic_model:
   6dof: true
   diffusion: true
   
+  # Shared head: every embodiment's actions are zero-padded to action_width, so
+  # the per-embodiment action widths inherited from the base follow it.
+  dims:
+    action_width: 14
+    eva_bimanual:
+      action: ${model.robomimic_model.dims.action_width}
+    human_bimanual:
+      action: ${model.robomimic_model.dims.action_width}
+
   head_specs:
     human_bimanual: null
     eva_bimanual: null
@@ -21,14 +30,14 @@ robomimic_model:
       padding: "zero"
       time_dist: "beta"
       infer_ac_dims:
-        eva_bimanual: 14
-        human_bimanual: 14
+        eva_bimanual: ${model.robomimic_model.dims.eva_bimanual.action}
+        human_bimanual: ${model.robomimic_model.dims.human_bimanual.action}
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 14
+        act_dim: ${model.robomimic_model.dims.action_width}
         act_seq: 100
         n_heads: 4
         dropout: 0.1
