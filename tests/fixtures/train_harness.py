@@ -89,7 +89,7 @@ def pi_unavailable() -> str | None:
     try:
         import openpi.models_pytorch.pi0_pytorch  # noqa: F401
     except ImportError:
-        # Also the case in CI: openpi is not in uv.lock (pyproject explains).
+        # openpi is not in uv.lock (pyproject explains); CI installs it by hand.
         return "openpi not importable in this venv (see pi05.md); Pi cases run by hand"
     from huggingface_hub import try_to_load_from_cache
 

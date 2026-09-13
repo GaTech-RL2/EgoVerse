@@ -14,8 +14,9 @@ Tests live under `tests/`, never next to source in `egomimic/`.
   paths come from `EGOVERSE_TEST_*` env vars, not hardcoded home directories.
 - `tests/unit/test_train_step.py` is the per-vendor train-step matrix (HPT + Pi x eva/aria/mecka/scale)
   on synthetic episodes; run it after touching keymaps, transforms, data/model configs or the algos.
-  CI runs the HPT half; the Pi half needs `openpi` and the PaliGemma tokenizer in the venv, so run it
-  by hand. Its GPU twin on the real recipes is
+  The Pi half needs `openpi` and the PaliGemma tokenizer in the venv and skips without them; CI
+  installs both (see the unit-tests job in `.github/workflows/ci.yml`) and fails instead of
+  skipping. Its GPU twin on the real recipes is
   `pytest --integration -m gpu tests/integration/test_train_step_gpu.py` on a GPU node.
   `tests/unit/test_data_configs_compose.py` checks every `data/*.yaml` composes.
 

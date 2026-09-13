@@ -6,6 +6,7 @@ assembly) is real."""
 from __future__ import annotations
 
 import math
+import os
 
 import pytest
 from fixtures.recipes import (
@@ -74,6 +75,8 @@ def test_hpt_train_step(tmp_path, monkeypatch, vendor):
 def test_pi_train_step(tmp_path, monkeypatch, vendor):
     reason = pi_unavailable()
     if reason:
+        if os.environ.get("EGOVERSE_REQUIRE_PI"):  # set in CI
+            pytest.fail(reason)
         pytest.skip(reason)
     import openpi.models_pytorch.pi0_pytorch as pi0_pytorch
 
