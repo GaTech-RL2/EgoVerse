@@ -128,3 +128,25 @@ def test_pi_train_step(tmp_path, monkeypatch, vendor):
     assert (
         expected <= seen
     ), f"{vendor}/pi missing {expected - seen}; saw {sorted(seen)}"
+
+
+def test_pi_unavailable_reports_unapplied_overlay(monkeypatch):
+    """PI.__init__ checks openpi's transformers overlay even with the network
+    stubbed, so an unapplied overlay must skip the Pi cases, not error them."""
+    import sys
+    import types
+
+    from egomimic import openpi_patch
+
+    for name in (
+        "openpi",
+        "openpi.models_pytorch",
+        "openpi.models_pytorch.pi0_pytorch",
+    ):
+        monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+
+    def stale():
+        raise RuntimeError("overlay is missing or stale")
+
+    monkeypatch.setattr(openpi_patch, "check", stale)
+    assert pi_unavailable() == "overlay is missing or stale"
