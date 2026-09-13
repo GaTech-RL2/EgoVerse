@@ -1,3 +1,8 @@
 wandb_profiler:
   _target_: egomimic.utils.timing_callback.WandbProfilerLogger
   log_every_n_steps: 100
+
+# git_sha.txt, git.diff, git_untracked.txt in the run dir when fit or validate
+# starts (rank 0); no-op outside a checkout.
+git_provenance:
+  _target_: egomimic.utils.provenance_callback.GitProvenance

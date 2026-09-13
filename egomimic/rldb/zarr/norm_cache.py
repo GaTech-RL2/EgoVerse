@@ -27,6 +27,8 @@ import numpy as np
 from hydra.utils import get_class, get_object
 from omegaconf import DictConfig, OmegaConf
 
+from egomimic.utils.git_info import git_sha
+
 logger = logging.getLogger(__name__)
 
 KEY_VERSION = 2
@@ -194,10 +196,9 @@ def find_cached(
     return p
 
 
+@functools.lru_cache(maxsize=1)
 def _git_sha() -> str | None:
-    from egomimic.rldb.zarr.zarr_writer import _git_sha as f
-
-    return f()
+    return git_sha()
 
 
 def write_cached(

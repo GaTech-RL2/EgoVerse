@@ -8,7 +8,6 @@ compatible with the ZarrEpisode reader.
 import functools
 import importlib.metadata
 import json
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -19,29 +18,17 @@ import zarr
 from zarr.core.dtype import VariableLengthBytes
 
 from egomimic.rldb.zarr.schema import FORMAT_VERSION
+from egomimic.utils.git_info import git_sha
 
 _PROTECTED_METADATA = ("intrinsics", "extrinsics", "format_version", "provenance")
 
 
 @functools.cache
 def _git_sha() -> str | None:
-    """HEAD of the checkout that contains this file, or None (installed wheel, no git).
-
-    Computed once per process (cached) so a converter writing many episodes
-    doesn't spawn a `git rev-parse` subprocess per episode.
-    """
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=Path(__file__).resolve().parent,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    sha = out.stdout.strip()
-    return sha if out.returncode == 0 and len(sha) == 40 else None
+    """HEAD of the checkout that contains this package, or None (installed wheel,
+    no git). Cached so a converter writing many episodes doesn't spawn a
+    `git rev-parse` subprocess per episode."""
+    return git_sha()
 
 
 @functools.cache
