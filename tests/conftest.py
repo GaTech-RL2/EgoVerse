@@ -6,9 +6,14 @@ every test under it is marked ``integration`` and skipped unless ``--integration
 is passed.
 """
 
+import sys
 from pathlib import Path
 
 import pytest
+
+sys.path.insert(
+    0, str(Path(__file__).parent)
+)  # makes `fixtures.*` importable from any test dir
 
 INTEGRATION_DIR = Path(__file__).parent / "integration"
 
@@ -33,3 +38,13 @@ def pytest_collection_modifyitems(
         item.add_marker(pytest.mark.integration)
         if not run_integration:
             item.add_marker(skip)
+
+
+@pytest.fixture(autouse=True)
+def _reset_hydra_config_singleton():
+    """compose_recipe installs a HydraConfig; without a reset a later test could
+    silently resolve ${hydra:runtime.output_dir} to a previous test's tmp_path."""
+    yield
+    from hydra.core.hydra_config import HydraConfig
+
+    HydraConfig.instance().cfg = None

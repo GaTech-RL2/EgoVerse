@@ -23,7 +23,7 @@ train_datasets:
       folder_path: ${paths.dataset_dir}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: cartesian_pi  # Pi reads base_0_rgb; the dataset-style front key is never found
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
