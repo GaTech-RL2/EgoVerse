@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUFF_VERSION: "0.8.6" # keep in sync with .pre-commit-config.yaml
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: ruff check
+        run: uvx ruff@${RUFF_VERSION} check egomimic tests
+      - name: ruff format
+        run: uvx ruff@${RUFF_VERSION} format --check . --exclude external
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - name: Install locked environment
+        run: uv sync --locked
+      - name: Unit tests (hermetic; includes the Hydra compose test over every config)
+        run: uv run pytest tests/unit -q -p no:cacheprovider
+
+  wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+      - name: Build wheel
+        run: uv build --wheel
+      # Wheel *contents* are asserted by tests/unit/test_packaging.py; this only
+      # proves the built wheel installs and imports outside the checkout.
+      - name: Install into a fresh venv and import
+        run: |
+          uv venv smoke --python 3.11
+          uv pip install --python smoke/bin/python --no-deps dist/*.whl
+          cd /tmp && "${GITHUB_WORKSPACE}/smoke/bin/python" -c "import egomimic, os; p = os.path.dirname(egomimic.__file__); assert 'site-packages' in p, p; print(p)"

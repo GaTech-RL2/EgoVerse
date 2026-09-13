@@ -30,8 +30,14 @@ def get_sha(repo: str, path: str, headers: dict) -> str | None:
     return resp.json().get("sha") if resp.status_code == 200 else None
 
 
-def push_file(repo: str, path: str, content: str, message: str,
-              headers: dict, sha: str | None = None):
+def push_file(
+    repo: str,
+    path: str,
+    content: str,
+    message: str,
+    headers: dict,
+    sha: str | None = None,
+):
     payload = {
         "message": message,
         "content": base64.b64encode(content.encode()).decode(),
@@ -39,28 +45,34 @@ def push_file(repo: str, path: str, content: str, message: str,
     }
     if sha:
         payload["sha"] = sha
-    resp = requests.put(VAULT_API.format(repo=repo, path=path),
-                        headers=headers, json=payload)
+    resp = requests.put(
+        VAULT_API.format(repo=repo, path=path), headers=headers, json=payload
+    )
     resp.raise_for_status()
     print(f"{'Updated' if sha else 'Created'}: {path}")
 
 
-def build_raw_metadata(pr_number: int, title: str, author: str, status: str,
-                       created_at: str, body: str) -> str:
-    return json.dumps({
-        "pr_number": pr_number,
-        "title": title,
-        "author": author,
-        "body": body,
-        "status": status,
-        "github_url": f"https://github.com/GaTech-RL2/EgoVerse/pull/{pr_number}",
-        "created_at": created_at,
-        "updated_at": datetime.utcnow().isoformat(),
-    }, indent=2)
+def build_raw_metadata(
+    pr_number: int, title: str, author: str, status: str, created_at: str, body: str
+) -> str:
+    return json.dumps(
+        {
+            "pr_number": pr_number,
+            "title": title,
+            "author": author,
+            "body": body,
+            "status": status,
+            "github_url": f"https://github.com/GaTech-RL2/EgoVerse/pull/{pr_number}",
+            "created_at": created_at,
+            "updated_at": datetime.utcnow().isoformat(),
+        },
+        indent=2,
+    )
 
 
-def build_wiki_page(pr_number: int, title: str, author: str, status: str,
-                    created_at: str, body: str) -> str:
+def build_wiki_page(
+    pr_number: int, title: str, author: str, status: str, created_at: str, body: str
+) -> str:
     updated = datetime.utcnow().strftime("%Y-%m-%d")
     created = created_at[:10]
     github_url = f"https://github.com/GaTech-RL2/EgoVerse/pull/{pr_number}"
@@ -68,7 +80,7 @@ def build_wiki_page(pr_number: int, title: str, author: str, status: str,
     # One-line description from first non-empty line of body
     brief = next(
         (line.strip() for line in (body or "").splitlines() if line.strip()),
-        "(no description)"
+        "(no description)",
     )[:200]
 
     sources = [f"- [[raw/prs/pr-{pr_number:04d}.json]]"]
@@ -128,18 +140,22 @@ def main():
 
     # 1. Raw metadata (all events)
     push_file(
-        vault_repo, raw_path,
+        vault_repo,
+        raw_path,
         build_raw_metadata(pr_number, title, author, status, created_at, body),
         f"raw: PR #{pr_number} metadata [{status}] — {title}",
-        headers, get_sha(vault_repo, raw_path, headers),
+        headers,
+        get_sha(vault_repo, raw_path, headers),
     )
 
     # 2. Clean wiki stub
     push_file(
-        vault_repo, wiki_path,
+        vault_repo,
+        wiki_path,
         build_wiki_page(pr_number, title, author, status, created_at, body),
         f"wiki: PR #{pr_number} [{status}] — {title}",
-        headers, get_sha(vault_repo, wiki_path, headers),
+        headers,
+        get_sha(vault_repo, wiki_path, headers),
     )
 
 

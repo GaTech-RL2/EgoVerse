@@ -20,9 +20,9 @@ from pathlib import Path
 
 import numpy as np
 
+from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr import ZarrWriter
 from egomimic.scripts.eva_process.zarr_utils import EvaHD5Extractor
-from egomimic.rldb.embodiment.eva import Eva
 
 
 def is_image_array(arr) -> bool:
@@ -276,7 +276,11 @@ def convert_hdf5_to_zarr(
                 task_description="",
                 # intrinsics are mandatory; debug placeholder {camera_key: 3x4} dict
                 intrinsics={
-                    "front_1": [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]]
+                    "front_1": [
+                        [1.0, 0.0, 0.0, 0.0],
+                        [0.0, 1.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0, 0.0],
+                    ]
                 },
             )
     except Exception as e:

@@ -38,13 +38,24 @@ from sqlalchemy import text
 
 from egomimic.utils.aws.aws_sql import create_default_engine
 
-DEFAULT_REQUIRED = ["episode_hash", "embodiment", "task", "num_frames", "zarr_processed_path"]
+DEFAULT_REQUIRED = [
+    "episode_hash",
+    "embodiment",
+    "task",
+    "num_frames",
+    "zarr_processed_path",
+]
 
 # staged column -> app.episodes column (identity here, but explicit so the
 # mapping is auditable). Only these are copied; everything else uses DB defaults.
 _MERGE_COLUMNS = [
-    "episode_hash", "embodiment", "task", "task_description",
-    "num_frames", "zarr_processed_path", "created_at",
+    "episode_hash",
+    "embodiment",
+    "task",
+    "task_description",
+    "num_frames",
+    "zarr_processed_path",
+    "created_at",
 ]
 
 # app.episodes column -> SQL expression over the staging row. These are NOT
@@ -71,19 +82,34 @@ _DERIVED_COLUMNS = [
 
 def _ident_ok(name):
     # guard against SQL injection via --staging-table / --required-columns
-    return bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?", name))
+    return bool(
+        re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?", name)
+    )
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--staging-table", required=True,
-                    help="Fully-qualified staging table, e.g. app.staging_microagi.")
-    ap.add_argument("--required-columns", default=",".join(DEFAULT_REQUIRED),
-                    help="Comma-separated columns that must be NON-NULL to merge a row.")
-    ap.add_argument("--apply", action="store_true",
-                    help="Actually INSERT into app.episodes (default is a dry-run preview).")
-    ap.add_argument("--limit", type=int, default=None,
-                    help="Merge at most N eligible rows (with --apply).")
+    ap.add_argument(
+        "--staging-table",
+        required=True,
+        help="Fully-qualified staging table, e.g. app.staging_microagi.",
+    )
+    ap.add_argument(
+        "--required-columns",
+        default=",".join(DEFAULT_REQUIRED),
+        help="Comma-separated columns that must be NON-NULL to merge a row.",
+    )
+    ap.add_argument(
+        "--apply",
+        action="store_true",
+        help="Actually INSERT into app.episodes (default is a dry-run preview).",
+    )
+    ap.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Merge at most N eligible rows (with --apply).",
+    )
     args = ap.parse_args()
 
     staging = args.staging_table
@@ -95,15 +121,24 @@ def main() -> int:
 
     # sufficiency predicate + not-already-present predicate
     suff = " AND ".join(f"s.{c} IS NOT NULL" for c in required)
-    not_present = ("NOT EXISTS (SELECT 1 FROM app.episodes e "
-                   "WHERE e.episode_hash = s.episode_hash)")
+    not_present = (
+        "NOT EXISTS (SELECT 1 FROM app.episodes e "
+        "WHERE e.episode_hash = s.episode_hash)"
+    )
 
     with engine.connect() as conn:
         # sanity: staging table + episode_hash column exist
-        cols = {r[0] for r in conn.execute(text(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_schema = split_part(:t,'.',1) "
-            "AND table_name = split_part(:t,'.',2)"), {"t": staging}).all()}
+        cols = {
+            r[0]
+            for r in conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = split_part(:t,'.',1) "
+                    "AND table_name = split_part(:t,'.',2)"
+                ),
+                {"t": staging},
+            ).all()
+        }
         if not cols:
             raise SystemExit(f"Staging table {staging} not found.")
         missing = [c for c in required if c not in cols]
@@ -111,12 +146,17 @@ def main() -> int:
             raise SystemExit(f"{staging} is missing required columns: {missing}")
 
         total = conn.execute(text(f"SELECT COUNT(*) FROM {staging}")).scalar()
-        insufficient = conn.execute(text(
-            f"SELECT COUNT(*) FROM {staging} s WHERE NOT ({suff})")).scalar()
-        conflicts = conn.execute(text(
-            f"SELECT COUNT(*) FROM {staging} s WHERE ({suff}) AND NOT ({not_present})")).scalar()
-        eligible = conn.execute(text(
-            f"SELECT COUNT(*) FROM {staging} s WHERE ({suff}) AND {not_present}")).scalar()
+        insufficient = conn.execute(
+            text(f"SELECT COUNT(*) FROM {staging} s WHERE NOT ({suff})")
+        ).scalar()
+        conflicts = conn.execute(
+            text(
+                f"SELECT COUNT(*) FROM {staging} s WHERE ({suff}) AND NOT ({not_present})"
+            )
+        ).scalar()
+        eligible = conn.execute(
+            text(f"SELECT COUNT(*) FROM {staging} s WHERE ({suff}) AND {not_present}")
+        ).scalar()
 
     print(f"Merge preview: {staging} -> app.episodes")
     print(f"  required (must be non-null): {required}")
@@ -126,7 +166,9 @@ def main() -> int:
     print(f"  ELIGIBLE to merge      : {eligible}")
 
     if not args.apply:
-        print("\nDRY RUN — nothing written. Re-run with --apply to merge the eligible rows.")
+        print(
+            "\nDRY RUN — nothing written. Re-run with --apply to merge the eligible rows."
+        )
         engine.dispose()
         return 0
 
