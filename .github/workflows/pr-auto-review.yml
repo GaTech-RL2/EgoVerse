@@ -5,9 +5,13 @@
 
 name: PR Auto Review
 
+# Disabled: the ANTHROPIC_API_KEY account is out of credits (every run fails
+# with "credit balance is too low"). Restore the pull_request trigger once it
+# is topped up; workflow_dispatch keeps the workflow valid in the meantime.
 on:
-  pull_request:
-    types: [opened, synchronize, ready_for_review]
+  workflow_dispatch:
+  # pull_request:
+  #   types: [opened, synchronize, ready_for_review]
 
 jobs:
   review:

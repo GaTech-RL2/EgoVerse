@@ -34,8 +34,13 @@ def get_pr_comments(repo: str, pr_number: int, token: str) -> list[dict]:
     resp = requests.get(url, headers=gh_headers(token))
     resp.raise_for_status()
     return [
-        {"author": c["user"]["login"], "body": c["body"],
-         "path": c["path"], "line": c.get("line"), "created_at": c["created_at"]}
+        {
+            "author": c["user"]["login"],
+            "body": c["body"],
+            "path": c["path"],
+            "line": c.get("line"),
+            "created_at": c["created_at"],
+        }
         for c in resp.json()
     ]
 
@@ -45,8 +50,12 @@ def get_pr_reviews(repo: str, pr_number: int, token: str) -> list[dict]:
     resp = requests.get(url, headers=gh_headers(token))
     resp.raise_for_status()
     return [
-        {"author": r["user"]["login"], "state": r["state"],
-         "body": r["body"], "submitted_at": r["submitted_at"]}
+        {
+            "author": r["user"]["login"],
+            "state": r["state"],
+            "body": r["body"],
+            "submitted_at": r["submitted_at"],
+        }
         for r in resp.json()
     ]
 
@@ -103,7 +112,8 @@ def main():
 
     path = f"raw/prs/pr-{pr_number:04d}-diff.json"
     push_to_vault(
-        vault_repo, path,
+        vault_repo,
+        path,
         json.dumps(export, indent=2),
         f"raw: export merged PR #{pr_number} diff — {export['title']}",
         vault_pat,

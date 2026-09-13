@@ -187,9 +187,9 @@ class BlockWithMasking(nn.Module):
     ):
         super().__init__()
 
-        assert not isinstance(attn_target, nn.Module), (
-            "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
-        )
+        assert not isinstance(
+            attn_target, nn.Module
+        ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
         self.attn = attn_target()
         if drop_path > 0.0:
             self.drop_path = DropPath(drop_path)
@@ -670,7 +670,9 @@ def _qwen_last_token_pool(
     if left_padded:
         return last_hidden_states[:, -1]
     seq_lens = attention_mask.sum(dim=1) - 1
-    batch_idx = torch.arange(last_hidden_states.size(0), device=last_hidden_states.device)
+    batch_idx = torch.arange(
+        last_hidden_states.size(0), device=last_hidden_states.device
+    )
     return last_hidden_states[batch_idx, seq_lens]
 
 

@@ -17,23 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
       - name: ruff check
         run: uvx ruff@${RUFF_VERSION} check egomimic tests
-      # Whole-repo formatting is not clean yet; mirror pre-commit and check only
-      # the Python files this PR touches.
-      # Diff by SHA, not by `origin/<base_ref>`: on stacked PRs the base ref
-      # (e.g. graphite-base/N) can be missing at checkout, and a bad revision
-      # must fail the job rather than report "no python files changed".
-      - name: ruff format (changed files)
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          files=$(git diff --name-only --diff-filter=AM "${BASE_SHA}...HEAD" -- '*.py' ':(exclude)external/')
-          if [ -n "$files" ]; then uvx ruff@${RUFF_VERSION} format --check $files; else echo "no python files changed"; fi
+      - name: ruff format
+        run: uvx ruff@${RUFF_VERSION} format --check . --exclude external
 
   unit-tests:
     runs-on: ubuntu-latest
