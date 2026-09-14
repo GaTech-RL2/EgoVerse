@@ -20,7 +20,6 @@ Each episode is self-contained with its own metadata, enabling:
 
 from __future__ import annotations
 
-import contextlib
 import copy
 import json
 import logging
@@ -31,7 +30,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, Iterator, Mapping
+from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -44,6 +43,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.resolve_memo import memoized
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -62,43 +62,10 @@ logger = logging.getLogger(__name__)
 SEED = 42
 
 
-class _ResolveMemo:
-    """One SQL table pull and one path resolution per (resolver identity,
-    filter contents). Datasets are still constructed per instantiation because
-    each carries its own keymap."""
-
-    def __init__(self) -> None:
-        self.table: pd.DataFrame | None = None
-        self.paths: dict[tuple, tuple[tuple[str, str], ...]] = {}
-
-
-# Only set inside resolve_once(). Outside it every resolve re-reads the SQL
-# table, re-lists the local directory and re-syncs S3, so long-lived processes
-# (notebooks, eval scripts) never see stale episodes.
-_MEMO: _ResolveMemo | None = None
-
-
-@contextlib.contextmanager
-def resolve_once() -> Iterator[None]:
-    """Memoize episode resolution for the duration of the block. Nested use
-    joins the outermost scope; the memo is dropped when that scope exits."""
-    global _MEMO
-    if _MEMO is not None:
-        yield
-        return
-    _MEMO = _ResolveMemo()
-    try:
-        yield
-    finally:
-        _MEMO = None
-
-
 def _episode_table() -> pd.DataFrame:
-    if _MEMO is None:
-        return episode_table_to_df(create_default_engine())
-    if _MEMO.table is None:
-        _MEMO.table = episode_table_to_df(create_default_engine())
-    return _MEMO.table
+    return memoized(
+        ("episode_table",), lambda: episode_table_to_df(create_default_engine())
+    )
 
 
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
@@ -347,9 +314,8 @@ class EpisodeResolver:
 
         return datasets
 
-    def _memo_key(
-        self, filters: DatasetFilter, expected_embodiment: str | None
-    ) -> tuple:
+    def _memo_fields(self) -> tuple:
+        """Resolver state that affects which paths ``_compute_paths`` returns."""
         raise NotImplementedError
 
     def _compute_paths(
@@ -363,16 +329,27 @@ class EpisodeResolver:
         expected_embodiment: str | None = None,
     ) -> list[tuple[str, str]]:
         """(path, episode_hash) pairs matching `filters`; memoized inside
-        resolve_once()."""
+        resolve_once(). Datasets are not memoized: each resolver carries its own
+        keymap, so load() always runs."""
         filters = _ensure_dataset_filter(filters)
-        if _MEMO is None:
-            return self._compute_paths(filters, expected_embodiment)
-        key = self._memo_key(filters, expected_embodiment)
-        if key in _MEMO.paths:
-            logger.info("resolve_paths: cache hit for %s", filters)
-        else:
-            _MEMO.paths[key] = tuple(self._compute_paths(filters, expected_embodiment))
-        return list(_MEMO.paths[key])
+        filter_key = filters.cache_key()
+        # Keyed on the _compute_paths function itself: subclasses that only
+        # change loading share entries, one that overrides path finding gets its own.
+        key = (
+            None
+            if filter_key is None
+            else (
+                type(self)._compute_paths,
+                *self._memo_fields(),
+                filter_key,
+                expected_embodiment,
+            )
+        )
+        return list(
+            memoized(
+                key, lambda: tuple(self._compute_paths(filters, expected_embodiment))
+            )
+        )
 
     def load(self, paths: list[tuple[str, str]]) -> dict[str, "ZarrDataset"]:
         valid = {h for _, h in paths}
@@ -413,18 +390,8 @@ class S3EpisodeResolver(EpisodeResolver):
 
     # Deliberately keyed on "S3" rather than type(self).__name__: every
     # subclass shares this exact path resolution and differs only in load().
-    def _memo_key(
-        self, filters: DatasetFilter, expected_embodiment: str | None
-    ) -> tuple:
-        return (
-            "S3",
-            str(self.folder_path),
-            self.bucket_name,
-            self.main_prefix,
-            self.debug,
-            filters.cache_key(),
-            expected_embodiment,
-        )
+    def _memo_fields(self) -> tuple:
+        return (str(self.folder_path), self.bucket_name, self.main_prefix, self.debug)
 
     def _compute_paths(
         self, filters: DatasetFilter, expected_embodiment: str | None
@@ -866,16 +833,8 @@ class LocalEpisodeResolver(EpisodeResolver):
 
     # Deliberately keyed on "Local" rather than type(self).__name__: every
     # subclass shares this exact path resolution and differs only in load().
-    def _memo_key(
-        self, filters: DatasetFilter, expected_embodiment: str | None
-    ) -> tuple:
-        return (
-            "Local",
-            str(self.folder_path),
-            self.debug,
-            filters.cache_key(),
-            expected_embodiment,
-        )
+    def _memo_fields(self) -> tuple:
+        return (str(self.folder_path), self.debug)
 
     def _compute_paths(
         self, filters: DatasetFilter, expected_embodiment: str | None

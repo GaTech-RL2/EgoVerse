@@ -50,7 +50,14 @@ def test_dataset_filter_cache_key_reflects_contents() -> None:
     c = DatasetFilter(filter_lambdas=["lambda row: False"], episode_hashes=["x", "y"])
     assert a.cache_key() == b.cache_key()
     assert a.cache_key() != c.cache_key()
-    assert hash(a.cache_key())
+    hash(a.cache_key())
+
+
+def test_dataset_filter_subclass_without_cache_key_is_not_memoized() -> None:
+    class Custom(DatasetFilter):
+        pass
+
+    assert Custom(filter_lambdas=["lambda row: True"]).cache_key() is None
 
 
 def test_s3_resolver_filters_dataframe_with_dataset_filter(monkeypatch) -> None:

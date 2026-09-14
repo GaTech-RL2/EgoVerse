@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import pandas as pd
 from fixtures.recipes import (
     RECIPES,
@@ -10,6 +12,7 @@ from fixtures.train_harness import compose_recipe, hermetic_env, write_fixtures
 
 import egomimic.trainHydra as train_hydra
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.resolve_memo import resolve_once
 from egomimic.rldb.zarr import zarr_dataset_multi as zdm
 
 TABLE = pd.DataFrame(
@@ -52,33 +55,29 @@ def _count_table_pulls(monkeypatch) -> list:
     return calls
 
 
-def _count_local_listings(monkeypatch) -> list:
-    calls = []
-    orig = zdm.LocalEpisodeResolver._get_local_filtered_paths.__func__
-    monkeypatch.setattr(
-        zdm.LocalEpisodeResolver,
-        "_get_local_filtered_paths",
-        classmethod(lambda cls, *a, **k: calls.append(1) or orig(cls, *a, **k)),
-    )
-    return calls
+def _count_local_listings(monkeypatch) -> Mock:
+    spy = Mock(wraps=zdm.LocalEpisodeResolver._get_local_filtered_paths)
+    monkeypatch.setattr(zdm.LocalEpisodeResolver, "_get_local_filtered_paths", spy)
+    return spy
 
 
 def test_table_pulled_once_per_scope(monkeypatch, tmp_path) -> None:
     calls = _count_table_pulls(monkeypatch)
     r = zdm.S3EpisodeResolver(tmp_path)
 
-    with zdm.resolve_once():
+    with resolve_once():
         fold = r.resolve_paths(_fold())
         stack = r.resolve_paths(_stack())
-        with zdm.resolve_once():  # nested scope joins the outer memo
+        with resolve_once():  # nested scope joins the outer memo
             again = r.resolve_paths(_fold())
         assert r.resolve_paths(_fold()) == fold  # inner exit kept the memo
 
-    assert [h for _, h in fold] == ["a"] and [h for _, h in stack] == ["b"]
+    assert [h for _, h in fold] == ["a"]
+    assert [h for _, h in stack] == ["b"]
     assert again == fold
     assert len(calls) == 1
 
-    with zdm.resolve_once():
+    with resolve_once():
         r.resolve_paths(_fold())
     assert len(calls) == 2  # a new scope starts fresh
 
@@ -86,7 +85,7 @@ def test_table_pulled_once_per_scope(monkeypatch, tmp_path) -> None:
 def test_no_memo_outside_scope(monkeypatch, tmp_path) -> None:
     calls = _count_table_pulls(monkeypatch)
     r = zdm.S3EpisodeResolver(tmp_path)
-    with zdm.resolve_once():
+    with resolve_once():
         r.resolve_paths(_fold())
     r.resolve_paths(_fold())
     r.resolve_paths(_fold())
@@ -95,30 +94,29 @@ def test_no_memo_outside_scope(monkeypatch, tmp_path) -> None:
 
 def test_local_listing_not_stale_outside_scope(monkeypatch, tmp_path) -> None:
     write_episode(tmp_path, "aria", seed=0)
-    calls = _count_local_listings(monkeypatch)
+    spy = _count_local_listings(monkeypatch)
     r = zdm.LocalEpisodeResolver(tmp_path)
-    with zdm.resolve_once():
+    with resolve_once():
         assert {h for _, h in r.resolve_paths()} == {"aria_00"}
     write_episode(tmp_path, "aria", seed=1)  # converted after the first resolve
     assert {h for _, h in r.resolve_paths()} == {"aria_00", "aria_01"}
-    assert len(calls) == 2
+    assert spy.call_count == 2
 
 
 def test_local_resolve_paths_memoized_and_load_is_fresh(monkeypatch, tmp_path) -> None:
     write_episode(tmp_path, "aria", seed=0)
     write_episode(tmp_path, "aria", seed=1)
-    calls = _count_local_listings(monkeypatch)
+    spy = _count_local_listings(monkeypatch)
     r1 = zdm.LocalEpisodeResolver(tmp_path, key_map=None)
     r2 = zdm.LocalEpisodeResolver(tmp_path, key_map={"norm_mode": True})
     pins = DatasetFilter(episode_hashes=["aria_00", "aria_01"])
-    with zdm.resolve_once():
+    with resolve_once():
         d1 = r1.resolve(filters=pins)
         d2 = r2.resolve(filters=pins)
     assert set(d1) == set(d2) == {"aria_00", "aria_01"}
-    assert (
-        d1["aria_00"] is not d2["aria_00"]
-    )  # load() runs per resolver (keymap differs)
-    assert len(calls) == 1
+    # load() runs per resolver (keymap differs)
+    assert d1["aria_00"] is not d2["aria_00"]
+    assert spy.call_count == 1
 
 
 def test_train_resolves_each_dataset_once(tmp_path, monkeypatch) -> None:
@@ -139,9 +137,9 @@ def test_train_resolves_each_dataset_once(tmp_path, monkeypatch) -> None:
         + hpt_small_overrides(recipe.embodiment),
         out,
     )
-    calls = _count_local_listings(monkeypatch)
+    spy = _count_local_listings(monkeypatch)
     _, objects = train_hydra.train(cfg)
-    assert len(calls) == 1  # train + valid + norm-stat copy share one resolution
+    assert spy.call_count == 1  # train + valid + norm-stat copy share one resolution
     dm = objects["datamodule"]
     assert (
         set(dm.train_datasets["eva_bimanual"].datasets)

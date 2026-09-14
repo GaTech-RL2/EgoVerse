@@ -19,12 +19,9 @@ from tabulate import tabulate
 import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf resolvers
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.rldb.resolve_memo import resolve_once
 from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import (
-    MultiDataset,
-    PinError,
-    resolve_once,
-)
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, PinError
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
