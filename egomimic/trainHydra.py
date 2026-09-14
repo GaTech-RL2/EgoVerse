@@ -23,7 +23,7 @@ from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import (
     MultiDataset,
     PinError,
-    clear_resolve_cache,
+    resolve_once,
 )
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
@@ -142,66 +142,71 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     else:
         raise ValueError("Seed must be provided in cfg for reproducibility!")
 
-    clear_resolve_cache()
-
     load_env()
 
-    train_datasets = {}
-    for dataset_name in cfg.data.train_datasets:
-        train_datasets[dataset_name] = _instantiate_dataset(
-            cfg.data.train_datasets[dataset_name], dataset_name=dataset_name
+    # One SQL pull / path resolution per dataset spec across train, valid and
+    # the norm-stat copies; dropped on exit so nothing outlives this run.
+    with resolve_once():
+        train_datasets = {}
+        for dataset_name in cfg.data.train_datasets:
+            train_datasets[dataset_name] = _instantiate_dataset(
+                cfg.data.train_datasets[dataset_name], dataset_name=dataset_name
+            )
+
+        valid_datasets = {}
+        for dataset_name in cfg.data.valid_datasets:
+            valid_datasets[dataset_name] = _instantiate_dataset(
+                cfg.data.valid_datasets[dataset_name], dataset_name=dataset_name
+            )
+
+        log.info(f"Instantiating datamodule <{cfg.data._target_}>")
+        assert (
+            "MultiDataModuleWrapper" in cfg.data._target_
+        ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+        datamodule: LightningDataModule = hydra.utils.instantiate(
+            cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
         )
 
-    valid_datasets = {}
-    for dataset_name in cfg.data.valid_datasets:
-        valid_datasets[dataset_name] = _instantiate_dataset(
-            cfg.data.valid_datasets[dataset_name], dataset_name=dataset_name
+        # Stats-only MultiDataset (no graph of its own; explicitly populated from
+        # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
+        norm_stats = MultiDataset(
+            state={},
+            norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
         )
+        norm_stats.populate_from_datasets(datamodule.train_datasets)
 
-    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    assert (
-        "MultiDataModuleWrapper" in cfg.data._target_
-    ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
-    datamodule: LightningDataModule = hydra.utils.instantiate(
-        cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
-    )
+        for dataset_name, dataset in datamodule.train_datasets.items():
+            log.info(f"Inferring shapes for dataset <{dataset_name}>")
+            norm_stats.infer_shapes_from_batch(dataset[0])
+            instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
+            keymap_cfg = instantiate_copy.resolver.key_map
+            km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
 
-    # Stats-only MultiDataset (no graph of its own; explicitly populated from
-    # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
-    norm_stats = MultiDataset(
-        state={},
-        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
-    )
-    norm_stats.populate_from_datasets(datamodule.train_datasets)
+            # this remove annotation and image keys from the keymap
+            km["norm_mode"] = True
 
-    for dataset_name, dataset in datamodule.train_datasets.items():
-        log.info(f"Inferring shapes for dataset <{dataset_name}>")
-        norm_stats.infer_shapes_from_batch(dataset[0])
-        instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
-        keymap_cfg = instantiate_copy.resolver.key_map
-        km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
-
-        # this remove annotation and image keys from the keymap
-        km["norm_mode"] = True
-
-        instantiate_copy.resolver.key_map = km
-        norm_dataset = _instantiate_dataset(instantiate_copy, dataset_name=dataset_name)
-        # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
-        norm_stats.infer_norm_from_dataset(
-            norm_dataset,
-            dataset_name,
-            sample_frac=OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0),
-            num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
-            precomputed_norm_path=OmegaConf.select(
-                cfg, "norm_stats.precomputed_norm_path", default=None
-            ),
-        )
-        # Cache norm stats if save_cache_dir is set
-        save_cache_dir = OmegaConf.select(
-            cfg, "norm_stats.save_cache_dir", default=None
-        )
-        if save_cache_dir:
-            norm_stats.cache_stats(save_cache_dir=save_cache_dir)
+            instantiate_copy.resolver.key_map = km
+            norm_dataset = _instantiate_dataset(
+                instantiate_copy, dataset_name=dataset_name
+            )
+            # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
+            norm_stats.infer_norm_from_dataset(
+                norm_dataset,
+                dataset_name,
+                sample_frac=OmegaConf.select(
+                    cfg, "norm_stats.sample_frac", default=1.0
+                ),
+                num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
+                precomputed_norm_path=OmegaConf.select(
+                    cfg, "norm_stats.precomputed_norm_path", default=None
+                ),
+            )
+            # Cache norm stats if save_cache_dir is set
+            save_cache_dir = OmegaConf.select(
+                cfg, "norm_stats.save_cache_dir", default=None
+            )
+            if save_cache_dir:
+                norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
     # Wire each training/valid MultiDataset to the stats-only ``norm_stats``
     # by reference. Bounds-check + normalize run at the MultiDataset level in

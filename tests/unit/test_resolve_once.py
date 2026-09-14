@@ -32,7 +32,15 @@ TABLE = pd.DataFrame(
 )
 
 
-def test_table_pulled_once_per_process(monkeypatch, tmp_path) -> None:
+def _fold() -> DatasetFilter:
+    return DatasetFilter(filter_lambdas=["lambda row: row['task'] == 'fold'"])
+
+
+def _stack() -> DatasetFilter:
+    return DatasetFilter(filter_lambdas=["lambda row: row['task'] == 'stack'"])
+
+
+def _count_table_pulls(monkeypatch) -> list:
     calls = []
     monkeypatch.setattr(zdm, "create_default_engine", lambda: object())
     monkeypatch.setattr(
@@ -41,34 +49,10 @@ def test_table_pulled_once_per_process(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(
         zdm.S3EpisodeResolver, "_sync_s3_to_local", classmethod(lambda cls, **kw: None)
     )
-    zdm.clear_resolve_cache()
-
-    r = zdm.S3EpisodeResolver(tmp_path)
-    fold = r.resolve_paths(
-        DatasetFilter(filter_lambdas=["lambda row: row['task'] == 'fold'"])
-    )
-    stack = r.resolve_paths(
-        DatasetFilter(filter_lambdas=["lambda row: row['task'] == 'stack'"])
-    )
-    again = r.resolve_paths(
-        DatasetFilter(filter_lambdas=["lambda row: row['task'] == 'fold'"])
-    )
-
-    assert (
-        [h for _, h in fold] == ["a"]
-        and [h for _, h in stack] == ["b"]
-        and again == fold
-    )
-    assert len(calls) == 1
-    zdm.clear_resolve_cache()
-    r.resolve_paths(DatasetFilter(filter_lambdas=["lambda row: row['task'] == 'fold'"]))
-    assert len(calls) == 2
+    return calls
 
 
-def test_local_resolve_paths_memoized_and_load_is_fresh(monkeypatch, tmp_path) -> None:
-    write_episode(tmp_path, "aria", seed=0)
-    write_episode(tmp_path, "aria", seed=1)
-    zdm.clear_resolve_cache()
+def _count_local_listings(monkeypatch) -> list:
     calls = []
     orig = zdm.LocalEpisodeResolver._get_local_filtered_paths.__func__
     monkeypatch.setattr(
@@ -76,10 +60,60 @@ def test_local_resolve_paths_memoized_and_load_is_fresh(monkeypatch, tmp_path) -
         "_get_local_filtered_paths",
         classmethod(lambda cls, *a, **k: calls.append(1) or orig(cls, *a, **k)),
     )
+    return calls
+
+
+def test_table_pulled_once_per_scope(monkeypatch, tmp_path) -> None:
+    calls = _count_table_pulls(monkeypatch)
+    r = zdm.S3EpisodeResolver(tmp_path)
+
+    with zdm.resolve_once():
+        fold = r.resolve_paths(_fold())
+        stack = r.resolve_paths(_stack())
+        with zdm.resolve_once():  # nested scope joins the outer memo
+            again = r.resolve_paths(_fold())
+        assert r.resolve_paths(_fold()) == fold  # inner exit kept the memo
+
+    assert [h for _, h in fold] == ["a"] and [h for _, h in stack] == ["b"]
+    assert again == fold
+    assert len(calls) == 1
+
+    with zdm.resolve_once():
+        r.resolve_paths(_fold())
+    assert len(calls) == 2  # a new scope starts fresh
+
+
+def test_no_memo_outside_scope(monkeypatch, tmp_path) -> None:
+    calls = _count_table_pulls(monkeypatch)
+    r = zdm.S3EpisodeResolver(tmp_path)
+    with zdm.resolve_once():
+        r.resolve_paths(_fold())
+    r.resolve_paths(_fold())
+    r.resolve_paths(_fold())
+    assert len(calls) == 3
+
+
+def test_local_listing_not_stale_outside_scope(monkeypatch, tmp_path) -> None:
+    write_episode(tmp_path, "aria", seed=0)
+    calls = _count_local_listings(monkeypatch)
+    r = zdm.LocalEpisodeResolver(tmp_path)
+    with zdm.resolve_once():
+        assert {h for _, h in r.resolve_paths()} == {"aria_00"}
+    write_episode(tmp_path, "aria", seed=1)  # converted after the first resolve
+    assert {h for _, h in r.resolve_paths()} == {"aria_00", "aria_01"}
+    assert len(calls) == 2
+
+
+def test_local_resolve_paths_memoized_and_load_is_fresh(monkeypatch, tmp_path) -> None:
+    write_episode(tmp_path, "aria", seed=0)
+    write_episode(tmp_path, "aria", seed=1)
+    calls = _count_local_listings(monkeypatch)
     r1 = zdm.LocalEpisodeResolver(tmp_path, key_map=None)
     r2 = zdm.LocalEpisodeResolver(tmp_path, key_map={"norm_mode": True})
-    d1 = r1.resolve(filters=DatasetFilter(episode_hashes=["aria_00", "aria_01"]))
-    d2 = r2.resolve(filters=DatasetFilter(episode_hashes=["aria_00", "aria_01"]))
+    pins = DatasetFilter(episode_hashes=["aria_00", "aria_01"])
+    with zdm.resolve_once():
+        d1 = r1.resolve(filters=pins)
+        d2 = r2.resolve(filters=pins)
     assert set(d1) == set(d2) == {"aria_00", "aria_01"}
     assert (
         d1["aria_00"] is not d2["aria_00"]
@@ -105,13 +139,7 @@ def test_train_resolves_each_dataset_once(tmp_path, monkeypatch) -> None:
         + hpt_small_overrides(recipe.embodiment),
         out,
     )
-    calls = []
-    orig = zdm.LocalEpisodeResolver._get_local_filtered_paths.__func__
-    monkeypatch.setattr(
-        zdm.LocalEpisodeResolver,
-        "_get_local_filtered_paths",
-        classmethod(lambda cls, *a, **k: calls.append(1) or orig(cls, *a, **k)),
-    )
+    calls = _count_local_listings(monkeypatch)
     _, objects = train_hydra.train(cfg)
     assert len(calls) == 1  # train + valid + norm-stat copy share one resolution
     dm = objects["datamodule"]
