@@ -54,7 +54,6 @@ TABLE = pd.DataFrame(
 
 @pytest.fixture
 def fake_table(monkeypatch):
-    zarr_dataset_multi.clear_resolve_cache()
     monkeypatch.setattr(zarr_dataset_multi, "create_default_engine", lambda: object())
     monkeypatch.setattr(zarr_dataset_multi, "episode_table_to_df", lambda engine: TABLE)
 

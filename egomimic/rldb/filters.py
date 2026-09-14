@@ -74,14 +74,16 @@ class ScaleAnnotationDatasetFilter(DatasetFilter):
         self.api_key = os.environ["SCALE_API_KEY"]
         self.tasks = get_completed_tasks(self.project_name, self.api_key)
         self.df = build_df_from_tasks(self.tasks)
-        self.completed_episode_hashes = set(self.df["SEQUENCE_ID"].unique().tolist())
+        self.completed_episode_hashes = frozenset(
+            self.df["SEQUENCE_ID"].unique().tolist()
+        )
+        # Sorted once here: the completed set can be large and cache_key() runs
+        # on every resolve.
+        self._completed_key = tuple(sorted(self.completed_episode_hashes))
         super().__init__(filter_lambdas, episode_hashes)
 
     def cache_key(self) -> tuple:
-        return super().cache_key() + (
-            self.project_name,
-            tuple(sorted(self.completed_episode_hashes)),
-        )
+        return super().cache_key() + (self.project_name, self._completed_key)
 
     def matches(self, row: Mapping[str, Any]) -> bool:
         if row.get("episode_hash") not in self.completed_episode_hashes:
