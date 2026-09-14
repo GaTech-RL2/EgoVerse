@@ -5,6 +5,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from egomimic.rldb.resolve_memo import memoized
 from egomimic.utils.scale_utils import build_df_from_tasks, get_completed_tasks
 
 
@@ -40,13 +41,16 @@ class DatasetFilter:
             f"episode_hashes={sorted(self.episode_hashes)!r})"
         )
 
-    def cache_key(self) -> tuple:
-        """Hashable identity of this filter's contents (resolve-once memo key)."""
-        return (
-            type(self).__name__,
-            tuple(self.filter_lambdas),
-            tuple(sorted(self.episode_hashes)),
-        )
+    def cache_key(self) -> tuple | None:
+        """Hashable identity of this filter's contents (resolve-once memo key).
+
+        None means "don't memoize": a subclass that doesn't define its own
+        cache_key may carry state that affects matches(), so it must not share
+        its parent's key.
+        """
+        if "cache_key" not in type(self).__dict__:
+            return None
+        return (type(self), tuple(self.filter_lambdas), self.episode_hashes)
 
     def matches(self, row: Mapping[str, Any]) -> bool:
         row = dict(row)
@@ -72,18 +76,23 @@ class ScaleAnnotationDatasetFilter(DatasetFilter):
     ) -> None:
         self.project_name = project_name
         self.api_key = os.environ["SCALE_API_KEY"]
-        self.tasks = get_completed_tasks(self.project_name, self.api_key)
+        # Hydra builds this filter once per dataset instantiation; share the
+        # Scale API pull across them inside resolve_once().
+        self.tasks = memoized(
+            ("scale_completed_tasks", project_name),
+            lambda: get_completed_tasks(project_name, self.api_key),
+        )
         self.df = build_df_from_tasks(self.tasks)
         self.completed_episode_hashes = frozenset(
             self.df["SEQUENCE_ID"].unique().tolist()
         )
-        # Sorted once here: the completed set can be large and cache_key() runs
-        # on every resolve.
-        self._completed_key = tuple(sorted(self.completed_episode_hashes))
         super().__init__(filter_lambdas, episode_hashes)
 
-    def cache_key(self) -> tuple:
-        return super().cache_key() + (self.project_name, self._completed_key)
+    def cache_key(self) -> tuple | None:
+        base = super().cache_key()
+        if base is None:
+            return None
+        return base + (self.project_name, self.completed_episode_hashes)
 
     def matches(self, row: Mapping[str, Any]) -> bool:
         if row.get("episode_hash") not in self.completed_episode_hashes:
