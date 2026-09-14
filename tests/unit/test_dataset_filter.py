@@ -54,7 +54,6 @@ def test_dataset_filter_cache_key_reflects_contents() -> None:
 
 
 def test_s3_resolver_filters_dataframe_with_dataset_filter(monkeypatch) -> None:
-    zarr_dataset_multi.clear_resolve_cache()
     df = pd.DataFrame(
         [
             {

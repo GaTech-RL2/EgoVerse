@@ -20,6 +20,7 @@ Each episode is self-contained with its own metadata, enabling:
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import json
 import logging
@@ -30,7 +31,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, Mapping
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, Mapping
 
 import numpy as np
 import pandas as pd
@@ -60,23 +61,44 @@ logger = logging.getLogger(__name__)
 
 SEED = 42
 
-# Resolve-once memo: one SQL table pull per process, one path resolution per
-# (resolver identity, filter contents). Datasets are still constructed per
-# instantiation because each carries its own keymap. Cleared by trainHydra.train().
-_RESOLVE_CACHE: dict[tuple, list[tuple[str, str]]] = {}
-_TABLE_CACHE: list[pd.DataFrame] = []
+
+class _ResolveMemo:
+    """One SQL table pull and one path resolution per (resolver identity,
+    filter contents). Datasets are still constructed per instantiation because
+    each carries its own keymap."""
+
+    def __init__(self) -> None:
+        self.table: pd.DataFrame | None = None
+        self.paths: dict[tuple, tuple[tuple[str, str], ...]] = {}
 
 
-def clear_resolve_cache() -> None:
-    _RESOLVE_CACHE.clear()
-    _TABLE_CACHE.clear()
+# Only set inside resolve_once(). Outside it every resolve re-reads the SQL
+# table, re-lists the local directory and re-syncs S3, so long-lived processes
+# (notebooks, eval scripts) never see stale episodes.
+_MEMO: _ResolveMemo | None = None
+
+
+@contextlib.contextmanager
+def resolve_once() -> Iterator[None]:
+    """Memoize episode resolution for the duration of the block. Nested use
+    joins the outermost scope; the memo is dropped when that scope exits."""
+    global _MEMO
+    if _MEMO is not None:
+        yield
+        return
+    _MEMO = _ResolveMemo()
+    try:
+        yield
+    finally:
+        _MEMO = None
 
 
 def _episode_table() -> pd.DataFrame:
-    if not _TABLE_CACHE:
-        engine = create_default_engine()
-        _TABLE_CACHE.append(episode_table_to_df(engine))
-    return _TABLE_CACHE[0]
+    if _MEMO is None:
+        return episode_table_to_df(create_default_engine())
+    if _MEMO.table is None:
+        _MEMO.table = episode_table_to_df(create_default_engine())
+    return _MEMO.table
 
 
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
@@ -325,6 +347,33 @@ class EpisodeResolver:
 
         return datasets
 
+    def _memo_key(
+        self, filters: DatasetFilter, expected_embodiment: str | None
+    ) -> tuple:
+        raise NotImplementedError
+
+    def _compute_paths(
+        self, filters: DatasetFilter, expected_embodiment: str | None
+    ) -> list[tuple[str, str]]:
+        raise NotImplementedError
+
+    def resolve_paths(
+        self,
+        filters: DatasetFilter | None = None,
+        expected_embodiment: str | None = None,
+    ) -> list[tuple[str, str]]:
+        """(path, episode_hash) pairs matching `filters`; memoized inside
+        resolve_once()."""
+        filters = _ensure_dataset_filter(filters)
+        if _MEMO is None:
+            return self._compute_paths(filters, expected_embodiment)
+        key = self._memo_key(filters, expected_embodiment)
+        if key in _MEMO.paths:
+            logger.info("resolve_paths: cache hit for %s", filters)
+        else:
+            _MEMO.paths[key] = tuple(self._compute_paths(filters, expected_embodiment))
+        return list(_MEMO.paths[key])
+
     def load(self, paths: list[tuple[str, str]]) -> dict[str, "ZarrDataset"]:
         valid = {h for _, h in paths}
         return self._load_zarr_datasets(
@@ -377,29 +426,18 @@ class S3EpisodeResolver(EpisodeResolver):
             expected_embodiment,
         )
 
-    def resolve_paths(
-        self,
-        filters: DatasetFilter | None = None,
-        expected_embodiment: str | None = None,
+    def _compute_paths(
+        self, filters: DatasetFilter, expected_embodiment: str | None
     ) -> list[tuple[str, str]]:
-        filters = _ensure_dataset_filter(filters)
-        key = self._memo_key(filters, expected_embodiment)
-        if key in _RESOLVE_CACHE:
-            logger.info("resolve_paths: cache hit for %s", filters)
-            return list(_RESOLVE_CACHE[key])
-
         self.folder_path.mkdir(parents=True, exist_ok=True)
         logger.info(f"Filters: {filters}")
-
-        paths = self.sync_from_filters(
+        return self.sync_from_filters(
             bucket_name=self.bucket_name,
             filters=filters,
             local_dir=self.folder_path,
             debug=self.debug,
             expected_embodiment=expected_embodiment,
         )
-        _RESOLVE_CACHE[key] = list(paths)
-        return list(paths)
 
     def resolve(
         self,
@@ -839,25 +877,15 @@ class LocalEpisodeResolver(EpisodeResolver):
             expected_embodiment,
         )
 
-    def resolve_paths(
-        self,
-        filters: DatasetFilter | None = None,
-        expected_embodiment: str | None = None,
+    def _compute_paths(
+        self, filters: DatasetFilter, expected_embodiment: str | None
     ) -> list[tuple[str, str]]:
-        filters = _ensure_dataset_filter(filters)
-        key = self._memo_key(filters, expected_embodiment)
-        if key in _RESOLVE_CACHE:
-            logger.info("resolve_paths: cache hit for %s", filters)
-            return list(_RESOLVE_CACHE[key])
-
-        paths = self._get_local_filtered_paths(
+        return self._get_local_filtered_paths(
             self.folder_path,
             filters,
             debug=self.debug,
             expected_embodiment=expected_embodiment,
         )
-        _RESOLVE_CACHE[key] = list(paths)
-        return list(paths)
 
     def resolve(
         self,
@@ -874,10 +902,7 @@ class LocalEpisodeResolver(EpisodeResolver):
             )
 
         paths = self.resolve_paths(filters, expected_embodiment)
-
-        valid_folder_names = {folder_name for _, folder_name in paths}
-        logger.info(f"Valid folder names: {valid_folder_names}")
-        if not valid_folder_names:
+        if not paths:
             raise ValueError(
                 "No valid collection names from local filtering: "
                 "filters matched no episodes in the local directory."
