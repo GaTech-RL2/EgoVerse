@@ -184,37 +184,22 @@ class ModelWrapper(LightningModule):
                 info["policy_grad_norms_mad_threshold"] = threshold
                 grad_norm_flagged = grad_norm_val > threshold
                 info["policy_grad_norms_mad_flag"] = float(grad_norm_flagged)
-                if grad_norm_flagged:
-                    torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=median)
-                    if self.trainer.is_global_zero:
-                        print(
-                            "[GRAD_NORM_SPIKE] "
-                            f"step={self.global_step} "
-                            f"grad_norm={grad_norm_val:.4f} "
-                            f"median={median:.4f} "
-                            f"mad={mad:.4f} "
-                            f"threshold={threshold:.4f}",
-                            flush=True,
-                        )
+                if grad_norm_flagged and self.trainer.is_global_zero:
+                    print(
+                        "[GRAD_NORM_SPIKE] "
+                        f"step={self.global_step} "
+                        f"grad_norm={grad_norm_val:.4f} "
+                        f"median={median:.4f} "
+                        f"mad={mad:.4f} "
+                        f"threshold={threshold:.4f}",
+                        flush=True,
+                    )
 
-        if not grad_norm_flagged:
-            self.grad_norm_history.append(grad_norm_val)
+        # Log-only detector: every step enters the rolling window; clipping is
+        # trainer.gradient_clip_val.
+        self.grad_norm_history.append(grad_norm_val)
         for k, v in info.items():
             self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
-
-    def on_before_optimizer_step(self, optimizer):
-        if not self.enable_grad_norm:
-            return
-        grad_norm = torch.nn.utils.clip_grad_norm_(
-            self.parameters(), max_norm=float("inf")
-        )
-        self.log(
-            "Train/policy_grad_norms_clipped",
-            float(grad_norm),
-            on_step=False,
-            on_epoch=True,
-            sync_dist=True,
-        )
 
     def _val_heads(self) -> dict:
         return {
@@ -224,6 +209,14 @@ class ModelWrapper(LightningModule):
         }
 
     def on_validation_start(self):
+        # Deterministic eval: rewind the algo's per-batch RNG step so this
+        # pass replays the same prompts and sampling noise as any other pass
+        # over the same batches (egomimic/algo/hpt.py). Algos without the hook
+        # (e.g. PI) are unaffected.
+        reset_eval_rng = getattr(self.model, "reset_eval_step", None)
+        if callable(reset_eval_rng):
+            reset_eval_rng()
+
         heads = [h for h in self._val_heads().values() if h is not None]
         if not heads:
             return
