@@ -123,10 +123,27 @@ class EvalVideo(Eval):
             self.val_counter[key] = 0
             self.val_image_buffer[key] = []
 
-    def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
-        do_viz = self._should_viz() and (
-            self.viz_max_batches is None or batch_idx < self.viz_max_batches
+    def on_validation_step(self, batch, batch_idx, dataloader_idx=0, mode="both"):
+        """``mode`` splits metrics from video so one head can serve two loaders:
+
+        * ``"metrics"`` -- the per-episode subsampled metric loader. Never
+          renders or buffers a frame (rendering is ~1 s/frame of CPU, and a
+          subsampled video would be an incoherent time-lapse anyway).
+        * ``"video"`` -- the contiguous pinned-episode loader. Renders and
+          buffers, and logs NOTHING, so no ``Valid/...`` key is averaged over
+          it. On a non-viz epoch, or past ``viz_max_batches``, it returns before
+          the forward pass: there is nothing such a call could produce.
+        * ``"both"`` (default) -- today's single-loader behaviour, which is what
+          a data config without ``video_episodes`` still gets.
+        """
+        if mode not in ("both", "metrics", "video"):
+            raise ValueError(f"unknown validation mode {mode!r}")
+        past_viz_cap = (
+            self.viz_max_batches is not None and batch_idx >= self.viz_max_batches
         )
+        if mode == "video" and (past_viz_cap or not self._should_viz()):
+            return
+        do_viz = mode != "metrics" and self._should_viz() and not past_viz_cap
         metrics, images_dict = self.compute_metrics_and_viz(batch, do_viz=do_viz)
 
         device = self.trainer.lightning_module.device
@@ -148,6 +165,12 @@ class EvalVideo(Eval):
                     self._write_video(key, torch.stack(self.val_image_buffer[key]))
                     self.val_image_buffer[key].clear()
                     self.val_counter[key] += 1
+
+        if mode == "video":
+            # Video-only loader: the forward pass was for the overlay. Logging
+            # here would mix pinned-episode numbers into the head's metric and
+            # (with add_dataloader_idx=False) collide key-for-key with it.
+            return
 
         # add_dataloader_idx=False: with the train_viz loader Lightning would
         # otherwise suffix every key with "/dataloader_idx_N"; the train-viz
