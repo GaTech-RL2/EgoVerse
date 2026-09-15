@@ -359,6 +359,7 @@ class AriaRay(EmbodimentRay):
                         chunk_timesteps=chunk_timesteps,
                         image_compressed=image_compressed,
                         save_mp4=save_mp4,
+                        source_uri=str(vrs),
                     )
                     frames = -1
                     zarr_store_path = zarr_path
@@ -447,6 +448,7 @@ class AriaRay(EmbodimentRay):
         chunk_timesteps: int = 100,
         image_compressed: bool = False,
         save_mp4: bool = True,
+        source_uri: str | None = None,
     ) -> None:
         args = SimpleNamespace(
             raw_path=raw_path,
@@ -459,6 +461,7 @@ class AriaRay(EmbodimentRay):
             image_compressed=image_compressed,
             save_mp4=save_mp4,
             debug=False,
+            source_uri=source_uri,
         )
 
         return aria_main(args)
@@ -588,6 +591,7 @@ class EvaRay(EmbodimentRay):
                         task_description=task_description,
                         chunk_timesteps=chunk_timesteps,
                         save_mp4=save_mp4,
+                        source_uri=str(hdf5_s3),
                     )
                     zarr_path, mp4_path = EvaRay.zarr_job(**job_kwargs)
                     frames = -1
@@ -673,6 +677,7 @@ class EvaRay(EmbodimentRay):
         task_name: str = "",
         task_description: str = "",
         chunk_timesteps: int = 100,
+        source_uri: str | None = None,
     ) -> tuple[Path, Path] | None:
         """
         Convert one <vrs, vrs.json, mps_*> trio to a Zarr dataset.
@@ -689,6 +694,7 @@ class EvaRay(EmbodimentRay):
             task_name=task_name,
             task_description=task_description,
             chunk_timesteps=chunk_timesteps,
+            source_uri=source_uri,
         )
 
         return eva_main(args)

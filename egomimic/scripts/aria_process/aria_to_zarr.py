@@ -127,6 +127,7 @@ class DatasetConverter:
         output_dir: Path = Path("."),
         dataset_name: str = "",
         chunk_timesteps: int = 100,
+        source_uri: str | None = None,
     ):
         """
         Extracts frames from an episode and saves them to the dataset.
@@ -136,6 +137,9 @@ class DatasetConverter:
             The path to the episode file.
         task_description : str, optional
             A description of the task associated with the episode (default is an empty string).
+        source_uri : str, optional
+            URI of the raw episode recorded in the zarr provenance (e.g. the s3://
+            URL it was downloaded from); defaults to episode_path as a file:// URI.
         Returns
         -------
         None
@@ -180,6 +184,8 @@ class DatasetConverter:
             task_description=task_description,
             chunk_timesteps=chunk_timesteps,
             intrinsics={"front_1": ARIA_INTRINSICS},
+            converter="egomimic.scripts.aria_process.aria_to_zarr",  # not __name__: "__main__" as a script
+            source_uri=source_uri or Path(episode_path).resolve().as_uri(),
         )
         if self.save_mp4:
             mp4_path = output_dir / f"{episode_name}.mp4"
@@ -228,6 +234,7 @@ def main(args) -> None:
             task_description=args.task_description,
             output_dir=Path(args.output_dir),
             dataset_name=episode_hash,
+            source_uri=getattr(args, "source_uri", None),
         )
         return zarr_path, mp4_path
     except Exception:

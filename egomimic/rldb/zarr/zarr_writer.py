@@ -5,7 +5,11 @@ This module provides a reusable writer for creating Zarr v3 episode stores
 compatible with the ZarrEpisode reader.
 """
 
+import functools
+import importlib.metadata
 import json
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
@@ -13,6 +17,40 @@ import numpy as np
 import simplejpeg
 import zarr
 from zarr.core.dtype import VariableLengthBytes
+
+from egomimic.rldb.zarr.schema import FORMAT_VERSION
+
+_PROTECTED_METADATA = ("intrinsics", "extrinsics", "format_version", "provenance")
+
+
+@functools.cache
+def _git_sha() -> str | None:
+    """HEAD of the checkout that contains this file, or None (installed wheel, no git).
+
+    Computed once per process (cached) so a converter writing many episodes
+    doesn't spawn a `git rev-parse` subprocess per episode.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    sha = out.stdout.strip()
+    return sha if out.returncode == 0 and len(sha) == 40 else None
+
+
+@functools.cache
+def _egomimic_version() -> str:
+    """Installed egomimic package version, or "unknown". Computed once per process (cached)."""
+    try:
+        return importlib.metadata.version("egomimic")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
 
 
 def _intrinsics_to_jsonable(
@@ -315,6 +353,8 @@ class ZarrWriter:
         intrinsics: dict | None = None,
         extrinsics: dict | None = None,
         verbose: bool = False,
+        converter: str | None = None,
+        source_uri: str | None = None,
     ):
         """
         Initialize ZarrWriter.
@@ -336,6 +376,11 @@ class ZarrWriter:
                 (e.g. {"left": world<-cam, "right": world<-cam}). Stored under the
                 "extrinsics" key in zarr.json metadata. create_and_write enforces
                 the None-or-non-empty-dict contract.
+            converter: Dotted name of the script/module that produced this episode
+                (e.g. "egomimic.rldb.converters.aria"), or None. Recorded under
+                "provenance" in zarr.json metadata.
+            source_uri: Location of the raw data this episode was converted from,
+                or None. Recorded under "provenance" in zarr.json metadata.
         """
         self.episode_path = Path(episode_path)
 
@@ -349,6 +394,8 @@ class ZarrWriter:
         self.intrinsics = intrinsics
         self.extrinsics = extrinsics
         self.verbose = verbose
+        self.converter = converter
+        self.source_uri = source_uri
         # Track image shapes for metadata
         self._features: dict[str, dict[str, Any]] = {}
 
@@ -727,16 +774,29 @@ class ZarrWriter:
         if self.extrinsics is not None:
             metadata["extrinsics"] = _intrinsics_to_jsonable(self.extrinsics)
 
+        metadata["format_version"] = FORMAT_VERSION
+        metadata["provenance"] = {
+            "writer": "egomimic.rldb.zarr.zarr_writer.ZarrWriter",
+            "egomimic_version": _egomimic_version(),
+            "git_sha": _git_sha(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "converter": self.converter,
+            "source_uri": self.source_uri,
+        }
+
         # Apply overrides — but NEVER let them clobber the validated camera
-        # metadata. intrinsics/extrinsics are validated in create_and_write; a
-        # converter's metadata_override that happens to carry a stale or empty
+        # metadata or the writer-stamped version/provenance. intrinsics/
+        # extrinsics are validated in create_and_write; a converter's
+        # metadata_override that happens to carry a stale or empty
         # "intrinsics"/"extrinsics" key must not silently overwrite the validated
         # values (this was the Mecka clobber bug → empty intrinsics in zarr.json).
+        # format_version/provenance are likewise writer-owned and must not be
+        # overridable by a converter's metadata_override.
         if metadata_override:
             override = {
                 k: v
                 for k, v in metadata_override.items()
-                if k not in ("intrinsics", "extrinsics")
+                if k not in _PROTECTED_METADATA
             }
             metadata.update(override)
 
@@ -757,6 +817,8 @@ class ZarrWriter:
         *,
         intrinsics: dict,
         extrinsics: dict | None = None,
+        converter: str | None = None,
+        source_uri: str | None = None,
         metadata_override: dict[str, Any] | None = None,
     ) -> Path:
         """
@@ -780,6 +842,10 @@ class ZarrWriter:
                 human data) or a non-empty dict mapping a key to its transform
                 matrix (robots key per-arm, e.g. {"left": T, "right": T}). Stored
                 in zarr.json metadata.
+            converter: Dotted name of the script/module that produced this episode,
+                or None. Recorded under "provenance" in zarr.json metadata.
+            source_uri: Location of the raw data this episode was converted from,
+                or None. Recorded under "provenance" in zarr.json metadata.
             metadata_override: Optional metadata overrides.
 
         Returns:
@@ -851,6 +917,8 @@ class ZarrWriter:
             chunk_timesteps=chunk_timesteps,
             intrinsics=intrinsics,
             extrinsics=extrinsics,
+            converter=converter,
+            source_uri=source_uri,
         )
 
         writer.write(

@@ -24,6 +24,9 @@ from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr import ZarrWriter
 from egomimic.scripts.eva_process.zarr_utils import EvaHD5Extractor
 
+# Recorded in episode provenance; not __name__, which is "__main__" as a script.
+_CONVERTER = "egomimic.rldb.zarr.hdf5_to_zarr"
+
 
 def is_image_array(arr) -> bool:
     """
@@ -247,6 +250,8 @@ def convert_hdf5_to_zarr(
                 embodiment=embodiment,
                 task_name="debug",
                 task_description="",
+                converter=_CONVERTER,
+                source_uri=Path(hdf5_path).resolve().as_uri(),
             )
             with writer.write_incremental(total_frames=total_frames) as inc:
                 for start in range(0, total_frames, batch_size):
@@ -282,6 +287,8 @@ def convert_hdf5_to_zarr(
                         [0.0, 0.0, 1.0, 0.0],
                     ]
                 },
+                converter=_CONVERTER,
+                source_uri=Path(hdf5_path).resolve().as_uri(),
             )
     except Exception as e:
         print(f"\n❌ ERROR writing Zarr file: {e}")
