@@ -42,7 +42,7 @@ dependencies = [
     "overrides",
     "zarr==3.1.5",
     "tabulate",
-    "transformers==4.53.2",
+    "transformers==5.17.0",
     "timm",
     "boto3",
     "cloudpathlib",
@@ -73,6 +73,10 @@ dependencies = [
 #     uv pip install --no-deps -e external/openpi
 # then apply openpi's `transformers_replace` patch (README, "Installation").
 # `uv sync` reinstalls transformers and silently undoes that patch.
+# The `transformers` pin above exists for that patch: the files in
+# `transformers_replace` are copies of specific `transformers` sources, so the
+# pin and the patch must move together. The patch was ported to 5.17.0 (the
+# 4.53.2 port is in git history); `siglip/check.py` asserts the version.
 #
 # Also not declared: `scale_sensor_fusion_io` (PyPI: scale-sensor-fusion-io),
 # imported only by the Scale converter under external/scale/scripts, which is
