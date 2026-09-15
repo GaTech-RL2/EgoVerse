@@ -40,6 +40,10 @@ robomimic_model:
   annotation_modality: "annotation"
   default_prompt: ""
 
+  # Mask the repeat-last padding at every episode / annotation tail out of
+  # the action loss (the dataset's `action_pad_mask`).
+  use_pad_mask: false
+
   trunk:
     embed_dim: 840
     num_blocks: 23
