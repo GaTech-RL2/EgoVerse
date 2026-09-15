@@ -1,0 +1,48 @@
+# HPT_BC_MECKA_6D_300M_SIGLIP: the flagship 300M recipe with a pretrained
+# SigLIP vision tower (google/siglip2-base-patch16-256, 86M params, 256 tokens
+# per 256x256 frame) in place of the ImageNet ResNet18, fine-tuned.
+#
+# Everything else -- trunk, head, text stem, action space, data -- is
+# hpt_bc_mecka_6d_300M, so the two configs differ only in the image encoder,
+# its augs and the backbone LR: a clean backbone comparison.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_6d_hpt \
+#     model=hpt_bc_mecka_6d_300M_siglip norm_stats.precomputed_norm_path=<out>/norm_stats
+#
+# NORMALIZATION: the stem owns its own preprocessing (squash resize to 256x256
+# + the checkpoint's 0.5 / 0.5 mean-std), so the augs must hand it [0, 1]
+# images: ColorJitter only while training, nothing at eval. The ResNet config
+# keeps its ImageNet Normalize; do not add one here.
+#
+# backbone_lr_scale 0.1 = 5e-6 for the tower against 5e-5 everywhere else. The
+# tower is pretrained on billions of image-text pairs while the trunk and head
+# start random, so the trunk's LR would wash the tower out in the first epochs.
+# Cost (a40, batch 64 per camera, bf16 autocast, tuned, tower only): SigLIP2
+# base-256 192 ms / 6.8 GB against ResNet18 at 360x640 128 ms / 3.6 GB.
+#
+# ``num_of_copy`` is inherited from the parent's encoder_specs entry (hydra
+# merges cannot delete keys); SigLIPStem ignores it -- it encodes every view
+# with the same tower.
+defaults:
+  - hpt_bc_mecka_6d_300M
+  - _self_
+
+backbone_lr_scale: 0.1
+
+robomimic_model:
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.SigLIPStem
+      model_name: "google/siglip2-base-patch16-256"
+      output_dim: 840
+      freeze_backbone: false
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+  eval_image_augs: null
