@@ -1180,7 +1180,7 @@ class _Qwen3BaseEncoder(PretrainedWeights, PolicyStem):
         # that probe, so resolve the repo id to its local snapshot when offline.
         load_path = _local_snapshot_if_offline(model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(load_path, padding_side="left")
-        self.encoder = AutoModel.from_pretrained(load_path, torch_dtype=torch_dtype)
+        self.encoder = AutoModel.from_pretrained(load_path, dtype=torch_dtype)
         # Remembered so the weight-hash check can read the same snapshot back
         # and compare in the dtype the encoder was loaded in.
         self._snapshot_dir = load_path
@@ -1323,7 +1323,7 @@ class _Qwen3BaseEncoder(PretrainedWeights, PolicyStem):
 
     def pretrained_reference_state_dict(self) -> Optional[dict]:
         """The snapshot's own safetensors, cast exactly the way
-        ``from_pretrained(torch_dtype=...)`` casts them."""
+        ``from_pretrained(dtype=...)`` casts them."""
         if not os.path.isdir(self._snapshot_dir):
             return None
         return _snapshot_state_dict(

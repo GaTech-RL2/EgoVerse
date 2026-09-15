@@ -102,7 +102,7 @@ class Qwen3TextEmbedding(ZarrKeyTransform):
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name, padding_side="left"
         )
-        self.model = AutoModel.from_pretrained(self.model_name, torch_dtype=self.dtype)
+        self.model = AutoModel.from_pretrained(self.model_name, dtype=self.dtype)
         self.model.to(self.device).eval()
         self._embed_dim = int(self.model.config.hidden_size)
 

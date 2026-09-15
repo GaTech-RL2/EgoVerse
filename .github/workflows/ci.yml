@@ -46,13 +46,24 @@ jobs:
           uv pip install -c "$RUNNER_TEMP/locked.txt" \
             flax==0.10.2 jax==0.5.3 augmax==0.4.1 beartype==0.19.0 \
             jaxtyping==0.2.36 orbax-checkpoint==0.11.13
+      # openpi's pi0.5 port needs patched `transformers` sources (tuple-returning
+      # GemmaRMSNorm, the AdaRMS config fields, `check()`, embed_scale == 1); a
+      # stock install has none of them, so overlay them exactly as README's
+      # install does. This must follow every install step: `uv sync` and any
+      # `transformers` reinstall silently undo the patch.
+      - name: Apply openpi's transformers_replace patch
+        run: |
+          dest=$(uv run --no-sync python -c "import transformers, pathlib; print(pathlib.Path(transformers.__file__).parent)")
+          cp -r external/openpi/src/openpi/models_pytorch/transformers_replace/* "$dest/"
       # The Pi wrapper loads this tokenizer; the tests run with HF offline.
+      # transformers 5.x resolves the tokenizer class through the model config,
+      # so `config.json` has to be cached alongside the tokenizer files.
       - name: Cache PaliGemma tokenizer
         id: tokenizer-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface/hub/models--google--paligemma-3b-mix-224
-          key: hf-paligemma-3b-mix-224-tokenizer-v1
+          key: hf-paligemma-3b-mix-224-tokenizer-v2
       - name: Download PaliGemma tokenizer (gated model; needs the HF_TOKEN secret)
         if: steps.tokenizer-cache.outputs.cache-hit != 'true'
         env:
@@ -62,12 +73,12 @@ jobs:
             echo "::error::HF_TOKEN secret is not set; it needs access to google/paligemma-3b-mix-224"
             exit 1
           fi
-          uv run --no-sync python -c "from huggingface_hub import snapshot_download; snapshot_download('google/paligemma-3b-mix-224', allow_patterns=['tokenizer*', 'special_tokens_map.json', 'added_tokens.json'])"
+          uv run --no-sync python -c "from huggingface_hub import snapshot_download; snapshot_download('google/paligemma-3b-mix-224', allow_patterns=['tokenizer*', 'special_tokens_map.json', 'added_tokens.json', 'config.json'])"
       # --no-sync: a sync would not remove openpi, but never let it touch the venv.
       - name: Unit tests (hermetic; includes the Hydra compose test over every config)
         env:
           EGOVERSE_REQUIRE_PI: "1" # fail instead of skipping the Pi train-step tests
-          HF_HUB_OFFLINE: "1" # only the tokenizer files are cached; the gated repo 401s without a token
+          HF_HUB_OFFLINE: "1" # only the tokenizer + config files are cached; the gated repo 401s without a token
         run: uv run --no-sync pytest tests/unit -q -p no:cacheprovider
 
   wheel:
