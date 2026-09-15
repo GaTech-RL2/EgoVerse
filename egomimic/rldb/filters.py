@@ -6,7 +6,6 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from egomimic.rldb.resolve_memo import memoized
-from egomimic.utils.scale_utils import build_df_from_tasks, get_completed_tasks
 
 
 class DatasetFilter:
@@ -74,6 +73,8 @@ class ScaleAnnotationDatasetFilter(DatasetFilter):
         filter_lambdas: Sequence[str] | None = None,
         episode_hashes: Sequence[str] | None = None,
     ) -> None:
+        from egomimic.utils.scale_utils import build_df_from_tasks, get_completed_tasks
+
         self.project_name = project_name
         self.api_key = os.environ["SCALE_API_KEY"]
         # Hydra builds this filter once per dataset instantiation; share the
