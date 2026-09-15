@@ -18,3 +18,10 @@ check_val_every_n_epoch: 100
 # set True to to ensure deterministic results
 # makes training slower but gives more reproducibility than just setting seeds
 deterministic: False
+
+# Fixed gradient clipping, applied by Lightning in configure_gradient_clipping.
+# The MAD spike detector in ModelWrapper.on_after_backward is log-only and never
+# touches gradients; this is the only thing that clips. null = no clipping (the
+# value is picked from the grad-norm curve of a log-only baseline run).
+gradient_clip_val: null
+gradient_clip_algorithm: norm
