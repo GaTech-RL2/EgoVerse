@@ -43,6 +43,12 @@ dependencies = [
     "zarr==3.1.5",
     "tabulate",
     "transformers==5.17.0",
+    # Triton kernels for Qwen 3.5's hybrid Gated DeltaNet attention
+    # (egomimic.models.hpt_nets.Qwen35VLMEncoder). Without it
+    # transformers falls back to a reference PyTorch implementation:
+    # correct but 1.27x slower on the measured forward. Pure-python
+    # wheel, no compilation.
+    "flash-linear-attention==0.5.2",
     "timm",
     "boto3",
     "cloudpathlib",
