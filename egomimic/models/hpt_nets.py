@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+from collections import OrderedDict
 from functools import partial
 from typing import Callable, List, Optional, Union
 
@@ -891,6 +892,10 @@ class _Qwen3BaseEncoder(PretrainedWeights, PolicyStem):
             cost down when frozen).
         normalize_pooled: only used by the pooled subclass; L2-normalizes the
             sentence embedding (Qwen3 official recipe).
+        cache_text_features: cache the frozen per-token hidden states per
+            unique prompt string (default True). Ignored when ``freeze`` is
+            False - a trainable encoder must stay online.
+        text_cache_max_entries: cache capacity; LRU eviction beyond it.
     """
 
     DEFAULT_MODEL = "Qwen/Qwen3-Embedding-0.6B"
@@ -903,6 +908,8 @@ class _Qwen3BaseEncoder(PretrainedWeights, PolicyStem):
         freeze: bool = True,
         dtype: str = "float16",
         output_dim: int | None = None,
+        cache_text_features: bool = True,
+        text_cache_max_entries: int = 8192,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -939,8 +946,47 @@ class _Qwen3BaseEncoder(PretrainedWeights, PolicyStem):
             if self.output_dim != self.hidden_size
             else nn.Identity()
         )
+        self._init_text_feature_cache(cache_text_features, text_cache_max_entries)
 
-    def _encode(self, prompts):
+    # ----------------------------------------------------------------
+    # frozen text-feature cache
+    # ----------------------------------------------------------------
+
+    def _init_text_feature_cache(
+        self, cache_text_features: bool = True, text_cache_max_entries: int = 8192
+    ) -> None:
+        """Set up the (empty) prompt -> per-token-features cache."""
+        self.cache_text_features = bool(cache_text_features)
+        self.text_cache_max_entries = int(text_cache_max_entries)
+        self._text_feature_cache = OrderedDict()
+        self._text_cache_hits = 0
+        self._text_cache_misses = 0
+
+    def clear_text_feature_cache(self) -> None:
+        """Drop every cached prompt (the hit/miss counters are cumulative)."""
+        self._text_feature_cache.clear()
+
+    def text_feature_cache_stats(self) -> dict:
+        """``{"entries": n, "hits": h, "misses": m}``; hits/misses count prompt
+        occurrences, duplicates inside one batch included."""
+        return {
+            "entries": len(self._text_feature_cache),
+            "hits": self._text_cache_hits,
+            "misses": self._text_cache_misses,
+        }
+
+    def _text_cache_enabled(self) -> bool:
+        # A trainable encoder must stay online: its outputs change every step
+        # and the loss needs the graph. Only a frozen encoder is cacheable.
+        return bool(
+            self.cache_text_features
+            and self.freeze_encoder
+            and self.text_cache_max_entries > 0
+        )
+
+    def _encode_online(self, prompts):
+        """Tokenize + run the encoder, returning ``(last_hidden_state,
+        attention_mask)`` left-padded (the tokenizer is ``padding_side="left"``)."""
         tokens = self.tokenizer(
             prompts,
             padding=True,
@@ -954,6 +1000,72 @@ class _Qwen3BaseEncoder(PretrainedWeights, PolicyStem):
         else:
             out = self.encoder(**tokens)
         return out.last_hidden_state, tokens["attention_mask"]
+
+    def _encode(self, prompts):
+        """``(last_hidden_state, attention_mask)`` for ``prompts``, served from
+        the per-prompt cache whenever the encoder is frozen.
+
+        The annotation vocabulary is tiny next to the number of training steps,
+        so a frozen encoder recomputes the same 600M-parameter forward over and
+        over. Misses go through ``_encode_online`` in ONE sub-batch of unique
+        strings; each prompt's un-padded ``(L_i, D)`` rows are stored (the mask
+        is implied by ``L_i``) and the batch is re-assembled with the same LEFT
+        padding the tokenizer produces, so callers cannot tell the paths apart.
+
+        One deliberate difference: padded positions come back as ZEROS here,
+        whereas the online path leaves the encoder's output for the pad tokens
+        there. Every consumer masks those positions out
+        (``forward_with_mask``; last-token pooling reads the final, always-real
+        position under left padding), so this only removes junk.
+        """
+        if not self._text_cache_enabled():
+            return self._encode_online(prompts)
+
+        prompts = list(prompts)
+        device = self.device
+        misses = []
+        for prompt in prompts:
+            entry = self._text_feature_cache.get(prompt)
+            # Entries computed on another device are stale (the module moved):
+            # drop them rather than silently copy across devices.
+            if entry is not None and entry.device != device:
+                del self._text_feature_cache[prompt]
+                entry = None
+            if entry is None:
+                self._text_cache_misses += 1
+                if prompt not in misses:
+                    misses.append(prompt)
+            else:
+                self._text_cache_hits += 1
+                self._text_feature_cache.move_to_end(prompt)
+
+        if misses:
+            hidden, mask = self._encode_online(misses)
+            mask = mask.bool()
+            for i, prompt in enumerate(misses):
+                # un-padded per-token states; detached, no graph is kept
+                self._text_feature_cache[prompt] = hidden[i][mask[i]].detach()
+                self._text_feature_cache.move_to_end(prompt)
+            while len(self._text_feature_cache) > self.text_cache_max_entries:
+                self._text_feature_cache.popitem(last=False)  # LRU victim
+
+        rows = [self._text_feature_cache[p] for p in prompts]
+        longest = max(row.shape[0] for row in rows)
+        hidden = rows[0].new_zeros((len(rows), longest, rows[0].shape[-1]))
+        mask = torch.zeros((len(rows), longest), dtype=torch.long, device=device)
+        for i, row in enumerate(rows):  # LEFT padding, as padding_side="left"
+            length = row.shape[0]
+            hidden[i, longest - length :] = row
+            mask[i, longest - length :] = 1
+        return hidden, mask
+
+    def _apply(self, *args, **kwargs):
+        """``.to()`` / ``.cuda()`` / ``.float()`` invalidate the cache: the
+        stored tensors belong to the old device / dtype."""
+        out = super()._apply(*args, **kwargs)
+        if getattr(self, "_text_feature_cache", None):
+            self.clear_text_feature_cache()
+        return out
 
     def pretrained_reference_state_dict(self) -> Optional[dict]:
         """The snapshot's own safetensors, cast exactly the way
