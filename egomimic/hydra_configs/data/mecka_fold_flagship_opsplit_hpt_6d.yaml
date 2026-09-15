@@ -77,6 +77,18 @@ train_datasets:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: cartesian
         annotation_key: annotations
+        # Proprio observation history: the ee_pose keys read K steps spaced
+        # `history_stride` frames apart, (K, 20) with the current frame last.
+        # At 30 fps the median wrist translation is 6.8 mm over 1 frame but
+        # 42.9 mm over 5, so an unstrided window is mostly sensor noise while
+        # the action chunk it conditions spans a full second; K = 3, s = 5 is
+        # 0.33 s of past. Must match the stem's `history_len` (the run fails
+        # loudly if not), and the K = 1 baseline needs
+        #   ...key_map.proprio_history=1 ...key_map.history_stride=1
+        #   model.robomimic_model.stem_specs.human_bimanual.state_ee_pose.history_len=1
+        # The two val loaders interpolate this resolver, so they follow.
+        proprio_history: 3
+        history_stride: 5
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         mode: cartesian_wristframe_6d
