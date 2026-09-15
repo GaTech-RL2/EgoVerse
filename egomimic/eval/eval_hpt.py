@@ -3,9 +3,10 @@ import copy
 import torch
 from torchmetrics import MeanSquaredError
 
+from egomimic.eval.action_metrics import layout_metrics
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
-from egomimic.utils.metrics import frechet_gaussian_over_time, reverse_kl_from_samples
+from egomimic.utils.metrics import frechet_gaussian_over_time
 
 
 class HPTEvalVideo(EvalVideo):
@@ -13,14 +14,15 @@ class HPTEvalVideo(EvalVideo):
     Eval class for HPT models. Per embodiment, computes:
       - val loss (BC loss, same as training; also aggregated as ``Valid/action_loss``)
       - paired/final MSE + Frechet over time for the main / shared / auxiliary heads
+      - the layout metrics of :mod:`egomimic.eval.action_metrics` on the main
+        ``ac_key`` (position / rotation / keypoint errors, frame-invariant)
       - paired/final MSE in cam frame on the main ``ac_key``, when a
-        ``transform_lists`` entry is configured
-      - optional Reverse KL from samples
+        ``transform_lists`` entry is configured (viz batches only)
     The revert transform is applied once and reused by both the cam-frame MSE
     and the viz video.
     """
 
-    def compute_metrics_and_viz(self, batch):
+    def compute_metrics_and_viz(self, batch, do_viz=True):
         algo = self.model
         preds = algo.forward_eval(batch)
 
@@ -44,24 +46,20 @@ class HPTEvalVideo(EvalVideo):
                 n_loss_embodiments += 1
 
             if f"{embodiment_name}_{ac_key}" in preds and ac_key != algo.shared_ac_key:
-                metrics[f"Valid/{embodiment_name}_{ac_key}_paired_mse_avg"] = mse(
-                    preds[f"{embodiment_name}_{ac_key}"].cpu(), _batch[ac_key].cpu()
+                pred_key = f"{embodiment_name}_{ac_key}"
+                metrics[f"Valid/{pred_key}_paired_mse_avg"] = mse(
+                    preds[pred_key].cpu(), _batch[ac_key].cpu()
                 )
-                metrics[f"Valid/{embodiment_name}_{ac_key}_final_mse_avg"] = mse(
-                    preds[f"{embodiment_name}_{ac_key}"][:, -1].cpu(),
+                metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
+                    preds[pred_key][:, -1].cpu(),
                     _batch[ac_key][:, -1].cpu(),
                 )
-                fd = frechet_gaussian_over_time(
-                    preds[f"{embodiment_name}_{ac_key}"], _batch[ac_key]
-                )
-                metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_avg"] = (
-                    fd.mean().item()
-                )
-                metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_min"] = (
-                    fd.min().item()
-                )
-                metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_max"] = (
-                    fd.max().item()
+                fd = frechet_gaussian_over_time(preds[pred_key], _batch[ac_key])
+                metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = fd.mean().item()
+                metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
+                metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
+                metrics.update(
+                    layout_metrics(preds[pred_key], _batch[ac_key], f"Valid/{pred_key}")
                 )
 
             if embodiment_name in algo.auxiliary_ac_keys:
@@ -102,62 +100,8 @@ class HPTEvalVideo(EvalVideo):
                 metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
                 metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
 
-            if algo.rkl_samples and algo.rkl_samples > 1:
-                hpt_batch = {
-                    "domain": embodiment_name,
-                    "data": algo._robomimic_to_hpt_data(
-                        batch[embodiment_id],
-                        algo.camera_keys[embodiment_id],
-                        algo.proprio_keys[embodiment_id],
-                        algo.lang_keys[embodiment_id],
-                        ac_key,
-                        algo.auxiliary_ac_keys.get(embodiment_name, []),
-                    ),
-                }
-                rkl_targets = []
-
-                if (
-                    f"{embodiment_name}_{ac_key}" in preds
-                    and ac_key != algo.shared_ac_key
-                ):
-                    rkl_targets.append(
-                        (
-                            f"{embodiment_name}_{ac_key}",
-                            _batch[ac_key].to(algo.device),
-                            embodiment_name,
-                        )
-                    )
-
-                if embodiment_name in algo.auxiliary_ac_keys:
-                    for aux_key in algo.auxiliary_ac_keys[embodiment_name]:
-                        aux_pred_key = f"{embodiment_name}_{aux_key}"
-                        if aux_pred_key in preds:
-                            rkl_targets.append(
-                                (
-                                    aux_pred_key,
-                                    _batch[aux_key].to(algo.device),
-                                    aux_key,
-                                )
-                            )
-
-                if algo.shared_ac_key:
-                    shared_pred_key = f"{embodiment_name}_{algo.shared_ac_key}"
-                    if shared_pred_key in preds:
-                        rkl_targets.append(
-                            (
-                                shared_pred_key,
-                                _batch[algo.shared_ac_key].to(algo.device),
-                                "shared",
-                            )
-                        )
-
-                M = int(algo.rkl_samples)
-                for pred_key_name, gt_tensor, head_key in rkl_targets:
-                    samples = self._collect_policy_samples(
-                        hpt_batch, ref=gt_tensor, key_name=head_key, M=M
-                    )
-                    rkl = reverse_kl_from_samples(samples, gt_tensor)
-                    metrics[f"Valid/{pred_key_name}_reverse_kl_M{M}"] = rkl.item()
+            if not do_viz:
+                continue
 
             transform_list = self.transform_lists.get(embodiment_name)
             main_pred_key = f"{embodiment_name}_{ac_key}"
@@ -202,26 +146,3 @@ class HPTEvalVideo(EvalVideo):
         embodiment_id = batch["embodiment"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
         return self.viz_func[embodiment_name](predictions, batch)
-
-    @torch.no_grad()
-    def _collect_policy_samples(self, hpt_batch, ref, key_name, M):
-        """Collect policy samples for Reverse KL."""
-        algo = self.model
-        B, T, D = ref.shape
-        samples = []
-        was_training = algo.nets.training
-        algo.nets.eval()
-        for _ in range(M):
-            out = algo.nets["policy"].forward(
-                hpt_batch["domain"], algo._clone_batch(hpt_batch["data"])
-            )
-            if key_name in out:
-                pred = out[key_name]
-            else:
-                pred = out[hpt_batch["domain"]]
-
-            pred = pred[:, :T, :D]
-            samples.append(pred.unsqueeze(0))
-        if was_training:
-            algo.nets.train()
-        return torch.cat(samples, dim=0)

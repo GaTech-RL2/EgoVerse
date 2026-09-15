@@ -1,0 +1,30 @@
+defaults:
+  - pi0.5_base
+  - _self_
+
+# pi0.5 BC on mecka data alone (stored as human_bimanual) with the CARTESIAN
+# action: actions arrive already in xyz+6D layout (18D per arm pair, no
+# gripper, wrist-relative via the `cartesian_wristframe_6d` transform mode)
+# and the head-frame proprio ee_pose arrives 6D-encoded too; the forward pass
+# only packs them into openpi's 32D vector (pretrained projections kept).
+# Pairs with data=mecka_all_6d / mecka_fold_freeform*_6d and
+# evaluator=eval_pi_wristframe_6d (or, with the human transform mode
+# overridden to `cartesian_6d`, eval_pi_camframe_6d).
+robomimic_model:
+  camera_transforms: {}
+  ac_keys:
+    human_bimanual: "actions_cartesian"
+  domains: ["human_bimanual"]
+
+  # Keep the discretized-proprio "State: <bins>" prompt block (pi0.5_base
+  # defaults proprio_in_prompt on) but do not splice "Embodiment: <name>" into
+  # the prompt.
+  embodiment_label: false
+
+  action_converters:
+    rules:
+      HUMAN_BIMANUAL:
+        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+    # optional fallback if no match is found
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter

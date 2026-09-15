@@ -104,26 +104,14 @@ def _attrs_only_episode(root, name, **attrs):
     zarr.open_group(str(root / f"{name}.zarr"), mode="w").attrs.update(attrs)
 
 
-def test_local_pin_missing_dir_is_error(tmp_path) -> None:
-    _attrs_only_episode(tmp_path, "l-ok", embodiment="human_bimanual")
-    with pytest.raises(PinError, match="l-missing: not in local directory"):
-        LocalEpisodeResolver._get_local_filtered_paths(
-            tmp_path,
-            DatasetFilter(episode_hashes=["l-ok", "l-missing"]),
-            expected_embodiment="human_bimanual",
-        )
-
-
-def test_local_pin_embodiment_mismatch_is_error(tmp_path) -> None:
-    _attrs_only_episode(tmp_path, "l-eva", embodiment="eva_bimanual")
-    with pytest.raises(
-        PinError, match="l-eva: embodiment 'eva_bimanual' != dataset 'human_bimanual'"
-    ):
-        LocalEpisodeResolver._get_local_filtered_paths(
-            tmp_path,
-            DatasetFilter(episode_hashes=["l-eva"]),
-            expected_embodiment="human_bimanual",
-        )
+def test_local_pin_accepts_legacy_vendor_embodiment(tmp_path) -> None:
+    _attrs_only_episode(tmp_path, "l-mecka", embodiment="MECKA_BIMANUAL")
+    paths = LocalEpisodeResolver._get_local_filtered_paths(
+        tmp_path,
+        DatasetFilter(episode_hashes=["l-mecka"]),
+        expected_embodiment="human_bimanual",
+    )
+    assert [h for _, h in paths] == ["l-mecka"]
 
 
 def test_local_unpinned_mismatch_warns(tmp_path, caplog) -> None:

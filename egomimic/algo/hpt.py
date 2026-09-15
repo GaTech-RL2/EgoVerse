@@ -145,6 +145,9 @@ class HPTModel(nn.Module):
             A specification containing configurations for each modality's stem.
         """
 
+        # A ``null`` entry lets a child config drop a stem its base declares
+        # (hydra merges cannot delete keys).
+        stem_spec = {k: v for k, v in stem_spec.items() if v is not None}
         self.stem_spec[domain_name] = stem_spec
         self.modalities[domain_name] = list(stem_spec.keys())
 
@@ -908,8 +911,6 @@ class HPT(Algo):
         self.depth = kwargs.get("depth", 8)
         self.freeze_depth = kwargs.get("freeze_depth", 8)
         model.depth = self.depth
-
-        self.rkl_samples = kwargs.get("reverse_kl_samples", 4)
 
         if self.ot:
             self.ot_warm_start_steps = kwargs.get("ot_warm_start_steps", 0)

@@ -14,7 +14,11 @@ from omegaconf import open_dict
 import egomimic.trainHydra as train_hydra
 from fixtures.synthetic_episodes import write_episode
 
-STATE_DIM = {"eva_bimanual": 14, "human_bimanual": 12}
+# Width of the concatenated proprio the Pi wrapper hands openpi: eva = the
+# 6D-encoded 20-D ee_pose; human = the 144-D keypoint proprio + the 20-D
+# grip-padded ee_pose the keypoint data configs also emit for the prompt
+# (include_ee_pose + pad_proprio_gripper).
+STATE_DIM = {"eva_bimanual": 20, "human_bimanual": 144 + 20}
 PI_TOKENIZER = (
     "google/paligemma-3b-mix-224"  # tokenizer_model_name in model/pi0.5_base.yaml
 )
@@ -129,6 +133,8 @@ class StubPI0(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
+        # Like openpi: 32-wide regardless of config.action_dim. PI swaps them
+        # for action_dim-wide ones when action_dim != 32.
         self.action_in_proj = nn.Linear(32, 64)
         self.action_out_proj = nn.Linear(64, 32)
 
@@ -151,11 +157,20 @@ class StubPI0(nn.Module):
                 k,
                 mask,
             )
-        assert actions.shape == (B, self.config.action_horizon, 32), actions.shape
+        action_dim = self.config.action_dim
+        assert actions.shape == (
+            B,
+            self.config.action_horizon,
+            action_dim,
+        ), actions.shape
+        assert self.action_in_proj.in_features == action_dim
+        assert self.action_out_proj.out_features == action_dim
         pred = self.action_out_proj(torch.tanh(self.action_in_proj(actions)))
         return ((pred - actions) ** 2).mean(dim=(-1, -2))
 
     @torch.no_grad()
     def sample_actions(self, device, observation, noise=None, num_steps=10):
         B = observation.state.shape[0]
-        return torch.zeros(B, self.config.action_horizon, 32, device=device)
+        return torch.zeros(
+            B, self.config.action_horizon, self.config.action_dim, device=device
+        )

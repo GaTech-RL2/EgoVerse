@@ -2,16 +2,22 @@ defaults:
   - pi0.5_base
   - _self_
 
+# pi0.5 on the merged mecka + scale human_bimanual domain
+# (data/mecka_scale_cotrain_pi.yaml) with the 144-D wrist-frame hand-keypoint
+# action; see pi0.5_bc_mecka.yaml.
 robomimic_model:
   camera_transforms: {}
+  config:
+    model:
+      action_dim: 144
   ac_keys:
-    human_bimanual: "actions_cartesian"
+    human_bimanual: "actions_keypoints"
   domains: ["human_bimanual"]
 
   action_converters:
     rules:
       HUMAN_BIMANUAL:
-        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+        _target_: egomimic.utils.action_utils.HumanBimanualKeypoints
     # optional fallback if no match is found
     fallback:
       _target_: egomimic.utils.action_utils.BaseActionConverter

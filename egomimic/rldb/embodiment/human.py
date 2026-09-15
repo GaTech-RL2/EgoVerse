@@ -8,15 +8,21 @@ from egomimic.rldb.embodiment.embodiment import Embodiment, _strip_pi_keymap_mod
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
+    CartesianRot6DToYPR,
+    CartesianYPRToRot6D,
     ConcatKeys,
     DeleteKeys,
     InterpolatePose,
+    KeypointsRot6DToYPR,
+    KeypointsYPRToRot6D,
     PadGripperZeros,
     PoseCoordinateFrameTransform,
     QuaternionPoseToYPR,
     Reshape,
+    RotateLocalFrame,
     SplitKeys,
     Transform,
+    UnpadGripperZeros,
     XYZWXYZ_to_XYZYPR,
 )
 from egomimic.utils.viz_utils import (
@@ -218,18 +224,24 @@ class Human(Embodiment):
         keymap_mode: str,
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
+        include_ee_pose: bool = False,
         norm_mode: bool = False,
         annotation_key: str = None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (False only for contributors that truly omit
-        ``obs_head_pose``; incompatible with cartesian modes, which pivot on it) and ``include_aria_keypoints``
-        (Aria=True). ``norm_mode``/``annotation_key`` behave as in the base.
+        ``obs_head_pose``; incompatible with cartesian modes, which pivot on
+        it), ``include_aria_keypoints`` (Aria=True) and ``include_ee_pose``
+        (keypoints mode only: also read the palm-origin ``obs_ee_pose`` keys so
+        the keypoint transform modes can build the cartesian
+        ``observations.state.ee_pose`` proprio, the pi0.5 prompt state).
+        ``norm_mode``/``annotation_key`` behave as in the base.
         """
         key_map = cls._get_keymap(
             keymap_mode,
             has_head_pose=has_head_pose,
             include_aria_keypoints=include_aria_keypoints,
+            include_ee_pose=include_ee_pose,
         )
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
@@ -252,10 +264,13 @@ class Human(Embodiment):
         keymap_mode: str,
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
+        include_ee_pose: bool = False,
     ):
         """Canonical MANO keymap. ``include_aria_keypoints`` additionally exposes
-        the raw Aria-layout proprio keypoints alongside the MANO ones. The front
-        image is always ``VIZ_IMAGE_KEY``; Pi renames it onto its own slot.
+        the raw Aria-layout proprio keypoints alongside the MANO ones;
+        ``include_ee_pose`` adds the palm-origin ee_pose keys to the keypoints
+        keymap. The front image is always ``VIZ_IMAGE_KEY``; Pi renames it
+        onto its own slot.
         """
         base_mode = _strip_pi_keymap_mode(cls, keymap_mode)
         front_key = cls.VIZ_IMAGE_KEY
@@ -330,6 +345,23 @@ class Human(Embodiment):
                     "zarr_key": "right.obs_wrist_pose",
                 },
             }
+            if include_ee_pose:
+                # Palm-origin ee_pose alongside the keypoints: lets the
+                # keypoint transform modes build the SAME head-frame
+                # ``observations.state.ee_pose`` proprio the cartesian pi runs
+                # put in the prompt (left-wrist fix, 6D, grip-padded), so a
+                # keypoint-action run differs from them only in the action
+                # space. Pair with ``get_transform_list(include_ee_pose=True)``.
+                for side in ("left", "right"):
+                    key_map[f"{side}.action_ee_pose"] = {
+                        "key_type": "action_keys",
+                        "zarr_key": f"{side}.obs_ee_pose",
+                        "horizon": horizon,
+                    }
+                    key_map[f"{side}.obs_ee_pose"] = {
+                        "key_type": "proprio_keys",
+                        "zarr_key": f"{side}.obs_ee_pose",
+                    }
             if include_aria_keypoints:
                 # Raw Aria-layout keypoints exposed alongside the canonical MANO
                 # ones (proprio, no horizon: no transform consumes them).
@@ -356,42 +388,149 @@ class Human(Embodiment):
         cls,
         mode: Literal[
             "cartesian",
+            "cartesian_6d",
             "cartesian_padded",
             "cartesian_wristframe_ypr",
+            "cartesian_wristframe_6d",
             "keypoints_headframe_ypr",
             "keypoints_headframe_quat",
+            "keypoints_headframe_6d",
             "keypoints_wristframe_ypr",
             "keypoints_wristframe_quat",
+            "keypoints_wristframe_6d",
         ],
         stride: int = 3,
+        fix_mecka_left_wrist: bool = False,
+        pad_proprio_gripper: bool = False,
+        include_ee_pose: bool = False,
     ) -> list[Transform]:
         """Transform pipeline. ``stride`` is the per-vendor action stride
         (Aria/LightWheel=3, Scale/Mecka=1), supplied by the data config.
+
+        ``fix_mecka_left_wrist`` retroactively corrects the LEFT wrist-frame
+        convention of mecka zarrs converted before the ``rot_left`` fix in
+        ``mecka_to_zarr.compute_hand_pose_xyzquat`` (which double-mirrored the
+        left hand onto the right hand's spatial convention): the raw left
+        pose keys (ee_pose in cartesian modes, wrist_pose in keypoints modes,
+        both when ``include_ee_pose``; the converter writes the same rotation
+        into both) are right-multiplied by Rz(180 deg) before any frame math,
+        exactly equivalent to reconverting. Set it from mecka data configs
+        only; do NOT enable for aria/scale (different converters) or for
+        mecka data reconverted after the fix (it would double-flip).
+
+        ``pad_proprio_gripper`` pads the cartesian proprio
+        ``observations.state.ee_pose`` 18 -> 20 (zero grip slots at 9/19) so
+        the pi0.5 ``State:`` prompt bins align positionally with the robot
+        20D layout. 6D modes only.
+
+        ``include_ee_pose`` (keypoints modes only; pair with
+        ``get_keymap(include_ee_pose=True)``) additionally builds the
+        cartesian pipeline's head-frame ``observations.state.ee_pose`` proprio
+        (left-wrist fix, 6D-encoded, optionally grip-padded) next to the
+        keypoint action, so a keypoint-action pi0.5 run shares its prompt
+        state with the cartesian runs and differs only in the action space.
         """
+        is_keypoints = mode.startswith("keypoints")
+        prefix: list[Transform] = []
+        if fix_mecka_left_wrist:
+            fix_keys = []
+            if is_keypoints:
+                fix_keys += ["left.action_wrist_pose", "left.obs_wrist_pose"]
+            if not is_keypoints or include_ee_pose:
+                fix_keys += ["left.action_ee_pose", "left.obs_ee_pose"]
+            prefix = [RotateLocalFrame(keys=fix_keys)]
+        if include_ee_pose and not is_keypoints:
+            raise ValueError("include_ee_pose only applies to the keypoints modes")
+        has_6d_ee_pose = (not is_keypoints and mode.endswith("_6d")) or include_ee_pose
+        if pad_proprio_gripper and not has_6d_ee_pose:
+            raise ValueError(
+                "pad_proprio_gripper needs a 6D-encoded ee_pose proprio: a "
+                "cartesian *_6d mode, or a keypoints mode with include_ee_pose"
+            )
+
+        proprio_6d: list[Transform] = [
+            CartesianYPRToRot6D(action_key="observations.state.ee_pose")
+        ]
+        if pad_proprio_gripper:
+            proprio_6d.append(PadGripperZeros(action_key="observations.state.ee_pose"))
+
         if mode == "cartesian":
-            return _build_human_cartesian_bimanual_transform_list(stride=stride)
+            return prefix + _build_human_cartesian_bimanual_transform_list(
+                stride=stride
+            )
+        if mode == "cartesian_6d":
+            # Head/camera-frame cartesian (12D xyz+ypr per arm pair) with the
+            # rotation re-expressed as the continuous 6D representation (18D)
+            # for pi0.5. The proprio ee_pose is 6D-encoded too: normalized YPR
+            # saturates yaw/roll at +-pi, so per-dim normalization needs the
+            # continuous representation.
+            return (
+                prefix
+                + _build_human_cartesian_bimanual_transform_list(stride=stride)
+                + [CartesianYPRToRot6D(action_key="actions_cartesian")]
+                + proprio_6d
+            )
         if mode == "cartesian_padded":
-            return _build_human_cartesian_bimanual_transform_list(stride=stride) + [
-                PadGripperZeros(action_key="actions_cartesian")
-            ]
+            return (
+                prefix
+                + _build_human_cartesian_bimanual_transform_list(stride=stride)
+                + [PadGripperZeros(action_key="actions_cartesian")]
+            )
         if mode == "cartesian_wristframe_ypr":
-            return _build_human_cartesian_eef_frame_transform_list(stride=stride)
-        if mode == "keypoints_headframe_ypr":
-            return _build_human_keypoints_bimanual_transform_list(
-                stride=stride, is_quat=False
+            return prefix + _build_human_cartesian_eef_frame_transform_list(
+                stride=stride
             )
-        if mode == "keypoints_headframe_quat":
-            return _build_human_keypoints_bimanual_transform_list(
-                stride=stride, is_quat=True
+        if mode == "cartesian_wristframe_6d":
+            # Wrist-frame cartesian with the 6D rotation (18D). The head-frame
+            # proprio ee_pose is 6D-encoded too (see cartesian_6d); it is the
+            # only head-frame signal the model sees with wrist-relative targets.
+            return (
+                prefix
+                + _build_human_cartesian_eef_frame_transform_list(stride=stride)
+                + [CartesianYPRToRot6D(action_key="actions_cartesian")]
+                + proprio_6d
             )
-        if mode == "keypoints_wristframe_ypr":
-            return _build_human_keypoints_eef_frame_transform_list(
-                stride=stride, is_quat=False
+
+        if is_keypoints:
+            frame, _, rot = mode[len("keypoints_") :].partition("_")
+            if frame not in ("headframe", "wristframe") or rot not in (
+                "ypr",
+                "quat",
+                "6d",
+            ):
+                raise ValueError(
+                    f"Unsupported transform_list mode '{mode}' for {cls.__name__}"
+                )
+            ee_pose: list[Transform] = []
+            if include_ee_pose:
+                # The cartesian builder keeps ``obs_head_pose`` alive for the
+                # keypoint builder (delete_target_world=False); its
+                # ``actions_cartesian`` by-product is dropped.
+                ee_pose = (
+                    _build_human_cartesian_bimanual_transform_list(
+                        stride=stride, delete_target_world=False
+                    )
+                    + proprio_6d
+                    + [DeleteKeys(keys_to_delete=["actions_cartesian"])]
+                )
+            build = (
+                _build_human_keypoints_eef_frame_transform_list
+                if frame == "wristframe"
+                else _build_human_keypoints_bimanual_transform_list
             )
-        if mode == "keypoints_wristframe_quat":
-            return _build_human_keypoints_eef_frame_transform_list(
-                stride=stride, is_quat=True
-            )
+            if rot == "quat":
+                return prefix + ee_pose + build(stride=stride, is_quat=True)
+            keypoints = build(stride=stride, is_quat=False)
+            if rot == "6d":
+                # 138-D ypr layout -> 144-D: per hand [wrist xyz (3) | wrist
+                # rot6d (6) | 21 keypoints (63)], for both the action and the
+                # proprio ``observations.state.keypoints`` (head-frame wrist
+                # pose + keypoints), continuous like the cartesian 6d modes.
+                keypoints = keypoints + [
+                    KeypointsYPRToRot6D(action_key="actions_keypoints"),
+                    KeypointsYPRToRot6D(action_key="observations.state.keypoints"),
+                ]
+            return prefix + ee_pose + keypoints
         raise ValueError(f"Unsupported transform_list mode '{mode}' for {cls.__name__}")
 
 
@@ -950,6 +1089,86 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
         ),
     ]
     return transform_list
+
+
+def _build_human_cartesian_revert_6d_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert head/camera-frame 6D-rotation cartesian actions back to ypr.
+
+    For the cam-frame 6D evaluator: the action chunk is already in head frame
+    (``cartesian_6d`` mode), so no coordinate-frame change is needed; only the
+    rotation representation is converted from xyz+6D (9/arm) back to xyz+ypr
+    (6/arm) so the viz overlay sees the same layout as the plain
+    ``cartesian`` mode. The proprio ee_pose (also 6D-encoded, possibly
+    grip-padded 18 -> 20) is reverted the same way.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+        UnpadGripperZeros(action_key=obs_key),
+    ]
+
+
+def _build_human_cartesian_revert_6d_wristframe_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert wrist-frame 6D-rotation human actions back to head-frame ypr.
+
+    (1) ``CartesianRot6DToYPR`` converts the action rotation xyz+6D -> xyz+ypr
+    (Gram-Schmidt re-orthonormalizes the model prediction); (2) the proprio
+    ``observations.state.ee_pose`` (6D-encoded by ``cartesian_wristframe_6d``)
+    is reverted to ypr the same way and unpadded (20 -> 14 -> 12; no-op when
+    unpadded); (3) the standard eef-frame revert projects the wrist-frame ypr
+    actions back into head frame using that ypr proprio to define the frame.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+        UnpadGripperZeros(action_key=obs_key),
+        *_build_human_cartesian_revert_eef_frame_transform_list(is_quat=False),
+    ]
+
+
+def _build_human_keypoints_revert_6d_transform_list(
+    *,
+    action_key: str = "actions_keypoints",
+    obs_key: str = "observations.state.keypoints",
+) -> list[Transform]:
+    """Revert head-frame 144-D keypoint actions (``keypoints_headframe_6d``)
+    to the 138-D ypr layout the keypoint overlay draws (the keypoint blocks
+    are already in head frame; only the wrist rotation representation
+    changes). The proprio is reverted the same way.
+    """
+    return [
+        KeypointsRot6DToYPR(action_key=action_key),
+        KeypointsRot6DToYPR(action_key=obs_key),
+    ]
+
+
+def _build_human_keypoints_revert_6d_wristframe_transform_list(
+    *,
+    action_key: str = "actions_keypoints",
+    obs_key: str = "observations.state.keypoints",
+) -> list[Transform]:
+    """Revert wrist-frame 144-D keypoint actions (``keypoints_wristframe_6d``)
+    to head-frame keypoints for the overlay: (1) wrist rot6d -> ypr on the
+    action and the proprio (144 -> 138 each); (2) the standard keypoint eef
+    revert projects each hand's 63-D keypoint chunk back to head frame via the
+    head-frame wrist pose in the proprio, giving a 126-D head-frame
+    ``actions_keypoints`` (the wrist-pose slices are consumed by the revert).
+    """
+    return [
+        KeypointsRot6DToYPR(action_key=action_key),
+        KeypointsRot6DToYPR(action_key=obs_key),
+        *_build_human_keypoints_revert_eef_frame_transform_list(
+            action_key=action_key, obs_key=obs_key, is_quat=False
+        ),
+    ]
 
 
 def _build_human_cartesian_eef_frame_transform_list(

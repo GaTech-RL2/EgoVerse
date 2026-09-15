@@ -1,4 +1,20 @@
-from typing import Dict, Tuple
+"""pi0.5 action I/O.
+
+Actions arrive from the data pipeline already in their model-native layout
+and already normalized by the standard MultiDataset pipeline:
+
+- cartesian: xyz+rot6d(+gripper) per arm (the ypr->6D conversion is the
+  ``CartesianYPRToRot6D`` data transform, norm stats are computed on 6D);
+- hand keypoints: the 144-D wrist-first ``[wrist xyz | wrist rot6d |
+  21 keypoints] x 2`` vector (``keypoints_*_6d`` modes).
+
+The forward pass only *packs* the normalized vector into openpi's action
+vector (``to32_norm_6d`` builds the canonical 32-slot block layout, and the
+PI algo pads that to ``model.action_dim``) and the eval path unpacks it
+(``from32_norm_6d``). No rotation math and no normalization happen here.
+"""
+
+from typing import Any, Dict, Tuple
 
 import torch
 
@@ -23,7 +39,7 @@ class ConverterRegistry:
         )
 
 
-# ---------- shared helpers (same conventions you used) ----------
+# ---------- shared helpers ----------
 def _ensure_bsd(x: torch.Tensor) -> torch.Tensor:
     if x.ndim == 2:
         return x.unsqueeze(1)
@@ -32,17 +48,96 @@ def _ensure_bsd(x: torch.Tensor) -> torch.Tensor:
     return x
 
 
-def _pad32(x: torch.Tensor) -> torch.Tensor:
+def pad_to_width(x: torch.Tensor, width: int) -> torch.Tensor:
+    """Zero-pad the last dim of a (B,S,D) tensor up to ``width``.
+
+    Raises when ``D > width``: a wider native action than the model's
+    ``action_dim`` would otherwise be truncated silently.
+    """
     x = _ensure_bsd(x)
     B, S, D = x.shape
-    if D == 32:
+    if D == width:
         return x
-    if D < 32:
-        pad = torch.zeros(B, S, 32 - D, dtype=x.dtype, device=x.device)
-        return torch.cat([x, pad], dim=-1)
-    return x[..., :32]
+    if D > width:
+        raise ValueError(
+            f"Action has {D} dims but the model action_dim is {width}; set "
+            "model.robomimic_model.config.model.action_dim >= the widest "
+            "embodiment action"
+        )
+    pad = torch.zeros(B, S, width - D, dtype=x.dtype, device=x.device)
+    return torch.cat([x, pad], dim=-1)
 
 
+def _pad32(x: torch.Tensor) -> torch.Tensor:
+    return pad_to_width(x, 32)
+
+
+def _stat_tensor(stats: dict[str, Any], key: str, ref: torch.Tensor) -> torch.Tensor:
+    value = torch.as_tensor(stats[key], device=ref.device, dtype=torch.float32)
+    return value.to(dtype=ref.dtype if ref.is_floating_point() else torch.float32)
+
+
+# A channel whose stat range (std, max - min, or q99 - q1) is below this is
+# treated as constant: it normalizes to 0 and unnormalizes to its centre. The
+# wrist-frame t=0 cell is exactly the identity pose, so its range is 0 and a
+# bare ``+ 1e-6`` would scale any off-convention value by 1e6. Same idea as
+# Diffusion Policy / robomimic (range < 1e-4 ignored) and GR00T (min == max
+# maps to 0).
+NORM_MIN_RANGE = 1e-4
+
+
+def _norm_center_scale(
+    stats: dict[str, Any], norm_mode: str, ref: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """``(center, half_range)`` so that ``normalized = (x - center) / half_range``
+    (zscore: ``(mean, std)``)."""
+    if norm_mode == "zscore":
+        return _stat_tensor(stats, "mean", ref), _stat_tensor(stats, "std", ref)
+    if norm_mode == "minmax":
+        lo, hi = _stat_tensor(stats, "min", ref), _stat_tensor(stats, "max", ref)
+    elif norm_mode == "quantile":
+        lo = _stat_tensor(stats, "quantile_1", ref)
+        hi = _stat_tensor(stats, "quantile_99", ref)
+    else:
+        raise ValueError(f"Invalid normalization mode: {norm_mode}")
+    return 0.5 * (lo + hi), 0.5 * (hi - lo)
+
+
+def _eps(norm_mode: str) -> float:
+    # Keeps the historical denominators: std + 1e-6 and (hi - lo) + 1e-6.
+    return 1e-6 if norm_mode == "zscore" else 0.5e-6
+
+
+def _degenerate(scale: torch.Tensor, norm_mode: str) -> torch.Tensor:
+    full_range = scale if norm_mode == "zscore" else 2.0 * scale
+    return full_range < NORM_MIN_RANGE
+
+
+def _apply_norm_one(
+    tensor: torch.Tensor,
+    stats: dict[str, Any],
+    norm_mode: str,
+) -> torch.Tensor:
+    """Normalize with per-key stats (zscore, or [-1, 1] for minmax/quantile).
+    Channels with a range below ``NORM_MIN_RANGE`` map to 0."""
+    center, scale = _norm_center_scale(stats, norm_mode, tensor)
+    out = (tensor - center) / (scale + _eps(norm_mode))
+    return torch.where(_degenerate(scale, norm_mode), torch.zeros_like(out), out)
+
+
+def _apply_unnorm_one(
+    tensor: torch.Tensor,
+    stats: dict[str, Any],
+    norm_mode: str,
+) -> torch.Tensor:
+    """Inverse of :func:`_apply_norm_one`; degenerate channels return their
+    centre (mean / midpoint) whatever the model predicted."""
+    center, scale = _norm_center_scale(stats, norm_mode, tensor)
+    out = tensor * (scale + _eps(norm_mode)) + center
+    return torch.where(_degenerate(scale, norm_mode), center.expand_as(out), out)
+
+
+# ---------- rotation helpers (shared with the eval metrics) ----------
 def _ypr_to_matrix(ypr: torch.Tensor, degrees: bool = False) -> torch.Tensor:
     if degrees:
         ypr = ypr * (torch.pi / 180.0)
@@ -126,16 +221,27 @@ def _reconstruct_R_from_cols(c1: torch.Tensor, c2: torch.Tensor) -> torch.Tensor
 # ---------- base interface ----------
 class BaseActionConverter:
     """
-    Implement both directions:
-      - to32(actions_orig)   -> (B,S,32)
-      - from32(actions_32)   -> original shape/dim
+    Pack / unpack between an embodiment's native normalized action and the
+    pi0.5 action vector:
+      - to32_norm_6d(actions)     -> (B,S,>=32) canonical block layout
+      - from32_norm_6d(actions32) -> native shape/dim
+    The base class implements neither; it is the ``fallback`` converter in the
+    model yamls and raises so an unregistered embodiment fails loudly.
     """
 
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        """Pack an already-normalized native action into the canonical
+        pi0.5 layout (pure rearrange: no rotation math, no normalization)."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support normalized-rot6d encoding"
+        )
 
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
+        """Inverse of :meth:`to32_norm_6d`: extract the normalized native
+        action from the model's action vector (pure rearrange)."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support normalized-rot6d decoding"
+        )
 
 
 # ============================================================
@@ -143,111 +249,30 @@ class BaseActionConverter:
 # ============================================================
 
 
-class RobotLeftCartesianEuler(BaseActionConverter):
-    """
-    Input orig: (B,S,7) = [x,y,z,yaw,pitch,roll,grip]
-    32-pack:    indices 0..9 = [xyz, R[:,0], R[:,1], grip]
-    """
-
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
-        actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 7:
-            raise ValueError(f"RobotLeft: expected 7-dim, got {actions.shape[-1]}")
-        xyz = actions[..., 0:3]
-        ypr = actions[..., 3:6]
-        g = actions[..., 6:7]
-        R = _ypr_to_matrix(ypr)
-        c1, c2 = R[..., 0], R[..., 1]
-        block = torch.cat([xyz, c1, c2, g], dim=-1)  # (B,S,10)
-        return _pad32(block)
-
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 0:10]  # left block
-        xyz = block[..., 0:3]
-        c1 = block[..., 3:6]
-        c2 = block[..., 6:9]
-        g = block[..., 9:10]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
-        return torch.cat([xyz, ypr, g], dim=-1)  # (B,S,7)
-
-
-class RobotRightCartesianEuler(BaseActionConverter):
-    """
-    Input orig: (B,S,7)
-    32-pack:    indices 10..19 = right block; indices 0..9 are zeros
-    """
-
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
-        actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 7:
-            raise ValueError(f"RobotRight: expected 7-dim, got {actions.shape[-1]}")
-        xyz = actions[..., 0:3]
-        ypr = actions[..., 3:6]
-        g = actions[..., 6:7]
-        R = _ypr_to_matrix(ypr)
-        c1, c2 = R[..., 0], R[..., 1]
-        right = torch.cat([xyz, c1, c2, g], dim=-1)  # (B,S,10)
-        zeros = torch.zeros_like(right)
-        return _pad32(torch.cat([zeros, right], dim=-1))  # (B,S,20) -> pad 32
-
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 10:20]  # right block
-        xyz = block[..., 0:3]
-        c1 = block[..., 3:6]
-        c2 = block[..., 6:9]
-        g = block[..., 9:10]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
-        return torch.cat([xyz, ypr, g], dim=-1)  # (B,S,7)
-
-
 class RobotBimanualCartesianEuler(BaseActionConverter):
     """
-    Input orig: (B,S,14) = L7 | R7
-    32-pack:    left block 0..9, right block 10..19
+    Native: (B,S,20) = [L xyz(3) 6d(6) g(1) | R xyz(3) 6d(6) g(1)]
+    32-pack: left block 0..9, right block 10..19, zero pad 20..31
     """
 
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        # The native 20D layout already IS the canonical 32D block layout
+        # (left 0..9, right 10..19), just pad.
         actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 14:
-            raise ValueError(f"RobotBimanual: expected 14-dim, got {actions.shape[-1]}")
-        L, R = actions[..., :7], actions[..., 7:14]
+        if actions.shape[-1] != 20:
+            raise ValueError(
+                f"RobotBimanual.to32_norm_6d expected 20-dim, got {actions.shape[-1]}"
+            )
+        return _pad32(actions)
 
-        # left
-        L_xyz, L_ypr, L_g = L[..., 0:3], L[..., 3:6], L[..., 6:7]
-        L_R = _ypr_to_matrix(L_ypr)
-        L_c1, L_c2 = L_R[..., 0], L_R[..., 1]
-        left_block = torch.cat([L_xyz, L_c1, L_c2, L_g], dim=-1)  # (B,S,10)
-
-        # right
-        R_xyz, R_ypr, R_g = R[..., 0:3], R[..., 3:6], R[..., 6:7]
-        R_R = _ypr_to_matrix(R_ypr)
-        R_c1, R_c2 = R_R[..., 0], R_R[..., 1]
-        right_block = torch.cat([R_xyz, R_c1, R_c2, R_g], dim=-1)  # (B,S,10)
-
-        return _pad32(torch.cat([left_block, right_block], dim=-1))  # (B,S,20+) -> 32
-
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
         actions32 = _ensure_bsd(actions32)
-        Lb = actions32[..., 0:10]
-        Rb = actions32[..., 10:20]
-
-        # left
-        L_xyz, L_c1, L_c2, L_g = Lb[..., 0:3], Lb[..., 3:6], Lb[..., 6:9], Lb[..., 9:10]
-        L_R = _reconstruct_R_from_cols(L_c1, L_c2)
-        L_ypr = _matrix_to_ypr(L_R)
-
-        # right
-        R_xyz, R_c1, R_c2, R_g = Rb[..., 0:3], Rb[..., 3:6], Rb[..., 6:9], Rb[..., 9:10]
-        R_R = _reconstruct_R_from_cols(R_c1, R_c2)
-        R_ypr = _matrix_to_ypr(R_R)
-
-        L7 = torch.cat([L_xyz, L_ypr, L_g], dim=-1)
-        R7 = torch.cat([R_xyz, R_ypr, R_g], dim=-1)
-        return torch.cat([L7, R7], dim=-1)  # (B,S,14)
+        if actions32.shape[-1] < 20:
+            raise ValueError(
+                f"RobotBimanual.from32_norm_6d expected >=20 dims, got "
+                f"{actions32.shape[-1]}"
+            )
+        return actions32[..., 0:20]
 
 
 # ============================================================
@@ -255,93 +280,64 @@ class RobotBimanualCartesianEuler(BaseActionConverter):
 # ============================================================
 
 
-class HumanLeftCartesianEuler(BaseActionConverter):
-    """
-    Input orig: (B,S,6) = [x,y,z,yaw,pitch,roll]
-    32-pack:    left block 0..9 with g=0
-    """
-
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
-        actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 6:
-            raise ValueError(f"HumanLeft: expected 6-dim, got {actions.shape[-1]}")
-        xyz, ypr = actions[..., 0:3], actions[..., 3:6]
-        R = _ypr_to_matrix(ypr)
-        c1, c2 = R[..., 0], R[..., 1]
-        g0 = torch.zeros_like(xyz[..., :1])
-        block = torch.cat([xyz, c1, c2, g0], dim=-1)  # (B,S,10)
-        return _pad32(block)
-
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 0:10]
-        xyz, c1, c2 = block[..., 0:3], block[..., 3:6], block[..., 6:9]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
-        return torch.cat([xyz, ypr], dim=-1)  # (B,S,6)
-
-
-class HumanRightCartesianEuler(BaseActionConverter):
-    """
-    Input orig: (B,S,6)
-    32-pack:    zeros 0..9, right block 10..19 with g=0 in block
-    """
-
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
-        actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 6:
-            raise ValueError(f"HumanRight: expected 6-dim, got {actions.shape[-1]}")
-        xyz, ypr = actions[..., 0:3], actions[..., 3:6]
-        R = _ypr_to_matrix(ypr)
-        c1, c2 = R[..., 0], R[..., 1]
-        g0 = torch.zeros_like(xyz[..., :1])
-        block = torch.cat([xyz, c1, c2, g0], dim=-1)  # (B,S,10)
-        zeros = torch.zeros_like(block)
-        return _pad32(torch.cat([zeros, block], dim=-1))
-
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 10:20]
-        xyz, c1, c2 = block[..., 0:3], block[..., 3:6], block[..., 6:9]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
-        return torch.cat([xyz, ypr], dim=-1)  # (B,S,6)
-
-
 class HumanBimanualCartesianEuler(BaseActionConverter):
     """
-    Input orig: (B,S,12) = L6 | R6
-    32-pack:    left 0..9 (g=0), right 10..19 (g=0)
+    Native: (B,S,18) = [L xyz(3) 6d(6) | R xyz(3) 6d(6)]  (no gripper)
+    32-pack: left block 0..9 (g=0), right block 10..19 (g=0), zero pad 20..31
     """
 
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        # Human has no gripper, so insert a zero gripper slot at the end of
+        # each arm block to match the 32D block layout [xyz(3) c1(3) c2(3) g(1)] x 2.
         actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 12:
-            raise ValueError(f"HumanBimanual: expected 12-dim, got {actions.shape[-1]}")
-        L, R = actions[..., :6], actions[..., 6:12]
-
-        L_xyz, L_ypr = L[..., 0:3], L[..., 3:6]
-        L_R = _ypr_to_matrix(L_ypr)
-        L_c1, L_c2 = L_R[..., 0], L_R[..., 1]
-        g0L = torch.zeros_like(L_xyz[..., :1])
-        Lblock = torch.cat([L_xyz, L_c1, L_c2, g0L], dim=-1)  # (B,S,10)
-
-        R_xyz, R_ypr = R[..., 0:3], R[..., 3:6]
-        R_R = _ypr_to_matrix(R_ypr)
-        R_c1, R_c2 = R_R[..., 0], R_R[..., 1]
-        g0R = torch.zeros_like(R_xyz[..., :1])
-        Rblock = torch.cat([R_xyz, R_c1, R_c2, g0R], dim=-1)  # (B,S,10)
-
+        if actions.shape[-1] != 18:
+            raise ValueError(
+                f"HumanBimanual.to32_norm_6d expected 18-dim, got {actions.shape[-1]}"
+            )
+        L = actions[..., 0:9]
+        R = actions[..., 9:18]
+        g0 = torch.zeros_like(actions[..., :1])
+        Lblock = torch.cat([L, g0], dim=-1)  # (B,S,10)
+        Rblock = torch.cat([R, g0], dim=-1)  # (B,S,10)
         return _pad32(torch.cat([Lblock, Rblock], dim=-1))
 
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
         actions32 = _ensure_bsd(actions32)
-        Lb = actions32[..., 0:10]
-        Rb = actions32[..., 10:20]
-        L_xyz, L_c1, L_c2 = Lb[..., 0:3], Lb[..., 3:6], Lb[..., 6:9]
-        R_xyz, R_c1, R_c2 = Rb[..., 0:3], Rb[..., 3:6], Rb[..., 6:9]
-        L_R = _reconstruct_R_from_cols(L_c1, L_c2)
-        L_ypr = _matrix_to_ypr(L_R)
-        R_R = _reconstruct_R_from_cols(R_c1, R_c2)
-        R_ypr = _matrix_to_ypr(R_R)
-        return torch.cat([L_xyz, L_ypr, R_xyz, R_ypr], dim=-1)  # (B,S,12)
+        if actions32.shape[-1] < 20:
+            raise ValueError(
+                f"HumanBimanual.from32_norm_6d expected >=20 dims, got "
+                f"{actions32.shape[-1]}"
+            )
+        L = actions32[..., 0:9]  # drop left gripper slot at idx 9
+        R = actions32[..., 10:19]  # drop right gripper slot at idx 19
+        return torch.cat([L, R], dim=-1)  # (B,S,18)
+
+
+class HumanBimanualKeypoints(BaseActionConverter):
+    """144-D wrist-first MANO keypoint action, per hand
+    ``[wrist xyz+rot6d in its own wrist frame (9) | 21 keypoints in that
+    wrist frame (63)]`` x {left, right} (``keypoints_wristframe_6d``), packed
+    identity-first into the model's action vector. The PI algo resizes
+    openpi's action projections to ``model.action_dim`` (>= 144) and pads the
+    vector up to it; ``from32_norm_6d`` slices the native width back out.
+    """
+
+    native_dim = 144
+
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        actions = _ensure_bsd(actions)
+        if actions.shape[-1] != self.native_dim:
+            raise ValueError(
+                f"HumanBimanualKeypoints: expected {self.native_dim}-dim, got "
+                f"{actions.shape[-1]}"
+            )
+        return actions
+
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
+        actions32 = _ensure_bsd(actions32)
+        if actions32.shape[-1] < self.native_dim:
+            raise ValueError(
+                f"HumanBimanualKeypoints: expected >={self.native_dim} dims, got "
+                f"{actions32.shape[-1]}"
+            )
+        return actions32[..., : self.native_dim]
