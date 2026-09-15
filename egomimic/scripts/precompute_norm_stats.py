@@ -134,6 +134,13 @@ def main() -> None:
         inst = copy.deepcopy(cfg.data.train_datasets[dataset_name])
         km = OmegaConf.to_container(inst.resolver.key_map, resolve=False)
         km["norm_mode"] = True  # strips image + annotation keys
+        if "proprio_history" in km:
+            # Current-step proprio stats even on a history (K > 1) config: every
+            # history step is normalized with the CURRENT-step stats, so a K > 1
+            # run and the K = 1 baseline share one norm-stat file. Reading one
+            # frame is exactly `[..., -1, :]` of the window, minus the K-fold
+            # read.
+            km["proprio_history"] = 1
         inst.resolver.key_map = km
         norm_dataset = hydra.utils.instantiate(inst, dataset_name=dataset_name)
 
