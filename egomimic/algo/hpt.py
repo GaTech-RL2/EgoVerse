@@ -14,7 +14,12 @@ from termcolor import cprint
 from tslearn.metrics import SoftDTWLossPyTorch
 
 from egomimic.algo.algo import Algo
-from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
+from egomimic.models.hpt_nets import (
+    MultiheadAttention,
+    SimpleTransformer,
+    apply_skipping_pretrained,
+    verify_pretrained_weights,
+)
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.hf_utils import download_from_huggingface
 from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
@@ -182,7 +187,12 @@ class HPTModel(nn.Module):
         """
         self.stems = nn.ModuleDict(self.stems)
         self.heads = nn.ModuleDict(self.heads)
-        self.apply(self._init_weights)
+        # Only initialize the modules HPT builds itself. ``self.apply`` would
+        # walk into pretrained submodules (the HF text encoders, the ImageNet
+        # ResNet backbone) and overwrite their weights with xavier noise; the
+        # traversal below skips anything a module declares via
+        # ``PretrainedWeights``, so future pretrained stems are covered too.
+        apply_skipping_pretrained(self, self._init_weights)
 
         # Shared action tokens
         if self.token_postprocessing == "action_token":
@@ -899,8 +909,6 @@ class HPT(Algo):
         for modality, encoder_cfg in self.encoders.items():
             model.init_encoder(modality, encoder_cfg)
 
-        model.finalize_modules()
-
         self.ac_keys = {}
         self.camera_keys = {}
         self.proprio_keys = {}
@@ -953,6 +961,10 @@ class HPT(Algo):
 
         self.nets["policy"] = model
         self.nets = self.nets.float().to(self.device)
+
+        # Every pretrained submodule must still hold its checkpoint's weights
+        # once the model is fully built, moved and upcast. Raises on mismatch.
+        verify_pretrained_weights(self.nets["policy"])
 
         self.training_step = 0
 
