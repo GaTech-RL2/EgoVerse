@@ -2126,6 +2126,33 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         return min(start_idx + horizon, self.total_frames)
 
+    def _action_horizon(self) -> int | None:
+        """Horizon of the keymap's ``action_keys`` entries, if it has any."""
+        for spec in self.key_map.values():
+            if (
+                spec.get("key_type") == "action_keys"
+                and spec.get("horizon") is not None
+            ):
+                return int(spec["horizon"])
+        return None
+
+    def _action_pad_mask(self, idx: int) -> np.ndarray | None:
+        """1.0 per real action frame, 0.0 per repeat-last padded one, (horizon,).
+
+        ``_pad_sequences`` pads a short action chunk by repeating the last
+        frame, which in a wrist-relative action space supervises "stop moving"
+        at every episode (or annotation) tail. This mask says which steps are
+        real so ``loss_fn`` can drop the rest; ``None`` when the keymap has no
+        horizoned action key.
+        """
+        horizon = self._action_horizon()
+        if horizon is None:
+            return None
+        n_real = self._chunk_end_idx(idx, horizon, "action_keys") - idx
+        mask = np.zeros(horizon, dtype=np.float32)
+        mask[: max(n_real, 0)] = 1.0
+        return mask
+
     def _pad_sequences(self, data, horizon: int | None) -> dict:
         if horizon is None:
             return data
@@ -2213,6 +2240,12 @@ class ZarrDataset(torch.utils.data.Dataset):
                         data[k] = self._decode_json_entry(data[k])
             if retry:
                 continue
+
+            pad_mask = self._action_pad_mask(idx)
+            if pad_mask is not None:
+                # Travels with the chunk through the interpolators
+                # (InterpolatePadMask) to the model horizon.
+                data["action_pad_mask"] = pad_mask
 
             if self.transform:
                 for transform in self.transform or []:
