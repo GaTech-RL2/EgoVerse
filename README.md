@@ -59,7 +59,9 @@ uv pip install --no-deps -e external/openpi
 cp -r external/openpi/src/openpi/models_pytorch/transformers_replace/* emimic/lib/python3.11/site-packages/transformers/
 ```
 Re-run the `cp` after any `uv sync` or `transformers` reinstall, which silently
-undoes the patch. See `pi05.md` for details.
+undoes the patch. The patch files track the pinned `transformers` version
+(currently 5.17.0), so the pin in `pyproject.toml` and the patch must move
+together. See `pi05.md` for details.
 
 ### Conda
 ```
