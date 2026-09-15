@@ -19,6 +19,7 @@ CONFIG_DIR = Path(egomimic.__file__).parent / "hydra_configs"
 ENV_VARS = [
     "EGOVERSE_DATASET_DIR",
     "EGOVERSE_LOG_DIR",
+    "EGOVERSE_CACHE_DIR",
     "EGOVERSE_PI05_WEIGHTS",
     "WANDB_ENTITY",
     "WANDB_PROJECT",
@@ -36,11 +37,18 @@ def test_lab_defaults_when_env_unset(compose_resolve):
     cfg = compose_resolve("train_zarr_cartesian", ["model=pi0.5_base"])
     assert cfg.paths.dataset_dir == "/coc/flash7/scratch/egoverseS3ZarrDataset"
     assert cfg.paths.log_dir.endswith("/logs")
+    assert cfg.paths.cache_dir == cfg.paths.log_dir + "/cache"
     assert cfg.logger.wandb.entity == "rl2-group"
     assert cfg.logger.wandb.project == "zarr_test"
     assert cfg.model.robomimic_model.config.pytorch_weight_path.endswith(
         "pi05_base_pytorch"
     )
+
+
+def test_env_var_overrides_cache_dir(monkeypatch, compose_resolve):
+    monkeypatch.setenv("EGOVERSE_CACHE_DIR", "/scratch/cache")
+    cfg = compose_resolve("train_zarr_cartesian", ["model=pi0.5_base"])
+    assert cfg.paths.cache_dir == "/scratch/cache"
 
 
 def test_env_vars_override_cluster_identity(monkeypatch, compose_resolve):
