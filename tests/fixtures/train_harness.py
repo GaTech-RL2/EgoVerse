@@ -73,7 +73,10 @@ def _hf_offline(monkeypatch) -> None:
 
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
     monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_OFFLINE", True)
-    monkeypatch.setattr(transformers.utils.hub, "_is_offline_mode", True)
+    # transformers 5.x dropped its own `_is_offline_mode` cache and calls
+    # `huggingface_hub.is_offline_mode()`, which reads the constant patched above.
+    if hasattr(transformers.utils.hub, "_is_offline_mode"):
+        monkeypatch.setattr(transformers.utils.hub, "_is_offline_mode", True)
 
 
 def write_fixtures(
@@ -113,7 +116,12 @@ def pi_unavailable() -> str | None:
         return "openpi not importable in this venv (see pi05.md); Pi cases run by hand"
     from huggingface_hub import try_to_load_from_cache
 
-    if try_to_load_from_cache(PI_TOKENIZER, "tokenizer_config.json") is None:
+    # transformers 5.x resolves the tokenizer class through the model config, so
+    # `config.json` has to be cached too, not just the tokenizer files.
+    if any(
+        try_to_load_from_cache(PI_TOKENIZER, name) is None
+        for name in ("tokenizer_config.json", "config.json")
+    ):
         return (
             f"{PI_TOKENIZER} tokenizer not in the HF cache; run once online: "
             f"AutoTokenizer.from_pretrained({PI_TOKENIZER!r})"

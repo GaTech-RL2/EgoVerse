@@ -68,7 +68,7 @@ class DINOv3ImageEmbedding(ZarrKeyTransform):
 
         logger.info("Loading DINOv3 model: %s", self.model_name)
         self.processor = AutoImageProcessor.from_pretrained(self.model_name)
-        self.model = AutoModel.from_pretrained(self.model_name, torch_dtype=self.dtype)
+        self.model = AutoModel.from_pretrained(self.model_name, dtype=self.dtype)
         self.model.to(self.device).eval()
 
         cfg = self.model.config
