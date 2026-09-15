@@ -1384,6 +1384,404 @@ class QwenPerTokenEncoder(_Qwen3BaseEncoder):
         return self.cross_attention(stem_tokens, feat, mask=mask)
 
 
+# --------------------------------------------------------------------------
+# Qwen 3.5 VLM stem pair
+#
+# ``Qwen35VLMEncoder`` replaces the ResNet as ``encoder_specs.front_img_1``.
+# It runs ONE joint image+text forward of Qwen 3.5 per batch and splits the
+# resulting hidden states by token type: the visual tokens go back to the
+# image stem (the existing ``MLPPolicyStem`` + Perceiver, ``input_dim`` 1024),
+# and the text tokens are parked on the encoder for ``Qwen35TextStem``
+# (``shared_stem_specs.annotation``) to pick up in the same ``stem_process``
+# pass. Because the LM is causal and the image precedes the text in the Qwen
+# chat layout, the text tokens are image-conditioned and the visual tokens are
+# not text-conditioned.
+# --------------------------------------------------------------------------
+
+
+class Qwen35VLMEncoder(PretrainedWeights, PolicyStem):
+    """Qwen 3.5 VLM as the HPT image encoder.
+
+    Args:
+        model_name: HF identifier (or local snapshot dir) for the VLM.
+        dtype: weight dtype the VLM is loaded and RUN in. ``HPT.__init__``
+            upcasts the whole policy with ``nets.float()``; ``_apply`` below
+            puts the VLM back, so an 853M VLM does not silently cost 3.4 GB and
+            an fp32 forward.
+        freeze: freeze the VLM (default). Combined with ``trainable_layers=0``
+            the whole forward runs under ``torch.no_grad()`` in eval mode.
+        trainable_layers: 0 = fully frozen; N > 0 unfreezes the LAST N text
+            layers (and drops the ``no_grad``), for the follow-up run.
+        feature_layer: index into ``hidden_states``; -1 (default) is the final
+            post-norm ``last_hidden_state``, taken without materialising the
+            248k-wide ``lm_head`` logits.
+        image_size: (H, W) the frames are resized to before the processor. The
+            processor's own resize is disabled, so the visual token count is
+            pinned at ``(H / (patch * merge)) * (W / (patch * merge))``
+            (640x352 -> 220). Asserted once at init against a dummy image.
+        max_text_tokens: prompts are truncated to this many tokens.
+    """
+
+    DEFAULT_MODEL = "Qwen/Qwen3.5-0.8B"
+    _hpt_pretrained_attrs = ("model",)
+
+    def __init__(
+        self,
+        model_name: str = DEFAULT_MODEL,
+        dtype: str = "bfloat16",
+        freeze: bool = True,
+        trainable_layers: int = 0,
+        feature_layer: int = -1,
+        image_size: tuple = (352, 640),
+        max_text_tokens: int = 128,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        from transformers import AutoModelForImageTextToText, AutoProcessor
+
+        self.model_name = model_name
+        self.feature_layer = int(feature_layer)
+        self.image_size = (int(image_size[0]), int(image_size[1]))
+        self.max_text_tokens = int(max_text_tokens)
+        self.freeze_encoder = bool(freeze)
+        self.trainable_layers = int(trainable_layers)
+        torch_dtype = getattr(torch, dtype) if isinstance(dtype, str) else dtype
+
+        load_path = _local_snapshot_if_offline(model_name)
+        self.processor = AutoProcessor.from_pretrained(load_path)
+        # Right padding: a prompt's real tokens always start at position 0, so
+        # its RoPE phase does not depend on how long its batch-mates are.
+        self.processor.tokenizer.padding_side = "right"
+        self.model = AutoModelForImageTextToText.from_pretrained(
+            load_path, dtype=torch_dtype
+        )
+        # Remembered so the weight-hash check can read the same snapshot back.
+        self._snapshot_dir = load_path
+        self._load_dtype = torch_dtype
+
+        config = self.model.config
+        self.image_token_id = int(config.image_token_id)
+        self.hidden_size = int(config.text_config.hidden_size)
+        self.output_dim = self.hidden_size
+        stride = int(config.vision_config.patch_size) * int(
+            config.vision_config.spatial_merge_size
+        )
+        self._token_stride = stride
+        if self.image_size[0] % stride or self.image_size[1] % stride:
+            raise ValueError(
+                f"image_size {self.image_size} must be divisible by {stride}"
+                " (vision patch_size x spatial_merge_size)"
+            )
+
+        if freeze:
+            for param in self.model.parameters():
+                param.requires_grad = False
+            self.model.eval()
+            if self.trainable_layers > 0:
+                for layer in self._text_layers()[-self.trainable_layers :]:
+                    for param in layer.parameters():
+                        param.requires_grad = True
+        elif self.trainable_layers:
+            raise ValueError("trainable_layers only applies when freeze=True")
+        self._no_grad = bool(freeze) and self.trainable_layers == 0
+
+        # Per-batch state, set by ``set_prompts`` / filled by ``forward``.
+        # Plain attributes, so nothing lands in the state dict.
+        self._prompts = None
+        self.last_text_features = None
+        self.last_text_mask = None
+        self.num_visual_tokens = self._assert_visual_token_count()
+
+    # -- setup helpers ----------------------------------------------------
+
+    def _text_layers(self) -> nn.ModuleList:
+        """The text stack's decoder layers, wherever transformers puts them."""
+        depth = int(self.model.config.text_config.num_hidden_layers)
+        for name, module in self.model.named_modules():
+            if (
+                name.endswith("layers")
+                and isinstance(module, nn.ModuleList)
+                and len(module) == depth
+            ):
+                return module
+        raise RuntimeError(
+            f"could not locate the {depth} text layers of {self.model_name}"
+        )
+
+    def _assert_visual_token_count(self) -> int:
+        """Run the processor once on a dummy frame and pin the token count."""
+        dummy = torch.zeros(1, 3, *self.image_size)
+        inputs = self._processor_inputs(dummy, [""])
+        counts = (inputs["input_ids"] == self.image_token_id).sum(dim=1)
+        found = int(counts[0])
+        expected = (self.image_size[0] // self._token_stride) * (
+            self.image_size[1] // self._token_stride
+        )
+        if found != expected:
+            raise RuntimeError(
+                f"{self.model_name} produced {found} visual tokens for an"
+                f" {self.image_size} frame, expected {expected}"
+            )
+        return found
+
+    # -- per-batch plumbing ------------------------------------------------
+
+    def set_prompts(self, prompts) -> None:
+        """Hand the encoder the batch's prompts, just before ``forward``.
+
+        ``HPTModel.stem_process`` calls this; ``None`` (no annotation modality
+        in the batch) degrades to empty prompts, i.e. image tokens only.
+        """
+        self._prompts = None if prompts is None else list(prompts)
+
+    def _processor_inputs(self, images: torch.Tensor, prompts: List[str]) -> dict:
+        """Chat layout (image first, then the prompt) for every sample."""
+        tokenizer = self.processor.tokenizer
+        texts = []
+        for prompt in prompts:
+            ids = tokenizer(str(prompt), add_special_tokens=False)["input_ids"]
+            text = tokenizer.decode(ids[: self.max_text_tokens])
+            texts.append(
+                self.processor.apply_chat_template(
+                    [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image"},
+                                {"type": "text", "text": text},
+                            ],
+                        }
+                    ],
+                    tokenize=False,
+                    add_generation_prompt=False,
+                )
+            )
+        # do_resize / do_rescale off: the frames arrive as float tensors already
+        # in [0, 1] at exactly ``image_size``, so only the processor's
+        # normalization and patchification run (this is what replaces the
+        # ResNet path's ImageNet ``Normalize``).
+        return self.processor(
+            text=texts,
+            images=list(images),
+            padding=True,
+            return_tensors="pt",
+            do_rescale=False,
+            do_resize=False,
+        )
+
+    @staticmethod
+    def _pack_tokens(hidden: torch.Tensor, keep: torch.Tensor):
+        """Gather the ``keep`` positions of each row, right-padded to the max."""
+        batch, _, dim = hidden.shape
+        width = max(int(keep.sum(dim=1).max().item()), 1)
+        feats = hidden.new_zeros(batch, width, dim)
+        mask = torch.zeros(batch, width, dtype=torch.bool, device=hidden.device)
+        slots = keep.long().cumsum(dim=1) - 1
+        rows, cols = keep.nonzero(as_tuple=True)
+        feats[rows, slots[rows, cols]] = hidden[rows, cols]
+        mask[rows, slots[rows, cols]] = True
+        return feats, mask
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """One joint VLM forward; returns the visual tokens ``(B, N_vis, D)``.
+
+        The text tokens of the SAME forward are parked on
+        ``last_text_features`` / ``last_text_mask`` for ``Qwen35TextStem``.
+        """
+        batch, *_, height, width = x.shape
+        x = x.reshape(batch, -1, 3, height, width)
+        if x.shape[1] != 1:
+            raise ValueError(
+                "Qwen35VLMEncoder handles exactly one view per sample,"
+                f" got {x.shape[1]}"
+            )
+        images = x[:, 0].float()
+        if (height, width) != self.image_size:
+            images = F.interpolate(
+                images,
+                size=self.image_size,
+                mode="bilinear",
+                align_corners=False,
+                antialias=True,
+            )
+        images = images.clamp(0.0, 1.0)
+
+        prompts = self._prompts if self._prompts is not None else [""] * batch
+        if len(prompts) != batch:
+            raise RuntimeError(
+                f"Qwen35VLMEncoder got {len(prompts)} prompts for {batch} images"
+            )
+
+        inputs = self._processor_inputs(images, prompts)
+        device = next(self.model.parameters()).device
+        inputs = {
+            key: (value.to(device) if torch.is_tensor(value) else value)
+            for key, value in inputs.items()
+        }
+        if torch.is_tensor(inputs.get("pixel_values")):
+            inputs["pixel_values"] = inputs["pixel_values"].to(self._load_dtype)
+
+        want_all = self.feature_layer != -1
+        if self._no_grad:
+            with torch.no_grad():
+                out = self.model.model(**inputs, output_hidden_states=want_all)
+        else:
+            out = self.model.model(**inputs, output_hidden_states=want_all)
+        # ``self.model.model`` is the VLM without the lm_head: taking
+        # ``last_hidden_state`` here avoids materialising a
+        # (B, L, 248320) logit tensor that nothing uses.
+        hidden = (
+            out.hidden_states[self.feature_layer]
+            if want_all
+            else (out.last_hidden_state)
+        )
+
+        image_positions = inputs["input_ids"] == self.image_token_id
+        counts = image_positions.sum(dim=1)
+        if not bool((counts == self.num_visual_tokens).all()):
+            raise RuntimeError(
+                f"expected {self.num_visual_tokens} visual tokens per sample,"
+                f" got {counts.tolist()}"
+            )
+        visual = hidden[image_positions].view(batch, self.num_visual_tokens, -1)
+
+        # Every real (non-padding) token that is not an image token, i.e. the
+        # prompt tokens AND the fixed chat-template tokens around them. The
+        # template is identical for every sample, so it is a constant context
+        # the cross-attention can learn to ignore; separating it out would cost
+        # a second tokenizer pass per batch for no information.
+        text_positions = inputs["attention_mask"].bool() & ~image_positions
+        feats, mask = self._pack_tokens(hidden, text_positions)
+        self.last_text_features = feats.float()
+        self.last_text_mask = mask
+        self._prompts = None
+        return visual.float()
+
+    # -- pretrained-weight bookkeeping -------------------------------------
+
+    def _checkpoint_keys(self) -> Optional[set]:
+        """The snapshot's tensor names, prefixed like ``pretrained_state_dict``."""
+        index = os.path.join(self._snapshot_dir, "model.safetensors.index.json")
+        if not os.path.isfile(index):
+            return None
+        with open(index, encoding="utf-8") as handle:
+            return {f"model.{key}" for key in json.load(handle)["weight_map"]}
+
+    def pretrained_state_dict(self) -> dict:
+        """Live weights, restricted to the tensors the checkpoint actually has.
+
+        Qwen 3.5 ties ``lm_head.weight`` to the input embedding, so the live
+        module has a name the snapshot does not; the embedding itself is
+        checked, so nothing is lost.
+        """
+        state = super().pretrained_state_dict()
+        keys = self._checkpoint_keys()
+        if keys is None:
+            return state
+        return {name: value for name, value in state.items() if name in keys}
+
+    def pretrained_reference_state_dict(self) -> Optional[dict]:
+        """The snapshot's own safetensors, restricted to what the model built.
+
+        The snapshot also ships the multi-token-prediction head (``mtp.*``),
+        which ``Qwen3_5ForConditionalGeneration`` does not instantiate.
+        """
+        if not os.path.isdir(self._snapshot_dir):
+            return None
+        reference = _snapshot_state_dict(
+            self._snapshot_dir, prefix="model.", dtype=self._load_dtype
+        )
+        if reference is None:
+            return None
+        live = set(super().pretrained_state_dict())
+        return {name: value for name, value in reference.items() if name in live}
+
+    def pretrained_hash_dtype(self) -> Optional[torch.dtype]:
+        return self._load_dtype
+
+    def _apply(self, fn, recurse: bool = True):
+        """Keep the VLM in its load dtype through ``nets.float()``."""
+        out = super()._apply(fn, recurse=recurse)
+        load_dtype = getattr(self, "_load_dtype", None)
+        model = getattr(self, "model", None)
+        if model is not None and load_dtype not in (None, torch.float32):
+            model.to(dtype=load_dtype)
+        return out
+
+    def train(self, mode: bool = True):
+        """Keep the frozen VLM in eval mode regardless of the outer train flag."""
+        super().train(mode)
+        if self.freeze_encoder:
+            self.model.eval()
+        return self
+
+
+class Qwen35TextStem(PolicyStem):
+    """Text half of the joint Qwen 3.5 VLM forward.
+
+    Registered as ``shared_stem_specs.annotation``. ``compute_latent`` ignores
+    the prompt strings - the ``Qwen35VLMEncoder`` already consumed them - and
+    reads the text-token hidden states that encoder parked for this batch. The
+    reference to the encoder is a PLAIN attribute, not a registered submodule,
+    so the VLM weights exist exactly once in the policy; ``HPT.__init__`` wires
+    it once both objects are built.
+    """
+
+    def __init__(
+        self,
+        input_dim: int = 1024,
+        output_dim: int = 840,
+        vlm_modality: str = "front_img_1",
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.input_dim = int(input_dim)
+        self.output_dim = int(output_dim)
+        self.vlm_modality = vlm_modality
+        self.proj = (
+            nn.Linear(self.input_dim, self.output_dim)
+            if self.input_dim != self.output_dim
+            else nn.Identity()
+        )
+        object.__setattr__(self, "_vlm", None)
+
+    def attach_vlm(self, encoder: nn.Module) -> None:
+        """Plain reference (``object.__setattr__``): NOT a registered child."""
+        object.__setattr__(self, "_vlm", encoder)
+
+    def forward_with_mask(self, prompts):
+        """``(features, bool mask)``; same contract as ``QwenPerTokenEncoder``."""
+        encoder = self._vlm
+        if encoder is None:
+            raise RuntimeError(
+                "Qwen35TextStem has no VLM encoder attached; HPT.__init__ wires"
+                " it from encoder_specs[vlm_modality]"
+            )
+        feats, mask = encoder.last_text_features, encoder.last_text_mask
+        if feats is None or mask is None:
+            raise RuntimeError(
+                "the VLM encoder holds no text features for this batch; the"
+                f" '{self.vlm_modality}' encoder must run before this stem"
+            )
+        if prompts is not None and len(prompts) != feats.shape[0]:
+            raise RuntimeError(
+                f"the VLM encoder holds {feats.shape[0]} rows of text features"
+                f" but this batch has {len(prompts)} prompts"
+            )
+        # Zero the padding before the biased ``proj``, and keep the mask: the
+        # zeros become ``proj.bias``, which the cross-attention must not see.
+        feats = feats.float() * mask.unsqueeze(-1).float()
+        return self.proj(feats), mask
+
+    def forward(self, prompts):
+        return self.forward_with_mask(prompts)[0]
+
+    def compute_latent(self, prompts):
+        feats, mask = self.forward_with_mask(prompts)
+        stem_tokens = self.tokens.repeat(feats.shape[0], 1, 1)
+        return self.cross_attention(stem_tokens, feats, mask=mask)
+
+
 class T5Encoder(PretrainedWeights, PolicyStem):
     _hpt_pretrained_attrs = ("encoder",)
 

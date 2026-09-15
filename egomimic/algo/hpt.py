@@ -125,6 +125,10 @@ class HPTModel(nn.Module):
 
         self.shared_keys = []
 
+        # Name of the raw-prompt modality in ``data``; a VLM encoder consumes
+        # it in the same forward as the image (see ``stem_process``).
+        self.annotation_modality = "annotation"
+
         self.auxiliary_ac_keys = None
         self.shared_action = False
         self.device = None
@@ -388,7 +392,13 @@ class HPTModel(nn.Module):
 
             stem = self.stems[f"{domain}_{modality}"]
             if modality in self.encoders:
-                data[modality] = self.encoders[modality](data[modality])
+                encoder = self.encoders[modality]
+                # A VLM encoder runs image AND text in one forward, so hand it
+                # the batch's prompts first (no-op for the ResNet encoder).
+                set_prompts = getattr(encoder, "set_prompts", None)
+                if set_prompts is not None:
+                    set_prompts(data.get(self.annotation_modality))
+                data[modality] = encoder(data[modality])
 
             # Text-prompt modality: input is a list of raw strings (one per
             # batch item). Skip positional embedding / horizon handling — the
@@ -902,6 +912,7 @@ class HPT(Algo):
 
         model = HPTModel(**trunk)
         model.auxiliary_ac_keys = self.auxiliary_ac_keys
+        model.annotation_modality = self.annotation_modality
 
         self.multitask = kwargs.get("multitask", False)
         self.device = kwargs.get(
@@ -946,6 +957,14 @@ class HPT(Algo):
 
         for modality, encoder_cfg in self.encoders.items():
             model.init_encoder(modality, encoder_cfg)
+
+        # A VLM stem pair shares one forward: the text stem reads the features
+        # its image encoder produced for the same batch. The reference is a
+        # plain attribute (not a submodule), so wire it now that both exist.
+        for stem in model.stems.values():
+            attach = getattr(stem, "attach_vlm", None)
+            if callable(attach):
+                attach(model.encoders[stem.vlm_modality])
 
         self.ac_keys = {}
         self.camera_keys = {}
