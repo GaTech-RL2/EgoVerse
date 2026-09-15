@@ -50,16 +50,24 @@ Eva robot `Dockerfile`), `requirements-ray.txt` (the Ray data-processing
 image) and `scale_sensor_fusion_io`, needed only by the Scale converter under
 `external/scale/scripts` (`uv pip install scale-sensor-fusion-io`).
 
-For the Pi0.5 policy also install the `openpi` fork from the submodule. It is
-installed without its own dependencies (its `lerobot` pin needs `av>=14.2`,
-which conflicts with our `av==12.0.0`), then its `transformers` patch is copied in:
+For the Pi0.5 policy also install the `openpi` fork from the submodule and
+apply its `transformers` overlay. openpi is installed without its own
+dependencies (its `lerobot` pin needs `av>=14.2`, which conflicts with our
+`av==12.0.0`) and is not in `uv.lock`:
 ```
 git submodule update --init external/openpi
 uv pip install --no-deps -e external/openpi
-cp -r external/openpi/src/openpi/models_pytorch/transformers_replace/* emimic/lib/python3.11/site-packages/transformers/
+python -m egomimic.openpi_patch apply
 ```
-Re-run the `cp` after any `uv sync` or `transformers` reinstall, which silently
-undoes the patch. See `pi05.md` for details.
+Two things undo this. A plain `uv sync` is exact and **uninstalls `openpi`**
+because it is not locked; use `uv sync --inexact` in a Pi venv. Reinstalling
+`transformers` (a lock change, `--reinstall`, a fresh venv) restores the
+unpatched modules; `python -m egomimic.openpi_patch check` tells you, and
+`PI` refuses to build until you re-run `apply`. If you ever applied the patch
+with the old `cp -r` command, run `uv cache clean transformers` once: with uv's
+default hardlink mode that `cp` also patched the cached wheel (`check` and
+`apply` warn while patched files are still linked into the cache). See
+`pi05.md` for the checkpoint download and JAX-to-PyTorch conversion.
 
 ### Conda
 ```
