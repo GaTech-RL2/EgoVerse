@@ -297,6 +297,33 @@ class ModelWrapper(LightningModule):
             flush=True,
         )
 
+    def _backbone_param_groups(self, lr: float, scale: float):
+        """Two param groups: the encoders' pretrained backbones at ``lr *
+        scale``, every other trainable parameter at ``lr``.
+
+        A pretrained image backbone and a randomly initialised trunk do not
+        want the same learning rate, and a frozen-vs-tuned comparison under one
+        LR is confounded. Encoders that do not declare ``backbone_parameters``
+        (and frozen parameters) are left to the main group.
+        """
+        encoders = getattr(self.model.nets["policy"], "encoders", None) or {}
+        backbone, seen = [], set()
+        for encoder in encoders.values():
+            if not hasattr(encoder, "backbone_parameters"):
+                continue
+            for param in encoder.backbone_parameters():
+                if param.requires_grad and id(param) not in seen:
+                    seen.add(id(param))
+                    backbone.append(param)
+        rest = [
+            param
+            for param in self.trainer.model.parameters()
+            if param.requires_grad and id(param) not in seen
+        ]
+        groups = [{"params": backbone, "lr": lr * scale}, {"params": rest}]
+        # a fully frozen (or absent) backbone leaves the main group alone
+        return [group for group in groups if group["params"]]
+
     def configure_optimizers(self) -> Dict[str, Any]:
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
         Normally you'd need one. But in the case of GANs or similar you might have multiple.
@@ -309,12 +336,27 @@ class ModelWrapper(LightningModule):
         config_tree = getattr(self.hparams, "config_tree", None)
         if config_tree is not None:
             cfg = self._as_config(config_tree)
-            optimizer = hydra.utils.instantiate(
-                cfg.model.optimizer,
-                params=self.trainer.model.parameters(),
-            )
-            if callable(optimizer):
-                optimizer = optimizer()
+            scale = float(cfg.model.get("backbone_lr_scale", 1.0))
+            groups = None
+            if scale != 1.0:
+                lr = cfg.model.optimizer.get("lr")
+                if lr is None:
+                    raise ValueError(
+                        "model.backbone_lr_scale needs an explicit model.optimizer.lr"
+                    )
+                groups = self._backbone_param_groups(float(lr), scale)
+            if groups is None:
+                optimizer = hydra.utils.instantiate(
+                    cfg.model.optimizer,
+                    params=self.trainer.model.parameters(),
+                )
+                if callable(optimizer):
+                    optimizer = optimizer()
+            else:
+                # ``instantiate`` would turn the param-group dicts into config
+                # nodes, so bind them outside it.
+                factory = hydra.utils.instantiate(cfg.model.optimizer, _partial_=True)
+                optimizer = factory(params=groups)
             scheduler_cfg = cfg.model.get("scheduler")
             if scheduler_cfg is not None:
                 scheduler = hydra.utils.instantiate(
