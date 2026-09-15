@@ -23,6 +23,21 @@ from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_t
 # it has exactly one consumer, below).
 STD_SCALE = 0.02
 
+# Deterministic evaluation. Every RNG used while the algo is in eval mode is
+# seeded from ``EVAL_BASE_SEED + rank * EVAL_RANK_STRIDE + pass_counter``, where
+# the pass counter counts ``forward_eval`` calls since the last
+# ``reset_eval_pass_counter()`` (called from ``ModelWrapper.on_validation_start``).
+# Two validation passes over the same batches therefore replay the same prompts
+# and the same sampling noise, while different ranks and different batches
+# within a pass still see different draws.
+EVAL_BASE_SEED = 0
+EVAL_RANK_STRIDE = 1_000_003
+# Offset of the val-loss RNG from the sampling generator's seed. It must not be
+# a small number: the pass counter advances by 1 per forward_eval call, and a
+# torch.Generator seeded with S draws the same stream as a global manual_seed
+# of S, so an offset of 1 gave batch i's val loss the noise batch i+1 sampled.
+EVAL_LOSS_STRIDE = 7_919_369
+
 
 class HPTModel(nn.Module):
     """
@@ -659,7 +674,7 @@ class HPTModel(nn.Module):
         total_loss = action_loss + shared_action_loss + auxiliary_action_loss
         return total_loss
 
-    def forward(self, domain, data):
+    def forward(self, domain, data, generator=None):
         """
         Forward pass of the HPTModel to compute actions.
 
@@ -669,6 +684,10 @@ class HPTModel(nn.Module):
             The domain corresponding to the input data.
         data : dict
             Dictionary containing input data for various modalities.
+        generator : torch.Generator, optional
+            RNG handed to the denoising heads' sampler so that evaluation is
+            reproducible (see ``HPT.forward_eval``). ``None`` (the default)
+            keeps the global RNG, so every other caller is unchanged.
 
         Returns
         -------
@@ -678,19 +697,23 @@ class HPTModel(nn.Module):
         features, block_outputs = self.forward_features(domain, data)
         action = {}
 
+        # Only the denoising (diffusion / flow matching) heads sample noise and
+        # accept a generator; the plain MLP heads take the features alone.
+        head_kwargs = {"generator": generator} if self.diffusion else {}
+
         if self.diffusion:
             features = (features, domain)
 
         if domain in self.heads:
-            action[domain] = self.heads[domain](features)
+            action[domain] = self.heads[domain](features, **head_kwargs)
 
         if self.shared_action:
-            action["shared"] = self.heads["shared"](features)
+            action["shared"] = self.heads["shared"](features, **head_kwargs)
 
         if domain in self.auxiliary_ac_keys:
             for key in self.auxiliary_ac_keys[domain]:
                 if f"{domain}_{key}" in self.heads:
-                    action[key] = self.heads[f"{domain}_{key}"](features)
+                    action[key] = self.heads[f"{domain}_{key}"](features, **head_kwargs)
 
         return action
 
@@ -855,6 +878,7 @@ class HPT(Algo):
         model = HPTModel(**trunk)
         model.auxiliary_ac_keys = self.auxiliary_ac_keys
 
+        self.eval_base_seed = int(kwargs.get("eval_base_seed", EVAL_BASE_SEED))
         self.multitask = kwargs.get("multitask", False)
         self.device = kwargs.get(
             "device", torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -956,16 +980,82 @@ class HPT(Algo):
 
         self.training_step = 0
 
+    # ------------------------------------------------------------------
+    # Deterministic evaluation
+    # ------------------------------------------------------------------
+    def reset_eval_pass_counter(self) -> None:
+        """Start a new validation pass: the next ``forward_eval`` call is pass 0.
+
+        Called from ``ModelWrapper.on_validation_start``. Two passes over the
+        same loader (same order, same number of batches) then draw the same
+        prompts and the same sampling noise.
+        """
+        self._eval_pass_counter = 0
+
+    @staticmethod
+    def _eval_rank() -> int:
+        """Distributed rank, or 0 outside a process group."""
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            return torch.distributed.get_rank()
+        for var in ("RANK", "LOCAL_RANK", "SLURM_PROCID"):
+            value = os.environ.get(var)
+            if value is not None and value.lstrip("-").isdigit():
+                return int(value)
+        return 0
+
+    def _eval_pass_seed(self) -> int:
+        """Seed for the current eval pass: base + rank stride + pass counter."""
+        return (
+            self.eval_base_seed
+            + self._eval_rank() * EVAL_RANK_STRIDE
+            + int(getattr(self, "_eval_pass_counter", 0))
+        )
+
+    def _eval_device(self) -> torch.device:
+        return (
+            torch.device(self.device)
+            if self.device is not None
+            else torch.device("cpu")
+        )
+
+    def _eval_generator(self) -> torch.Generator:
+        """Seeded generator on the device the sampling noise is drawn on."""
+        device = self._eval_device()
+        generator = torch.Generator(device=device)
+        generator.manual_seed(self._eval_pass_seed())
+        return generator
+
+    def _eval_prompt_rng(self) -> random.Random:
+        """Seeded Python RNG for annotation choice during eval."""
+        return random.Random(self._eval_pass_seed())
+
+    def _eval_fork_devices(self) -> list:
+        """Devices ``torch.random.fork_rng`` must save/restore (CPU is implicit)."""
+        device = self._eval_device()
+        if device.type != "cuda":
+            return []
+        return [
+            device.index if device.index is not None else torch.cuda.current_device()
+        ]
+
     def _build_prompts(self, _batch, batch_size: int) -> list[str]:
         """Sample one annotation per batch item, falling back to default_prompt
         on empty / missing annotations. Mirrors the Pi algo flow.
+
+        In eval the choice comes from a per-pass seeded RNG regardless of
+        ``annotation_sampling_mode``: that keeps prompt variety (unlike always
+        taking ``sample[0]``) while making two validation passes over the same
+        batches produce identical prompt lists. Training is unchanged.
         """
         if self.annotation_key is None or self.annotation_key not in _batch:
             return [self.default_prompt] * batch_size
+        eval_rng = None if self.nets.training else self._eval_prompt_rng()
         prompts = []
         for sample in _batch[self.annotation_key]:
             if not sample:
                 prompts.append(self.default_prompt)
+            elif eval_rng is not None:
+                prompts.append(sample[eval_rng.randint(0, len(sample) - 1)])
             elif self.annotation_sampling_mode == "random":
                 prompts.append(sample[random.randint(0, len(sample) - 1)])
             else:  # "first"
@@ -1101,6 +1191,12 @@ class HPT(Algo):
             }
         """
         unnorm_preds = {}
+        # One seeded generator per pass/batch: the flow-matching noise below and
+        # the prompts picked in ``process_batch_for_training`` share this pass's
+        # seed, so replaying the pass replays every draw.
+        generator = self._eval_generator()
+        pass_seed = self._eval_pass_seed()
+        fork_devices = self._eval_fork_devices()
         for embodiment_id, _batch in batch.items():
             embodiment_name = get_embodiment(embodiment_id).lower()
             cam_keys = self.camera_keys[embodiment_id]
@@ -1119,16 +1215,24 @@ class HPT(Algo):
             # so keep a fresh copy for the forward() call below.
             forward_data = self._clone_batch(hpt_batch["data"])
 
-            # BC val loss — same call as forward_training.
-            if self.freeze_repr:
-                val_loss = self.nets["policy"].compute_loss_depth(
-                    hpt_batch, depth=self.freeze_depth
-                )
-            else:
-                val_loss = self.nets["policy"].compute_loss(hpt_batch)
+            # BC val loss — same call as forward_training. The training loss
+            # draws its own noise / timestep from the global RNG deep inside the
+            # head (``DenoisingPolicy.predict``), which no generator kwarg
+            # reaches; fork and seed the global RNG around the call instead so
+            # the reported val loss is reproducible too.
+            with torch.random.fork_rng(devices=fork_devices):
+                torch.manual_seed(pass_seed + EVAL_LOSS_STRIDE)
+                if self.freeze_repr:
+                    val_loss = self.nets["policy"].compute_loss_depth(
+                        hpt_batch, depth=self.freeze_depth
+                    )
+                else:
+                    val_loss = self.nets["policy"].compute_loss(hpt_batch)
             unnorm_preds[f"{embodiment_name}_loss"] = val_loss
 
-            actions = self.nets["policy"].forward(hpt_batch["domain"], forward_data)
+            actions = self.nets["policy"].forward(
+                hpt_batch["domain"], forward_data, generator=generator
+            )
             predictions = OrderedDict()
 
             for key in actions:
@@ -1153,6 +1257,10 @@ class HPT(Algo):
             for key in unnorm_actions:
                 unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
 
+        # Advance the pass counter once per forward_eval call (after the batch,
+        # so the prompts built for this batch and the noise drawn for it share a
+        # seed). ``reset_eval_pass_counter`` rewinds it at on_validation_start.
+        self._eval_pass_counter = int(getattr(self, "_eval_pass_counter", 0)) + 1
         return unnorm_preds
 
     @override
