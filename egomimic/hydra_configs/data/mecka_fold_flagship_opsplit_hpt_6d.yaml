@@ -31,6 +31,11 @@
 # The train and seen-val entries share `filters` and `valid_ratio`, so the
 # seeded split (split_dataset_names, SEED 42) makes them exact complements.
 #
+# METRIC vs VIDEO LOADERS (2026-09-15, lane A). Each head above is served by
+# TWO loaders: a per-episode subsampled METRIC loader (no rendering) and a
+# contiguous VIDEO-only loader over pinned episodes (no metrics). See
+# `metric_frames_per_episode` / `video_episodes` at the bottom of this file.
+#
 # PIPELINE: WRIST-frame CARTESIAN actions with the continuous 6D rotation
 # (18D = xyz+6D per arm, no gripper): each arm's 100-step chunk is expressed
 # relative to that wrist's current pose; the head-frame proprio ee_pose is
@@ -136,3 +141,70 @@ unseen_op_valid_dataloader_params:
     batch_size: 64
     num_workers: 8
     shuffle: false
+
+# ---------------------------------------------------------------------------
+# METRIC LOADERS: K evenly spaced frames per EPISODE (lane A, 2026-09-15).
+# ---------------------------------------------------------------------------
+# Config-only (trainHydra reads them; MultiDataModuleWrapper declares them
+# because hydra.instantiate(cfg.data) forwards every root key).
+#
+# WHY: the val loaders are unshuffled so the overlay video is coherent, so the
+# metric window was just the first limit_val_batches x batch_size = 80 x 64 =
+# 5120 frames in episode-hash order. Measured 2026-09-15 (lane-0 diagnostic,
+# docs .../reports/lane0-coverage.md): the seen-op head scored 25/70 episodes
+# and 6/11 operators, and the unseen head 33/191 episodes with an 81/19
+# operator mix on a split that is 52/48. trainHydra now wraps each val head in
+# EvenStrideDataset(base, frames_per_episode=K), which takes K evenly spaced
+# frames from EVERY episode (all of them when the episode is shorter than K),
+# so every episode and operator is scored at the SAME 80-batch cost.
+#
+# K = floor(5120 / episodes-in-that-split), so the subsampled set still fits
+# the 80 x 64 window without the cap truncating it again. Episode counts
+# measured from the real splits, 2026-09-15:
+#   valid            70 eps / 13,744 frames  -> K = floor(5120/70)   =  73
+#                     -> 70 x 73  = 5,110 frames = 79.8 batches
+#   train_viz     1,346 eps / 271,247 frames -> K = floor(5120/1346) =   3
+#                     -> 1346 x 3 = 4,038 frames = 63.1 batches
+#   unseen_op_valid 191 eps / 30,937 frames  -> K = floor(5120/191)  =  26
+#                     -> 191 x 26 = 4,966 frames = 77.6 batches
+# NOTE: per-batch Frechet _min/_max now span many episodes instead of ~2 s of
+# one, so those curves are NOT comparable with pre-2026-09-15 runs.
+metric_frames_per_episode:
+  valid: 73
+  train_viz: 3
+  unseen_op_valid: 26
+
+# ---------------------------------------------------------------------------
+# VIDEO LOADERS: pinned, contiguous episodes (`<head>_video` loaders).
+# ---------------------------------------------------------------------------
+# One episode_hash per operator per head. Pinning them here (rather than
+# letting the loader order decide) means every run renders the SAME episodes,
+# so videos are comparable across runs. The pinned episodes are taken out of
+# that head's already-resolved split -- no second SQL pull -- and played in
+# frame order; `evaluator.viz_max_batches` (10 batches = 640 frames) caps it.
+# These loaders log NO metrics, and the metric loaders above render nothing.
+#
+# Chosen 2026-09-15 from the real splits; format is <hash> (operator, frames):
+#   valid            692e771c39719ab57395b408 (690364170e94ce070afd1da5, 498f)
+#                    the longest seen-val episode: 498f = 7.8 of the 10 video
+#                    batches from a single contiguous episode (the split mean
+#                    is ~196f, which would only fill ~3).
+#   train_viz        692e9bda21fc595fbe6f941e (6903686e0e94ce070afd1f24, 496f)
+#                    longest train episode of the largest operator; it is also
+#                    in the topop train split, so that child inherits this pin.
+#   unseen_op_valid  692eadbaaec602a46af10686 (6871d82a1aaf88556f0c6041, 204f)
+#                    692ea49a727c13b350cb7c48 (6903a36c466be157ec64562d, 212f)
+#                    one per held-out operator, both of typical length
+#                    (416f = 6.5 of the 10 batches). Operator 6903a36c... does
+#                    have a 661f episode (692fe8d889e6f7f45d175b78) that would
+#                    fill the budget alone, but one-per-operator keeps both
+#                    unseen operators on screen. Shared by every flagship
+#                    config, since the unseen head is identical in all of them.
+video_episodes:
+  valid:
+    - 692e771c39719ab57395b408
+  train_viz:
+    - 692e9bda21fc595fbe6f941e
+  unseen_op_valid:
+    - 692eadbaaec602a46af10686
+    - 692ea49a727c13b350cb7c48
