@@ -2067,6 +2067,41 @@ class ZarrDataset(torch.utils.data.Dataset):
         mask[: max(n_real, 0)] = 1.0
         return mask
 
+    def _proprio_history(self) -> int | None:
+        """K of the keymap's ``history`` entries, if it has any (else None)."""
+        for spec in self.key_map.values():
+            history = spec.get("history")
+            if history is not None and int(history) > 1:
+                return int(history)
+        return None
+
+    def _proprio_history_mask(self, idx: int) -> np.ndarray | None:
+        """1.0 per real history frame, 0.0 per front-padded one, ``(K,)``.
+
+        The backward window is clamped at the episode start, so the first
+        K - 1 samples are short and ``_front_pad_history`` repeats their first
+        real frame. ``None`` when the keymap has no history key.
+        """
+        history = self._proprio_history()
+        if history is None:
+            return None
+        n_real = idx + 1 - max(0, idx - history + 1)
+        mask = np.zeros(history, dtype=np.float32)
+        mask[history - n_real :] = 1.0
+        return mask
+
+    @staticmethod
+    def _front_pad_history(array: np.ndarray, history: int) -> np.ndarray:
+        """Front-pad a backward window to ``history`` steps by repeating its
+        first real frame, so the current frame is always ``[-1]``. The mirror
+        of ``_pad_sequences``, which repeat-pads the TAIL of a forward chunk.
+        """
+        seq_len = array.shape[0]
+        if seq_len >= history:
+            return array
+        padding = np.repeat(array[:1], history - seq_len, axis=0)
+        return np.concatenate([padding, array], axis=0)
+
     def _pad_sequences(self, data, horizon: int | None) -> dict:
         if horizon is None:
             return data
@@ -2123,6 +2158,7 @@ class ZarrDataset(torch.utils.data.Dataset):
                 zarr_key = self.key_map[k]["zarr_key"]
                 key_type = self.key_map[k].get("key_type", None)
                 horizon = self.key_map[k].get("horizon", None)
+                history = self.key_map[k].get("history", None)
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
@@ -2131,12 +2167,20 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if horizon is not None:
                     end_idx = self._chunk_end_idx(idx, horizon, key_type)
                     read_interval = (idx, end_idx)
+                elif history is not None and int(history) > 1:
+                    # Backward window ending at (and including) the current
+                    # frame; clamped at the episode start and front-padded
+                    # below, so the key is always (K, D) with `[..., -1]` the
+                    # single frame a K = 1 keymap would have read.
+                    read_interval = (max(0, idx - int(history) + 1), idx + 1)
                 else:
                     read_interval = (idx, None)
                 read_dict = {zarr_key: read_interval}
                 raw_data = self.episode_reader.read(read_dict)
                 self._pad_sequences(raw_data, horizon)  # should be able to pad images
                 data[k] = raw_data[zarr_key]
+                if horizon is None and history is not None and int(history) > 1:
+                    data[k] = self._front_pad_history(data[k], int(history))
 
                 if zarr_key in self._image_keys:
                     jpeg_bytes = data[k]
@@ -2160,6 +2204,12 @@ class ZarrDataset(torch.utils.data.Dataset):
                 # Travels with the chunk through the interpolators
                 # (InterpolatePadMask) to the model horizon.
                 data["action_pad_mask"] = pad_mask
+
+            history_mask = self._proprio_history_mask(idx)
+            if history_mask is not None:
+                # Informational: the front padding already looks exactly like a
+                # history-dropout sample, so the stem needs nothing extra.
+                data["proprio_history_mask"] = history_mask
 
             if self.transform:
                 for transform in self.transform or []:

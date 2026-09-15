@@ -542,10 +542,35 @@ class MLPPolicyStem(PolicyStem):
         tanh_end: bool = False,
         ln: bool = True,
         num_of_copy: int = 1,
+        history_len: int = 1,
+        history_dropout: float = 0.0,
         **kwargs,
     ) -> None:
-        """vanilla MLP class"""
+        """vanilla MLP class
+
+        ``history_len`` (K) > 1 makes this an observation-history stem: the
+        input carries the last K steps on axis 1 (current step last), one token
+        per step, and a LEARNED per-step embedding (zero-init, so at init the K
+        tokens are exactly today's projection of each step) is added AFTER the
+        projection. ``HPT.stem_process`` skips its input-side sinusoid for such
+        a stem: that sinusoid is a constant [0, 1, 0, 1, ...] added to the
+        NORMALIZED values, i.e. amplitude-1 noise on [-1, 1] data.
+
+        ``history_dropout`` is the per-sample probability, in training only, of
+        replacing every past step by the current one. That is exactly what an
+        episode-start sample looks like after the dataset's front padding, so
+        the policy trains on "history missing" the way it will see it at
+        deployment (the mitigation for copycat / causal confusion). Inert at
+        K = 1 and in eval.
+        """
         super().__init__(**kwargs)
+        if history_len > 1 and num_of_copy > 1:
+            raise ValueError(
+                f"MLPPolicyStem: history_len={history_len} and "
+                f"num_of_copy={num_of_copy} both consume axis 1; use one."
+            )
+        self.history_len = int(history_len)
+        self.history_dropout = float(history_dropout)
         modules = [nn.Linear(input_dim, widths[0]), nn.SiLU()]
 
         for i in range(len(widths) - 1):
@@ -563,6 +588,15 @@ class MLPPolicyStem(PolicyStem):
             self.net = nn.ModuleList(
                 [nn.Sequential(*modules) for _ in range(num_of_copy)]
             )
+        if self.history_len > 1:
+            self.time_embed = nn.Parameter(torch.zeros(self.history_len, output_dim))
+
+    def _drop_history(self, x: torch.Tensor) -> torch.Tensor:
+        """Per sample, with probability ``history_dropout``, replace every past
+        step by the current one (the last slot of axis 1)."""
+        drop = torch.rand(x.shape[0], device=x.device) < self.history_dropout
+        current = x[:, -1:].expand_as(x)
+        return torch.where(drop.view(-1, *([1] * (x.ndim - 1))), current, x)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -573,6 +607,14 @@ class MLPPolicyStem(PolicyStem):
         Returns:
             Flatten tensor with shape [B, M, 512]
         """
+        if self.history_len > 1:
+            if x.shape[1] != self.history_len:
+                raise ValueError(
+                    f"MLPPolicyStem got {x.shape[1]} history steps on axis 1 but "
+                    f"history_len={self.history_len} (input shape {tuple(x.shape)})"
+                )
+            if self.training and self.history_dropout > 0:
+                x = self._drop_history(x)
         if self.num_of_copy > 1:
             out = []
             iter_num = min(self.num_of_copy, x.shape[1])
@@ -583,6 +625,11 @@ class MLPPolicyStem(PolicyStem):
             y = torch.stack(out, dim=1)
         else:
             y = self.net(x)
+        if self.history_len > 1:
+            # Learned time-step embedding on axis 1, last slot = current step.
+            y = y + self.time_embed.view(
+                1, self.history_len, *([1] * (y.ndim - 3)), y.shape[-1]
+            )
         return y
 
 

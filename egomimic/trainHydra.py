@@ -485,6 +485,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
             # this remove annotation and image keys from the keymap
             km["norm_mode"] = True
+            if "proprio_history" in km:
+                # Current-step proprio stats even on a history (K > 1) config:
+                # every history step is normalized with the CURRENT-step,
+                # per-channel (D,) stats, so a K > 1 run and the K = 1 baseline
+                # share exactly one set of stats. Same rule as
+                # scripts/precompute_norm_stats.py.
+                km["proprio_history"] = 1
 
             instantiate_copy.resolver.key_map = km
             norm_dataset = _instantiate_dataset(

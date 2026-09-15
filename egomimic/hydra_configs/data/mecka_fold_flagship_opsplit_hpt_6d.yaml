@@ -77,6 +77,13 @@ train_datasets:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: cartesian
         annotation_key: annotations
+        # Proprio observation history (K): the ee_pose keys read the last K
+        # frames, (K, 20) with the current frame last. 1 = today's pipeline.
+        # The K = 2 comparison run adds, next to the matching stem override
+        # (model...state_ee_pose.history_len=2):
+        #   data.train_datasets.human_bimanual.resolver.key_map.proprio_history=2
+        # The two val loaders interpolate this resolver, so they follow.
+        proprio_history: 1
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         mode: cartesian_wristframe_6d
