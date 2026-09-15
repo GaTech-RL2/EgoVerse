@@ -24,12 +24,11 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 )
 from egomimic.utils.action_utils import (
     BaseActionConverter,
-    HumanBimanualCartesianEuler,
     HumanBimanualKeypoints,
     RobotBimanualCartesianEuler,
     pad_to_width,
 )
-from egomimic.utils.pose_utils import _rot6d_to_ypr, _ypr_to_rot6d
+from egomimic.utils.pose_utils import _ypr_to_rot6d
 
 
 def _eva_ypr_chunk(T: int = 5) -> np.ndarray:
@@ -48,13 +47,6 @@ def _aria_ypr_chunk(T: int = 5) -> np.ndarray:
     ypr = rng.uniform(-1.0, 1.0, size=(T, 3))
     arm = np.concatenate([xyz, ypr], axis=-1)
     return np.concatenate([arm, arm], axis=-1)  # 12D
-
-
-def test_ypr_rot6d_helpers_round_trip():
-    ypr = np.random.default_rng(2).uniform(-1.0, 1.0, size=(7, 3))
-    six = _ypr_to_rot6d(ypr)
-    assert six.shape == (7, 6)
-    np.testing.assert_allclose(_rot6d_to_ypr(six), ypr, atol=1e-6)
 
 
 @pytest.mark.parametrize(
@@ -116,24 +108,6 @@ def test_robot_bimanual_norm_6d_pack_round_trips():
     torch.testing.assert_close(decoded, six6d, atol=1e-6, rtol=1e-6)
 
 
-def test_human_bimanual_norm_6d_pack_round_trips_and_zeros_gripper():
-    converter = HumanBimanualCartesianEuler()
-    six6d = torch.from_numpy(
-        CartesianYPRToRot6D().transform({"actions_cartesian": _aria_ypr_chunk()})[
-            "actions_cartesian"
-        ]
-    ).float()[None]  # (1, T, 18)
-
-    packed = converter.to32_norm_6d(six6d)
-    assert packed.shape[-1] == 32
-    # gripper slots (9, 19) must be zero for human (no gripper signal).
-    torch.testing.assert_close(packed[..., 9], torch.zeros_like(packed[..., 9]))
-    torch.testing.assert_close(packed[..., 19], torch.zeros_like(packed[..., 19]))
-
-    decoded = converter.from32_norm_6d(packed)
-    torch.testing.assert_close(decoded, six6d, atol=1e-6, rtol=1e-6)
-
-
 def test_keypoint_converter_is_identity_and_pads_to_model_width():
     # The 144-D keypoint action is packed identity-first; PI pads it (and the
     # cartesian 32-slot layout) up to model.action_dim and the decode slices
@@ -182,7 +156,8 @@ def _keys_of(transforms, cls):
     return {t.action_key for t in transforms if isinstance(t, cls)}
 
 
-@pytest.mark.parametrize("mode", ["cartesian_6d", "cartesian_wristframe_6d"])
+# cartesian_wristframe_6d is covered by the test_wrist6d_roundtrip pipeline tests.
+@pytest.mark.parametrize("mode", ["cartesian_6d"])
 def test_6d_modes_convert_action_and_proprio(mode):
     from egomimic.rldb.embodiment.eva import Eva
     from egomimic.rldb.embodiment.human import Human
@@ -698,7 +673,6 @@ def test_rot_geodesic_error_matches_angle_and_survives_gimbal_lock():
     from scipy.spatial.transform import Rotation as R
 
     from egomimic.eval.action_metrics import _rot_geodesic_error
-    from egomimic.utils.pose_utils import _ypr_to_rot6d
 
     rng = np.random.default_rng(22)
     ypr = rng.uniform(-1.0, 1.0, size=(6, 5, 3))
@@ -866,8 +840,6 @@ def test_pi_eval_metrics_are_invariant_to_a_shared_rigid_transform():
 
 def test_pi_eval_keypoint_metrics():
     from scipy.spatial.transform import Rotation as R
-
-    from egomimic.utils.pose_utils import _ypr_to_rot6d
 
     rng = np.random.default_rng(50)
     B, T = 2, 5

@@ -190,8 +190,9 @@ def _rand_chunk7(rng, start, n=45):
     return out
 
 
+# Compared against cartesian_6d, so that mode is the reference, not a case.
 @pytest.mark.parametrize(
-    "mode", ["cartesian_6d", "cartesian_wristframe_ypr", "cartesian_wristframe_6d"]
+    "mode", ["cartesian_wristframe_ypr", "cartesian_wristframe_6d"]
 )
 def test_eva_revert_for_rollout_recovers_camframe_ypr(mode):
     """rollout.py feeds Eva.get_transform_list(mode) outputs to the model and

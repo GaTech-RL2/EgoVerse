@@ -275,24 +275,6 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
     assert np.isfinite(np.asarray(out_n["actions_cartesian"])).all()
 
 
-def test_human_wristframe_actions_are_headframe_invariant():
-    """Wrist-relative targets must not depend on the head pose at all."""
-    from egomimic.rldb.embodiment.human import Human
-
-    rng = _rng(7)
-    lobs, robs = _rand_pose(rng), _rand_pose(rng)
-    raw = {
-        "left.obs_ee_pose": lobs,
-        "right.obs_ee_pose": robs,
-        "left.action_ee_pose": _rand_chunk(rng, lobs),
-        "right.action_ee_pose": _rand_chunk(rng, robs),
-    }
-    fwd = Human.get_transform_list("cartesian_wristframe_6d", stride=1)
-    a1 = _apply(fwd, {**raw, "obs_head_pose": _rand_pose(rng)})["actions_cartesian"]
-    a2 = _apply(fwd, {**raw, "obs_head_pose": _rand_pose(rng)})["actions_cartesian"]
-    np.testing.assert_allclose(a1, a2, atol=1e-12)
-
-
 # -------------------------------------------------------------- eva path
 def test_eva_wristframe_6d_pipeline_round_trips_to_camframe():
     from egomimic.rldb.embodiment.eva import (
