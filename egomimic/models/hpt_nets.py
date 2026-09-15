@@ -586,6 +586,12 @@ class MLPPolicyStem(PolicyStem):
 
 
 class ResNet(PolicyStem):
+    # ``self.net`` holds the ImageNet-pretrained torchvision backbone (``self.proj``
+    # is built here and must keep its own init). Declared so a weight-protection
+    # pass can find it without knowing about this class.
+    _hpt_pretrained = True
+    _hpt_pretrained_attrs = ("net",)
+
     def __init__(
         self,
         output_dim: int = 10,
@@ -617,6 +623,7 @@ class ResNet(PolicyStem):
         self.avgpool = nn.AvgPool2d(7, stride=1)
 
         # Freeze the backbone if specified
+        self.freeze_backbone = freeze_backbone
         if freeze_backbone:
             self._freeze_backbone()
 
@@ -629,6 +636,27 @@ class ResNet(PolicyStem):
         else:
             for param in self.net.parameters():
                 param.requires_grad = False
+
+    def train(self, mode: bool = True):
+        """Keep a frozen backbone in eval mode regardless of the outer flag.
+
+        ``requires_grad = False`` alone leaves the BatchNorm layers in train
+        mode: they would keep normalizing with batch statistics and keep
+        updating their running stats, so a "frozen" backbone would not be
+        frozen at all.
+        """
+        super().train(mode)
+        if self.freeze_backbone:
+            if isinstance(self.net, nn.ModuleList):
+                for net in self.net:
+                    net.eval()
+            else:
+                self.net.eval()
+        return self
+
+    def backbone_parameters(self):
+        """Pretrained-backbone parameters (``proj`` stays in the main group)."""
+        return list(self.net.parameters())
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
