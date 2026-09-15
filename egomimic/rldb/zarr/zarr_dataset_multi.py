@@ -2118,6 +2118,24 @@ class ZarrDataset(torch.utils.data.Dataset):
         mask[: max(n_real, 0)] = 1.0
         return mask
 
+    @staticmethod
+    def _history_window(array: np.ndarray, history: int, stride: int) -> np.ndarray:
+        """``history`` steps from a contiguous backward window: the current
+        frame and every ``stride``-th frame before it, in order, front-padded
+        by repeating the oldest real frame so the current frame is always
+        ``[-1]``. The mirror of ``_pad_sequences``, which repeat-pads the TAIL
+        of a forward chunk.
+
+        Only a window whose sole real frame is the current one (``idx <
+        stride``) pads to exactly a history-dropout sample; a longer short
+        window repeats its oldest real frame, which dropout never produces.
+        """
+        array = array[::-1][::stride][::-1]
+        if array.shape[0] >= history:
+            return array
+        padding = np.repeat(array[:1], history - array.shape[0], axis=0)
+        return np.concatenate([padding, array], axis=0)
+
     def _pad_sequences(self, data, horizon: int | None) -> dict:
         if horizon is None:
             return data
@@ -2174,6 +2192,8 @@ class ZarrDataset(torch.utils.data.Dataset):
                 zarr_key = self.key_map[k]["zarr_key"]
                 key_type = self.key_map[k].get("key_type", None)
                 horizon = self.key_map[k].get("horizon", None)
+                history = int(self.key_map[k].get("history") or 1)
+                stride = int(self.key_map[k].get("history_stride") or 1)
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
@@ -2182,12 +2202,22 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if horizon is not None:
                     end_idx = self._chunk_end_idx(idx, horizon, key_type)
                     read_interval = (idx, end_idx)
+                elif history > 1:
+                    # Backward window ending at (and including) the current
+                    # frame, every `history_stride`-th step; clamped at the
+                    # episode start and front-padded below, so the key is
+                    # always (K, D) with `[..., -1]` the single frame a K = 1
+                    # keymap would have read. Read contiguously and thin after:
+                    # the zarr chunks are contiguous anyway.
+                    read_interval = (max(0, idx - stride * (history - 1)), idx + 1)
                 else:
                     read_interval = (idx, None)
                 read_dict = {zarr_key: read_interval}
                 raw_data = self.episode_reader.read(read_dict)
                 self._pad_sequences(raw_data, horizon)  # should be able to pad images
                 data[k] = raw_data[zarr_key]
+                if horizon is None and history > 1:
+                    data[k] = self._history_window(data[k], history, stride)
 
                 if zarr_key in self._image_keys:
                     jpeg_bytes = data[k]
