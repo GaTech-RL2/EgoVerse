@@ -13,7 +13,7 @@ from lightning.fabric.utilities.cloud_io import _load as pl_load
 from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
-from omegaconf import DictConfig, OmegaConf, open_dict
+from omegaconf import DictConfig, ListConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
 import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf resolvers
@@ -23,7 +23,12 @@ from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.resolve_memo import resolve_once
 from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, PinError
+from egomimic.rldb.zarr.zarr_dataset_multi import (
+    EvenStrideDataset,
+    MultiDataset,
+    PinError,
+    pinned_episode_subset,
+)
 from egomimic.utils.checkpoint_utils import load_checkpoint_weights
 from egomimic.utils.compile_cache import set_per_job_compile_cache_dir
 from egomimic.utils.env import load_env
@@ -296,6 +301,125 @@ def _unseen_op_valid_datasets(cfg: DictConfig, instantiate) -> dict:
     }
 
 
+def _trainer_world_size(cfg: DictConfig) -> int:
+    """``devices * num_nodes`` as the config declares it, 1 if it cannot say.
+
+    DistributedSampler strides rather than chunks, so W ranks between them walk
+    the WHOLE split; the per-rank ``limit_val_batches`` window is therefore W
+    times wider than it looks from one rank.
+    """
+    devices = cfg.get("trainer", {}).get("devices", 1)
+    if isinstance(devices, (list, ListConfig)):
+        n = len(devices)
+    elif isinstance(devices, int) and devices > 0:
+        n = devices
+    else:  # "auto", -1: resolved by lightning at runtime, unknown here
+        log.warning(
+            f"trainer.devices={devices!r} is not a count; treating the metric "
+            "loaders as single-rank, which under-scores the val split."
+        )
+        n = 1
+    nodes = cfg.get("trainer", {}).get("num_nodes", 1)
+    return n * (int(nodes) if isinstance(nodes, int) and nodes > 0 else 1)
+
+
+def _metric_frames_per_episode(cfg: DictConfig, head: str) -> int | None:
+    """Frames per episode to keep on this val head, or None for no subsampling.
+
+    ``data.metric_frames_per_episode[head]`` is written for ONE rank -- it is
+    ``floor(limit_val_batches * batch_size / n_episodes)`` -- so it is scaled by
+    the world size here: the ranks stride through the subsampled set together
+    and each still reads at most ``limit_val_batches`` batches. Without this a
+    4-GPU run scores a quarter of the frames the same config scores on 1 GPU,
+    which on the seen-val head is fewer than it scored before subsampling
+    existed at all. EvenStrideDataset keeps a whole episode when K exceeds its
+    length, so a split that fits entirely is not subsampled.
+    """
+    table = cfg.data.get("metric_frames_per_episode")
+    if table is None:
+        return None
+    k = table.get(head)
+    if k is None:
+        return None
+    k = int(k)
+    if k <= 0:
+        raise ValueError(
+            f"data.metric_frames_per_episode.{head} must be a positive int, got {k}"
+        )
+    return k * _trainer_world_size(cfg)
+
+
+def _subsample_val_datasets(cfg: DictConfig, head: str, datasets: dict) -> dict:
+    """Wrap each of this val head's datasets in ``EvenStrideDataset`` so the
+    ``limit_val_batches`` window spans EVERY episode of the split.
+
+    The val loaders are unshuffled (so the overlay video is coherent), which
+    made the metric window the first ``limit_val_batches * batch_size * W``
+    frames in episode-hash order: at W = 1 that is a third of the seen-val
+    split and effectively one operator of the unseen split. K evenly spaced frames per
+    episode gives every episode -- and so every operator -- equal weight at
+    the same batch count.
+
+    No ``metric_frames_per_episode`` entry for this head => datasets pass
+    through untouched."""
+    k = _metric_frames_per_episode(cfg, head)
+    if k is None or not datasets:
+        return datasets
+    wrapped = {}
+    for name, ds in datasets.items():
+        if ds is None:
+            wrapped[name] = None
+            continue
+        sub = EvenStrideDataset(ds, frames_per_episode=k)
+        log.info(
+            f"val head '{head}' dataset '{name}': EvenStrideDataset "
+            f"frames_per_episode={k} -> {len(sub)} / {len(ds)} frames over "
+            f"{len(ds.datasets)} episodes"
+        )
+        wrapped[name] = sub
+    return wrapped
+
+
+def _video_datasets(cfg: DictConfig, heads: dict) -> dict:
+    """``{head: {dataset_name: MultiDataset}}`` for the video-only val loaders.
+
+    ``data.video_episodes[head]`` pins one episode hash per operator; each
+    pinned episode is taken out of that head's ALREADY resolved split (no second
+    SQL pull or path resolution -- see ``pinned_episode_subset``), contiguous
+    and unsubsampled so the overlay video stays watchable.
+
+    A head with no pins gets no video loader, so a config without the key keeps
+    today's behaviour (metrics AND video on the one metric loader)."""
+    table = cfg.data.get("video_episodes")
+    if table is None:
+        return {}
+    out: dict = {}
+    for head, datasets in heads.items():
+        pins = [str(h) for h in (table.get(head) or [])]
+        if not pins or not datasets:
+            continue
+        live = {name: ds for name, ds in datasets.items() if ds is not None}
+        unplaced = sorted(set(pins) - {h for ds in live.values() for h in ds.datasets})
+        if unplaced:
+            raise PinError(
+                f"{len(unplaced)} pinned video episode(s) for head '{head}' are in "
+                f"none of its datasets {sorted(live)}: {unplaced}. The pin must "
+                "name an episode of THIS head's split."
+            )
+        built = {}
+        for name, ds in live.items():
+            mine = [h for h in pins if h in ds.datasets]
+            if not mine:
+                continue
+            built[name] = pinned_episode_subset(ds, mine, dataset_name=name)
+            log.info(
+                f"val head '{head}' video loader from dataset '{name}': "
+                f"{len(mine)} pinned episode(s), {len(built[name])} frames"
+            )
+        out[head] = built
+    return out
+
+
 def _build_unseen_op_valid_evaluator(cfg: DictConfig):
     """The canonical evaluator (fresh instance, own frame buffers) wrapped to
     log ``unseen_op_valid/`` and write ``videos_unseen_op_valid/``."""
@@ -307,6 +431,21 @@ def _build_unseen_op_valid_evaluator(cfg: DictConfig):
 def _attach(eval_obj, trainer: Trainer, model: LightningModule):
     eval_obj.trainer = trainer
     eval_obj.model = model.model
+    return eval_obj
+
+
+def _apply_eval_overrides(cfg: DictConfig) -> Eval:
+    """Eval mode: apply the evaluator's trainer overrides (one device) and
+    disable the logger; returns the evaluator."""
+    eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
+    log.info("Eval mode: applying trainer overrides from eval config, disabling logger")
+    with open_dict(cfg):
+        for k, v in eval_obj.override_dict.items():
+            cfg.trainer[k] = v
+        cfg.trainer.devices = 1
+        cfg.trainer.num_nodes = 1
+        cfg.trainer.num_sanity_val_steps = 0
+        cfg.logger = None
     return eval_obj
 
 
@@ -331,6 +470,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     load_env()
 
+    mode = _resolve_mode(cfg)
+    # Before the val datasets are built: metric subsampling reads the trainer's
+    # world size, which eval mode forces to one device.
+    if mode == "eval":
+        eval_obj = _apply_eval_overrides(cfg)
+
     # One SQL pull / path resolution per dataset spec across train, valid,
     # train_viz and the norm-stat copies; dropped on exit so nothing outlives
     # this run.
@@ -354,6 +499,27 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg, instantiate=_instantiate_dataset
         )
 
+        # Split the val heads in two: a per-episode SUBSAMPLED metric
+        # loader that covers the whole split inside limit_val_batches, and a
+        # contiguous video-only loader over the pinned episodes. Build the video
+        # subsets from the full splits BEFORE wrapping, and let each head opt in
+        # independently (no keys in the data config => today's behaviour).
+        video_datasets = _video_datasets(
+            cfg,
+            {
+                "valid": valid_datasets,
+                "train_viz": train_viz_datasets,
+                "unseen_op_valid": unseen_op_valid_datasets,
+            },
+        )
+        valid_datasets = _subsample_val_datasets(cfg, "valid", valid_datasets)
+        train_viz_datasets = _subsample_val_datasets(
+            cfg, "train_viz", train_viz_datasets
+        )
+        unseen_op_valid_datasets = _subsample_val_datasets(
+            cfg, "unseen_op_valid", unseen_op_valid_datasets
+        )
+
         log.info(f"Instantiating datamodule <{cfg.data._target_}>")
         assert (
             "MultiDataModuleWrapper" in cfg.data._target_
@@ -369,6 +535,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # Always passed too: hydra would otherwise instantiate the raw
         # config nodes itself (eval mode included).
         datamodule_kwargs["unseen_op_valid_datasets"] = unseen_op_valid_datasets
+        # Built above; hydra has nothing to instantiate for these.
+        datamodule_kwargs["video_datasets"] = video_datasets
         datamodule: LightningDataModule = hydra.utils.instantiate(
             cfg.data, **datamodule_kwargs
         )
@@ -482,6 +650,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         ds.set_norm_stats_from(norm_stats)
     for ds in datamodule.unseen_op_valid_datasets.values():
         ds.set_norm_stats_from(norm_stats)
+    # The video subsets share leaves with their head's split but are separate
+    # MultiDatasets, so they need their own wiring (EvenStrideDataset forwards
+    # the call to the base it indexes into).
+    for head_datasets in getattr(datamodule, "video_datasets", {}).values():
+        for ds in head_datasets.values():
+            ds.set_norm_stats_from(norm_stats)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = ModelWrapper(
@@ -498,22 +672,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
-
-    mode = _resolve_mode(cfg)
-
-    # In eval mode, apply trainer overrides from the eval object and disable logger
-    if mode == "eval":
-        eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
-        log.info(
-            "Eval mode: applying trainer overrides from eval config, disabling logger"
-        )
-        with open_dict(cfg):
-            for k, v in eval_obj.override_dict.items():
-                cfg.trainer[k] = v
-            cfg.trainer.devices = 1
-            cfg.trainer.num_nodes = 1
-            cfg.trainer.num_sanity_val_steps = 0
-            cfg.logger = None
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
@@ -546,6 +704,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
+    # Both modes: a head with pinned video episodes adds a <head>_video loader.
+    model.val_loader_names = datamodule.val_loader_names()
+
     if mode == "train":
         if cfg.get("evaluator") is not None:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
@@ -565,7 +726,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             model.unseen_op_valid_evaluator = _attach(
                 _build_unseen_op_valid_evaluator(cfg), trainer, model
             )
-        model.val_loader_names = datamodule.val_loader_names()
         # Pre-fit baseline val. Skipped on requeues AND checkpoint resumes:
         # trainer.validate here runs BEFORE fit restores ckpt_path weights, so
         # on a resume it would score the un-resumed base model.

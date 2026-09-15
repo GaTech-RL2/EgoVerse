@@ -31,6 +31,10 @@
 # The train and seen-val entries share `filters` and `valid_ratio`, so the
 # seeded split (split_dataset_names, SEED 42) makes them exact complements.
 #
+# Each head is scored by a per-episode subsampled metric loader and rendered
+# by a video loader over pinned episodes; see `metric_frames_per_episode` and
+# `video_episodes` at the bottom of this file.
+#
 # PIPELINE: WRIST-frame CARTESIAN actions with the continuous 6D rotation
 # (18D = xyz+6D per arm, no gripper): each arm's 100-step chunk is expressed
 # relative to that wrist's current pose; the head-frame proprio ee_pose is
@@ -136,3 +140,23 @@ unseen_op_valid_dataloader_params:
     batch_size: 64
     num_workers: 8
     shuffle: false
+
+# Frames taken evenly from each episode per val head, so every episode is
+# scored. Single-rank values; trainHydra scales them by world size.
+# K = floor(limit_val_batches * batch_size / episodes in the split)
+#   = floor(80 * 64 / n), n = 70 / 1346 / 191 (valid / train_viz /
+#   unseen_op_valid, measured 2026-09-15); re-derive when the split changes.
+metric_frames_per_episode:
+  valid: 73
+  train_viz: 3
+  unseen_op_valid: 26
+
+# Episodes each head's video loader renders, one per operator, in frame order.
+video_episodes:
+  valid:
+    - 692e771c39719ab57395b408
+  train_viz:
+    - 692e9bda21fc595fbe6f941e
+  unseen_op_valid:
+    - 692eadbaaec602a46af10686
+    - 692ea49a727c13b350cb7c48

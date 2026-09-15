@@ -18,5 +18,13 @@ class Eval(ABC):
         pass
 
     @abstractmethod
-    def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
+    def on_validation_step(self, batch, batch_idx, dataloader_idx=0, mode="both"):
+        """``mode``: "metrics" / "video" / "both". An evaluator that renders
+        nothing may ignore it, but it must accept it -- ModelWrapper passes it
+        for every loader of a config that declares ``video_episodes``."""
         pass
+
+    def should_viz(self) -> bool:
+        """Whether this validation pass renders video; ModelWrapper skips a
+        video-only loader's batches before the forward pass when False."""
+        return True
