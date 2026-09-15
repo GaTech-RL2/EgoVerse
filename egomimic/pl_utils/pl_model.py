@@ -183,25 +183,31 @@ class ModelWrapper(LightningModule):
                 info["policy_grad_norms_mad_threshold"] = threshold
                 grad_norm_flagged = grad_norm_val > threshold
                 info["policy_grad_norms_mad_flag"] = float(grad_norm_flagged)
-                if grad_norm_flagged:
-                    torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=median)
-                    if self.trainer.is_global_zero:
-                        print(
-                            "[GRAD_NORM_SPIKE] "
-                            f"step={self.global_step} "
-                            f"grad_norm={grad_norm_val:.4f} "
-                            f"median={median:.4f} "
-                            f"mad={mad:.4f} "
-                            f"threshold={threshold:.4f}",
-                            flush=True,
-                        )
+                if grad_norm_flagged and self.trainer.is_global_zero:
+                    print(
+                        "[GRAD_NORM_SPIKE] "
+                        f"step={self.global_step} "
+                        f"grad_norm={grad_norm_val:.4f} "
+                        f"median={median:.4f} "
+                        f"mad={mad:.4f} "
+                        f"threshold={threshold:.4f}",
+                        flush=True,
+                    )
 
-        if not grad_norm_flagged:
-            self.grad_norm_history.append(grad_norm_val)
+        # The MAD detector is log-only: it never rescales gradients (actual
+        # clipping is Lightning's fixed ``trainer.gradient_clip_val``), so every
+        # step goes into the rolling history. The old code excluded flagged
+        # steps only to stop the clip threshold from drifting upwards; as a pure
+        # diagnostic the plain rolling median/MAD is the honest statistic.
+        self.grad_norm_history.append(grad_norm_val)
         for k, v in info.items():
             self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
 
     def on_before_optimizer_step(self, optimizer):
+        # NOTE (lightning 2.6.1): ``Precision._after_closure`` calls this hook
+        # BEFORE ``_clip_gradients`` / ``configure_gradient_clipping``, so with
+        # ``trainer.gradient_clip_val`` set this metric is still the PRE-clip
+        # norm (identical to ``policy_grad_norms_raw``), not the post-clip one.
         if not self.enable_grad_norm:
             return
         grad_norm = torch.nn.utils.clip_grad_norm_(
@@ -223,6 +229,14 @@ class ModelWrapper(LightningModule):
         }
 
     def on_validation_start(self):
+        # Deterministic eval: rewind the algo's per-pass RNG counter so this
+        # pass replays the same prompts and sampling noise as any other pass
+        # over the same batches (egomimic/algo/hpt.py). Algos without the hook
+        # (e.g. PI) are unaffected.
+        reset_eval_rng = getattr(self.model, "reset_eval_pass_counter", None)
+        if callable(reset_eval_rng):
+            reset_eval_rng()
+
         heads = [h for h in self._val_heads().values() if h is not None]
         if not heads:
             return
