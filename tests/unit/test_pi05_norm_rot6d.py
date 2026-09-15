@@ -629,6 +629,12 @@ def test_train_viz_wrapper_prefixes_and_forwards():
     assert base.trainer is tv.trainer
     assert tv.video_dir().endswith("videos_train_viz")
 
+    op = TrainVizEvalVideo(base, prefix="unseen_op_valid")
+    metrics, _ = op.compute_metrics_and_viz({}, do_viz=False)
+    assert set(metrics) == {"unseen_op_valid/Valid/x"}, metrics
+    op.trainer = SimpleNamespace(default_root_dir="/tmp/run")
+    assert op.video_dir().endswith("videos_unseen_op_valid")
+
 
 def test_dtw_distance_matches_bruteforce_and_tolerates_shift():
     from egomimic.utils.metrics import dtw_distance

@@ -34,7 +34,12 @@ CAM_FRAME_COTRAIN = [
 
 
 def _human_dataset_nodes(cfg):
-    for split in ("train_datasets", "valid_datasets", "train_viz_datasets"):
+    for split in (
+        "train_datasets",
+        "valid_datasets",
+        "train_viz_datasets",
+        "unseen_op_valid_datasets",
+    ):
         node = (cfg.data.get(split) or {}).get(HUMAN)
         if node is not None and node.get("resolver") is not None:
             yield split, node.resolver
@@ -358,6 +363,78 @@ def test_validation_step_routes_by_dataloader_idx():
     w.train_viz_evaluator = None
     w.validation_step({"k": 4}, 0, dataloader_idx=1)  # no second head: ignored
     assert len(calls) == 3
+
+
+def test_unseen_op_valid_third_loader_and_routing():
+    """unseen_op_valid_datasets adds a loader after train_viz; without train_viz it
+    takes idx 1, and ModelWrapper routes by val_loader_names, not position."""
+    from egomimic.pl_utils.pl_data_utils import MultiDataModuleWrapper
+    from egomimic.pl_utils.pl_model import ModelWrapper
+
+    params = {"human_bimanual": {"batch_size": 2, "num_workers": 0}}
+    common = dict(
+        train_datasets={"human_bimanual": _Dicts(4, "train")},
+        valid_datasets={"human_bimanual": _Dicts(4, "valid")},
+        train_dataloader_params=params,
+        valid_dataloader_params=params,
+        unseen_op_valid_datasets={"human_bimanual": _Dicts(4, "unseen")},
+        unseen_op_valid_dataloader_params=params,
+    )
+    dm = MultiDataModuleWrapper(
+        **common,
+        train_viz_datasets={"human_bimanual": _Dicts(4, "viz")},
+        train_viz_dataloader_params=params,
+    )
+    assert dm.val_loader_names() == ["valid", "train_viz", "unseen_op_valid"]
+    loaders = dm.val_dataloader()
+    tags = [next(iter(ld))[0]["human_bimanual"]["tag"][0][0] for ld in loaders]
+    assert tags == ["valid", "viz", "unseen"]
+
+    dm = MultiDataModuleWrapper(**common)
+    assert dm.val_loader_names() == ["valid", "unseen_op_valid"]
+
+    calls = []
+
+    class _Ev:
+        def __init__(self, name):
+            self.name = name
+
+        def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
+            calls.append((self.name, dataloader_idx))
+
+    w = ModelWrapper.__new__(ModelWrapper)
+    LightningModule.__init__(w)
+    w.model = SimpleNamespace(process_batch_for_training=lambda b: b)
+    w.evaluator = _Ev("valid")
+    w.train_viz_evaluator = None
+    w.unseen_op_valid_evaluator = _Ev("unseen_op_valid")
+    w.val_loader_names = dm.val_loader_names()
+    w.validation_step({"k": 1}, 0, dataloader_idx=0)
+    w.validation_step({"k": 2}, 0, dataloader_idx=1)
+    assert calls == [("valid", 0), ("unseen_op_valid", 1)]
+
+
+def test_flagship_opsplit_val_heads(compose_resolve):
+    """Flagship opsplit: valid (prefixed seen_op_valid) = seen operators'
+    held-out episodes (complement of train), train_viz = the train split (no
+    explicit datasets), unseen_op_valid = the held-out operators. The topop
+    twin inherits the same layout."""
+    for data, train_op in (
+        ("mecka_fold_flagship_opsplit_hpt_6d", "not in"),
+        ("mecka_fold_flagship_topop_hpt_6d", "== '6903686e0e94ce070afd1f24'"),
+    ):
+        cfg = compose_resolve("train_zarr_mecka_flagship_6d_hpt", [f"data={data}"])
+        d = cfg.data
+        train, valid = d.train_datasets[HUMAN], d.valid_datasets[HUMAN]
+        unseen = d.unseen_op_valid_datasets[HUMAN]
+        assert d.get("train_viz_datasets") is None
+        assert d.valid_prefix == "seen_op_valid"
+        assert (train.mode, valid.mode, unseen.mode) == ("train", "valid", "total")
+        assert valid.valid_ratio == train.valid_ratio
+        assert list(valid.filters.filter_lambdas) == list(train.filters.filter_lambdas)
+        assert train_op in train.filters.filter_lambdas[-1]
+        ops = list(d.held_out_operators)
+        assert unseen.filters.filter_lambdas[-1].endswith(f" in {ops}")
 
 
 # ------------------------------------------------ adversarial-review fixes

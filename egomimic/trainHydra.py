@@ -108,7 +108,11 @@ def _weights_from_checkpoint(cfg: DictConfig) -> bool:
     return bool(ckpt_path) and os.path.isfile(ckpt_path) and not cfg.get("pretrained")
 
 
-def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> None:
+def _log_dataset_frame_counts(
+    train_datasets: dict,
+    valid_datasets: dict,
+    unseen_op_valid_datasets: dict | None = None,
+) -> None:
     rows = []
     for name, ds in train_datasets.items():
         rows.append(("train", name, len(ds)))
@@ -122,6 +126,8 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
         rows.append(
             ("TOTAL", "(valid)", sum(len(ds) for ds in valid_datasets.values()))
         )
+    for name, ds in (unseen_op_valid_datasets or {}).items():
+        rows.append(("unseen_op_valid", name, len(ds)))
     table = tabulate(
         rows,
         headers=["Split", "Dataset", "Frames"],
@@ -242,6 +248,33 @@ def _build_train_viz_evaluator(cfg: DictConfig):
     return TrainVizEvalVideo(hydra.utils.instantiate(cfg.evaluator))
 
 
+def _unseen_op_valid_datasets(cfg: DictConfig, instantiate) -> dict:
+    """Datasets for the third (unseen_op_valid) val loader: a data config's own
+    ``unseen_op_valid_datasets``, in training runs with an evaluator only (eval
+    mode validates ``valid_datasets`` alone)."""
+    explicit = cfg.data.get("unseen_op_valid_datasets")
+    if (
+        explicit is None
+        or _resolve_mode(cfg) != "train"
+        or cfg.get("evaluator") is None
+    ):
+        return {}
+    return {
+        name: None if node is None else instantiate(node, dataset_name=name)
+        for name, node in explicit.items()
+    }
+
+
+def _build_unseen_op_valid_evaluator(cfg: DictConfig):
+    """The canonical evaluator (fresh instance, own frame buffers) wrapped to
+    log ``unseen_op_valid/`` and write ``videos_unseen_op_valid/``."""
+    from egomimic.eval.eval_train_viz import TrainVizEvalVideo
+
+    return TrainVizEvalVideo(
+        hydra.utils.instantiate(cfg.evaluator), prefix="unseen_op_valid"
+    )
+
+
 @task_wrapper
 def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
@@ -282,6 +315,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         train_viz_datasets, train_viz_params = _train_viz_datasets(
             cfg, train_datasets, instantiate=_instantiate_dataset
         )
+        unseen_op_valid_datasets = _unseen_op_valid_datasets(
+            cfg, instantiate=_instantiate_dataset
+        )
 
         log.info(f"Instantiating datamodule <{cfg.data._target_}>")
         assert (
@@ -295,6 +331,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         datamodule_kwargs["train_viz_datasets"] = train_viz_datasets
         if train_viz_params is not None:
             datamodule_kwargs["train_viz_dataloader_params"] = train_viz_params
+        # Always passed too: hydra would otherwise instantiate the raw
+        # config nodes itself (eval mode included).
+        datamodule_kwargs["unseen_op_valid_datasets"] = unseen_op_valid_datasets
         datamodule: LightningDataModule = hydra.utils.instantiate(
             cfg.data, **datamodule_kwargs
         )
@@ -394,6 +433,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         ds.set_norm_stats_from(norm_stats)
     for ds in getattr(datamodule, "train_viz_datasets", {}).values():
         ds.set_norm_stats_from(norm_stats)
+    for ds in getattr(datamodule, "unseen_op_valid_datasets", {}).values():
+        ds.set_norm_stats_from(norm_stats)
 
     _prepare_checkpoint_resume(cfg)
 
@@ -404,7 +445,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
     )
 
-    _log_dataset_frame_counts(datamodule.train_datasets, datamodule.valid_datasets)
+    _log_dataset_frame_counts(
+        datamodule.train_datasets,
+        datamodule.valid_datasets,
+        datamodule.unseen_op_valid_datasets,
+    )
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
@@ -459,6 +504,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     if mode == "train":
         if cfg.get("evaluator") is not None:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
+            # data.valid_prefix (e.g. seen_op_valid in the opsplit configs)
+            # renames the canonical head: `<prefix>/Valid/...` metrics and
+            # `videos_<prefix>/` instead of `Valid/...` and `videos/`.
+            valid_prefix = cfg.data.get("valid_prefix")
+            if valid_prefix:
+                from egomimic.eval.eval_train_viz import TrainVizEvalVideo
+
+                eval_obj = TrainVizEvalVideo(eval_obj, prefix=valid_prefix)
             eval_obj.trainer = trainer
             eval_obj.model = model.model
             model.evaluator = eval_obj
@@ -469,6 +522,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             train_viz_eval_obj.trainer = trainer
             train_viz_eval_obj.model = model.model
             model.train_viz_evaluator = train_viz_eval_obj
+        if datamodule.unseen_op_valid_datasets:
+            unseen_eval_obj = _build_unseen_op_valid_evaluator(cfg)
+            unseen_eval_obj.trainer = trainer
+            unseen_eval_obj.model = model.model
+            model.unseen_op_valid_evaluator = unseen_eval_obj
+        model.val_loader_names = datamodule.val_loader_names()
         # Pre-fit baseline val. Skipped on requeues AND checkpoint resumes:
         # trainer.validate here runs BEFORE fit restores ckpt_path weights, so
         # on a resume it would score the un-resumed base model.

@@ -9,8 +9,10 @@
 # that file for the precompute command).
 defaults:
   - train_zarr_cartesian
-  # Second eval head: metrics + videos on the SEEN-operator val each val
-  # (train_viz/). (A plain entry, so it must precede the overrides.)
+  # Second eval head: metrics + videos on the TRAIN split each val
+  # (train_viz/). The data config renames the canonical head seen_op_valid/
+  # and adds a third, unseen_op_valid/, for the held-out operators. (A plain
+  # entry, so it must precede the overrides.)
   - evaluator@train_viz_evaluator: train_viz_hpt_wristframe_6d
   - override model: hpt_bc_mecka_6d_300M
   - override data: mecka_fold_flagship_opsplit_hpt_6d

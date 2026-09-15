@@ -22,6 +22,9 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_dataloader_params: dict,
         train_viz_datasets: dict | None = None,
         train_viz_dataloader_params: dict | None = None,
+        unseen_op_valid_datasets: dict | None = None,
+        unseen_op_valid_dataloader_params: dict | None = None,
+        valid_prefix: str | None = None,
         held_out_operators: list | None = None,
     ):
         """
@@ -35,6 +38,16 @@ class MultiDataModuleWrapper(LightningDataModule):
                 policy on training data alongside the canonical validation.
             train_viz_dataloader_params: dict of per-dataset DataLoader kwargs
                 for the train_viz loader.
+            unseen_op_valid_datasets: optional dict of datasets iterated as a
+                third val loader, evaluated by a prefixed copy of the canonical
+                evaluator (metrics ``unseen_op_valid/``). The held-out-operator split configs put the
+                unseen operators here, so ``valid_datasets`` can hold the seen
+                operators' held-out episodes and ``train_viz`` the train split.
+            unseen_op_valid_dataloader_params: dict of per-dataset DataLoader
+                kwargs for the unseen_op_valid loader.
+            valid_prefix: config-only. When set, trainHydra wraps the canonical
+                evaluator so the valid loader logs ``<prefix>/...`` and writes
+                ``videos_<prefix>/`` (``seen_op_valid`` in the opsplit configs).
             held_out_operators: config-only. The held-out-operator split
                 configs (data/mecka_fold_*_opsplit_*.yaml) keep the operator
                 id list once at the data-config root and interpolate it from
@@ -61,6 +74,11 @@ class MultiDataModuleWrapper(LightningDataModule):
             k: v for k, v in (train_viz_datasets or {}).items() if v is not None
         }
         self.train_viz_dataloader_params = train_viz_dataloader_params or {}
+        self.unseen_op_valid_datasets = {
+            k: v for k, v in (unseen_op_valid_datasets or {}).items() if v is not None
+        }
+        self.unseen_op_valid_dataloader_params = unseen_op_valid_dataloader_params or {}
+        self.valid_prefix = valid_prefix
         self.held_out_operators = list(held_out_operators or [])
         self.collate_fn = annotation_collate
 
@@ -99,21 +117,34 @@ class MultiDataModuleWrapper(LightningDataModule):
             )
         return CombinedLoader(iterables, "max_size_cycle")
 
+    def val_loader_names(self) -> list[str]:
+        """Names of the val loaders in ``val_dataloader()`` order; position i is
+        Lightning's ``dataloader_idx`` i. ModelWrapper dispatches on these."""
+        names = ["valid"]
+        if self.train_viz_datasets:
+            names.append("train_viz")
+        if self.unseen_op_valid_datasets:
+            names.append("unseen_op_valid")
+        return names
+
     def val_dataloader(self):
-        valid_loader = self._build_val_style_loader(
-            self.valid_datasets, self.valid_dataloader_params, kind="valid"
-        )
-        if not self.train_viz_datasets:
-            return valid_loader
-        # When train_viz_datasets is configured, return a list so Lightning
-        # populates dataloader_idx (0=valid, 1=train_viz) and ModelWrapper can
-        # dispatch to self.train_viz_evaluator.
-        train_viz_loader = self._build_val_style_loader(
-            self.train_viz_datasets,
-            self.train_viz_dataloader_params,
-            kind="train_viz",
-        )
-        return [valid_loader, train_viz_loader]
+        sources = {
+            "valid": (self.valid_datasets, self.valid_dataloader_params),
+            "train_viz": (self.train_viz_datasets, self.train_viz_dataloader_params),
+            "unseen_op_valid": (
+                self.unseen_op_valid_datasets,
+                self.unseen_op_valid_dataloader_params,
+            ),
+        }
+        names = self.val_loader_names()
+        loaders = [
+            self._build_val_style_loader(*sources[name], kind=name) for name in names
+        ]
+        if len(loaders) == 1:
+            return loaders[0]
+        # Several heads: return a list so Lightning populates dataloader_idx
+        # (the position in val_loader_names()) and ModelWrapper can dispatch.
+        return loaders
 
 
 def _extract_list_keys(batch):

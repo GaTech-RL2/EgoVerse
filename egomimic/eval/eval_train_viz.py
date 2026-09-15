@@ -20,10 +20,16 @@ from egomimic.eval.eval_video import EvalVideo
 
 
 class TrainVizEvalVideo(EvalVideo):
-    def __init__(self, base: EvalVideo, limit_val_batches: int = 50):
+    def __init__(
+        self, base: EvalVideo, limit_val_batches: int = 50, prefix: str = "train_viz"
+    ):
+        """``prefix`` names the metric-key prefix and the ``videos_<prefix>/``
+        subdirectory; trainHydra reuses this wrapper for the opsplit heads
+        (``unseen_op_valid``, and ``seen_op_valid`` via ``data.valid_prefix``)."""
         # `base` must be set before super().__init__: the trainer/model
         # property setters fire on the base attribute during construction.
         self.base = base
+        self.prefix = prefix
         super().__init__(
             limit_val_batches=limit_val_batches,
             viz_func=base.viz_func,
@@ -51,9 +57,9 @@ class TrainVizEvalVideo(EvalVideo):
         self.base.model = value
 
     def video_dir(self):
-        return os.path.join(self.root_dir(), "videos_train_viz")
+        return os.path.join(self.root_dir(), f"videos_{self.prefix}")
 
     def compute_metrics_and_viz(self, batch, do_viz=True):
         metrics, images_dict = self.base.compute_metrics_and_viz(batch, do_viz=do_viz)
-        metrics = {f"train_viz/{k}": v for k, v in metrics.items()}
+        metrics = {f"{self.prefix}/{k}": v for k, v in metrics.items()}
         return metrics, images_dict
