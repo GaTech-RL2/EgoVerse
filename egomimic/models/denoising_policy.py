@@ -97,11 +97,24 @@ class DenoisingPolicy(nn.Module):
         """
         raise NotImplementedError
 
-    def loss_fn(self, pred, target):
+    def loss_fn(self, pred, target, pad_mask=None):
         """
         Computes loss, function to override for stuff like adaptive loss weighting
+
+        ``pad_mask`` (B, S, 1) or (B, S) marks the real action steps; padded
+        tail steps (0.0) drop out of the mean so the model is not supervised on
+        the dataset's repeat-last padding. ``None`` (or an all-ones mask) is
+        plain ``F.mse_loss``.
         """
-        return F.mse_loss(pred, target)
+        if pad_mask is None:
+            return F.mse_loss(pred, target)
+        mask = pad_mask.to(dtype=pred.dtype, device=pred.device)
+        if mask.dim() == pred.dim() - 1:
+            mask = mask.unsqueeze(-1)
+        mask = mask.expand_as(pred)
+        # At least one element: an all-padding chunk contributes 0, not NaN.
+        denom = mask.sum().clamp(min=1.0)
+        return (((pred - target) ** 2) * mask).sum() / denom
 
     def preprocess_compute_loss(self, global_cond, data):
         if self.pooling == "mean":
@@ -131,4 +144,4 @@ class DenoisingPolicy(nn.Module):
     def compute_loss(self, global_cond, data):
         actions, global_cond = self.preprocess_compute_loss(global_cond, data)
         pred, target = self.predict(actions, global_cond)
-        return self.loss_fn(pred, target)
+        return self.loss_fn(pred, target, pad_mask=data.get("pad_mask"))
