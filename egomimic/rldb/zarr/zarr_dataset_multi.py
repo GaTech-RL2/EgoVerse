@@ -45,7 +45,11 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.resolve_memo import memoized
-from egomimic.rldb.zarr.schema import SchemaVersionError, check_format_version
+from egomimic.rldb.zarr.schema import (
+    POSE_SENTINEL_THRESHOLD,
+    SchemaVersionError,
+    check_format_version,
+)
 from egomimic.utils.env import load_env
 
 
@@ -1387,7 +1391,7 @@ class MultiDataset(torch.utils.data.Dataset):
 
         computing_start = time.time()
         for k in norm_keys:
-            collected[k] = self._drop_nonfinite_rows(
+            collected[k] = self._drop_invalid_rows(
                 np.concatenate(collected[k], axis=0), k
             )
             stats_np = self._compute_stats_for_array(collected[k])
@@ -1442,28 +1446,35 @@ class MultiDataset(torch.utils.data.Dataset):
         return collected
 
     @staticmethod
-    def _drop_nonfinite_rows(X: np.ndarray, key: str) -> np.ndarray:
-        """Drop norm samples (rows of X, shape (N, ...)) containing NaN/Inf.
+    def _drop_invalid_rows(X: np.ndarray, key: str) -> np.ndarray:
+        """Drop norm samples (rows of X, shape (N, ...)) containing NaN/Inf or
+        the missing-frame sentinel (|v| >= POSE_SENTINEL_THRESHOLD, e.g. Aria's
+        1e9 rows for an undetected hand).
 
         np.percentile/mean propagate NaN, and a NaN quantile then poisons every
         normalized sample of that key (the per-sample bounds check cannot flag
-        NaN bounds). Episodes with a non-finite feature (e.g. an all-NaN gripper
-        command) are still rejected sample-by-sample at train time; they must
-        not shape the statistics.
+        NaN bounds). A 1e9 sample survives the transforms as ~1e9 and skews
+        mean/std/min/max the same way. Such samples are still rejected
+        sample-by-sample at train time by the bounds check; they must not shape
+        the statistics.
         """
-        finite = np.isfinite(X).reshape(X.shape[0], -1).all(axis=1)
-        n_bad = int((~finite).sum())
+        flat = X.reshape(X.shape[0], -1)
+        valid = np.isfinite(flat).all(axis=1) & (
+            np.abs(flat) < POSE_SENTINEL_THRESHOLD
+        ).all(axis=1)
+        n_bad = int((~valid).sum())
         if n_bad == 0:
             return X
         if n_bad == X.shape[0]:
             raise ValueError(
-                f"[MultiDataset] key={key}: every collected norm sample is non-finite"
+                f"[MultiDataset] key={key}: every collected norm sample is "
+                "non-finite or a missing-frame sentinel"
             )
         logger.warning(
             f"[MultiDataset] key={key}: dropping {n_bad}/{X.shape[0]} norm samples "
-            "with non-finite values"
+            "with non-finite or missing-frame sentinel values"
         )
-        return X[finite]
+        return X[valid]
 
     @staticmethod
     def _compute_stats_for_array(X):
