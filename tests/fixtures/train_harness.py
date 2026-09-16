@@ -14,7 +14,9 @@ from omegaconf import open_dict
 import egomimic.trainHydra as train_hydra
 from fixtures.synthetic_episodes import write_episode
 
-STATE_DIM = {"eva_bimanual": 14, "human_bimanual": 12}
+# Width of the concatenated proprio the Pi wrapper hands openpi: the
+# 6D-encoded ee_pose, grip-padded to the robot 20-D layout on both.
+STATE_DIM = {"eva_bimanual": 20, "human_bimanual": 20}
 PI_TOKENIZER = (
     "google/paligemma-3b-mix-224"  # tokenizer_model_name in model/pi0.5_base.yaml
 )

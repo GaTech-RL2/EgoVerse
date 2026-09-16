@@ -1,3 +1,15 @@
+"""pi0.5 action I/O.
+
+Actions arrive from the data pipeline already in their model-native layout
+and already normalized by the standard MultiDataset pipeline: xyz+rot6d
+(+gripper) per arm, the ypr->6D conversion being the ``CartesianYPRToRot6D``
+data transform, with norm stats computed on 6D.
+
+The forward pass only *packs* the normalized vector into openpi's 32-slot
+action vector (``to32_norm_6d``) and the eval path unpacks it
+(``from32_norm_6d``). No rotation math and no normalization happen here.
+"""
+
 from typing import Any, Dict, Tuple
 
 import torch
@@ -23,7 +35,7 @@ class ConverterRegistry:
         )
 
 
-# ---------- shared helpers (same conventions you used) ----------
+# ---------- shared helpers ----------
 def _ensure_bsd(x: torch.Tensor) -> torch.Tensor:
     if x.ndim == 2:
         return x.unsqueeze(1)
@@ -174,16 +186,27 @@ def _reconstruct_R_from_cols(c1: torch.Tensor, c2: torch.Tensor) -> torch.Tensor
 # ---------- base interface ----------
 class BaseActionConverter:
     """
-    Implement both directions:
-      - to32(actions_orig)   -> (B,S,32)
-      - from32(actions_32)   -> original shape/dim
+    Pack / unpack between an embodiment's native normalized action and the
+    pi0.5 action vector:
+      - to32_norm_6d(actions)     -> (B,S,>=32) canonical block layout
+      - from32_norm_6d(actions32) -> native shape/dim
+    The base class implements neither; it is the ``fallback`` converter in the
+    model yamls and raises so an unregistered embodiment fails loudly.
     """
 
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        """Pack an already-normalized native action into the canonical
+        pi0.5 layout (pure rearrange: no rotation math, no normalization)."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support normalized-rot6d encoding"
+        )
 
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
+        """Inverse of :meth:`to32_norm_6d`: extract the normalized native
+        action from the model's action vector (pure rearrange)."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support normalized-rot6d decoding"
+        )
 
 
 # ============================================================
@@ -191,111 +214,30 @@ class BaseActionConverter:
 # ============================================================
 
 
-class RobotLeftCartesianEuler(BaseActionConverter):
-    """
-    Input orig: (B,S,7) = [x,y,z,yaw,pitch,roll,grip]
-    32-pack:    indices 0..9 = [xyz, R[:,0], R[:,1], grip]
-    """
-
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
-        actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 7:
-            raise ValueError(f"RobotLeft: expected 7-dim, got {actions.shape[-1]}")
-        xyz = actions[..., 0:3]
-        ypr = actions[..., 3:6]
-        g = actions[..., 6:7]
-        R = _ypr_to_matrix(ypr)
-        c1, c2 = R[..., 0], R[..., 1]
-        block = torch.cat([xyz, c1, c2, g], dim=-1)  # (B,S,10)
-        return _pad32(block)
-
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 0:10]  # left block
-        xyz = block[..., 0:3]
-        c1 = block[..., 3:6]
-        c2 = block[..., 6:9]
-        g = block[..., 9:10]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
-        return torch.cat([xyz, ypr, g], dim=-1)  # (B,S,7)
-
-
-class RobotRightCartesianEuler(BaseActionConverter):
-    """
-    Input orig: (B,S,7)
-    32-pack:    indices 10..19 = right block; indices 0..9 are zeros
-    """
-
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
-        actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 7:
-            raise ValueError(f"RobotRight: expected 7-dim, got {actions.shape[-1]}")
-        xyz = actions[..., 0:3]
-        ypr = actions[..., 3:6]
-        g = actions[..., 6:7]
-        R = _ypr_to_matrix(ypr)
-        c1, c2 = R[..., 0], R[..., 1]
-        right = torch.cat([xyz, c1, c2, g], dim=-1)  # (B,S,10)
-        zeros = torch.zeros_like(right)
-        return _pad32(torch.cat([zeros, right], dim=-1))  # (B,S,20) -> pad 32
-
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 10:20]  # right block
-        xyz = block[..., 0:3]
-        c1 = block[..., 3:6]
-        c2 = block[..., 6:9]
-        g = block[..., 9:10]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
-        return torch.cat([xyz, ypr, g], dim=-1)  # (B,S,7)
-
-
 class RobotBimanualCartesianEuler(BaseActionConverter):
     """
-    Input orig: (B,S,14) = L7 | R7
-    32-pack:    left block 0..9, right block 10..19
+    Native: (B,S,20) = [L xyz(3) 6d(6) g(1) | R xyz(3) 6d(6) g(1)]
+    32-pack: left block 0..9, right block 10..19, zero pad 20..31
     """
 
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        # The native 20D layout already IS the canonical 32D block layout
+        # (left 0..9, right 10..19), just pad.
         actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 14:
-            raise ValueError(f"RobotBimanual: expected 14-dim, got {actions.shape[-1]}")
-        L, R = actions[..., :7], actions[..., 7:14]
+        if actions.shape[-1] != 20:
+            raise ValueError(
+                f"RobotBimanual.to32_norm_6d expected 20-dim, got {actions.shape[-1]}"
+            )
+        return _pad32(actions)
 
-        # left
-        L_xyz, L_ypr, L_g = L[..., 0:3], L[..., 3:6], L[..., 6:7]
-        L_R = _ypr_to_matrix(L_ypr)
-        L_c1, L_c2 = L_R[..., 0], L_R[..., 1]
-        left_block = torch.cat([L_xyz, L_c1, L_c2, L_g], dim=-1)  # (B,S,10)
-
-        # right
-        R_xyz, R_ypr, R_g = R[..., 0:3], R[..., 3:6], R[..., 6:7]
-        R_R = _ypr_to_matrix(R_ypr)
-        R_c1, R_c2 = R_R[..., 0], R_R[..., 1]
-        right_block = torch.cat([R_xyz, R_c1, R_c2, R_g], dim=-1)  # (B,S,10)
-
-        return _pad32(torch.cat([left_block, right_block], dim=-1))  # (B,S,20+) -> 32
-
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
         actions32 = _ensure_bsd(actions32)
-        Lb = actions32[..., 0:10]
-        Rb = actions32[..., 10:20]
-
-        # left
-        L_xyz, L_c1, L_c2, L_g = Lb[..., 0:3], Lb[..., 3:6], Lb[..., 6:9], Lb[..., 9:10]
-        L_R = _reconstruct_R_from_cols(L_c1, L_c2)
-        L_ypr = _matrix_to_ypr(L_R)
-
-        # right
-        R_xyz, R_c1, R_c2, R_g = Rb[..., 0:3], Rb[..., 3:6], Rb[..., 6:9], Rb[..., 9:10]
-        R_R = _reconstruct_R_from_cols(R_c1, R_c2)
-        R_ypr = _matrix_to_ypr(R_R)
-
-        L7 = torch.cat([L_xyz, L_ypr, L_g], dim=-1)
-        R7 = torch.cat([R_xyz, R_ypr, R_g], dim=-1)
-        return torch.cat([L7, R7], dim=-1)  # (B,S,14)
+        if actions32.shape[-1] < 20:
+            raise ValueError(
+                f"RobotBimanual.from32_norm_6d expected >=20 dims, got "
+                f"{actions32.shape[-1]}"
+            )
+        return actions32[..., 0:20]
 
 
 # ============================================================
@@ -303,93 +245,34 @@ class RobotBimanualCartesianEuler(BaseActionConverter):
 # ============================================================
 
 
-class HumanLeftCartesianEuler(BaseActionConverter):
-    """
-    Input orig: (B,S,6) = [x,y,z,yaw,pitch,roll]
-    32-pack:    left block 0..9 with g=0
-    """
-
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
-        actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 6:
-            raise ValueError(f"HumanLeft: expected 6-dim, got {actions.shape[-1]}")
-        xyz, ypr = actions[..., 0:3], actions[..., 3:6]
-        R = _ypr_to_matrix(ypr)
-        c1, c2 = R[..., 0], R[..., 1]
-        g0 = torch.zeros_like(xyz[..., :1])
-        block = torch.cat([xyz, c1, c2, g0], dim=-1)  # (B,S,10)
-        return _pad32(block)
-
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 0:10]
-        xyz, c1, c2 = block[..., 0:3], block[..., 3:6], block[..., 6:9]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
-        return torch.cat([xyz, ypr], dim=-1)  # (B,S,6)
-
-
-class HumanRightCartesianEuler(BaseActionConverter):
-    """
-    Input orig: (B,S,6)
-    32-pack:    zeros 0..9, right block 10..19 with g=0 in block
-    """
-
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
-        actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 6:
-            raise ValueError(f"HumanRight: expected 6-dim, got {actions.shape[-1]}")
-        xyz, ypr = actions[..., 0:3], actions[..., 3:6]
-        R = _ypr_to_matrix(ypr)
-        c1, c2 = R[..., 0], R[..., 1]
-        g0 = torch.zeros_like(xyz[..., :1])
-        block = torch.cat([xyz, c1, c2, g0], dim=-1)  # (B,S,10)
-        zeros = torch.zeros_like(block)
-        return _pad32(torch.cat([zeros, block], dim=-1))
-
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 10:20]
-        xyz, c1, c2 = block[..., 0:3], block[..., 3:6], block[..., 6:9]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
-        return torch.cat([xyz, ypr], dim=-1)  # (B,S,6)
-
-
 class HumanBimanualCartesianEuler(BaseActionConverter):
     """
-    Input orig: (B,S,12) = L6 | R6
-    32-pack:    left 0..9 (g=0), right 10..19 (g=0)
+    Native: (B,S,18) = [L xyz(3) 6d(6) | R xyz(3) 6d(6)]  (no gripper)
+    32-pack: left block 0..9 (g=0), right block 10..19 (g=0), zero pad 20..31
     """
 
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        # Human has no gripper, so insert a zero gripper slot at the end of
+        # each arm block to match the 32D block layout [xyz(3) c1(3) c2(3) g(1)] x 2.
         actions = _ensure_bsd(actions)
-        if actions.shape[-1] != 12:
-            raise ValueError(f"HumanBimanual: expected 12-dim, got {actions.shape[-1]}")
-        L, R = actions[..., :6], actions[..., 6:12]
-
-        L_xyz, L_ypr = L[..., 0:3], L[..., 3:6]
-        L_R = _ypr_to_matrix(L_ypr)
-        L_c1, L_c2 = L_R[..., 0], L_R[..., 1]
-        g0L = torch.zeros_like(L_xyz[..., :1])
-        Lblock = torch.cat([L_xyz, L_c1, L_c2, g0L], dim=-1)  # (B,S,10)
-
-        R_xyz, R_ypr = R[..., 0:3], R[..., 3:6]
-        R_R = _ypr_to_matrix(R_ypr)
-        R_c1, R_c2 = R_R[..., 0], R_R[..., 1]
-        g0R = torch.zeros_like(R_xyz[..., :1])
-        Rblock = torch.cat([R_xyz, R_c1, R_c2, g0R], dim=-1)  # (B,S,10)
-
+        if actions.shape[-1] != 18:
+            raise ValueError(
+                f"HumanBimanual.to32_norm_6d expected 18-dim, got {actions.shape[-1]}"
+            )
+        L = actions[..., 0:9]
+        R = actions[..., 9:18]
+        g0 = torch.zeros_like(actions[..., :1])
+        Lblock = torch.cat([L, g0], dim=-1)  # (B,S,10)
+        Rblock = torch.cat([R, g0], dim=-1)  # (B,S,10)
         return _pad32(torch.cat([Lblock, Rblock], dim=-1))
 
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
         actions32 = _ensure_bsd(actions32)
-        Lb = actions32[..., 0:10]
-        Rb = actions32[..., 10:20]
-        L_xyz, L_c1, L_c2 = Lb[..., 0:3], Lb[..., 3:6], Lb[..., 6:9]
-        R_xyz, R_c1, R_c2 = Rb[..., 0:3], Rb[..., 3:6], Rb[..., 6:9]
-        L_R = _reconstruct_R_from_cols(L_c1, L_c2)
-        L_ypr = _matrix_to_ypr(L_R)
-        R_R = _reconstruct_R_from_cols(R_c1, R_c2)
-        R_ypr = _matrix_to_ypr(R_R)
-        return torch.cat([L_xyz, L_ypr, R_xyz, R_ypr], dim=-1)  # (B,S,12)
+        if actions32.shape[-1] < 20:
+            raise ValueError(
+                f"HumanBimanual.from32_norm_6d expected >=20 dims, got "
+                f"{actions32.shape[-1]}"
+            )
+        L = actions32[..., 0:9]  # drop left gripper slot at idx 9
+        R = actions32[..., 10:19]  # drop right gripper slot at idx 19
+        return torch.cat([L, R], dim=-1)  # (B,S,18)
