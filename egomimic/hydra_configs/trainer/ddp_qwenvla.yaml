@@ -1,0 +1,17 @@
+# DDP for QwenVLA (Qwen 3.5 + layer-wise DiT, ~1.2 B trainable):
+#   find_unused_parameters: with interleaved self/cross DiT blocks the last VLM
+#     text layer and final norm feed no cross block, and plain DDP refuses
+#     parameters that get no gradient (starVLA's QwenPI has the same property).
+#   bf16 gradient compression: the lab's 8 x A40 nodes have no NVLink and two
+#     NUMA islands joined by cross-socket links, so the per-step all-reduce of
+#     4.8 GB of fp32 gradients dominated the step: 6.4 s/step at 8 x 16 vs
+#     1.4 s/step on one GPU (2026-09-16). Halving the bytes brought it to
+#     3.6 s/step; the master weights and optimizer stay fp32.
+defaults:
+  - ddp
+
+strategy:
+  _target_: lightning.pytorch.strategies.DDPStrategy
+  find_unused_parameters: true
+  ddp_comm_hook:
+    _target_: egomimic.utils.ddp_hooks.bf16_compress_hook   # factory -> the torch hook
