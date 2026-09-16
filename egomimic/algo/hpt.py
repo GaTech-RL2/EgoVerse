@@ -2,7 +2,7 @@ import os
 import random
 from collections import OrderedDict
 from functools import partial
-from typing import Literal
+from typing import Literal, Union
 
 import einops
 import numpy as np
@@ -132,7 +132,7 @@ class HPTModel(nn.Module):
 
         self.auxiliary_ac_keys = None
         self.shared_action = False
-        self.device = None
+        self.device: Union[torch.device, str, None] = None
 
         self.ot_6dof = False
         self.use_dtw = False
@@ -829,6 +829,25 @@ class HPTModel(nn.Module):
 class HPT(Algo):
     """ """
 
+    @property
+    def device(self):
+        return self._device
+
+    @device.setter
+    def device(self, value):
+        """Set the algo's device, and the policy's with it.
+
+        The policy is built on CPU and moved by Lightning, which writes the
+        real device here (``ModelWrapper.on_fit_start`` /
+        ``on_validation_start``). ``HPTModel`` reads it to create the loss
+        accumulators in ``compute_loss``, so a write that stopped at the algo
+        would leave those on a different device than the parameters.
+        """
+        self._device = value
+        nets = getattr(self, "nets", None)
+        if nets is not None and "policy" in nets:
+            nets["policy"].device = value
+
     def __init__(
         self,
         norm_stats,
@@ -909,10 +928,13 @@ class HPT(Algo):
         self.eval_base_seed = int(kwargs.get("eval_base_seed", EVAL_BASE_SEED))
         self._eval_step = 0
         self.multitask = kwargs.get("multitask", False)
-        self.device = kwargs.get(
-            "device", torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        )
-        model.device = self.device
+        if "device" in kwargs:
+            cprint(
+                f"[hpt] ignoring device={kwargs['device']!r}: the policy is built"
+                " on CPU and Lightning places it",
+                color="yellow",
+            )
+        self.device = None
 
         self.diffusion = kwargs.get("diffusion", False)
         model.diffusion = self.diffusion
@@ -1006,7 +1028,7 @@ class HPT(Algo):
         model.finalize_modules()
 
         self.nets["policy"] = model
-        self.nets = self.nets.float().to(self.device)
+        self.nets = self.nets.float()
 
         # Every pretrained submodule must still hold its checkpoint's weights
         # once the model is fully built, moved and upcast. Raises on mismatch;
