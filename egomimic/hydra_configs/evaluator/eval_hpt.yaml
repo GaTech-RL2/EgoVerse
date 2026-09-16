@@ -1,5 +1,21 @@
+# Default HPT evaluator, matching the per-vendor data defaults: eva on the
+# wrist-frame cartesian 6D action (reverted to cam-frame ypr for the overlay),
+# human on the 144-D wrist-frame hand-keypoint action (reverted to head-frame
+# keypoints for the overlay).
+# For cartesian human data use eval_hpt_cartesian / eval_hpt_wrist.
 defaults:
-  - viz@viz_func: cartesian
+  - viz@viz_func: keypoints_wrist
   - _self_
 
 _target_: egomimic.eval.eval_hpt.HPTEvalVideo
+
+# Render the val viz video only when (current_epoch + 1) is a multiple of
+# this; metrics still log on every validation pass. Keep it a multiple of
+# trainer.check_val_every_n_epoch or viz never coincides with a validation run.
+viz_every_n_epochs: 200
+
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_6d_wristframe_transform_list

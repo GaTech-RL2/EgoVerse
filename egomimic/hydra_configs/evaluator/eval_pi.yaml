@@ -1,18 +1,30 @@
+# Default Pi evaluator, matching the cotrain_pi_base data defaults: eva on the
+# wrist-frame cartesian 6D action, human on the 144-D wrist-frame hand-keypoint
+# action. Metrics are computed on the native output (frame-invariant; see
+# egomimic/eval/action_metrics.py) and never go through the reverts below,
+# which only feed the viz overlay:
+#   eva:   xyz+6D -> xyz+ypr, then each arm's chunk wrist -> cam frame via
+#          the cam-frame proprio ee_pose
+#   human: wrist rot6d -> ypr, then each hand's keypoints wrist -> head frame
+#          via the head-frame wrist pose in observations.state.keypoints
+# For the all-cartesian recipes use eval_pi_camframe_6d / eval_pi_wristframe_6d.
 defaults:
-  - viz@viz_func: pi_cartesian_lang
+  - viz@viz_func: pi_keypoints_lang_wrist
   - _self_
 
 _target_: egomimic.eval.eval_pi.PIEvalVideo
 
-# Per-embodiment revert transform. Applied once during validation to project
-# the model's wrist-frame action chunks back to cam (head) frame, then reused
-# for both the cam-frame MSE and the viz video. Each value resolves to a
-# list[Transform] via its ``_target_``. Must match whichever viz config is
-# mounted above.
+# Render the val viz video only when (current_epoch + 1) is a multiple of
+# this; metrics still log on every validation pass. Keep it a multiple of
+# trainer.check_val_every_n_epoch or viz never coincides with a validation
+# run. Without it the EvalVideo default of 1 renders video on every pass.
+viz_every_n_epochs: 100
+# On viz epochs, render only the first N val batches per rank (~1s/frame CPU
+# draw); metrics still run on every batch.
+viz_max_batches: 10
+
 transform_lists:
   eva_bimanual:
-    _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
-    is_quat: false
+    _target_: egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list
   human_bimanual:
-    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
-    is_quat: false
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_6d_wristframe_transform_list

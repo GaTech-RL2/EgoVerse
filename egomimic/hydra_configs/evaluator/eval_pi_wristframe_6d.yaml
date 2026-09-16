@@ -1,0 +1,29 @@
+defaults:
+  - viz@viz_func: pi_cartesian_lang
+  - _self_
+
+_target_: egomimic.eval.eval_pi.PIEvalVideo
+
+# Render the val viz video only when (current_epoch + 1) is a multiple of
+# this (see eval_pi_camframe_6d.yaml); without it the EvalVideo default of 1
+# renders video on every validation pass.
+viz_every_n_epochs: 100
+# On viz epochs, render only the first N val batches per rank (~1s/frame
+# CPU draw; unbounded rendering added ~2h per viz epoch on the combined
+# pretrain). Metrics still run on every batch. The train_viz wrapper
+# inherits this cap.
+viz_max_batches: 10
+
+# All-cartesian wrist-frame evaluator: use with a data config that applies the
+# `cartesian_wristframe_6d` transform mode (e.g. mecka_all_6d,
+# mecka_fold_freeform*_6d). The model predicts in each wrist's local frame
+# using the continuous 6D rotation; these revert transforms first convert the
+# rotation xyz+6D -> xyz+ypr and then project predictions + gt back to cam
+# (head) frame for the viz video only (metrics are frame-invariant and
+# computed on the native output). Each value resolves to a list[Transform]
+# via its ``_target_``. Must match the viz config mounted above.
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_6d_wristframe_transform_list
