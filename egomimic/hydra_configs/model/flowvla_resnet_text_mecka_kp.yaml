@@ -1,0 +1,113 @@
+# FLOWVLA_RESNET_TEXT_MECKA_KP: the "simple" arm of the flagship comparison.
+# ResNet-18 per camera + frozen Qwen3-Embedding text -> ONE shared context that
+# every DiT block cross-attends to, on the 144-D wrist-frame MANO keypoint
+# action. Same data, evaluators and val heads as
+# train_zarr_mecka_flagship_kp_{hpt,qwenvla}; what differs is the trunk and the
+# head. Design: docs/hpt-experiments/2026-09-16_flowvla_resnet_text_design.md.
+#
+# The text stem is the SAME encoder and settings as the HPT baseline's
+# (hpt_bc_keypoints_wrist_300M): Qwen3-Embedding-0.6B, frozen, fp16, cached.
+# So against that arm this isolates the trunk + head, not the language path.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.flowvla.FlowVLA
+  domains: ["human_bimanual"]
+  dims:
+    human_bimanual: {proprio: 144, action: 144}
+  ac_keys:
+    human_bimanual: "actions_keypoints"
+  action_width: 144
+  6dof: false
+
+  # Prompt wiring copied verbatim from the HPT baseline arm: the annotations
+  # track IS wired, and the flagship's empty annotations make _build_prompts
+  # fall back to default_prompt per sample. embodiment_label off, so the prompt
+  # string is exactly the baseline's "fold clothes" (the QwenVLA arm prefixes
+  # "Embodiment: human bimanual. Task: "; the two reference arms already
+  # differ here and matching HPT is the cleaner of the two).
+  annotation_key: "annotations"
+  annotation_sampling_mode: "random"
+  default_prompt: ""
+  embodiment_label: false
+  control_mode: null
+
+  use_pad_mask: false
+
+  # State tokens in the DiT: K proprio steps (= the keymap's proprio_history),
+  # learned zero-init per-step embedding, whole-context history dropout.
+  history_len: 1
+  history_dropout: 0.2
+
+  backbone:
+    _target_: egomimic.models.resnet_text_backbone.ResNetTextBackbone
+    camera_roles: ["observations.images.front_img_1"]
+    hidden_size: 1024        # Qwen3-Embedding-0.6B's width; ResNet projects 512 -> 1024
+    num_layers: 12           # -> 12 DiT blocks; free, there is no VLM depth to match
+    resnet_model: "resnet18"
+    weights: "DEFAULT"
+    freeze_backbone: false
+    modality_embed: true
+    text_encoder:
+      _target_: egomimic.models.hpt_nets.QwenPerTokenEncoder
+      model_name: "Qwen/Qwen3-Embedding-0.6B"
+      max_length: 128
+      freeze: true
+      dtype: "float16"
+      # Frozen per-token features cached per unique prompt string (LRU), so the
+      # 596M forward runs once per distinct prompt instead of once per step.
+      cache_text_features: true
+      text_cache_max_entries: 8192
+      output_dim: 1024
+
+  head:
+    _target_: egomimic.models.layerwise_dit.LayerwiseFMHead
+    _partial_: true          # FlowVLA fills action_width / vlm_hidden / num_layers / state_dims
+    action_horizon: 100
+    # 768 != the backbone's 1024 on purpose: that makes the head's per-layer
+    # projectors real LayerNorm+Linear with distinct parameters, so each block
+    # gets its own view of the shared context instead of nn.Identity.
+    dit_hidden: 768
+    head_dim: 64             # -> 12 attention heads
+    num_register_tokens: 32
+    dropout: 0.2
+    final_dropout: true
+    interleave_self_attention: true
+    adaln_zero: false
+    # 50 to match both reference arms: val metrics are computed from SAMPLED
+    # actions, so the step count is part of the comparison.
+    num_inference_steps: 50
+    time_dist: "beta"
+    repeated_diffusion_steps: 1
+
+  # ResNet wants ImageNet normalisation (unlike the Qwen processor, which does
+  # its own - hence the QwenVLA arm has ColorJitter only). ColorJitter is
+  # applied per sample by PerSampleAugs in the algo.
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+# 1.0 keeps the ResNet in the single optimizer group, as hpt_bc_mecka_6d_300M
+# does. (The QwenVLA arm uses 0.1 because its backbone is a 0.8B pretrained VLM.)
+backbone_lr_scale: 1.0
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4                   # the DiT head's LR, as the QwenVLA arm
+  weight_decay: 0.0001
+
+scheduler: null

@@ -1,0 +1,23 @@
+# Composed recipe: FlowVLA (ResNet + frozen Qwen3-Embedding -> layer-wise
+# cross-DiT) BC on the 144-D wrist-frame MANO keypoint action, mecka FLAGSHIP
+# fold-clothes, seen/unseen operator split. Same data, evaluators and val heads
+# as train_zarr_mecka_flagship_kp_hpt, so runs compare directly with that arm
+# and with train_zarr_mecka_flagship_kp_qwenvla.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_kp_flowvla \
+#     data=mecka_fold_flagship_top3_hpt_keypoints \
+#     norm_stats.precomputed_norm_path=<out>/norm_stats
+#
+# The flagship annotations are empty, so every prompt is "fold clothes";
+# embodiment_label is off, so the string matches the HPT arm's exactly.
+defaults:
+  - train_zarr_cartesian
+  - evaluator@train_viz_evaluator: train_viz_hpt_keypoints_wrist
+  - override model: flowvla_resnet_text_mecka_kp
+  - override data: mecka_fold_flagship_opsplit_hpt_keypoints
+  - override evaluator: eval_hpt_keypoints_wrist
+  - _self_
+
+model:
+  robomimic_model:
+    default_prompt: "fold clothes"

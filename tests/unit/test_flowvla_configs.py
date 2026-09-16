@@ -206,3 +206,29 @@ def test_qwenvla_kp_train_step_on_the_stub(tmp_path, monkeypatch):
     policy = objects["model"].model.nets["policy"]
     assert policy.head.action_width == 144
     assert policy.head.state_encoder.state_dims == {"human_bimanual": 144}
+
+
+def test_flowvla_resnet_text_recipe_composes():
+    """The FlowVLA arm of the flagship keypoint comparison."""
+    model = _compose("train_zarr_mecka_flagship_kp_flowvla", []).model.robomimic_model
+    assert model._target_ == "egomimic.algo.flowvla.FlowVLA"
+    assert (
+        model.backbone._target_
+        == "egomimic.models.resnet_text_backbone.ResNetTextBackbone"
+    )
+    # Prompt wiring identical to the HPT baseline arm (spec section 10.1): the
+    # annotations track is wired, and the constant comes from the per-sample
+    # fallback, not from annotation_key=null.
+    assert model.annotation_key == "annotations"
+    assert model.default_prompt == "fold clothes"
+    assert model.embodiment_label is False
+    # Same action space as the two reference arms.
+    assert model.dims.human_bimanual.action == 144
+    assert model.ac_keys.human_bimanual == "actions_keypoints"
+    # The head takes its block count from the backbone (spec landmine 6): the
+    # config must not set num_layers on the head as well.
+    assert "num_layers" not in model.head
+    assert model.backbone.num_layers == 12
+    # The per-layer projectors must be real Linears, not nn.Identity.
+    assert model.head.dit_hidden != model.backbone.hidden_size
+    assert model.backbone.hidden_size == model.backbone.text_encoder.output_dim
