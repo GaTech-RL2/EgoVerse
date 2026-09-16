@@ -9,12 +9,10 @@ robomimic_model:
   dims:
     human_bimanual: {proprio: 144, action: 144}
 
-
   ac_keys:
     human_bimanual: "actions_keypoints"
 
   diffusion: true
-  reverse_kl_samples: 8
 
   trunk:
     embed_dim: 256

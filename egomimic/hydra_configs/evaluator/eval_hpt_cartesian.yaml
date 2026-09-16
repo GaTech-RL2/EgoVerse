@@ -1,0 +1,11 @@
+# HPT evaluator for cam/head-frame CARTESIAN ypr data on every embodiment
+# (the pre-keypoint default; e.g. model=hpt_bc_flow_human_cartesian with a
+# cartesian data override). No revert: the actions are already in the frame
+# the overlay draws in.
+defaults:
+  - viz@viz_func: cartesian
+  - _self_
+
+_target_: egomimic.eval.eval_hpt.HPTEvalVideo
+
+viz_every_n_epochs: 200
