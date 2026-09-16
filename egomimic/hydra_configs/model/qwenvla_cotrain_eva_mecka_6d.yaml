@@ -1,0 +1,19 @@
+# QWENVLA_COTRAIN_EVA_MECKA_6D: eva + mecka cotrain on the cartesian 6D action
+# (eva 20-D with grippers, human 18-D), one shared 20-wide head, loss masked
+# to each embodiment's real dims; the prompt names the embodiment. Pair with
+# the data config the pi0.5 cotrain uses (see pi0.5_cotrain_eva_aria_6d.yaml
+# for the transform-mode overrides) and evaluator=eval_hpt_wristframe_6d.
+# Eva's three cameras all go into the chat turn (3 x 220 visual tokens).
+defaults:
+  - qwenvla_bc_mecka_6d_0p8b
+  - _self_
+
+robomimic_model:
+  domains: ["eva_bimanual", "human_bimanual"]
+  dims:
+    eva_bimanual: {proprio: 20, action: 20}
+    human_bimanual: {proprio: 20, action: 18}
+  ac_keys:
+    eva_bimanual: "actions_cartesian"
+    human_bimanual: "actions_cartesian"
+  action_width: 20

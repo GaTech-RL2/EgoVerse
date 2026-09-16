@@ -1,0 +1,19 @@
+# Composed recipe: QwenVLA (Qwen 3.5-0.8B + layer-wise cross-DiT) BC on the
+# 18-D wrist-frame 6D-rotation cartesian action, mecka FLAGSHIP fold-clothes,
+# seen/unseen operator split. Same data, evaluators and val heads as
+# train_zarr_mecka_flagship_6d_hpt, so runs compare directly with the HPT
+# baseline (docs/hpt-experiments/2026-09-15_hpt_plan.md, "Baseline run").
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_6d_qwenvla \
+#     data=mecka_fold_flagship_top3_hpt_6d \
+#     norm_stats.precomputed_norm_path=<out>/norm_stats
+#
+# Norm stats are data-only: reuse the baseline's
+# logs/hpt_architecture/norm_stats/mecka_fold_flagship_top3_hpt_6d/norm_stats.
+defaults:
+  - train_zarr_cartesian
+  - evaluator@train_viz_evaluator: train_viz_hpt_wristframe_6d
+  - override model: qwenvla_bc_mecka_6d_0p8b
+  - override data: mecka_fold_flagship_opsplit_hpt_6d
+  - override evaluator: eval_hpt_wristframe_6d
+  - _self_

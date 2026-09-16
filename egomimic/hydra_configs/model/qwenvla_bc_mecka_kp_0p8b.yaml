@@ -1,0 +1,18 @@
+# QWENVLA_BC_MECKA_KP_0P8B: qwenvla_bc_mecka_6d_0p8b on the 144-D wrist-frame
+# MANO keypoint action (the layout of hpt_bc_keypoints_wrist_300M): per hand
+# [wrist xyz+rot6d in its own wrist frame (9) | 21 keypoints in that wrist
+# frame (63)] x {left, right}. Proprio is the 144-D
+# `observations.state.keypoints` (wrist pose in HEAD frame + keypoints in
+# wrist frame, per hand), one state token per proprio step in the DiT.
+# Pair with data=mecka_fold_flagship_{opsplit,top3}_hpt_keypoints and
+# evaluator=eval_hpt_keypoints_wrist (recipe: train_zarr_mecka_flagship_kp_qwenvla).
+defaults:
+  - qwenvla_bc_mecka_6d_0p8b
+  - _self_
+robomimic_model:
+  dims:
+    human_bimanual: {proprio: 144, action: 144}
+  ac_keys:
+    human_bimanual: "actions_keypoints"
+  action_width: 144
+  6dof: false

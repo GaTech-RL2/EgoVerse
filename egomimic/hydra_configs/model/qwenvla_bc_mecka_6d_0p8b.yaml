@@ -1,0 +1,105 @@
+# QWENVLA_BC_MECKA_6D_0P8B: QwenVLA (our port of starVLA's QwenPI) BC on the
+# 18-D wrist-frame 6D cartesian action of the mecka fold-clothes data.
+# Design: docs/hpt-experiments/2026-09-16_qwenvla_design.md.
+#
+#   backbone  Qwen/Qwen3.5-0.8B (24 text layers, hidden 1024), FULL fine-tune
+#             at backbone_lr_scale x the head LR, fp32 master weights under
+#             Lightning's bf16 autocast, gradient checkpointing on. One chat
+#             turn per sample: [front frame] + "Embodiment: human bimanual.
+#             Task: <annotation>"; 640x352 -> 220 visual tokens.
+#   head      LayerwiseFMHead: 24 DiT blocks at the VLM width (projectors are
+#             the identity), block i cross-attends to VLM layer i, odd blocks
+#             self-attend; 32 register tokens + 100 action tokens; state = one
+#             MLP token per proprio step, prepended (starVLA's way, NOT text).
+#             Flow matching as fm_policy.py (Beta(1.5, 1) time, Euler, 10 steps).
+#   data      the same batches as hpt_bc_mecka_6d_300M: `actions_cartesian`
+#             (18), `observations.state.ee_pose` (20, 6D-encoded + grip pads),
+#             `front_img_1` in [0, 1]; annotations sampled per item.
+#
+# Run (the HPT flagship recipe with this model):
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_6d_qwenvla \
+#     data=mecka_fold_flagship_top3_hpt_6d \
+#     norm_stats.precomputed_norm_path=<baseline stats>/norm_stats
+#
+# Proprio history: set BOTH
+#   data.train_datasets.human_bimanual.resolver.key_map.proprio_history=K
+#   model.robomimic_model.history_len=K
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.qwenvla.QwenVLA
+  domains: ["human_bimanual"]
+  dims:
+    human_bimanual: {proprio: 20, action: 18}
+  ac_keys:
+    human_bimanual: "actions_cartesian"
+  # Shared head width; every embodiment's action is zero-padded to it and the
+  # loss is masked to the real dims.
+  action_width: 18
+  6dof: true
+
+  # Prompt: "Embodiment: <name>. [Control mode: <mode>.] Task: <annotation>".
+  annotation_key: "annotations"
+  annotation_sampling_mode: "random"
+  default_prompt: ""
+  embodiment_label: true
+  control_mode: null
+
+  # Mask the repeat-last padding at episode tails out of the loss.
+  use_pad_mask: false
+
+  # State tokens in the DiT: K proprio steps (= the keymap's proprio_history),
+  # learned zero-init per-step embedding, whole-context history dropout.
+  history_len: 1
+  history_dropout: 0.2
+
+  backbone:
+    _target_: egomimic.models.qwenvla_nets.QwenVLBackbone
+    model_name: "Qwen/Qwen3.5-0.8B"
+    dtype: "float32"
+    freeze: false
+    trainable_layers: 0
+    gradient_checkpointing: true
+    image_size: [352, 640]   # (H, W) -> 220 visual tokens per frame
+    max_text_tokens: 128
+    num_layers: null         # all 24 text layers -> 24 DiT blocks
+
+  head:
+    _target_: egomimic.models.layerwise_dit.LayerwiseFMHead
+    _partial_: true          # QwenVLA fills action_width / vlm_hidden / num_layers / state_dims
+    action_horizon: 100
+    dit_hidden: null         # null = VLM hidden (QwenPI); 1024 at 2B (QwenPI_v3)
+    head_dim: 64
+    num_register_tokens: 32
+    dropout: 0.2
+    final_dropout: true
+    interleave_self_attention: true
+    adaln_zero: false
+    # 50 to match the HPT baseline head (hpt_bc_mecka_6d_300M's FMPolicy):
+    # val metrics are computed from SAMPLED actions, so the step count is part
+    # of the comparison. 10 steps is a free eval-only sweep on a checkpoint.
+    num_inference_steps: 50
+    time_dist: "beta"
+    repeated_diffusion_steps: 1
+
+  # The Qwen processor normalizes (frames must reach it in [0, 1]), so no
+  # ImageNet Normalize; only the ColorJitter is ours, applied per sample.
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+  eval_image_augs: null
+
+# VLM LR = backbone_lr_scale x optimizer.lr (starVLA: 1e-5 vs 1e-4).
+backbone_lr_scale: 0.1
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler: null

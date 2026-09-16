@@ -1,0 +1,17 @@
+# QWENVLA_BC_MECKA_6D_2B: the 0.8B config with Qwen/Qwen3.5-2B (hidden 2048).
+# The head runs at 1024 through per-layer LayerNorm+Linear projectors
+# (QwenPI_v3's compressed head, ~350M + 50M instead of a 1.4B DiT). A full
+# fine-tune of 2B (~32 GB of fp32 weights + grads + Adam states) does not fit
+# the lab's 48 GB A40 / L40S, so the VLM is frozen except its last 8 text
+# layers (`trainable_layers`); set `freeze: false` only on an 80 GB card.
+defaults:
+  - qwenvla_bc_mecka_6d_0p8b
+  - _self_
+
+robomimic_model:
+  backbone:
+    model_name: "Qwen/Qwen3.5-2B"
+    freeze: true
+    trainable_layers: 8
+  head:
+    dit_hidden: 1024
