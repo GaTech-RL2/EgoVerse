@@ -106,6 +106,10 @@ LEGACY_ROTATION_MODES = {
     "cartesian_padded": "cartesian_6d",
     "cartesian_wristframe_ypr": "cartesian_wristframe_6d",
     "cartesian_wristframe_quat": "cartesian_wristframe_6d",
+    "keypoints_headframe_ypr": "keypoints_headframe_6d",
+    "keypoints_headframe_quat": "keypoints_headframe_6d",
+    "keypoints_wristframe_ypr": "keypoints_wristframe_6d",
+    "keypoints_wristframe_quat": "keypoints_wristframe_6d",
 }
 
 
