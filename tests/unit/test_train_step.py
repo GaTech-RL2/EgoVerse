@@ -43,6 +43,26 @@ def _run(cfg) -> float:
     return loss
 
 
+def _expected_keys(embodiment: str) -> set[str]:
+    """Batch keys every recipe must hand the algo: eva trains on the cartesian
+    action, human on the wrist-frame hand-keypoint action (plus the cartesian
+    ee_pose proprio the keypoint data configs emit for Pi's prompt)."""
+    if embodiment == "eva_bimanual":
+        return {
+            "actions_cartesian",
+            "observations.state.ee_pose",
+            Eva.VIZ_IMAGE_KEY,
+            "observations.images.right_wrist_img",
+            "observations.images.left_wrist_img",
+        }
+    return {
+        "actions_keypoints",
+        "observations.state.keypoints",
+        "observations.state.ee_pose",
+        Human.VIZ_IMAGE_KEY,
+    }
+
+
 @pytest.mark.parametrize("vendor", VENDOR_NAMES)
 def test_hpt_train_step(tmp_path, monkeypatch, vendor):
     hermetic_env(monkeypatch)
@@ -65,14 +85,7 @@ def test_hpt_train_step(tmp_path, monkeypatch, vendor):
     spy = BatchKeySpy(monkeypatch, HPT)
     _run(cfg)
     seen = spy.keys[recipe.embodiment]
-    is_eva = recipe.embodiment == "eva_bimanual"
-    front = Eva.VIZ_IMAGE_KEY if is_eva else Human.VIZ_IMAGE_KEY
-    expected = {"actions_cartesian", "observations.state.ee_pose", front}
-    if is_eva:
-        expected |= {
-            "observations.images.right_wrist_img",
-            "observations.images.left_wrist_img",
-        }
+    expected = _expected_keys(recipe.embodiment)
     assert (
         expected <= seen
     ), f"{vendor}/hpt missing {expected - seen}; saw {sorted(seen)}"
@@ -118,13 +131,7 @@ def test_pi_train_step(tmp_path, monkeypatch, vendor):
     # The wrapper sees dataset camera names; StubPI0 asserts it was handed
     # openpi's slot names, which is the remap working end to end.
     seen = spy.keys[recipe.embodiment]
-    front = Eva.VIZ_IMAGE_KEY if is_eva else Human.VIZ_IMAGE_KEY
-    expected = {"actions_cartesian", "observations.state.ee_pose", front, "annotations"}
-    if is_eva:
-        expected |= {
-            "observations.images.left_wrist_img",
-            "observations.images.right_wrist_img",
-        }
+    expected = _expected_keys(recipe.embodiment) | {"annotations"}
     assert (
         expected <= seen
     ), f"{vendor}/pi missing {expected - seen}; saw {sorted(seen)}"
