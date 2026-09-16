@@ -238,3 +238,19 @@ def test_state_round_trip_keeps_the_rot6d_convention(saved, expect_identity):
     assert torch.equal(n[:, rot], x[:, rot]) == expect_identity
     back = restored._apply_unnorm_one(n, _stats_for(20), "actions_cartesian")
     torch.testing.assert_close(back, x, atol=1e-5, rtol=0)
+
+
+def test_bounds_check_ignores_constant_cells():
+    from fixtures.bounds import bounds_dataset
+
+    key = "actions_cartesian"
+    q1 = np.full((4, 14), -1.0, dtype=np.float32)
+    q99 = np.full((4, 14), 1.0, dtype=np.float32)
+    q1[0, :3] = q99[0, :3] = 0.0  # wrist-frame t=0: xyz exactly 0
+    md = bounds_dataset({key: {"quantile_1": q1, "quantile_99": q99}})
+
+    arr = np.zeros((4, 14), dtype=np.float32)
+    arr[0, 0] = 1e-3  # off-convention offset at a constant cell: admitted
+    assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is None
+    arr[1, 0] = 50.0  # corrupt value at a regular cell: still rejected
+    assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is not None

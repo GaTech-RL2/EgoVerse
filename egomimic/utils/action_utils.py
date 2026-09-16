@@ -116,6 +116,14 @@ def _degenerate(scale: torch.Tensor, norm_mode: str) -> torch.Tensor:
     return full_range < NORM_MIN_RANGE
 
 
+def degenerate_mask(stats: dict[str, Any], norm_mode: str) -> torch.Tensor:
+    """Channels ``_apply_norm_one`` treats as constant under ``norm_mode``.
+
+    Raises ``KeyError`` when ``stats`` lacks the range ``norm_mode`` reads."""
+    _, scale = _norm_center_scale(stats, norm_mode, torch.empty(0))
+    return _degenerate(scale, norm_mode)
+
+
 def _passthrough(
     out: torch.Tensor, tensor: torch.Tensor, channels: Sequence[int] | None
 ) -> torch.Tensor:

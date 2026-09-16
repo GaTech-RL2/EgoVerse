@@ -289,6 +289,20 @@ def rot6d_channels(zarr_key: str, width: int) -> tuple[int, ...] | None:
     return None
 
 
+def bounds_check_channels(zarr_key: str, width: int) -> list[int] | None:
+    """Sorted non-rotation channels (translation, gripper, keypoints) of
+    ``zarr_key`` at ``width``, or ``None`` for an unknown key or width."""
+    if zarr_key in _CARTESIAN_KEYS:
+        layout = bimanual_cartesian_layout(width)
+        if layout is not None:
+            return sorted(layout["xyz"] + layout["grip"])
+    elif zarr_key in _KEYPOINT_KEYS:
+        layout = bimanual_keypoint_layout(width)
+        if layout is not None:
+            return sorted(layout["wrist_xyz"] + layout["keypoints"])
+    return None
+
+
 def _matrix_to_xyzwxyz(mats: np.ndarray) -> np.ndarray:
     """
     args:
