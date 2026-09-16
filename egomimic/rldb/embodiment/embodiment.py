@@ -51,8 +51,31 @@ def get_embodiment(index):
     return EMBODIMENT_ID_TO_KEY.get(index, None)
 
 
+# Human demo data written by the vendor-split registry carries vendor-tagged
+# embodiment metadata (e.g. MECKA_BIMANUAL, SCALE_LEFT_ARM). Locally all human
+# demonstration data is ONE embodiment (see the EMBODIMENT docstring; the
+# source lives only in the SQL `lab` field), so those names collapse to
+# HUMAN_*. Robot names (EVA_*) are never aliased.
+HUMAN_VENDOR_PREFIXES = ("MECKA", "SCALE", "ARIA", "LIGHTWHEEL")
+
+
+def canonical_embodiment_name(embodiment_name: str) -> str:
+    """Upper-case EMBODIMENT member name, with legacy vendor prefixes
+    (``MECKA_BIMANUAL`` ...) collapsed onto ``HUMAN_*``. Does not validate."""
+    name = embodiment_name.upper()
+    vendor, _, suffix = name.partition("_")
+    if vendor in HUMAN_VENDOR_PREFIXES and suffix:
+        return f"HUMAN_{suffix}"
+    return name
+
+
+def is_legacy_vendor_embodiment(embodiment_name: str) -> bool:
+    """True for vendor-tagged human names that only resolve through aliasing."""
+    return canonical_embodiment_name(embodiment_name) != embodiment_name.upper()
+
+
 def get_embodiment_id(embodiment_name):
-    return EMBODIMENT[embodiment_name.upper()].value
+    return EMBODIMENT[canonical_embodiment_name(embodiment_name)].value
 
 
 def _strip_pi_keymap_mode(cls, keymap_mode: str) -> str:
@@ -71,6 +94,31 @@ def _strip_pi_keymap_mode(cls, keymap_mode: str) -> str:
         stacklevel=3,
     )
     return base_mode
+
+
+# Rotation representations that are discontinuous on SO(3) -- Euler angles wrap
+# at +-pi and gimbal-lock, quaternions double-cover -- so per-dim normalization
+# and regression losses on them are ill-defined. Training targets the continuous
+# 6D representation everywhere; these modes survive only at the data/rollout
+# boundary and for checkpoints that predate it.
+LEGACY_ROTATION_MODES = {
+    "cartesian": "cartesian_6d",
+    "cartesian_padded": "cartesian_6d",
+    "cartesian_wristframe_ypr": "cartesian_wristframe_6d",
+    "cartesian_wristframe_quat": "cartesian_wristframe_6d",
+}
+
+
+def _reject_legacy_rotation(cls, mode: str, allow_legacy_rotation: bool) -> None:
+    replacement = LEGACY_ROTATION_MODES.get(mode)
+    if replacement is None or allow_legacy_rotation:
+        return
+    raise ValueError(
+        f"{cls.__name__} transform_list mode '{mode}' trains on a discontinuous "
+        f"rotation; use '{replacement}' instead. Reading data written before the "
+        "6D conversion (viz, rollout, a legacy checkpoint) needs an explicit "
+        "allow_legacy_rotation=True."
+    )
 
 
 class Embodiment(ABC):

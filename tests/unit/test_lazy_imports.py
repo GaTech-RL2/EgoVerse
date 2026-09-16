@@ -17,7 +17,7 @@ from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver
 from egomimic.rldb.embodiment.human import Human
 r = LocalEpisodeResolver({str(tmp_path)!r}, key_map=Human.get_keymap(keymap_mode="cartesian"),
-                         transform_list=Human.get_transform_list(mode="cartesian"))
+                         transform_list=Human.get_transform_list(mode="cartesian", allow_legacy_rotation=True))
 ds = r.resolve(filters=DatasetFilter(episode_hashes=["aria_00"]))
 assert set(ds) == {{"aria_00"}}, ds
 print("ok")

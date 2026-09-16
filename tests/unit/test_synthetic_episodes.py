@@ -18,12 +18,16 @@ def test_episode_loads_with_vendor_recipe(tmp_path, vendor):
         write_episode(tmp_path, vendor, seed=i)
     if v.embodiment == "eva_bimanual":
         key_map = Eva.get_keymap(keymap_mode="cartesian", annotation_key="annotations")
-        transforms = Eva.get_transform_list(mode="cartesian")
+        transforms = Eva.get_transform_list(
+            mode="cartesian", allow_legacy_rotation=True
+        )
     else:
         key_map = Human.get_keymap(
             keymap_mode="cartesian", annotation_key="annotations"
         )
-        transforms = Human.get_transform_list(mode="cartesian", stride=v.stride)
+        transforms = Human.get_transform_list(
+            mode="cartesian", stride=v.stride, allow_legacy_rotation=True
+        )
     resolver = LocalEpisodeResolver(
         tmp_path, key_map=key_map, transform_list=transforms
     )
