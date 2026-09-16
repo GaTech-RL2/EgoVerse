@@ -50,9 +50,15 @@ from egomimic.rldb.resolve_memo import memoized
 from egomimic.utils.action_utils import (
     _apply_norm_one,
     _apply_unnorm_one,
+    _degenerate,
+    _norm_center_scale,
 )
 from egomimic.utils.env import load_env
-from egomimic.utils.pose_utils import rot6d_channels
+from egomimic.utils.pose_utils import (
+    bimanual_cartesian_layout,
+    bimanual_keypoint_layout,
+    rot6d_channels,
+)
 
 
 def create_default_engine():
@@ -203,6 +209,21 @@ def get_fallback_idx(
     if attempts >= max_attempts or not valid_candidates:
         raise RuntimeError(exhausted_error)
     return random.choice(valid_candidates), attempts
+
+
+def _bounds_check_channels(zarr_key: str, width: int) -> list[int] | None:
+    """Channels of a known bimanual layout that quantile bounds apply to
+    (translation, gripper, keypoints), or ``None`` to check the full vector.
+    Rotation channels (Euler or rot6d columns) are excluded."""
+    if zarr_key in ("actions_cartesian", "observations.state.ee_pose"):
+        layout = bimanual_cartesian_layout(width)
+        if layout is not None:
+            return list(layout["xyz"]) + list(layout["grip"])
+    elif zarr_key in ("actions_keypoints", "observations.state.keypoints"):
+        layout = bimanual_keypoint_layout(width)
+        if layout is not None:
+            return sorted(list(layout["wrist_xyz"]) + list(layout["keypoints"]))
+    return None
 
 
 def _embodiment_matches(name: object, expected: str) -> bool:
@@ -986,6 +1007,9 @@ class MultiDataset(torch.utils.data.Dataset):
     """
 
     NORMALIZE_KEY_TYPES = ("proprio_keys", "action_keys")
+    # Bounds-check slack per (timestep, channel) cell; see _check_bounds.
+    BOUNDS_ABS_TOL = 1e-6
+    BOUNDS_REL_SLACK = 0.5
 
     def __init__(
         self,
@@ -1139,6 +1163,19 @@ class MultiDataset(torch.utils.data.Dataset):
                 q_low = torch.broadcast_to(q_low, arr.shape)
                 q_high = torch.broadcast_to(q_high, arr.shape)
             except RuntimeError:
+                # Stats were computed for a different layout than this sample
+                # (e.g. a stale precomputed norm_stats.json). Say so once
+                # instead of silently disabling the bounds check for the key;
+                # normalize() raises on the same mismatch anyway.
+                warn_key = f"bounds-shape:{zarr_key}"
+                if warn_key not in self._warned_violations:
+                    self._warned_violations.add(warn_key)
+                    logger.warning(
+                        f"[MultiDataset] bounds check skipped for {zarr_key}: "
+                        f"stats shape {tuple(q_low.shape)} does not broadcast to "
+                        f"sample shape {tuple(arr.shape)} (norm stats computed "
+                        "for a different layout?)"
+                    )
                 continue
 
             if torch.any(torch.isnan(arr)) or torch.any(torch.isinf(arr)):
@@ -1149,8 +1186,53 @@ class MultiDataset(torch.utils.data.Dataset):
                     logger.warning(prefix)
                 return prefix
 
-            below = arr < q_low
-            above = arr > q_high
+            # Rotation channels are either Euler ypr (wraps at +-pi) or
+            # continuous 6D columns; quantile bounds on them are meaningless
+            # and reject otherwise-valid frames, so only the translation /
+            # gripper / keypoint channels are bounds-checked. Unrecognized
+            # widths fall through to a full-vector check; NaN/Inf above still
+            # covers the full vector.
+            check_idx = _bounds_check_channels(zarr_key, arr.shape[-1])
+            if check_idx is not None:
+                arr_q = arr[..., check_idx]
+                q_low = q_low[..., check_idx]
+                q_high = q_high[..., check_idx]
+            else:
+                arr_q = arr
+
+            # Slack on the quantile bounds: a relative part (a fraction of
+            # each cell's own quantile range) plus a 1e-6 absolute floor.
+            # The bounds are per (timestep, channel) cell and the check is
+            # any-cell, so with 13 200 cells per keypoint chunk a strict
+            # compare against a subsampled stats pass rejects valid frames in
+            # bulk. Measured on the 2815-frame flagship episode through the
+            # real keypoints_wristframe_6d pipeline, norm_mode=zscore, stats
+            # from infer_norm_from_dataset(sample_frac=0.10) over its own
+            # frames, 403 probe frames, a frame counted as rejected if ANY of
+            # actions_keypoints / state.keypoints / state.ee_pose fails:
+            #   slack    0     0.05   0.1    0.25   0.5    1.0
+            #   any     39.5%  17.9%  11.4%   5.2%   3.2%   1.0%
+            # The 132-channel action chunk drives it (39.0 % -> 3.2 %); the 8
+            # checked ee_pose channels never exceed 2.7 %. Which frames the
+            # stats came from moves the absolute numbers, so re-measure the
+            # same way before comparing. Corrupt values
+            # (fill constants, wrong-frame data) sit orders of magnitude
+            # outside the range and are still caught.
+            tol = self.BOUNDS_ABS_TOL + self.BOUNDS_REL_SLACK * (q_high - q_low)
+            below = arr_q < q_low - tol
+            above = arr_q > q_high + tol
+            # Cells normalize() treats as constant (wrist-frame t=0, the kp0 /
+            # kp9 structural zeros) cannot blow up the loss whatever offset
+            # they carry, so don't reject on them. Which stat decides that is
+            # norm_mode's business -- std under zscore, the quantile range
+            # under quantile -- and every shipped config is zscore, so reading
+            # q99 - q1 here would exempt cells the normalizer still divides by.
+            constant = self._degenerate_cells(stats, arr.shape)
+            if constant is not None:
+                if check_idx is not None:
+                    constant = constant[..., check_idx]
+                below = below & ~constant
+                above = above & ~constant
             if torch.any(below) or torch.any(above):
                 prefix = f"Bounds violation in {zarr_key} ep={episode_name} frame={idx}"
                 warn_key = f"bounds:{episode_name}:{zarr_key}"
@@ -1160,10 +1242,35 @@ class MultiDataset(torch.utils.data.Dataset):
                     n_above = int(above.sum().item())
                     logger.warning(
                         f"{prefix} | n_below={n_below} n_above={n_above} "
-                        f"arr_range=[{arr.min().item():.4f}, {arr.max().item():.4f}]"
+                        f"arr_range=[{arr_q.min().item():.4f}, {arr_q.max().item():.4f}]"
                     )
                 return prefix
         return None
+
+    def _degenerate_cells(self, stats: dict, shape) -> torch.Tensor | None:
+        """Mask of the cells ``normalize()`` treats as constant, or None when
+        this key's stats do not carry the range ``norm_mode`` reads."""
+        try:
+            _, scale = _norm_center_scale(
+                stats, self.norm_mode, torch.empty(0, dtype=torch.float32)
+            )
+        except (KeyError, ValueError):
+            return None
+        return torch.broadcast_to(_degenerate(scale, self.norm_mode), shape)
+
+    # Retries stay within the failing episode this many times, then widen to
+    # the full index space: a single wholly-bad episode must not exhaust the
+    # sampler and take the run down (NCCL-timeouts the other ranks).
+    GLOBAL_FALLBACK_ATTEMPTS = 25
+    # Cap on consecutive bad samples, after which the worker raises. It is a
+    # systemic-failure detector, not a tolerance dial: `attempts` resets per
+    # __getitem__, so with p = the bad fraction of the whole index space the
+    # cap fires with probability p**(N - GLOBAL_FALLBACK_ATTEMPTS), a step
+    # function in p. At N = 100 the firing band sits at p >~ 0.8, so anything
+    # it can detect is systemic; at N = 1000 it needed ~99 % of the store to be
+    # bad, and got there via 975 sequential zarr/S3 reads per call per worker,
+    # which looks like a hang rather than a failure.
+    MAX_FALLBACK_ATTEMPTS = 100
 
     def __getitem__(self, idx, _attempts: int | None = None):
         attempts = _attempts
@@ -1173,14 +1280,13 @@ class MultiDataset(torch.utils.data.Dataset):
             try:
                 data = dataset[local_idx]
             except Exception as e:
-                next_idx, attempts = self._next_after_failure(
-                    idx,
-                    dataset_name,
-                    attempts,
-                    reason=f"Sample failed ({type(e).__name__}: {e}) at "
-                    f"{dataset_name}[{local_idx}]",
+                reason = (
+                    f"Sample failed ({type(e).__name__}: {e}) at "
+                    f"{dataset_name}[{local_idx}]"
                 )
-                idx = next_idx
+                idx, attempts = self._next_after_failure(
+                    idx, dataset_name, attempts, reason=reason
+                )
                 continue
 
             # If this leaf is itself a MultiDataset, it already ran bounds +
@@ -1190,38 +1296,50 @@ class MultiDataset(torch.utils.data.Dataset):
 
             violation = self._check_bounds(data, dataset, local_idx, dataset_name)
             if violation is not None:
-                next_idx, attempts = self._next_after_failure(
-                    idx,
-                    dataset_name,
-                    attempts,
-                    reason=violation,
+                idx, attempts = self._next_after_failure(
+                    idx, dataset_name, attempts, reason=violation
                 )
-                idx = next_idx
                 continue
 
-            # Bounds passed — normalize and return.
+            # Bounds passed: normalize and return.
             if self.norm_stats and data.get("embodiment") in self.norm_stats:
                 data = self.normalize(data, data["embodiment"])
             return data
 
     def _next_after_failure(
         self, idx: int, dataset_name: str, attempts: int | None, *, reason: str
-    ) -> tuple[int, int]:
-        global_candidates = self._global_indices_by_dataset[dataset_name]
-        next_idx, attempts = get_fallback_idx(
-            idx=idx,
-            candidates=global_candidates,
-            _attempts=attempts,
-            max_attempts=len(global_candidates),
-            exhausted_error=(
-                f"Entire dataset bad (no valid indices): dataset={dataset_name}"
-            ),
-        )
+    ) -> tuple[int | None, int]:
+        """Pick the next index to try after a bad sample at ``idx``.
+
+        Raises once ``MAX_FALLBACK_ATTEMPTS`` consecutive samples failed."""
+        attempts = (attempts or 0) + 1
+        if attempts >= self.MAX_FALLBACK_ATTEMPTS:
+            raise RuntimeError(
+                f"[MultiDataset] {attempts} consecutive bad samples, the last "
+                f"{attempts - self.GLOBAL_FALLBACK_ATTEMPTS} drawn uniformly "
+                "from the whole index space: the store, the keymap or the norm "
+                f"stats are broken, not one episode. Last: {reason}"
+            )
+        if attempts <= self.GLOBAL_FALLBACK_ATTEMPTS:
+            candidates = [
+                c for c in self._global_indices_by_dataset[dataset_name] if c != idx
+            ]
+        else:
+            candidates = None
+        if candidates:
+            next_idx = random.choice(candidates)
+        else:
+            next_idx = random.randrange(len(self.index_map))
         next_dataset_name, next_local_idx = self.index_map[next_idx]
-        logger.warning(
-            f"{reason} | attempt {attempts}, "
-            f"trying {next_dataset_name}[{next_local_idx}]"
-        )
+        # Every retry used to log at WARNING: tens of thousands of lines per
+        # run. Keep the first few per process, then one in every 500.
+        self._retry_log_count = getattr(self, "_retry_log_count", 0) + 1
+        if self._retry_log_count <= 20 or self._retry_log_count % 500 == 0:
+            logger.warning(
+                f"{reason} | attempt {attempts}, "
+                f"trying {next_dataset_name}[{next_local_idx}] "
+                f"(retries so far in this worker: {self._retry_log_count})"
+            )
         return next_idx, attempts
 
     @classmethod
@@ -1568,8 +1686,14 @@ class MultiDataset(torch.utils.data.Dataset):
             "median": np.median(X, axis=0),
             "quantile_1": np.percentile(X, 1, axis=0),
             "quantile_99": np.percentile(X, 99, axis=0),
-            "quantile_0_01": np.percentile(X, 0.01, axis=0),
-            "quantile_99_99": np.percentile(X, 99.99, axis=0),
+            # Bounds-check quantiles snap to observed samples ("lower" /
+            # "higher") instead of interpolating: with fewer than 10k samples
+            # the default linear percentile lands strictly inside the sample
+            # range, so the extreme frames of the very episodes the stats were
+            # computed on were rejected at train time (3-16 % of a single
+            # episode in the overfit runs).
+            "quantile_0_01": np.percentile(X, 0.01, axis=0, method="lower"),
+            "quantile_99_99": np.percentile(X, 99.99, axis=0, method="higher"),
         }
 
     def cache_stats(self, save_cache_dir: str):
@@ -2105,13 +2229,26 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
         annotation span. Annotations use half-open ``[start_idx, end_idx)``.
         """
         mapping: dict[int, int] = {}
+        n_spans = 0
         for ann in self._load_annotations():
             start_idx = int(ann.get("start_idx", -1))
             end_idx = int(ann.get("end_idx", -1))
             if start_idx < 0 or end_idx <= start_idx:
                 continue
+            n_spans += 1
             for idx in range(start_idx, end_idx):
                 mapping[idx] = end_idx
+        # Visibility into annotation-cutoff usage: spans/frames_covered of 0
+        # means the cutoff is a no-op for this episode. One line per episode
+        # per rank is thousands of lines on a real split, so this is DEBUG and
+        # the resolver's kept N/M line carries the aggregate.
+        logger.debug(
+            "[AnnotationCutoff] ep=%s spans=%d frames_covered=%d/%d",
+            Path(self.episode_path).name,
+            n_spans,
+            len(mapping),
+            self.total_frames,
+        )
         return mapping
 
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
@@ -2126,10 +2263,68 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
         return min(end_idx, ann_end)
 
 
+def _episode_has_annotation_spans(ds: "ZarrDataset") -> bool:
+    """True if the episode has at least one usable ``[start_idx, end_idx)`` span.
+
+    Many Scale-"completed" episodes have an empty (or span-less) zarr
+    ``annotations`` array because the annotation-injection step lagged; the
+    AnnotationCutoff is a no-op for those, so they should be dropped when the
+    point of the run is to clamp chunks at annotation boundaries.
+    """
+    try:
+        anns = ds._load_annotations()
+    except Exception:
+        return False
+    return any(
+        isinstance(a, dict)
+        and 0 <= int(a.get("start_idx", -1)) < int(a.get("end_idx", -1))
+        for a in anns
+    )
+
+
 class S3AnnotationCutoffEpisodeResolver(S3EpisodeResolver):
-    """S3EpisodeResolver that loads ZarrAnnotationCutoffDataset instances."""
+    """S3EpisodeResolver that loads ZarrAnnotationCutoffDataset instances.
+
+    When ``require_annotations`` is set (default), episodes whose zarr
+    ``annotations`` array has no usable span are dropped; otherwise the
+    annotation cutoff would silently no-op on them.
+    """
 
     _dataset_class = ZarrAnnotationCutoffDataset
+
+    def __init__(self, *args, require_annotations: bool = True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.require_annotations = require_annotations
+
+    def resolve(self, filters=None, expected_embodiment=None):
+        datasets = super().resolve(
+            filters=filters, expected_embodiment=expected_embodiment
+        )
+        if not self.require_annotations:
+            return datasets
+        kept = {
+            h: ds for h, ds in datasets.items() if _episode_has_annotation_spans(ds)
+        }
+        dropped = sorted(set(datasets) - set(kept))
+        if dropped:
+            logger.warning(
+                "[AnnotationCutoff] dropped %d/%d episodes with no usable "
+                "annotation spans (e.g. %s)",
+                len(dropped),
+                len(datasets),
+                dropped[:5],
+            )
+        logger.info(
+            "[AnnotationCutoff] kept %d/%d episodes with usable annotations",
+            len(kept),
+            len(datasets),
+        )
+        if not kept:
+            raise ValueError(
+                "[AnnotationCutoff] no resolved episodes contain usable annotation "
+                "spans; check the filter / annotation injection for this dataset."
+            )
+        return kept
 
 
 class LocalAnnotationCutoffEpisodeResolver(LocalEpisodeResolver):
