@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import torch
 
@@ -43,6 +43,54 @@ def _pad32(x: torch.Tensor) -> torch.Tensor:
     return x[..., :32]
 
 
+def _stat_tensor(stats: dict[str, Any], key: str, ref: torch.Tensor) -> torch.Tensor:
+    value = torch.as_tensor(stats[key], device=ref.device, dtype=torch.float32)
+    return value.to(dtype=ref.dtype if ref.is_floating_point() else torch.float32)
+
+
+def _norm_center_scale(
+    stats: dict[str, Any], norm_mode: str, ref: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """``(center, half_range)`` so that ``normalized = (x - center) / half_range``
+    (zscore: ``(mean, std)``)."""
+    if norm_mode == "zscore":
+        return _stat_tensor(stats, "mean", ref), _stat_tensor(stats, "std", ref)
+    if norm_mode == "minmax":
+        lo, hi = _stat_tensor(stats, "min", ref), _stat_tensor(stats, "max", ref)
+    elif norm_mode == "quantile":
+        lo = _stat_tensor(stats, "quantile_1", ref)
+        hi = _stat_tensor(stats, "quantile_99", ref)
+    else:
+        raise ValueError(f"Invalid normalization mode: {norm_mode}")
+    return 0.5 * (lo + hi), 0.5 * (hi - lo)
+
+
+def _eps(norm_mode: str) -> float:
+    # Keeps the historical denominators: std + 1e-6 and (hi - lo) + 1e-6.
+    return 1e-6 if norm_mode == "zscore" else 0.5e-6
+
+
+def _apply_norm_one(
+    tensor: torch.Tensor,
+    stats: dict[str, Any],
+    norm_mode: str,
+) -> torch.Tensor:
+    """Normalize with per-key stats (zscore, or [-1, 1] for minmax/quantile)."""
+    center, scale = _norm_center_scale(stats, norm_mode, tensor)
+    return (tensor - center) / (scale + _eps(norm_mode))
+
+
+def _apply_unnorm_one(
+    tensor: torch.Tensor,
+    stats: dict[str, Any],
+    norm_mode: str,
+) -> torch.Tensor:
+    """Inverse of :func:`_apply_norm_one`."""
+    center, scale = _norm_center_scale(stats, norm_mode, tensor)
+    return tensor * (scale + _eps(norm_mode)) + center
+
+
+# ---------- rotation helpers (shared with the eval metrics) ----------
 def _ypr_to_matrix(ypr: torch.Tensor, degrees: bool = False) -> torch.Tensor:
     if degrees:
         ypr = ypr * (torch.pi / 180.0)
