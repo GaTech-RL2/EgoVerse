@@ -20,6 +20,12 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_datasets: dict,
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
+        train_viz_datasets: dict | None = None,
+        train_viz_dataloader_params: dict | None = None,
+        unseen_op_valid_datasets: dict | None = None,
+        unseen_op_valid_dataloader_params: dict | None = None,
+        valid_prefix: str | None = None,
+        held_out_operators: list | None = None,
     ):
         """
         Args:
@@ -27,10 +33,21 @@ class MultiDataModuleWrapper(LightningDataModule):
             valid_datasets: dictionary of valid datasets
             train_dataloader_params: dictionary of train dataloader parameters
             valid_dataloader_params: dictionary of valid dataloader parameters
+            train_viz_datasets: optional dict of datasets iterated as a second
+                val loader, evaluated by a prefixed copy of the canonical
+                evaluator (metrics ``train_viz/``).
+            train_viz_dataloader_params: per-dataset DataLoader kwargs for the
+                train_viz loader.
+            unseen_op_valid_datasets: optional dict of datasets iterated as a
+                third val loader (metrics ``unseen_op_valid/``).
+            unseen_op_valid_dataloader_params: per-dataset DataLoader kwargs
+                for the unseen_op_valid loader.
+            valid_prefix, held_out_operators: config-only data-config keys that
+                hydra.instantiate(cfg.data) forwards; ignored here.
 
         Tokenization (sampling a prompt from per-sample annotation lists,
         splicing in embodiment / control-mode / proprio blocks, and running
-        the HF tokenizer) lives on the algo side now — see
+        the HF tokenizer) lives on the algo side now; see
         ``PI.process_batch_for_training``. The collate here only stacks
         tensors and preserves variable-length list-valued keys (e.g. raw
         ``annotations``) so the algo can consume them downstream.
@@ -43,6 +60,14 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.valid_datasets = {k: v for k, v in valid_datasets.items() if v is not None}
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
+        self.train_viz_datasets = {
+            k: v for k, v in (train_viz_datasets or {}).items() if v is not None
+        }
+        self.train_viz_dataloader_params = train_viz_dataloader_params or {}
+        self.unseen_op_valid_datasets = {
+            k: v for k, v in (unseen_op_valid_datasets or {}).items() if v is not None
+        }
+        self.unseen_op_valid_dataloader_params = unseen_op_valid_dataloader_params or {}
         self.collate_fn = annotation_collate
 
     def train_dataloader(self):
@@ -62,13 +87,13 @@ class MultiDataModuleWrapper(LightningDataModule):
 
         return CombinedLoader(iterables, "max_size_cycle")
 
-    def val_dataloader(self):
+    def _build_val_style_loader(self, datasets: dict, params: dict, kind: str):
         iterables = dict()
-        for dataset_name, dataset in self.valid_datasets.items():
-            dataset_params = self.valid_dataloader_params.get(dataset_name)
+        for dataset_name, dataset in datasets.items():
+            dataset_params = params.get(dataset_name)
             if dataset_params is None or len(dataset_params) == 0:
                 raise ValueError(
-                    f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config valid_dataloader_params."
+                    f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config {kind}_dataloader_params."
                 )
             dataset_params = dict(dataset_params)
             shuffle = dataset_params.pop("shuffle", False)
@@ -78,8 +103,36 @@ class MultiDataModuleWrapper(LightningDataModule):
                 collate_fn=self.collate_fn,
                 **dataset_params,
             )
-
         return CombinedLoader(iterables, "max_size_cycle")
+
+    def val_loader_names(self) -> list[str]:
+        """Names of the val loaders in ``val_dataloader()`` order; position i is
+        Lightning's ``dataloader_idx`` i. ModelWrapper dispatches on these."""
+        names = ["valid"]
+        if self.train_viz_datasets:
+            names.append("train_viz")
+        if self.unseen_op_valid_datasets:
+            names.append("unseen_op_valid")
+        return names
+
+    def val_dataloader(self):
+        sources = {
+            "valid": (self.valid_datasets, self.valid_dataloader_params),
+            "train_viz": (self.train_viz_datasets, self.train_viz_dataloader_params),
+            "unseen_op_valid": (
+                self.unseen_op_valid_datasets,
+                self.unseen_op_valid_dataloader_params,
+            ),
+        }
+        names = self.val_loader_names()
+        loaders = [
+            self._build_val_style_loader(*sources[name], kind=name) for name in names
+        ]
+        if len(loaders) == 1:
+            return loaders[0]
+        # Several heads: return a list so Lightning populates dataloader_idx
+        # (the position in val_loader_names()) and ModelWrapper can dispatch.
+        return loaders
 
 
 def _extract_list_keys(batch):

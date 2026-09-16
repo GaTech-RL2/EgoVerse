@@ -254,3 +254,15 @@ def test_bounds_check_ignores_constant_cells():
     assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is None
     arr[1, 0] = 50.0  # corrupt value at a regular cell: still rejected
     assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is not None
+
+
+EVA_WRIST_REVERT = "egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list"
+
+
+@pytest.mark.parametrize("top", ["train_zarr_cartesian", "train_zarr_cartesian_pi"])
+def test_eva_defaults_are_wrist_frame_6d(top):
+    cfg = _compose(top)
+    eva = cfg.data.train_datasets.eva_bimanual
+    assert eva.resolver.transform_list.mode == "cartesian_wristframe_6d"
+    assert cfg.evaluator.transform_lists.eva_bimanual._target_ == EVA_WRIST_REVERT
+    assert cfg.norm_stats.pool_horizon is False

@@ -1,0 +1,10 @@
+# Keypoint HPT train_viz head around eval_hpt_keypoints_wrist. Optional:
+# train_viz wraps the canonical evaluator by default; select this to pin a
+# different base with
+# `+evaluator@train_viz_evaluator=train_viz_hpt_keypoints_wrist`. See
+# egomimic/eval/eval_train_viz.py.
+defaults:
+  - /evaluator@base: eval_hpt_keypoints_wrist
+  - _self_
+
+_target_: egomimic.eval.eval_train_viz.PrefixedEvalVideo

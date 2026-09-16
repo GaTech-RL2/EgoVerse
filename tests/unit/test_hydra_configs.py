@@ -31,13 +31,20 @@ TOP_LEVEL = sorted(p.stem for p in CONFIG_DIR.glob("*.yaml"))
 TRAIN_TOP_LEVEL = [c for c in TOP_LEVEL if c.startswith("train_")]
 
 
-@pytest.mark.parametrize("config_name", TOP_LEVEL)
+# train_* configs are composed (with more checks) by
+# test_infra_port_wiring.py::test_human_action_width_matches_data_mode.
+@pytest.mark.parametrize(
+    "config_name", [c for c in TOP_LEVEL if c not in TRAIN_TOP_LEVEL]
+)
 def test_top_level_config_resolves(config_name, compose_resolve):
     compose_resolve(config_name, [])
 
 
 @pytest.mark.parametrize("data", _options("data"))
-@pytest.mark.parametrize("top", TRAIN_TOP_LEVEL)
+# train_zarr_cartesian x data is composed by test_data_filters_instantiate_to_dataset_filter.
+@pytest.mark.parametrize(
+    "top", [t for t in TRAIN_TOP_LEVEL if t != "train_zarr_cartesian"]
+)
 def test_data_option_resolves_under_every_train_config(top, data, compose_resolve):
     compose_resolve(top, [f"data={data}"])
 
@@ -92,3 +99,30 @@ def test_submitit_launcher_config_resolves(launcher, compose_resolve):
     launcher_cfg = OmegaConf.to_container(cfg.hydra.launcher, resolve=True)
     if launcher.startswith("submitit"):
         assert launcher_cfg["timeout_min"] > 0
+
+
+KEYPOINT_REVERT = "egomimic.rldb.embodiment.human._build_human_keypoints_revert_6d_wristframe_transform_list"
+
+
+@pytest.mark.parametrize(
+    "top,model,data",
+    [
+        ("train_zarr_cartesian", "hpt_bc_flow_mecka", "mecka"),
+        ("train_zarr_cartesian", "hpt_bc_flow_aria", "aria"),
+        ("train_zarr_cartesian", "hpt_bc_flow_scale", "scale"),
+        ("train_zarr_cartesian_pi", "pi0.5_bc_mecka", "mecka"),
+        ("train_zarr_cartesian_pi", "pi0.5_bc_aria", "aria"),
+        ("train_zarr_cartesian_pi", "pi0.5_bc_scale", "scale"),
+    ],
+)
+def test_default_evaluator_matches_the_human_keypoint_action(
+    top, model, data, compose_resolve
+):
+    """Validation reads predictions[f"{emb}_{viz action_key}"], so the default
+    evaluator must visualize and revert the action the human recipes train."""
+    cfg = compose_resolve(top, [f"model={model}", f"data={data}"])
+    ac_key = cfg.model.robomimic_model.ac_keys.human_bimanual
+    assert ac_key == "actions_keypoints"
+    assert cfg.evaluator.viz_func.human_bimanual.action_key == ac_key
+    revert = cfg.evaluator.transform_lists.human_bimanual._target_
+    assert revert == KEYPOINT_REVERT
