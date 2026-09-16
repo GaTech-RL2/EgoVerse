@@ -2,7 +2,7 @@ import os
 import random
 from collections import OrderedDict
 from functools import partial
-from typing import Literal
+from typing import Literal, Union
 
 import einops
 import numpy as np
@@ -131,7 +131,7 @@ class HPTModel(nn.Module):
 
         self.auxiliary_ac_keys = None
         self.shared_action = False
-        self.device = None
+        self.device: Union[torch.device, str, None] = None
 
         self.ot_6dof = False
         self.use_dtw = False
@@ -833,6 +833,27 @@ class HPTModel(nn.Module):
 
 class HPT(Algo):
     """ """
+
+    @property
+    def device(self):
+        return self._device
+
+    @device.setter
+    def device(self, value):
+        """Set the algo's device, and the policy's with it.
+
+        ``__init__`` picks a default device (cuda whenever one is visible) long
+        before the trainer exists, and copies it into ``HPTModel``, which uses
+        it to create the loss accumulators in ``compute_loss``. Lightning only
+        learns the real device later and writes it here
+        (``ModelWrapper.on_fit_start`` / ``on_validation_start``), so a write
+        that stopped at the algo would leave the policy on the construction-time
+        device and the two accumulators on different devices.
+        """
+        self._device = value
+        nets = getattr(self, "nets", None)
+        if nets is not None and "policy" in nets:
+            nets["policy"].device = value
 
     def __init__(
         self,
