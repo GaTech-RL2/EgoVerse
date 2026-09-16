@@ -153,6 +153,7 @@ def cache_inputs(
     episodes: Mapping[str, str | None],
     dataset_cfg,
     sample_frac: float,
+    pool_horizon: bool = False,
 ) -> dict:
     """Everything the key hashes. ``episodes`` maps episode hash to its
     ``episode_fingerprint``. norm_mode is not an input: every stat is computed
@@ -164,6 +165,7 @@ def cache_inputs(
         "episodes": sorted([str(h), fp] for h, fp in episodes.items()),
         "recipe": recipe_inputs(cfg),
         "sample_frac": float(sample_frac),
+        "pool_horizon": bool(pool_horizon),
         "code": code_hash(cfg),
     }
 
