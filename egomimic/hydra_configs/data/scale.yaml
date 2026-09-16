@@ -12,6 +12,10 @@ train_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         mode: cartesian_6d
+        # Scale exports were written by the pre-fix hand-pose converter too:
+        # measured on all 20 production episodes, the left wrist matches
+        # rot_left to <= 2.06 deg with the right-hand control clean.
+        fix_left_wrist_convention: true
         # 18 -> 20-D ee_pose proprio (zero grip slots at 9/19) so the pi0.5
         # State: prompt bins align with the robot 20-D layout on every config.
         pad_proprio_gripper: true
