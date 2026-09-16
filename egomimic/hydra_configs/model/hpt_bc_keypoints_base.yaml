@@ -3,8 +3,12 @@ robomimic_model:
   _target_: egomimic.algo.hpt.HPT
   camera_transforms: {}
 
+  # 144 = per hand [wrist xyz (3) | wrist rot6d (6) | 21 MANO keypoints (63)]
+  # x 2, the `keypoints_*_6d` transform modes (the 138-D ypr layout of the
+  # `keypoints_*_ypr` modes is no longer the default).
   dims:
-    human_bimanual: {proprio: 138, action: 138}
+    human_bimanual: {proprio: 144, action: 144}
+
 
   ac_keys:
     human_bimanual: "actions_keypoints"

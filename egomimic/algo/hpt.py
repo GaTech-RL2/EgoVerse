@@ -145,6 +145,9 @@ class HPTModel(nn.Module):
             A specification containing configurations for each modality's stem.
         """
 
+        # A ``null`` entry lets a child config drop a stem its base declares
+        # (hydra merges cannot delete keys).
+        stem_spec = {k: v for k, v in stem_spec.items() if v is not None}
         self.stem_spec[domain_name] = stem_spec
         self.modalities[domain_name] = list(stem_spec.keys())
 
