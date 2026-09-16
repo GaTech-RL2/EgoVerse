@@ -37,6 +37,7 @@ def main():
 
     n6 = get("obs.aria_pcdc").reshape(-1, 6).astype(np.float32)
     l6 = get("obs.aria_pcdc_local").reshape(-1, 6).astype(np.float32)
+    l6L = get("obs.aria_pcdc_local_left")  # pp_v9_left third stream (may be absent)
     jp = get("obs.robot0_joint_pos").astype(np.float32).ravel()
     obs = {
         "front_pcd_1": n6,
@@ -45,6 +46,9 @@ def main():
         "hand_left_qpos": get("obs.hand_left_qpos").astype(np.float32).ravel(),
         "hand_right_qpos": get("obs.hand_right_qpos").astype(np.float32).ravel(),
     }
+    if l6L is not None:
+        obs["front_pcd_3"] = l6L.reshape(-1, 6).astype(np.float32)
+        print(f"[npz] left-eef stream present -> front_pcd_3 {obs['front_pcd_3'].shape}")
     gt = get("gt_actions_49_future").astype(np.float64)
 
     conn = websockets.sync.client.connect(
@@ -70,6 +74,10 @@ def main():
         act = np.asarray(msgpack_numpy.unpackb(resp)["actions"], dtype=np.float64)
         if act.ndim == 3:
             act = act[0]
+        if act.shape[-1] > gt.shape[-1]:   # pp_v10_aux: 58 dims, [49:58] = aux eef head
+            if r == 0:
+                print(f"[dry] output dim {act.shape[-1]} > {gt.shape[-1]}: scoring [0:{gt.shape[-1]}]")
+            act = act[..., : gt.shape[-1]]
         n = min(len(act), len(gt))
         d = np.abs(act[:n] - gt[:n])
         maes.append(d.mean())
