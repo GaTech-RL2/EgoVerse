@@ -3,7 +3,9 @@ left-wrist fix in keypoint modes, and the packed-width loss reduction."""
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -256,3 +258,127 @@ def test_pi_loss_is_reduced_over_the_packed_width():
         pi._reduce_loss(torch.tensor([1.0, 3.0]), None, eva, "actions_cartesian").item()
         == 2.0
     )
+
+
+# --------------------------------------------------- annotation-cutoff filter
+def test_episode_has_annotation_spans():
+    from egomimic.rldb.zarr.zarr_dataset_multi import _episode_has_annotation_spans
+
+    def ds(anns):
+        return SimpleNamespace(_load_annotations=lambda: anns)
+
+    assert _episode_has_annotation_spans(
+        ds([{"text": "a", "start_idx": 0, "end_idx": 5}])
+    )
+    assert not _episode_has_annotation_spans(ds([]))
+    assert not _episode_has_annotation_spans(ds([{"text": "a"}]))  # span-less
+    assert not _episode_has_annotation_spans(ds([{"start_idx": 5, "end_idx": 5}]))
+
+    def boom():
+        raise OSError("corrupt")
+
+    assert not _episode_has_annotation_spans(SimpleNamespace(_load_annotations=boom))
+
+
+def test_annotation_cutoff_resolver_defaults_to_requiring_spans():
+    from egomimic.rldb.zarr.zarr_dataset_multi import S3AnnotationCutoffEpisodeResolver
+
+    r = S3AnnotationCutoffEpisodeResolver.__new__(S3AnnotationCutoffEpisodeResolver)
+    sig = inspect.signature(S3AnnotationCutoffEpisodeResolver.__init__)
+    assert sig.parameters["require_annotations"].default is True
+    good = SimpleNamespace(_load_annotations=lambda: [{"start_idx": 0, "end_idx": 3}])
+    bad = SimpleNamespace(_load_annotations=lambda: [])
+    r.require_annotations = True
+    # bypass the S3 base resolve: patch it on the instance's class chain
+    import egomimic.rldb.zarr.zarr_dataset_multi as m
+
+    orig = m.S3EpisodeResolver.resolve
+    m.S3EpisodeResolver.resolve = lambda self, filters=None, expected_embodiment=None: {
+        "g": good,
+        "b": bad,
+    }
+    try:
+        kept = r.resolve(filters=None, expected_embodiment="human_bimanual")
+        assert set(kept) == {"g"}
+        r.require_annotations = False
+        assert set(r.resolve()) == {"g", "b"}
+        m.S3EpisodeResolver.resolve = (
+            lambda self, filters=None, expected_embodiment=None: {"b": bad}
+        )
+        r.require_annotations = True
+        with pytest.raises(ValueError, match="no resolved episodes"):
+            r.resolve()
+    finally:
+        m.S3EpisodeResolver.resolve = orig
+
+
+# ------------------------------------------------ adversarial-review fixes
+def test_last_good_sample_survives_collate():
+    """annotation_collate pops list-valued keys out of the sample dicts in
+    place; the cached fallback sample must not lose them."""
+    from egomimic.pl_utils.pl_data_utils import annotation_collate
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    md = MultiDataset.__new__(MultiDataset)
+    md._last_good_sample = None
+    md._fallback_returns = 0
+    sample = {"x": np.float32(1.0), "annotations": ["pick"]}
+    # mimic __getitem__'s cache-then-return
+    md._last_good_sample = {
+        k: (list(v) if isinstance(v, list) else v) for k, v in sample.items()
+    }
+    annotation_collate([sample])  # pops "annotations" from `sample`
+    assert "annotations" not in sample
+    again = md._last_good_or_raise("boom")
+    assert again["annotations"] == ["pick"]
+    batch = annotation_collate([again, {"x": np.float32(2.0), "annotations": ["a"]}])
+    assert batch["annotations"] == [["pick"], ["a"]]
+    # and the cache itself is still intact for the next fallback
+    assert md._last_good_or_raise("boom")["annotations"] == ["pick"]
+
+
+def test_bounds_quantiles_include_the_observed_extremes():
+    """With fewer than 10k samples a linear 0.01 / 99.99 percentile lands
+    strictly inside the sample range, so the stats' own extreme frames were
+    rejected at train time; the bounds quantiles must snap to samples."""
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    X = np.random.default_rng(0).normal(size=(500, 4)).astype(np.float32)
+    st = MultiDataset._compute_stats_for_array(X)
+    np.testing.assert_array_equal(st["quantile_0_01"], X.min(axis=0))
+    np.testing.assert_array_equal(st["quantile_99_99"], X.max(axis=0))
+    md = MultiDataset.__new__(MultiDataset)
+    md.norm_stats = {0: {"actions_keypoints": st}}
+    md.zarr_keys = {0: {"actions_keypoints": "actions_keypoints"}}
+    md._warned_violations = set()
+    for row in (X.min(axis=0), X.max(axis=0)):
+        assert (
+            md._check_bounds(
+                {"embodiment": 0, "actions_keypoints": row[None]}, None, 0, "ep"
+            )
+            is None
+        )
+
+
+def test_bounds_check_has_relative_slack_but_catches_corrupt_values():
+    """Per-cell bounds tolerate frames moderately beyond the stats sample's
+    range (valid extreme motion) and still reject values orders of magnitude
+    off (fill constants, wrong-frame data)."""
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    md = MultiDataset.__new__(MultiDataset)
+    lo, hi = np.full(18, -1.0, np.float32), np.full(18, 1.0, np.float32)
+    md.norm_stats = {0: {"actions_cartesian": {"quantile_1": lo, "quantile_99": hi}}}
+    md.zarr_keys = {0: {"actions_cartesian": "actions_cartesian"}}
+    md._warned_violations = set()
+
+    def check(v):
+        arr = np.zeros((3, 18), np.float32)
+        arr[1, 0] = v  # an xyz channel
+        return md._check_bounds(
+            {"embodiment": 0, "actions_cartesian": arr}, None, 0, "e"
+        )
+
+    assert check(1.0 + 0.4 * 2.0) is None  # within 50 % of the [-1, 1] range
+    assert check(1.0 + 0.6 * 2.0) is not None
+    assert check(1e9) is not None
