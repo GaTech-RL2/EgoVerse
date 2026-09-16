@@ -335,3 +335,201 @@ def test_fix_left_wrist_convention_flag_prepends_correction():
         "left.action_ee_pose",
         "left.obs_ee_pose",
     }
+
+
+def _bounds_check_dataset(key: str, width: int):
+    """Minimal MultiDataset shell exposing _check_bounds with +-1 quantile
+    bounds on ``key`` for embodiment 0."""
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    md = MultiDataset.__new__(MultiDataset)
+    md.norm_mode = "quantile"
+    md.norm_stats = {
+        0: {
+            key: {
+                "quantile_1": np.full(width, -1.0, dtype=np.float32),
+                "quantile_99": np.full(width, 1.0, dtype=np.float32),
+            }
+        }
+    }
+    md.zarr_keys = {0: {key: key}}
+    md._warned_violations = set()
+    return md
+
+
+@pytest.mark.parametrize("key", ["actions_cartesian", "observations.state.ee_pose"])
+@pytest.mark.parametrize("width,rot_idx,xyz_idx", [(14, 3, 0), (20, 4, 0), (18, 5, 9)])
+def test_bounds_check_ignores_rotation_channels(key, width, rot_idx, xyz_idx):
+    # Rotation channels (Euler wraps at +-pi; 6D columns are ~[-1, 1]) must be
+    # excluded from quantile bounds checking, while translation/gripper
+    # channels are still checked and NaN/Inf still rejects the full vector.
+    md = _bounds_check_dataset(key, width)
+    arr = np.zeros((5, width), dtype=np.float32)
+
+    arr[2, rot_idx] = 50.0  # far outside +-1, but a rotation channel
+    assert md._check_bounds({"embodiment": 0, key: arr.copy()}, None, 0, "ep") is None
+
+    bad = arr.copy()
+    bad[2, xyz_idx] = 50.0  # translation channel out of bounds -> violation
+    assert md._check_bounds({"embodiment": 0, key: bad}, None, 0, "ep") is not None
+
+    nan = arr.copy()
+    nan[2, rot_idx] = np.nan  # NaN anywhere (even rotation) -> violation
+    assert md._check_bounds({"embodiment": 0, key: nan}, None, 0, "ep") is not None
+
+
+@pytest.mark.parametrize("key", ["actions_keypoints", "observations.state.keypoints"])
+@pytest.mark.parametrize("width,rot_idx,kp_idx", [(138, 4, 10), (144, 78, 90)])
+def test_bounds_check_ignores_wrist_rotation_in_keypoint_layout(
+    key, width, rot_idx, kp_idx
+):
+    md = _bounds_check_dataset(key, width)
+    arr = np.zeros((5, width), dtype=np.float32)
+    arr[1, rot_idx] = 50.0  # wrist rotation channel: not bounds-checked
+    assert md._check_bounds({"embodiment": 0, key: arr.copy()}, None, 0, "ep") is None
+    bad = arr.copy()
+    bad[1, kp_idx] = 50.0  # a keypoint coordinate: checked
+    assert md._check_bounds({"embodiment": 0, key: bad}, None, 0, "ep") is not None
+
+
+def test_bounds_check_full_vector_for_other_keys():
+    # Keys without a known layout (or unrecognized widths) keep the
+    # full-vector check.
+    md = _bounds_check_dataset("some_other_key", 20)
+    arr = np.zeros((5, 20), dtype=np.float32)
+    arr[2, 4] = 50.0
+    assert (
+        md._check_bounds({"embodiment": 0, "some_other_key": arr}, None, 0, "ep")
+        is not None
+    )
+
+    md16 = _bounds_check_dataset("actions_cartesian", 16)
+    arr16 = np.zeros((5, 16), dtype=np.float32)
+    arr16[2, 4] = 50.0
+    assert (
+        md16._check_bounds({"embodiment": 0, "actions_cartesian": arr16}, None, 0, "ep")
+        is not None
+    )
+
+
+def test_constant_cell_exemption_follows_norm_mode():
+    """A channel the zscore normalizer still divides by must still be
+    bounds-checked, even though its quantile range is zero: 0 in 99.6 % of
+    samples and 1.0 in the rest gives q99 - q1 = 0 but std = 0.063."""
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    stats = {
+        "quantile_1": np.zeros(18, dtype=np.float32),
+        "quantile_99": np.zeros(18, dtype=np.float32),
+        "mean": np.full(18, 0.004, dtype=np.float32),
+        "std": np.full(18, 0.063, dtype=np.float32),
+    }
+    arr = np.zeros((5, 18), dtype=np.float32)
+    arr[0, 0] = 50.0  # corrupt value in a quantile-collapsed channel
+
+    for mode, rejected in (("quantile", False), ("zscore", True)):
+        md = MultiDataset.__new__(MultiDataset)
+        md.norm_mode = mode
+        md.norm_stats = {0: {"actions_cartesian": stats}}
+        md.zarr_keys = {0: {"actions_cartesian": "actions_cartesian"}}
+        md._warned_violations = set()
+        got = md._check_bounds(
+            {"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep"
+        )
+        assert (got is not None) is rejected, mode
+
+
+def test_bounds_check_tolerates_roundoff_on_collapsed_bounds():
+    """Wrist-frame t=0 cells have bounds [0, 0]; values there must not reject
+    (normalize() maps such constant cells to 0), while other cells are still
+    checked."""
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    q99 = np.ones(18, dtype=np.float32)
+    q99[0] = 0.0  # channel 0 collapsed to [0, 0]
+    md = MultiDataset.__new__(MultiDataset)
+    md.norm_mode = "quantile"
+    md.norm_stats = {
+        0: {
+            "actions_cartesian": {
+                "quantile_1": np.zeros(18, dtype=np.float32),
+                "quantile_99": q99,
+            }
+        }
+    }
+    md.zarr_keys = {0: {"actions_cartesian": "actions_cartesian"}}
+    md._warned_violations = set()
+    arr = np.zeros((5, 18), dtype=np.float32)
+    arr[0, 0] = 1e-9  # a roundoff-scale xyz value at a [0, 0] bound
+    assert (
+        md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep")
+        is None
+    )
+    arr[0, 0] = 1e-3  # off-convention offset at the constant cell: admitted
+    assert (
+        md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep")
+        is None
+    )
+    arr[0, 1] = 50.0  # a real violation on a regular cell is still caught
+    assert (
+        md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep")
+        is not None
+    )
+
+
+def test_bounds_check_warns_once_on_stat_shape_mismatch(caplog):
+    md = _bounds_check_dataset("actions_cartesian", 18)
+    arr = np.zeros((5, 20), dtype=np.float32)  # stats are 18-wide
+    with caplog.at_level("WARNING"):
+        assert (
+            md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep")
+            is None
+        )
+        assert (
+            md._check_bounds({"embodiment": 0, "actions_cartesian": arr}, None, 1, "ep")
+            is None
+        )
+    msgs = [r.message for r in caplog.records if "bounds check skipped" in r.message]
+    assert len(msgs) == 1, msgs
+
+
+def _fallback_dataset():
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    md = MultiDataset.__new__(MultiDataset)
+    md.index_map = [("bad", i) for i in range(10)] + [("good", i) for i in range(1000)]
+    md._global_indices_by_dataset = {
+        "bad": list(range(10)),
+        "good": list(range(10, 1010)),
+    }
+    return md
+
+
+def test_fallback_widens_to_global_after_local_attempts():
+    # A wholly-bad episode must not exhaust the sampler: retries stay inside
+    # the failing episode for GLOBAL_FALLBACK_ATTEMPTS, then widen to the full
+    # index space.
+    md = _fallback_dataset()
+    attempts = None
+    seen_local, seen_global = set(), set()
+    idx = 0
+    for _ in range(md.GLOBAL_FALLBACK_ATTEMPTS):
+        idx, attempts = md._next_after_failure(0, "bad", attempts, reason="r")
+        seen_local.add(md.index_map[idx][0])
+    assert seen_local == {"bad"}, "early retries must stay within the episode"
+
+    for _ in range(50):
+        idx, attempts = md._next_after_failure(idx, "bad", attempts, reason="r")
+        seen_global.add(md.index_map[idx][0])
+    assert "good" in seen_global, "post-threshold retries must sample globally"
+
+
+def test_fallback_cap_raises():
+    # The cap is a systemic-failure detector: everything it can reach has
+    # already been drawn uniformly from the whole index space and failed.
+    md = _fallback_dataset()
+    attempts, idx, n = None, 0, 0
+    with pytest.raises(RuntimeError, match="consecutive bad samples"):
+        for n in range(1, md.MAX_FALLBACK_ATTEMPTS + 2):
+            idx, attempts = md._next_after_failure(idx, "bad", attempts, reason="boom")
+    assert n == md.MAX_FALLBACK_ATTEMPTS
