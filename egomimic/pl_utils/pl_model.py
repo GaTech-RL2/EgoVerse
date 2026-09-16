@@ -75,6 +75,16 @@ class ModelWrapper(LightningModule):
 
         self.epoch_memory_stats = []  # Store memory stats per epoch
         self.evaluator = evaluator
+        # Optional second evaluator that runs against a train-sampled
+        # dataloader during the same validation pass (dataloader_idx=1).
+        # See egomimic/eval/eval_train_viz.py.
+        self.train_viz_evaluator = None
+        # Optional third evaluator for the unseen_op_valid loader (held-out
+        # operators in the opsplit data configs).
+        self.unseen_op_valid_evaluator = None
+        # Val loader names in dataloader_idx order, from
+        # MultiDataModuleWrapper.val_loader_names(); None = [valid, train_viz].
+        self.val_loader_names = None
 
     @staticmethod
     def _as_config(cfg):
@@ -205,30 +215,56 @@ class ModelWrapper(LightningModule):
             sync_dist=True,
         )
 
+    def _val_heads(self) -> dict:
+        return {
+            "valid": self.evaluator,
+            "train_viz": self.train_viz_evaluator,
+            "unseen_op_valid": getattr(self, "unseen_op_valid_evaluator", None),
+        }
+
     def on_validation_start(self):
-        if self.evaluator is None:
+        heads = [h for h in self._val_heads().values() if h is not None]
+        if not heads:
             return
         self.model.device = self.device
 
-        self.evaluator.on_validation_start()
+        for head in heads:
+            head.on_validation_start()
 
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         """
         Run a validation step on the batch, and save that batch of images into the val_image_buffer.  Once the buffer hits 1000 images, save that as a 30fps video using torchvision.io.write_video.
+
+        ``dataloader_idx`` is populated by Lightning when ``val_dataloader()``
+        returns a list; ``val_loader_names[dataloader_idx]`` picks the head
+        (valid -> evaluator, train_viz -> train_viz_evaluator, unseen_op_valid ->
+        unseen_op_valid_evaluator).
         """
-        if self.evaluator is None:
+        names = getattr(self, "val_loader_names", None) or ["valid", "train_viz"]
+        name = names[dataloader_idx] if dataloader_idx < len(names) else None
+        active = self._val_heads().get(name)
+        if active is None:
             return
+        # When val_dataloader returns a list of CombinedLoaders (valid +
+        # train_viz), Lightning wraps it in an outer sequential CombinedLoader.
+        # The outer iterator calls next() on each inner CombinedLoader, which
+        # itself yields a (batch_dict, batch_idx, dataloader_idx) triple; that
+        # triple lands here as `batch`. Unwrap to recover the dict.
+        if isinstance(batch, tuple) and len(batch) == 3 and isinstance(batch[0], dict):
+            batch = batch[0]
         batch = self.model.process_batch_for_training(batch)
         print(
-            f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}",
+            f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}, "
+            f"dataloader_idx={dataloader_idx}",
             flush=True,
         )
-        self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
+        active.on_validation_step(batch, batch_idx, dataloader_idx)
 
     def on_validation_end(self):
         print(f"[ON_VALIDATION_END] rank={self.global_rank}", flush=True)
-        if self.evaluator is not None:
-            self.evaluator.on_validation_end()
+        for head in self._val_heads().values():
+            if head is not None:
+                head.on_validation_end()
 
         print(
             f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
