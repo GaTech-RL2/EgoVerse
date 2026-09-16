@@ -9,6 +9,7 @@ from pathlib import Path
 
 import hydra
 import pytest
+import yaml
 from hydra import compose, initialize_config_module
 from omegaconf import OmegaConf
 
@@ -135,6 +136,35 @@ def test_no_data_config_uses_a_pi_keymap_mode(name):
                 continue
             mode = node.resolver.key_map.get("keymap_mode")
             assert not str(mode).endswith("_pi"), (name, split, emb, mode)
+
+
+# Aliases kept so configs saved by earlier runs still rebuild.
+KNOWN_MODE_ONLY_CHILDREN = {"cotrain_pi_lang_wrist"}
+MODE_KEYS = {"keymap_mode", "mode", "include_ee_pose"}
+
+
+def _leaf_paths(node, prefix=()):
+    if isinstance(node, dict) and node:
+        for k, v in node.items():
+            yield from _leaf_paths(v, (*prefix, k))
+    else:
+        yield prefix
+
+
+@pytest.mark.parametrize("name", DATA_CONFIGS)
+def test_no_data_config_only_swaps_the_action_mode(name):
+    # A child that only changes keymap/transform mode (e.g. cam- vs wrist-frame)
+    # is a CLI override, not a data config; one data config per dataset slice.
+    raw = yaml.safe_load((DATA_DIR / f"{name}.yaml").read_text(encoding="utf-8"))
+    body = {k: v for k, v in (raw or {}).items() if k != "defaults"}
+    if not raw.get("defaults") or not body:
+        return
+    leaves = list(_leaf_paths(body))
+    mode_only = all(path[-1] in MODE_KEYS for path in leaves)
+    if name in KNOWN_MODE_ONLY_CHILDREN:
+        assert mode_only, f"{name} is no longer mode-only; drop it from the allowlist"
+    else:
+        assert not mode_only, (name, leaves)
 
 
 def test_pi_train_config_defaults_to_all_eva_with_annotations():

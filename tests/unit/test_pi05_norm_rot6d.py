@@ -25,7 +25,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 from egomimic.utils.action_utils import (
     BaseActionConverter,
     HumanBimanualKeypoints,
-    RobotBimanualCartesianEuler,
+    RobotBimanualCartesian6D,
     pad_to_width,
 )
 from egomimic.utils.pose_utils import _ypr_to_rot6d
@@ -95,7 +95,7 @@ def test_transform_preserves_tensor_type():
 
 
 def test_robot_bimanual_norm_6d_pack_round_trips():
-    converter = RobotBimanualCartesianEuler()
+    converter = RobotBimanualCartesian6D()
     six6d = torch.from_numpy(
         CartesianYPRToRot6D().transform({"actions_cartesian": _eva_ypr_chunk()})[
             "actions_cartesian"
@@ -120,11 +120,11 @@ def test_keypoint_converter_is_identity_and_pads_to_model_width():
     with pytest.raises(ValueError, match="expected 144-dim"):
         conv.to32_norm_6d(torch.zeros(1, 1, 138))
 
-    eva32 = RobotBimanualCartesianEuler().to32_norm_6d(torch.ones(1, 3, 20))
+    eva32 = RobotBimanualCartesian6D().to32_norm_6d(torch.ones(1, 3, 20))
     wide = pad_to_width(eva32, 144)
     assert wide.shape[-1] == 144 and torch.all(wide[..., 32:] == 0)
     torch.testing.assert_close(
-        RobotBimanualCartesianEuler().from32_norm_6d(wide)[..., :20],
+        RobotBimanualCartesian6D().from32_norm_6d(wide)[..., :20],
         torch.ones(1, 3, 20),
     )
     with pytest.raises(ValueError, match="action_dim is 32"):
