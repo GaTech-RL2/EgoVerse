@@ -12,7 +12,7 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian
+        mode: cartesian_wristframe_6d
     filters: null
     mode: train
     valid_ratio: 0.05
@@ -27,7 +27,10 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian
+        mode: cartesian_6d
+        # 18 -> 20-D ee_pose proprio (zero grip slots at 9/19) so the pi0.5
+        # State: prompt bins align with the robot 20-D layout on every config.
+        pad_proprio_gripper: true
         stride: 3
     filters: null
     mode: train

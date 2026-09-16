@@ -13,6 +13,7 @@ from hydra import compose, initialize_config_module
 from omegaconf import OmegaConf
 
 import egomimic.hydra_configs as _cfg_pkg
+from egomimic.rldb.embodiment.embodiment import LEGACY_ROTATION_MODES
 from egomimic.rldb.embodiment.human import Human
 
 DATA_DIR = Path(_cfg_pkg.__file__).parent / "data"
@@ -101,6 +102,26 @@ def test_scale_loads_head_pose():
         km.get("has_head_pose", True) is True
     ), "scale exports carry obs_head_pose; the flag was stale"
     assert "obs_head_pose" in Human.get_keymap(keymap_mode="cartesian")
+
+
+@pytest.mark.parametrize("name", _params(KNOWN_BROKEN_COMPOSE))
+def test_no_data_config_trains_on_a_discontinuous_rotation(name):
+    # The 6D representation is the training target everywhere: Euler angles wrap
+    # at +-pi and gimbal-lock, quaternions double-cover, so per-dim
+    # normalization and regression losses on them are ill-defined. The guard in
+    # get_transform_list is what enforces it; this stops a config from opting
+    # out of the guard.
+    cfg = compose_data(name)
+    for split in ("train_datasets", "valid_datasets"):
+        for emb, node in (cfg.data.get(split) or {}).items():
+            if node is None:
+                continue
+            transform_list = node.resolver.get("transform_list")
+            if not hasattr(transform_list, "get"):
+                continue
+            mode = transform_list.get("mode")
+            assert mode not in LEGACY_ROTATION_MODES, (name, split, emb, mode)
+            assert not transform_list.get("allow_legacy_rotation"), (name, split, emb)
 
 
 @pytest.mark.parametrize("name", _params(KNOWN_BROKEN_COMPOSE))

@@ -644,7 +644,7 @@ If you are contributing egocentric human data, you use `human_bimanual` (or the 
 There is a **single concrete `Human` embodiment class** ([`egomimic/rldb/embodiment/human.py`](egomimic/rldb/embodiment/human.py)) shared by all human data. You do **not** write a per-vendor subclass, and there is **no per-vendor embodiment identifier** — every human contributor uses `human_*` and records their source in the `lab` field. Camera intrinsics travel with the data (`zarr.attrs`, §6.3 / §6.4); per-vendor structural choices are passed as explicit arguments from the data config:
 
 - `Human.get_keymap(keymap_mode="cartesian"|"keypoints", has_head_pose=<bool>, include_aria_keypoints=<bool>)`
-- `Human.get_transform_list(mode="cartesian"|"keypoints_headframe_ypr"|..., stride=<int>)`
+- `Human.get_transform_list(mode="cartesian_6d"|"keypoints_headframe_ypr"|..., stride=<int>)`
 
 Onboarding human data is just two steps:
 
@@ -947,7 +947,7 @@ import torch
 HAS_HEAD_POSE = True
 key_map = Human.get_keymap(keymap_mode="cartesian", has_head_pose=HAS_HEAD_POSE)
 transform_list = (
-    Human.get_transform_list(mode="cartesian", stride=3) if HAS_HEAD_POSE else None
+    Human.get_transform_list(mode="cartesian_6d", stride=3) if HAS_HEAD_POSE else None
 )
 
 resolver = LocalEpisodeResolver(
@@ -987,7 +987,7 @@ from egomimic.rldb.filters import DatasetFilter
 resolver = LocalEpisodeResolver(
     folder_path    = "/local/processed",
     key_map        = Human.get_keymap(keymap_mode="cartesian"),
-    transform_list = Human.get_transform_list(mode="cartesian", stride=3),
+    transform_list = Human.get_transform_list(mode="cartesian_6d", stride=3),
 )
 filters = DatasetFilter(filter_lambdas=[
     "lambda row: row['episode_hash'] == '2026-03-15-14-22-10-000000'"

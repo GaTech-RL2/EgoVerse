@@ -1,0 +1,33 @@
+defaults:
+  - pi0.5_base
+  - _self_
+
+# All-cartesian pi0.5 cotrain: data=cotrain_pi_lang plus
+#   data.train_datasets.eva_bimanual.resolver.transform_list.mode=cartesian_6d
+#   data.train_datasets.human_bimanual.resolver.key_map.keymap_mode=cartesian
+#   data.train_datasets.human_bimanual.resolver.key_map.include_ee_pose=false
+#   data.train_datasets.human_bimanual.resolver.transform_list.mode=cartesian_6d
+#   data.train_datasets.human_bimanual.resolver.transform_list.include_ee_pose=false
+# with evaluator=eval_pi_camframe_6d. Both embodiments on
+# the head/camera-frame cartesian action in the continuous 6D rotation layout
+# (eva 20D, human 18D), normalized by the standard pipeline; the forward pass
+# only packs them into openpi's 32D vector (pretrained projections kept). The
+# proprio ee_pose arrives 6D-encoded as well. No "Embodiment: <name>" prompt
+# block (pi0.5_base defaults it on).
+robomimic_model:
+  camera_transforms: {}
+  embodiment_label: false
+  ac_keys:
+    eva_bimanual: "actions_cartesian"
+    human_bimanual: "actions_cartesian"
+  domains: ["eva_bimanual", "human_bimanual"]
+
+  action_converters:
+    rules:
+      EVA_BIMANUAL:
+        _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
+      HUMAN_BIMANUAL:
+        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+    # optional fallback if no match is found
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter
