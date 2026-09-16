@@ -407,10 +407,12 @@ class S3EpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
+        validate_wrist_convention: bool = True,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
         self.debug = debug
+        self.validate_wrist_convention = validate_wrist_convention
         super().__init__(
             folder_path,
             key_map=key_map,
@@ -450,7 +452,72 @@ class S3EpisodeResolver(EpisodeResolver):
                 "No valid collection names from _get_filtered_paths: "
                 "filters matched no episodes in the SQL table."
             )
-        return self.load(paths)
+        datasets = self.load(paths)
+        if self.validate_wrist_convention:
+            self._check_left_wrist_convention(datasets)
+        return datasets
+
+    WRIST_CONVENTION_SAMPLE = 3
+    _WRIST_KEYS = (
+        "left.obs_keypoints",
+        "left.obs_wrist_pose",
+        "right.obs_keypoints",
+        "right.obs_wrist_pose",
+    )
+
+    def _check_left_wrist_convention(self, datasets: dict) -> None:
+        """Cross-check ``fix_left_wrist_convention`` against the episodes.
+
+        The flag is a property of the data, not of the code: it is right today
+        only because nobody has reconverted, and a wrong setting produces a
+        plausible mirrored frame rather than an error. A few sampled episodes
+        re-derive the convention from their own keypoints.
+
+        Only the double-flip raises. Enabled-but-post-fix means the correction
+        is being applied to data that was already corrected, which is a fresh
+        error introduced by a stale setting. Disabled-but-pre-fix is the state
+        every run was in before this commit -- wrong, but not newly wrong, and
+        the generic human configs (aria, human, the cotrains) have never set
+        the flag; turning their startup into a crash is not this correction's
+        business. It warns, naming the knob. An episode that matches neither
+        convention (a handful of 2025 ones do) warns too.
+        """
+        from egomimic.rldb.zarr.action_chunk_transforms import RotateLocalFrame
+        from egomimic.scripts.mecka_process.mecka_to_zarr import left_wrist_convention
+
+        fix_enabled = any(
+            isinstance(t, RotateLocalFrame) for t in (self.transform_list or [])
+        )
+        for name, ds in list(datasets.items())[: self.WRIST_CONVENTION_SAMPLE]:
+            try:
+                store = zarr.open_group(str(ds.episode_path), mode="r")
+                if any(k not in store for k in self._WRIST_KEYS):
+                    continue
+                verdict = left_wrist_convention(store)
+            except Exception as e:  # a probe must never take a run down
+                logger.warning(f"[wrist-convention] {name}: probe failed ({e})")
+                continue
+            if verdict == "unknown":
+                logger.warning(
+                    f"[wrist-convention] {name}: neither convention matches its own "
+                    "keypoints (right-hand control failed); cannot check "
+                    f"fix_left_wrist_convention={fix_enabled} against it"
+                )
+                continue
+            if verdict == "post_fix" and fix_enabled:
+                raise ValueError(
+                    f"[wrist-convention] {name} was written post_fix, but this "
+                    "dataset runs with fix_left_wrist_convention=true: the "
+                    "Rz(180) correction would double-flip data the converter "
+                    "already fixed. Drop the flag for reconverted data."
+                )
+            if verdict == "pre_fix" and not fix_enabled:
+                logger.warning(
+                    f"[wrist-convention] {name} was written pre_fix (its LEFT "
+                    "wrist is double-mirrored) and this dataset does not set "
+                    "fix_left_wrist_convention: it trains on the uncorrected "
+                    "frame. Set the flag on this data config unless you mean to."
+                )
 
     @staticmethod
     def _get_filtered_paths(
