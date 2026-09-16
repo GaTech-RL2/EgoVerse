@@ -1,4 +1,5 @@
-"""Horizon-pooled norm stats and the constant-channel normalization guard."""
+"""Eva wrist-frame defaults, horizon-pooled norm stats and the constant-channel
+normalization guard."""
 
 import numpy as np
 import pytest
@@ -10,12 +11,23 @@ from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr import norm_cache
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver, MultiDataset
 
+EVA_WRIST_REVERT = "egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list"
+
 
 def _compose(name, overrides=()):
     with initialize_config_module(
         config_module="egomimic.hydra_configs", version_base=None
     ):
         return compose(config_name=name, overrides=list(overrides))
+
+
+@pytest.mark.parametrize("top", ["train_zarr_cartesian", "train_zarr_cartesian_pi"])
+def test_eva_defaults_are_wrist_frame_6d(top):
+    cfg = _compose(top)
+    eva = cfg.data.train_datasets.eva_bimanual
+    assert eva.resolver.transform_list.mode == "cartesian_wristframe_6d"
+    assert cfg.evaluator.transform_lists.eva_bimanual._target_ == EVA_WRIST_REVERT
+    assert cfg.norm_stats.pool_horizon is False
 
 
 def test_hpt_eva_dims_match_the_wrist_frame_6d_layout():
@@ -254,15 +266,3 @@ def test_bounds_check_ignores_constant_cells():
     assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is None
     arr[1, 0] = 50.0  # corrupt value at a regular cell: still rejected
     assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is not None
-
-
-EVA_WRIST_REVERT = "egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list"
-
-
-@pytest.mark.parametrize("top", ["train_zarr_cartesian", "train_zarr_cartesian_pi"])
-def test_eva_defaults_are_wrist_frame_6d(top):
-    cfg = _compose(top)
-    eva = cfg.data.train_datasets.eva_bimanual
-    assert eva.resolver.transform_list.mode == "cartesian_wristframe_6d"
-    assert cfg.evaluator.transform_lists.eva_bimanual._target_ == EVA_WRIST_REVERT
-    assert cfg.norm_stats.pool_horizon is False
