@@ -139,3 +139,135 @@ def test_model_loss_and_sample(snapshot):
     g = torch.Generator().manual_seed(0)
     actions = model.sample(_data(), generator=g)
     assert actions.shape == (B, T, W)
+
+
+# ==========================================================================
+# ResNetTextBackbone: one ResNet per camera role + frozen text -> one context
+# ==========================================================================
+
+from fixtures.stub_text_encoder import StubTextEncoder  # noqa: E402
+
+from egomimic.models.resnet_text_backbone import ResNetTextBackbone  # noqa: E402
+
+RT_HIDDEN = 32
+RT_TEXT_HIDDEN = 16
+FRONT = "observations.images.front_img_1"
+LEFT = "observations.images.left_wrist_img"
+PROMPT_LENGTHS = {"fold clothes": 2, "pick up the cup": 3}
+# 64x64 through resnet18's children[:-2] downsamples by 32 -> 2x2 = 4 tokens
+TOKENS_PER_CAMERA = 4
+
+
+def _rt_backbone(roles=(FRONT,), hidden=RT_HIDDEN, num_layers=4, modality_embed=True):
+    text_encoder = StubTextEncoder(output_dim=hidden, hidden_size=RT_TEXT_HIDDEN)
+    text_encoder.lengths = dict(PROMPT_LENGTHS)  # fixed lengths for the assertions
+    backbone = ResNetTextBackbone(
+        camera_roles=list(roles),
+        text_encoder=text_encoder,
+        hidden_size=hidden,
+        num_layers=num_layers,
+        weights=None,  # no ImageNet download in a unit test
+        modality_embed=modality_embed,
+    )
+    return backbone.eval()
+
+
+def _rt_images(batch=2, cameras=1, size=64):
+    return torch.randn(batch, cameras, 3, size, size)
+
+
+def test_rt_one_encoder_per_role_keyed_by_role():
+    backbone = _rt_backbone(roles=(FRONT, LEFT))
+    assert set(backbone.image_encoders) == {
+        ResNetTextBackbone._role_key(FRONT),
+        ResNetTextBackbone._role_key(LEFT),
+    }
+
+
+def test_rt_image_tokens_are_camera_order_concatenated():
+    backbone = _rt_backbone(roles=(FRONT, LEFT))
+    images = _rt_images(batch=2, cameras=2)
+    out = backbone._encode_images(images)
+    assert out.shape == (2, 2 * TOKENS_PER_CAMERA, RT_HIDDEN)
+    front = backbone.image_encoders[ResNetTextBackbone._role_key(FRONT)]
+    expected_first = front(images[:, 0:1]) + backbone.modality_embed[0]
+    torch.testing.assert_close(out[:, :TOKENS_PER_CAMERA], expected_first)
+
+
+def test_rt_each_encoder_sees_exactly_one_frame():
+    backbone = _rt_backbone(roles=(FRONT, LEFT))
+    seen = []
+    for module in backbone.image_encoders.values():
+        module.register_forward_pre_hook(
+            lambda _m, args, seen=seen: seen.append(tuple(args[0].shape))
+        )
+    backbone._encode_images(_rt_images(batch=2, cameras=2))
+    assert seen == [(2, 1, 3, 64, 64), (2, 1, 3, 64, 64)]
+
+
+def test_rt_wrong_camera_count_raises():
+    backbone = _rt_backbone(roles=(FRONT, LEFT))
+    with pytest.raises(ValueError, match="2 cameras"):
+        backbone._encode_images(_rt_images(batch=2, cameras=1))
+
+
+def test_rt_duplicate_roles_raise():
+    with pytest.raises(ValueError, match="duplicate"):
+        _rt_backbone(roles=(FRONT, FRONT))
+
+
+def test_rt_backbone_parameters_are_the_resnet_trunks_only():
+    backbone = _rt_backbone(roles=(FRONT,))
+    ids = {id(p) for p in backbone.backbone_parameters()}
+    front = backbone.image_encoders[ResNetTextBackbone._role_key(FRONT)]
+    assert ids == {id(p) for p in front.net.parameters()}
+    assert not ids & {id(p) for p in backbone.text_encoder.parameters()}
+    assert not ids & {id(p) for p in front.proj.parameters()}
+
+
+def test_rt_forward_returns_one_context_per_layer():
+    backbone = _rt_backbone(roles=(FRONT,), num_layers=4)
+    contexts, mask = backbone(_rt_images(batch=2, cameras=1), ["fold clothes"] * 2)
+    assert len(contexts) == 4
+    expected = (2, TOKENS_PER_CAMERA + 2, RT_HIDDEN)  # "fold clothes" -> 2 tokens
+    assert all(context.shape == expected for context in contexts)
+    assert mask.shape == (2, TOKENS_PER_CAMERA + 2)
+    assert mask.dtype == torch.bool
+
+
+def test_rt_images_come_before_text_in_the_context():
+    backbone = _rt_backbone(roles=(FRONT,), num_layers=2)
+    images = _rt_images(batch=2, cameras=1)
+    contexts, _ = backbone(images, ["fold clothes"] * 2)
+    torch.testing.assert_close(
+        contexts[0][:, :TOKENS_PER_CAMERA], backbone._encode_images(images)
+    )
+
+
+def test_rt_mask_is_true_on_images_and_on_real_text_only():
+    backbone = _rt_backbone(roles=(FRONT,), num_layers=2)
+    # Two prompts of different length -> the shorter one is left-padded.
+    _, mask = backbone(
+        _rt_images(batch=2, cameras=1), ["fold clothes", "pick up the cup"]
+    )
+    assert mask[:, :TOKENS_PER_CAMERA].all()
+    text = mask[:, TOKENS_PER_CAMERA:]
+    assert text.shape[1] == 3  # longest prompt
+    assert text[0].tolist() == [False, True, True]  # left-padded to 3
+    assert text[1].all()
+
+
+def test_rt_contexts_share_one_tensor():
+    backbone = _rt_backbone(roles=(FRONT,), num_layers=4)
+    contexts, _ = backbone(_rt_images(), ["fold clothes"] * 2)
+    assert all(context is contexts[0] for context in contexts)
+
+
+def test_rt_text_dim_mismatch_raises():
+    with pytest.raises(ValueError, match="hidden_size"):
+        ResNetTextBackbone(
+            camera_roles=[FRONT],
+            text_encoder=StubTextEncoder(output_dim=8, hidden_size=RT_TEXT_HIDDEN),
+            hidden_size=RT_HIDDEN,
+            weights=None,
+        )
