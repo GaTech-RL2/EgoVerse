@@ -31,6 +31,13 @@ seed: 42
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:
   norm_mode: quantile
+  # true: one set of stats per channel over the whole action chunk (openpi,
+  # RDT, GR00T, Diffusion Policy, lerobot); false: per (timestep, channel)
+  # cell, which keeps resolution on the near-future steps of a relative-frame
+  # chunk (TRI's LBM makes the same choice for the same reason). Turn it on
+  # for checkpoint parity with an openpi-shaped recipe; the two have not been
+  # compared on a real run here.
+  pool_horizon: false
   sample_frac: 1.0
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}
