@@ -270,7 +270,7 @@ class BaseActionConverter:
 # ============================================================
 
 
-class RobotBimanualCartesianEuler(BaseActionConverter):
+class RobotBimanualCartesian6D(BaseActionConverter):
     """
     Native: (B,S,20) = [L xyz(3) 6d(6) g(1) | R xyz(3) 6d(6) g(1)]
     32-pack: left block 0..9, right block 10..19, zero pad 20..31
@@ -301,7 +301,7 @@ class RobotBimanualCartesianEuler(BaseActionConverter):
 # ============================================================
 
 
-class HumanBimanualCartesianEuler(BaseActionConverter):
+class HumanBimanualCartesian6D(BaseActionConverter):
     """
     Native: (B,S,18) = [L xyz(3) 6d(6) | R xyz(3) 6d(6)]  (no gripper)
     32-pack: left block 0..9 (g=0), right block 10..19 (g=0), zero pad 20..31
