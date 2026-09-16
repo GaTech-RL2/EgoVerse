@@ -2,11 +2,19 @@ defaults:
   - pi0.5_base
   - _self_
 
+# pi0.5 cotrain: eva on the cam-frame cartesian 6D action (20-D, packed into
+# the canonical 32-slot block layout and zero-padded), human on the 144-D
+# wrist-frame hand-keypoint action (data/cotrain_pi_base.yaml). The action
+# vector is 144 wide; PI re-initializes openpi's two action projections at
+# that width, everything else loads from pi05_base.
 robomimic_model:
   camera_transforms: {}
+  config:
+    model:
+      action_dim: 144
   ac_keys:
     eva_bimanual: "actions_cartesian"
-    human_bimanual: "actions_cartesian"
+    human_bimanual: "actions_keypoints"
   domains: ["eva_bimanual", "human_bimanual"]
 
   action_converters:
@@ -14,7 +22,7 @@ robomimic_model:
       EVA_BIMANUAL:
         _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
       HUMAN_BIMANUAL:
-        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+        _target_: egomimic.utils.action_utils.HumanBimanualKeypoints
     # optional fallback if no match is found
     fallback:
       _target_: egomimic.utils.action_utils.BaseActionConverter

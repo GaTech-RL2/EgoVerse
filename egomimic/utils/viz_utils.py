@@ -311,7 +311,11 @@ def _viz_keypoints(
     vis = base.copy()
     h, w = vis.shape[:2]
 
-    if actions.shape[-1] == 140:
+    if actions.shape[-1] == 144:
+        _, _, left_keypoints, _, _, right_keypoints = _split_keypoints(
+            actions, wrist_in_data=True, is_rot6d=True
+        )
+    elif actions.shape[-1] == 140:
         _, _, left_keypoints, _, _, right_keypoints = _split_keypoints(
             actions, wrist_in_data=True
         )
