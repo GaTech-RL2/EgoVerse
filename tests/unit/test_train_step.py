@@ -9,6 +9,7 @@ import math
 import os
 
 import pytest
+import torch
 from fixtures.recipes import (
     RECIPES,
     common_overrides,
@@ -89,6 +90,50 @@ def test_hpt_train_step(tmp_path, monkeypatch, vendor):
     assert (
         expected <= seen
     ), f"{vendor}/hpt missing {expected - seen}; saw {sorted(seen)}"
+
+
+def test_hpt_builds_the_policy_on_cpu_while_gpus_are_visible(tmp_path, monkeypatch):
+    """Under submitit every rank sees all 8 GPUs, so an algo that picks its own
+    construction device puts all 8 policies on cuda:0 and OOMs at 3B. Lightning
+    owns the move, so nothing may leave CPU in ``__init__``."""
+    hermetic_env(monkeypatch)
+    recipe = RECIPES[("aria", "hpt")]
+    data, out, hashes = write_fixtures(tmp_path, "aria")
+    cfg = compose_recipe(
+        recipe,
+        common_overrides(
+            recipe.embodiment,
+            data,
+            out,
+            batch_size=2,
+            num_workers=0,
+            episode_hashes=hashes,
+        )
+        + cpu_trainer_overrides(STEPS)
+        + hpt_small_overrides(recipe.embodiment),
+        out,
+    )
+
+    built = {}
+    init = HPT.__init__
+
+    def spy(self, *args, **kwargs):
+        # Only __init__ sees the GPUs: faking them for the whole run would send
+        # the rest of the stack down CUDA paths this CPU tier cannot take.
+        with monkeypatch.context() as gpus_visible:
+            gpus_visible.setattr(torch.cuda, "is_available", lambda: True)
+            gpus_visible.setattr(torch.cuda, "device_count", lambda: 8)
+            init(self, *args, **kwargs)
+        built["param_devices"] = {p.device.type for p in self.nets.parameters()}
+        built["algo_device"] = self.device
+        built["policy_device"] = self.nets["policy"].device
+
+    monkeypatch.setattr(HPT, "__init__", spy)
+    _run(cfg)
+
+    assert built["param_devices"] == {"cpu"}
+    assert built["algo_device"] is None
+    assert built["policy_device"] is None
 
 
 @pytest.mark.parametrize("vendor", VENDOR_NAMES)
