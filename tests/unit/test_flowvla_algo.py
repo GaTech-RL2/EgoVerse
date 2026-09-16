@@ -1,4 +1,4 @@
-"""QwenVLA algo on the fake VLM: prompts, batch conversion, train / eval paths."""
+"""FlowVLA algo on the fake VLM: prompts, batch conversion, train / eval paths."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ import pytest
 import torch
 from fixtures.fake_qwen35 import STUB_IMAGE_SIZE, install_fake_qwen35
 
-from egomimic.algo.qwenvla import QwenVLA
+from egomimic.algo.flowvla import FlowVLA
+from egomimic.models.flowvla_nets import QwenVLBackbone
 from egomimic.models.layerwise_dit import LayerwiseFMHead
-from egomimic.models.qwenvla_nets import QwenVLBackbone
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 EMB = "human_bimanual"
@@ -42,7 +42,7 @@ class _StubNormStats:
         return {k: v * 2.0 for k, v in predictions.items()}
 
 
-def _algo(snapshot, history_len: int = 1, **kwargs) -> QwenVLA:
+def _algo(snapshot, history_len: int = 1, **kwargs) -> FlowVLA:
     torch.manual_seed(0)
     backbone = QwenVLBackbone(
         model_name=snapshot, dtype="float32", image_size=STUB_IMAGE_SIZE
@@ -69,7 +69,7 @@ def _algo(snapshot, history_len: int = 1, **kwargs) -> QwenVLA:
         device=torch.device("cpu"),
     )
     defaults.update(kwargs)
-    return QwenVLA(**defaults)
+    return FlowVLA(**defaults)
 
 
 def _raw_batch(K: int = 1, annotations=None) -> dict:
@@ -191,7 +191,7 @@ def test_action_wider_than_action_width_is_rejected(snapshot):
 
 def test_backbone_parameters_go_to_the_vlm_lr_group(snapshot):
     algo = _algo(snapshot)
-    vlm = algo.nets["policy"].encoders["vlm"]
+    vlm = algo.nets["policy"].encoders["backbone"]
     assert vlm.backbone_parameters() and all(
         p.requires_grad for p in vlm.backbone_parameters()
     )

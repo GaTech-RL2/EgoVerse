@@ -26,7 +26,7 @@
 #   model.robomimic_model.history_len=K
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.qwenvla.QwenVLA
+  _target_: egomimic.algo.flowvla.FlowVLA
   domains: ["human_bimanual"]
   dims:
     human_bimanual: {proprio: 20, action: 18}
@@ -53,7 +53,7 @@ robomimic_model:
   history_dropout: 0.2
 
   backbone:
-    _target_: egomimic.models.qwenvla_nets.QwenVLBackbone
+    _target_: egomimic.models.flowvla_nets.QwenVLBackbone
     model_name: "Qwen/Qwen3.5-0.8B"
     dtype: "float32"
     freeze: false

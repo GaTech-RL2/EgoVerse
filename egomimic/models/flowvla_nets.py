@@ -1,4 +1,4 @@
-"""QwenVLA: Qwen 3.5 backbone + layer-wise cross-DiT head (starVLA QwenPI port).
+"""FlowVLA: Qwen 3.5 backbone + layer-wise cross-DiT head (starVLA QwenPI port).
 
 ``QwenVLBackbone`` reuses ``Qwen35VLMEncoder``'s loading, freezing, dtype and
 pretrained-weight bookkeeping and changes two things: the chat turn holds
@@ -21,7 +21,7 @@ from egomimic.models.layerwise_dit import LayerwiseFMHead
 
 
 class QwenVLBackbone(Qwen35VLMEncoder):
-    """Qwen 3.5 as the QwenVLA backbone.
+    """Qwen 3.5 as the FlowVLA backbone.
 
     Args (beyond ``Qwen35VLMEncoder``): ``gradient_checkpointing`` is applied
     to the VLM whenever any of it trains; ``num_layers`` (default: the text
@@ -158,15 +158,21 @@ class QwenVLBackbone(Qwen35VLMEncoder):
         return [h.float() for h in hidden], mask
 
 
-class QwenVLAModel(nn.Module):
-    """``backbone`` + ``head``; ``encoders`` is the plain dict
-    ``ModelWrapper._backbone_param_groups`` reads for the VLM LR group."""
+class FlowVLAModel(nn.Module):
+    """``backbone`` + ``head``.
 
-    def __init__(self, backbone: QwenVLBackbone, head: LayerwiseFMHead) -> None:
+    ``backbone`` is any module exposing ``forward(images, prompts) -> (contexts,
+    mask)``, ``hidden_size``, ``num_layers`` and ``backbone_parameters()``;
+    ``QwenVLBackbone`` and ``ResNetTextBackbone`` are the two implementations.
+    ``encoders`` is the plain dict ``ModelWrapper._backbone_param_groups`` reads
+    for the backbone LR group.
+    """
+
+    def __init__(self, backbone: nn.Module, head: LayerwiseFMHead) -> None:
         super().__init__()
         self.backbone = backbone
         self.head = head
-        self.encoders = {"vlm": backbone}
+        self.encoders = {"backbone": backbone}
 
     def encode(self, data: dict):
         return self.backbone(data["images"], data["prompts"])

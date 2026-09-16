@@ -1,4 +1,4 @@
-"""QwenVLBackbone (Qwen 3.5, multi-frame, all layers) + QwenVLAModel on a fake VLM."""
+"""QwenVLBackbone (Qwen 3.5, multi-frame, all layers) + FlowVLAModel on a fake VLM."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ from fixtures.fake_qwen35 import (
     install_fake_qwen35,
 )
 
+from egomimic.models.flowvla_nets import FlowVLAModel, QwenVLBackbone
 from egomimic.models.hpt_nets import verify_pretrained_weights
 from egomimic.models.layerwise_dit import LayerwiseFMHead
-from egomimic.models.qwenvla_nets import QwenVLAModel, QwenVLBackbone
 
 B, T, W = 2, 4, 6
 
@@ -98,7 +98,7 @@ def test_backbone_passes_the_weight_hash_check(snapshot):
     verify_pretrained_weights(_backbone(snapshot), verbose=False)
 
 
-def _model(snapshot, **head_kwargs) -> QwenVLAModel:
+def _model(snapshot, **head_kwargs) -> FlowVLAModel:
     backbone = _backbone(snapshot)
     torch.manual_seed(0)
     head = LayerwiseFMHead(
@@ -113,7 +113,7 @@ def _model(snapshot, **head_kwargs) -> QwenVLAModel:
         num_inference_steps=2,
         **head_kwargs,
     )
-    return QwenVLAModel(backbone, head)
+    return FlowVLAModel(backbone, head)
 
 
 def _data() -> dict:
@@ -130,7 +130,7 @@ def _data() -> dict:
 
 def test_model_loss_and_sample(snapshot):
     model = _model(snapshot)
-    assert model.encoders["vlm"] is model.backbone
+    assert model.encoders["backbone"] is model.backbone
     model.train()
     loss = model.compute_loss(_data())
     assert torch.isfinite(loss)

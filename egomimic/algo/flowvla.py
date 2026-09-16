@@ -1,4 +1,4 @@
-"""QwenVLA: Qwen 3.5 VLM + layer-wise cross-DiT flow head (starVLA QwenPI port).
+"""FlowVLA: Qwen 3.5 VLM + layer-wise cross-DiT flow head (starVLA QwenPI port).
 
 Design: docs/hpt-experiments/2026-09-16_qwenvla_design.md. Modeled on the PI
 algo (prompt assembly with an embodiment block, one loop per embodiment,
@@ -19,16 +19,16 @@ from overrides import override
 
 from egomimic.algo.algo import Algo
 from egomimic.algo.eval_determinism import DeterministicEvalMixin
+from egomimic.models.flowvla_nets import FlowVLAModel
 from egomimic.models.hpt_nets import verify_pretrained_weights
 from egomimic.models.image_augs import PerSampleAugs
-from egomimic.models.qwenvla_nets import QwenVLAModel, QwenVLBackbone
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_utils import pad_to_width
 
 logger = logging.getLogger(__name__)
 
 
-class QwenVLA(DeterministicEvalMixin, Algo):
+class FlowVLA(DeterministicEvalMixin, Algo):
     @property
     def device(self):
         return self._device
@@ -45,7 +45,7 @@ class QwenVLA(DeterministicEvalMixin, Algo):
     def __init__(
         self,
         norm_stats,
-        backbone: QwenVLBackbone,
+        backbone: nn.Module,  # any module satisfying the FlowVLAModel contract
         head,  # functools.partial of LayerwiseFMHead (hydra ``_partial_: true``)
         domains: list,
         dims: dict,
@@ -87,7 +87,7 @@ class QwenVLA(DeterministicEvalMixin, Algo):
         )
         self.eval_image_augs = eval_image_augs
         self.is_6dof = kwargs.get("6dof", False)
-        # Read by eval_hpt.py; QwenVLA has one head, no auxiliary / shared keys.
+        # Read by eval_hpt.py; FlowVLA has one head, no auxiliary / shared keys.
         self.shared_ac_key = None
         self.auxiliary_ac_keys = {}
         # Construct on the CPU. Lightning learns each rank's GPU only after the
@@ -110,7 +110,7 @@ class QwenVLA(DeterministicEvalMixin, Algo):
             history_len=history_len,
             history_dropout=history_dropout,
         )
-        self.nets["policy"] = QwenVLAModel(backbone, head_module)
+        self.nets["policy"] = FlowVLAModel(backbone, head_module)
         self.nets = self.nets.float().to(self._device)
         verify_pretrained_weights(self.nets["policy"])
 
@@ -215,7 +215,7 @@ class QwenVLA(DeterministicEvalMixin, Algo):
         return images
 
     def _to_model_data(self, _batch: dict, embodiment_id: int) -> dict:
-        """Processed batch -> the dict ``QwenVLAModel`` consumes."""
+        """Processed batch -> the dict ``FlowVLAModel`` consumes."""
         name = get_embodiment(embodiment_id).lower()
         frames = [
             self._apply_image_augs(_batch[key])

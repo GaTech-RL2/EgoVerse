@@ -1,4 +1,4 @@
-"""QwenVLA configs compose, wire the algo, and train two stub steps."""
+"""FlowVLA configs compose, wire the algo, and train two stub steps."""
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ def _compose(config_name: str, overrides: list[str]):
 
 def test_0p8b_config_wires_the_algo():
     rm = _compose("train_zarr_cartesian", [f"model={MODEL}"]).model.robomimic_model
-    assert rm._target_ == "egomimic.algo.qwenvla.QwenVLA"
-    assert rm.backbone._target_ == "egomimic.models.qwenvla_nets.QwenVLBackbone"
+    assert rm._target_ == "egomimic.algo.flowvla.FlowVLA"
+    assert rm.backbone._target_ == "egomimic.models.flowvla_nets.QwenVLBackbone"
     assert rm.backbone.model_name == "Qwen/Qwen3.5-0.8B"
     assert rm.backbone.freeze is False and rm.backbone.dtype == "float32"
     assert rm.backbone.image_size == [352, 640]
@@ -57,7 +57,7 @@ def test_cotrain_config_shares_one_padded_action_width():
 
 def test_flagship_recipe_selects_qwenvla_and_the_hpt_evaluator():
     cfg = _compose("train_zarr_mecka_flagship_6d_qwenvla", [])
-    assert cfg.model.robomimic_model._target_ == "egomimic.algo.qwenvla.QwenVLA"
+    assert cfg.model.robomimic_model._target_ == "egomimic.algo.flowvla.FlowVLA"
     assert cfg.evaluator._target_ == "egomimic.eval.eval_hpt.HPTEvalVideo"
     assert cfg.model.backbone_lr_scale == 0.1
     assert cfg.model.optimizer.lr == 1e-4
@@ -80,7 +80,7 @@ def test_kp_config_is_the_0p8b_on_the_144d_keypoint_action():
 @pytest.mark.parametrize(
     "recipe, target",
     [
-        ("train_zarr_mecka_flagship_kp_qwenvla", "egomimic.algo.qwenvla.QwenVLA"),
+        ("train_zarr_mecka_flagship_kp_qwenvla", "egomimic.algo.flowvla.FlowVLA"),
         ("train_zarr_mecka_flagship_kp_hpt", "egomimic.algo.hpt.HPT"),
     ],
 )
