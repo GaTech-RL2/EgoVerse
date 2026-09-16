@@ -1,12 +1,41 @@
 defaults:
   - hpt_cotrain_enc_dec_base
 
+# Separate-head cotrain: eva on the base's 14-D joint-position action
+# (`actions_joints` ac_key), human on the 144-D wrist-frame hand-keypoint
+# action through a `state_keypoints` stem; the base's `state_ee_pose` stem is
+# dropped (null) so a keypoint data config's extra ee_pose proprio is ignored.
+# No shipped HPT cotrain data config emits this pairing yet; build one from a
+# per-vendor keypoint config plus data/eva.yaml (whose eva action is the 20-D
+# wrist-frame 6D layout, so override dims.eva_bimanual to match). The
+# shared-head cotrain configs (hpt_cotrain_*_shared_head) need one action
+# space and stay cartesian on both sides.
 robomimic_model:
   domains: ["eva_bimanual", "human_bimanual"]
-  diffusion: true 
+  diffusion: true
+  dims:
+    human_bimanual: {proprio: 144, action: 144}
+  ac_keys:
+    human_bimanual: "actions_keypoints"
+  stem_specs:
+    human_bimanual:
+      state_ee_pose: null
+      state_keypoints:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: ${model.robomimic_model.dims.human_bimanual.proprio}
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
   head_specs:
     shared: null
-    human_bimanual: 
+    human_bimanual:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
@@ -26,7 +55,7 @@ robomimic_model:
         mlp_layers: 4
         mlp_ratio: 4
 
-    eva_bimanual: 
+    eva_bimanual:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
@@ -43,9 +72,9 @@ robomimic_model:
         act_seq: 100
         n_heads: 4
         dropout: 0.1
-        mlp_layers: 4 
+        mlp_layers: 4
         mlp_ratio: 4
-        
+
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true

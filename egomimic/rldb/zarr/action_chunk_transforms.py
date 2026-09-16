@@ -33,6 +33,7 @@ from egomimic.utils.pose_utils import (
     _xyzwxyz_to_matrix,
     _xyzypr_to_matrix,
     _ypr_to_rot6d,
+    bimanual_keypoint_layout,
     wxyz_to_xyzw,
     xyzw_to_wxyz,
 )
@@ -489,6 +490,74 @@ class CartesianRot6DToYPR(Transform):
                 f"for '{self.action_key}'"
             )
         batch[self.output_key] = _like_input(out, is_tensor)
+        return batch
+
+
+class KeypointsYPRToRot6D(Transform):
+    """Convert a wrist-first bimanual keypoint vector from a ypr wrist rotation
+    to the continuous 6D one: per hand
+    ``[wrist xyz (3) | wrist ypr (3) | 21 keypoints (63)]`` (138 total) ->
+    ``[wrist xyz (3) | wrist rot6d (6) | 21 keypoints (63)]`` (144 total).
+    The keypoint blocks are copied through untouched. Works on action chunks
+    ``(T, 138)`` and single proprio vectors ``(138,)``.
+    """
+
+    def __init__(
+        self, action_key: str = "actions_keypoints", output_key: str | None = None
+    ):
+        self.action_key = action_key
+        self.output_key = output_key or action_key
+
+    def transform(self, batch: dict) -> dict:
+        arr, is_tensor = _as_array(batch[self.action_key])
+        if arr.shape[-1] != 138:
+            raise ValueError(
+                f"KeypointsYPRToRot6D expects last-dim 138, got {arr.shape} for "
+                f"'{self.action_key}'"
+            )
+        layout = bimanual_keypoint_layout(138)
+        per_hand, n_rot = layout["per_hand"], len(layout["rot"]) // 2
+        blocks = []
+        for hand in range(2):
+            o = hand * per_hand
+            xyz = len(layout["wrist_xyz"]) // 2
+            blocks += [
+                arr[..., o : o + xyz],
+                _ypr_to_rot6d(arr[..., o + xyz : o + xyz + n_rot]),
+                arr[..., o + xyz + n_rot : o + per_hand],
+            ]
+        batch[self.output_key] = _like_input(np.concatenate(blocks, axis=-1), is_tensor)
+        return batch
+
+
+class KeypointsRot6DToYPR(Transform):
+    """Inverse of :class:`KeypointsYPRToRot6D`: 144 -> 138 (wrist rot6d ->
+    ypr via Gram-Schmidt, keypoints untouched)."""
+
+    def __init__(
+        self, action_key: str = "actions_keypoints", output_key: str | None = None
+    ):
+        self.action_key = action_key
+        self.output_key = output_key or action_key
+
+    def transform(self, batch: dict) -> dict:
+        arr, is_tensor = _as_array(batch[self.action_key])
+        layout = bimanual_keypoint_layout(arr.shape[-1])
+        if layout is None or arr.shape[-1] != 144:
+            raise ValueError(
+                f"KeypointsRot6DToYPR expects last-dim 144, got {arr.shape} for "
+                f"'{self.action_key}'"
+            )
+        per_hand = layout["per_hand"]
+        blocks = []
+        for hand in range(2):
+            o = hand * per_hand
+            blocks += [
+                arr[..., o : o + 3],
+                _rot6d_to_ypr(arr[..., o + 3 : o + 9]),
+                arr[..., o + 9 : o + per_hand],
+            ]
+        batch[self.output_key] = _like_input(np.concatenate(blocks, axis=-1), is_tensor)
         return batch
 
 

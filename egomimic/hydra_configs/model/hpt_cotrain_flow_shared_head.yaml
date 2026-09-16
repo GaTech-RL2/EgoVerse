@@ -13,7 +13,8 @@ robomimic_model:
   # Shared head: every embodiment's actions are zero-padded to action_width, so
   # the per-embodiment action widths inherited from the base follow it.
   dims:
-    action_width: 14
+    # eva cartesian_6d is 20-D; the human 18-D action zero-pads up to it.
+    action_width: 20
     eva_bimanual:
       action: ${model.robomimic_model.dims.action_width}
     human_bimanual:
