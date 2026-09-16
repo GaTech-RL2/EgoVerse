@@ -167,3 +167,77 @@ def test_bounds_check_ignores_constant_cells():
     assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is None
     arr[1, 0] = 50.0  # corrupt value at a regular cell: still rejected
     assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is not None
+
+
+# ------------------------------------------------------- rollout reverts
+def _rand_pose7(rng):
+    from scipy.spatial.transform import Rotation as R
+
+    q = R.random(random_state=int(rng.integers(1 << 31))).as_quat()
+    return np.concatenate([rng.uniform(-0.5, 0.5, 3), q[[3, 0, 1, 2]]])
+
+
+def _rand_chunk7(rng, start, n=45):
+    from scipy.spatial.transform import Rotation as R
+
+    out = np.zeros((n, 7))
+    p, r = start[:3].copy(), R.from_quat(start[[4, 5, 6, 3]])
+    for t in range(n):
+        if t:
+            p = p + rng.normal(0, 0.01, 3)
+            r = R.from_rotvec(rng.normal(0, 0.05, 3)) * r
+        out[t] = np.concatenate([p, r.as_quat()[[3, 0, 1, 2]]])
+    return out
+
+
+# Compared against cartesian_6d, so that mode is the reference, not a case.
+@pytest.mark.parametrize(
+    "mode", ["cartesian_wristframe_ypr", "cartesian_wristframe_6d"]
+)
+def test_eva_revert_for_rollout_recovers_camframe_ypr(mode):
+    """rollout.py feeds Eva.get_transform_list(mode) outputs to the model and
+    Eva.get_revert_transform_list(mode) must bring predictions back to the
+    same cam-frame xyz+ypr+gripper (14-D) whatever the training mode."""
+    from scipy.spatial.transform import Rotation as R
+
+    from egomimic.rldb.embodiment.embodiment import Embodiment
+
+    rng = np.random.default_rng(3)
+    lobs, robs = _rand_pose7(rng), _rand_pose7(rng)
+    raw = {
+        "left.obs_ee_pose": lobs,
+        "right.obs_ee_pose": robs,
+        "left.cmd_ee_pose": _rand_chunk7(rng, lobs),
+        "right.cmd_ee_pose": _rand_chunk7(rng, robs),
+        "left.obs_gripper": np.array([0.2]),
+        "right.obs_gripper": np.array([0.8]),
+        "left.cmd_gripper": rng.uniform(0, 1, (45, 1)),
+        "right.cmd_gripper": rng.uniform(0, 1, (45, 1)),
+    }
+
+    def run(m):
+        s = {k: v.copy() for k, v in raw.items()}
+        for t in Eva.get_transform_list(m):
+            s = t.transform(s)
+        batch = {
+            "actions_cartesian": torch.as_tensor(s["actions_cartesian"])[None],
+            "observations.state.ee_pose": torch.as_tensor(
+                s["observations.state.ee_pose"]
+            )[None],
+        }
+        rev = Eva.get_revert_transform_list(m)
+        if rev is not None:
+            batch = Embodiment.apply_transform(batch, rev)
+        return np.asarray(batch["actions_cartesian"][0], dtype=np.float64)
+
+    assert Eva.get_revert_transform_list("cartesian") is None
+    got, ref = run(mode), run("cartesian_6d")
+    assert got.shape == ref.shape == (100, 14)
+    for off in (0, 7):
+        np.testing.assert_allclose(
+            got[:, off : off + 3], ref[:, off : off + 3], atol=1e-5
+        )
+        np.testing.assert_allclose(got[:, off + 6], ref[:, off + 6], atol=1e-5)
+        Rg = R.from_euler("ZYX", got[:, off + 3 : off + 6]).as_matrix()
+        Rr = R.from_euler("ZYX", ref[:, off + 3 : off + 6]).as_matrix()
+        np.testing.assert_allclose(Rg, Rr, atol=1e-4)
