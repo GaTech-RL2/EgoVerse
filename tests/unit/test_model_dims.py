@@ -37,21 +37,27 @@ HPT_CONFIGS = sorted(
     if _target(p.stem) == "egomimic.algo.hpt.HPT" and p.stem != "egobridge"
 )
 
-COTRAIN = {"eva_bimanual": (14, 14), "human_bimanual": (12, 12)}
+COTRAIN = {"eva_bimanual": (14, 14), "human_bimanual": (20, 18)}
 # One shared head: human actions are zero-padded to its width.
-SHARED = (14, {"eva_bimanual": (14, 14), "human_bimanual": (12, 14)})
+SHARED = (20, {"eva_bimanual": (14, 20), "human_bimanual": (20, 20)})
 
 # {config: (action_width or None, {emb: (proprio, action)})}; None = no shared
 # head, so no action_width key.
 EXPECTED = {
     "hpt_bc_flow_eva": (None, {"eva_bimanual": (20, 20)}),
-    "hpt_bc_flow_aria": (None, {"human_bimanual": (20, 18)}),
-    "hpt_bc_flow_human": (None, {"human_bimanual": (20, 18)}),
-    "hpt_bc_flow_mecka": (None, {"human_bimanual": (20, 18)}),
-    "hpt_bc_flow_scale": (None, {"human_bimanual": (20, 18)}),
-    "hpt_bc_keypoints_base": (None, {"human_bimanual": (138, 138)}),
+    # Human data defaults to the 144-D wrist-frame hand-keypoint action.
+    "hpt_bc_flow_aria": (None, {"human_bimanual": (144, 144)}),
+    "hpt_bc_flow_human": (None, {"human_bimanual": (144, 144)}),
+    "hpt_bc_flow_mecka": (None, {"human_bimanual": (144, 144)}),
+    "hpt_bc_flow_scale": (None, {"human_bimanual": (144, 144)}),
+    "hpt_bc_flow_human_cartesian": (None, {"human_bimanual": (20, 18)}),
+    "hpt_bc_keypoints_base": (None, {"human_bimanual": (144, 144)}),
     "hpt_cotrain_enc_dec_base": (None, COTRAIN),
-    "hpt_cotrain_flow_seperate_head": (None, COTRAIN),
+    # Separate heads: the human head follows the keypoint default.
+    "hpt_cotrain_flow_seperate_head": (
+        None,
+        {"eva_bimanual": (14, 14), "human_bimanual": (144, 144)},
+    ),
     "hpt_cotrain_flow_shared_head": SHARED,
     "hpt_cotrain_mecka_flow_shared_head": SHARED,
     "hpt_cotrain_scale_flow_shared_head": SHARED,
@@ -71,6 +77,8 @@ def _width_leaves(rm):
     should read: ``<emb>.proprio``, ``<emb>.action`` or ``action_width``."""
     for emb, stems in (rm.get("stem_specs") or {}).items():
         for key, stem in (stems or {}).items():
+            if stem is None:
+                continue  # a child config dropping a base stem
             if key.startswith("state_"):
                 path = f"stem_specs.{emb}.{key}.input_dim"
                 yield path, stem["input_dim"], f"{emb}.proprio"

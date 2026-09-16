@@ -25,7 +25,7 @@ from egomimic.models.preprocess_pi_obs import (
     gather_pi_images,
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.utils.action_utils import ConverterRegistry
+from egomimic.utils.action_utils import ConverterRegistry, pad_to_width
 
 logger = logging.getLogger(__name__)
 # Ensure logger propagates to root logger and has appropriate level
@@ -142,6 +142,7 @@ class PI(Algo):
         self.action_converters = action_converters
 
         self.action_registry = ConverterRegistry()
+        self._packed_widths: dict[tuple, int] = {}
 
         arcfg = self.action_converters
         default_ac_key = getattr(arcfg, "ac_key", "actions_cartesian")
@@ -195,8 +196,44 @@ class PI(Algo):
                 "No pytorch_weight_path: no base weights loaded. The weights must "
                 "come from a checkpoint; otherwise this trains from scratch."
             )
+        # openpi's PyTorch port hard-codes 32-wide action projections
+        # regardless of ``Pi0Config.action_dim``. Wider action spaces (the
+        # 144-D hand-keypoint action, or a cotrain that pads eva's 20-D into
+        # the same vector) need ``action_dim``-wide ones, swapped in AFTER the
+        # (strict) base-weight load. Only these two layers start fresh;
+        # ``sample_actions`` already draws its noise at ``config.action_dim``.
+        self.action_dim = int(self.config.model.action_dim)
+        if self.action_dim != 32:
+            self._resize_action_projections(self.action_dim)
         self.nets = nn.ModuleDict()
         self.nets["policy"] = self.model
+
+    def _resize_action_projections(self, action_dim: int) -> None:
+        target = (
+            self.model.module
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else self.model
+        )
+        old_in, old_out = target.action_in_proj, target.action_out_proj
+        width = old_in.out_features
+        new_in = nn.Linear(action_dim, width).to(
+            dtype=old_in.weight.dtype, device=old_in.weight.device
+        )
+        new_out = nn.Linear(width, action_dim).to(
+            dtype=old_out.weight.dtype, device=old_out.weight.device
+        )
+        target.action_in_proj = new_in
+        target.action_out_proj = new_out
+        logger.warning(
+            "action_dim=%d != 32: re-initialized action_in_proj (%d->%d) and "
+            "action_out_proj (%d->%d); the pretrained 32-wide projections are "
+            "discarded, everything else comes from the base checkpoint.",
+            action_dim,
+            action_dim,
+            width,
+            width,
+            action_dim,
+        )
 
     def _control_mode_for(self, emb_name: str | None) -> str:
         if self.control_mode and emb_name is not None:
@@ -479,19 +516,40 @@ class PI(Algo):
         return unnorm_preds
 
     def _reduce_loss(self, losses, action, embodiment_id, ac_key) -> torch.Tensor:
-        """Mean flow-matching loss for the embodiment."""
+        """Mean flow-matching loss over the embodiment's packed action width.
+
+        openpi returns the per-element loss ``(B, H, action_dim)``. With
+        ``action_dim`` widened for the 144-D keypoint action, a narrower
+        embodiment (eva's 32-slot cartesian layout) would otherwise average
+        its loss over 112 zero-padded "predict the noise" dims and contribute
+        a fraction of the gradient signal it had at width 32; restrict the
+        mean to the slots the converter actually packs.
+        """
         if isinstance(losses, (list, tuple)):
             losses = torch.stack(losses)
         elif not isinstance(losses, torch.Tensor):
             losses = torch.tensor(losses, device=action.device, dtype=torch.float32)
+        if losses.ndim == 3:
+            losses = losses[..., : self._packed_width(action, embodiment_id, ac_key)]
         return losses.mean()
+
+    def _packed_width(self, action, embodiment_id, ac_key) -> int:
+        """Width the embodiment's converter packs into, cached per pairing: it
+        is a property of the converter, not of the batch."""
+        key = (embodiment_id, ac_key)
+        if key not in self._packed_widths:
+            converter = self.action_registry.get(embodiment_id, ac_key)
+            self._packed_widths[key] = int(
+                converter.to32_norm_6d(action[:1, :1]).shape[-1]
+            )
+        return self._packed_widths[key]
 
     def _postprocess_sampled_actions(self, pred_actions, _batch, embodiment_id, ac_key):
         """Raw ``sample_actions`` output -> unnormalized native action dict.
 
-        Unpack the normalized native action (xyz+6D(+gripper)) from the
-        model's action vector, then unnormalize via the standard pipeline
-        (stats were computed on the native layout)."""
+        Unpack the normalized native action (xyz+6D(+gripper) or the 144-D
+        keypoint vector) from the model's action vector, then unnormalize via
+        the standard pipeline (stats were computed on the native layout)."""
         ref = _batch[ac_key]
         _, T, D = ref.shape
         converter = self.action_registry.get(embodiment_id, ac_key)
@@ -549,7 +607,7 @@ class PI(Algo):
         return log
 
     def _robomimic_to_pi_data(self, batch, proprio_keys, lang_keys, ac_key, embodiment):
-        """Dataset batch -> (openpi observation, 32-D action chunk)."""
+        """Dataset batch -> (openpi observation, ``action_dim``-wide action chunk)."""
         if ac_key not in batch:
             raise KeyError(f"Missing action key '{ac_key}' in batch")
 
@@ -561,8 +619,8 @@ class PI(Algo):
         converter = self.action_registry.get(emb_id, ac_key)
         # The action is already normalized and in its native layout (the
         # ypr->6D conversion happened in the data transforms). Pack it into
-        # the canonical 32-slot block layout.
-        action32 = converter.to32_norm_6d(action)
+        # the canonical block layout and zero-pad up to the model width.
+        action32 = pad_to_width(converter.to32_norm_6d(action), self.action_dim)
 
         # OpenPI expects a fixed camera tuple under its own names. Human data
         # only has the front camera; the missing wrist slots get a copy of it
