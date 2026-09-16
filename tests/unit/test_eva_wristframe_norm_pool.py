@@ -1,4 +1,4 @@
-"""Horizon-pooled norm stats and the constant-channel normalization guard."""
+"""Eva wrist-frame defaults, horizon-pooled norm stats, per-segment L2 metrics."""
 
 import numpy as np
 import pytest
@@ -11,12 +11,23 @@ from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr import norm_cache
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver, MultiDataset
 
+EVA_WRIST_REVERT = "egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list"
+
 
 def _compose(name, overrides=()):
     with initialize_config_module(
         config_module="egomimic.hydra_configs", version_base=None
     ):
         return compose(config_name=name, overrides=list(overrides))
+
+
+@pytest.mark.parametrize("top", ["train_zarr_cartesian", "train_zarr_cartesian_pi"])
+def test_eva_defaults_are_wrist_frame_6d(top):
+    cfg = _compose(top)
+    eva = cfg.data.train_datasets.eva_bimanual
+    assert eva.resolver.transform_list.mode == "cartesian_wristframe_6d"
+    assert cfg.evaluator.transform_lists.eva_bimanual._target_ == EVA_WRIST_REVERT
+    assert cfg.norm_stats.pool_horizon is False
 
 
 def test_hpt_eva_dims_match_the_wrist_frame_6d_layout():
@@ -72,6 +83,30 @@ def test_pool_horizon_is_part_of_the_cache_key():
     assert norm_cache.norm_cache_key(
         norm_cache.cache_inputs(*args, pool_horizon=True)
     ) != norm_cache.norm_cache_key(norm_cache.cache_inputs(*args))
+
+
+def test_segment_l2_separates_early_from_late_error():
+    B, T = 2, 100
+    gt = torch.zeros(B, T, 20)
+    pred = gt.clone()
+    pred[:, :10, 0] = 0.03  # 3 cm on the left arm x, first 10 % only
+    m = cartesian_metrics(pred, gt, "p")
+    # mean over both arms: 3 cm on one of two
+    assert m["p_xyz_l2_early"].item() == pytest.approx(0.015)
+    assert m["p_xyz_l2_mid"].item() == pytest.approx(0.0)
+    assert m["p_xyz_l2_late"].item() == pytest.approx(0.0)
+
+
+def test_segment_l2_on_keypoints():
+    B, T = 1, 100
+    gt = torch.zeros(B, T, 144)
+    pred = gt.clone()
+    pred[:, 50:, 9:72] = 0.02  # every left-hand keypoint off by (2,2,2) cm late
+    m = keypoint_metrics(pred, gt, "k")
+    expected = 0.5 * float(np.linalg.norm([0.02] * 3))  # one hand of two
+    assert m["k_kp_l2_late"].item() == pytest.approx(expected, rel=1e-5)
+    assert m["k_kp_l2_early"].item() == pytest.approx(0.0)
+    assert m["k_wrist_xyz_l2_late"].item() == pytest.approx(0.0)
 
 
 # ------------------------------------------------- degenerate-range guard
@@ -132,39 +167,3 @@ def test_bounds_check_ignores_constant_cells():
     assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is None
     arr[1, 0] = 50.0  # corrupt value at a regular cell: still rejected
     assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is not None
-
-
-EVA_WRIST_REVERT = "egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list"
-
-
-@pytest.mark.parametrize("top", ["train_zarr_cartesian", "train_zarr_cartesian_pi"])
-def test_eva_defaults_are_wrist_frame_6d(top):
-    cfg = _compose(top)
-    eva = cfg.data.train_datasets.eva_bimanual
-    assert eva.resolver.transform_list.mode == "cartesian_wristframe_6d"
-    assert cfg.evaluator.transform_lists.eva_bimanual._target_ == EVA_WRIST_REVERT
-    assert cfg.norm_stats.pool_horizon is False
-
-
-def test_segment_l2_separates_early_from_late_error():
-    B, T = 2, 100
-    gt = torch.zeros(B, T, 20)
-    pred = gt.clone()
-    pred[:, :10, 0] = 0.03  # 3 cm on the left arm x, first 10 % only
-    m = cartesian_metrics(pred, gt, "p")
-    # mean over both arms: 3 cm on one of two
-    assert m["p_xyz_l2_early"].item() == pytest.approx(0.015)
-    assert m["p_xyz_l2_mid"].item() == pytest.approx(0.0)
-    assert m["p_xyz_l2_late"].item() == pytest.approx(0.0)
-
-
-def test_segment_l2_on_keypoints():
-    B, T = 1, 100
-    gt = torch.zeros(B, T, 144)
-    pred = gt.clone()
-    pred[:, 50:, 9:72] = 0.02  # every left-hand keypoint off by (2,2,2) cm late
-    m = keypoint_metrics(pred, gt, "k")
-    expected = 0.5 * float(np.linalg.norm([0.02] * 3))  # one hand of two
-    assert m["k_kp_l2_late"].item() == pytest.approx(expected, rel=1e-5)
-    assert m["k_kp_l2_early"].item() == pytest.approx(0.0)
-    assert m["k_wrist_xyz_l2_late"].item() == pytest.approx(0.0)

@@ -1,5 +1,6 @@
 """Wiring checks for the hand-keypoint default: recipes, stems, the mecka
-left-wrist fix in keypoint modes, and the packed-width loss reduction."""
+left-wrist fix in keypoint modes, the annotation-cutoff span filter and the
+train_viz second val loader."""
 
 from __future__ import annotations
 
@@ -84,7 +85,14 @@ def test_human_action_width_matches_data_mode(top, compose_resolve):
         ("pi0.5_bc_scale", "scale", []),
         ("pi0.5_cotrain_eva_aria", "cotrain_pi_base", []),
         ("pi0.5_cotrain_mecka_scale", "mecka_scale_cotrain_pi", []),
+        ("pi0.5_bc_mecka_6d", "mecka_all_6d", []),
         ("pi0.5_cotrain_eva_aria_6d", "cotrain_pi_lang", CAM_FRAME_COTRAIN),
+        ("hpt_bc_mecka_6d_300M", "mecka_fold_flagship_opsplit_hpt_6d", []),
+        (
+            "hpt_bc_keypoints_wrist_300M",
+            "mecka_fold_freeform_opsplit_hpt_keypoints",
+            [],
+        ),
     ],
 )
 def test_vendor_pairings_agree_on_the_human_action(model, data, extra, compose_resolve):
@@ -232,35 +240,6 @@ def test_fix_mecka_left_wrist_equals_reconverting_in_keypoint_mode():
         np.testing.assert_allclose(a[k], b[k], atol=1e-9, err_msg=k)
 
 
-def test_pi_loss_is_reduced_over_the_packed_width():
-    from egomimic.algo.pi import PI
-    from egomimic.rldb.embodiment.embodiment import EMBODIMENT
-    from egomimic.utils.action_utils import (
-        ConverterRegistry,
-        HumanBimanualKeypoints,
-        RobotBimanualCartesianEuler,
-    )
-
-    pi = PI.__new__(PI)
-    pi.action_registry = ConverterRegistry()
-    eva, human = EMBODIMENT.EVA_BIMANUAL.value, EMBODIMENT.HUMAN_BIMANUAL.value
-    pi.action_registry.register(eva, "actions_cartesian", RobotBimanualCartesianEuler())
-    pi.action_registry.register(human, "actions_keypoints", HumanBimanualKeypoints())
-    losses = torch.zeros(2, 5, 144)
-    losses[..., 32:] = 1.0  # error only in the zero-padded slots
-    eva_loss = pi._reduce_loss(losses, torch.zeros(2, 5, 20), eva, "actions_cartesian")
-    assert eva_loss.item() == 0.0
-    kp_loss = pi._reduce_loss(
-        losses, torch.zeros(2, 5, 144), human, "actions_keypoints"
-    )
-    assert abs(kp_loss.item() - 112 / 144) < 1e-6
-    # already-reduced losses pass through unchanged
-    assert (
-        pi._reduce_loss(torch.tensor([1.0, 3.0]), None, eva, "actions_cartesian").item()
-        == 2.0
-    )
-
-
 # --------------------------------------------------- annotation-cutoff filter
 def test_episode_has_annotation_spans():
     from egomimic.rldb.zarr.zarr_dataset_multi import _episode_has_annotation_spans
@@ -311,78 +290,6 @@ def test_annotation_cutoff_resolver_defaults_to_requiring_spans():
             r.resolve()
     finally:
         m.S3EpisodeResolver.resolve = orig
-
-
-# ------------------------------------------------ adversarial-review fixes
-def test_last_good_sample_survives_collate():
-    """annotation_collate pops list-valued keys out of the sample dicts in
-    place; the cached fallback sample must not lose them."""
-    from egomimic.pl_utils.pl_data_utils import annotation_collate
-    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-
-    md = MultiDataset.__new__(MultiDataset)
-    md._last_good_sample = None
-    md._fallback_returns = 0
-    sample = {"x": np.float32(1.0), "annotations": ["pick"]}
-    # mimic __getitem__'s cache-then-return
-    md._last_good_sample = {
-        k: (list(v) if isinstance(v, list) else v) for k, v in sample.items()
-    }
-    annotation_collate([sample])  # pops "annotations" from `sample`
-    assert "annotations" not in sample
-    again = md._last_good_or_raise("boom")
-    assert again["annotations"] == ["pick"]
-    batch = annotation_collate([again, {"x": np.float32(2.0), "annotations": ["a"]}])
-    assert batch["annotations"] == [["pick"], ["a"]]
-    # and the cache itself is still intact for the next fallback
-    assert md._last_good_or_raise("boom")["annotations"] == ["pick"]
-
-
-def test_bounds_quantiles_include_the_observed_extremes():
-    """With fewer than 10k samples a linear 0.01 / 99.99 percentile lands
-    strictly inside the sample range, so the stats' own extreme frames were
-    rejected at train time; the bounds quantiles must snap to samples."""
-    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-
-    X = np.random.default_rng(0).normal(size=(500, 4)).astype(np.float32)
-    st = MultiDataset._compute_stats_for_array(X)
-    np.testing.assert_array_equal(st["quantile_0_01"], X.min(axis=0))
-    np.testing.assert_array_equal(st["quantile_99_99"], X.max(axis=0))
-    md = MultiDataset.__new__(MultiDataset)
-    md.norm_stats = {0: {"actions_keypoints": st}}
-    md.zarr_keys = {0: {"actions_keypoints": "actions_keypoints"}}
-    md._warned_violations = set()
-    for row in (X.min(axis=0), X.max(axis=0)):
-        assert (
-            md._check_bounds(
-                {"embodiment": 0, "actions_keypoints": row[None]}, None, 0, "ep"
-            )
-            is None
-        )
-
-
-def test_bounds_check_has_relative_slack_but_catches_corrupt_values():
-    """Per-cell bounds tolerate frames moderately beyond the stats sample's
-    range (valid extreme motion) and still reject values orders of magnitude
-    off (fill constants, wrong-frame data)."""
-    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-
-    md = MultiDataset.__new__(MultiDataset)
-    lo, hi = np.full(18, -1.0, np.float32), np.full(18, 1.0, np.float32)
-    md.norm_stats = {0: {"actions_cartesian": {"quantile_1": lo, "quantile_99": hi}}}
-    md.zarr_keys = {0: {"actions_cartesian": "actions_cartesian"}}
-    md._warned_violations = set()
-
-    def check(v):
-        arr = np.zeros((3, 18), np.float32)
-        arr[1, 0] = v  # an xyz channel
-        return md._check_bounds(
-            {"embodiment": 0, "actions_cartesian": arr}, None, 0, "e"
-        )
-
-    assert check(1.0 + 0.4 * 2.0) is None  # within 50 % of the [-1, 1] range
-    assert check(1.0 + 0.6 * 2.0) is not None
-    assert check(1e9) is not None
 
 
 # ------------------------------------------------------ train_viz second loader
@@ -505,6 +412,130 @@ def test_unseen_op_valid_third_loader_and_routing():
     w.validation_step({"k": 1}, 0, dataloader_idx=0)
     w.validation_step({"k": 2}, 0, dataloader_idx=1)
     assert calls == [("valid", 0), ("unseen_op_valid", 1)]
+
+
+def test_flagship_opsplit_val_heads(compose_resolve):
+    """Flagship opsplit: valid (prefixed seen_op_valid) = seen operators'
+    held-out episodes (complement of train), train_viz = the train split (no
+    explicit datasets), unseen_op_valid = the held-out operators. The topop
+    twin inherits the same layout."""
+    for data, train_op in (
+        ("mecka_fold_flagship_opsplit_hpt_6d", "not in"),
+        ("mecka_fold_flagship_topop_hpt_6d", "== '6903686e0e94ce070afd1f24'"),
+    ):
+        cfg = compose_resolve("train_zarr_mecka_flagship_6d_hpt", [f"data={data}"])
+        d = cfg.data
+        train, valid = d.train_datasets[HUMAN], d.valid_datasets[HUMAN]
+        unseen = d.unseen_op_valid_datasets[HUMAN]
+        assert d.get("train_viz_datasets") is None
+        assert d.valid_prefix == "seen_op_valid"
+        assert (train.mode, valid.mode, unseen.mode) == ("train", "valid", "total")
+        assert valid.valid_ratio == train.valid_ratio
+        assert list(valid.filters.filter_lambdas) == list(train.filters.filter_lambdas)
+        assert train_op in train.filters.filter_lambdas[-1]
+        ops = list(d.held_out_operators)
+        assert unseen.filters.filter_lambdas[-1].endswith(f" in {ops}")
+
+
+# ------------------------------------------------ adversarial-review fixes
+def test_last_good_sample_survives_collate():
+    """annotation_collate pops list-valued keys out of the sample dicts in
+    place; the cached fallback sample must not lose them."""
+    from egomimic.pl_utils.pl_data_utils import annotation_collate
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    md = MultiDataset.__new__(MultiDataset)
+    md._last_good_sample = None
+    md._fallback_returns = 0
+    sample = {"x": np.float32(1.0), "annotations": ["pick"]}
+    # mimic __getitem__'s cache-then-return
+    md._last_good_sample = {
+        k: (list(v) if isinstance(v, list) else v) for k, v in sample.items()
+    }
+    annotation_collate([sample])  # pops "annotations" from `sample`
+    assert "annotations" not in sample
+    again = md._last_good_or_raise("boom")
+    assert again["annotations"] == ["pick"]
+    batch = annotation_collate([again, {"x": np.float32(2.0), "annotations": ["a"]}])
+    assert batch["annotations"] == [["pick"], ["a"]]
+    # and the cache itself is still intact for the next fallback
+    assert md._last_good_or_raise("boom")["annotations"] == ["pick"]
+
+
+def test_bounds_quantiles_include_the_observed_extremes():
+    """With fewer than 10k samples a linear 0.01 / 99.99 percentile lands
+    strictly inside the sample range, so the stats' own extreme frames were
+    rejected at train time; the bounds quantiles must snap to samples."""
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    X = np.random.default_rng(0).normal(size=(500, 4)).astype(np.float32)
+    st = MultiDataset._compute_stats_for_array(X)
+    np.testing.assert_array_equal(st["quantile_0_01"], X.min(axis=0))
+    np.testing.assert_array_equal(st["quantile_99_99"], X.max(axis=0))
+    md = MultiDataset.__new__(MultiDataset)
+    md.norm_stats = {0: {"actions_keypoints": st}}
+    md.zarr_keys = {0: {"actions_keypoints": "actions_keypoints"}}
+    md._warned_violations = set()
+    for row in (X.min(axis=0), X.max(axis=0)):
+        assert (
+            md._check_bounds(
+                {"embodiment": 0, "actions_keypoints": row[None]}, None, 0, "ep"
+            )
+            is None
+        )
+
+
+def test_pi_loss_is_reduced_over_the_packed_width():
+    from egomimic.algo.pi import PI
+    from egomimic.rldb.embodiment.embodiment import EMBODIMENT
+    from egomimic.utils.action_utils import (
+        ConverterRegistry,
+        HumanBimanualKeypoints,
+        RobotBimanualCartesianEuler,
+    )
+
+    pi = PI.__new__(PI)
+    pi.action_registry = ConverterRegistry()
+    eva, human = EMBODIMENT.EVA_BIMANUAL.value, EMBODIMENT.HUMAN_BIMANUAL.value
+    pi.action_registry.register(eva, "actions_cartesian", RobotBimanualCartesianEuler())
+    pi.action_registry.register(human, "actions_keypoints", HumanBimanualKeypoints())
+    losses = torch.zeros(2, 5, 144)
+    losses[..., 32:] = 1.0  # error only in the zero-padded slots
+    eva_loss = pi._reduce_loss(losses, torch.zeros(2, 5, 20), eva, "actions_cartesian")
+    assert eva_loss.item() == 0.0
+    kp_loss = pi._reduce_loss(
+        losses, torch.zeros(2, 5, 144), human, "actions_keypoints"
+    )
+    assert abs(kp_loss.item() - 112 / 144) < 1e-6
+    # already-reduced losses pass through unchanged
+    assert (
+        pi._reduce_loss(torch.tensor([1.0, 3.0]), None, eva, "actions_cartesian").item()
+        == 2.0
+    )
+
+
+def test_bounds_check_has_relative_slack_but_catches_corrupt_values():
+    """Per-cell bounds tolerate frames moderately beyond the stats sample's
+    range (valid extreme motion) and still reject values orders of magnitude
+    off (fill constants, wrong-frame data)."""
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    md = MultiDataset.__new__(MultiDataset)
+    lo, hi = np.full(18, -1.0, np.float32), np.full(18, 1.0, np.float32)
+    md.norm_stats = {0: {"actions_cartesian": {"quantile_1": lo, "quantile_99": hi}}}
+    md.zarr_keys = {0: {"actions_cartesian": "actions_cartesian"}}
+    md._warned_violations = set()
+
+    def check(v):
+        arr = np.zeros((3, 18), np.float32)
+        arr[1, 0] = v  # an xyz channel
+        return md._check_bounds(
+            {"embodiment": 0, "actions_cartesian": arr}, None, 0, "e"
+        )
+
+    assert check(1.0 + 0.4 * 2.0) is None  # within 50 % of the [-1, 1] range
+    assert check(1.0 + 0.6 * 2.0) is not None
+    assert check(1e9) is not None
 
 
 # ------------------------------------------------------ train_viz on by default
