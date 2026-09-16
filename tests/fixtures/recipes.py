@@ -50,7 +50,47 @@ RECIPES: dict[tuple[str, str], Recipe] = {
     ("aria", "pi"): _pi("aria", "pi0.5_bc_aria", "human_bimanual"),
     ("mecka", "pi"): _pi("mecka", "pi0.5_bc_mecka", "human_bimanual"),
     ("scale", "pi"): _pi("scale", "pi0.5_bc_scale", "human_bimanual"),
+    # FlowVLA on the plain mecka data: its human arm already emits the 144-D
+    # keypoint action the flagship recipe trains on, so the CPU tier exercises
+    # the backbone + DiT head without the flagship operator split.
+    ("mecka", "flowvla"): Recipe(
+        "train_zarr_cartesian",
+        "mecka",
+        "flowvla_resnet_text_mecka_kp",
+        "human_bimanual",
+        (
+            "+data.train_datasets.human_bimanual.resolver.key_map.annotation_key=annotations",
+        ),
+    ),
 }
+
+
+def flowvla_small_overrides() -> list[str]:
+    """Shrink FlowVLA to something a CPU can take two steps through.
+
+    ``weights=null`` keeps torchvision off the network; swapping the text
+    encoder's ``_target_`` keeps the real 596M Qwen3-Embedding out of a unit
+    test (the stub takes ``**kwargs``, so the config's model_name / dtype /
+    freeze / cache_* keys pass through harmlessly).
+    """
+    return [
+        # FlowVLA concatenates EVERY proprio key (HPT instead selects them with
+        # stem_specs, which is why hpt_bc_flow_mecka declares 144 on this same
+        # data). data/mecka emits observations.state.keypoints (144) AND
+        # observations.state.ee_pose (20); the flagship keypoint config turns
+        # ee_pose off, so the real run is 144 and only the CPU tier is 164.
+        "model.robomimic_model.dims.human_bimanual.proprio=164",
+        "model.robomimic_model.backbone.hidden_size=32",
+        "model.robomimic_model.backbone.num_layers=2",
+        "model.robomimic_model.backbone.weights=null",
+        "model.robomimic_model.backbone.text_encoder._target_="
+        "fixtures.stub_text_encoder.StubTextEncoder",
+        "model.robomimic_model.backbone.text_encoder.output_dim=32",
+        "model.robomimic_model.head.dit_hidden=16",
+        "model.robomimic_model.head.head_dim=8",
+        "model.robomimic_model.head.num_register_tokens=2",
+        "model.robomimic_model.head.num_inference_steps=2",
+    ]
 
 
 def common_overrides(

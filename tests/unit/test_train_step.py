@@ -13,6 +13,7 @@ from fixtures.recipes import (
     RECIPES,
     common_overrides,
     cpu_trainer_overrides,
+    flowvla_small_overrides,
     hpt_small_overrides,
     pi_cpu_overrides,
 )
@@ -135,3 +136,26 @@ def test_pi_train_step(tmp_path, monkeypatch, vendor):
     assert (
         expected <= seen
     ), f"{vendor}/pi missing {expected - seen}; saw {sorted(seen)}"
+
+
+def test_flowvla_train_step(tmp_path, monkeypatch):
+    """FlowVLA + ResNetTextBackbone takes two optimizer steps on synthetic mecka
+    keypoint episodes through the real trainHydra.train() path."""
+    hermetic_env(monkeypatch)
+    recipe = RECIPES[("mecka", "flowvla")]
+    data, out, hashes = write_fixtures(tmp_path, "mecka")
+    cfg = compose_recipe(
+        recipe,
+        common_overrides(
+            recipe.embodiment,
+            data,
+            out,
+            batch_size=2,
+            num_workers=0,
+            episode_hashes=hashes,
+        )
+        + cpu_trainer_overrides(STEPS)
+        + flowvla_small_overrides(),
+        out,
+    )
+    _run(cfg)
