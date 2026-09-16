@@ -16,7 +16,7 @@ from torch.utils.data import default_collate
 
 from egomimic.models.denoising_policy import DenoisingPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.rldb.embodiment.embodiment import get_embodiment
+from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
 from egomimic.robot.robot_utils import RateLoop
@@ -258,10 +258,25 @@ class PolicyRollout(Rollout):
         self.debug_actions = None
         self.resampled_action_len = resampled_action_len
         self.debug = debug
-        # Inference on checkpoints trained before the 6D conversion.
-        self.transform_list = Eva.get_transform_list(
-            mode="cartesian_wristframe_ypr", allow_legacy_rotation=True
-        )
+        self.transform_mode = self._checkpoint_transform_mode()
+        # Inference: a checkpoint recorded before the 6D conversion, or none at
+        # all, is exactly the case allow_legacy_rotation exists for.
+        if self.transform_mode is None:
+            # Legacy checkpoint: keep the historical input pipeline and use
+            # the predictions as-is.
+            self.transform_list = Eva.get_transform_list(
+                mode=self.LEGACY_TRANSFORM_MODE, allow_legacy_rotation=True
+            )
+            self.revert_transform_list = None
+        else:
+            self.transform_list = Eva.get_transform_list(
+                mode=self.transform_mode, allow_legacy_rotation=True
+            )
+            # Maps predictions (wrist frame and/or 6D rotation) back to the
+            # camera-frame xyz+ypr+gripper layout the command path expects.
+            self.revert_transform_list = Eva.get_revert_transform_list(
+                self.transform_mode
+            )
         self.annotation = None
         self._tokenizer = None
         self.collate_fn = default_collate
@@ -308,6 +323,50 @@ class PolicyRollout(Rollout):
         _torch.save(ckpt, patched_path)
         print(f"[rollout] Patched checkpoint saved to {patched_path}")
         return patched_path
+
+    # Input pipeline used for checkpoints whose config names no mode (the
+    # rollout hard-coded it before the mode was read from the checkpoint).
+    LEGACY_TRANSFORM_MODE = "cartesian_wristframe_ypr"
+
+    def _checkpoint_transform_mode(self):
+        """Eva ``transform_list.mode`` the checkpoint was trained with, so the
+        rollout builds the same inputs and reverts the matching outputs;
+        ``None`` if the checkpoint config does not record it."""
+        from omegaconf import OmegaConf
+
+        name = {
+            "both": "eva_bimanual",
+            "right": "eva_right_arm",
+            "left": "eva_left_arm",
+        }[self.arm]
+        cfg = self.policy._as_config(getattr(self.policy.hparams, "config_tree", None))
+        mode = None
+        if cfg is not None:
+            mode = OmegaConf.select(
+                cfg, f"data.train_datasets.{name}.resolver.transform_list.mode"
+            )
+        if mode is None:
+            print(
+                f"[rollout] WARNING: checkpoint config has no {name} transform_list.mode;"
+                f" using legacy {self.LEGACY_TRANSFORM_MODE} inputs, no output revert"
+            )
+            return None
+        print(f"[rollout] Eva transform_list mode from checkpoint: {mode}")
+        return mode
+
+    def _revert_predictions(self, preds, obs_batch):
+        """(1, T, D) unnormalized predictions -> (1, T, 14) camera-frame
+        xyz+ypr+gripper per arm. ``obs_batch`` is the collated, not yet
+        normalized input batch (its proprio defines the wrist frame)."""
+        if self.revert_transform_list is None:
+            return preds
+        obs_key = "observations.state.ee_pose"
+        batch = {
+            "actions_cartesian": preds,
+            obs_key: torch.as_tensor(obs_batch[obs_key]).to(preds.device),
+        }
+        out = Embodiment.apply_transform(batch, self.revert_transform_list)
+        return torch.as_tensor(out["actions_cartesian"])
 
     def _load_policy(self):
         patched_path = self._patch_checkpoint_paths(self.policy_path)
@@ -372,6 +431,13 @@ class PolicyRollout(Rollout):
             for transform in self.transform_list:
                 transform_list_batch = transform.transform(transform_list_batch)
             transform_list_batch = self.collate_fn([transform_list_batch])
+            # process_batch_for_training normalizes in place; keep raw proprio
+            # for reverting the wrist-frame predictions.
+            raw_obs = {
+                "observations.state.ee_pose": transform_list_batch[
+                    "observations.state.ee_pose"
+                ].clone()
+            }
             if self.arm == "both":
                 embodiment_name = "eva_bimanual"
             elif self.arm == "right":
@@ -386,6 +452,7 @@ class PolicyRollout(Rollout):
             preds = self.policy.model.forward_eval(processed_batch)[
                 f"{embodiment_name}_actions_cartesian"
             ]
+            preds = self._revert_predictions(preds, raw_obs)
             self.actions = preds.detach().cpu().numpy().squeeze()
             self.debug_actions = self.actions.copy()
             if self.cartesian:
