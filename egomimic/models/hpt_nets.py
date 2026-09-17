@@ -1,3 +1,4 @@
+import json
 import os
 from functools import partial
 from typing import Callable, List, Optional, Union
@@ -585,7 +586,34 @@ class MLPPolicyStem(PolicyStem):
         return y
 
 
+def _declared_pretrained_submodules(module: nn.Module) -> List[nn.Module]:
+    """The submodules a stem declares in ``_hpt_pretrained_attrs``."""
+    mods = []
+    for name in module._hpt_pretrained_attrs:
+        sub = getattr(module, name, None)
+        if isinstance(sub, nn.Module):
+            mods.append(sub)
+    return mods
+
+
+def _declared_pretrained_state_dict(module: nn.Module) -> dict:
+    """Flat ``{"<attr>.<param>": tensor}`` view of the declared weights."""
+    state = {}
+    for name in module._hpt_pretrained_attrs:
+        sub = getattr(module, name, None)
+        if isinstance(sub, nn.Module):
+            for key, value in sub.state_dict().items():
+                state[f"{name}.{key}"] = value
+    return state
+
+
 class ResNet(PolicyStem):
+    # ``self.net`` holds the ImageNet-pretrained torchvision backbone (``self.proj``
+    # is built here and must keep its own init). Declared so a weight-protection
+    # pass can find it without knowing about this class.
+    _hpt_pretrained = True
+    _hpt_pretrained_attrs = ("net",)
+
     def __init__(
         self,
         output_dim: int = 10,
@@ -617,6 +645,7 @@ class ResNet(PolicyStem):
         self.avgpool = nn.AvgPool2d(7, stride=1)
 
         # Freeze the backbone if specified
+        self.freeze_backbone = freeze_backbone
         if freeze_backbone:
             self._freeze_backbone()
 
@@ -629,6 +658,40 @@ class ResNet(PolicyStem):
         else:
             for param in self.net.parameters():
                 param.requires_grad = False
+
+    def train(self, mode: bool = True):
+        """Keep a frozen backbone in eval mode regardless of the outer flag.
+
+        ``requires_grad = False`` alone leaves the BatchNorm layers in train
+        mode: they would keep normalizing with batch statistics and keep
+        updating their running stats, so a "frozen" backbone would not be
+        frozen at all.
+        """
+        super().train(mode)
+        if self.freeze_backbone:
+            if isinstance(self.net, nn.ModuleList):
+                for net in self.net:
+                    net.eval()
+            else:
+                self.net.eval()
+        return self
+
+    def backbone_parameters(self):
+        """Pretrained-backbone parameters (``proj`` stays in the main group)."""
+        return list(self.net.parameters())
+
+    def pretrained_submodules(self) -> List[nn.Module]:
+        return _declared_pretrained_submodules(self)
+
+    def pretrained_state_dict(self) -> dict:
+        return _declared_pretrained_state_dict(self)
+
+    def pretrained_reference_state_dict(self) -> Optional[dict]:
+        """None: the torchvision weights are not read back independently."""
+        return None
+
+    def pretrained_hash_dtype(self) -> Optional[torch.dtype]:
+        return None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -691,6 +754,157 @@ def _local_snapshot_if_offline(model_name: str) -> str:
     from huggingface_hub import snapshot_download
 
     return snapshot_download(model_name, local_files_only=True)
+
+
+class SigLIPStem(PolicyStem):
+    """Pretrained SigLIP vision tower, a drop-in replacement for ``ResNet``.
+
+    Same call convention as ``ResNet.forward``: a ``(B, T, N, 3, H, W)`` batch
+    of [0, 1] images in, ``(B, cells, output_dim)`` out, so the Perceiver stem
+    downstream is unchanged. Unlike the ResNet path the stem owns its input
+    pipeline: a squash resize to the checkpoint's square resolution (bilinear,
+    antialiased, no aspect preservation -- the way pi0 / PaliGemma feed their
+    224x224 SigLIP) followed by the checkpoint's own mean / std. The config
+    must therefore NOT normalize these images in its augs.
+
+    Args:
+        model_name: HF repo id (or local path) of the SigLIP checkpoint.
+        output_dim: width of the projected tokens; the trunk's embed_dim.
+        freeze_backbone: freeze the tower and keep it in eval mode.
+        image_size: override the checkpoint's native input resolution.
+    """
+
+    DEFAULT_MODEL = "google/siglip2-base-patch16-256"
+    # ``self.tower`` comes from the checkpoint; ``self.proj`` is ours.
+    _hpt_pretrained = True
+    _hpt_pretrained_attrs = ("tower",)
+
+    def __init__(
+        self,
+        model_name: str = DEFAULT_MODEL,
+        output_dim: int = 10,
+        freeze_backbone: bool = False,
+        image_size: Optional[int] = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        from transformers import AutoModel
+
+        self.model_name = model_name
+        # Load from the cached snapshot directory when offline, like the Qwen
+        # stems (see ``_local_snapshot_if_offline``).
+        self._snapshot_dir = _local_snapshot_if_offline(model_name)
+        # Vision tower only, at the checkpoint's dtype: HPT upcasts the whole
+        # net with ``nets.float()`` anyway.
+        self.tower = AutoModel.from_pretrained(self._snapshot_dir).vision_model
+        # The tokens are ``last_hidden_state``; the attention-pooling head would
+        # be a trainable subtree that never receives a gradient.
+        if getattr(self.tower, "use_head", False):
+            self.tower.use_head = False
+            del self.tower.head
+
+        self.hidden_size = int(self.tower.config.hidden_size)
+        self.image_size = int(
+            image_size if image_size is not None else self.tower.config.image_size
+        )
+        mean, std = self._preprocessor_stats()
+        self.register_buffer(
+            "image_mean", torch.tensor(mean).view(1, 3, 1, 1), persistent=False
+        )
+        self.register_buffer(
+            "image_std", torch.tensor(std).view(1, 3, 1, 1), persistent=False
+        )
+
+        self.out_dim = output_dim
+        self.proj = nn.Linear(self.hidden_size, output_dim)
+
+        self.freeze_backbone = freeze_backbone
+        if freeze_backbone:
+            self._freeze_backbone()
+
+    def _preprocessor_stats(self):
+        """The checkpoint's normalization constants (SigLIP: 0.5 / 0.5)."""
+        path = os.path.join(self._snapshot_dir, "preprocessor_config.json")
+        if not os.path.isfile(path):
+            return [0.5] * 3, [0.5] * 3
+        with open(path, encoding="utf-8") as handle:
+            preproc = json.load(handle)
+        return (
+            preproc.get("image_mean", [0.5] * 3),
+            preproc.get("image_std", [0.5] * 3),
+        )
+
+    def _freeze_backbone(self):
+        """Freeze all parameters in the SigLIP tower"""
+        for param in self.tower.parameters():
+            param.requires_grad = False
+
+    def train(self, mode: bool = True):
+        """Keep a frozen tower in eval mode regardless of the outer flag."""
+        super().train(mode)
+        if self.freeze_backbone:
+            self.tower.eval()
+        return self
+
+    def backbone_parameters(self):
+        """Pretrained-tower parameters (``proj`` stays in the main group)."""
+        return list(self.tower.parameters())
+
+    def pretrained_submodules(self) -> List[nn.Module]:
+        return _declared_pretrained_submodules(self)
+
+    def pretrained_state_dict(self) -> dict:
+        return _declared_pretrained_state_dict(self)
+
+    def pretrained_reference_state_dict(self) -> Optional[dict]:
+        """The snapshot's ``vision_model.*`` tensors, re-keyed as ``tower.*``.
+
+        Restricted to the tensors the live tower holds (the pooling head is
+        dropped above) and cast to its dtype. ``None`` if the snapshot keeps
+        its weights in some other format.
+        """
+        path = os.path.join(self._snapshot_dir, "model.safetensors")
+        if not os.path.isfile(path):
+            return None
+        from safetensors import safe_open
+
+        live = set(self.pretrained_state_dict())
+        dtype = next(self.tower.parameters()).dtype
+        prefix = "vision_model."
+        state = {}
+        with safe_open(path, framework="pt", device="cpu") as handle:
+            for key in handle.keys():
+                name = "tower." + key[len(prefix) :]
+                if key.startswith(prefix) and name in live:
+                    state[name] = handle.get_tensor(key).to(dtype)
+        return state
+
+    def pretrained_hash_dtype(self) -> Optional[torch.dtype]:
+        return None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Performs a forward pass of the model.
+        Args:
+            x: Image tensor in [0, 1] with shape [B, T, N, 3, H, W] representing
+            the batch size, horizon, instance (e.g. num of views)
+        Returns:
+            Flatten tensor with shape [B, T * N * tokens, output_dim]
+        """
+        B, *_, H, W = x.shape
+        x = x.reshape(-1, 3, H, W)
+        x = F.interpolate(
+            x,
+            size=(self.image_size, self.image_size),
+            mode="bilinear",
+            align_corners=False,
+            antialias=True,
+        )
+        x = (x - self.image_mean) / self.image_std
+        feat = self.tower(pixel_values=x).last_hidden_state
+        # concat along time / views
+        feat = feat.reshape(B, -1, self.hidden_size)
+        return self.proj(feat)
 
 
 class _Qwen3BaseEncoder(PolicyStem):

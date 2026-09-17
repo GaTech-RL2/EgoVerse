@@ -54,6 +54,8 @@ EXPECTED = {
     "hpt_bc_keypoints_base": (None, {"human_bimanual": (144, 144)}),
     "hpt_bc_keypoints_wrist_300M": (None, {"human_bimanual": (144, 144)}),
     "hpt_bc_mecka_6d_300M": (None, {"human_bimanual": (20, 18)}),
+    # same widths as its parent; only the image encoder differs
+    "hpt_bc_mecka_6d_300M_siglip": (None, {"human_bimanual": (20, 18)}),
     "hpt_bc_pickplace_qwen_pertoken": (None, {"eva_bimanual": (14, 14)}),
     "hpt_bc_pickplace_qwen_pooled": (None, {"eva_bimanual": (14, 14)}),
     "hpt_cotrain_enc_dec_base": (None, COTRAIN),
