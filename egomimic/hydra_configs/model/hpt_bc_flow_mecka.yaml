@@ -14,7 +14,7 @@ robomimic_model:
   dims:
     human_bimanual: {proprio: 144, action: 144}
 
-  diffusion: true 
+  diffusion: true
   6dof: true
 
   ac_keys:
@@ -31,12 +31,11 @@ robomimic_model:
     use_domain_embedding: true
     drop_path: 0.1
     weight_init_style: "pytorch"
-  
+
   multitask: false
   pretrained: false
   pretrained_checkpoint: "" # TODO
-  reverse_kl_samples: 8
-  
+
   domains: ["human_bimanual"]
   shared_obs_keys: ["front_img_1"]
 
@@ -54,7 +53,7 @@ robomimic_model:
           crossattn_dim_head: 64
           crossattn_modality_dropout: 0.1
           modality_embed_dim: 256
-  
+
   stem_specs:
     human_bimanual:
       state_keypoints:
@@ -72,7 +71,7 @@ robomimic_model:
             modality_embed_dim: 256
 
   head_specs:
-    human_bimanual: 
+    human_bimanual:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50

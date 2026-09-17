@@ -912,8 +912,6 @@ class HPT(Algo):
         self.freeze_depth = kwargs.get("freeze_depth", 8)
         model.depth = self.depth
 
-        self.rkl_samples = kwargs.get("reverse_kl_samples", 4)
-
         if self.ot:
             self.ot_warm_start_steps = kwargs.get("ot_warm_start_steps", 0)
             self.ot_6dof = kwargs.get("ot_6dof", False)
