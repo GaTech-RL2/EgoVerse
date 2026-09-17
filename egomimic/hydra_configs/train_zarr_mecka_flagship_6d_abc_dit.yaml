@@ -1,0 +1,25 @@
+# Composed recipe: ABC-DiT (DINOv3 + CLIP text -> cross-attention DiT) BC on
+# the 18-D wrist-frame 6D-rotation cartesian action, mecka FLAGSHIP
+# fold-clothes, seen/unseen operator split. Same data, evaluators and val
+# heads as train_zarr_mecka_flagship_6d_{hpt,qwenvla}.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_6d_abc_dit \
+#     model=abc_dit_bc_mecka_6d_b data=mecka_fold_flagship_top3_hpt_6d \
+#     norm_stats.precomputed_norm_path=<out>/norm_stats
+#
+# The size is the model config: abc_dit_bc_mecka_6d_{s,b,l,xl}; this recipe
+# selects b, the rung closest to the HPT-300M reference arm.
+#
+# Norm stats are data-only: reuse the baseline's
+# logs/hpt_architecture/norm_stats/mecka_fold_flagship_top3_hpt_6d/norm_stats.
+defaults:
+  - train_zarr_cartesian
+  - evaluator@train_viz_evaluator: train_viz_hpt_wristframe_6d
+  - override model: abc_dit_bc_mecka_6d_b
+  - override data: mecka_fold_flagship_opsplit_hpt_6d
+  - override evaluator: eval_hpt_wristframe_6d
+  - _self_
+
+model:
+  robomimic_model:
+    default_prompt: "fold clothes"

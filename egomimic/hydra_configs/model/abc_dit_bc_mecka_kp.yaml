@@ -1,0 +1,24 @@
+# ABC_DIT_BC_MECKA_KP: ABC-DiT on the 144-D wrist-frame MANO keypoint action
+# (the layout of hpt_bc_keypoints_wrist_300M): per hand [wrist xyz+rot6d in
+# its own wrist frame (9) | 21 keypoints in that wrist frame (63)] x {left,
+# right}. State is the 144-D `observations.state.keypoints` (wrist pose in
+# HEAD frame + keypoints in wrist frame, per hand).
+#
+# Pair with data=mecka_fold_flagship_{opsplit,top3}_hpt_keypoints and
+# evaluator=eval_hpt_keypoints_wrist (recipe:
+# train_zarr_mecka_flagship_kp_abc_dit). Select a size with one of
+# abc_dit_bc_mecka_kp_{s,b,l,xl}; this file alone leaves it at the base's b.
+defaults:
+  - abc_dit_base
+  - _self_
+robomimic_model:
+  dims:
+    human_bimanual: {proprio: 144, action: 144}
+  ac_keys:
+    human_bimanual: "actions_keypoints"
+  action_width: 144
+  6dof: false
+  # ABC-DiT concatenates the proprio keys into ONE state vector, so name the
+  # one it wants: data/mecka also emits a 20-D `observations.state.ee_pose`
+  # for the pi0.5 prompt. `null` would take every key.
+  proprio_keys: ["observations.state.keypoints"]
