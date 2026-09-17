@@ -187,7 +187,11 @@ class Embodiment(ABC):
 
         images = batch[image_key]
         actions = batch[action_key]
-        if annotation_key is not None:
+        # Annotations are optional: the viz configs hardcode annotation_key, but a
+        # dataset with no language annotations never puts it in the batch. Missing
+        # overlay text must not kill a training run at its first validation pass.
+        has_annotations = annotation_key is not None and annotation_key in batch
+        if has_annotations:
             annotations = batch[annotation_key]
         ims_list = []
         images = _to_numpy(images)
@@ -216,7 +220,7 @@ class Embodiment(ABC):
                 intrinsics=K_i,
                 **kwargs,
             )
-            if annotation_key is not None:
+            if has_annotations:
                 ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)
             ims_list.append(ims)
         ims = np.stack(ims_list, axis=0)
