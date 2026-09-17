@@ -114,3 +114,20 @@ def test_multidataset_normalize_uses_the_guard():
     md.norm_mode = "quantile"
     n = md._apply_norm_one(torch.tensor([[5e-4, 0.5]]), stats)
     assert n.tolist() == [[0.0, 0.0]]
+
+
+def test_bounds_check_ignores_constant_cells():
+    key = "actions_cartesian"
+    q1 = np.full((4, 14), -1.0, dtype=np.float32)
+    q99 = np.full((4, 14), 1.0, dtype=np.float32)
+    q1[0, :3] = q99[0, :3] = 0.0  # wrist-frame t=0: xyz exactly 0
+    md = MultiDataset.__new__(MultiDataset)
+    md.norm_stats = {0: {key: {"quantile_1": q1, "quantile_99": q99}}}
+    md.zarr_keys = {0: {key: key}}
+    md._warned_violations = set()
+
+    arr = np.zeros((4, 14), dtype=np.float32)
+    arr[0, 0] = 1e-3  # off-convention offset at a constant cell: admitted
+    assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is None
+    arr[1, 0] = 50.0  # corrupt value at a regular cell: still rejected
+    assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is not None
