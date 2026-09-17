@@ -1,24 +1,31 @@
-# HPT flow-matching BC on human data (mecka, stored as human_bimanual) with the
-# 144-D wrist-frame hand-keypoint action (data/mecka.yaml,
-# `keypoints_wristframe_6d`): per hand [wrist xyz | wrist rot6d | 21 MANO
-# keypoints] in that wrist's frame. Proprio = the 144-D head-frame
-# `observations.state.keypoints` through the `state_keypoints` stem (the
-# ee_pose the data config also emits for the pi0.5 prompt has no stem here
-# and is ignored). For the cartesian action pair a cartesian data override
-# with model=hpt_bc_flow_human_cartesian.
+# HPT flow-matching BC on human data with the CARTESIAN head-frame action
+# (12-D xyz+ypr per arm pair) and the 12-D ee_pose proprio. The repo default
+# for human data is the 144-D hand-keypoint action (hpt_bc_flow_human); use
+# this with a cartesian data override, e.g.
+#   data=mecka data.train_datasets.human_bimanual.resolver.key_map.keymap_mode=cartesian \
+#     data.train_datasets.human_bimanual.resolver.key_map.include_ee_pose=false \
+#     data.train_datasets.human_bimanual.resolver.transform_list.mode=cartesian \
+#     data.train_datasets.human_bimanual.resolver.transform_list.include_ee_pose=false
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hpt.HPT
+  # camera_transforms is a dead HPT.__init__ param after refactor 80e5523a
+  # ("move intrinsics/extrinsics into embodiment classes" — CameraTransforms was
+  # removed; HPT never stored/used it). Per-episode intrinsics now travel in
+  # batch["intrinsics"] (zarr.json) and viz reads them via the embodiment classes.
+  # HPT still takes the positional arg, so pass an empty mapping (it is ignored).
   camera_transforms: {}
 
+  # Per-embodiment widths, declared once. Stems and heads below interpolate
+  # these; override e.g. model.robomimic_model.dims.<emb>.proprio=16.
   dims:
-    human_bimanual: {proprio: 144, action: 144}
+    human_bimanual: {proprio: 12, action: 12}
 
-  diffusion: true 
+  diffusion: true
   6dof: true
 
   ac_keys:
-    human_bimanual: "actions_keypoints"
+    human_bimanual: "actions_cartesian"
 
   trunk:
     embed_dim: 256
@@ -31,12 +38,11 @@ robomimic_model:
     use_domain_embedding: true
     drop_path: 0.1
     weight_init_style: "pytorch"
-  
+
   multitask: false
   pretrained: false
-  pretrained_checkpoint: "" # TODO
-  reverse_kl_samples: 8
-  
+  pretrained_checkpoint: ""
+
   domains: ["human_bimanual"]
   shared_obs_keys: ["front_img_1"]
 
@@ -54,10 +60,10 @@ robomimic_model:
           crossattn_dim_head: 64
           crossattn_modality_dropout: 0.1
           modality_embed_dim: 256
-  
+
   stem_specs:
     human_bimanual:
-      state_keypoints:
+      state_ee_pose:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
         input_dim: ${model.robomimic_model.dims.human_bimanual.proprio}
         output_dim: 256
@@ -72,7 +78,7 @@ robomimic_model:
             modality_embed_dim: 256
 
   head_specs:
-    human_bimanual: 
+    human_bimanual:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
