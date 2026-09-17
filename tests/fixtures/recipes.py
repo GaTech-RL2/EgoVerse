@@ -22,13 +22,10 @@ class Recipe:
 
 
 def _pi(data: str, model: str, emb: str) -> Recipe:
-    return Recipe(
-        "train_zarr_cartesian_pi",
-        data,
-        model,
-        emb,
-        (f"+data.train_datasets.{emb}.resolver.key_map.annotation_key=annotations",),
-    )
+    # data/eva.yaml already emits the continuous-6D (wrist-frame) layout Pi
+    # requires, the same mode cotrain_pi_base / eva_pi set.
+    extra = [f"+data.train_datasets.{emb}.resolver.key_map.annotation_key=annotations"]
+    return Recipe("train_zarr_cartesian_pi", data, model, emb, tuple(extra))
 
 
 RECIPES: dict[tuple[str, str], Recipe] = {

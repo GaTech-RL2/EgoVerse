@@ -1,0 +1,45 @@
+defaults:
+  - mecka_fold_flagship_opsplit_hpt_6d
+  - _self_
+
+# MECKA_FOLD_FLAGSHIP_TOPOP_HPT_6D: single-operator twin of
+# mecka_fold_flagship_opsplit_hpt_6d. TRAIN on the ONE largest flagship
+# fold-clothes operator only; everything else (pipeline, unseen-operator val,
+# loader params) is inherited from the parent.
+#
+# SPLIT (from SQL app.episodes, 2026-09-15):
+#   train       = operator 6903686e0e94ce070afd1f24, the largest of the 20
+#                 (405 eps / 76,013 frames / ~0.70 h at 30 fps, 24 % of
+#                 flagship), 95 % of its episodes (~385 eps / ~72k frames).
+#   seen val    = the other 5 % of that operator's episodes (20 eps / 3,731
+#                 frames) -> seen_op_valid/. The parent's valid_datasets interpolates
+#                 the train filters and valid_ratio, so it follows this
+#                 override automatically.
+#   train_viz   = the train split above (trainHydra's default) -> train_viz/.
+#   unseen val  = UNCHANGED from the parent: all episodes of the 2
+#                 `held_out_operators` -> unseen_op_valid/, directly comparable
+#                 with the 18-operator run.
+# The other 17 operators are unused.
+#
+# Hydra replaces lists wholesale, so the train filter_lambdas are restated in
+# full; only the last (operator) lambda differs from the parent. The operator id
+# is inlined rather than put in a config key: MultiDataModuleWrapper rejects
+# root keys it does not declare.
+#
+# NORMALIZATION: the train distribution differs from the parent's, so
+# precompute stats on THIS config:
+#   python egomimic/scripts/precompute_norm_stats.py --config-name train_zarr_mecka_flagship_6d_hpt \
+#     --data mecka_fold_flagship_topop_hpt_6d --model hpt_bc_mecka_6d_300M --out <out>
+# then train with
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_6d_hpt \
+#     data=mecka_fold_flagship_topop_hpt_6d norm_stats.precomputed_norm_path=<out>/norm_stats
+
+train_datasets:
+  human_bimanual:
+    filters:
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() == 'fold_clothes'"
+        - "lambda row: '/mecka/flagship/' in str(row.get('zarr_processed_path', ''))"
+        # SINGLE-OPERATOR TRAIN: the largest flagship operator only.
+        - "lambda row: str(row.get('operator', '')) == '6903686e0e94ce070afd1f24'"
