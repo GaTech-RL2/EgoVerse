@@ -65,10 +65,11 @@ robomimic_model:
     vision_pool_num_heads: 8
     vision_pool_mlp_ratio: 4
 
-    # 50 to match the HPT / QwenVLA / FlowVLA arms: val metrics are computed
-    # from SAMPLED actions, so the step count is part of the comparison.
-    # ABC's own default is 10, a free eval-only sweep on a checkpoint.
-    num_inference_steps: 50
+    # ABC's own default. The HPT / QwenVLA / FlowVLA arms sample with 50, and
+    # every val metric is computed from SAMPLED actions, so a number read
+    # across arms is not step-matched; re-reading a checkpoint at 50 is a free
+    # eval-only override.
+    num_inference_steps: 10
     time_dist: "uniform"     # ABC samples the flow time uniformly
 
     # ABC's flow knobs. mask_state_ratio zeroes the state on 10% of training

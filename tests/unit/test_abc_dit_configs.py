@@ -44,8 +44,9 @@ def test_base_wires_the_algo_the_dit_and_both_encoders():
     assert rm.policy.mask_state_ratio == 0.1
     assert rm.policy.max_action_prefix == 0  # ABC's production default is 8
     assert rm.policy.time_dist == "uniform"
-    # 50 to match the HPT / QwenVLA / FlowVLA arms' sampled-action metrics
-    assert rm.policy.num_inference_steps == 50
+    # ABC's own default; the other arms sample with 50, so a metric read
+    # across arms is not step-matched
+    assert rm.policy.num_inference_steps == 10
     assert rm.embodiment_label is False and rm.history_len == 1
 
 
