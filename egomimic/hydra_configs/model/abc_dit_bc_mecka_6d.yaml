@@ -1,0 +1,20 @@
+# ABC_DIT_BC_MECKA_6D: ABC-DiT on the 18-D wrist-frame 6D cartesian action of
+# the mecka fold-clothes data -- the batches hpt_bc_mecka_6d_300M and
+# qwenvla_bc_mecka_6d_0p8b take: `actions_cartesian` (18),
+# `observations.state.ee_pose` (20, 6D-encoded + grip pads).
+#
+# Pair with data=mecka_fold_flagship_{opsplit,top3}_hpt_6d and
+# evaluator=eval_hpt_wristframe_6d (recipe:
+# train_zarr_mecka_flagship_6d_abc_dit). Select a size with one of
+# abc_dit_bc_mecka_6d_{s,b,l,xl}; this file alone leaves it at the base's b.
+defaults:
+  - abc_dit_base
+  - _self_
+robomimic_model:
+  dims:
+    human_bimanual: {proprio: 20, action: 18}
+  ac_keys:
+    human_bimanual: "actions_cartesian"
+  action_width: 18
+  6dof: true
+  proprio_keys: ["observations.state.ee_pose"]

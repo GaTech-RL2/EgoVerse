@@ -1,0 +1,10 @@
+# ABC_DIT_BC_MECKA_KP_L: the L rung of ABC's size ladder
+# (see ABC_DIT_SIZES in egomimic/models/abc_dit_nets.py) on the
+# abc_dit_bc_mecka_kp action layout. ABC trains every rung with identical
+# hyperparameters, so the size is the only difference between these four.
+defaults:
+  - abc_dit_bc_mecka_kp
+  - _self_
+robomimic_model:
+  policy:
+    size: l

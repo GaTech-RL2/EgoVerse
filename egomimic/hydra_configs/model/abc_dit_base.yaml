@@ -1,0 +1,125 @@
+# ABC_DIT_BASE: ABC-DiT (Amazon FAR's ABC, https://github.com/amazon-far/abc),
+# ported in egomimic/models/abc_dit_nets.py. Shape- and action-independent
+# wiring only: pick one of the eight leaf configs
+# abc_dit_bc_mecka_{kp,6d}_{s,b,l,xl}, which add the action layout and the
+# size. Nothing here is instantiable on its own (no dims / ac_keys).
+#
+#   vision    DINOv3 ViT-B/16 (facebook/dinov3-vitb16-pretrain-lvd1689m), the
+#             full tower fine-tuned at backbone_lr_scale x the DiT LR. 224x224
+#             -> 196 patch tokens per camera, attention-pooled to 12 query
+#             tokens, + a per-camera embedding -> the DiT's cross-attention KV.
+#   text      CLIP ViT-B/32's text tower, FROZEN, one L2-normalised 512-d
+#             vector per prompt, cached per unique string.
+#   ddp       plain `trainer=ddp` is enough: every trainable tensor takes a
+#             gradient on every step (test_abc_dit_nets.py asserts it), so
+#             unlike FlowVLA this needs no find_unused_parameters.
+#   dit       AdaLN-Zero blocks (self-attention over the action chunk, then
+#             cross-attention to the vision tokens, then MLP); the 9-way
+#             modulation comes from MLP[state, task, flow time]. Flow matching
+#             as fm_policy.py: x_t = (1 - t) a + t noise, target noise - a.
+#
+# Run (with the composed recipe, any size):
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_kp_abc_dit \
+#     model=abc_dit_bc_mecka_kp_xl data=mecka_fold_flagship_top3_hpt_keypoints \
+#     norm_stats.precomputed_norm_path=<out>/norm_stats
+#
+# Proprio history: set BOTH
+#   data.train_datasets.human_bimanual.resolver.key_map.proprio_history=K
+#   model.robomimic_model.history_len=K
+# (ABC-DiT has one state vector, so the K steps are flattened into it.)
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.abc_dit.ABCDiT
+  domains: ["human_bimanual"]
+
+  # Prompt. ABC conditions on the bare task text, and this text tower is
+  # frozen, so the prompt is a read-only channel: no embodiment block by
+  # default (the same call FlowVLA makes).
+  annotation_key: "annotations"
+  annotation_sampling_mode: "random"
+  default_prompt: ""
+  embodiment_label: false
+  control_mode: null
+
+  # Mask the repeat-last padding at episode tails out of the loss.
+  use_pad_mask: false
+
+  # Proprio steps per sample; flattened into ABC's single state vector.
+  history_len: 1
+
+  policy:
+    _target_: egomimic.models.abc_dit_nets.ABCDiTPolicy
+    _partial_: true          # ABCDiT fills action_width / state_dims / history_len
+    camera_roles: ["observations.images.front_img_1"]
+    action_horizon: 100
+    size: b                  # s | b | l | xl; see ABC_DIT_SIZES
+    # Per-field overrides of the chosen size (null = take the size's value),
+    # e.g. a shape between two rungs, or a CPU-sized model in a test.
+    hidden_size: null
+    depth: null
+    num_heads: null
+    mlp_ratio: 4.0
+
+    # ABC's vision pooling: 12 learned queries per camera over the ViT tokens.
+    vision_pool_num_queries: 12
+    vision_pool_num_heads: 8
+    vision_pool_mlp_ratio: 4
+
+    # 50 to match the HPT / QwenVLA / FlowVLA arms: val metrics are computed
+    # from SAMPLED actions, so the step count is part of the comparison.
+    # ABC's own default is 10, a free eval-only sweep on a checkpoint.
+    num_inference_steps: 50
+    time_dist: "uniform"     # ABC samples the flow time uniformly
+
+    # ABC's flow knobs. mask_state_ratio zeroes the state on 10% of training
+    # samples (abc_minimal FlowConfig). max_action_prefix > 0 turns on ABC's
+    # action-prefix (real-time chunking) conditioning, whose production
+    # default is 8; off here because the repo's evaluators always sample a
+    # whole chunk from noise, so it would train a capability nothing measures.
+    mask_state_ratio: 0.1
+    max_action_prefix: 0
+    prefix_conditioning_prob: 1.0
+    prefix_noise_scale: 0.0
+
+    vision:
+      _target_: egomimic.models.abc_dit_nets.DINOv3Tower
+      model_name: "facebook/dinov3-vitb16-pretrain-lvd1689m"
+      freeze: false
+      bf16_autocast: true    # ABC's dino_bf16: bf16 compute, fp32 tokens
+      image_size: 224
+
+    task_encoder:
+      _target_: egomimic.models.abc_dit_nets.CLIPTaskEncoder
+      model_name: "openai/clip-vit-base-patch32"
+      max_length: 77
+      cache_text_features: true
+      text_cache_max_entries: 8192
+
+  # The DINOv3 tower owns its normalisation (checkpoint mean / std, applied
+  # after a squash resize to 224), so the augs must NOT normalise; only the
+  # ColorJitter is ours, applied per sample.
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+  eval_image_augs: null
+
+# Vision LR = backbone_lr_scale x optimizer.lr, the 0.1 of the ABC paper's
+# training details (abc_minimal's own OptimConfig ships 1.0).
+backbone_lr_scale: 0.1
+
+# ABC's optimizer: AdamW(0.9, 0.95), wd 0.01, lr 1e-4. ABC warms the LR up
+# over 1k steps and then holds it; the repo's arms run a constant LR, which is
+# what scheduler: null gives.
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  betas: [0.9, 0.95]
+  weight_decay: 0.01
+
+scheduler: null
