@@ -62,7 +62,45 @@ RECIPES: dict[tuple[str, str], Recipe] = {
             "+data.train_datasets.human_bimanual.resolver.key_map.annotation_key=annotations",
         ),
     ),
+    # ABC-DiT on the same plain mecka data: its model config names the 144-D
+    # keypoint proprio, so the CPU tier needs no dims override (unlike FlowVLA,
+    # which concatenates ee_pose too).
+    ("mecka", "abc_dit"): Recipe(
+        "train_zarr_cartesian",
+        "mecka",
+        "abc_dit_bc_mecka_kp_s",
+        "human_bimanual",
+        (
+            "+data.train_datasets.human_bimanual.resolver.key_map.annotation_key=annotations",
+        ),
+    ),
 }
+
+
+def abc_dit_small_overrides() -> list[str]:
+    """Shrink ABC-DiT to something a CPU can take two steps through.
+
+    Both pretrained encoders are swapped by ``_target_`` for the stubs, so the
+    tier loads neither the DINOv3 tower nor CLIP (and does not need the
+    transformers version that knows DINOv3). The stubs take ``**kwargs``, so
+    the config's model_name / freeze / bf16_autocast / cache_* keys pass
+    through harmlessly. The size stays ``s``; the three shape fields override
+    it, which is the per-field override ``resolve_size`` allows.
+    """
+    return [
+        "model.robomimic_model.policy.hidden_size=32",
+        "model.robomimic_model.policy.depth=2",
+        "model.robomimic_model.policy.num_heads=2",
+        "model.robomimic_model.policy.vision_pool_num_queries=2",
+        "model.robomimic_model.policy.vision_pool_num_heads=2",
+        "model.robomimic_model.policy.num_inference_steps=2",
+        "model.robomimic_model.policy.vision._target_="
+        "fixtures.stub_abc_encoders.StubVisionTower",
+        "+model.robomimic_model.policy.vision.hidden_size=32",
+        "model.robomimic_model.policy.task_encoder._target_="
+        "fixtures.stub_abc_encoders.StubTaskEncoder",
+        "+model.robomimic_model.policy.task_encoder.output_dim=16",
+    ]
 
 
 def flowvla_small_overrides() -> list[str]:
