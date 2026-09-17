@@ -1,0 +1,76 @@
+# 3Plate1Croissant (Aria Gen2, 6 static episodes) on EgoVerse.
+#
+# Local-disk variant of data/aria.yaml: no SQL, no R2. The stock aria.yaml resolves
+# episodes through S3EpisodeResolver against the RDS episode table; this one reads a
+# plain folder of .zarr stores with LocalEpisodeResolver.
+#
+# embodiment_override: the stores are tagged "aria_bimanual" (emma-pp's vocabulary,
+# written before the upstream embodiment collapse). EgoVerse's EMBODIMENT enum only
+# knows HUMAN_*, and get_embodiment_id() is a bare lookup with no alias fallback, so
+# without the override every episode dies with KeyError: 'ARIA_BIMANUAL'. The override
+# is read-only -- the zarr.json files keep their real tag, so emma-pp can still read
+# the same stores.
+#
+# The stores also carry gen-2 perception arrays (current_map_B, future_map_*,
+# next_subgoal_*). EgoVerse has no code that reads them, so they are simply unused
+# here; only images.front_1 + ee/wrist/head poses + keypoints reach the model.
+#
+# Split is by EPISODE (valid_ratio 0.2 -> 5 train / 1 valid), NOT by frame. emma-pp's
+# emma_static_subgoal splits 80/20 within each episode, so the two runs are not on
+# identical held-out data.
+#
+# Pairs with model=hpt_bc_flow_aria:
+#   python egomimic/trainHydra.py --config-name=train_zarr_cartesian \
+#       data=aria_3p1c model=hpt_bc_flow_aria name=3p1c_egoverse
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/avalverde8/datasets/3Plate1Croissant/zarr_dataset
+      embodiment_override: human_bimanual
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian
+        stride: 3
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: True"
+    mode: train
+    valid_ratio: 0.2
+
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/avalverde8/datasets/3Plate1Croissant/zarr_dataset
+      embodiment_override: human_bimanual
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian
+        stride: 3
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: True"
+    mode: valid
+    valid_ratio: 0.2
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 10

@@ -1,0 +1,17 @@
+# rl2-lab launcher for EgoVerse.
+#
+# Unlike emma-pp's, EgoVerse's submitit_skynet.yaml already targets rl2-lab with
+# qos=short and timeout_min=2880, so this only adds the bishop exclusion.
+#
+# bishop has failing GPU memory: a job there died with
+#   RuntimeError: CUDA error: uncorrectable ECC error encountered
+# emma-pp's launcher blacklists it; EgoVerse's does not.
+#
+# timeout_min 2880 is correct despite rl2-lab showing MaxTime=04:00:00. Both the
+# "short" (MaxWall 2-00:00:00) and "long" (7-00:00:00) QOS carry the
+# PartitionTimeLimit flag, which lets a job exceed its partition's time limit.
+# Verified: an 8 h job submitted to rl2-lab with qos=short was accepted.
+defaults:
+  - submitit_skynet
+
+exclude: "bishop"
