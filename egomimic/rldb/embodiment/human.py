@@ -12,6 +12,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     CartesianYPRToRot6D,
     ConcatKeys,
     DeleteKeys,
+    InterpolatePadMask,
     InterpolatePose,
     KeypointsRot6DToYPR,
     KeypointsYPRToRot6D,
@@ -981,6 +982,7 @@ def _build_human_keypoints_bimanual_transform_list(
             stride=stride,
             mode="xyzwxyz",
         ),
+        InterpolatePadMask(new_chunk_length=chunk_length, stride=stride),
     ]
     if not is_quat:
         transform_list.extend(
@@ -1254,6 +1256,7 @@ def _build_human_cartesian_eef_frame_transform_list(
             stride=stride,
             mode="xyzwxyz",
         ),
+        InterpolatePadMask(new_chunk_length=chunk_length, stride=stride),
         ActionChunkCoordinateFrameTransform(
             target_world=left_obs_headframe,
             chunk_world=left_action_headframe,
@@ -1367,6 +1370,7 @@ def _build_human_cartesian_bimanual_transform_list(
             stride=stride,
             mode="xyzwxyz",
         ),
+        InterpolatePadMask(new_chunk_length=chunk_length, stride=stride),
     ]
 
     if target_world_is_quat:
