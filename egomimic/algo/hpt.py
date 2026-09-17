@@ -15,6 +15,7 @@ from tslearn.metrics import SoftDTWLossPyTorch
 
 from egomimic.algo.algo import Algo
 from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
+from egomimic.models.image_augs import PerSampleAugs
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.hf_utils import download_from_huggingface
 from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
@@ -852,7 +853,11 @@ class HPT(Algo):
         self.annotation_modality = annotation_modality
         self.default_prompt = default_prompt
 
-        self.train_image_augs = train_image_augs
+        # Per-sample so every image draws its own jitter parameters; torchvision
+        # samples once per call, i.e. once for the whole stacked batch.
+        self.train_image_augs = (
+            PerSampleAugs(train_image_augs) if train_image_augs is not None else None
+        )
         self.eval_image_augs = eval_image_augs
         self.stem_specs = stem_specs
         self.head_specs = head_specs
@@ -1323,6 +1328,17 @@ class HPT(Algo):
             supervised=self.supervised,
         )
 
+    def _apply_image_augs(self, images, short):
+        """
+        helper method that augments one camera's (B, 3, H, W) batch; train augs
+        are per-sample, the deterministic eval augs stay batched
+        """
+        if self.nets.training and short in self.encoders:
+            return self.train_image_augs(images)
+        elif self.eval_image_augs and short in self.encoders:
+            return self.eval_image_augs(images)
+        return images
+
     def _robomimic_to_hpt_data(
         self, batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys=[]
     ):
@@ -1344,10 +1360,7 @@ class HPT(Algo):
                 short = key.rsplit(".", 1)[-1]
                 _data = batch[key]
                 if not torch.all(_data == 0):
-                    if self.nets.training and short in self.encoders:
-                        _data = self.train_image_augs(_data)
-                    elif self.eval_image_augs and short in self.encoders:
-                        _data = self.eval_image_augs(_data)
+                    _data = self._apply_image_augs(_data, short)
 
                 data[short] = _data.unsqueeze(1).unsqueeze(1)
 
