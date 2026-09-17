@@ -194,10 +194,16 @@ class EpisodeResolver:
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        embodiment_override: str | None = None,
     ):
         self.folder_path = Path(folder_path)
         self.key_map = key_map
         self.transform_list = transform_list
+        # Non-destructive embodiment override: when set, episodes are treated as this
+        # embodiment regardless of the zarr's stored tag, so the stores keep their real
+        # tag. Needed for episodes written before the upstream embodiment collapse
+        # (e.g. aria_bimanual), which would otherwise KeyError in get_embodiment_id.
+        self.embodiment_override = embodiment_override
 
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
@@ -230,6 +236,7 @@ class EpisodeResolver:
                     p,
                     key_map=self.key_map,
                     transform_list=self.transform_list,
+                    embodiment_override=self.embodiment_override,
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -618,8 +625,9 @@ class LocalEpisodeResolver(EpisodeResolver):
         key_map: dict | None = None,
         transform_list: list | None = None,
         debug=False,
+        embodiment_override: str | None = None,
     ):
-        super().__init__(folder_path, key_map, transform_list)
+        super().__init__(folder_path, key_map, transform_list, embodiment_override)
         self.debug = debug
 
     @staticmethod
@@ -1529,18 +1537,22 @@ class ZarrDataset(torch.utils.data.Dataset):
         Episode_path: Path,
         key_map: dict,
         transform_list: list | None = None,
+        embodiment_override: str | None = None,
     ):
         """
         Args:
             episode_path: just a path to the designated zarr episode
             key_map: dict mapping from dataset keys to zarr keys and horizon info, e.g. {"obs/image/front": {"zarr_key": "observations.images.front", "horizon": 4}, ...}
             transform_list: list of Transform objects to apply to the data after loading, e.g. for action chunk transformations. Should be in order of application.
+            embodiment_override: treat every episode as this embodiment, ignoring the
+                zarr's stored tag. The store is left untouched.
         """
         self.episode_path = Episode_path
         self.metadata = None
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
+        self.embodiment_override = embodiment_override
         self.init_episode()
 
         self.key_map = key_map
@@ -1554,7 +1566,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.episode_reader = ZarrEpisode(self.episode_path)
         self.metadata = self.episode_reader.metadata
         self.total_frames = self.metadata["total_frames"]
-        self.embodiment = self.metadata["embodiment"]
+        self.embodiment = self.embodiment_override or self.metadata["embodiment"]
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()
