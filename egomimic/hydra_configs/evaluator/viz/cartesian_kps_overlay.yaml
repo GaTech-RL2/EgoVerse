@@ -1,0 +1,11 @@
+# Eva cross-embodiment viz for the 140-D shared-head cotrain: base = the
+# standard 12-D EE cartesian trajectory (sliced from actions_140d down to
+# 14-D) plus the model's predicted MANO keypoint fingertip/wrist trace
+# projected on top of the same frame — the payoff of the cross-embodiment
+# norm-stats swap.
+eva_bimanual:
+  _target_: egomimic.rldb.embodiment.eva.Eva.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_140d
+  mode: cartesian_kps_overlay

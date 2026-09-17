@@ -11,6 +11,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     BatchQuaternionPoseToYPR,
     ConcatKeys,
     DeleteKeys,
+    EvaCartesianTo140D,
     InterpolateLinear,
     InterpolatePose,
     NumpyToTensor,
@@ -23,6 +24,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 from egomimic.utils.pose_utils import (
     _matrix_to_xyzwxyz,
 )
+from egomimic.utils.viz_utils import _viz_cartesian_with_keypoint_overlay
 
 
 class Eva(Embodiment):
@@ -46,10 +48,41 @@ class Eva(Embodiment):
         ),
     }
 
+    @classmethod
+    def viz(
+        cls,
+        image,
+        viz_data,
+        mode=Literal[
+            "traj",
+            "traj+rotation",
+            "axes",
+            "annotations",
+            "cartesian_kps_overlay",
+        ],
+        intrinsics=None,
+        **kwargs,
+    ):
+        K = intrinsics if intrinsics is not None else cls.INTRINSICS
+        if mode == "cartesian_kps_overlay":
+            # Cross-embodiment viz: base = eva 12-D EE cartesian trajectory
+            # (sliced from the 140-D actions_140d) with the model's predicted
+            # MANO keypoint fingertip/wrist traces overlaid on top.
+            return _viz_cartesian_with_keypoint_overlay(
+                image=image,
+                actions=viz_data,
+                intrinsics=K,
+                **kwargs,
+            )
+        return super().viz(image, viz_data, mode=mode, intrinsics=intrinsics, **kwargs)
+
     @staticmethod
     def get_transform_list(
         mode: Literal[
-            "cartesian", "cartesian_wristframe_ypr", "cartesian_wristframe_quat"
+            "cartesian",
+            "cartesian_140d",
+            "cartesian_wristframe_ypr",
+            "cartesian_wristframe_quat",
         ],
     ) -> list[Transform]:
         if mode == "cartesian":
@@ -58,6 +91,19 @@ class Eva(Embodiment):
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
         elif mode == "cartesian_wristframe_quat":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
+        elif mode == "cartesian_140d":
+            # 14-D bimanual cartesian, lifted to the shared 140-D layout by
+            # inserting 63 zero keypoint slots after each hand's gripper. Also
+            # attaches ``actions_140d_mask`` = 1 at [0:7] + [70:77], 0 elsewhere.
+            # Used by the 140-D cotrain setup.
+            return _build_eva_bimanual_transform_list(is_quat=True) + [
+                EvaCartesianTo140D(
+                    input_key="actions_cartesian",
+                    output_key="actions_140d",
+                    mask_key="actions_140d_mask",
+                    delete_input=False,
+                ),
+            ]
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):

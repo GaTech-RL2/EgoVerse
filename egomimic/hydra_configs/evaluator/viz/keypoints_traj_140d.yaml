@@ -1,0 +1,18 @@
+# Viz dispatch for the 140-D shared-head cotrain (human MANO keypoints +
+# eva cartesian). Human viz slices out the 138-D actions_keypoints layout
+# and hands off to Human.viz_gt_preds; eva viz slices out the 14-D
+# actions_cartesian layout and hands off to Eva.viz_gt_preds. The slicing
+# lives in HPTEvalVideo.compute_metrics_and_viz — this file only picks the
+# per-embodiment renderer.
+eva_bimanual:
+  _target_: egomimic.rldb.embodiment.eva.Eva.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_cartesian
+  mode: traj
+human_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_keypoints
+  mode: keypoints_traj

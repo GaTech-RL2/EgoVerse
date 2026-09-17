@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import Literal
 
 import numpy as np
@@ -11,6 +10,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     BatchQuaternionPoseToYPR,
     ConcatKeys,
     DeleteKeys,
+    HumanKeypointsTo140D,
     InterpolatePose,
     PadGripperZeros,
     PoseCoordinateFrameTransform,
@@ -18,13 +18,97 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     Reshape,
     SplitKeys,
     Transform,
+    UnpadGripperZeros,
     XYZWXYZ_to_XYZYPR,
 )
 from egomimic.utils.viz_utils import (
     ColorPalette,
     _viz_gaze,
     _viz_keypoints,
+    _viz_keypoints_horizon_trace,
+    _viz_keypoints_traj_with_gripper_tag,
 )
+
+ARIA_INTRINSICS = np.array(
+    [
+        [133.25430222 * 2, 0.0, 320, 0],
+        [0.0, 133.25430222 * 2, 240, 0],
+        [0.0, 0.0, 1.0, 0],
+    ]
+)
+
+ARIA_INTRINSICS_HALF = np.array(
+    [
+        [133.25430222, 0.0, 320 / 2, 0],
+        [0.0, 133.25430222, 240 / 2, 0],
+        [0.0, 0.0, 1.0, 0],
+    ]
+)
+
+SCALE_INTRINSICS = np.array(
+    [[214.134, 0.0, 324.593, 0], [0.0, 256.968, 260.146, 0], [0.0, 0.0, 1.0, 0]]
+)
+
+_w0, _h0 = float(1920), float(1080)
+_fx0, _fy0 = float(752.4707352849115), float(753.0015979987369)
+_cx0, _cy0 = float(961.8249427694457), float(553.245895705989)
+_sx = 640 / _w0
+_sy = 360 / _h0
+_fx, _fy = _fx0 * _sx, _fy0 * _sy
+_cx, _cy = _cx0 * _sx, _cy0 * _sy
+
+MECKA_INTRINSICS = np.array(
+    [[_fx, 0.0, _cx, 0], [0.0, _fy, _cy, 0], [0.0, 0.0, 1.0, 0]], dtype=np.float64
+)
+
+LIGHTWHEEL_INTRINSICS = np.array(
+    [
+        [786.6216072, 0.0, 960.0, 0],
+        [0.0, 786.6216072, 728.0, 0],
+        [0.0, 0.0, 1.0, 0],
+    ]
+)
+
+ARIA_T_RGB_CPF = np.array(
+    [
+        [-0.99989084, 0.01251132, -0.00786028, 0.05686918],
+        [-0.01132842, -0.99067146, -0.13580032, 0.00922798],
+        [-0.009486, -0.13569645, 0.99070505, -0.01147902],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+)
+
+
+# Aria's raw 21-keypoint layout (0-4 fingertips, 5 palm root) — NOT MANO. Used
+# only for the opt-in raw-Aria-keypoint viz; the canonical keypoints are MANO.
+ARIA_FINGER_EDGES = [
+    (5, 6),
+    (6, 7),
+    (7, 0),  # thumb
+    (5, 8),
+    (8, 9),
+    (9, 10),
+    (10, 1),  # index
+    (5, 11),
+    (11, 12),
+    (12, 13),
+    (13, 2),  # middle
+    (5, 14),
+    (14, 15),
+    (15, 16),
+    (16, 3),  # ring
+    (5, 17),
+    (17, 18),
+    (18, 19),
+    (19, 4),  # pinky
+]
+ARIA_FINGER_EDGE_RANGES = [
+    ("thumb", 0, 3),
+    ("index", 3, 7),
+    ("middle", 7, 11),
+    ("ring", 11, 15),
+    ("pinky", 15, 19),
+]
 
 
 ARIA_INTRINSICS = np.array(
@@ -80,14 +164,32 @@ ARIA_T_RGB_CPF = np.array(
 # Aria's raw 21-keypoint layout (0-4 fingertips, 5 palm root) — NOT MANO. Used
 # only for the opt-in raw-Aria-keypoint viz; the canonical keypoints are MANO.
 ARIA_FINGER_EDGES = [
-    (5, 6), (6, 7), (7, 0),                # thumb
-    (5, 8), (8, 9), (9, 10), (10, 1),      # index
-    (5, 11), (11, 12), (12, 13), (13, 2),  # middle
-    (5, 14), (14, 15), (15, 16), (16, 3),  # ring
-    (5, 17), (17, 18), (18, 19), (19, 4),  # pinky
+    (5, 6),
+    (6, 7),
+    (7, 0),  # thumb
+    (5, 8),
+    (8, 9),
+    (9, 10),
+    (10, 1),  # index
+    (5, 11),
+    (11, 12),
+    (12, 13),
+    (13, 2),  # middle
+    (5, 14),
+    (14, 15),
+    (15, 16),
+    (16, 3),  # ring
+    (5, 17),
+    (17, 18),
+    (18, 19),
+    (19, 4),  # pinky
 ]
 ARIA_FINGER_EDGE_RANGES = [
-    ("thumb", 0, 3), ("index", 3, 7), ("middle", 7, 11), ("ring", 11, 15), ("pinky", 15, 19),
+    ("thumb", 0, 3),
+    ("index", 3, 7),
+    ("middle", 7, 11),
+    ("ring", 11, 15),
+    ("pinky", 15, 19),
 ]
 
 
@@ -103,6 +205,7 @@ class Human(Embodiment):
     zarr.json); ``cls.INTRINSICS`` is only a fallback for legacy episodes that
     lack them. The canonical keypoints are MANO for every vendor.
     """
+
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
     # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
@@ -111,11 +214,26 @@ class Human(Embodiment):
     T_RGB_CPF = ARIA_T_RGB_CPF  # for the opt-in aria gaze viz
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
-        (0, 5), (5, 6), (6, 7), (7, 8),         # index
-        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
-        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
-        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),  # thumb
+        (0, 5),
+        (5, 6),
+        (6, 7),
+        (7, 8),  # index
+        (0, 9),
+        (9, 10),
+        (10, 11),
+        (11, 12),  # middle
+        (0, 13),
+        (13, 14),
+        (14, 15),
+        (15, 16),  # ring
+        (0, 17),
+        (17, 18),
+        (18, 19),
+        (19, 20),  # pinky
     ]
     FINGER_COLORS = {
         "thumb": (255, 100, 100),
@@ -139,7 +257,14 @@ class Human(Embodiment):
         image,
         viz_data,
         mode=Literal[
-            "traj", "traj+rotation", "axes", "annotations", "keypoints", "gaze"
+            "traj",
+            "traj+rotation",
+            "axes",
+            "annotations",
+            "keypoints",
+            "keypoints_traj",
+            "keypoints_traj_gripper_tag",
+            "gaze",
         ],
         intrinsics=None,
         finger_edges=None,
@@ -153,6 +278,49 @@ class Human(Embodiment):
                 gaze_data=viz_data,
                 intrinsics=K,
                 t_rgb_cpf=cls.T_RGB_CPF,
+                **kwargs,
+            )
+        if mode == "keypoints_traj":
+            color = kwargs.get("color", None)
+            if color is not None and ColorPalette.is_valid(color):
+                n = len(cls.FINGER_COLORS)
+                colors = {
+                    finger: ColorPalette.to_rgb(color, value=(i + 1) / (n + 1))
+                    for i, finger in enumerate(cls.FINGER_COLORS)
+                }
+                wrist_color = ColorPalette.to_rgb(color, value=0.85)
+            else:
+                colors = cls.FINGER_COLORS
+                wrist_color = cls.DOT_COLOR
+            return _viz_keypoints_horizon_trace(
+                image=image,
+                actions=viz_data,
+                intrinsics=K,
+                colors=colors,
+                wrist_color=wrist_color,
+                **kwargs,
+            )
+        if mode == "keypoints_traj_gripper_tag":
+            # Cross-embodiment viz: base = 138-D keypoint trace sliced from
+            # the 140-D actions_140d, overlaid with a top-right gripper tag
+            # (predicted or GT) from slots [6, 76].
+            color = kwargs.get("color", None)
+            if color is not None and ColorPalette.is_valid(color):
+                n = len(cls.FINGER_COLORS)
+                colors = {
+                    finger: ColorPalette.to_rgb(color, value=(i + 1) / (n + 1))
+                    for i, finger in enumerate(cls.FINGER_COLORS)
+                }
+                wrist_color = ColorPalette.to_rgb(color, value=0.85)
+            else:
+                colors = cls.FINGER_COLORS
+                wrist_color = cls.DOT_COLOR
+            return _viz_keypoints_traj_with_gripper_tag(
+                image=image,
+                actions=viz_data,
+                intrinsics=K,
+                colors=colors,
+                wrist_color=wrist_color,
                 **kwargs,
             )
         if mode == "keypoints":
@@ -330,6 +498,8 @@ class Human(Embodiment):
             "cartesian_padded",
             "cartesian_wristframe_ypr",
             "keypoints_headframe_ypr",
+            "keypoints_headframe_ypr_140d",
+            "keypoints_headframe_ypr_140d_eepose_proprio",
             "keypoints_headframe_quat",
             "keypoints_wristframe_ypr",
             "keypoints_wristframe_quat",
@@ -342,9 +512,9 @@ class Human(Embodiment):
         if mode == "cartesian":
             return _build_human_cartesian_bimanual_transform_list(stride=stride)
         if mode == "cartesian_padded":
-            return _build_human_cartesian_bimanual_transform_list(
-                stride=stride
-            ) + [PadGripperZeros(action_key="actions_cartesian")]
+            return _build_human_cartesian_bimanual_transform_list(stride=stride) + [
+                PadGripperZeros(action_key="actions_cartesian")
+            ]
         if mode == "cartesian_wristframe_ypr":
             return _build_human_cartesian_eef_frame_transform_list(stride=stride)
         if mode == "keypoints_headframe_ypr":
@@ -363,6 +533,69 @@ class Human(Embodiment):
             return _build_human_keypoints_eef_frame_transform_list(
                 stride=stride, is_quat=True
             )
+        if mode == "keypoints_headframe_ypr_140d":
+            # 138-D headframe keypoints, lifted to the shared 140-D layout by
+            # inserting a zero gripper slot after each hand's wrist pose. Also
+            # attaches ``actions_140d_mask`` = 1 everywhere except the two
+            # gripper slots. Used by the 140-D cotrain setup.
+            return _build_human_keypoints_bimanual_transform_list(
+                stride=stride, is_quat=False
+            ) + [
+                HumanKeypointsTo140D(
+                    input_key="actions_keypoints",
+                    output_key="actions_140d",
+                    mask_key="actions_140d_mask",
+                    delete_input=False,
+                ),
+            ]
+        if mode == "keypoints_headframe_ypr_140d_eepose_proprio":
+            # Same 140-D action layout as ``keypoints_headframe_ypr_140d``,
+            # but *also* emits ``observations.state.ee_pose`` (12-D) as an
+            # extra proprio next to the 138-D ``observations.state.keypoints``.
+            # The 12-D ee_pose is the two 6-D wrist slices from the keypoints
+            # proprio: ``[left_wrist(0:6), right_wrist(69:75)]``.
+            #
+            # We keep the 138-D keypoints proprio intact so its norm stats
+            # remain consistent with the 300M cotrain reference; the model
+            # config may drop the keypoints stem while retaining ee_pose.
+            return _build_human_keypoints_bimanual_transform_list(
+                stride=stride, is_quat=False
+            ) + [
+                HumanKeypointsTo140D(
+                    input_key="actions_keypoints",
+                    output_key="actions_140d",
+                    mask_key="actions_140d_mask",
+                    delete_input=False,
+                ),
+                # Split the 138-D keypoints proprio into
+                # [L_wrist(6), L_kps(63), R_wrist(6), R_kps(63)]; note
+                # SplitKeys keeps the source key intact.
+                SplitKeys(
+                    input_key="observations.state.keypoints",
+                    output_key_list=[
+                        ("_ee_pose_left_wrist", 6),
+                        ("_ee_pose_left_kps", 63),
+                        ("_ee_pose_right_wrist", 6),
+                        ("_ee_pose_right_kps", 63),
+                    ],
+                ),
+                # Concatenate the two wrist 6-D slices into a 12-D ee_pose;
+                # delete the four intermediate temp keys (kps included).
+                ConcatKeys(
+                    key_list=[
+                        "_ee_pose_left_wrist",
+                        "_ee_pose_right_wrist",
+                    ],
+                    new_key_name="observations.state.ee_pose",
+                    delete_old_keys=True,
+                ),
+                DeleteKeys(
+                    keys_to_delete=[
+                        "_ee_pose_left_kps",
+                        "_ee_pose_right_kps",
+                    ]
+                ),
+            ]
         raise ValueError(f"Unsupported transform_list mode '{mode}' for {cls.__name__}")
 
 
@@ -875,6 +1108,7 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
     left_action_headframe: str = "left.action_ee_pose_headframe",
     right_action_headframe: str = "right.action_ee_pose_headframe",
     is_quat: bool = False,
+    unpad_gripper: bool = False,
 ) -> list[Transform]:
     """Revert wrist-frame ARIA cartesian actions back to head (camera) frame.
 
@@ -882,10 +1116,17 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
     action chunks live in each side's wrist frame, the proprio ee-poses live in
     headframe (= Aria camera frame). Re-composes ``target_headframe @ chunk_wristframe``
     so action chunks are back in headframe / camera frame.
+
+    If ``unpad_gripper`` is True, strips the 14-D padded layout down to 12-D
+    (removes gripper slots at indices 6 and 13) before splitting into per-arm
+    poses. Use when the model was trained with ``pad_gripper=True``.
     """
     pose_shape = 7 if is_quat else 6
     mode = "xyzwxyz" if is_quat else "xyzypr"
-    transform_list = [
+    transform_list: list[Transform] = []
+    if unpad_gripper:
+        transform_list.append(UnpadGripperZeros(action_key=action_key))
+    transform_list += [
         SplitKeys(
             input_key=obs_key,
             output_key_list=[
@@ -943,6 +1184,7 @@ def _build_human_cartesian_eef_frame_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     delete_target_world: bool = True,
+    pad_gripper: bool = False,
 ) -> list[Transform]:
     """ARIA bimanual cartesian pipeline expressed in the current wrist frame.
 
@@ -951,6 +1193,11 @@ def _build_human_cartesian_eef_frame_transform_list(
     ``*.obs_ee_pose_headframe`` for each side). Proprio ee-poses remain in
     headframe (wristframe of the wrist itself is identity). All retained poses
     are converted to xyz-ypr.
+
+    If ``pad_gripper`` is True, appends ``PadGripperZeros`` to lift the 12-D
+    bimanual cartesian actions to a 14-D layout with zero gripper slots at
+    positions 6 and 13 — required when feeding this data through a shared FM
+    head sized for 14-D actions.
     """
     keys_to_delete = list(
         {
@@ -1038,6 +1285,8 @@ def _build_human_cartesian_eef_frame_transform_list(
         ),
         DeleteKeys(keys_to_delete=keys_to_delete),
     ]
+    if pad_gripper:
+        transform_list.append(PadGripperZeros(action_key=actions_key))
     return transform_list
 
 
@@ -1059,12 +1308,18 @@ def _build_human_cartesian_bimanual_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     delete_target_world: bool = True,
+    pad_gripper: bool = False,
 ) -> list[Transform]:
     """Canonical ARIA bimanual transform pipeline used by tests and notebooks.
 
     Aria human data does not have commanded ee poses; action chunks are built
     from stacked observed ee poses (typically with a horizon on
     ``left/right.action_ee_pose`` mapped from ``left/right.obs_ee_pose``).
+
+    If ``pad_gripper`` is True, appends ``PadGripperZeros`` to lift the 12-D
+    bimanual cartesian actions to a 14-D layout with zero gripper slots at
+    positions 6 and 13 — required when feeding this data through a shared FM
+    head sized for 14-D actions.
     """
     keys_to_delete = list(
         {
@@ -1148,4 +1403,6 @@ def _build_human_cartesian_bimanual_transform_list(
             DeleteKeys(keys_to_delete=keys_to_delete),
         ]
     )
+    if pad_gripper:
+        transform_list.append(PadGripperZeros(action_key=actions_key))
     return transform_list

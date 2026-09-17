@@ -1,0 +1,20 @@
+# Cross-embodiment viz dispatch for the 140-D shared-head cotrain: on eva
+# samples, project the predicted MANO keypoints on top of the eva EE
+# trajectory (cartesian_kps_overlay); on human samples, overlay the predicted
+# gripper state as a top-right text tag on the keypoints_traj base
+# (keypoints_traj_gripper_tag).
+#
+# Both viz functions consume the raw 140-D actions_140d (predictions and GT)
+# and slice per-hand internally.
+eva_bimanual:
+  _target_: egomimic.rldb.embodiment.eva.Eva.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_140d
+  mode: cartesian_kps_overlay
+human_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_140d
+  mode: keypoints_traj_gripper_tag

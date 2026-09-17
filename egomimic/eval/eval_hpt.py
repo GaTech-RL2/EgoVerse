@@ -10,6 +10,29 @@ from egomimic.utils.egomimicUtils import (
     reverse_kl_from_samples,
 )
 
+# ---------------------------------------------------------------------------
+# 140-D shared-head slice indices (see cotrain_mecka_eva_fold_clothes_140d.yaml
+# and HumanKeypointsTo140D / EvaCartesianTo140D transforms for the layout).
+# ---------------------------------------------------------------------------
+# Cartesian EE (both wrists / EEs), 12-D: [0:6] ⊕ [70:76]
+_140D_EE_IDX = list(range(0, 6)) + list(range(70, 76))
+# Eva grippers, 2-D: [6:7] ⊕ [76:77]
+_140D_GRIP_IDX = [6, 76]
+# Human keypoints, 126-D: [7:70] ⊕ [77:140]
+_140D_KPS_IDX = list(range(7, 70)) + list(range(77, 140))
+# 138-D "actions_keypoints" reconstruction slice (drops the two gripper slots).
+_140D_TO_138D_KPS_IDX = (
+    list(range(0, 6)) + list(range(7, 70)) + list(range(70, 76)) + list(range(77, 140))
+)
+# 14-D "actions_cartesian" reconstruction slice (drops the two keypoint blocks).
+_140D_TO_14D_CART_IDX = list(range(0, 7)) + list(range(70, 77))
+
+
+def _slice_last(t: torch.Tensor, idx: list[int]) -> torch.Tensor:
+    """Index the last dim of a (B, T, D) tensor by an int list, returning
+    a contiguous copy (so downstream torchmetrics MSE + view ops are safe)."""
+    return t.index_select(-1, torch.as_tensor(idx, device=t.device)).contiguous()
+
 
 class HPTEvalVideo(EvalVideo):
     """
@@ -104,6 +127,86 @@ class HPTEvalVideo(EvalVideo):
                 metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = fd.mean().item()
                 metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
                 metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
+
+            # -----------------------------------------------------------------
+            # 140-D shared-head cotrain sub-metric families. When the shared
+            # ac_key is ``actions_140d`` (see cotrain_mecka_eva_fold_clothes_140d
+            # + hpt_cotrain_140d_300M_shared_head), split preds/GT into 3
+            # semantically distinct sub-slices and log them separately so wandb
+            # renders one chart per family per embodiment:
+            #   - actions_cartesian sub-slice (both embodiments, 12-D EE)
+            #   - gripper sub-slice           (eva only,        2-D)
+            #   - keypoints sub-slice         (human only,    126-D + 138-D viz)
+            # Also emits an ``actions_cartesian`` compat key on both preds &
+            # gt_batch_viz so the existing viz dispatch (cartesian.yaml /
+            # keypoints_traj_140d.yaml) works unchanged.
+            # -----------------------------------------------------------------
+            shared_pred_key = (
+                f"{embodiment_name}_{algo.shared_ac_key}"
+                if algo.shared_ac_key
+                else None
+            )
+            if (
+                algo.shared_ac_key == "actions_140d"
+                and shared_pred_key in preds
+                and _batch.get("actions_140d") is not None
+            ):
+                pred_140d = preds[shared_pred_key]
+                gt_140d = _batch["actions_140d"]
+
+                # --- (1) Cartesian EE MSE, both embodiments -----------------
+                pred_ee = _slice_last(pred_140d, _140D_EE_IDX)
+                gt_ee = _slice_last(gt_140d, _140D_EE_IDX)
+                cart_key = f"Valid/{embodiment_name}_actions_cartesian"
+                metrics[f"{cart_key}_paired_mse_avg"] = mse(pred_ee.cpu(), gt_ee.cpu())
+                metrics[f"{cart_key}_final_mse_avg"] = mse(
+                    pred_ee[:, -1].cpu().contiguous(),
+                    gt_ee[:, -1].cpu().contiguous(),
+                )
+
+                # --- (2) Eva gripper MSE, eva only --------------------------
+                if embodiment_name == "eva_bimanual":
+                    pred_g = _slice_last(pred_140d, _140D_GRIP_IDX)
+                    gt_g = _slice_last(gt_140d, _140D_GRIP_IDX)
+                    grip_key = f"Valid/{embodiment_name}_gripper"
+                    metrics[f"{grip_key}_paired_mse_avg"] = mse(
+                        pred_g.cpu(), gt_g.cpu()
+                    )
+                    metrics[f"{grip_key}_final_mse_avg"] = mse(
+                        pred_g[:, -1].cpu().contiguous(),
+                        gt_g[:, -1].cpu().contiguous(),
+                    )
+
+                # --- (3) Human keypoints MSE + Frechet, human only ---------
+                if embodiment_name == "human_bimanual":
+                    pred_kp = _slice_last(pred_140d, _140D_KPS_IDX)
+                    gt_kp = _slice_last(gt_140d, _140D_KPS_IDX)
+                    kp_key = f"Valid/{embodiment_name}_actions_keypoints"
+                    metrics[f"{kp_key}_paired_mse_avg"] = mse(
+                        pred_kp.cpu(), gt_kp.cpu()
+                    )
+                    metrics[f"{kp_key}_final_mse_avg"] = mse(
+                        pred_kp[:, -1].cpu().contiguous(),
+                        gt_kp[:, -1].cpu().contiguous(),
+                    )
+                    fd_kp = frechet_gaussian_over_time(pred_kp, gt_kp)
+                    metrics[f"{kp_key}_frechet_gauss_avg"] = fd_kp.mean().item()
+                    metrics[f"{kp_key}_frechet_gauss_min"] = fd_kp.min().item()
+                    metrics[f"{kp_key}_frechet_gauss_max"] = fd_kp.max().item()
+
+                # --- Viz compat keys (populate legacy names on preds/gt) ----
+                # 138-D "actions_keypoints" (human viz) and 14-D
+                # "actions_cartesian" (eva viz) — both sliced from the 140-D
+                # predictions and GT so the existing viz.yaml keys work.
+                pred_kps_138 = _slice_last(pred_140d, _140D_TO_138D_KPS_IDX)
+                gt_kps_138 = _slice_last(gt_140d, _140D_TO_138D_KPS_IDX)
+                pred_cart_14 = _slice_last(pred_140d, _140D_TO_14D_CART_IDX)
+                gt_cart_14 = _slice_last(gt_140d, _140D_TO_14D_CART_IDX)
+
+                preds[f"{embodiment_name}_actions_keypoints"] = pred_kps_138
+                preds[f"{embodiment_name}_actions_cartesian"] = pred_cart_14
+                _batch["actions_keypoints"] = gt_kps_138
+                _batch["actions_cartesian"] = gt_cart_14
 
             if algo.rkl_samples and algo.rkl_samples > 1:
                 hpt_batch = {
