@@ -1,0 +1,94 @@
+defaults:
+  - mecka_fold_flagship_opsplit_hpt_6d
+  - _self_
+
+# MECKA_FOLD_FLAGSHIP_TOP3_HPT_6D: THREE-operator twin of
+# mecka_fold_flagship_opsplit_hpt_6d (and the wider sibling of the
+# single-operator mecka_fold_flagship_topop_hpt_6d). TRAIN on the 3 largest
+# flagship fold-clothes operators only; everything else (pipeline,
+# unseen-operator val, loader params) is inherited from the parent.
+#
+# SPLIT (operator totals from SQL app.episodes, 2026-09-15; the train/val
+# numbers measured from the real seeded split on a compute node the same day):
+#   train ops = the 3 largest of the 20 flagship operators, by frames:
+#                 6903686e0e94ce070afd1f24  405 eps /  76,013 frames
+#                 690366b20e94ce070afd1e8a  354 eps /  67,085 frames
+#                 683785ac01ca734152093448  320 eps /  63,178 frames
+#                 total                   1,079 eps / 206,276 frames
+#                 = 1.91 h at 30 fps, 65.3 % of the flagship set.
+#               None of the three is in the parent's `held_out_operators`.
+#   train       = 95 % of those episodes: 1,026 eps / 196,450 frames
+#                 (6903686e 382 eps/71,722 f, 690366b2 334/63,397,
+#                  683785ac 310/61,331).
+#   seen val    = the other 5 % (53 eps / 9,826 frames) -> seen_op_valid/. The
+#                 parent's valid_datasets interpolates the train filters and
+#                 valid_ratio, so it follows this override automatically.
+#   train_viz   = the train split above (trainHydra's default) -> train_viz/.
+#   unseen val  = UNCHANGED from the parent: all episodes of the 2
+#                 `held_out_operators` (191 eps / 30,937 frames) ->
+#                 unseen_op_valid/, directly comparable with the 18-operator
+#                 and single-operator runs.
+# The other 15 operators are unused.
+#
+# Hydra replaces lists wholesale, so the train filter_lambdas are restated in
+# full; only the last (operator) lambda differs from the parent. The operator
+# ids are inlined rather than put in a config key: MultiDataModuleWrapper
+# rejects root keys it does not declare.
+#
+# NORMALIZATION: the train distribution differs from the parent's and from
+# topop's, so precompute stats on THIS config:
+#   python egomimic/scripts/precompute_norm_stats.py --config-name train_zarr_mecka_flagship_6d_hpt \
+#     --data mecka_fold_flagship_top3_hpt_6d --model hpt_bc_mecka_6d_300M --out <out>
+# then train with
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_6d_hpt \
+#     data=mecka_fold_flagship_top3_hpt_6d norm_stats.precomputed_norm_path=<out>/norm_stats
+# Stats for this config (sample_frac 1.0, 2026-09-15) are precomputed at
+#   /coc/flash7/rco3/EgoVerse/logs/claude_scratch/hpt_sup/norm_stats/mecka_fold_flagship_top3_hpt_6d/norm_stats
+
+train_datasets:
+  human_bimanual:
+    filters:
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() == 'fold_clothes'"
+        - "lambda row: '/mecka/flagship/' in str(row.get('zarr_processed_path', ''))"
+        # TOP-3 OPERATOR TRAIN: the three largest flagship operators only.
+        - "lambda row: str(row.get('operator', '')) in ['6903686e0e94ce070afd1f24', '690366b20e94ce070afd1e8a', '683785ac01ca734152093448']"
+
+# ---------------------------------------------------------------------------
+# METRIC / VIDEO LOADERS: only the SEEN-op and train_viz entries differ from
+# the parent (this config trains on 3 of the 18 operators, so those two splits
+# are smaller); the unseen head is identical, so its K and pins are inherited.
+# ---------------------------------------------------------------------------
+# K = floor(5120 / episodes-in-that-split), 5120 = limit_val_batches (80) x
+# batch_size (64). Episode counts measured from the real splits 2026-09-15:
+#   valid        53 eps /   9,826 frames -> K = floor(5120/53)   = 96. The
+#                shortest seen-val episode is 127f > 96, so every episode
+#                contributes exactly 96: 53 x 96 = 5,088 f = 79.5 batches.
+#   train_viz 1,026 eps / 196,450 frames -> K = floor(5120/1026) =  4
+#                -> 1026 x 4 = 4,104 f = 64.1 batches.
+# `unseen_op_valid: 26` is inherited unchanged (191 eps, same split as the
+# parent), and hydra merges dicts, so only the two changed keys are restated.
+metric_frames_per_episode:
+  valid: 96
+  train_viz: 4
+
+# The parent's seen-val pin belongs to operator 690364170e94ce070afd1da5,
+# which is not in this config's 3-operator split, so `valid` is replaced
+# (hydra replaces lists wholesale). Seen-val now spans 3 operators, so ONE
+# episode is pinned per operator and the video shows all three. The train_viz
+# pin 692e9bda21fc595fbe6f941e IS an episode of operator 6903686e..., hence in
+# this train split too (confirmed on the measured split), and the unseen pins
+# are the same split as the parent's -- both inherited.
+#   valid  692ea44dc621d7f4aac3aae6 (683785ac01ca734152093448, 191f)
+#          692eb08997ffd8ec90340290 (690366b20e94ce070afd1e8a, 223f)
+#          692fe79f34a99e18e25289ad (6903686e0e94ce070afd1f24, 226f)
+#          All three are at or above the split's 177f median length, and
+#          191 + 223 + 226 = 640 f = EXACTLY the 10-batch
+#          (evaluator.viz_max_batches x 64) video budget, so each operator's
+#          episode is rendered whole whatever order the loader uses.
+video_episodes:
+  valid:
+    - 692ea44dc621d7f4aac3aae6
+    - 692eb08997ffd8ec90340290
+    - 692fe79f34a99e18e25289ad
