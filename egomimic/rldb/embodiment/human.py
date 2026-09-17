@@ -21,6 +21,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     QuaternionPoseToYPR,
     Reshape,
     RotateLocalFrame,
+    SelectCurrentStep,
     SplitKeys,
     Transform,
     UnpadGripperZeros,
@@ -228,6 +229,7 @@ class Human(Embodiment):
         include_ee_pose: bool = False,
         norm_mode: bool = False,
         annotation_key: str = None,
+        proprio_history: int = 1,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (False only for contributors that truly omit
@@ -237,12 +239,18 @@ class Human(Embodiment):
         the keypoint transform modes can build the cartesian
         ``observations.state.ee_pose`` proprio, the pi0.5 prompt state).
         ``norm_mode``/``annotation_key`` behave as in the base.
+
+        ``proprio_history`` (K) makes the proprio keys the model consumes read
+        the last K frames instead of one: the dataset emits ``(K, D)`` with the
+        current frame last, plus a ``proprio_history_mask``. K = 1 (the
+        default) leaves the keymap exactly as it was.
         """
         key_map = cls._get_keymap(
             keymap_mode,
             has_head_pose=has_head_pose,
             include_aria_keypoints=include_aria_keypoints,
             include_ee_pose=include_ee_pose,
+            proprio_history=proprio_history,
         )
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
@@ -266,12 +274,14 @@ class Human(Embodiment):
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
         include_ee_pose: bool = False,
+        proprio_history: int = 1,
     ):
         """Canonical MANO keymap. ``include_aria_keypoints`` additionally exposes
         the raw Aria-layout proprio keypoints alongside the MANO ones;
         ``include_ee_pose`` adds the palm-origin ee_pose keys to the keypoints
         keymap. The front image is always ``VIZ_IMAGE_KEY``; Pi renames it
-        onto its own slot.
+        onto its own slot. ``proprio_history`` > 1 marks the proprio entries
+        the model consumes with ``"history": K`` (see ``get_keymap``).
         """
         base_mode = _strip_pi_keymap_mode(cls, keymap_mode)
         front_key = cls.VIZ_IMAGE_KEY
@@ -382,6 +392,25 @@ class Human(Embodiment):
                 "key_type": "proprio_keys",
                 "zarr_key": "obs_head_pose",
             }
+
+        if proprio_history > 1:
+            # Backward window on the proprio the MODEL consumes. Not on
+            # ``obs_head_pose``: every history step is expressed in the CURRENT
+            # step's head frame (a per-step head frame would make the history
+            # unreadable), and not on the horizoned ``action_*`` entries, which
+            # are forward chunks.
+            if base_mode == "cartesian":
+                history_keys = ["left.obs_ee_pose", "right.obs_ee_pose"]
+            else:
+                history_keys = [
+                    f"{side}.{name}"
+                    for side in ("left", "right")
+                    for name in ("obs_keypoints", "obs_wrist_pose")
+                ]
+                if include_ee_pose:
+                    history_keys += ["left.obs_ee_pose", "right.obs_ee_pose"]
+            for key in history_keys:
+                key_map[key]["history"] = int(proprio_history)
         return key_map
 
     @classmethod
@@ -559,6 +588,9 @@ def _build_human_keypoints_revert_eef_frame_transform_list(
     else:
         pose_shape = 6
     transform_list = [
+        # proprio_history: the proprio defines the frame, so keep the CURRENT
+        # step (no-op at K = 1, idempotent after the 6D revert).
+        SelectCurrentStep(keys=[obs_key]),
         SplitKeys(
             input_key=obs_key,
             output_key_list=[
@@ -697,17 +729,22 @@ def _build_human_keypoints_eef_frame_transform_list(
                 output_key=right_keypoints_action_headframe,
                 shape=(chunk_length, 21, 3),
             ),
+            # target_history: the proprio wrist pose may carry a leading time
+            # axis (proprio_history); everything is expressed in the CURRENT
+            # step's wrist frame either way.
             ActionChunkCoordinateFrameTransform(
                 target_world=left_wrist_obs_headframe,
                 chunk_world=left_keypoints_action_headframe,
                 transformed_key_name=left_keypoints_action_wristframe,
                 mode="xyz",
+                target_history=True,
             ),
             ActionChunkCoordinateFrameTransform(
                 target_world=right_wrist_obs_headframe,
                 chunk_world=right_keypoints_action_headframe,
                 transformed_key_name=right_keypoints_action_wristframe,
                 mode="xyz",
+                target_history=True,
             ),
             Reshape(
                 input_key=left_keypoints_action_wristframe,
@@ -734,12 +771,14 @@ def _build_human_keypoints_eef_frame_transform_list(
                 pose_world=left_keypoints_obs_headframe,
                 transformed_key_name=left_keypoints_obs_wristframe,
                 mode="xyz",
+                target_history=True,
             ),
             PoseCoordinateFrameTransform(
                 target_world=right_wrist_obs_headframe,
                 pose_world=right_keypoints_obs_headframe,
                 transformed_key_name=right_keypoints_obs_wristframe,
                 mode="xyz",
+                target_history=True,
             ),
             Reshape(
                 input_key=left_keypoints_obs_wristframe,
@@ -756,12 +795,14 @@ def _build_human_keypoints_eef_frame_transform_list(
                 chunk_world=left_wrist_action_headframe,
                 transformed_key_name=left_wrist_action_wristframe,
                 mode="xyzwxyz",
+                target_history=True,
             ),
             ActionChunkCoordinateFrameTransform(
                 target_world=right_wrist_obs_headframe,
                 chunk_world=right_wrist_action_headframe,
                 transformed_key_name=right_wrist_action_wristframe,
                 mode="xyzwxyz",
+                target_history=True,
             ),
         ]
     )
@@ -1056,6 +1097,10 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
     pose_shape = 7 if is_quat else 6
     mode = "xyzwxyz" if is_quat else "xyzypr"
     transform_list = [
+        # The proprio defines the frame the action chunk is projected out of;
+        # with proprio_history it arrives (K, D), so take the CURRENT step
+        # (no-op at K = 1, and idempotent when a 6D revert already did it).
+        SelectCurrentStep(keys=[obs_key]),
         SplitKeys(
             input_key=obs_key,
             output_key_list=[
@@ -1108,6 +1153,7 @@ def _build_human_cartesian_revert_6d_transform_list(
     grip-padded 18 -> 20) is reverted the same way.
     """
     return [
+        SelectCurrentStep(keys=[obs_key]),  # proprio_history: keep the current step
         CartesianRot6DToYPR(action_key=action_key),
         CartesianRot6DToYPR(action_key=obs_key),
         UnpadGripperZeros(action_key=obs_key),
@@ -1129,6 +1175,7 @@ def _build_human_cartesian_revert_6d_wristframe_transform_list(
     actions back into head frame using that ypr proprio to define the frame.
     """
     return [
+        SelectCurrentStep(keys=[obs_key]),  # proprio_history: keep the current step
         CartesianRot6DToYPR(action_key=action_key),
         CartesianRot6DToYPR(action_key=obs_key),
         UnpadGripperZeros(action_key=obs_key),
@@ -1147,6 +1194,7 @@ def _build_human_keypoints_revert_6d_transform_list(
     changes). The proprio is reverted the same way.
     """
     return [
+        SelectCurrentStep(keys=[obs_key]),  # proprio_history: keep the current step
         KeypointsRot6DToYPR(action_key=action_key),
         KeypointsRot6DToYPR(action_key=obs_key),
     ]
@@ -1165,6 +1213,7 @@ def _build_human_keypoints_revert_6d_wristframe_transform_list(
     ``actions_keypoints`` (the wrist-pose slices are consumed by the revert).
     """
     return [
+        SelectCurrentStep(keys=[obs_key]),  # proprio_history: keep the current step
         KeypointsRot6DToYPR(action_key=action_key),
         KeypointsRot6DToYPR(action_key=obs_key),
         *_build_human_keypoints_revert_eef_frame_transform_list(
@@ -1257,17 +1306,22 @@ def _build_human_cartesian_eef_frame_transform_list(
             mode="xyzwxyz",
         ),
         InterpolatePadMask(new_chunk_length=chunk_length, stride=stride),
+        # target_history: the proprio obs pose may carry a leading time axis
+        # (proprio_history); the action chunk is expressed in the CURRENT
+        # step's wrist frame either way.
         ActionChunkCoordinateFrameTransform(
             target_world=left_obs_headframe,
             chunk_world=left_action_headframe,
             transformed_key_name=left_action_wristframe,
             mode="xyzwxyz",
+            target_history=True,
         ),
         ActionChunkCoordinateFrameTransform(
             target_world=right_obs_headframe,
             chunk_world=right_action_headframe,
             transformed_key_name=right_action_wristframe,
             mode="xyzwxyz",
+            target_history=True,
         ),
         XYZWXYZ_to_XYZYPR(
             keys=[

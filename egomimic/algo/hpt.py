@@ -402,16 +402,24 @@ class HPTModel(nn.Module):
                 horizon = np.random.randint(1, data_horizon + 1)
                 data[modality] = data[modality][:, data_horizon - horizon :]
 
-            positional_embedding = get_sinusoid_encoding_table(
-                0, horizon * int(np.prod(data_shape[2:-1])), data_shape[-1]
-            ).to(data[modality])
-            positional_embedding = einops.repeat(
-                positional_embedding, "b h w -> (repeat b) h w", repeat=data_shape[0]
-            )
+            # An observation-history stem owns its own LEARNED time-step
+            # embedding (added after the projection); the input-side sinusoid
+            # here is a constant [0, 1, 0, 1, ...] added to the NORMALIZED
+            # values, which would be amplitude-1 noise on [-1, 1] data once
+            # axis 1 carries more than the current step.
+            if getattr(stem, "history_len", 1) == 1:
+                positional_embedding = get_sinusoid_encoding_table(
+                    0, horizon * int(np.prod(data_shape[2:-1])), data_shape[-1]
+                ).to(data[modality])
+                positional_embedding = einops.repeat(
+                    positional_embedding,
+                    "b h w -> (repeat b) h w",
+                    repeat=data_shape[0],
+                )
 
-            data[modality] = data[modality] + positional_embedding.view(
-                data[modality].shape
-            )
+                data[modality] = data[modality] + positional_embedding.view(
+                    data[modality].shape
+                )
             stem_token = stem.compute_latent(data[modality])
             feats.append(stem_token)
             feat_dict[modality] = stem_token
@@ -1107,6 +1115,10 @@ class HPT(Algo):
             action_pad_mask = processed_batch[embodiment_id].pop(
                 "action_pad_mask", None
             )
+            # Front-padded history steps are copies of the first real frame --
+            # exactly a history-dropout sample -- so the stem needs nothing
+            # extra and downstream keys stay as they were.
+            processed_batch[embodiment_id].pop("proprio_history_mask", None)
             if self.use_pad_mask and action_pad_mask is not None:
                 if action_pad_mask.shape[-1] != S:
                     raise ValueError(
@@ -1360,6 +1372,18 @@ class HPT(Algo):
             return self.eval_image_augs(images)
         return images
 
+    def _stem_history_len(self, modality: str) -> int:
+        """``history_len`` of the stem that consumes ``modality`` (1 when the
+        stem declares none). Stems are registered as ``f"{domain}_{modality}"``
+        and a proprio modality belongs to at most one stem per run, so a suffix
+        match finds it without threading the domain through.
+        """
+        stems = getattr(self.nets["policy"], "stems", None)
+        for name in stems or {}:
+            if name == modality or name.endswith(f"_{modality}"):
+                return int(getattr(stems[name], "history_len", 1))
+        return 1
+
     def _robomimic_to_hpt_data(
         self, batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys=[]
     ):
@@ -1374,7 +1398,22 @@ class HPT(Algo):
         for key in proprio_keys:
             if key in batch:
                 short = key.rsplit(".", 1)[-1]
-                data[f"state_{short}"] = batch[key].unsqueeze(1)
+                modality = f"state_{short}"
+                value = batch[key]
+                if value.ndim == 2:
+                    data[modality] = value.unsqueeze(1)  # (B, D) -> (B, 1, D)
+                else:
+                    # Observation history: already (B, K, D), one token per step.
+                    history_len = self._stem_history_len(modality)
+                    if value.shape[1] != history_len:
+                        raise ValueError(
+                            f"proprio '{key}' carries {value.shape[1]} history "
+                            f"steps but the '{modality}' stem has "
+                            f"history_len={history_len}; set "
+                            "model...state_ee_pose.history_len and the keymap's "
+                            "proprio_history to the same K"
+                        )
+                    data[modality] = value
 
         for key in cam_keys:
             if key in batch:
