@@ -29,6 +29,19 @@ logger = logging.getLogger(__name__)
 
 
 class QwenVLA(DeterministicEvalMixin, Algo):
+    @property
+    def device(self):
+        return self._device
+
+    @device.setter
+    def device(self, value):
+        """Move the algo (and its nets) to ``value``; written by ``ModelWrapper``
+        once Lightning knows the rank's device (see ``__init__``)."""
+        self._device = torch.device(value) if value is not None else torch.device("cpu")
+        nets = getattr(self, "nets", None)
+        if nets is not None:
+            nets.to(self._device)
+
     def __init__(
         self,
         norm_stats,
@@ -77,9 +90,12 @@ class QwenVLA(DeterministicEvalMixin, Algo):
         # Read by eval_hpt.py; QwenVLA has one head, no auxiliary / shared keys.
         self.shared_ac_key = None
         self.auxiliary_ac_keys = {}
-        self.device = kwargs.get(
-            "device", torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        )
+        # Construct on the CPU. Lightning learns each rank's GPU only after the
+        # model exists and writes it to ``device`` (``ModelWrapper.on_fit_start``
+        # / ``on_validation_start``), whose setter moves the nets. Picking
+        # ``cuda`` here would put every DDP rank's 4.8 GB of fp32 VLM weights on
+        # cuda:0 until then, which overflows it on a checkpoint resume.
+        self._device = torch.device(kwargs.get("device", "cpu"))
 
         state_dims = {
             d: int(self.dims[d]["proprio"])
@@ -95,7 +111,7 @@ class QwenVLA(DeterministicEvalMixin, Algo):
             history_dropout=history_dropout,
         )
         self.nets["policy"] = QwenVLAModel(backbone, head_module)
-        self.nets = self.nets.float().to(self.device)
+        self.nets = self.nets.float().to(self._device)
         verify_pretrained_weights(self.nets["policy"])
 
         self.ac_keys = dict(ac_keys)

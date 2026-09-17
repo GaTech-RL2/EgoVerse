@@ -195,3 +195,15 @@ def test_backbone_parameters_go_to_the_vlm_lr_group(snapshot):
     assert vlm.backbone_parameters() and all(
         p.requires_grad for p in vlm.backbone_parameters()
     )
+
+
+def test_algo_is_built_on_the_cpu_and_the_device_setter_moves_the_nets(snapshot):
+    """Every DDP rank constructs the algo before Lightning assigns its GPU; the
+    nets must not be parked on cuda:0 meanwhile (8 x 4.8 GB overflowed it on a
+    checkpoint resume, 2026-09-16)."""
+    algo = _algo(snapshot)
+    assert algo.device == torch.device("cpu")
+    assert next(algo.nets.parameters()).device.type == "cpu"
+    algo.device = "cpu"  # what ModelWrapper.on_fit_start writes (a str or device)
+    assert algo.device == torch.device("cpu")
+    assert next(algo.nets.parameters()).device.type == "cpu"
