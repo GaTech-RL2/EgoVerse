@@ -1312,7 +1312,17 @@ class MultiDataset(torch.utils.data.Dataset):
         batch_size: int = 512,
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
+        pool_horizon: bool = False,
     ):
+        """Fill ``self.norm_stats[embodiment]`` from a precomputed file or by
+        sampling ``dataset``.
+
+        ``pool_horizon``: compute each chunked key's stats over every timestep
+        of the chunk (one set per channel, like openpi) instead of per
+        (timestep, channel) cell. The pooled stats are tiled back to the
+        ``(T, D)`` shape, so normalize / bounds check / checkpoints see the
+        same layout either way.
+        """
         embodiment = dataset_name
         if isinstance(embodiment, str):
             embodiment = get_embodiment_id(embodiment)
@@ -1397,7 +1407,15 @@ class MultiDataset(torch.utils.data.Dataset):
             collected[k] = self._drop_nonfinite_rows(
                 np.concatenate(collected[k], axis=0), k
             )
-            stats_np = self._compute_stats_for_array(collected[k])
+            X = collected[k]
+            if pool_horizon and X.ndim > 2:
+                stats_np = self._compute_stats_for_array(X.reshape(-1, X.shape[-1]))
+                stats_np = {
+                    name: np.broadcast_to(arr, X.shape[1:]).copy()
+                    for name, arr in stats_np.items()
+                }
+            else:
+                stats_np = self._compute_stats_for_array(X)
             self.norm_stats[embodiment][k] = {
                 name: np.asarray(arr, dtype=np.float32)
                 for name, arr in stats_np.items()

@@ -31,6 +31,9 @@ seed: 42
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:
   norm_mode: quantile
+  # true: one set of stats per channel over the whole action chunk (openpi);
+  # false: per (timestep, channel) cell.
+  pool_horizon: false
   sample_frac: 1.0
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}
