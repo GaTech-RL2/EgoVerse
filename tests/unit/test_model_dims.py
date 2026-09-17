@@ -44,11 +44,11 @@ SHARED = (14, {"eva_bimanual": (14, 14), "human_bimanual": (12, 14)})
 # {config: (action_width or None, {emb: (proprio, action)})}; None = no shared
 # head, so no action_width key.
 EXPECTED = {
-    "hpt_bc_flow_eva": (None, {"eva_bimanual": (14, 14)}),
-    "hpt_bc_flow_aria": (None, {"human_bimanual": (12, 12)}),
-    "hpt_bc_flow_human": (None, {"human_bimanual": (12, 12)}),
-    "hpt_bc_flow_mecka": (None, {"human_bimanual": (12, 12)}),
-    "hpt_bc_flow_scale": (None, {"human_bimanual": (12, 12)}),
+    "hpt_bc_flow_eva": (None, {"eva_bimanual": (20, 20)}),
+    "hpt_bc_flow_aria": (None, {"human_bimanual": (20, 18)}),
+    "hpt_bc_flow_human": (None, {"human_bimanual": (20, 18)}),
+    "hpt_bc_flow_mecka": (None, {"human_bimanual": (20, 18)}),
+    "hpt_bc_flow_scale": (None, {"human_bimanual": (20, 18)}),
     "hpt_bc_keypoints_base": (None, {"human_bimanual": (138, 138)}),
     "hpt_bc_pickplace_qwen_pertoken": (None, {"eva_bimanual": (14, 14)}),
     "hpt_bc_pickplace_qwen_pooled": (None, {"eva_bimanual": (14, 14)}),

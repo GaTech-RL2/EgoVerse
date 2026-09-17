@@ -51,8 +51,31 @@ def get_embodiment(index):
     return EMBODIMENT_ID_TO_KEY.get(index, None)
 
 
+# Human demo data written by the vendor-split registry carries vendor-tagged
+# embodiment metadata (e.g. MECKA_BIMANUAL, SCALE_LEFT_ARM). Locally all human
+# demonstration data is ONE embodiment (see the EMBODIMENT docstring; the
+# source lives only in the SQL `lab` field), so those names collapse to
+# HUMAN_*. Robot names (EVA_*) are never aliased.
+HUMAN_VENDOR_PREFIXES = ("MECKA", "SCALE", "ARIA", "LIGHTWHEEL")
+
+
+def canonical_embodiment_name(embodiment_name: str) -> str:
+    """Upper-case EMBODIMENT member name, with legacy vendor prefixes
+    (``MECKA_BIMANUAL`` ...) collapsed onto ``HUMAN_*``. Does not validate."""
+    name = embodiment_name.upper()
+    vendor, _, suffix = name.partition("_")
+    if vendor in HUMAN_VENDOR_PREFIXES and suffix:
+        return f"HUMAN_{suffix}"
+    return name
+
+
+def is_legacy_vendor_embodiment(embodiment_name: str) -> bool:
+    """True for vendor-tagged human names that only resolve through aliasing."""
+    return canonical_embodiment_name(embodiment_name) != embodiment_name.upper()
+
+
 def get_embodiment_id(embodiment_name):
-    return EMBODIMENT[embodiment_name.upper()].value
+    return EMBODIMENT[canonical_embodiment_name(embodiment_name)].value
 
 
 def _strip_pi_keymap_mode(cls, keymap_mode: str) -> str:
