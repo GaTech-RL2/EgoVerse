@@ -10,6 +10,7 @@ from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
 import egomimic.utils.tensor_utils as TensorUtils
+from egomimic.pl_utils.pl_data_utils import head_of_loader, video_loader_name
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
@@ -239,12 +240,31 @@ class ModelWrapper(LightningModule):
         returns a list; ``val_loader_names[dataloader_idx]`` picks the head
         (valid -> evaluator, train_viz -> train_viz_evaluator, unseen_op_valid ->
         unseen_op_valid_evaluator).
+
+        A head with pinned video episodes also gets a ``<head>_video`` loader,
+        which routes to the SAME evaluator in video-only mode while the metric
+        loader runs in metrics-only mode. Heads without one keep the single
+        combined call, so evaluators (and stub evaluators in tests) that take no
+        ``mode`` still work.
         """
         names = getattr(self, "val_loader_names", None) or ["valid", "train_viz"]
         name = names[dataloader_idx] if dataloader_idx < len(names) else None
-        active = self._val_heads().get(name)
+        if name is None:
+            return
+        head, video_only = head_of_loader(name)
+        active = self._val_heads().get(head)
         if active is None:
             return
+        if video_only:
+            mode = "video"
+            # Non-viz epoch: skip before the forward pass, it would be wasted.
+            should_viz = getattr(active, "_should_viz", None)
+            if callable(should_viz) and not should_viz():
+                return
+        elif video_loader_name(head) in names:
+            mode = "metrics"
+        else:
+            mode = "both"
         # When val_dataloader returns a list of CombinedLoaders (valid +
         # train_viz), Lightning wraps it in an outer sequential CombinedLoader.
         # The outer iterator calls next() on each inner CombinedLoader, which
@@ -255,10 +275,15 @@ class ModelWrapper(LightningModule):
         batch = self.model.process_batch_for_training(batch)
         print(
             f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}, "
-            f"dataloader_idx={dataloader_idx}",
+            f"dataloader_idx={dataloader_idx}, loader={name}, mode={mode}",
             flush=True,
         )
-        active.on_validation_step(batch, batch_idx, dataloader_idx)
+        if mode == "both":
+            # The historical call: no `mode` kwarg, so evaluators that predate
+            # the split keep working unchanged.
+            active.on_validation_step(batch, batch_idx, dataloader_idx)
+        else:
+            active.on_validation_step(batch, batch_idx, dataloader_idx, mode=mode)
 
     def on_validation_end(self):
         print(f"[ON_VALIDATION_END] rank={self.global_rank}", flush=True)

@@ -1863,6 +1863,14 @@ class EvenStrideDataset(MultiDataset):
         self.base.set_data_schematic(data_schematic)
         self.data_schematic = data_schematic
 
+    def set_norm_stats_from(self, source: "MultiDataset") -> None:
+        """Delegate to ``self.base`` as well: ``__getitem__`` here forwards to
+        ``self.base[...]``, so the bounds-check + normalize pass reads the
+        *base*'s stats. Setting them on the wrapper alone (the inherited
+        implementation) would leave the subsampled val loader unnormalized."""
+        self.base.set_norm_stats_from(source)
+        MultiDataset.set_norm_stats_from(self, source)
+
     def __getattr__(self, item):
         if item == "base":
             raise AttributeError(item)
@@ -1870,6 +1878,48 @@ class EvenStrideDataset(MultiDataset):
         if base is None:
             raise AttributeError(item)
         return getattr(base, item)
+
+
+def pinned_episode_subset(
+    base: MultiDataset, episode_hashes, dataset_name: str | None = None
+) -> MultiDataset:
+    """A contiguous, unsubsampled ``MultiDataset`` over just ``episode_hashes``
+    of an already-built ``base``.
+
+    Used for the video-only val loaders: the overlay video must be watchable, so
+    it renders whole episodes in frame order rather than the metric loader's
+    per-episode subsample.
+
+    The episodes are taken from ``base.datasets`` (the same leaf ``ZarrDataset``
+    objects), NOT re-resolved: a second ``MultiDataset._from_resolver`` with
+    ``filters.episode_hashes`` set would be a different ``resolve_once`` memo key
+    and so a second path resolution / zarr open per head. A pin that is not in
+    ``base`` is a ``PinError``, matching ``_from_resolver``'s pin contract.
+
+    ``episode_hashes`` order is preserved, so the video plays the pinned
+    episodes in config order.
+    """
+    hashes = [str(h) for h in (episode_hashes or [])]
+    missing = [h for h in hashes if h not in base.datasets]
+    if missing:
+        raise PinError(
+            f"{len(missing)} pinned video episode(s) not in dataset "
+            f"'{dataset_name or '<unnamed>'}': {sorted(missing)}. The pin must "
+            "name an episode of THIS head's split (e.g. a seen-val episode for "
+            "`valid`, a held-out-operator episode for `unseen_op_valid`)."
+        )
+    if not hashes:
+        raise PinError(
+            f"pinned_episode_subset called with no episode hashes for "
+            f"'{dataset_name or '<unnamed>'}'"
+        )
+    subset = MultiDataset(
+        datasets={h: base.datasets[h] for h in hashes},
+        mode="total",
+        norm_mode=base.norm_mode,
+    )
+    subset.set_norm_stats_from(base)
+    return subset
 
 
 class ZarrDataset(torch.utils.data.Dataset):
