@@ -104,6 +104,9 @@ class ContactController(ArticulationController):
                 if gain < 0:
                     continue
                 aim = math.atan2(normal[1], normal[0]) + math.pi / 2
+                if "angle" not in self.spec:
+                    # Translation-only tools cannot execute an orientation command.
+                    aim = float(self.env._pusher_body.angle)
                 if self.emb == "scoop":
                     aim -= math.pi
                 footprint = self._footprint(np.zeros(2), aim)
@@ -193,6 +196,8 @@ class ContactController(ArticulationController):
         normal = rot(theta) @ primitive["object_normal"]
         delta_angle = wrap(theta - primitive["theta"])
         aim = primitive["aim"] + delta_angle
+        if "angle" not in self.spec:
+            aim = float(self.env._pusher_body.angle)
         goal = np.asarray(self.env._goal_pose)
         poserr = np.linalg.norm(goal[:2] - c)
         angerr = abs(wrap(goal[2] - theta))
