@@ -103,6 +103,31 @@ class ModelWrapper(LightningModule):
             norm_stats=norm_stats,
         )
 
+    def _maybe_compile(self, config_tree) -> None:
+        """Hand the algo's hot submodules to ``torch.compile`` when
+        ``model.compile.enabled`` is set.
+
+        Here, not in the algo's ``__init__``: this runs on every DDP rank in
+        ``setup("fit")``, before Lightning wraps the module, so each rank
+        compiles for the GPU it is about to land on. Not in ``__init__`` either:
+        ``load_from_checkpoint`` (robot rollout, eval) re-runs it from the saved
+        hparams and would compile for inference. Compilation itself is lazy --
+        nothing is traced until the first batch.
+        """
+        cfg = self._as_config(config_tree)
+        opts = cfg.model.get("compile")
+        if not opts or not opts.get("enabled", False):
+            return
+        compiled = self.model.compile_for_training(
+            mode=opts.get("mode"), dynamic=opts.get("dynamic")
+        )
+        if not compiled:
+            print(
+                f"[compile] model.compile.enabled is set but "
+                f"{type(self.model).__name__} compiled nothing",
+                flush=True,
+            )
+
     # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
         self.train()
@@ -373,6 +398,10 @@ class ModelWrapper(LightningModule):
                 },
             }
         return {"optimizer": optimizer}
+
+    def setup(self, stage: str) -> None:
+        if stage == "fit" and self.hparams.get("config_tree") is not None:
+            self._maybe_compile(self.hparams.config_tree)
 
     def on_fit_start(self):
         self.model.device = self.device
