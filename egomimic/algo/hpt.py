@@ -914,7 +914,7 @@ class HPT(DeterministicEvalMixin, Algo):
         self.is_6dof = kwargs.get("6dof", False)
         self.kinematics_solver = kwargs.get("kinematics_solver", None)
 
-        model = HPTModel(**trunk)
+        model = self._build_policy(trunk)
         model.auxiliary_ac_keys = self.auxiliary_ac_keys
 
         self.eval_base_seed = int(kwargs.get("eval_base_seed", EVAL_BASE_SEED))
@@ -1025,6 +1025,10 @@ class HPT(DeterministicEvalMixin, Algo):
 
         self.training_step = 0
 
+    def _build_policy(self, trunk: dict) -> HPTModel:
+        """The policy network; subclasses (``RDT``) swap in their own."""
+        return HPTModel(**trunk)
+
     @override
     def compile_for_training(self, mode=None, dynamic=False):
         """Compile the trunk, the flow head's denoiser and the image encoders.
@@ -1034,6 +1038,8 @@ class HPT(DeterministicEvalMixin, Algo):
         ``Module.compile`` does not route (and which measured no gain anyway).
         """
         policy = self.nets["policy"]
+        # no_trunk: HPT's forward does not call it. RDT's heads do, so its DiT
+        # is traced into each head's graph without an entry of its own.
         targets = [("trunk", policy.trunk["trunk"] if not policy.no_trunk else None)]
         targets += [
             (f"head[{name}].model", getattr(head, "model", None))
@@ -1344,10 +1350,12 @@ class HPT(DeterministicEvalMixin, Algo):
             supervised=self.supervised,
         )
 
-    def _apply_image_augs(self, images, short):
+    def _apply_image_augs(self, images, short, frames: int = 1):
         """
         helper method that augments one camera's (B, 3, H, W) batch; train augs
-        are per-sample, the deterministic eval augs stay batched.
+        are per-sample, the deterministic eval augs stay batched. ``frames`` > 1
+        is (B * frames, 3, H, W), a sample's frames adjacent and sharing one
+        draw (see ``PerSampleAugs``).
 
         An absent camera arrives as an all-zero image and must stay zero
         (normalizing it would make it -mean/std). The test is per sample, so a
@@ -1362,7 +1370,11 @@ class HPT(DeterministicEvalMixin, Algo):
         else:
             return images
         absent = (images == 0).flatten(1).all(1)
-        out = augs(images)
+        out = (
+            augs(images, frames=frames)
+            if isinstance(augs, PerSampleAugs)
+            else augs(images)
+        )
         return torch.where(absent.view(-1, *[1] * (out.dim() - 1)), 0.0, out)
 
     def _stem_history_len(self, domain: str, modality: str) -> int:

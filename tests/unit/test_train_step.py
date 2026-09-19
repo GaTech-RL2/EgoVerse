@@ -16,6 +16,7 @@ from fixtures.recipes import (
     cpu_trainer_overrides,
     hpt_small_overrides,
     pi_cpu_overrides,
+    rdt_small_overrides,
 )
 from fixtures.train_harness import (
     STATE_DIM,
@@ -134,6 +135,36 @@ def test_hpt_builds_the_policy_on_cpu_while_gpus_are_visible(tmp_path, monkeypat
     assert built["param_devices"] == {"cpu"}
     assert built["algo_device"] is None
     assert built["policy_device"] is None
+
+
+def test_rdt_train_step(tmp_path, monkeypatch):
+    hermetic_env(monkeypatch)
+    recipe = RECIPES[("mecka", "rdt")]
+    data, out, hashes = write_fixtures(tmp_path, "mecka")
+    cfg = compose_recipe(
+        recipe,
+        common_overrides(
+            recipe.embodiment,
+            data,
+            out,
+            batch_size=2,
+            num_workers=0,
+            episode_hashes=hashes,
+        )
+        + cpu_trainer_overrides(STEPS)
+        + rdt_small_overrides(recipe.embodiment),
+        out,
+    )
+    spy = BatchKeySpy(monkeypatch, HPT)
+    _run(cfg)
+    expected = {
+        "actions_keypoints",
+        "observations.state.ee_pose",
+        Human.VIZ_IMAGE_KEY,
+        f"{Human.VIZ_IMAGE_KEY}_hist",
+        "fps",
+    }
+    assert expected <= spy.keys[recipe.embodiment]
 
 
 @pytest.mark.parametrize("vendor", VENDOR_NAMES)

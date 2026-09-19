@@ -41,7 +41,9 @@ class BatchedColorJitter(nn.Module):
     did; each adjustment clamps to [0, 1], so the order is not quite inert, but
     it is a permutation of the same four factors either way.
 
-    Input is (B, 3, H, W) float in [0, 1].
+    Input is (B, 3, H, W) float in [0, 1]. With ``frames`` > 1 it is
+    (B * frames, 3, H, W) with a sample's frames adjacent: they share one draw,
+    and every adjustment (contrast's mean included) still runs per frame.
     """
 
     def __init__(
@@ -85,8 +87,8 @@ class BatchedColorJitter(nn.Module):
         h = (h + f.squeeze(-3)) % 1.0
         return _ft._hsv2rgb(torch.stack((h, s, v), dim=-3)).clamp(0.0, 1.0)
 
-    def forward(self, img: torch.Tensor) -> torch.Tensor:
-        n = img.shape[0]
+    def forward(self, img: torch.Tensor, frames: int = 1) -> torch.Tensor:
+        n = img.shape[0] // frames
         ops = [
             (self.brightness, self._apply_brightness),
             (self.contrast, self._apply_contrast),
@@ -97,7 +99,7 @@ class BatchedColorJitter(nn.Module):
             bounds, fn = ops[idx]
             if bounds is None:
                 continue
-            img = fn(img, self._factors(bounds, n, img))
+            img = fn(img, self._factors(bounds, n, img).repeat_interleave(frames, 0))
         return img
 
     def extra_repr(self) -> str:
@@ -133,6 +135,11 @@ class PerSampleAugs(nn.Module):
     ``augs`` is the configured callable (typically a
     ``torchvision.transforms.Compose``); a deterministic one is unaffected by
     the wrapping, so this is safe for any existing aug list.
+
+    ``frames`` > 1 takes (B * frames, C, H, W), each sample's frames adjacent:
+    the frames of a sample share one parameter draw, and every transform still
+    sees one frame at a time, so a crop, resize or contrast mean never spans
+    two frames.
     """
 
     def __init__(self, augs):
@@ -141,11 +148,18 @@ class PerSampleAugs(nn.Module):
         vectorized = _vectorize(augs)
         self.vectorized = nn.ModuleList(vectorized) if vectorized is not None else None
 
-    def forward(self, images):
+    def forward(self, images, frames: int = 1):
         if self.vectorized is None:
-            return torch.stack([self.augs(image) for image in images])
+            if frames == 1:
+                return torch.stack([self.augs(image) for image in images])
+            # torchvision draws once per call and works per image of a stack
+            return torch.cat([self.augs(clip) for clip in images.split(frames)])
         for t in self.vectorized:
-            images = t(images)
+            images = (
+                t(images, frames=frames)
+                if isinstance(t, BatchedColorJitter)
+                else t(images)
+            )
         return images
 
     def extra_repr(self):

@@ -1,0 +1,11 @@
+# RDT_BC_MECKA_6D_DINOV3_VITL: rdt_bc_mecka_6d_dinov3_vitb with the DINOv3
+# ViT-L/16 tower (300M, 1024-wide tokens) -- the two differ only in the image
+# encoder.
+defaults:
+  - rdt_bc_mecka_6d_dinov3_vitb
+  - _self_
+
+robomimic_model:
+  encoder_specs:
+    front_img_1:
+      model_name: "vit_large_patch16_dinov3.lvd1689m"
