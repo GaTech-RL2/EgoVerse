@@ -154,7 +154,7 @@ unseen_op_valid_dataloader_params:
     shuffle: false
 
 # Frames taken evenly from each episode per val head, so every episode is
-# scored. Single-rank values; trainHydra scales them by world size.
+# scored. Not scaled by world size: every rank reads the same val batches.
 # K = floor(limit_val_batches * batch_size / episodes in the split)
 #   = floor(80 * 64 / n), n = 70 / 1346 / 191 (valid / train_viz /
 #   unseen_op_valid, measured 2026-09-15); re-derive when the split changes.

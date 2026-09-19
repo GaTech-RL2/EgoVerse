@@ -13,7 +13,7 @@ from lightning.fabric.utilities.cloud_io import _load as pl_load
 from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
-from omegaconf import DictConfig, ListConfig, OmegaConf, open_dict
+from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
 import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf resolvers
@@ -301,39 +301,26 @@ def _unseen_op_valid_datasets(cfg: DictConfig, instantiate) -> dict:
     }
 
 
-def _trainer_world_size(cfg: DictConfig) -> int:
-    """``devices * num_nodes`` as the config declares it, 1 if it cannot say.
-
-    DistributedSampler strides rather than chunks, so W ranks between them walk
-    the WHOLE split; the per-rank ``limit_val_batches`` window is therefore W
-    times wider than it looks from one rank.
-    """
-    devices = cfg.get("trainer", {}).get("devices", 1)
-    if isinstance(devices, (list, ListConfig)):
-        n = len(devices)
-    elif isinstance(devices, int) and devices > 0:
-        n = devices
-    else:  # "auto", -1: resolved by lightning at runtime, unknown here
-        log.warning(
-            f"trainer.devices={devices!r} is not a count; treating the metric "
-            "loaders as single-rank, which under-scores the val split."
-        )
-        n = 1
-    nodes = cfg.get("trainer", {}).get("num_nodes", 1)
-    return n * (int(nodes) if isinstance(nodes, int) and nodes > 0 else 1)
-
-
-def _metric_frames_per_episode(cfg: DictConfig, head: str) -> int | None:
+def _metric_frames_per_episode(
+    cfg: DictConfig,
+    head: str,
+    n_episodes: int | None = None,
+    batch_size: int | None = None,
+) -> int | None:
     """Frames per episode to keep on this val head, or None for no subsampling.
 
-    ``data.metric_frames_per_episode[head]`` is written for ONE rank -- it is
-    ``floor(limit_val_batches * batch_size / n_episodes)`` -- so it is scaled by
-    the world size here: the ranks stride through the subsampled set together
-    and each still reads at most ``limit_val_batches`` batches. Without this a
-    4-GPU run scores a quarter of the frames the same config scores on 1 GPU,
-    which on the seen-val head is fewer than it scored before subsampling
-    existed at all. EvenStrideDataset keeps a whole episode when K exceeds its
-    length, so a split that fits entirely is not subsampled.
+    ``data.metric_frames_per_episode[head]`` is
+    ``floor(limit_val_batches * batch_size / n_episodes)``, whatever the world
+    size: the val loaders are not sharded (``val_dataloader`` always returns a
+    list), so every rank reads the same first ``limit_val_batches`` batches of
+    the subsampled set, and a larger K would cut off its last episodes.
+    EvenStrideDataset keeps a whole episode when K exceeds its length, so a
+    split that fits entirely is not subsampled.
+
+    ``auto`` computes that formula from the resolved split (``n_episodes``) and
+    the head's loader ``batch_size``, for splits defined by live SQL filters
+    whose episode count a hard-coded K would silently fall behind. With
+    ``limit_val_batches=0`` (validation off) it subsamples nothing.
     """
     table = cfg.data.get("metric_frames_per_episode")
     if table is None:
@@ -341,15 +328,37 @@ def _metric_frames_per_episode(cfg: DictConfig, head: str) -> int | None:
     k = table.get(head)
     if k is None:
         return None
-    k = int(k)
-    if k <= 0:
-        raise ValueError(
-            f"data.metric_frames_per_episode.{head} must be a positive int, got {k}"
-        )
-    return k * _trainer_world_size(cfg)
+    if k == "auto":
+        limit = cfg.get("trainer", {}).get("limit_val_batches")
+        if limit == 0:  # validation is off; nothing to budget
+            return None
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or limit <= 0
+            or not batch_size
+            or not n_episodes
+        ):
+            raise ValueError(
+                f"data.metric_frames_per_episode.{head}=auto needs an int "
+                "trainer.limit_val_batches, the head's loader batch_size and a "
+                f"resolved split; got limit_val_batches={limit!r}, "
+                f"batch_size={batch_size!r}, episodes={n_episodes!r}"
+            )
+        k = max(1, limit * int(batch_size) // n_episodes)
+    else:
+        k = int(k)
+        if k <= 0:
+            raise ValueError(
+                f"data.metric_frames_per_episode.{head} must be a positive int "
+                f"or 'auto', got {k}"
+            )
+    return k
 
 
-def _subsample_val_datasets(cfg: DictConfig, head: str, datasets: dict) -> dict:
+def _subsample_val_datasets(
+    cfg: DictConfig, head: str, datasets: dict, loader_params=None
+) -> dict:
     """Wrap each of this val head's datasets in ``EvenStrideDataset`` so the
     ``limit_val_batches`` window spans EVERY episode of the split.
 
@@ -360,15 +369,23 @@ def _subsample_val_datasets(cfg: DictConfig, head: str, datasets: dict) -> dict:
     episode gives every episode -- and so every operator -- equal weight at
     the same batch count.
 
-    No ``metric_frames_per_episode`` entry for this head => datasets pass
-    through untouched."""
-    k = _metric_frames_per_episode(cfg, head)
-    if k is None or not datasets:
+    ``loader_params`` is this head's ``{dataset_name: DataLoader kwargs}``,
+    read only for an ``auto`` K. No ``metric_frames_per_episode`` entry for this
+    head => datasets pass through untouched."""
+    table = cfg.data.get("metric_frames_per_episode")
+    if table is None or table.get(head) is None or not datasets:
         return datasets
     wrapped = {}
     for name, ds in datasets.items():
         if ds is None:
             wrapped[name] = None
+            continue
+        params = (loader_params or {}).get(name) or {}
+        k = _metric_frames_per_episode(
+            cfg, head, n_episodes=len(ds.datasets), batch_size=params.get("batch_size")
+        )
+        if k is None:
+            wrapped[name] = ds
             continue
         sub = EvenStrideDataset(ds, frames_per_episode=k)
         log.info(
@@ -512,12 +529,25 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 "unseen_op_valid": unseen_op_valid_datasets,
             },
         )
-        valid_datasets = _subsample_val_datasets(cfg, "valid", valid_datasets)
+        valid_datasets = _subsample_val_datasets(
+            cfg,
+            "valid",
+            valid_datasets,
+            cfg.data.get("valid_dataloader_params"),
+        )
         train_viz_datasets = _subsample_val_datasets(
-            cfg, "train_viz", train_viz_datasets
+            cfg,
+            "train_viz",
+            train_viz_datasets,
+            train_viz_params
+            if train_viz_params is not None
+            else cfg.data.get("train_viz_dataloader_params"),
         )
         unseen_op_valid_datasets = _subsample_val_datasets(
-            cfg, "unseen_op_valid", unseen_op_valid_datasets
+            cfg,
+            "unseen_op_valid",
+            unseen_op_valid_datasets,
+            cfg.data.get("unseen_op_valid_dataloader_params"),
         )
 
         log.info(f"Instantiating datamodule <{cfg.data._target_}>")
