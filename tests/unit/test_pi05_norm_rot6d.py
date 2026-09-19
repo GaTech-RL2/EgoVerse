@@ -502,9 +502,10 @@ def test_fallback_cap_returns_last_good_sample_or_raises(caplog):
     assert any("last good sample" in r.message for r in caplog.records)
 
 
-def test_video_fps_compensates_for_world_size():
-    # Distributed val strides an episode's frames by world_size on each rank;
-    # playback fps must scale down to keep videos wall-clock real-time.
+def test_video_fps_is_the_source_rate_regardless_of_world_size():
+    """Val loaders are CombinedLoaders that Lightning never shards, so rank 0
+    renders every frame: playback must stay at the source rate (an earlier
+    world_size division made 8-GPU videos 8x slow motion)."""
     from egomimic.eval.eval_video import EvalVideo
 
     class _Stub(EvalVideo):
@@ -512,11 +513,12 @@ def test_video_fps_compensates_for_world_size():
             raise NotImplementedError
 
     ev = _Stub.__new__(_Stub)
-    for world, expected in [(1, 30), (2, 15), (4, 8), (8, 4)]:
+    for world in (1, 2, 8):
         ev.trainer = SimpleNamespace(world_size=world)
-        assert ev._video_fps() == expected, (world, ev._video_fps())
-    ev.trainer = SimpleNamespace()  # no world_size attr -> assume 1
+        assert ev._video_fps() == 30, (world, ev._video_fps())
+    ev.trainer = SimpleNamespace(world_size=None)
     assert ev._video_fps() == 30
+    assert ev._video_fps(source_fps=10) == 10
 
 
 def test_viz_gate_follows_lightning_epoch_convention():
