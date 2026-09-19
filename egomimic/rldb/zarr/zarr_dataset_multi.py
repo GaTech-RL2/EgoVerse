@@ -2139,7 +2139,7 @@ class ZarrDataset(torch.utils.data.Dataset):
     def _action_pad_mask(self, idx: int) -> np.ndarray | None:
         """1.0 per real action frame, 0.0 per repeat-last padded one, (horizon,).
 
-        ``_pad_sequences`` pads a short action chunk by repeating the last
+        ``_pad_to_horizon`` pads a short action chunk by repeating the last
         frame, which in a wrist-relative action space supervises "stop moving"
         at every episode (or annotation) tail. This mask says which steps are
         real so ``loss_fn`` can drop the rest; ``None`` when the keymap has no
@@ -2189,7 +2189,7 @@ class ZarrDataset(torch.utils.data.Dataset):
     def _front_pad_history(array: np.ndarray, history: int) -> np.ndarray:
         """Front-pad a backward window to ``history`` steps by repeating its
         first real frame, so the current frame is always ``[-1]``. The mirror
-        of ``_pad_sequences``, which repeat-pads the TAIL of a forward chunk.
+        of ``_pad_to_horizon``, which repeat-pads the TAIL of a forward chunk.
         """
         seq_len = array.shape[0]
         if seq_len >= history:
@@ -2197,22 +2197,55 @@ class ZarrDataset(torch.utils.data.Dataset):
         padding = np.repeat(array[:1], history - seq_len, axis=0)
         return np.concatenate([padding, array], axis=0)
 
+    @staticmethod
+    def _pad_to_horizon(array, horizon: int | None):
+        """Repeat-last out to ``horizon`` a chunk the episode (or annotation)
+        ended before filling."""
+        if horizon is None or not isinstance(array, np.ndarray):
+            return array
+        missing = horizon - array.shape[0]
+        if missing <= 0:
+            return array
+        return np.concatenate([array, np.repeat(array[-1:], missing, axis=0)], axis=0)
+
     def _pad_sequences(self, data, horizon: int | None) -> dict:
+        """``_pad_to_horizon`` over a read result, in place. Keys are zarr keys."""
         if horizon is None:
             return data
-
-        # Note that k is zarr key
         for k in data:
-            if isinstance(data[k], np.ndarray):
-                seq_len = data[k].shape[0]
-                if seq_len < horizon:
-                    # Pad by repeating the last frame
-                    pad_len = horizon - seq_len
-                    last_frame = data[k][-1:]  # Keep dims: (1, action_dim)
-                    padding = np.repeat(last_frame, pad_len, axis=0)
-                    data[k] = np.concatenate([data[k], padding], axis=0)
-
+            data[k] = self._pad_to_horizon(data[k], horizon)
         return data
+
+    def _read_windows(self, idx: int) -> dict[str, tuple[str, tuple[int, int | None]]]:
+        """``{keymap key: (zarr key, (start, end))}`` for frame *idx*.
+
+        ``end`` None means the single frame at ``start``. Annotation keys read
+        nothing and are left out.
+        """
+        windows = {}
+        for k, spec in self.key_map.items():
+            if spec.get("key_type") == "annotation_keys":
+                continue
+            horizon = spec.get("horizon")
+            history = spec.get("history")
+            if horizon is not None:
+                interval = (
+                    idx,
+                    self._chunk_end_idx(idx, horizon, spec.get("key_type")),
+                )
+            elif history is not None and int(history) > 1:
+                # Backward window ending at (and including) the current frame,
+                # every `history_stride`-th step; clamped at the episode start,
+                # thinned and front-padded by the caller, so the key is always
+                # (K, D) with `[..., -1]` the single frame a K = 1 keymap would
+                # have read. Read contiguously: numeric keys are chunked 100 rows,
+                # so the skipped rows sit in chunks the read fetches anyway.
+                stride = int(spec.get("history_stride", 1) or 1)
+                interval = (max(0, idx - stride * (int(history) - 1)), idx + 1)
+            else:
+                interval = (idx, None)
+            windows[k] = (spec["zarr_key"], interval)
+        return windows
 
     def __getitem__(
         self,
@@ -2247,6 +2280,21 @@ class ZarrDataset(torch.utils.data.Dataset):
             return next_idx
 
         while True:
+            windows = self._read_windows(idx)
+            # One zarr call per key, not one per keymap entry: an action chunk
+            # and the proprio history of the same pose name the same key with
+            # different windows, and zarr's per-call metadata hop costs more
+            # than the handful of extra rows a merged read carries. Windows are
+            # merged only across rows in chunks the read fetches anyway (see
+            # ZarrEpisode.plan_reads), so two frames far apart on a JPEG key
+            # stay two rows.
+            intervals: dict[str, list[tuple[int, int]]] = {}
+            for zarr_key, (start, end) in windows.values():
+                intervals.setdefault(zarr_key, []).append(
+                    (start, start + 1 if end is None else end)
+                )
+            groups = self.episode_reader.read_intervals(intervals)
+
             data = {}
             retry = False
             for k in self.key_map:
@@ -2259,29 +2307,42 @@ class ZarrDataset(torch.utils.data.Dataset):
                     data[k] = self._annotation_text_for_frame(idx)
                     continue
 
-                if horizon is not None:
-                    end_idx = self._chunk_end_idx(idx, horizon, key_type)
-                    read_interval = (idx, end_idx)
-                elif history is not None and int(history) > 1:
-                    # Backward window ending at (and including) the current
-                    # frame, every `history_stride`-th step; clamped at the
-                    # episode start and front-padded below, so the key is
-                    # always (K, D) with `[..., -1]` the single frame a K = 1
-                    # keymap would have read. Read contiguously and thin after:
-                    # the zarr chunks are contiguous anyway.
-                    stride = int(self.key_map[k].get("history_stride", 1) or 1)
-                    read_interval = (
-                        max(0, idx - stride * (int(history) - 1)),
-                        idx + 1,
+                start, end = windows[k][1]
+                stop = start + 1 if end is None else end
+                found = next(
+                    (
+                        (lo, rows)
+                        for lo, rows in groups[zarr_key]
+                        if lo <= start and stop <= lo + len(rows)
+                    ),
+                    None,
+                )
+                if found is None:
+                    # A StopIteration escaping __getitem__ reads as "epoch
+                    # over" to the DataLoader; a short array must fail loudly.
+                    raise ValueError(
+                        f"ep={Path(self.episode_path).name} key={zarr_key}: "
+                        f"window [{start}, {stop}) is past the rows read "
+                        f"{[(lo, lo + len(rows)) for lo, rows in groups[zarr_key]]}"
                     )
-                else:
-                    read_interval = (idx, None)
-                read_dict = {zarr_key: read_interval}
-                raw_data = self.episode_reader.read(read_dict)
-                self._pad_sequences(raw_data, horizon)  # should be able to pad images
-                data[k] = raw_data[zarr_key]
+                base, block = found
+                chunk = (
+                    block[start - base]
+                    if end is None
+                    else block[start - base : end - base]
+                )
+                if isinstance(chunk, np.ndarray):
+                    # A slice of a shared read is a view; every keymap entry
+                    # owned its own array before this coalescing and transforms
+                    # are free to write into it.
+                    chunk = chunk.copy()
+                data[k] = self._pad_to_horizon(chunk, horizon)
                 if horizon is None and history is not None and int(history) > 1:
-                    data[k] = self._stride_history(data[k], int(history), stride)
+                    data[k] = self._stride_history(
+                        data[k],
+                        int(history),
+                        int(self.key_map[k].get("history_stride", 1) or 1),
+                    )
 
                 if zarr_key in self._image_keys:
                     jpeg_bytes = data[k]
@@ -2361,7 +2422,7 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
 
     Standard chunking from the start frame, but action reads stop at EOS+1 of the
     annotation span containing the start frame. The chunk is then padded out to
-    ``horizon`` via the base ``_pad_sequences`` (repeat-last), so frames beyond
+    ``horizon`` via the base ``_pad_to_horizon`` (repeat-last), so frames beyond
     EOS become the last action of the interval rather than crossing into the
     next annotation.
 
@@ -2550,6 +2611,49 @@ class ZarrEpisode:
                 # arr[start:start+1] gives us a 1D array, then [0] extracts the actual object
                 data = arr[start : start + 1][0]
             result[key] = data
+        return result
+
+    @staticmethod
+    def plan_reads(
+        intervals: list[tuple[int, int]], chunk_len: int
+    ) -> list[tuple[int, int]]:
+        """Merge half-open ``[start, end)`` intervals on one key into read groups.
+
+        Two merge only when every row between them lies in a chunk one of them
+        already touches, so the bridge costs no extra chunk fetch: the windows
+        on a numeric key (100-row chunks) collapse into one read, while two
+        frames far apart on a JPEG key (one frame per chunk) stay two rows
+        rather than every frame in between."""
+        groups: list[list[int]] = []
+        for start, end in sorted(intervals):
+            if groups and start // chunk_len <= (groups[-1][1] - 1) // chunk_len + 1:
+                groups[-1][1] = max(groups[-1][1], end)
+            else:
+                groups.append([start, end])
+        return [(lo, hi) for lo, hi in groups]
+
+    def read_intervals(
+        self, intervals: dict[str, list[tuple[int, int]]]
+    ) -> dict[str, list[tuple[int, np.ndarray]]]:
+        """One zarr call per key for all its ``[start, end)`` intervals.
+
+        Returns ``{key: [(group_start, rows), ...]}``, one entry per group of
+        ``plan_reads``; several groups are fetched with a single orthogonal
+        index."""
+        result = {}
+        for key, ivs in intervals.items():
+            arr = self._store[key]
+            groups = self.plan_reads(ivs, arr.chunks[0])
+            if len(groups) == 1:
+                lo, hi = groups[0]
+                result[key] = [(lo, arr[lo:hi])]
+                continue
+            rows = arr.oindex[np.concatenate([np.arange(lo, hi) for lo, hi in groups])]
+            out, offset = [], 0
+            for lo, hi in groups:
+                out.append((lo, rows[offset : offset + hi - lo]))
+                offset += hi - lo
+            result[key] = out
         return result
 
     def _collect_keys(self) -> list[str]:
