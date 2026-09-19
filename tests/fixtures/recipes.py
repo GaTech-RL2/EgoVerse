@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fixtures.models import TINY_TOWER
+
 LOCAL_RESOLVER = "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver"
 HPT_CAMERAS = {
     "eva_bimanual": ("front_img_1", "right_wrist_img", "left_wrist_img"),
@@ -43,6 +45,11 @@ RECIPES: dict[tuple[str, str], Recipe] = {
     ),
     ("scale", "hpt"): Recipe(
         "train_zarr_cartesian", "scale", "hpt_bc_flow_scale", "human_bimanual"
+    ),
+    # RDT's shipped config is the 6D cartesian one; rdt_small_overrides points
+    # it at the keypoint action this data config emits.
+    ("mecka", "rdt"): Recipe(
+        "train_zarr_cartesian", "mecka", "rdt_bc_mecka_6d_dinov3_vitb", "human_bimanual"
     ),
     # Pi trains on the same per-vendor data configs as HPT: datasets emit one
     # camera naming and the Pi wrapper renames onto openpi's slots. The plain
@@ -121,6 +128,29 @@ def hpt_small_overrides(emb: str) -> list[str]:
             f"+model.robomimic_model.encoder_specs.{c}.weights=null"
             for c in HPT_CAMERAS[emb]
         ],
+    ]
+
+
+def rdt_small_overrides(emb: str) -> list[str]:
+    """Tiny DiT, random-init tiny DINOv3 tower, no Qwen stem (network-free);
+    the 2-frame image history the shipped train config turns on."""
+    rm = "model.robomimic_model"
+    enc = f"{rm}.encoder_specs.front_img_1"
+    return [
+        f"{rm}.dims.{emb}.action=144",
+        f"{rm}.ac_keys.{emb}=actions_keypoints",
+        f"{rm}.width=32",
+        f"{rm}.trunk.depth=2",
+        f"{rm}.trunk.num_heads=4",
+        f"{rm}.head_specs.{emb}.num_inference_steps=2",
+        f"~{rm}.shared_stem_specs.annotation",
+        f"{rm}.shared_obs_keys=[front_img_1]",
+        f"{rm}.annotation_key=null",
+        f"{enc}.model_name=vit_small_patch16_dinov3",
+        f"{enc}.image_size=[32,48]",
+        f"+{enc}.pretrained=false",
+        f"+{enc}.tower_kwargs={{{', '.join(f'{k}: {v}' for k, v in TINY_TOWER.items())}}}",
+        f"+data.train_datasets.{emb}.resolver.key_map.image_history_gap_s=0.1",
     ]
 
 

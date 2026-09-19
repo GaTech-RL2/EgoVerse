@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import torch
 
-from egomimic.models.hpt_nets import DINOv3Stem
-
 TINY_TOWER = {"embed_dim": 32, "depth": 1, "num_heads": 2}
 
 
-def tiny_dinov3_stem(output_dim: int, **kwargs) -> DINOv3Stem:
+def tiny_dinov3_stem(output_dim: int, **kwargs):
     """Random-init one-block DINOv3 tower on 32x48 frames (a 2x3 patch grid)."""
+    # lazy: recipes imports TINY_TOWER and must stay cheap to import
+    from egomimic.models.hpt_nets import DINOv3Stem
+
     torch.manual_seed(0)
     kwargs.setdefault("freeze_backbone", True)
     return DINOv3Stem(
