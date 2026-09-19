@@ -1,0 +1,53 @@
+# MECKA_FOLD_FREEFORM_OPSCALE4_HPT_KEYPOINTS: HPT keypoint-action twin of
+# mecka_fold_freeform_opscale4_6d -- the SAME k=4-operator train set, the SAME
+# annotation guard, the SAME shared seen-op val and the SAME unseen val (the
+# filters, loader params and metric/video budgets are all inherited; edit the
+# ladder only in mecka_fold_freeform_opscale4_6d). Only the keymap and transform
+# differ:
+#
+#   keymap_mode: keypoints
+#   mode: keypoints_wristframe_6d
+#
+# Batch keys:
+#   actions_keypoints          (100, 144)  wrist-first wrist-frame keypoint
+#                                          action: per hand [wrist xyz+rot6d in
+#                                          its own current wrist frame (9) |
+#                                          21 MANO keypoints in that wrist
+#                                          frame (63)] x {left, right}
+#   observations.state.keypoints   (144,)  per hand [wrist pose in HEAD frame
+#                                          (9) | keypoints in wrist frame (63)];
+#                                          the HPT `state_keypoints` stem input
+#                                          and what the eval revert (wrist ->
+#                                          head frame) reads
+#   annotations                            per-frame segment label -> the
+#                                          `sampled_prompt` for the Qwen text
+#                                          stem. Non-empty on every episode of
+#                                          every split (annotation guard).
+#
+# There is no `observations.state.ee_pose` (include_ee_pose off: HPT has no stem
+# for it), so pad_proprio_gripper is off. fix_left_wrist_convention stays ON: in
+# keypoint modes it corrects the left `obs/action_wrist_pose` keys, which carry
+# the same double-mirrored rotation as the ee_pose on processed_v3.
+#
+# TRAIN: 48 eps / 118388 f / 65.77 min = 1.096 h across 4 operators
+#        (measured 2026-09-17; the filter is live).
+#
+# NORMALIZATION: proprio + action keys are quantile-normalized, and every rung of
+# the ladder has its own train distribution -- precompute per arm:
+#   python egomimic/scripts/precompute_norm_stats.py --config-name train_zarr_mecka_kp_wrist_hpt \
+#     --data mecka_fold_freeform_opscale4_hpt_keypoints --model hpt_bc_keypoints_wrist_300M --out <out>
+#
+# Pairs with model=hpt_bc_keypoints_wrist_300M and
+# evaluator=eval_hpt_keypoints_wrist.
+defaults:
+  - mecka_fold_freeform_opscale4_6d
+  - _self_
+
+train_datasets:
+  human_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: keypoints
+      transform_list:
+        mode: keypoints_wristframe_6d
+        pad_proprio_gripper: false
