@@ -1,0 +1,32 @@
+# Composed recipe: train_zarr_mecka_flagship_6d_hpt with the RDT policy
+# (model/rdt_bc_mecka_6d_dinov3_vitb.yaml; model=rdt_bc_mecka_6d_dinov3_vitl for
+# the ViT-L tower, model=rdt_1b_bc_mecka_6d_dinov3_vitb for the 1B DiT). Same
+# data, action space, evaluators and norm stats as the HPT recipe.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_6d_rdt \
+#     norm_stats.precomputed_norm_path=<out>/norm_stats
+defaults:
+  - train_zarr_mecka_flagship_6d_hpt
+  - override model: rdt_bc_mecka_6d_dinov3_vitb
+  - _self_
+
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          # RDT's 2-frame image history: also load the front frame this many
+          # seconds back (3 frames at 30 fps). The val heads interpolate this
+          # resolver, so they follow. Pairs with model...trunk.image_history=2.
+          image_history_gap_s: 0.1
+          # PROPRIO history stays off for this arm: the HPT recipe ships K = 3
+          # / stride 5, but RDT's state adaptor is declared at history_len 1
+          # and the two must agree or process_batch_for_training raises. Raise
+          # both together if the RDT arm should carry history too.
+          proprio_history: 1
+          history_stride: 1
+
+trainer:
+  # RDT clips at 1.0 (ABC at 10): protects the fine-tuned tower from the
+  # from-scratch DiT's early gradients.
+  gradient_clip_val: 1.0
