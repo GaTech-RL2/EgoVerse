@@ -1,0 +1,23 @@
+# mecka_fold_flagship_top3_hpt_6d (the 3-operator flagship train split) with
+# the wrist-frame KEYPOINT pipeline; see
+# mecka_fold_flagship_opsplit_hpt_keypoints for the key layout. Norm stats:
+#   logs/hpt_architecture/norm_stats/mecka_fold_flagship_top3_hpt_keypoints/norm_stats
+defaults:
+  - mecka_fold_flagship_top3_hpt_6d
+  - _self_
+
+train_datasets:
+  human_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: keypoints
+        # The keypoint proprio is in the WRIST frame, where a history step
+        # would carry the wrist's own displacement into the articulation
+        # channels; stay at the parent's pre-history setting until the
+        # per-step framing lands.
+        proprio_history: 1
+        history_stride: 1
+      transform_list:
+        mode: keypoints_wristframe_6d
+        fix_left_wrist_convention: true
+        pad_proprio_gripper: false
