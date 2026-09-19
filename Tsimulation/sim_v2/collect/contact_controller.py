@@ -48,6 +48,15 @@ class ContactController(ArticulationController):
             and self._object_polygon().distance(Point(p)) > radius + 7
         )
 
+    def _contact_support(self, angle, normal):
+        """Return the contacting point, including asymmetric lateral offset."""
+        vertices = np.asarray(
+            self._footprint(np.zeros(2), angle).convex_hull.exterior.coords
+        )[:-1]
+        projection = vertices @ normal
+        face = vertices[np.isclose(projection, projection.max(), atol=1e-7, rtol=0)]
+        return face.mean(axis=0)
+
     def _escape(self):
         p, angle, _, _ = self._pose()
         footprint = self._footprint(np.zeros(2), 0.0)
@@ -109,10 +118,9 @@ class ContactController(ArticulationController):
                     aim = float(self.env._pusher_body.angle)
                 if self.emb == "scoop":
                     aim -= math.pi
-                footprint = self._footprint(np.zeros(2), aim)
-                verts = np.array(footprint.convex_hull.exterior.coords)
-                ahead = float(np.max(verts @ normal))
-                stage = contact - normal * (ahead + 15.0)
+                support = self._contact_support(aim, normal)
+                ahead = float(support @ normal)
+                stage = contact - support - normal * 15.0
                 if not self._within_walls(stage, aim):
                     continue
                 cost = -gain + np.linalg.norm(p - stage) * 0.045
@@ -162,7 +170,7 @@ class ContactController(ArticulationController):
             return self.emit(self._backoff, angle, 0.0)
         if self.state == "PLAN":
             self._attempts += 1
-            if not self._rotation_clear(p):
+            if "angle" in self.spec and not self._rotation_clear(p):
                 if self._escape():
                     return self.emit(self.route[0], self._escape_angle, 0.0)
                 self.reason = "no_safe_rotation_pose"
@@ -203,7 +211,7 @@ class ContactController(ArticulationController):
         angerr = abs(wrap(goal[2] - theta))
         position = (
             contact
-            - normal * primitive["ahead"]
+            - self._contact_support(aim, normal)
             + normal * (55.0 if self.emb == "scoop" else 22.0)
         )
         grip = 1.0 if self.emb == "spring" else 0.0
