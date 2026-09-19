@@ -455,6 +455,26 @@ def _video_datasets(cfg: DictConfig, heads: dict) -> dict:
     return out
 
 
+def _require_capped_video_heads(model, datamodule) -> None:
+    """A pinned video loader renders on rank 0 alone while the other ranks wait
+    in the val reduction, so an uncapped render (``viz_max_batches=None``) is
+    bounded only by the 30-minute process-group timeout."""
+    heads = model._val_heads()
+    for head, datasets in (getattr(datamodule, "video_datasets", None) or {}).items():
+        evaluator = heads.get(head)
+        if (
+            datasets
+            and getattr(evaluator, "viz_func", None) is not None
+            and evaluator.viz_max_batches is None
+        ):
+            raise ValueError(
+                f"val head '{head}' has pinned video episodes "
+                f"(data.video_episodes.{head}) but its evaluator sets no "
+                "viz_max_batches: rank 0 would render every video batch while "
+                "the other ranks wait on it. Set evaluator.viz_max_batches."
+            )
+
+
 def _build_unseen_op_valid_evaluator(cfg: DictConfig):
     """The canonical evaluator (fresh instance, own frame buffers) wrapped to
     log ``unseen_op_valid/`` and write ``videos_unseen_op_valid/``."""
@@ -766,6 +786,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             unseen_eval_obj.trainer = trainer
             unseen_eval_obj.model = model.model
             model.unseen_op_valid_evaluator = unseen_eval_obj
+        _require_capped_video_heads(model, datamodule)
         model.val_loader_names = datamodule.val_loader_names()
         # Pre-fit baseline val. Skipped on requeues AND checkpoint resumes:
         # trainer.validate here runs BEFORE fit restores ckpt_path weights, so
