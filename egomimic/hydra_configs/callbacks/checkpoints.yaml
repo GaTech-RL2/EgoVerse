@@ -6,7 +6,10 @@ model_checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint
   dirpath: ${paths.output_dir}/checkpoints
   filename: "epoch_{epoch}"
-  save_last: true
+  # A symlink to the epoch checkpoint, not a second full copy of it (9 GB and
+  # ~1.3 min on ABC-DiT-L). Requires save_top_k: -1 below, which is what keeps
+  # the target alive; relinks every epoch, not only checkpoint epochs.
+  save_last: link
   save_top_k: -1
   every_n_epochs: 50
   # Save at the end of the train epoch, not after validation: with
