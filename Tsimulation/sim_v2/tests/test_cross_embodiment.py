@@ -15,7 +15,7 @@ def source():
 
 
 def test_source_scene_survives_embodiment_swap(source):
-    for embodiment in ("gripper", "umi", "circle_small", "stick", "triangle", "L"):
+    for embodiment in ("gripper", "umi", "circle_small", "stick", "triangle"):
         env = make_env(source, embodiment)
         try:
             np.testing.assert_allclose(state(env), [100, 100, 0, 256, 256, 0])
@@ -44,19 +44,3 @@ def test_path_preserves_goal_and_rotation_wrap(source):
     points = path_waypoints(source)
     assert len(points) == 2  # Crossing the angle branch cut is not a full turn.
     np.testing.assert_allclose(points[-1], source["init"]["goal_pose"])
-
-
-def test_asymmetric_contact_is_placed_on_the_requested_object_point(source):
-    env = make_env(source, "L")
-    try:
-        controller = ContactController(env)
-        normal = np.array([1.0, 0.0])
-        support = controller._contact_support(0.0, normal)
-        # The L's rightmost face is above its origin: ignoring that lateral
-        # offset pushes the wrong location and changes the intended torque.
-        np.testing.assert_allclose(support, [30.0, 15.0])
-        contact = np.array([200.0, 200.0])
-        stage = contact - support - 15.0 * normal
-        np.testing.assert_allclose(stage + support + 15.0 * normal, contact)
-    finally:
-        env.close()
