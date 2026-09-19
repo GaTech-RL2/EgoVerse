@@ -74,3 +74,21 @@ def test_aux_scale_is_averaged_over_blocks_and_j_calls():
     )
     assert float(output["loss/moe_lb"]) < 0.004
     assert len(sampler._moe_aux_calls) == 2
+
+
+def test_grouped_sampler_retains_moe_auxiliary_losses_and_schedule():
+    sampler = _sampler().train()
+    output = sampler.forward_batches(
+        {
+            "eva": {
+                "sampler/noise": torch.randn(2, 5, 8),
+                "condition": torch.randn(2, 10),
+                "embodiment": "eva_bimanual",
+            }
+        }
+    )["eva"]
+    assert output["loss/moe_lb"].requires_grad
+    assert torch.isfinite(output["loss/moe_lb"])
+    assert sampler.training_batches_seen.item() == 1
+    assert output["log/optimizer_step"] == 1.0
+    assert len(sampler._moe_aux_calls) == 2

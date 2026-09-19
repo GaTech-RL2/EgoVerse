@@ -140,7 +140,21 @@ class ModelWrapper(LightningModule):
         info = {}
         info["losses"] = TensorUtils.detach(losses)
         for k, v in self.model.log_info(info).items():
-            self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
+            # Weighted mixtures can omit different domains on different ranks.
+            # Only the total loss has the same key on every rank; synchronizing
+            # conditional per-domain metrics can deadlock distributed training.
+            weighted_sampling = (
+                getattr(self.trainer.datamodule, "weighted_dataset", None) is not None
+            )
+            shared_metric = not weighted_sampling or k in {"Loss", "action_loss"}
+            self.log(
+                "Train/" + k,
+                v,
+                sync_dist=shared_metric,
+                rank_zero_only=not shared_metric,
+                on_step=False,
+                on_epoch=True,
+            )
 
         return losses["action_loss"]
 
@@ -279,6 +293,13 @@ class ModelWrapper(LightningModule):
 
     def on_fit_start(self):
         self.model.device = self.device
+        if getattr(
+            self.trainer.datamodule, "weighted_dataset", None
+        ) is not None and getattr(self.model, "ot", False):
+            raise ValueError(
+                "Cross-domain OT requires paired equal-sized batches; "
+                "use the original loader without dataset_weights for that objective."
+            )
         print(
             f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
             flush=True,

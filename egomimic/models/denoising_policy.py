@@ -125,3 +125,17 @@ class DenoisingPolicy(nn.Module):
         actions, global_cond = self.preprocess_compute_loss(global_cond, data)
         pred, target = self.predict(actions, global_cond)
         return self.loss_fn(pred, target)
+
+    def compute_loss_per_sample(self, global_cond, data):
+        """One shared prediction, retaining losses for each original sample."""
+        actions, global_cond = self.preprocess_compute_loss(global_cond, data)
+        pred, target = self.predict(actions, global_cond)
+        return self.loss_per_sample(pred, target)
+
+    def loss_per_sample(self, pred, target):
+        """Keep the batch axis when reducing denoising errors."""
+        if type(self).loss_fn is DenoisingPolicy.loss_fn:
+            return F.mse_loss(pred, target, reduction="none").flatten(1).mean(1)
+        return torch.stack(
+            [self.loss_fn(p.unsqueeze(0), t.unsqueeze(0)) for p, t in zip(pred, target)]
+        )

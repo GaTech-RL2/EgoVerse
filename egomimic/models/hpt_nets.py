@@ -670,7 +670,9 @@ def _qwen_last_token_pool(
     if left_padded:
         return last_hidden_states[:, -1]
     seq_lens = attention_mask.sum(dim=1) - 1
-    batch_idx = torch.arange(last_hidden_states.size(0), device=last_hidden_states.device)
+    batch_idx = torch.arange(
+        last_hidden_states.size(0), device=last_hidden_states.device
+    )
     return last_hidden_states[batch_idx, seq_lens]
 
 
@@ -898,6 +900,17 @@ class PolicyHead(nn.Module):
         target_action = target_action[..., :D_common]
 
         return LOSS(pred_action, target_action)
+
+    def compute_loss_per_sample(self, x: torch.Tensor, data: dict):
+        """The same action loss, reduced separately for each sample."""
+        target = data["action"]
+        prediction = self(x).view(*target.shape[:2], -1)
+        common = min(prediction.shape[-1], target.shape[-1])
+        return (
+            LOSS(prediction[..., :common], target[..., :common], reduction="none")
+            .flatten(1)
+            .mean(1)
+        )
 
 
 class MLPPolicyHead(PolicyHead):

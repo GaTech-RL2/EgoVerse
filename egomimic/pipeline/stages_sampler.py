@@ -9,6 +9,7 @@ import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 
 from egomimic.pipeline.core import Stage
+from egomimic.utils.batch_utils import compatible_groups, concatenate_batches
 
 
 class DPStyleObsEncoder(nn.Module):
@@ -513,7 +514,9 @@ class MultiJActionSampler(Stage):
         noise = batch["sampler/noise"]
         condition = self._condition_from_batch(batch, embodiment)
         if self.training:
-            optimizer_step = self._optimizer_step(embodiment)
+            optimizer_step = batch.pop("sampler/optimizer_step", None)
+            if optimizer_step is None:
+                optimizer_step = self._optimizer_step(embodiment)
             num_steps = self.unroll_steps_at(optimizer_step)
             step_sizes = self.sample_step_sizes(noise.shape[0], num_steps, noise)
             batch["log/optimizer_step"] = float(optimizer_step)
@@ -530,6 +533,64 @@ class MultiJActionSampler(Stage):
         batch["log/sampler_endpoint_rms"] = endpoint.detach().square().mean().sqrt()
         batch["log/sampler_prediction_rms"] = prediction.detach().square().mean().sqrt()
         return batch
+
+    def forward_batches(self, batches: dict) -> dict:
+        """Integrate one larger latent batch through the shared denoiser.
+
+        Conditions retain their domain embeddings and endpoints return to
+        their own decoders. The schedule advances once per training batch,
+        including weighted batches in which the anchor domain is absent.
+        """
+        optimizer_step = (
+            self._optimizer_step(self.schedule_anchor_domain) if self.training else None
+        )
+        # Subclasses can add losses coupled across samples (for example MoE
+        # load balancing). Keep their forward contract and per-domain metrics.
+        if type(self).forward is not MultiJActionSampler.forward:
+            if self.training:
+                for batch in batches.values():
+                    batch["sampler/optimizer_step"] = optimizer_step
+            return super().forward_batches(batches)
+
+        num_steps = (
+            self.unroll_steps_at(optimizer_step)
+            if self.training
+            else self.num_inference_steps
+        )
+        inputs = {
+            key: {
+                "noise": batch["sampler/noise"],
+                "condition": self._condition_from_batch(
+                    batch, str(batch["embodiment"])
+                ),
+            }
+            for key, batch in batches.items()
+        }
+        for keys in compatible_groups(inputs):
+            sizes = [inputs[key]["noise"].shape[0] for key in keys]
+            merged = concatenate_batches([inputs[key] for key in keys])
+            noise = merged["noise"]
+            step_sizes = (
+                self.sample_step_sizes(noise.shape[0], num_steps, noise)
+                if self.training
+                else None
+            )
+            endpoint = self.integrate(noise, merged["condition"], num_steps, step_sizes)
+            for key, part in zip(keys, endpoint.split(sizes)):
+                batch = batches[key]
+                prediction = self.decoder(str(batch["embodiment"]))(part)
+                batch["pred_action"] = prediction
+                if self.training:
+                    batch["log/optimizer_step"] = float(optimizer_step)
+                batch["log/sampler_unroll_steps"] = float(num_steps)
+                batch["log/sampler_noise_rms"] = (
+                    inputs[key]["noise"].detach().square().mean().sqrt()
+                )
+                batch["log/sampler_endpoint_rms"] = part.detach().square().mean().sqrt()
+                batch["log/sampler_prediction_rms"] = (
+                    prediction.detach().square().mean().sqrt()
+                )
+        return batches
 
 
 class NativeActionMSELoss(Stage):

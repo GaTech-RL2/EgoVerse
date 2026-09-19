@@ -1,24 +1,17 @@
 import logging
-import random
-from typing import Literal
 
-import numpy as np
-import torch
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
-from termcolor import cprint
 from torch.utils.data import DataLoader, default_collate
-from transformers import AutoTokenizer
+
+from egomimic.rldb.weighted_dataset import WeightedDataset
 
 logger = logging.getLogger(__name__)
 
 
-
 class MultiDataModuleWrapper(LightningDataModule):
     """
-    New functionality for dictionary based multi embodiment loading using CombinedLoader.
-
-    Uses hydra to instantiate DataLoader objects and then wraps them in a combined loader
+    Load per-embodiment batches or a weighted mixture of the training datasets.
     """
 
     def __init__(
@@ -27,6 +20,10 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_datasets: dict,
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
+        dataset_weights: dict | None = None,
+        weighted_dataloader_params: dict | None = None,
+        samples_per_epoch: int | None = None,
+        sampling_seed: int = 42,
     ):
         """
         Args:
@@ -34,6 +31,10 @@ class MultiDataModuleWrapper(LightningDataModule):
             valid_datasets: dictionary of valid datasets
             train_dataloader_params: dictionary of train dataloader parameters
             valid_dataloader_params: dictionary of valid dataloader parameters
+            dataset_weights: optional relative sampling probabilities per dataset
+            weighted_dataloader_params: shared loader settings, including total batch_size
+            samples_per_epoch: global number of mixture draws (None uses active source lengths)
+            sampling_seed: seed shared across ranks; the sampler adds the current epoch
 
         Tokenization (sampling a prompt from per-sample annotation lists,
         splicing in embodiment / control-mode / proprio blocks, and running
@@ -51,8 +52,42 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
         self.collate_fn = annotation_collate
+        self.weighted_dataset = (
+            WeightedDataset(self.train_datasets, dataset_weights)
+            if dataset_weights is not None
+            else None
+        )
+        self.weighted_dataloader_params = weighted_dataloader_params
+        self.samples_per_epoch = samples_per_epoch
+        self.sampling_seed = sampling_seed
+        if self.weighted_dataset is not None and not weighted_dataloader_params:
+            raise ValueError("dataset_weights requires weighted_dataloader_params")
+        if self.weighted_dataset is None and (
+            weighted_dataloader_params is not None or samples_per_epoch is not None
+        ):
+            raise ValueError("Weighted loader settings require dataset_weights")
 
     def train_dataloader(self):
+        if self.weighted_dataset is not None:
+            params = dict(self.weighted_dataloader_params)
+            if any(
+                key in params
+                for key in ("shuffle", "sampler", "batch_sampler", "collate_fn")
+            ):
+                raise ValueError("The weighted loader owns sampling and collation")
+            trainer = self.trainer
+            sampler = self.weighted_dataset.sampler(
+                num_samples=self.samples_per_epoch,
+                seed=self.sampling_seed,
+                num_replicas=trainer.world_size if trainer is not None else 1,
+                rank=trainer.global_rank if trainer is not None else 0,
+            )
+            return DataLoader(
+                self.weighted_dataset,
+                sampler=sampler,
+                collate_fn=weighted_collate,
+                **params,
+            )
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
             dataset_params = self.train_dataloader_params.get(dataset_name)
@@ -89,8 +124,6 @@ class MultiDataModuleWrapper(LightningDataModule):
         return CombinedLoader(iterables, "max_size_cycle")
 
 
-
-
 def _extract_list_keys(batch):
     """Pop all list-valued keys from *batch* samples and return them separately.
 
@@ -108,9 +141,16 @@ def _extract_keys(batch, keys):
 
 def annotation_collate(batch):
     """Collate that preserves variable-length list-valued keys (e.g. annotation_keys)."""
+    batch = [dict(sample) for sample in batch]
     extracted = _extract_list_keys(batch)
     collated = default_collate(batch)
     collated.update(extracted)
     return collated
 
 
+def weighted_collate(batch):
+    """Keep each dataset's schema intact until model-side homogeneous batching."""
+    by_dataset = {}
+    for name, sample in batch:
+        by_dataset.setdefault(name, []).append(sample)
+    return {name: annotation_collate(samples) for name, samples in by_dataset.items()}

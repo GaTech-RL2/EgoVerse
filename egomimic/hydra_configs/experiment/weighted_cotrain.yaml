@@ -1,0 +1,23 @@
+# @package _global_
+# Add to an existing EVA/human co-training recipe with +experiment=weighted_cotrain.
+data:
+  dataset_weights:
+    eva_bimanual: 1.0
+    human_bimanual: 1.0
+  weighted_dataloader_params:
+    # Total samples per rank, across all datasets.
+    batch_size: 64
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+  samples_per_epoch: null
+  sampling_seed: ${seed}
+
+model:
+  robomimic_model:
+    homogeneous_training: true
+
+trainer:
+  # A sampled batch can omit an embodiment on a rank.
+  strategy: ddp_find_unused_parameters_true
+  sync_batchnorm: false

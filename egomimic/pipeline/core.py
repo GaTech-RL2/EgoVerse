@@ -72,6 +72,10 @@ class Stage(nn.Module):
     def forward(self, batch: dict) -> dict:  # pragma: no cover - interface
         raise NotImplementedError
 
+    def forward_batches(self, batches: dict) -> dict:
+        """Default routing for stages with embodiment-specific contracts."""
+        return {key: self(batch) for key, batch in batches.items()}
+
 
 def _matches(key: str, patterns: Iterable[str]) -> bool:
     for p in patterns:
@@ -94,6 +98,12 @@ class Pipeline(Stage):
         for stage in self.stages:
             batch = stage(batch)
         return batch
+
+    def forward_batches(self, batches: dict) -> dict:
+        """Let shared stages combine compatible batches without losing routing."""
+        for stage in self.stages:
+            batches = stage.forward_batches(batches)
+        return batches
 
     # ---------------- plan-time dependency resolution ---------------- #
     def plan(

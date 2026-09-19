@@ -11,6 +11,7 @@ import torch.nn as nn
 from egomimic.algo.algo import Algo
 from egomimic.pipeline.core import Pipeline, Stage, sum_losses
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.utils.batch_utils import sample_mean
 
 _PACKED_META_KEYS = frozenset(
     {"cu_seqlens", "max_seq_len", "seq_lens", "batch_size", "embodiment"}
@@ -46,6 +47,7 @@ class PipelineAlgo(Algo):
         rollout_adapter=None,
         rollout_transform_mode: str | None = None,
         device=None,
+        homogeneous_training: bool = True,
     ):
         super().__init__()
         self.norm_stats = norm_stats
@@ -53,6 +55,7 @@ class PipelineAlgo(Algo):
         self.ac_keys = dict(ac_keys)
         self.auxiliary_ac_keys = dict(auxiliary_ac_keys or {})
         self.action_horizon = int(action_horizon)
+        self.homogeneous_training = homogeneous_training
         self.rollout_adapter = rollout_adapter
         self.rollout_transform_mode = rollout_transform_mode
         self.device = device or torch.device(
@@ -259,8 +262,16 @@ class PipelineAlgo(Algo):
 
     def forward_training(self, batch: dict) -> OrderedDict:
         predictions = OrderedDict()
-        for emb_id, loader_batch in batch.items():
-            result = self.policy(self._seed(emb_id, loader_batch))
+        seeds = {
+            emb_id: self._seed(emb_id, loader_batch)
+            for emb_id, loader_batch in batch.items()
+        }
+        results = (
+            self.policy.forward_batches(seeds)
+            if self.homogeneous_training
+            else {emb_id: self.policy(seed) for emb_id, seed in seeds.items()}
+        )
+        for emb_id, result in results.items():
             total = sum_losses(result)
             predictions[f"{emb_id}_action_loss"] = total
             for key, value in result.items():
@@ -276,7 +287,10 @@ class PipelineAlgo(Algo):
         per_domain = [predictions[f"{emb_id}_action_loss"] for emb_id in batch]
         if not per_domain:
             raise RuntimeError("PipelineAlgo received an empty multi-dataset batch")
-        losses = OrderedDict(action_loss=torch.stack(per_domain).mean())
+        sizes = [
+            batch[emb_id][self.resolved_ac_keys[emb_id]].shape[0] for emb_id in batch
+        ]
+        losses = OrderedDict(action_loss=sample_mean(per_domain, sizes))
         losses.update(
             (key, value)
             for key, value in predictions.items()

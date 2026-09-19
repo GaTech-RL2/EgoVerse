@@ -1,6 +1,6 @@
 import os
 import random
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from functools import partial
 from typing import Literal
 
@@ -14,11 +14,17 @@ from termcolor import cprint
 from tslearn.metrics import SoftDTWLossPyTorch
 
 from egomimic.algo.algo import Algo
-from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
+from egomimic.models.denoising_policy import DenoisingPolicy
+from egomimic.models.hpt_nets import MultiheadAttention, PolicyHead, SimpleTransformer
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
+from egomimic.utils.batch_utils import (
+    batch_signature,
+    compatible_groups,
+    concatenate_batches,
+    sample_mean,
+)
 from egomimic.utils.hf_utils import download_from_huggingface
-
+from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
 
 # Init scale for the HPT action tokens (was a shared constant in utils.py;
 # it has exactly one consumer, below).
@@ -510,9 +516,9 @@ class HPTModel(nn.Module):
         tokens1 = tokens1[:, : self.action_horizon]
         tokens2 = tokens2[:, : self.action_horizon]
 
-        assert (
-            tokens1.shape[1] == tokens2.shape[1]
-        ), "input tokens must be of the same sequence length"
+        assert tokens1.shape[1] == tokens2.shape[1], (
+            "input tokens must be of the same sequence length"
+        )
 
         emb1_actions = batch1["data"]["action"]
         emb2_actions = batch2["data"]["action"]
@@ -656,6 +662,125 @@ class HPTModel(nn.Module):
 
         total_loss = action_loss + shared_action_loss + auxiliary_action_loss
         return total_loss
+
+    def compute_loss_multi(self, batches, depth=None):
+        """Batch shared stems, compatible trunk tokens and shared action heads.
+
+        Domain-specific modules still receive their own samples. In particular,
+        equal tensor shapes alone never select another domain's stem or head.
+        Per-domain loss means are retained for logging and sample-weighted
+        reduction by the training adapter.
+        """
+        self.train_mode = True
+        data = {
+            key: self.preprocess_states(batch["domain"], dict(batch["data"]))
+            for key, batch in batches.items()
+        }
+        modalities, stem_groups = {}, defaultdict(list)
+        for key, batch in batches.items():
+            domain = batch["domain"]
+            modalities[key] = [
+                modality
+                for modality in self.modalities.get(domain, []) + self.shared_keys
+                if modality in data[key]
+            ]
+            for modality in modalities[key]:
+                stem_domain = "shared" if modality in self.shared_keys else domain
+                stem = self.stems[f"{stem_domain}_{modality}"]
+                signature = (id(stem), modality, batch_signature(data[key][modality]))
+                stem_groups[signature].append(key)
+
+        stem_tokens = {key: {} for key in batches}
+        for (_, modality, _), keys in stem_groups.items():
+            values = [data[key][modality] for key in keys]
+            sizes = [len(value) for value in values]
+            _, tokens = self.stem_process(
+                batches[keys[0]]["domain"], {modality: concatenate_batches(values)}
+            )
+            for key, token in zip(keys, tokens[modality].split(sizes)):
+                stem_tokens[key][modality] = token
+
+        trunk_inputs = {
+            key: self.preprocess_tokens(
+                batches[key]["domain"], [stem_tokens[key][m] for m in modalities[key]]
+            )
+            for key in batches
+        }
+        features = {}
+        for keys in compatible_groups(trunk_inputs):
+            sizes = [trunk_inputs[key].shape[0] for key in keys]
+            tokens = concatenate_batches([trunk_inputs[key] for key in keys])
+            if self.no_trunk:
+                if depth is not None:
+                    raise ValueError(
+                        "Cannot freeze at a trunk depth with no_trunk=True"
+                    )
+                processed = self.postprocess_tokens(tokens)
+            else:
+                tokens, blocks = self.trunk["trunk"](tokens)
+                processed = (
+                    self.resume_from_depth(blocks, depth)
+                    if depth is not None
+                    else self.postprocess_tokens(tokens)
+                )
+            features.update(zip(keys, processed.split(sizes)))
+
+        losses = {key: features[key].new_zeros(()) for key in batches}
+        head_groups = defaultdict(list)
+        for key, batch in batches.items():
+            domain = batch["domain"]
+            requests = []
+            if domain in self.heads:
+                requests.append((self.heads[domain], data[key]["action"]))
+            if self.shared_action:
+                requests.append((self.heads["shared"], data[key]["action"]))
+            for action_key in (self.auxiliary_ac_keys or {}).get(domain, []):
+                if f"{domain}_{action_key}" in self.heads:
+                    requests.append(
+                        (self.heads[f"{domain}_{action_key}"], data[key][action_key])
+                    )
+            for head, target in requests:
+                # Custom heads may use extra data or couple samples in their
+                # loss. Only the built-in sample-wise contracts are coalesced.
+                if type(head).compute_loss not in (
+                    PolicyHead.compute_loss,
+                    DenoisingPolicy.compute_loss,
+                ) or (
+                    isinstance(head, DenoisingPolicy)
+                    and type(head).loss_fn is not DenoisingPolicy.loss_fn
+                ):
+                    losses[key] = losses[key] + head.compute_loss(
+                        features[key], dict(data[key], action=target)
+                    )
+                    continue
+                condition = features[key]
+                if isinstance(head, DenoisingPolicy):
+                    # Padding can make e.g. 12-D human and 14-D robot targets
+                    # compatible. Apply it before choosing the shared call.
+                    target, condition = head.preprocess_compute_loss(
+                        condition, {"action": target}
+                    )
+                signature = (
+                    id(head),
+                    batch_signature(condition),
+                    batch_signature(target),
+                )
+                head_groups[signature].append((key, head, target, condition))
+
+        for requests in head_groups.values():
+            keys = [key for key, _, _, _ in requests]
+            sizes = [features[key].shape[0] for key in keys]
+            head = requests[0][1]
+            condition = concatenate_batches([value for _, _, _, value in requests])
+            target = concatenate_batches([value for _, _, value, _ in requests])
+            if isinstance(head, DenoisingPolicy):
+                prediction, target = head.predict(target, condition)
+                per_sample = head.loss_per_sample(prediction, target)
+            else:
+                per_sample = head.compute_loss_per_sample(condition, {"action": target})
+            for key, part in zip(keys, per_sample.split(sizes)):
+                losses[key] = losses[key] + part.mean()
+        return losses
 
     def forward(self, domain, data):
         """
@@ -820,6 +945,7 @@ class HPT(Algo):
         annotation_sampling_mode: Literal["random", "first"] = "random",
         annotation_modality: str = "annotation",
         default_prompt: str = "",
+        homogeneous_training: bool = True,
         # ---------------------------
         # Catch-all kwargs
         # ---------------------------
@@ -831,6 +957,7 @@ class HPT(Algo):
         self.annotation_sampling_mode = annotation_sampling_mode
         self.annotation_modality = annotation_modality
         self.default_prompt = default_prompt
+        self.homogeneous_training = homogeneous_training
 
         self.train_image_augs = train_image_augs
         self.eval_image_augs = eval_image_augs
@@ -1062,21 +1189,33 @@ class HPT(Algo):
                 "domain": embodiment_name,  # readability on config side
                 "data": data,
             }
-            hpt_batches[embodiment_id] = self._clone_batch(hpt_batch)
-
-            if self.freeze_repr:
-                loss = self.nets["policy"].compute_loss_depth(
-                    hpt_batch, depth=self.freeze_depth
-                )
-            else:
-                loss = self.nets["policy"].compute_loss(hpt_batch)
-
+            hpt_batches[embodiment_id] = hpt_batch
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
+
+        # OT consumes the original inputs after the BC forward pass.
+        ot_batches = self._clone_batch(hpt_batches) if self.ot else None
+        if self.homogeneous_training:
+            domain_losses = self.nets["policy"].compute_loss_multi(
+                hpt_batches, depth=self.freeze_depth if self.freeze_repr else None
+            )
+        else:
+            domain_losses = {
+                key: (
+                    self.nets["policy"].compute_loss_depth(
+                        value, depth=self.freeze_depth
+                    )
+                    if self.freeze_repr
+                    else self.nets["policy"].compute_loss(value)
+                )
+                for key, value in hpt_batches.items()
+            }
+        for embodiment_id, loss in domain_losses.items():
+            embodiment_name = get_embodiment(embodiment_id).lower()
             predictions[f"{embodiment_name}_loss"] = loss
 
         if self.ot:
             ot_loss, avg_feat_distance = self._forward_ot(
-                hpt_batches,
+                ot_batches,
                 get_embodiment_id(self.domains[0]),
                 get_embodiment_id(self.domains[1]),
             )
@@ -1166,7 +1305,7 @@ class HPT(Algo):
             losses (dict): dictionary of losses computed over the batch
                 loss_key_name: torch.Tensor (1)
         """
-        total_action_loss = torch.tensor(0.0, device=self.device)
+        domain_losses, sizes = [], []
         loss_dict = OrderedDict()
 
         if self.ot:
@@ -1179,15 +1318,22 @@ class HPT(Algo):
             embodiment_name = get_embodiment(embodiment_id).lower()
             bc_loss = predictions[f"{embodiment_name}_loss"]
             scaled_bc_loss = bc_weight * bc_loss
-            total_action_loss += scaled_bc_loss
+            domain_losses.append(scaled_bc_loss)
+            sizes.append(_batch[self.ac_keys[embodiment_id]].shape[0])
             loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
 
+        total_action_loss = sample_mean(domain_losses, sizes)
         if self.ot:
             loss_dict["ot_loss"] = predictions["ot_loss"]
             loss_dict["avg_feature_distance"] = predictions["avg_feature_distance"]
-            total_action_loss += ot_weight * self.temperature * predictions["ot_loss"]
+            total_action_loss += (
+                ot_weight
+                * self.temperature
+                * predictions["ot_loss"]
+                / len(self.domains)
+            )
 
-        loss_dict["action_loss"] = total_action_loss / len(self.domains)
+        loss_dict["action_loss"] = total_action_loss
         return loss_dict
 
     @override
