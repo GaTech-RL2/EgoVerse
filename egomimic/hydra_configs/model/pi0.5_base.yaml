@@ -5,6 +5,17 @@ robomimic_model:
     pytorch_training_precision: bfloat16
     # directory holding model.safetensors of the pi0.5 base ($EGOVERSE_PI05_WEIGHTS overrides)
     pytorch_weight_path: ${oc.env:EGOVERSE_PI05_WEIGHTS,/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch}
+    # The alternative to pytorch_weight_path: a local directory or an HF repo id
+    # holding the paligemma-3b-*-224 safetensors. Only the VLM prefix (SigLIP
+    # tower, multimodal projector, Gemma-2B) is loaded from it; everything pi0.5
+    # adds -- the action expert, the action in/out projections, the adaRMS time
+    # MLPs -- trains from scratch. Setting both paths is an error. Flip it on
+    # with the model/pi0.5_paligemma_init.yaml overlay.
+    paligemma_weight_path: null
+    # google/paligemma-3b-pt-224 is license-gated. Without an HF token that has
+    # accepted the Gemma terms, fall back to a mirror whose shards sha256-match
+    # the canonical repo; false = raise instead of falling back.
+    paligemma_allow_mirror: true
     model:
       pi05: true
       # Width of the model's action vector. 32 is openpi's pretrained width
