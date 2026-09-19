@@ -11,12 +11,21 @@ is one H100 (gpu11), bf16 autocast, measured with the harnesses in this folder.
 | `bench_hpt.py` | HPT train step (`forward_training` + `compute_losses` + backward + optimizer) on a synthetic batch, real model config. `--variants` A/Bs one change at a time; `--profile` dumps a torch-profiler table. |
 | `bench_pi.py` | The same for Pi (openpi pi0.5), random init -- step time does not depend on the base weights. |
 | `check_compile_parity.py` | Eager vs compiled, same weights, same batch: is `torch.compile` changing the numbers? |
+| `check_attn_parity.py` | `need_weights=True` (the old path) vs `False`, same weights, same batch. |
+| `check_aug_distribution.py` | Two-sample KS between the per-image and batched jitter, over per-sample image statistics. |
+| `ab_augs.sh`, `ab_compare.py` | Accuracy A/B for the aug rewrite: both paths, two seeds, held-out loss on disjoint episodes. |
 | `e2e_hpt.sh`, `e2e_sweep.sh` | The real `trainHydra` path on locally cached mecka episodes, so the dataloader is in the measurement. |
 
 ```bash
 salloc -p loaner -A loaner --gres=gpu:h100:1 -c 28 --mem=200G
 source ./wt-env.sh
 python bench/bench_hpt.py --variants base,compile_hook --steps 25 --warmup 10
+
+# accuracy A/B: ~12 min an arm on one H100
+for s in 42 43; do for arm in loop batched; do
+  AB_SEED=$s AB_EPOCHS=20 bench/ab_augs.sh $arm <results>/${arm}_s${s}.json
+done; done
+python bench/ab_compare.py <results>
 ```
 
 `bench_pi.py` needs a venv on the pinned transformers (see "Loose ends", below).
@@ -123,6 +132,67 @@ flow-matching noise and time) and both copies starting from identical weights:
   backward-filter, not compile.
 * Under bf16 autocast the loss drifts ~0.3% on a random-init network, which is
   reduction-order noise amplified through 23 trunk blocks.
+
+### Does the aug rewrite change what the model learns? (`ab_augs.sh`, `ab_compare.py`)
+
+The vectorized `ColorJitter` is the only change here that is not exactly
+equivalent to what it replaced. Everything else is either bit-identical
+(float32 decode, the OT clone, the `torch.where` camera select, `non_blocking`)
+or floating-point reassociation (compile, `need_weights`). The jitter is
+different in two ways, both deliberate:
+
+* the **op order** is drawn once per call, not once per image, so samples in a
+  batch share a permutation. A single sample's marginal is unaffected -- the
+  order is still uniform over the 4! permutations and the factors are still
+  per-sample -- but within-batch independence is gone.
+* the RNG stream differs, so no run reproduces an old seed.
+
+`check_aug_distribution.py` covers the marginal: 6400 augmented samples through
+each path, two-sample KS on eight per-sample statistics (per-channel mean and
+std, min, max). Worst p = 0.61. The marginals are indistinguishable.
+
+The within-batch correlation only a training run can see. `ab_augs.sh` runs both
+arms at two seeds: same config, same 32 train episodes, compile off, 2000 steps,
+held-out loss on 15 **disjoint** episodes every 100 steps. The held-out pass runs
+in eval mode -- deterministic eval augs -- and reseeds, so it measures what the
+model learned, not what it was shown. The `loop` arm stubs out `_vectorize` so
+`PerSampleAugs` takes its own per-image fallback: the old code path, not a
+reimplementation of it.
+
+| arm | seed | train (last 100) | held-out (mean of last 5) | wall s |
+| --- | ---: | ---: | ---: | ---: |
+| loop | 42 | 0.617 | 0.752 | 740 |
+| loop | 43 | 0.647 | 0.822 | 734 |
+| batched | 42 | 0.585 | 0.685 | 589 |
+| batched | 43 | 0.598 | 0.631 | 566 |
+
+**No regression: the batched arm is better at both seeds** (-9.0%, -23.2%), and
+the 1.26x wall-clock gap independently confirms the `loop` arm really ran the
+per-image path.
+
+Do NOT read that as the rewrite improving accuracy. Two seeds cannot support
+that claim, the two arms consume different amounts of RNG so each arm/seed pair
+is effectively its own seed, and the held-out loss still swings 0.6-1.2 between
+adjacent evals at step 2000. `ab_compare.py` prints `ARM EFFECT EXCEEDS SEED
+NOISE` because the mean gap (0.129) is larger than the within-arm seed spread
+(0.070); with n=2 that is weak evidence of a real difference and no evidence at
+all of its direction. What it does rule out is the thing worth ruling out --
+sharing the op order across a batch is not costing accuracy. Confirming the
+apparent gain would need ~6 seeds an arm.
+
+### Does `need_weights=False` change the numbers? (`check_attn_parity.py`)
+
+The flow head's attentions used to take `nn.MultiheadAttention`'s default
+`need_weights=True`, which forces the materialized-softmax path; they now
+dispatch to `scaled_dot_product_attention`. Forcing the old path back on and
+comparing a full fp32 train step:
+
+* loss 197.009293 vs 197.009033, a relative delta of 1.3e-6
+* 581 gradient tensors, min cosine similarity 0.999999, worst relative max-abs
+  delta 1.1e-3 (all on ResNet conv weights, i.e. the same cudnn
+  backward-filter nondeterminism the compile parity check sees)
+
+Same function, different reduction order.
 
 ### End to end on real data (`e2e_hpt.sh`)
 
