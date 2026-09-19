@@ -5,6 +5,7 @@ cfg keeps the real path. Slurm requeues resolve their ckpt_path before that
 decision, and only when last.ckpt exists."""
 
 import inspect
+import os
 from pathlib import Path
 
 import pytest
@@ -222,3 +223,120 @@ def test_load_checkpoint_weights_warns_on_unexpected_keys(tmp_path, caplog):
         load_checkpoint_weights(model, ckpt)
     assert "extra.buffer" in caplog.text
     assert torch.equal(model.weight, torch.ones(2, 2))
+
+
+# ------------------------------------------------ save_last writes a link, not 21 GB
+def test_checkpoint_callback_links_last_instead_of_copying(compose_resolve, tmp_path):
+    """`save_last: true` wrote a second full copy of every checkpoint. "link"
+    symlinks it instead; save_top_k=-1 means the target is never collected."""
+    import hydra
+
+    cfg = _pi_cfg(compose_resolve, tmp_path)
+    assert cfg.callbacks.model_checkpoint.save_last == "link"
+    assert cfg.callbacks.model_checkpoint.save_top_k == -1, "the link's target"
+
+    # lightning validates save_last at construction (it rejects "link" for a
+    # non-local dirpath), so instantiating is the real check
+    callback = hydra.utils.instantiate(cfg.callbacks.model_checkpoint)
+    assert callback.save_last == "link"
+
+
+def test_requeue_resumes_through_a_symlinked_last_ckpt(
+    monkeypatch, compose_resolve, tmp_path
+):
+    """What "link" leaves on disk: last.ckpt is a relative symlink to the real
+    epoch checkpoint, and the requeue path must still find it."""
+    real = _touch(tmp_path / "checkpoints" / "epoch_epoch=49.ckpt")
+    link = tmp_path / "checkpoints" / "last.ckpt"
+    link.symlink_to(real.name)  # relative, as ModelCheckpoint._link_checkpoint writes
+
+    _requeue(monkeypatch)
+    cfg = _pi_cfg(compose_resolve, tmp_path)
+    train_hydra._prepare_checkpoint_resume(cfg)
+    assert Path(cfg.ckpt_path) == link
+    assert Path(cfg.ckpt_path).resolve() == real.resolve()
+
+
+def test_requeue_with_a_dangling_last_ckpt_raises(
+    monkeypatch, compose_resolve, tmp_path
+):
+    """os.path.isfile is False on a dangling link, which used to fall through to
+    "training starts over" on a run that has checkpoints."""
+    link = tmp_path / "checkpoints" / "last.ckpt"
+    link.parent.mkdir(parents=True)
+    link.symlink_to("epoch_epoch=49.ckpt")
+
+    _requeue(monkeypatch)
+    cfg = _pi_cfg(compose_resolve, tmp_path)
+    with pytest.raises(FileNotFoundError, match="does not exist"):
+        train_hydra._prepare_checkpoint_resume(cfg)
+
+
+def test_requeue_with_checkpoints_but_no_last_ckpt_raises(
+    monkeypatch, compose_resolve, tmp_path
+):
+    """rsync without -l, or a preemption between Lightning's unlink and relink,
+    leaves epoch checkpoints and no last.ckpt."""
+    _touch(tmp_path / "checkpoints" / "epoch_epoch=49.ckpt")
+
+    _requeue(monkeypatch)
+    cfg = _pi_cfg(compose_resolve, tmp_path)
+    with pytest.raises(FileNotFoundError, match="epoch_epoch=49.ckpt"):
+        train_hydra._prepare_checkpoint_resume(cfg)
+
+
+@pytest.mark.parametrize("save_last", ["link", True])
+def test_save_last_link_writes_a_symlink_not_a_second_copy(
+    compose_resolve, tmp_path, save_last
+):
+    """The point of the change, through a real fit: `true` writes last.ckpt as a
+    full second copy of the epoch checkpoint (~21 GB on Pi 0.5); "link" makes it
+    a symlink to the one already on disk."""
+    import hydra
+    from lightning import LightningModule, Trainer
+    from torch.utils.data import DataLoader, TensorDataset
+
+    class _M(LightningModule):
+        def __init__(self):
+            super().__init__()
+            self.layer = torch.nn.Linear(1, 1)
+
+        def training_step(self, batch, batch_idx):
+            return self.layer(batch[0]).sum()
+
+        def configure_optimizers(self):
+            return torch.optim.SGD(self.parameters(), lr=0.0)
+
+    cfg = _pi_cfg(compose_resolve, tmp_path)
+    ckpt_dir = tmp_path / "checkpoints"
+    callback = hydra.utils.instantiate(
+        cfg.callbacks.model_checkpoint,
+        dirpath=str(ckpt_dir),
+        every_n_epochs=1,
+        save_last=save_last,
+    )
+    Trainer(
+        max_epochs=2,
+        accelerator="cpu",
+        devices=1,
+        limit_train_batches=1,
+        callbacks=[callback],
+        logger=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        default_root_dir=str(tmp_path),
+    ).fit(_M(), DataLoader(TensorDataset(torch.zeros(2, 1)), batch_size=1))
+
+    last = ckpt_dir / "last.ckpt"
+    epochs = sorted(p.name for p in ckpt_dir.glob("epoch_*.ckpt"))
+    assert epochs == ["epoch_epoch=0.ckpt", "epoch_epoch=1.ckpt"], "save_top_k=-1"
+    assert last.is_file(), "either way the requeue path finds it"
+
+    if save_last == "link":
+        assert last.is_symlink()
+        assert Path(os.readlink(last)) == Path("epoch_epoch=1.ckpt"), "relative"
+        assert last.resolve() == (ckpt_dir / "epoch_epoch=1.ckpt").resolve()
+    else:
+        # what we are getting rid of: a full second copy of the same checkpoint
+        assert not last.is_symlink()
+        assert last.stat().st_size == (ckpt_dir / "epoch_epoch=1.ckpt").stat().st_size
