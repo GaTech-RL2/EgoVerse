@@ -12,6 +12,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     ConcatKeys,
     InterpolatePose,
+    PoseCoordinateFrameTransform,
     XYZWXYZ_to_XYZYPR,
 )
 from egomimic.utils.pose_utils import _xyzwxyz_to_matrix
@@ -639,3 +640,69 @@ def test_human_transform_list_stepwise_keys_and_shapes() -> None:
             "observations.state.ee_pose": (12,),
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# PoseCoordinateFrameTransform.per_step_target
+# ---------------------------------------------------------------------------
+def _wrist_history(steps: int) -> np.ndarray:
+    """A wrist moving +0.1 in x per step, oldest first, identity rotation."""
+    poses = np.zeros((steps, 7), dtype=np.float64)
+    poses[:, 0] = 0.1 * np.arange(steps)
+    poses[:, 3] = 1.0  # w of wxyz
+    return poses
+
+
+def _keypoints_on_the_wrist(wrist: np.ndarray) -> np.ndarray:
+    """(K, 2, 3): slot 0 sits exactly on that step's wrist, slot 1 0.4 above."""
+    kp = np.zeros((wrist.shape[0], 2, 3), dtype=np.float64)
+    kp[:, 0, :] = wrist[:, :3]
+    kp[:, 1, :] = wrist[:, :3] + np.array([0.0, 0.4, 0.0])
+    return kp
+
+
+def _wristframe(wrist, keypoints, per_step_target):
+    tf = PoseCoordinateFrameTransform(
+        target_world="wrist",
+        pose_world="kp_head",
+        transformed_key_name="kp_wrist",
+        mode="xyz",
+        target_history=True,
+        per_step_target=per_step_target,
+    )
+    return np.asarray(tf.transform({"wrist": wrist, "kp_head": keypoints})["kp_wrist"])
+
+
+def test_per_step_target_keeps_every_history_step_in_its_own_frame():
+    """The whole point: keypoint 0 is the wrist, so it must be 0 at EVERY step.
+
+    Measured from the current step's wrist instead, an older step carries the
+    wrist's own displacement -- which is what pushed palm-rigid MANO knuckles
+    outside their per-cell quantile bounds and starved the loader on retries.
+    """
+    wrist = _wrist_history(4)
+    keypoints = _keypoints_on_the_wrist(wrist)
+
+    current_frame = _wristframe(wrist, keypoints, per_step_target=False)
+    per_step = _wristframe(wrist, keypoints, per_step_target=True)
+
+    # Slot 0 == that step's wrist, so per-step framing sends it to the origin.
+    np.testing.assert_allclose(per_step[:, 0, :], 0.0, atol=1e-12)
+    # Without it, the three older steps keep the wrist's -0.3/-0.2/-0.1 offset
+    # and only the current step lands at the origin.
+    np.testing.assert_allclose(
+        current_frame[:, 0, 0], [-0.3, -0.2, -0.1, 0.0], atol=1e-12
+    )
+    # The articulation channel is unchanged either way: 0.4 above the wrist.
+    for framed in (current_frame, per_step):
+        np.testing.assert_allclose(framed[:, 1, 1], 0.4, atol=1e-12)
+
+
+def test_per_step_target_is_inert_without_a_history_axis():
+    """Existing single-step call sites cannot change behaviour: the per-step
+    path needs a leading axis on the target, which a K=1 keymap never emits."""
+    wrist = _wrist_history(1)[0]  # (7,), the shape a no-history keymap gives
+    keypoints = _keypoints_on_the_wrist(_wrist_history(1))[0]  # (2, 3)
+    off = _wristframe(wrist, keypoints, per_step_target=False)
+    on = _wristframe(wrist, keypoints, per_step_target=True)
+    np.testing.assert_array_equal(off, on)
