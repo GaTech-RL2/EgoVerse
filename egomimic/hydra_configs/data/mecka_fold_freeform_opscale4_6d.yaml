@@ -1,0 +1,299 @@
+# MECKA_FOLD_FREEFORM_OPSCALE4_6D: pi0.5 BC on the mecka FREEFORM fold-clothes
+# episodes (SQL lab='mecka', task='folding_clothes', 462 eps / 1.13 M frames /
+# 178 operators under processed_v3/mecka/freeform/; "freeform" is only visible in
+# zarr_processed_path, so the filter keys on '/mecka/freeform/' and accepts either
+# fold-clothes task spelling). A DIFFERENT set from the FLAGSHIP 'fold_clothes'
+# episodes -- zero operator overlap between the two.
+# Standalone (no defaults inheritance); the k=1/2 arms inherit THIS file.
+#
+# OPERATOR-SCALING LADDER (chosen 2026-09-17 from SQL app.episodes). The question
+# is how many DIFFERENT OPERATORS the training data should come from. Each arm
+# trains on ALL the annotated data its operators have, minus the held-out
+# validation episodes -- the per-operator amount is NOT capped, so the total
+# grows both with the operator count and with how much those operators recorded:
+#
+#   k=1    9 eps   25633 f   14.24 min = 0.237 h   ( 1.00x the k=1 arm)
+#   k=2   24 eps   60374 f   33.54 min = 0.559 h   ( 2.36x the k=1 arm)
+#   k=4   48 eps  118388 f   65.77 min = 1.096 h   ( 4.62x the k=1 arm)
+#
+# Per-operator contributions (k=4; the smaller arms are prefixes of this list):
+#   #1 6964d38183a9fdf2d8663792   9 eps   25633 f = 14.24 min
+#   #2 68e0b875c33a1abcb8fc55b9  15 eps   34741 f = 19.30 min
+#   #3 695d09fc83a9fdf2d84d9c11  13 eps   30549 f = 16.97 min
+#   #4 69439ad5a2a8b5aee76602f5  11 eps   27465 f = 15.26 min
+#
+# So the arms are NOT a clean 1:2:4 in hours (1.00x, 2.36x, 4.62x) --
+# operator #1 is the smallest of the four after funding the val set. Operator
+# count and data volume therefore move TOGETHER across this ladder; it measures
+# "does adding another operator's data help", not operator diversity at a fixed
+# budget. For the fixed-budget question, cap each operator instead.
+#
+# The three train operator sets are NESTED (k=1 subset k=2 subset k=4), so
+# operator identity never changes underneath the ladder -- each rung only ADDS an
+# operator. Because the split is an operator filter rather than an episode pin,
+# that nesting cannot drift.
+#
+# LIVE FILTERS, NOT A SNAPSHOT: the train split is "every annotated episode of
+# these operators", so it will GROW if more episodes for them land in SQL. The
+# episode counts above were measured 2026-09-17 by hand and are documentation
+# only -- nothing asserts them, because there is nothing to assert them against
+# without the DB. tests/unit/test_opscale_ladder.py checks the parts that are
+# in the config: the operator nesting, the exclusions and the metric budgets.
+#
+# ANNOTATED EPISODES ONLY. 112 of the 462 freeform episodes have segments = NULL,
+# which becomes an empty `annotations` track and makes _build_prompts fall back to
+# `default_prompt` ("" by default) for every one of their frames. Restricting to
+# the 350 annotated episodes (7.91 h / 156 operators) makes the text stem see a
+# real instruction on ~100 % of frames. The operator RANKING is by ANNOTATED
+# hours, which is NOT the same order as raw hours -- do not re-derive it from
+# unfiltered totals.
+#
+# THREE-WAY SPLIT, and both val sets are IDENTICAL in all three arms:
+#   train           = all annotated episodes of the arm's operators, minus the
+#                     3 seen-op val episodes below.
+#   seen val        = 3 episodes of operator #1 (6964d38183a9fdf2d8663792),
+#                     9745 f = 5.41 min -> seen_op_valid/. Operator #1 is in EVERY
+#                     arm (the sets are nested), so this is the one seen-op val
+#                     that is directly comparable across the whole ladder. These
+#                     are the ONLY episodes withheld from training.
+#   unseen val      = the ANNOTATED episodes of the 31 `held_out_operators`
+#                     (35 of their 50 eps, 79850 f = 0.739 h, 26 of the 31 operators
+#                     contribute) -> unseen_op_valid/. The operator LIST is reused
+#                     verbatim from mecka_fold_freeform_opsplit_6d, so no unseen
+#                     operator is ever trained on and the split is comparable with
+#                     those checkpoints at the OPERATOR level; the annotation guard
+#                     makes it a subset of that config's 50-episode val side, so it
+#                     is NOT episode-identical.
+#   train_viz       = the train split itself (no train_viz_datasets here, so
+#                     trainHydra reuses train_datasets unshuffled).
+#
+# VAL LOADERS (three heads, one validation pass), as in the flagship opsplit
+# configs: valid_datasets -> seen_op_valid/ (renamed by `valid_prefix`),
+# unseen_op_valid_datasets -> unseen_op_valid/, train_viz -> train_viz/. Each is
+# served by a subsampled METRIC loader and a pinned contiguous VIDEO loader; see
+# `metric_frames_per_episode` / `video_episodes` at the bottom.
+#
+# PIPELINE: WRIST-frame CARTESIAN actions with the continuous 6D rotation (18D =
+# xyz+6D per arm, no gripper): each arm's 100-step chunk is expressed relative to
+# that wrist's current pose, so the world frame and the moving head frame cancel
+# out of the targets; the head-frame proprio ee_pose is 6D-encoded too and padded
+# 18 -> 20 (zero grip slots at 9/19) so the State: prompt bins align with the
+# robot layout. fix_mecka_left_wrist: processed_v3 mecka zarrs have the LEFT wrist
+# frame double-mirrored; Rz(180)-corrected before any frame math. stride 1 (mecka
+# is recorded at the target rate). Prompts come from the `annotations` track --
+# one segment label per frame, sampled by _build_prompts.
+#
+# Pairs with model=pi0.5_bc_mecka_6d and evaluator=eval_pi_wristframe_6d. For CAM
+# (head)-frame actions add
+#   data.train_datasets.human_bimanual.resolver.transform_list.mode=cartesian_6d
+# with evaluator=eval_pi_camframe_6d.
+#
+# NORMALIZATION: every arm has a DIFFERENT train distribution, so precompute
+# stats per arm -- do NOT share them across the ladder or reuse the opsplit /
+# flagship stats:
+#   python egomimic/scripts/precompute_norm_stats.py --data mecka_fold_freeform_opscale4_6d \
+#     --model pi0.5_bc_mecka_6d --out <out>
+# then train with norm_stats.precomputed_norm_path=<out>/norm_stats.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# The 31 UNSEEN-operator ids, reused verbatim from mecka_fold_freeform_opsplit_6d
+# so no unseen operator is ever trained on and the split stays operator-level
+# comparable with the existing freeform opsplit checkpoints. Verified disjoint
+# from the 4 train operators. Referenced by the unseen filter via
+# `data.held_out_operators`; MultiDataModuleWrapper declares this key.
+held_out_operators:
+  - 68a8e70d1ffcf0417e08f0e5
+  - 68e2fc680b158ea94ab4f5bc
+  - 6930bf8a6e496b45b1e1122e
+  - 6931784c6e496b45b1e1b1cd
+  - 693a399ec67c9e4814b0c09f
+  - 693b9530c67c9e4814b20ab2
+  - 693c78165cb6c2828a4c2087
+  - 694604945c0479a0fb7f48a4
+  - 6948d23b5c0479a0fb8302b3
+  - 69529a85c0d9448524bc7880
+  - 6954f0b720b100982d812ed8
+  - 6957464720b100982d83b76c
+  - 695d07d783a9fdf2d84d9371
+  - 695d084183a9fdf2d84d955a
+  - 6961c50f83a9fdf2d85ec95d
+  - 69624a8683a9fdf2d86013c0
+  - 6973c3ae89fa4bc311d1bbe5
+  - 69842643f8ca4464d9920799
+  - 698937a5f8ca4464d99dce94
+  - 6992b19ab9d55c9c2d48432c
+  - 699429e18ef0252970048624
+  - 6996d5eded1708063b2fe419
+  - 6999d17c8f173e14271f9890
+  - 69a24256c4216c3e3ce33834
+  - 69a39ec9c4216c3e3ce49734
+  - 69a57a78c4216c3e3ce6323c
+  - 69a725a347e12c9b3390ba33
+  - 69a7943547e12c9b33911c02
+  - 69a84eed47e12c9b339208fd
+  - 69ab87207bf9cbce29a3cb36
+  - 69ae2463d22d99655253f287
+
+# Metric prefix / video dir for the canonical valid loader (config-only, read by
+# trainHydra), so the SEEN-operator val is not logged under a bare Valid/.
+valid_prefix: seen_op_valid
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+        # No proprio_history: the keymap's K and the model's stem history_len are
+        # one setting in two files and HPTModel raises when they disagree, so a
+        # rung that asks for K > 1 only composes with a model configured for the
+        # same K. Raise both together (and see PoseCoordinateFrameTransform's
+        # per_step_target, which the keypoint twins rely on above K=1).
+        # Language: the per-frame segment label track. Every episode in every
+        # split of this config is annotation-guarded, so this is never empty.
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_wristframe_6d
+        stride: 1
+        fix_mecka_left_wrist: true
+        pad_proprio_gripper: true
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
+        - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
+        # LANGUAGE ANNOTATIONS REQUIRED. 112 of the 462 freeform episodes have a
+        # NULL `segments` column, which becomes an EMPTY `annotations` track in the
+        # zarr; _annotation_text_for_frame then returns [] for every frame of them
+        # and _build_prompts silently substitutes `default_prompt` (an EMPTY string
+        # unless overridden), so they would train the text stem on nothing. This
+        # guard keeps the 350 annotated episodes, whose segments tile 99.7-100 % of
+        # their frames. `segments` is a list (or None) on the SQL row, so isinstance
+        # is the safe test -- do NOT use truthiness (a numpy round-trip makes
+        # `bool(...)` raise "truth value of an array is ambiguous").
+        - "lambda row: isinstance(row.get('segments'), list) and len(row.get('segments')) > 0"
+        # OPERATOR SET: the top 4 operators by ANNOTATED hours. Inlined rather
+        # than put in a config key -- MultiDataModuleWrapper rejects root keys it
+        # does not declare.
+        - "lambda row: str(row.get('operator', '')) in ('6964d38183a9fdf2d8663792', '68e0b875c33a1abcb8fc55b9', '695d09fc83a9fdf2d84d9c11', '69439ad5a2a8b5aee76602f5')"
+        # ...minus the 3 SEEN-OP VAL episodes (all from operator #1), which are
+        # the only episodes held back from training. Kept in sync with
+        # valid_datasets' `episode_hashes` pin by tests/unit/test_opscale_ladder.py.
+        - "lambda row: str(row.get('episode_hash', '')) not in ('696bcbe0e13d37dd4293f58b', '696bcbe86377d0871b6a9253', '696bcc71ed8ed158122ec794')"
+    # The filters ARE the split; no random episode split on top of them.
+    mode: total
+
+# SEEN operators, held-out episodes -> seen_op_valid/ metrics. 3 episodes of
+# operator #1, which is in every arm of the ladder, so this val set is shared and
+# comparable across all three rungs. Same resolver as train (so it follows any
+# pipeline override); pinned by hash, and `mode: total` because the pin is the
+# split. The train filter excludes exactly these 3 hashes.
+valid_datasets:
+  human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
+        - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
+        # LANGUAGE ANNOTATIONS REQUIRED. 112 of the 462 freeform episodes have a
+        # NULL `segments` column, which becomes an EMPTY `annotations` track in the
+        # zarr; _annotation_text_for_frame then returns [] for every frame of them
+        # and _build_prompts silently substitutes `default_prompt` (an EMPTY string
+        # unless overridden), so they would train the text stem on nothing. This
+        # guard keeps the 350 annotated episodes, whose segments tile 99.7-100 % of
+        # their frames. `segments` is a list (or None) on the SQL row, so isinstance
+        # is the safe test -- do NOT use truthiness (a numpy round-trip makes
+        # `bool(...)` raise "truth value of an array is ambiguous").
+        - "lambda row: isinstance(row.get('segments'), list) and len(row.get('segments')) > 0"
+      # op #1 6964d38183a9fdf2d8663792: 3 eps, 9745 f = 5.41 min
+      episode_hashes:
+        - 696bcbe0e13d37dd4293f58b
+        - 696bcbe86377d0871b6a9253
+        - 696bcc71ed8ed158122ec794
+    mode: total
+
+# UNSEEN operators: the ANNOTATED episodes of the 31 held-out operators ->
+# unseen_op_valid/ metrics via a second copy of the canonical evaluator.
+# Identical in all three arms.
+unseen_op_valid_datasets:
+  human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
+        - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
+        # LANGUAGE ANNOTATIONS REQUIRED. 112 of the 462 freeform episodes have a
+        # NULL `segments` column, which becomes an EMPTY `annotations` track in the
+        # zarr; _annotation_text_for_frame then returns [] for every frame of them
+        # and _build_prompts silently substitutes `default_prompt` (an EMPTY string
+        # unless overridden), so they would train the text stem on nothing. This
+        # guard keeps the 350 annotated episodes, whose segments tile 99.7-100 % of
+        # their frames. `segments` is a list (or None) on the SQL row, so isinstance
+        # is the safe test -- do NOT use truthiness (a numpy round-trip makes
+        # `bool(...)` raise "truth value of an array is ambiguous").
+        - "lambda row: isinstance(row.get('segments'), list) and len(row.get('segments')) > 0"
+        - "lambda row: str(row.get('operator', '')) in ${data.held_out_operators}"
+    mode: total
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+
+# Unshuffled (both val loaders): the same leading slice every val, comparable
+# across epochs with a coherent overlay video. The train_viz loader reuses these.
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+    shuffle: false
+
+unseen_op_valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+    shuffle: false
+
+# ---------------------------------------------------------------------------
+# METRIC LOADERS: K evenly spaced frames per EPISODE, so every episode and
+# operator is scored at the same 80-batch (80 x 64 = 5120 frame) cost.
+# K = floor(5120 / episodes-in-that-split); counts measured 2026-09-17.
+#   valid              3 eps /   9745 f -> K = floor(5120/3)  = 1706
+#   unseen_op_valid   35 eps /  79850 f -> K = floor(5120/35) = 146
+#   train_viz         48 eps / 118388 f -> K = floor(5120/48) = 106
+# The k=1/2 children override train_viz only (smaller train splits).
+metric_frames_per_episode:
+  valid: 1706
+  unseen_op_valid: 146
+  train_viz: 106
+
+# ---------------------------------------------------------------------------
+# VIDEO LOADERS: pinned contiguous episodes, so every run in the ladder renders
+# the SAME episodes. Taken from that head's already-resolved split (no second SQL
+# pull); `evaluator.viz_max_batches` (10 batches = 640 frames) caps them. Each
+# pin is the LONGEST episode of its split, so one contiguous episode fills the
+# whole video budget. Format <hash> (operator, frames, segments):
+#   valid            696bcbe86377d0871b6a9253 (6964d38183a9fdf2d8663792, 3688 f, 8 seg)
+#   unseen_op_valid  696bc7e021d8e8ab8ddc8380 (6957464720b100982d83b76c, 3358 f, 10 seg)
+#   train_viz        696dd090a56f03a27e59f69c (6964d38183a9fdf2d8663792, 3298 f, 8 seg)
+#                    -- an operator #1 episode, so it is in EVERY arm's train
+#                    split and the children inherit this pin unchanged.
+video_episodes:
+  valid:
+    - 696bcbe86377d0871b6a9253
+  unseen_op_valid:
+    - 696bc7e021d8e8ab8ddc8380
+  train_viz:
+    - 696dd090a56f03a27e59f69c
