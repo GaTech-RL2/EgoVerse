@@ -126,6 +126,11 @@ robomimic_model:
         input_dim: ${model.robomimic_model.dims.human_bimanual.proprio}
         output_dim: 840
         widths: [840]
+        # Proprio observation history (as hpt_bc_mecka_6d_300M's state_ee_pose
+        # stem): K tokens, learned zero-init time-step embedding, whole-past
+        # dropout. Must equal the data config's `proprio_history`; inert at 1.
+        history_len: 1
+        history_dropout: 0.2
         specs:
           random_horizon_masking: false
           cross_attn:
@@ -158,6 +163,10 @@ robomimic_model:
       - _target_: torchvision.transforms.Normalize
         mean: [0.485, 0.456, 0.406]
         std: [0.229, 0.224, 0.225]
+
+# LR multiplier for the image encoders' pretrained backbones; 1.0 keeps the
+# single optimizer param group (ModelWrapper.configure_optimizers).
+backbone_lr_scale: 1.0
 
 optimizer:
   _target_: torch.optim.AdamW
