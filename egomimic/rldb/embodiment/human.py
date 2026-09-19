@@ -4,7 +4,11 @@ from typing import Literal
 
 import numpy as np
 
-from egomimic.rldb.embodiment.embodiment import Embodiment, _strip_pi_keymap_mode
+from egomimic.rldb.embodiment.embodiment import (
+    IMAGE_HISTORY_SUFFIX,
+    Embodiment,
+    _strip_pi_keymap_mode,
+)
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
@@ -198,6 +202,7 @@ class Human(Embodiment):
         norm_mode: bool = False,
         annotation_key: str = None,
         proprio_history: int = 1,
+        image_history_gap_s: float | None = None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (False only for contributors that truly omit
@@ -212,6 +217,10 @@ class Human(Embodiment):
         the last K frames instead of one: the dataset emits ``(K, D)`` with the
         current frame last, plus a ``proprio_history_mask``. K = 1 (the
         default) leaves the keymap exactly as it was.
+
+        ``image_history_gap_s`` adds a second front-camera entry,
+        ``<front key>_hist``: the frame that many seconds before the current
+        one (frames = gap x the episode's fps; frame 0 at an episode start).
         """
         key_map = cls._get_keymap(
             keymap_mode,
@@ -220,6 +229,12 @@ class Human(Embodiment):
             include_ee_pose=include_ee_pose,
             proprio_history=proprio_history,
         )
+        if image_history_gap_s is not None:
+            front = key_map[cls.VIZ_IMAGE_KEY]
+            key_map[f"{cls.VIZ_IMAGE_KEY}{IMAGE_HISTORY_SUFFIX}"] = {
+                **front,
+                "lag_s": float(image_history_gap_s),
+            }
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
                 "key_type": "annotation_keys",
