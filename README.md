@@ -101,6 +101,7 @@ Every cluster-specific default in the configs can be overridden without editing 
 | `EGOVERSE_CACHE_DIR` | `paths.cache_dir`; norm stats cached by content under `<cache_dir>/norm_stats/` | `$EGOVERSE_LOG_DIR/cache` |
 | `EGOVERSE_ROOT` | `paths.root_dir` | the directory you launch from |
 | `EGOVERSE_PI05_WEIGHTS` | pi0.5 base weights directory (`model.robomimic_model.config.pytorch_weight_path`) | lab PACE path |
+| `EGOVERSE_PALIGEMMA_WEIGHTS` | PaliGemma checkpoint for the from-scratch pi arm (`...config.paligemma_weight_path`), a local dir or an HF repo id | `google/paligemma-3b-pt-224` |
 | `WANDB_ENTITY`, `WANDB_PROJECT` | `logger.wandb.entity` / `.project` | `rl2-group` / `zarr_test` |
 
 ### Other Settings
