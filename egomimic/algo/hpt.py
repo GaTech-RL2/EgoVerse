@@ -910,7 +910,7 @@ class HPT(DeterministicEvalMixin, Algo):
         self.is_6dof = kwargs.get("6dof", False)
         self.kinematics_solver = kwargs.get("kinematics_solver", None)
 
-        model = HPTModel(**trunk)
+        model = self._build_policy(trunk)
         model.auxiliary_ac_keys = self.auxiliary_ac_keys
 
         self.multitask = kwargs.get("multitask", False)
@@ -1013,6 +1013,10 @@ class HPT(DeterministicEvalMixin, Algo):
         verify_pretrained_weights(self.nets["policy"])
 
         self.training_step = 0
+
+    def _build_policy(self, trunk: dict) -> HPTModel:
+        """The policy network; subclasses (``RDT``) swap in their own."""
+        return HPTModel(**trunk)
 
     @override
     def compile_for_training(self, mode=None, dynamic=False):
