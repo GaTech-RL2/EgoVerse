@@ -1,0 +1,11 @@
+# RDT_1B_BC_MECKA_6D_DINOV3_VITB: rdt_bc_mecka_6d_dinov3_vitb at the paper's
+# RDT-1B shape (width 2048 x 28 blocks x 32 heads, ~1.2B). From scratch on one
+# task this is a scaling-curve point, not the default.
+defaults:
+  - rdt_bc_mecka_6d_dinov3_vitb
+  - _self_
+
+robomimic_model:
+  width: 2048
+  trunk:
+    num_heads: 32
