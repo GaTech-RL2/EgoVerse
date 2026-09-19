@@ -1,0 +1,26 @@
+# mecka_fold_flagship_opsplit_hpt_6d with the wrist-frame KEYPOINT pipeline
+# (the keymap / transform of mecka_fold_freeform_opsplit_hpt_keypoints):
+#   actions_keypoints              (100, 144)  wrist-first wrist-frame keypoint
+#                                              action, per hand [wrist xyz+rot6d
+#                                              (9) | 21 keypoints (63)]
+#   observations.state.keypoints   (144,)      per hand [wrist pose in HEAD
+#                                              frame | keypoints in wrist frame]
+# No `observations.state.ee_pose` (include_ee_pose off), so
+# pad_proprio_gripper is off. The operator split, filters, val loaders and
+# video episodes are inherited unchanged. Pairs with
+# model=hpt_bc_keypoints_wrist_300M and
+# evaluator=eval_hpt_keypoints_wrist. Norm stats are data-specific:
+# precompute them for this config (egomimic/scripts/precompute_norm_stats.py).
+defaults:
+  - mecka_fold_flagship_opsplit_hpt_6d
+  - _self_
+
+train_datasets:
+  human_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: keypoints
+      transform_list:
+        mode: keypoints_wristframe_6d
+        fix_mecka_left_wrist: true
+        pad_proprio_gripper: false
