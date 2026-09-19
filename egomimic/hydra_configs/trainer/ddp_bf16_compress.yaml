@@ -1,0 +1,17 @@
+# Plain DDP plus a bf16 gradient all-reduce, for a model big enough that the
+# gradient reduction, not the math, sets the step time. On the lab's 8 x A40
+# nodes -- no NVLink, two NUMA islands joined by cross-socket links -- a ~1.2 B
+# -parameter policy measured 6.4 s/step at 8 x batch 16 against 1.4 s/step on a
+# single GPU, and 3.6 s/step once the reduction was halved (2026-09-16). Only
+# the reduction is bf16; master weights and the optimizer stay fp32.
+#
+# This is plain DDP: no unused-parameter detection. A model that leaves any
+# trainable tensor without a gradient needs `ddp_pi`-style
+# `ddp_find_unused_parameters_true` instead, and will crash under this one.
+defaults:
+  - ddp
+
+strategy:
+  _target_: lightning.pytorch.strategies.DDPStrategy
+  ddp_comm_hook:
+    _target_: egomimic.utils.ddp_hooks.make_bf16_compress_hook
