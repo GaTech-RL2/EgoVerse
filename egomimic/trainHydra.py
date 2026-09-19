@@ -66,6 +66,16 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     return tree
 
 
+def _model_trainer_defaults(cfg: DictConfig) -> dict:
+    """Trainer kwargs a model config supplies: the gradient clip it was
+    published with (pi0.5: openpi's 1.0), unless ``trainer.gradient_clip_val``
+    is set explicitly."""
+    clip = cfg.model.get("gradient_clip_val")
+    if clip is None or cfg.trainer.get("gradient_clip_val") is not None:
+        return {}
+    return {"gradient_clip_val": clip}
+
+
 def _requeue_resume_path(cfg: DictConfig) -> Optional[str]:
     """``<checkpoint dir>/last.ckpt`` when this process is a Slurm requeue
     (``SLURM_RESTART_COUNT`` > 0), else None. The dir is the ModelCheckpoint
@@ -702,6 +712,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         config_tree=_build_model_config_tree(cfg),
         norm_stats_state=norm_stats.to_state(),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
+        enable_grad_norm=cfg.model.get("enable_grad_norm", True),
     )
 
     _log_dataset_frame_counts(
@@ -742,7 +753,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         plugins.append(SLURMEnvironment(requeue_signal=signal.SIGUSR1))
         print("SLURM REQUEUE ENABLED")
     trainer: Trainer = hydra.utils.instantiate(
-        cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
+        cfg.trainer,
+        callbacks=callbacks,
+        logger=logger,
+        plugins=plugins or None,
+        **_model_trainer_defaults(cfg),
     )
 
     object_dict = {
