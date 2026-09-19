@@ -52,7 +52,7 @@ def test_pentagon_has_five_physical_faces_and_controlled_yaw(source):
         assert env.agent.action_spec == ("x", "y", "angle")
         vertices = env._pusher_shapes[0].get_vertices()
         assert len(vertices) == 5
-        np.testing.assert_allclose(np.linalg.norm(vertices, axis=1), 20.0)
+        np.testing.assert_allclose(np.linalg.norm(vertices, axis=1), 12.0)
         for _ in range(30):
             env.step(np.array([100.0, 100.0, .3]))
         assert abs(env.pusher_angle - .3) < .01

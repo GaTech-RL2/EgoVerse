@@ -220,7 +220,7 @@ TRI_R = 24.0
 
 # Convex five-sided pusher. Unlike the three-sided tool, it presents five
 # shorter faces and shallower corners while retaining a controllable yaw.
-PENTAGON_R = 20.0
+PENTAGON_R = 12.0
 
 # Spring plunger: a tip on a sprung shaft inside a housing. The tip RETRACTS
 # into the housing under load, so contact is mediated by the spring rather
