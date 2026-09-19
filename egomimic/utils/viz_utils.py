@@ -293,83 +293,128 @@ def _viz_gaze(
     )
 
 
-def _viz_keypoints(
+# MANO slots per hand. The keypoint action layouts are
+# ``[wrist xyz | wrist rot | 21 keypoints] x 2`` (rot6d 144-D, quat 140-D,
+# ypr 138-D) or bare ``[21 keypoints] x 2`` (126-D).
+_N_KP = 21
+_KEYPOINT_WIDTHS = {2 * (3 * _N_KP + pose) for pose in (0, 6, 7, 9)}
+# Each finger runs base -> tip, so the tips are the last slot of each group of
+# four (slot 0 is the wrist).
+FINGERTIP_SLOTS = (4, 8, 12, 16, 20)
+
+
+def _viz_keypoints_horizon_trace(
     image,
     actions,
     intrinsics,
-    edges,
     colors,
-    edge_ranges,
-    dot_color=None,
+    wrist_color=None,
+    fingertip_indices=FINGERTIP_SLOTS,
+    finger_names=("thumb", "index", "middle", "ring", "pinky"),
     **kwargs,
 ):
-    """Visualize all 21 MANO keypoints per hand, projected onto the image."""
+    """Draw the horizon TRACE of the 5 fingertips + the wrist, per hand.
+
+    One polyline per tracked slot across the whole chunk, with a filled circle
+    at the first drawable step and an open square at the last. The wrist comes
+    from the action's wrist xyz block when the layout has one (144 / 140 / 138)
+    and from MANO slot 0 otherwise (126-D).
+
+    Args:
+        actions: ``(T, D)`` chunk, or ``(D,)`` for a single step.
+        colors: ``{finger_name: RGB}``, as ``Human.FINGER_COLORS``.
+        wrist_color: RGB for the wrist trace; ``None`` repeats Human.DOT_COLOR.
+    """
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
-
     base = image.copy()
     vis = base.copy()
     h, w = vis.shape[:2]
 
-    if actions.shape[-1] == 144:
-        _, _, left_keypoints, _, _, right_keypoints = _split_keypoints(
-            actions, wrist_in_data=True, is_rot6d=True
+    actions = np.asarray(actions)
+    if actions.ndim == 1:
+        actions = actions[None]
+    if actions.ndim != 2 or actions.shape[-1] not in _KEYPOINT_WIDTHS:
+        raise ValueError(
+            f"keypoint trace expects (T, D) with D in {sorted(_KEYPOINT_WIDTHS)}, "
+            f"got {actions.shape}"
         )
-    elif actions.shape[-1] == 140:
-        _, _, left_keypoints, _, _, right_keypoints = _split_keypoints(
-            actions, wrist_in_data=True
-        )
-    elif actions.shape[-1] == 138:
-        _, _, left_keypoints, _, _, right_keypoints = _split_keypoints(
-            actions, wrist_in_data=True, is_quat=False
-        )
+
+    if actions.shape[-1] == 2 * (3 * _N_KP + 9):
+        blocks = _split_keypoints(actions, wrist_in_data=True, is_rot6d=True)
+    elif actions.shape[-1] == 2 * (3 * _N_KP + 7):
+        blocks = _split_keypoints(actions, wrist_in_data=True)
+    elif actions.shape[-1] == 2 * (3 * _N_KP + 6):
+        blocks = _split_keypoints(actions, wrist_in_data=True, is_quat=False)
     else:
-        left_keypoints, right_keypoints = _split_keypoints(actions, wrist_in_data=False)
-    keypoints = {}
-    keypoints["left"] = left_keypoints.reshape(-1, 3)
-    keypoints["right"] = right_keypoints.reshape(-1, 3)
-    _default_dot_colors = {"left": (0, 120, 255), "right": (255, 80, 0)}
-    for hand in ("left", "right"):
-        hand_dot_color = (
-            dot_color if dot_color is not None else _default_dot_colors[hand]
+        left_kps, right_kps = _split_keypoints(actions, wrist_in_data=False)
+        blocks = (None, None, left_kps, None, None, right_kps)
+    left_wrist, _, left_kps, right_wrist, _, right_kps = blocks
+
+    left_kps = left_kps.reshape(-1, _N_KP, 3)
+    right_kps = right_kps.reshape(-1, _N_KP, 3)
+    if left_wrist is None:
+        left_wrist, right_wrist = left_kps[:, 0, :], right_kps[:, 0, :]
+
+    if wrist_color is None:
+        # Human.DOT_COLOR's value, duplicated: human.py imports this module,
+        # so importing Human here would be a cycle.
+        wrist_color = (255, 165, 0)
+
+    def _project_and_draw(points_cam, color, thickness=2, marker_size=4):
+        """``(T, 3)`` camera-frame points -> polyline + start / end markers."""
+        points_cam = np.asarray(points_cam)
+        if points_cam.shape[0] == 0:
+            return
+        finite = np.isfinite(points_cam).all(axis=-1) & (np.abs(points_cam) < 1e8).all(
+            axis=-1
         )
-        kps_cam = keypoints[hand]
-        # Camera frame -> pixels
-        kps_px = cam_frame_to_cam_pixels(kps_cam, intrinsics)  # (42, 3+) 21 per arm
+        safe = np.where(finite[:, None], points_cam, [0.0, 0.0, -1.0])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            px = cam_frame_to_cam_pixels(safe, intrinsics)  # (T, 3+)
+        valid = finite & (points_cam[:, 2] > 0.01)
+        valid &= (px[:, 0] >= 0) & (px[:, 0] < w)
+        valid &= (px[:, 1] >= 0) & (px[:, 1] < h)
+        pts = np.round(np.nan_to_num(px[:, :2])).astype(np.int32)
 
-        # Identify valid keypoints (z > 0 and in image bounds)
-        valid = kps_cam[:, 2] > 0.01
-        valid &= (kps_px[:, 0] >= 0) & (kps_px[:, 0] < w)
-        valid &= (kps_px[:, 1] >= 0) & (kps_px[:, 1] < h)
+        # Connect consecutive drawable steps; a gap breaks the line rather
+        # than jumping across the frame.
+        prev = None
+        for t in range(pts.shape[0]):
+            if not valid[t]:
+                prev = None
+                continue
+            cur = (int(pts[t, 0]), int(pts[t, 1]))
+            if prev is not None:
+                cv2.line(vis, prev, cur, color, thickness, cv2.LINE_AA)
+            prev = cur
 
-        # Draw skeleton edges (colored by finger)
-        for finger, start, end in edge_ranges:
-            color = colors[finger]
-            for edge_idx in range(start, end):
-                i, j = edges[edge_idx]
-                if valid[i] and valid[j]:
-                    p1 = (int(kps_px[i, 0]), int(kps_px[i, 1]))
-                    p2 = (int(kps_px[j, 0]), int(kps_px[j, 1]))
-                    cv2.line(vis, p1, p2, color, 2)
-
-        # Draw keypoint dots on top
-        for k in range(21):
-            if valid[k]:
-                center = (int(kps_px[k, 0]), int(kps_px[k, 1]))
-                cv2.circle(vis, center, 4, hand_dot_color, -1)
-                cv2.circle(vis, center, 4, (255, 255, 255), 1)  # white border
-
-        # Label wrist
-        if valid[0]:
-            wrist_px = (int(kps_px[0, 0]) + 6, int(kps_px[0, 1]) - 6)
-            cv2.putText(
+        first_t = next((t for t in range(pts.shape[0]) if valid[t]), None)
+        last_t = next((t for t in range(pts.shape[0] - 1, -1, -1) if valid[t]), None)
+        if first_t is not None:
+            cv2.circle(
                 vis,
-                f"{hand[0].upper()}",
-                wrist_px,
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                hand_dot_color,
-                2,
+                (int(pts[first_t, 0]), int(pts[first_t, 1])),
+                marker_size,
+                color,
+                -1,
+                cv2.LINE_AA,
+            )
+        if last_t is not None and last_t != first_t:
+            ex, ey = int(pts[last_t, 0]), int(pts[last_t, 1])
+            r = marker_size + 1
+            cv2.rectangle(
+                vis, (ex - r, ey - r), (ex + r, ey + r), color, 2, cv2.LINE_AA
+            )
+
+    for wrist_xyz, kps in ((left_wrist, left_kps), (right_wrist, right_kps)):
+        _project_and_draw(wrist_xyz, wrist_color, thickness=2, marker_size=5)
+        for tip_idx, finger_name in zip(fingertip_indices, finger_names):
+            _project_and_draw(
+                kps[:, tip_idx, :],
+                colors.get(finger_name, (200, 200, 200)),
+                thickness=2,
+                marker_size=4,
             )
 
     if alpha < 1.0:
