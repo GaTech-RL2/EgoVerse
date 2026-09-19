@@ -398,11 +398,31 @@ class PoseCoordinateFrameTransform(Transform):
         transformed_key_name: str,
         mode: Literal["xyzwxyz", "xyzypr", "xyz"] = "xyzwxyz",
         target_history: bool = False,
+        per_step_target: bool = True,
     ):
+        """
+        args:
+            per_step_target: put step k's pose in step k's OWN target frame
+                rather than every step in the current step's frame. On by
+                default, and inert unless the target itself was read with
+                history and the pose carries the matching axis -- which is the
+                only shape for which the other answer is wrong, not merely
+                different.
+
+                For wrist-frame keypoints this is the difference between "where
+                the hand was, measured from today's wrist" and "what shape the
+                hand was in" -- only the latter is a state the norm stats
+                describe, and only it keeps keypoint 0 at the origin on every
+                step. Pass False to force the single-frame path; the ACTION
+                chunk does not come through here at all, since its leading axis
+                is the forward horizon and belongs in one current frame.
+        """
         self.target_world = target_world
         self.pose_world = pose_world
         self.transformed_key_name = transformed_key_name
         self.mode = mode
+        self.target_history = target_history
+        self.per_step_target = per_step_target
         self._chunk_transform = ActionChunkCoordinateFrameTransform(
             target_world=target_world,
             chunk_world=pose_world,
@@ -411,17 +431,37 @@ class PoseCoordinateFrameTransform(Transform):
             target_history=target_history,
         )
 
-    def transform(self, batch: dict) -> dict:
-        pose_world = np.asarray(batch[self.pose_world])
+    def _one_step(self, target_pose, pose_world) -> np.ndarray:
+        """``pose_world`` in the single frame ``target_pose``."""
         transformed = self._chunk_transform.transform(
             {
-                self.target_world: batch[self.target_world],
+                self.target_world: target_pose,
                 self.pose_world: pose_world[None, :],
             }
         )
-        batch[self.transformed_key_name] = np.asarray(
-            transformed[self.transformed_key_name]
-        )[0]
+        return np.asarray(transformed[self.transformed_key_name])[0]
+
+    def transform(self, batch: dict) -> dict:
+        pose_world = np.asarray(batch[self.pose_world])
+        target_world = np.asarray(batch[self.target_world])
+        per_step = (
+            self.per_step_target
+            and self.target_history
+            and target_world.ndim > 1
+            and pose_world.ndim == target_world.ndim + 1
+            and pose_world.shape[0] == target_world.shape[0]
+        )
+        if per_step:
+            batch[self.transformed_key_name] = np.stack(
+                [
+                    self._one_step(target_world[k], pose_world[k])
+                    for k in range(target_world.shape[0])
+                ]
+            )
+            return batch
+        batch[self.transformed_key_name] = self._one_step(
+            batch[self.target_world], pose_world
+        )
         return batch
 
 
@@ -476,6 +516,10 @@ class CartesianYPRToRot6D(Transform):
     :func:`egomimic.utils.pose_utils._ypr_to_rot6d`). This matches the column
     convention of the pi0.5 32D action blocks, so the resulting per-arm layout
     packs into them with no rotation math in the model.
+
+    Apply it to the proprio ee_pose as well as the actions: normalized YPR
+    saturates yaw/roll at +-pi, so per-dim normalization is only meaningful on
+    the continuous representation.
 
     Input layouts (last dim), for action chunks ``(T, D)`` and single proprio
     poses ``(D,)`` alike:
