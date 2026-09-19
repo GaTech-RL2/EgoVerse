@@ -26,6 +26,7 @@ from egomimic.models.preprocess_pi_obs import (
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_utils import ConverterRegistry, pad_to_width
+from egomimic.utils.compile_utils import compile_modules
 
 logger = logging.getLogger(__name__)
 # Ensure logger propagates to root logger and has appropriate level
@@ -418,7 +419,9 @@ class PI(Algo):
 
             for key, value in processed_batch[embodiment_id].items():
                 if isinstance(value, torch.Tensor):
-                    value = value.to(self.device)
+                    # See HPT.process_batch_for_training: no-op from pageable
+                    # memory, overlapped copy from a pin_memory loader.
+                    value = value.to(self.device, non_blocking=True)
                     if value.is_floating_point():
                         value = value.float()
                     processed_batch[embodiment_id][key] = value
@@ -430,6 +433,20 @@ class PI(Algo):
             )
 
         return processed_batch
+
+    @override
+    def compile_for_training(self, mode=None, dynamic=False):
+        """Compile openpi's ``PI0Pytorch.forward`` (the flow-matching training
+        pass: SigLIP tower, PaliGemma prefix and the action expert).
+
+        ``sample_actions`` is already compiled by openpi itself, so only the
+        training pass is left. The observation preprocessing at the top of that
+        forward is Python-level dict work, so expect dynamo to graph-break there
+        and compile the transformer stack behind it.
+        """
+        return compile_modules(
+            [("pi0", self.nets["policy"])], mode=mode, dynamic=dynamic
+        )
 
     @override
     def forward_training(self, batch):
@@ -456,7 +473,9 @@ class PI(Algo):
                 embodiment_name,
             )
 
-            losses = self.nets["policy"].forward(processed_obs, action)
+            # __call__, not .forward: nn.Module.compile only routes __call__, so
+            # a direct .forward() would silently run uncompiled.
+            losses = self.nets["policy"](processed_obs, action)
             loss = self._reduce_loss(losses, _batch[ac_key], embodiment_id, ac_key)
 
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
@@ -494,7 +513,7 @@ class PI(Algo):
                 )
 
                 # Flow-matching val loss — same call as forward_training.
-                losses = self.nets["policy"].forward(processed_obs, action)
+                losses = self.nets["policy"](processed_obs, action)
                 unnorm_preds[f"{embodiment_name}_loss"] = self._reduce_loss(
                     losses, _batch[ac_key], embodiment_id, ac_key
                 )

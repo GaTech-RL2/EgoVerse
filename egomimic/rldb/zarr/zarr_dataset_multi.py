@@ -2231,7 +2231,18 @@ class ZarrDataset(torch.utils.data.Dataset):
                         idx = _next("JPEG decode failed", key=k)
                         retry = True
                         break
-                    data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
+                    # float32, not numpy's float64 default for `uint8 / float`:
+                    # process_batch_for_training casts to float32 on the GPU
+                    # anyway, so the extra 4 bytes a pixel buy nothing and
+                    # double the collate, the pin and the H2D copy. At 360x640
+                    # and batch 64 that is 338 MB a camera a batch instead of
+                    # 169. The result is bit-identical: there are only 256
+                    # possible values and float32(u)/float32(255) equals
+                    # float32(u / 255.0) for every one of them (see
+                    # tests/unit/test_image_decode_dtype.py).
+                    data[k] = np.transpose(decoded, (2, 0, 1)).astype(
+                        np.float32
+                    ) / np.float32(255.0)
                 elif zarr_key in self._json_keys:
                     if isinstance(data[k], np.ndarray):
                         data[k] = [self._decode_json_entry(v) for v in data[k]]

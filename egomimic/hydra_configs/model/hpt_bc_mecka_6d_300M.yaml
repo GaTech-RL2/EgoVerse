@@ -183,3 +183,18 @@ optimizer:
   weight_decay: 0.0001
 
 scheduler: null
+
+# torch.compile for the training step: ModelWrapper._maybe_compile hands the
+# trunk, the flow head's denoiser and the image encoders to torch.compile
+# (HPT.compile_for_training) before DDP wraps anything. Measured on one H100 at
+# batch 64 and the 360x640 frames mecka decodes to (2026-09-19): 173 ms/step ->
+# 109 ms (1.58x), for ~40 s of compile at the first batch. mode="reduce-overhead"
+# is worth a further ~5% for roughly double that compile.
+#
+# Off by default -- a run that never reaches steady state pays the compile for
+# nothing. Per run: model.compile.enabled=true. `mode` goes straight to
+# torch.compile; null is the default inductor mode the numbers were taken with.
+compile:
+  enabled: false
+  mode: null
+  dynamic: false

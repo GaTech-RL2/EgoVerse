@@ -78,3 +78,17 @@ scheduler:
   num_warmup_steps: 2000
 
 scheduler_interval: step
+
+# torch.compile for the training step: ModelWrapper._maybe_compile compiles
+# openpi's PI0Pytorch.forward (PI.compile_for_training). Measured on one H100 at
+# batch 16 (2026-09-19): 827 ms/step -> 588 ms (1.41x), for ~4 min of compile at
+# the first batch. `sample_actions` is compiled by openpi itself and is not
+# affected by this flag.
+#
+# Off by default -- a run that never reaches steady state pays the compile for
+# nothing. Per run: model.compile.enabled=true. `mode` goes straight to
+# torch.compile; null is the default inductor mode the numbers were taken with.
+compile:
+  enabled: false
+  mode: null
+  dynamic: false
