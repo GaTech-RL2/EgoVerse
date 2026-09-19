@@ -25,6 +25,46 @@ def head_of_loader(name: str) -> tuple[str, bool]:
     return name, False
 
 
+class _VizGatedLoader(CombinedLoader):
+    """A val loader that yields nothing when its gate is closed.
+
+    ``ModelWrapper.validation_step`` already returns before the forward for a
+    ``<head>_video`` loader it does not want, but Lightning has built the batch by
+    then, so the pinned frames are decoded and discarded anyway.
+
+    The val loaders are built once (``_EvaluationLoop.setup_data`` returns early
+    once ``_combined_loader`` is set), so the gate cannot be a length; it is an
+    empty iterator. ``_Sequential`` already reads an early ``StopIteration`` from
+    one dataloader as "move to the next".
+    """
+
+    def __init__(self, iterables, mode, gate):
+        if mode != "max_size_cycle":
+            raise ValueError(f"only max_size_cycle is gated, not {mode!r}")
+        super().__init__(iterables, mode)
+        self._gate = gate
+
+    def __iter__(self):
+        if not self._gate():
+            return iter(())
+        return super().__iter__()
+
+    def __len__(self) -> int:
+        if self._iterator is not None:
+            return super().__len__()
+        # `CombinedLoader.__len__` reads a live iterator, and `__iter__` is what
+        # forks this loader's workers and starts them prefetching. Lightning asks
+        # for the length once per rank in `setup_data`, where the gate is already
+        # closed on every rank but 0, so answering WITHOUT an iterator is what
+        # keeps those ranks off the pinned episode. The length does not depend on
+        # the gate; this is `_MaxSizeCycle.__len__`, which the mode is pinned to
+        # in __init__.
+        lengths = [len(dl) for dl in self.flattened]
+        if self._limits is not None:
+            lengths = [min(n, limit) for n, limit in zip(lengths, self._limits)]
+        return max(lengths)
+
+
 class MultiDataModuleWrapper(LightningDataModule):
     """
     New functionality for dictionary based multi embodiment loading using CombinedLoader.
@@ -146,7 +186,9 @@ class MultiDataModuleWrapper(LightningDataModule):
 
         return CombinedLoader(iterables, "max_size_cycle")
 
-    def _build_val_style_loader(self, datasets: dict, params: dict, kind: str):
+    def _build_val_style_loader(
+        self, datasets: dict, params: dict, kind: str, gate=None
+    ):
         iterables = dict()
         for dataset_name, dataset in datasets.items():
             dataset_params = params.get(dataset_name)
@@ -162,7 +204,40 @@ class MultiDataModuleWrapper(LightningDataModule):
                 collate_fn=self.collate_fn,
                 **dataset_params,
             )
-        return CombinedLoader(iterables, "max_size_cycle")
+        if gate is None:
+            return CombinedLoader(iterables, "max_size_cycle")
+        return _VizGatedLoader(iterables, "max_size_cycle", gate)
+
+    def _video_gate(self, head: str) -> bool:
+        """Does this validation pass render ``head``'s overlay video?
+
+        Open only on rank 0 and only on a viz pass. Elsewhere the loader's whole
+        output -- decode, eval forward, render -- is discarded: the val loaders
+        carry no ``DistributedSampler`` (see ``EvalVideo._video_fps``), so every
+        rank was producing the same frames and only rank 0 ever wrote them.
+
+        Ranks therefore iterate different numbers of val batches. That is safe
+        because what they log is not: the metric loaders run everywhere and log
+        the same keys, the video loader logs nothing, so the ``sync_dist``
+        reduction in ``_evaluation_epoch_end`` stays symmetric. It does mean the
+        other ranks sit in that reduction for as long as rank 0 renders. Measured
+        8.4 min at ``VIZ_BATCHES=76`` back when all four ranks rendered it at once,
+        so rank 0 alone is inside that and well under the 30-minute process-group
+        timeout -- but that timeout is now the ceiling on ``VIZ_BATCHES``.
+
+        Reads the same ``_should_viz()`` ``ModelWrapper.validation_step`` does,
+        back through the trainer so the datamodule needs no extra wiring, and
+        falls open whenever a link is missing: eval-only mode, tests, an
+        evaluator that predates the hook.
+        """
+        trainer = getattr(self, "trainer", None)
+        if trainer is not None and not getattr(trainer, "is_global_zero", True):
+            return False
+        module = getattr(trainer, "lightning_module", None)
+        val_heads = getattr(module, "_val_heads", None)
+        evaluator = val_heads().get(head) if callable(val_heads) else None
+        should_viz = getattr(evaluator, "_should_viz", None)
+        return should_viz() if callable(should_viz) else True
 
     def _metric_sources(self) -> dict:
         return {
@@ -198,12 +273,18 @@ class MultiDataModuleWrapper(LightningDataModule):
             # unshuffled); only the dataset differs.
             sources[video_loader_name(head)] = (datasets, sources[head][1])
         names = self.val_loader_names()
-        loaders = [
-            # kind names the *_dataloader_params block in the error message, and
-            # a video loader borrows its head's block.
-            self._build_val_style_loader(*sources[name], kind=head_of_loader(name)[0])
-            for name in names
-        ]
+        loaders = []
+        for name in names:
+            head, video_only = head_of_loader(name)
+            loaders.append(
+                # kind names the *_dataloader_params block in the error message,
+                # and a video loader borrows its head's block.
+                self._build_val_style_loader(
+                    *sources[name],
+                    kind=head,
+                    gate=(lambda h=head: self._video_gate(h)) if video_only else None,
+                )
+            )
         if len(loaders) == 1:
             return loaders[0]
         # Several heads: return a list so Lightning populates dataloader_idx
