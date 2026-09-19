@@ -26,12 +26,14 @@ from __future__ import annotations
 import random
 import types
 from collections import deque
+from pathlib import Path
 
 import hydra
 import pytest
 import torch
 import torch.nn as nn
 
+import egomimic.hydra_configs
 from egomimic.algo.hpt import HPT, HPTModel
 from egomimic.models.fm_policy import FMPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
@@ -376,7 +378,15 @@ def test_trainer_default_exposes_gradient_clip_val(compose_resolve):
     assert cfg.trainer.gradient_clip_algorithm == "norm"
 
 
-@pytest.mark.parametrize("trainer_cfg", ["default", "ddp", "ddp_pi", "debug"])
+# Derived from the config group, not listed: a new trainer config must not be
+# able to join the repo without this knob being checked.
+TRAINER_CONFIGS = sorted(
+    p.stem
+    for p in (Path(egomimic.hydra_configs.__file__).parent / "trainer").glob("*.yaml")
+)
+
+
+@pytest.mark.parametrize("trainer_cfg", TRAINER_CONFIGS)
 def test_every_trainer_config_keeps_the_knob(trainer_cfg, compose_resolve):
     cfg = compose_resolve("train_zarr_cartesian", [f"trainer={trainer_cfg}"])
     assert cfg.trainer.gradient_clip_val is None
