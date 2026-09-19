@@ -34,7 +34,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 from egomimic.utils.viz_utils import (
     ColorPalette,
     _viz_gaze,
-    _viz_keypoints,
+    _viz_keypoints_horizon_trace,
 )
 
 ARIA_INTRINSICS = np.array(
@@ -85,38 +85,6 @@ ARIA_T_RGB_CPF = np.array(
         [0.0, 0.0, 0.0, 1.0],
     ]
 )
-
-
-# Aria's raw 21-keypoint layout (0-4 fingertips, 5 palm root) — NOT MANO. Used
-# only for the opt-in raw-Aria-keypoint viz; the canonical keypoints are MANO.
-ARIA_FINGER_EDGES = [
-    (5, 6),
-    (6, 7),
-    (7, 0),  # thumb
-    (5, 8),
-    (8, 9),
-    (9, 10),
-    (10, 1),  # index
-    (5, 11),
-    (11, 12),
-    (12, 13),
-    (13, 2),  # middle
-    (5, 14),
-    (14, 15),
-    (15, 16),
-    (16, 3),  # ring
-    (5, 17),
-    (17, 18),
-    (18, 19),
-    (19, 4),  # pinky
-]
-ARIA_FINGER_EDGE_RANGES = [
-    ("thumb", 0, 3),
-    ("index", 3, 7),
-    ("middle", 7, 11),
-    ("ring", 11, 15),
-    ("pinky", 15, 19),
-]
 
 
 class Human(Embodiment):
@@ -183,8 +151,6 @@ class Human(Embodiment):
             "traj", "traj+rotation", "axes", "annotations", "keypoints", "gaze"
         ],
         intrinsics=None,
-        finger_edges=None,
-        finger_edge_ranges=None,
         **kwargs,
     ):
         K = intrinsics if intrinsics is not None else cls.INTRINSICS
@@ -204,22 +170,24 @@ class Human(Embodiment):
                     finger: ColorPalette.to_rgb(color, value=(i + 1) / (n + 1))
                     for i, finger in enumerate(cls.FINGER_COLORS)
                 }
-                dot_color = ColorPalette.to_rgb(color, value=0.7)
             else:
                 colors = cls.FINGER_COLORS
-                dot_color = cls.DOT_COLOR
-            return _viz_keypoints(
+            # The horizon trace is the ONLY keypoint renderer. A chunk draws
+            # as its trajectory; a lone timestep degenerates to its start
+            # markers. There is deliberately no static-skeleton path to fall
+            # back to: that fallback is what silently rendered motionless
+            # keypoint overlays for a whole 50k-step campaign, and a renderer
+            # you can reach by accident is one you will reach.
+            return _viz_keypoints_horizon_trace(
                 image=image,
-                actions=viz_data,
+                actions=np.asarray(viz_data),
                 intrinsics=K,
-                edges=finger_edges if finger_edges is not None else cls.FINGER_EDGES,
-                edge_ranges=(
-                    finger_edge_ranges
-                    if finger_edge_ranges is not None
-                    else cls.FINGER_EDGE_RANGES
-                ),
                 colors=colors,
-                dot_color=dot_color,
+                wrist_color=(
+                    ColorPalette.to_rgb(color, value=0.85)
+                    if color is not None and ColorPalette.is_valid(color)
+                    else cls.DOT_COLOR
+                ),
                 **kwargs,
             )
         return super().viz(image, viz_data, mode=mode, intrinsics=intrinsics, **kwargs)
