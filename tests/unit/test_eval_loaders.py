@@ -16,7 +16,10 @@ A data config with neither key must behave exactly as before.
 
 from __future__ import annotations
 
+import os
 import re
+import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -558,3 +561,250 @@ def test_default_mode_is_todays_behaviour():
     ev = _eval_video()
     ev.on_validation_step({"i": 0}, 0, 0)
     assert ev.rendered == [0] and len(ev.trainer.logged) == 1
+
+
+# --------------------------------------------- video writes happen on rank 0 only
+def test_only_rank_zero_writes_the_video(monkeypatch, tmp_path):
+    """Every rank iterates every val batch and renders the same frames, so
+    without a guard N ranks race to write one mp4 path."""
+    import egomimic.eval.eval_video as ev_mod
+
+    written: list[str] = []
+    monkeypatch.setattr(
+        ev_mod.tvio, "write_video", lambda path, *a, **kw: written.append(path)
+    )
+
+    buffers = {}
+    for rank_zero in (True, False):
+        ev = _eval_video(viz_max_batches=None)
+        ev.trainer.is_global_zero = rank_zero
+        monkeypatch.setattr(type(ev), "video_dir", lambda self: str(tmp_path))
+        for i in range(3):
+            ev.on_validation_step({"i": i}, i, 0, mode="video")
+        ev.on_validation_end()
+        # rendering, buffering and counters are identical on every rank...
+        buffers[rank_zero] = (ev.rendered, dict(ev.val_counter), ev.val_image_buffer)
+
+    assert buffers[True] == buffers[False], "only the write differs between ranks"
+    assert len(written) == 1, "one file, from rank 0"
+
+
+# ------------------------------------------- video loaders are gated on non-viz
+class _GateTrainer:
+    """Just enough trainer for MultiDataModuleWrapper._video_gate."""
+
+    def __init__(self, evaluators):
+        self.lightning_module = SimpleNamespace(_val_heads=lambda: evaluators)
+        self.is_global_zero = True
+
+
+def _dm():
+    """A datamodule with one metric head and its pinned video companion."""
+    params = {HUMAN: {"batch_size": 2, "num_workers": 0, "shuffle": False}}
+    datasets = {HUMAN: _split({"ep0": 4})}
+    return MultiDataModuleWrapper(
+        train_datasets=datasets,
+        valid_datasets=datasets,
+        train_dataloader_params=params,
+        valid_dataloader_params=params,
+        video_datasets={"valid": {HUMAN: _split({"pin": 4})}},
+    )
+
+
+def test_video_loader_yields_nothing_when_the_gate_is_closed():
+    from egomimic.pl_utils.pl_data_utils import _VizGatedLoader
+
+    dm = _dm()
+    metric, video = dm.val_dataloader()
+    assert not isinstance(metric, _VizGatedLoader), "metric loaders run every pass"
+    assert isinstance(video, _VizGatedLoader)
+
+    viz = _StubEval(should_viz=True)
+    dm.trainer = _GateTrainer({"valid": viz})
+    assert len(list(iter(video))) == 2, "viz pass: the pinned episode is read"
+
+    viz._viz = False
+    assert list(iter(video)) == [], "non-viz pass: not one batch is built"
+    # the length Lightning caches at setup does not move with the gate
+    assert len(video) == 2
+
+
+def test_gate_is_open_without_a_trainer_or_an_evaluator():
+    dm = _dm()
+    _, video = dm.val_dataloader()
+    assert len(list(iter(video))) == 2, "no trainer attached -> gate open"
+
+    dm.trainer = _GateTrainer({"valid": None})
+    assert len(list(iter(video))) == 2, "head with no evaluator -> gate open"
+
+    dm.trainer = _GateTrainer({"valid": object()})
+    assert len(list(iter(video))) == 2, "evaluator without _should_viz -> gate open"
+
+
+def test_gated_loader_length_survives_a_closed_gate_at_setup():
+    """Lightning reads len() once, in setup_data, which can land on a non-viz
+    epoch: CombinedLoader.__len__ needs a live iterator the gate never made."""
+    dm = _dm()
+    _, video = dm.val_dataloader()
+    dm.trainer = _GateTrainer({"valid": _StubEval(should_viz=False)})
+    assert list(iter(video)) == []
+    assert len(video) == 2
+
+
+def test_gated_loader_length_is_lightnings_own_and_opens_no_iterator():
+    from lightning.pytorch.utilities.combined_loader import _MaxSizeCycle
+
+    dm = _dm()
+    _, video = dm.val_dataloader()
+    video.limits = [1]
+    assert len(video) == len(_MaxSizeCycle(video.flattened, [1])) == 1
+    assert video._iterator is None
+
+
+def test_video_head_without_a_viz_cap_is_rejected():
+    """Rank 0 renders a pinned video loader alone while the other ranks wait, so
+    an uncapped head is bounded only by the process-group timeout."""
+    capped = SimpleNamespace(viz_func=print, viz_max_batches=10)
+    uncapped = SimpleNamespace(viz_func=print, viz_max_batches=None)
+    no_viz = SimpleNamespace(viz_func=None, viz_max_batches=None)
+
+    def _run(heads, video):
+        model = SimpleNamespace(_val_heads=lambda: heads)
+        th._require_capped_video_heads(model, SimpleNamespace(video_datasets=video))
+
+    _run({"valid": capped}, {"valid": {HUMAN: object()}})
+    _run({"valid": uncapped}, {"valid": {}})
+    _run({"valid": uncapped}, {})
+    _run({"valid": no_viz}, {"valid": {HUMAN: object()}})
+    with pytest.raises(ValueError, match="viz_max_batches"):
+        _run({"valid": capped, "train_viz": uncapped}, {"train_viz": {HUMAN: object()}})
+
+
+# sanity steps on: the loaders (and their len()) are set up on a pass whose gate
+# is already closed, which is what a real run does -- trainer/default.yaml sets no
+# num_sanity_val_steps, so lightning's default of 2 applies.
+@pytest.mark.parametrize("sanity_steps", [0, 2])
+def test_a_real_fit_builds_video_batches_only_on_viz_passes(tmp_path, sanity_steps):
+    """The gate against the real Lightning evaluation loop: a val dataloader
+    that yields nothing mid-sequence must not derail the pass, and the pinned
+    episode must not be touched at all on a non-viz epoch."""
+    import torch
+    from lightning import Trainer
+
+    class _Counting(_Episode):
+        def __init__(self, n):
+            super().__init__(n)
+            self.reads = 0
+
+        def __getitem__(self, i):
+            self.reads += 1
+            return super().__getitem__(i)
+
+    pinned, metric = _Counting(4), _Counting(4)
+    params = {HUMAN: {"batch_size": 2, "num_workers": 0, "shuffle": False}}
+    dm = MultiDataModuleWrapper(
+        train_datasets={HUMAN: _split({"ep0": 4})},
+        valid_datasets={HUMAN: MultiDataset(datasets={"ep0": metric}, mode="total")},
+        train_dataloader_params={HUMAN: {"batch_size": 2, "num_workers": 0}},
+        valid_dataloader_params=params,
+        video_datasets={
+            "valid": {HUMAN: MultiDataset(datasets={"pin": pinned}, mode="total")}
+        },
+    )
+
+    class _Module(LightningModule):
+        def __init__(self):
+            super().__init__()
+            self.layer = torch.nn.Linear(1, 1)
+            self.val_loaders_seen: list[tuple[int, int]] = []
+            self.pinned_reads: dict[int, int] = {}
+
+        # viz only on the second validation pass
+        def _val_heads(self):
+            return {
+                "valid": SimpleNamespace(_should_viz=lambda: self.current_epoch == 1)
+            }
+
+        def training_step(self, batch, batch_idx):
+            return self.layer(batch[HUMAN]["frame"].reshape(-1, 1)).sum()
+
+        def validation_step(self, batch, batch_idx, dataloader_idx=0):
+            if not self.trainer.sanity_checking:
+                self.val_loaders_seen.append((self.current_epoch, dataloader_idx))
+
+        def on_validation_epoch_end(self):
+            self.pinned_reads[self.current_epoch] = pinned.reads
+
+        def configure_optimizers(self):
+            return torch.optim.SGD(self.parameters(), lr=0.0)
+
+    model = _Module()
+    Trainer(
+        max_epochs=2,
+        accelerator="cpu",
+        devices=1,
+        limit_train_batches=2,
+        limit_val_batches=2,
+        check_val_every_n_epoch=1,
+        num_sanity_val_steps=sanity_steps,
+        logger=False,
+        enable_checkpointing=False,
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        default_root_dir=str(tmp_path),
+    ).fit(model, datamodule=dm)
+
+    assert model.pinned_reads[0] == 0, "non-viz pass never touched the pinned episode"
+    assert model.pinned_reads[1] > 0, "viz pass still reads it"
+    # the metric loader is unaffected, and dataloader_idx stays stable
+    by_epoch = {e: [i for ep, i in model.val_loaders_seen if ep == e] for e in (0, 1)}
+    assert by_epoch[0] == [0, 0], "epoch 0: metric loader only"
+    assert by_epoch[1] == [0, 0, 1, 1], "epoch 1: metric loader then video loader"
+
+
+def test_video_loader_is_closed_off_rank_zero():
+    """Only rank 0 writes the overlay, and the val loaders carry no
+    DistributedSampler, so every other rank was decoding, forwarding and
+    rendering the same frames for nothing."""
+    dm = _dm()
+    _, video = dm.val_dataloader()
+    viz = _StubEval(should_viz=True)
+
+    dm.trainer = _GateTrainer({"valid": viz})
+    dm.trainer.is_global_zero = True
+    assert len(list(iter(video))) == 2
+
+    dm.trainer.is_global_zero = False
+    assert list(iter(video)) == [], "rank 1 builds no video batch at all"
+
+
+def test_two_rank_ddp_fit_survives_the_rank_divergence(tmp_path):
+    """The gate makes ranks iterate *different* numbers of val batches. Proven
+    against real DDP (gloo, 2 CPU processes) with ModelWrapper's collective
+    pattern -- sync_dist metrics off the metric loader, nothing off the video
+    one -- because a desync here would hang a campaign, not fail it."""
+    import json
+    import subprocess
+
+    script = Path(__file__).resolve().parents[1] / "fixtures" / "ddp_video_gate.py"
+    repo = Path(__file__).resolve().parents[2]
+    proc = subprocess.run(
+        [sys.executable, str(script), str(tmp_path)],
+        env={**os.environ, "PYTHONPATH": str(repo)},
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert proc.returncode == 0, proc.stderr[-3000:]
+
+    ranks = {
+        int(p.stem.removeprefix("rank")): json.loads(p.read_text())
+        for p in tmp_path.glob("rank*.json")
+    }
+    assert set(ranks) == {0, 1}, "both ranks finished; neither hung"
+    # epoch 0 renders nothing, epoch 1 does, and only on rank 0
+    assert ranks[0]["video_steps"] == [1, 1]
+    assert ranks[0]["pinned_reads"] >= 4, "rank 0 read the frames it stepped"
+    # exactly 0, not "few": a gate that still builds an iterator makes the
+    # loader's workers prefetch, which is the cost this whole change is about
+    assert ranks[1]["video_steps"] == [] and ranks[1]["pinned_reads"] == 0
