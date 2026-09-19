@@ -482,10 +482,8 @@ class Human(Embodiment):
             )
         if mode == "cartesian_6d":
             # Head/camera-frame cartesian (12D xyz+ypr per arm pair) with the
-            # rotation re-expressed as the continuous 6D representation (18D)
-            # for pi0.5. The proprio ee_pose is 6D-encoded too: normalized YPR
-            # saturates yaw/roll at +-pi, so per-dim normalization needs the
-            # continuous representation.
+            # rotation as continuous 6D (18D) for pi0.5, on the proprio ee_pose
+            # as well as the actions -- see CartesianYPRToRot6D.
             return (
                 prefix
                 + _build_human_cartesian_bimanual_transform_list(stride=stride)
