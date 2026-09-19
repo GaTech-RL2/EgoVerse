@@ -84,7 +84,12 @@ def _requeue_resume_path(cfg: DictConfig) -> Optional[str]:
 def _prepare_checkpoint_resume(cfg: DictConfig) -> None:
     """Settle ``cfg.ckpt_path`` before the model config tree is built: a requeued
     job resumes from ``last.ckpt`` if it exists; one preempted before its first
-    checkpoint keeps the launch-time ``ckpt_path`` (warning)."""
+    checkpoint keeps the launch-time ``ckpt_path`` (warning).
+
+    ``last.ckpt`` is a symlink (``save_last: link``), so it can dangle (target
+    deleted) or be missing while checkpoints exist (``rsync`` without ``-l``, a
+    preemption between Lightning's unlink and relink). Both raise: falling back
+    would silently restart a run that has checkpoints."""
     requeue = _requeue_resume_path(cfg)
     if requeue is None:
         return
@@ -92,6 +97,26 @@ def _prepare_checkpoint_resume(cfg: DictConfig) -> None:
         log.info(f"Detected SLURM requeue — resuming from {requeue}")
         cfg.ckpt_path = requeue
         return
+    if os.path.islink(requeue):
+        raise FileNotFoundError(
+            f"SLURM requeue: {requeue} links to {os.readlink(requeue)!r}, which "
+            "does not exist. Refusing to restart a run that has checkpoints; "
+            "restore the target or relink last.ckpt to an existing checkpoint."
+        )
+    ckpt_dir = os.path.dirname(requeue)
+    existing = [
+        os.path.join(ckpt_dir, f)
+        for f in (os.listdir(ckpt_dir) if os.path.isdir(ckpt_dir) else [])
+        if f.endswith(".ckpt")
+    ]
+    if existing:
+        newest = max(existing, key=os.path.getmtime)
+        raise FileNotFoundError(
+            f"SLURM requeue: {requeue} is missing but {ckpt_dir} holds "
+            f"{len(existing)} checkpoint(s), newest {newest}. Refusing to restart "
+            f"from scratch; link it with `ln -s {os.path.basename(newest)} "
+            f"{requeue}` and requeue."
+        )
     fallback = cfg.get("ckpt_path")
     log.warning(
         f"SLURM requeue detected but {requeue} does not exist; falling back to "
