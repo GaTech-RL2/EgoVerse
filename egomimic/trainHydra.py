@@ -44,6 +44,10 @@ log = RankedLogger(__name__, rank_zero_only=True)
 
 
 _PI_WEIGHT_KEY = "model.robomimic_model.config.pytorch_weight_path"
+_PI_BASE_WEIGHT_KEYS = (
+    _PI_WEIGHT_KEY,
+    "model.robomimic_model.config.paligemma_weight_path",
+)
 
 
 def _data_transform_modes(cfg: DictConfig) -> dict[str, str]:
@@ -78,13 +82,18 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     modes = _data_transform_modes(cfg)
     if modes:
         tree.data_transform_modes = modes
-    has_weights = OmegaConf.select(tree, _PI_WEIGHT_KEY, default=None) is not None
-    if has_weights and _weights_from_checkpoint(cfg):
+    set_keys = [
+        k
+        for k in _PI_BASE_WEIGHT_KEYS
+        if OmegaConf.select(tree, k, default=None) is not None
+    ]
+    if set_keys and _weights_from_checkpoint(cfg):
         log.info(
-            f"Loading every weight from {cfg.ckpt_path}: {_PI_WEIGHT_KEY}=null "
-            "for the model (the base safetensors need not exist here)"
+            f"Loading every weight from {cfg.ckpt_path}: {', '.join(set_keys)}=null "
+            "for the model (the base weights need not exist here)"
         )
-        OmegaConf.update(tree, _PI_WEIGHT_KEY, None)
+        for k in set_keys:
+            OmegaConf.update(tree, k, None)
     return tree
 
 
