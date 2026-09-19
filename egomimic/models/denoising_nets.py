@@ -575,7 +575,7 @@ class DiTBlock(nn.Module):
         res = x
         x = self.ln1(x)
         x = self.aln1(x, t, cond, timestep_table)
-        (x, _) = self.mha(x, x, x)
+        (x, _) = self.mha(x, x, x, need_weights=False)
         x = self.alns1(x, t, cond, timestep_table)
         x = x + res
         res = x
@@ -617,13 +617,17 @@ class CrossBlock(nn.Module):
         self.cond_proj = nn.Linear(cond_dim, hidden_dim)
 
     def forward_cross(self, x, cond):
+        # need_weights=False: the default True makes nn.MultiheadAttention take
+        # the slow path -- it materialises the B x H x L x L scores and averages
+        # them over heads to return weights nobody here reads -- instead of
+        # dispatching to scaled_dot_product_attention. The outputs are the same.
         res = x
         x = self.ln1(x)
-        x, _ = self.mha(x, x, x)
+        x, _ = self.mha(x, x, x, need_weights=False)
         x = x + res
         res = x
         x = self.ln2(x)
-        x, _ = self.cmha(x, cond, cond)
+        x, _ = self.cmha(x, cond, cond, need_weights=False)
         x = x + res
         res = x
         x = self.ln3(x)

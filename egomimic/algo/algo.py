@@ -72,3 +72,14 @@ class Algo:
             loss_log (dict): name -> summary statistic
         """
         raise NotImplementedError("Must implement log_info in subclass")
+
+    def compile_for_training(self, mode=None, dynamic=False):
+        """Hand the hot submodules to ``torch.compile``.
+
+        Called once by ``ModelWrapper`` when ``model.compile.enabled`` is set,
+        before DDP wraps anything -- inductor then sees one module at a time and
+        DDP's bucketing is unaffected. Algos that have nothing worth compiling
+        leave this alone; the default no-ops so a run that turns the flag on
+        against such an algo is slower to start, not broken.
+        """
+        return []
