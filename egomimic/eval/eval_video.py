@@ -87,15 +87,18 @@ class EvalVideo(Eval):
         raise NotImplementedError
 
     def _video_fps(self, source_fps: int = 30) -> int:
-        """Playback fps compensating for the DistributedSampler stride.
+        """Playback fps of the overlay video: the source rate.
 
-        Distributed validation deals the (unshuffled) val indices round-robin,
-        so rank 0's consecutive rendered frames are ``world_size`` source
-        frames apart. Writing them at the raw source fps produces a
-        world_size-times timelapse; scale playback down to restore wall-clock
-        pacing."""
-        world = max(1, int(getattr(self.trainer, "world_size", 1) or 1))
-        return max(1, round(source_fps / world))
+        The val heads come back from ``val_dataloader()`` inside
+        ``CombinedLoader``s, which Lightning does NOT wrap in a
+        ``DistributedSampler`` (every rank runs every val batch; measured
+        2026-09-16: 1 rank = 223 val steps, 8 ranks = 8 x 223), so rank 0
+        renders every source frame and the video plays in real time at the
+        source rate. An earlier version divided by ``world_size`` to undo a
+        sampler stride that never applied, which made every multi-GPU video a
+        ``world_size``-times slow-motion (416 frames at 4 fps instead of 30).
+        """
+        return int(source_fps)
 
     def _write_video(self, key, frames) -> None:
         path = os.path.join(
