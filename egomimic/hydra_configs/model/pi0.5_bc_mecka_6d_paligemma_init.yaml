@@ -1,0 +1,15 @@
+defaults:
+  - pi0.5_bc_mecka_6d
+  - pi0.5_paligemma_init
+  - _self_
+
+# pi0.5_bc_mecka_6d with the pi0.5 base checkpoint swapped for a PaliGemma-only
+# init -- the ablation that asks how much of the mecka 6D result comes from
+# pi0.5's robot pretraining rather than from the VLM. Everything else (the
+# cartesian 6D action layout, the action converter, the prompt blocks, the
+# optimizer) is the parent's; see pi0.5_paligemma_init.yaml for the two keys
+# this arm changes and for the lr knobs worth sweeping.
+#
+# Pairs with the same data configs as the parent (data=mecka_all_6d,
+# mecka_fold_freeform*_6d) and evaluator=eval_pi_wristframe_6d. Norm stats are
+# data-config-specific, not model-specific, so this arm reuses the parent's.
