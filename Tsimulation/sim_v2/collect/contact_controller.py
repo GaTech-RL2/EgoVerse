@@ -10,7 +10,7 @@ from shapely.ops import unary_union
 
 from .articulation_controller import ArticulationController, SmoothCommand, rot, wrap
 
-CONTACT_TOOLS = ("triangle", "scoop", "flipper", "spring")
+CONTACT_TOOLS = ("triangle", "pentagon", "scoop", "flipper", "spring")
 
 
 class ContactController(ArticulationController):

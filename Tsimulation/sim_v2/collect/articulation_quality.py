@@ -69,7 +69,7 @@ class MechanismAudit:
         if self.steps < 5:
             return False
         if (
-            emb in ("triangle", "scoop")
+            emb in ("triangle", "pentagon", "scoop")
             and self.metrics()["contact_angle_travel"] < 0.1
         ):
             return False

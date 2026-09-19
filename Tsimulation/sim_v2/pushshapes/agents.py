@@ -2698,7 +2698,19 @@ class UmiAgent(Agent):
             self._sync(env)
 
 
-class TriangleAgent(Agent):
+class OrientedContactAgent(Agent):
+    """Rigid contact-only pusher with commanded planar position and yaw."""
+
+    action_spec = ("x", "y", "angle")
+    action_dim = 3
+    controls_angle = True
+
+    def _target_pose(self, action):
+        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
+        return float(action[0]), float(action[1]), angle
+
+
+class TriangleAgent(OrientedContactAgent):
     """Equilateral triangle pusher: 3-DOF (x, y, angle).
 
     Pure contact, no constraints, no action at a distance. Its affordance is
@@ -2724,15 +2736,6 @@ class TriangleAgent(Agent):
     the object's orientation was silently locked to the agent across most of
     the arena with no way to release it.
     """
-
-    action_spec = ("x", "y", "angle")
-    action_dim = 3
-    controls_angle = True
-
-    def _target_pose(self, action):
-        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
-        return float(action[0]), float(action[1]), angle
-
 
 class FlipperAgent(Agent):
     """Hinged flipper: 4-DOF (x, y, angle, grip).
@@ -3212,6 +3215,7 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "chain_gripper": ChainGripperAgent,
     "suction": SuctionAgent,
     "triangle": TriangleAgent,
+    "pentagon": OrientedContactAgent,
     "umi": UmiAgent,
     "scoop": ScoopAgent,
     "flipper": FlipperAgent,
