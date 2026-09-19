@@ -73,7 +73,12 @@ def _hf_offline(monkeypatch) -> None:
 
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
     monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_OFFLINE", True)
-    monkeypatch.setattr(transformers.utils.hub, "_is_offline_mode", True)
+    # transformers <= 4 caches the flag in `_is_offline_mode`; 5.x reads it
+    # through `is_offline_mode()` instead. Whichever this version has.
+    if hasattr(transformers.utils.hub, "_is_offline_mode"):
+        monkeypatch.setattr(transformers.utils.hub, "_is_offline_mode", True)
+    else:
+        monkeypatch.setattr(transformers.utils.hub, "is_offline_mode", lambda: True)
 
 
 def write_fixtures(
