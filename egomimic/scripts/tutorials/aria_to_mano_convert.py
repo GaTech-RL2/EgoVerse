@@ -9,8 +9,9 @@ Pipeline:
 4. Permute MANO's otaheri joint order (wrist, index*3, middle*3, pinky*3,
    ring*3, thumb*3, then 5 tips) to the canonical MANO ordering used by
    Human.FINGER_EDGES (wrist, thumb*4, index*4, middle*4, ring*4, pinky*4).
-5. Render side-by-side: left half = Aria viz with Aria.FINGER_EDGES; right
-   half = fitted MANO viz with Human (=Mecka) FINGER_EDGES.
+5. Render side-by-side: raw Aria keypoints on the left, the fitted MANO on
+   the right, both through Human.viz(mode="keypoints"); the Aria panel passes
+   its own fingertip slots (0-4), since the renderer defaults to MANO's.
 6. Write mp4 to scratch/aria_to_mano.mp4.
 
 Prerequisites (not checked in):
@@ -37,11 +38,7 @@ import mediapy as mpy
 import numpy as np
 import torch
 
-from egomimic.rldb.embodiment.human import (
-    ARIA_FINGER_EDGE_RANGES,
-    ARIA_FINGER_EDGES,
-    Human,
-)
+from egomimic.rldb.embodiment.human import Human
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, S3EpisodeResolver
 from egomimic.scripts.aria_process.aria_utils import fit_mano_to_aria_batched
@@ -179,6 +176,10 @@ def _draw_legend(panel):
     return panel
 
 
+# Aria's raw layout puts the thumb..pinky tips first, then the palm root at 5.
+ARIA_FINGERTIP_SLOTS = (0, 1, 2, 3, 4)
+
+
 def render_side_by_side(rows, mano_left_canonical, mano_right_canonical):
     """Render aria-viz | mano-viz side-by-side with on-screen labels."""
     frames = []
@@ -189,8 +190,7 @@ def render_side_by_side(rows, mano_left_canonical, mano_right_canonical):
             batch,
             mode="keypoints",
             viz_batch_key="actions_keypoints",
-            finger_edges=ARIA_FINGER_EDGES,
-            finger_edge_ranges=ARIA_FINGER_EDGE_RANGES,
+            fingertip_indices=ARIA_FINGERTIP_SLOTS,
         )
         left_flat = mano_left_canonical[i].reshape(-1).numpy()
         right_flat = mano_right_canonical[i].reshape(-1).numpy()
@@ -224,14 +224,14 @@ def render_side_by_side(rows, mano_left_canonical, mano_right_canonical):
             aria_vis,
             [
                 "LEFT: Aria (original 21 kp/hand)",
-                "edges: Aria layout (palm=5, tips=0-4)",
+                "tips: Aria layout (palm=5, tips=0-4)",
             ],
         )
         mano_vis = _add_title_bar(
             mano_vis,
             [
                 "RIGHT: Aria->MANO fit (per-frame optimization)",
-                "edges: canonical MANO (wrist=0, thumb=1-4...)",
+                "tips: canonical MANO (wrist=0, tips=4,8,12,16,20)",
             ],
         )
 
