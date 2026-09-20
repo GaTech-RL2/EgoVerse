@@ -23,6 +23,36 @@ Tests live under `tests/`, never next to source in `egomimic/`.
 ## Model settings
 use plan mode for anything except extremely simple tasks
 
+## Cancelled jobs and leaked GPU memory
+A cancelled DDP job can leave whole GPUs allocated, with `nvidia-smi` blaming PIDs that are not in
+`/proc`. Nothing is wrong with the driver: the memory is held by **live** `pt_data_worker` processes
+reparented to init.
+
+Dataloader workers are forked after CUDA init, so each inherits the rank's `/dev/nvidia*` fds — and
+ranks open *every* visible GPU, so one survivor pins the whole node. The worker cannot exit on its
+own: it inherited both ends of its result pipe, so a dead rank never gives it an `EPIPE`, it blocks
+in `pipe_write`, and PyTorch's parent check (which only runs between `index_queue` timeouts) is
+never reached.
+
+Whole ranks leak the same way. A rank wedged in `torch.cuda.synchronize()` inside inductor's
+`cudagraph_trees` does not answer SIGTERM, Slurm hits `UnkillableStepTimeout` (60s) and gives up
+(`srun: error: Timed out waiting for job step to complete`), and the job leaves the queue with its
+ranks still spinning on every GPU. Enabling `torch.compile` makes this more likely, not less.
+
+`egomimic/utils/gpu_orphans.py` owns the fix:
+
+- `orphan_guarded(params)` / `die_with_parent` set `PR_SET_PDEATHSIG` on every worker, so the kernel
+  kills it with its rank regardless of what it is blocked on. **Any new `DataLoader` on a training
+  path needs one of them** — they are already on the train/val loaders and the norm-stats pass.
+- `arm_rank_pdeathsig()` does the same for the rank process itself, so a launcher that gives up
+  takes its ranks with it. Slurm-gated, and skipped when SIGHUP is ignored, so a `nohup` run in
+  a `salloc` shell is not shot when that shell exits.
+- `reap_orphans()` runs from `trainHydra.main` before CUDA init and clears what an earlier job left
+  on the node, so a leak cannot outlive the job that made it. It only ever signals processes that
+  are yours, reparented to init, holding an nvidia fd, and started by another Slurm job that
+  `squeue` reports as over; a detached `nohup` run of a live job is never touched. Off outside
+  Slurm and on non-zero `SLURM_LOCALID`; disable with `EGOMIMIC_REAP_GPU_ORPHANS=0`.
+
 ## Slurm rules
 If you're on a slurm cluster, request a GPU before running or testing training.
 On sky1/sky2: salloc -p rl2-lab -A rl2-lab --gres=gpu:a40:1 -c 12 --mem=30G
