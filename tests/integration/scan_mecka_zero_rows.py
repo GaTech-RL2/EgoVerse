@@ -25,7 +25,7 @@ import zarr
 from tqdm import tqdm
 
 from egomimic.rldb.filters import DatasetFilter
-from egomimic.rldb.zarr import LocalEpisodeResolver
+from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver
 
 # ── per-episode worker ────────────────────────────────────────────────────────
 

@@ -11,10 +11,14 @@ import os
 from pathlib import Path
 
 import numpy as np
+import pytest
 from scipy.spatial.transform import Rotation as R
 
-import egomimic
-from egomimic.robot.eva.eva_kinematics import (
+pytest.importorskip("mujoco", reason="requires the robot extras (mujoco + mink)")
+pytest.importorskip("mink", reason="requires the robot extras (mujoco + mink)")
+
+import egomimic  # noqa: E402
+from egomimic.robot.eva.eva_kinematics import (  # noqa: E402
     EvaMinkKinematicsSolver,
 )
 
