@@ -270,6 +270,25 @@ def bimanual_keypoint_layout(width: int) -> dict | None:
     return BIMANUAL_KEYPOINT_LAYOUTS.get(int(width))
 
 
+# Keys whose last dim is one of the layouts above.
+_CARTESIAN_KEYS = ("actions_cartesian", "observations.state.ee_pose")
+_KEYPOINT_KEYS = ("actions_keypoints", "observations.state.keypoints")
+
+
+def rot6d_channels(zarr_key: str, width: int) -> tuple[int, ...] | None:
+    """Indices of the rot6d channels of ``zarr_key`` at ``width``.
+
+    ``None`` when the key or the width is not a known 6D layout, including the
+    ypr layouts: an Euler angle is not a rotation-matrix column and has none of
+    the properties that make these channels special.
+    """
+    if zarr_key in _CARTESIAN_KEYS and int(width) in (18, 20):
+        return bimanual_cartesian_layout(width)["rot"]
+    if zarr_key in _KEYPOINT_KEYS and int(width) == 144:
+        return bimanual_keypoint_layout(width)["rot"]
+    return None
+
+
 def _matrix_to_xyzwxyz(mats: np.ndarray) -> np.ndarray:
     """
     args:
