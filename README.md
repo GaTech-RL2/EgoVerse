@@ -22,7 +22,7 @@ The Scale dataset was fully reprocessed on 05/03/2026. All active Scale episodes
 ## Structure
 - [``egomimic/trainHydra.py``](./egomimic/trainHydra.py): Main training script, powered by Pytorch Lightning and Hydra (DDP supported)
 - [``egomimic/hydra_configs``](./egomimic/hydra_configs): Train configs for each algorithm
-- [``egomimic/algo``](./egomimic/algo): Algorithm code: ACT, EgoMimic (HPT based), Pi
+- [``egomimic/algo``](./egomimic/algo): Algorithm code: EgoMimic (HPT based), Pi
 - [``egomimic/scripts/aloha_process``](./egomimic/scripts/aloha_process/): Process raw aloha hdf5 to zarr/lerobot
 - [``egomimic/scripts/aria_process``](./egomimic/scripts/aria_process/): Process aria vrs to zarr/lerobot
 
