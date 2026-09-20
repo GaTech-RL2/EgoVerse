@@ -35,7 +35,11 @@ from egomimic.utils.action_utils import (
     _reconstruct_R_from_cols,
     _ypr_to_matrix,
 )
-from egomimic.utils.pose_utils import _rot6d_to_ypr, _ypr_to_rot6d
+from egomimic.utils.pose_utils import (
+    _rot6d_to_ypr,
+    _ypr_to_rot6d,
+    rot6d_channels,
+)
 
 T = 100
 
@@ -245,15 +249,17 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
     st_act = _quantile_stats(act6, 18)
     st_obs = _quantile_stats(obs6, 20)
     a_t, o_t = torch.from_numpy(act6).float(), torch.from_numpy(obs6).float()
-    a_n = _apply_norm_one(a_t, st_act, "quantile")
-    o_n = _apply_norm_one(o_t, st_obs, "quantile")
+    act_rot = rot6d_channels("actions_cartesian", a_t.shape[-1])
+    obs_rot = rot6d_channels("observations.state.ee_pose", o_t.shape[-1])
+    a_n = _apply_norm_one(a_t, st_act, "quantile", act_rot)
+    o_n = _apply_norm_one(o_t, st_obs, "quantile", obs_rot)
     conv = HumanBimanualCartesianEuler()
     a32 = conv.to32_norm_6d(a_n)
     assert a32.shape == (B, T, 32)
     assert torch.all(a32[..., [9, 19]] == 0) and torch.all(a32[..., 20:] == 0)
     torch.testing.assert_close(conv.from32_norm_6d(a32), a_n, atol=0, rtol=0)
-    a_un = _apply_unnorm_one(conv.from32_norm_6d(a32), st_act, "quantile")
-    o_un = _apply_unnorm_one(o_n, st_obs, "quantile")
+    a_un = _apply_unnorm_one(conv.from32_norm_6d(a32), st_act, "quantile", act_rot)
+    o_un = _apply_unnorm_one(o_n, st_obs, "quantile", obs_rot)
     torch.testing.assert_close(a_un, a_t, atol=1e-5, rtol=0)
     torch.testing.assert_close(o_un, o_t, atol=1e-5, rtol=0)
 
@@ -268,7 +274,9 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
     _assert_pose12_close(out["observations.state.ee_pose"], gt_obs, atol=1e-4)
 
     # (5) a noisy (non-orthonormal) prediction still reverts to finite poses
-    a_noisy = _apply_unnorm_one(a_n + 0.05 * torch.randn_like(a_n), st_act, "quantile")
+    a_noisy = _apply_unnorm_one(
+        a_n + 0.05 * torch.randn_like(a_n), st_act, "quantile", act_rot
+    )
     out_n = Embodiment.apply_transform(
         {"actions_cartesian": a_noisy, "observations.state.ee_pose": o_un}, rev
     )
@@ -336,13 +344,15 @@ def test_eva_wristframe_6d_pipeline_round_trips_to_camframe():
 
     st_act, st_obs = _quantile_stats(act6, 20), _quantile_stats(obs6, 20)
     a_t, o_t = torch.from_numpy(act6).float(), torch.from_numpy(obs6).float()
-    a_n = _apply_norm_one(a_t, st_act, "quantile")
-    o_n = _apply_norm_one(o_t, st_obs, "quantile")
+    act_rot = rot6d_channels("actions_cartesian", a_t.shape[-1])
+    obs_rot = rot6d_channels("observations.state.ee_pose", o_t.shape[-1])
+    a_n = _apply_norm_one(a_t, st_act, "quantile", act_rot)
+    o_n = _apply_norm_one(o_t, st_obs, "quantile", obs_rot)
     conv = RobotBimanualCartesianEuler()
     a32 = conv.to32_norm_6d(a_n)
     torch.testing.assert_close(conv.from32_norm_6d(a32), a_n, atol=0, rtol=0)
-    a_un = _apply_unnorm_one(conv.from32_norm_6d(a32), st_act, "quantile")
-    o_un = _apply_unnorm_one(o_n, st_obs, "quantile")
+    a_un = _apply_unnorm_one(conv.from32_norm_6d(a32), st_act, "quantile", act_rot)
+    o_un = _apply_unnorm_one(o_n, st_obs, "quantile", obs_rot)
 
     rev = _build_eva_cartesian_revert_6d_wristframe_transform_list()
     out = Embodiment.apply_transform(

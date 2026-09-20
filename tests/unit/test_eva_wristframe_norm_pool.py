@@ -114,3 +114,72 @@ def test_multidataset_normalize_uses_the_guard():
     md.norm_mode = "quantile"
     n = md._apply_norm_one(torch.tensor([[5e-4, 0.5]]), stats)
     assert n.tolist() == [[0.0, 0.0]]
+
+
+# --- rot6d channels are never normalized -----------------------------------
+
+
+def _stats_for(width):
+    lo = -np.ones(width, dtype=np.float32)
+    hi = np.ones(width, dtype=np.float32) * 3.0
+    return {
+        "mean": 0.5 * (lo + hi),
+        "std": hi - lo,
+        "min": lo,
+        "max": hi,
+        "quantile_1": lo,
+        "quantile_99": hi,
+    }
+
+
+@pytest.mark.parametrize(
+    "zarr_key,width",
+    [
+        ("actions_cartesian", 18),
+        ("actions_cartesian", 20),
+        ("observations.state.ee_pose", 20),
+        ("actions_keypoints", 144),
+        ("observations.state.keypoints", 144),
+    ],
+)
+def test_rot6d_channels_pass_through_normalization(zarr_key, width):
+    from egomimic.utils.action_utils import _apply_norm_one, _apply_unnorm_one
+    from egomimic.utils.pose_utils import rot6d_channels
+
+    rot = list(rot6d_channels(zarr_key, width))
+    other = [i for i in range(width) if i not in rot]
+    x = torch.arange(width, dtype=torch.float32).unsqueeze(0) / width
+    stats = _stats_for(width)
+
+    n = _apply_norm_one(x, stats, "quantile", rot)
+    torch.testing.assert_close(n[:, rot], x[:, rot], atol=0, rtol=0)
+    assert not torch.allclose(n[:, other], x[:, other])
+    back = _apply_unnorm_one(n, stats, "quantile", rot)
+    torch.testing.assert_close(back, x, atol=1e-5, rtol=0)
+
+
+@pytest.mark.parametrize(
+    "zarr_key,width",
+    [
+        ("actions_cartesian", 12),  # ypr: not a rot6d layout
+        ("actions_keypoints", 138),
+        ("observations.state.joint_positions", 20),  # not a pose key
+        ("actions_cartesian", 7),  # unknown width
+    ],
+)
+def test_no_rot6d_channels_outside_the_6d_layouts(zarr_key, width):
+    from egomimic.utils.pose_utils import rot6d_channels
+
+    assert rot6d_channels(zarr_key, width) is None
+
+
+def test_multidataset_leaves_the_rot6d_block_alone():
+    md = MultiDataset.__new__(MultiDataset)
+    md.norm_mode = "quantile"
+    stats = _stats_for(18)
+    x = torch.arange(18, dtype=torch.float32).unsqueeze(0) / 18
+    n = md._apply_norm_one(x, stats, "actions_cartesian")
+    rot = list(range(3, 9)) + list(range(12, 18))
+    torch.testing.assert_close(n[:, rot], x[:, rot], atol=0, rtol=0)
+    # without the key there is no layout to consult, so nothing is skipped
+    assert not torch.allclose(md._apply_norm_one(x, stats)[:, rot], x[:, rot])
