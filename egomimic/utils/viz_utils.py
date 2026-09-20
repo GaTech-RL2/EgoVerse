@@ -3,8 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from egomimic.utils.pose_utils import cam_frame_to_cam_pixels
-from egomimic.utils.pose_utils import _split_action_pose, _split_keypoints
+from egomimic.utils.pose_utils import (
+    _split_action_pose,
+    _split_keypoints,
+    cam_frame_to_cam_pixels,
+)
 
 
 class ColorPalette:
@@ -444,10 +447,14 @@ def _viz_annotations(image, annotations: list[str], **kwargs):
 def save_image(image: np.ndarray, path: str) -> None:
     cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
-from egomimic.utils.pose_utils import ee_pose_to_cam_frame, get_vector_from_yaw_pitch
 
+from egomimic.utils.pose_utils import (  # noqa: E402  (kept with the block moved from egomimicUtils.py)
+    ee_pose_to_cam_frame,
+    get_vector_from_yaw_pitch,
+)
 
 # ---- moved from egomimicUtils.py (code unchanged) ----
+
 
 def draw_actions(
     im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None
@@ -500,6 +507,7 @@ def draw_actions(
 
     return im
 
+
 def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=5):
     """
     frame: (H, W, C) numpy array
@@ -532,6 +540,7 @@ def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=
             plt.show()
 
     return frame
+
 
 def get_gaze_endpoint(yaw_rads, pitch_rads, depth, T_cam_cpf):
     """

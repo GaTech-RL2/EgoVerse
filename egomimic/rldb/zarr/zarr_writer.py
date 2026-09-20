@@ -821,7 +821,9 @@ class ZarrWriter:
                     f"{getattr(K_arr, 'shape', type(K).__name__)}. "
                     "See CONTRIBUTING_DATA.md §6.4."
                 )
-        if extrinsics is not None and (not isinstance(extrinsics, dict) or not extrinsics):
+        if extrinsics is not None and (
+            not isinstance(extrinsics, dict) or not extrinsics
+        ):
             raise ValueError(
                 "Camera extrinsics must be None or a non-empty dict mapping a key "
                 'to its transform matrix (robots key per-arm, e.g. {"left": T, '

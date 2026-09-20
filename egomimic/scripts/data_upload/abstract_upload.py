@@ -279,9 +279,9 @@ class Uploader:
                 )
 
             for key in self.metadata_keys:
-                previous_value = self.previous_inputs.get(
+                previous_value = self.previous_inputs.get(key, "") or self.defaults.get(
                     key, ""
-                ) or self.defaults.get(key, "")
+                )
 
                 value = self._collect_metadata_value(key, previous_value)
                 submitted_metadata[key] = value
