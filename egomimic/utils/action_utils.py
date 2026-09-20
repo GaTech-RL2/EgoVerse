@@ -14,7 +14,7 @@ PI algo pads that to ``model.action_dim``) and the eval path unpacks it
 (``from32_norm_6d``). No rotation math and no normalization happen here.
 """
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Sequence, Tuple
 
 import torch
 
@@ -119,28 +119,43 @@ def _degenerate(scale: torch.Tensor, norm_mode: str) -> torch.Tensor:
     return full_range < NORM_MIN_RANGE
 
 
+def _passthrough(
+    out: torch.Tensor, tensor: torch.Tensor, channels: Sequence[int] | None
+) -> torch.Tensor:
+    if not channels:
+        return out
+    out = out.clone()
+    out[..., list(channels)] = tensor[..., list(channels)]
+    return out
+
+
 def _apply_norm_one(
     tensor: torch.Tensor,
     stats: dict[str, Any],
     norm_mode: str,
+    identity_channels: Sequence[int] | None = None,
 ) -> torch.Tensor:
     """Normalize with per-key stats (zscore, or [-1, 1] for minmax/quantile).
-    Channels with a range below ``NORM_MIN_RANGE`` map to 0."""
+    Channels with a range below ``NORM_MIN_RANGE`` map to 0;
+    ``identity_channels`` pass through untouched."""
     center, scale = _norm_center_scale(stats, norm_mode, tensor)
     out = (tensor - center) / (scale + _eps(norm_mode))
-    return torch.where(_degenerate(scale, norm_mode), torch.zeros_like(out), out)
+    out = torch.where(_degenerate(scale, norm_mode), torch.zeros_like(out), out)
+    return _passthrough(out, tensor, identity_channels)
 
 
 def _apply_unnorm_one(
     tensor: torch.Tensor,
     stats: dict[str, Any],
     norm_mode: str,
+    identity_channels: Sequence[int] | None = None,
 ) -> torch.Tensor:
     """Inverse of :func:`_apply_norm_one`; degenerate channels return their
     centre (mean / midpoint) whatever the model predicted."""
     center, scale = _norm_center_scale(stats, norm_mode, tensor)
     out = tensor * (scale + _eps(norm_mode)) + center
-    return torch.where(_degenerate(scale, norm_mode), center.expand_as(out), out)
+    out = torch.where(_degenerate(scale, norm_mode), center.expand_as(out), out)
+    return _passthrough(out, tensor, identity_channels)
 
 
 # ---------- rotation helpers (shared with the eval metrics) ----------
