@@ -4,6 +4,8 @@ from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader, _MaxSizeCycle
 from torch.utils.data import DataLoader, default_collate
 
+from egomimic.utils.gpu_orphans import orphan_guarded
+
 logger = logging.getLogger(__name__)
 
 # Val heads that can carry a metric loader, in val_dataloader() order.
@@ -178,7 +180,7 @@ class MultiDataModuleWrapper(LightningDataModule):
                 dataset,
                 shuffle=True,
                 collate_fn=self.collate_fn,
-                **dataset_params,
+                **orphan_guarded(dataset_params),
             )
 
         return CombinedLoader(iterables, "max_size_cycle")
@@ -193,7 +195,7 @@ class MultiDataModuleWrapper(LightningDataModule):
                 raise ValueError(
                     f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config {kind}_dataloader_params."
                 )
-            dataset_params = dict(dataset_params)
+            dataset_params = orphan_guarded(dataset_params)
             shuffle = dataset_params.pop("shuffle", False)
             iterables[dataset_name] = DataLoader(
                 dataset,
