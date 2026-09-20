@@ -1,7 +1,6 @@
-# # path to root directory
-# # this requires PROJECT_ROOT environment variable to exist
-# # you can replace it with "." if you want the root to be the current working directory
-# root_dir: ${oc.env:PROJECT_ROOT}
+# path to root directory: $PROJECT_ROOT if set, else the directory the run was
+# launched from (which is also what the relative `hydra.run.dir` is rooted at)
+root_dir: ${oc.env:PROJECT_ROOT,${hydra:runtime.cwd}}
 
 # # path to data directory
 # data_dir: ${paths.root_dir}/data/
