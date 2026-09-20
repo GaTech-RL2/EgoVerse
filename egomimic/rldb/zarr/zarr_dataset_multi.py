@@ -53,6 +53,7 @@ from egomimic.utils.action_utils import (
     _apply_unnorm_one,
 )
 from egomimic.utils.env import load_env
+from egomimic.utils.gpu_orphans import die_with_parent
 from egomimic.utils.pose_utils import (
     bimanual_cartesian_layout,
     bimanual_keypoint_layout,
@@ -1501,6 +1502,7 @@ class MultiDataset(torch.utils.data.Dataset):
             num_workers=num_workers,
             shuffle=True,
             generator=torch.Generator().manual_seed(seed),
+            worker_init_fn=die_with_parent,
         )
         N = len(dataset)
         if N <= 0:
