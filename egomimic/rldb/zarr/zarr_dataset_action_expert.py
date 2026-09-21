@@ -75,6 +75,10 @@ class ZarrActionExpertDataset(ZarrDataset):
         return self.annotation_map
 
     def init_episode(self):
+        # NOTE: super() runs image-encoding detection, which compares the image
+        # array length against total_frames. It must see the TRUE episode length,
+        # so total_frames may only be narrowed to the annotated-frame count
+        # AFTER this call -- reversing the order misclassifies every episode.
         super().init_episode()
         # Save true episode length before overriding total_frames with annotated-only count.
         self._episode_total_frames = self.metadata["total_frames"]
@@ -87,7 +91,12 @@ class ZarrActionExpertDataset(ZarrDataset):
     # --- per-key loaders ---------------------------------------------------
 
     def _load_obs_at(self, zarr_key: str, frame_idx: int):
-        """Read a single obs key at one frame, decoding JPEG/JSON as needed."""
+        """Read a single obs key at one frame, decoding video/JPEG/JSON as needed."""
+        if zarr_key in self._video_keys:
+            # Chunk-indexed: the frame-indexed read below would address chunks,
+            # not frames, so this must come FIRST -- and it must not silently
+            # fall through, or the raw mp4 bytes would be returned as pixels.
+            return self._video_frame(zarr_key, frame_idx)
         val = self.episode_reader.read({zarr_key: (frame_idx, None)})[zarr_key]
         if zarr_key in self._image_keys:
             decoded = simplejpeg.decode_jpeg(val, colorspace="RGB")
