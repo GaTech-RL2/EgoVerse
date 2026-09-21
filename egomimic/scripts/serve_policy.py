@@ -60,6 +60,16 @@ def _parse_args():
         help="Host to bind to",
     )
     parser.add_argument(
+        "--num-inference-steps",
+        type=int,
+        default=16,
+        help="Diffusion denoising steps per inference (heads only). 16 was "
+             "A/B-validated on A40 as quality/smoothness-identical at 2.8x "
+             "speed (285->103 ms per chunk); <=4 adds +32%% jitter, 8 only "
+             "for an explicit A/B. Was hard-coded 10 before 2026-09-21. "
+             "0 = leave the checkpoint's own value untouched.",
+    )
+    parser.add_argument(
         "--nvs3d-dir",
         type=str,
         default=os.environ.get("NVS3D_DIR"),
@@ -165,14 +175,20 @@ def main() -> None:
     logging.info("Loading policy from %s", args.checkpoint)
     model = _load_model(args)
 
-    if getattr(model.model, "diffusion", False):
+    if getattr(model.model, "diffusion", False) and args.num_inference_steps > 0:
         for head in model.model.nets["policy"].heads.values():
             if isinstance(head, DenoisingPolicy):
-                head.num_inference_steps = 10
-        logging.info("Set diffusion num_inference_steps=10")
+                head.num_inference_steps = int(args.num_inference_steps)
+        logging.info("Set diffusion num_inference_steps=%d", args.num_inference_steps)
 
     policy = EgoVersePolicy(model)
-    metadata = policy.metadata
+    metadata = dict(policy.metadata)
+    # abl0921 §7: make every rollout attributable from the client side.
+    metadata["checkpoint"] = os.path.abspath(args.checkpoint)
+    metadata["num_inference_steps"] = (
+        int(args.num_inference_steps)
+        if getattr(model.model, "diffusion", False) and args.num_inference_steps > 0
+        else None)
 
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
