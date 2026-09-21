@@ -24,5 +24,12 @@ declare -A PORTS=(
 [[ -z "${PORTS[$V]:-}" ]] && { echo "unknown variant '$V'" >&2; exit 1; }
 CK="checkpoints/abl0921/${V}.ckpt"
 [[ -f "$CK" ]] || { echo "missing $CK — run pull_abl_0921.sh" >&2; exit 1; }
+# RTC=1: serve the Real-Time-Chunking-capable wrapper (drop-in superset — plain
+# clients behave identically; clients sending rtc_* keys get constrained chunks).
+SERVE=egomimic/scripts/serve_policy.py
+if [[ "${RTC:-0}" == "1" ]]; then
+  SERVE=egomimic/scripts/serve_policy_rtc.py
+  echo "[serve] RTC-capable server (rtc_policy wrapper)"
+fi
 echo "[serve] abl0921 $V -> port ${PORTS[$V]} (16 denoising steps unless overridden)"
-exec "$PY" egomimic/scripts/serve_policy.py --checkpoint "$CK" --port "${PORTS[$V]}" "$@"
+exec "$PY" "$SERVE" --checkpoint "$CK" --port "${PORTS[$V]}" "$@"
