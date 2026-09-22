@@ -20,7 +20,7 @@ import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf reso
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, PinError
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
@@ -64,6 +64,22 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
         intfmt=",",
     )
     log.info("Dataset frame counts:\n" + table)
+
+
+def _instantiate_dataset(*args, **kwargs):
+    """``hydra.utils.instantiate`` wraps any exception raised by the target in an
+    ``InstantiationException``. A bad pin must surface at launch as a bare
+    ``PinError`` (not a generic Hydra error the caller has to unwrap), so this
+    intercepts only that case and re-raises the original ``PinError`` -- keeping
+    the ``InstantiationException`` as its context (``from e``, not ``from None``)
+    so the Hydra target/config info isn't lost. Every other target exception is
+    re-raised exactly as Hydra raised it."""
+    try:
+        return hydra.utils.instantiate(*args, **kwargs)
+    except hydra.errors.InstantiationException as e:
+        if isinstance(e.__cause__, PinError):
+            raise e.__cause__ from e
+        raise
 
 
 class MmapCheckpointIO(TorchCheckpointIO):
@@ -126,14 +142,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     train_datasets = {}
     for dataset_name in cfg.data.train_datasets:
-        train_datasets[dataset_name] = hydra.utils.instantiate(
-            cfg.data.train_datasets[dataset_name]
+        train_datasets[dataset_name] = _instantiate_dataset(
+            cfg.data.train_datasets[dataset_name], dataset_name=dataset_name
         )
 
     valid_datasets = {}
     for dataset_name in cfg.data.valid_datasets:
-        valid_datasets[dataset_name] = hydra.utils.instantiate(
-            cfg.data.valid_datasets[dataset_name]
+        valid_datasets[dataset_name] = _instantiate_dataset(
+            cfg.data.valid_datasets[dataset_name], dataset_name=dataset_name
         )
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
@@ -163,7 +179,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         km["norm_mode"] = True
 
         instantiate_copy.resolver.key_map = km
-        norm_dataset = hydra.utils.instantiate(instantiate_copy)
+        norm_dataset = _instantiate_dataset(instantiate_copy, dataset_name=dataset_name)
         # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
         norm_stats.infer_norm_from_dataset(
             norm_dataset,
