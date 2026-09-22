@@ -11,7 +11,7 @@ cpus_per_task: 12
 
 nodes: ${launch_params.nodes}                      
 tasks_per_node: ${launch_params.gpus_per_node}    
-gres: "gpu:l40s:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}"
+gres: "gpu:l40s:${launch_params.gpus_per_node}"
 
 qos: "short"
 timeout_min: 2880 # 80 hours
