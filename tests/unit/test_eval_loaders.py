@@ -201,6 +201,20 @@ def test_k_ignores_the_world_size():
         assert th._metric_frames_per_episode(cfg, "valid") == 7, devices
 
 
+@pytest.mark.parametrize("trainer_cfg", ["ddp", "ddp_pi"])
+def test_ddp_devices_are_per_node(trainer_cfg, compose_resolve):
+    """Lightning reads devices per node and multiplies by num_nodes itself."""
+    cfg = compose_resolve(
+        "train_zarr_cartesian",
+        [
+            f"trainer={trainer_cfg}",
+            "launch_params.gpus_per_node=8",
+            "launch_params.nodes=2",
+        ],
+    )
+    assert cfg.trainer.devices == 8 and cfg.trainer.num_nodes == 2
+
+
 def test_auto_k_is_derived_from_the_resolved_split():
     """`auto` = floor(limit_val_batches * batch_size / episodes), per dataset,
     from the head's own loader batch size, whatever the world size."""
