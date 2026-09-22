@@ -4,8 +4,10 @@ robomimic_model:
   camera_transforms: {}
 
   dims:
+    # eva proprio is joint positions (7/arm), not a pose.
     eva_bimanual: {proprio: 14, action: 14}
-    human_bimanual: {proprio: 12, action: 12}
+    # human cartesian_6d: 18-D action, 20-D gripper-padded ee_pose proprio.
+    human_bimanual: {proprio: 20, action: 18}
 
   ac_keys:
     human_bimanual: "actions_cartesian"

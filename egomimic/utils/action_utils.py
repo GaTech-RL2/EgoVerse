@@ -1,12 +1,16 @@
 """pi0.5 action I/O.
 
 Actions arrive from the data pipeline already in their model-native layout
-and already normalized by the standard MultiDataset pipeline: xyz+rot6d
-(+gripper) per arm, the ypr->6D conversion being the ``CartesianYPRToRot6D``
-data transform, with norm stats computed on 6D.
+and already normalized by the standard MultiDataset pipeline:
 
-The forward pass only *packs* the normalized vector into openpi's 32-slot
-action vector (``to32_norm_6d``) and the eval path unpacks it
+- cartesian: xyz+rot6d(+gripper) per arm (the ypr->6D conversion is the
+  ``CartesianYPRToRot6D`` data transform, norm stats are computed on 6D);
+- hand keypoints: the 144-D wrist-first ``[wrist xyz | wrist rot6d |
+  21 keypoints] x 2`` vector (``keypoints_*_6d`` modes).
+
+The forward pass only *packs* the normalized vector into openpi's action
+vector (``to32_norm_6d`` builds the canonical 32-slot block layout, and the
+PI algo pads that to ``model.action_dim``) and the eval path unpacks it
 (``from32_norm_6d``). No rotation math and no normalization happen here.
 """
 
@@ -44,15 +48,28 @@ def _ensure_bsd(x: torch.Tensor) -> torch.Tensor:
     return x
 
 
-def _pad32(x: torch.Tensor) -> torch.Tensor:
+def pad_to_width(x: torch.Tensor, width: int) -> torch.Tensor:
+    """Zero-pad the last dim of a (B,S,D) tensor up to ``width``.
+
+    Raises when ``D > width``: a wider native action than the model's
+    ``action_dim`` would otherwise be truncated silently.
+    """
     x = _ensure_bsd(x)
     B, S, D = x.shape
-    if D == 32:
+    if D == width:
         return x
-    if D < 32:
-        pad = torch.zeros(B, S, 32 - D, dtype=x.dtype, device=x.device)
-        return torch.cat([x, pad], dim=-1)
-    return x[..., :32]
+    if D > width:
+        raise ValueError(
+            f"Action has {D} dims but the model action_dim is {width}; set "
+            "model.robomimic_model.config.model.action_dim >= the widest "
+            "embodiment action"
+        )
+    pad = torch.zeros(B, S, width - D, dtype=x.dtype, device=x.device)
+    return torch.cat([x, pad], dim=-1)
+
+
+def _pad32(x: torch.Tensor) -> torch.Tensor:
+    return pad_to_width(x, 32)
 
 
 def _stat_tensor(stats: dict[str, Any], key: str, ref: torch.Tensor) -> torch.Tensor:
@@ -276,3 +293,33 @@ class HumanBimanualCartesianEuler(BaseActionConverter):
         L = actions32[..., 0:9]  # drop left gripper slot at idx 9
         R = actions32[..., 10:19]  # drop right gripper slot at idx 19
         return torch.cat([L, R], dim=-1)  # (B,S,18)
+
+
+class HumanBimanualKeypoints(BaseActionConverter):
+    """144-D wrist-first MANO keypoint action, per hand
+    ``[wrist xyz+rot6d in its own wrist frame (9) | 21 keypoints in that
+    wrist frame (63)]`` x {left, right} (``keypoints_wristframe_6d``), packed
+    identity-first into the model's action vector. The PI algo resizes
+    openpi's action projections to ``model.action_dim`` (>= 144) and pads the
+    vector up to it; ``from32_norm_6d`` slices the native width back out.
+    """
+
+    native_dim = 144
+
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        actions = _ensure_bsd(actions)
+        if actions.shape[-1] != self.native_dim:
+            raise ValueError(
+                f"HumanBimanualKeypoints: expected {self.native_dim}-dim, got "
+                f"{actions.shape[-1]}"
+            )
+        return actions
+
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
+        actions32 = _ensure_bsd(actions32)
+        if actions32.shape[-1] < self.native_dim:
+            raise ValueError(
+                f"HumanBimanualKeypoints: expected >={self.native_dim} dims, got "
+                f"{actions32.shape[-1]}"
+            )
+        return actions32[..., : self.native_dim]

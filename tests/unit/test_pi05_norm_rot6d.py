@@ -20,7 +20,9 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 )
 from egomimic.utils.action_utils import (
     BaseActionConverter,
+    HumanBimanualKeypoints,
     RobotBimanualCartesianEuler,
+    pad_to_width,
 )
 
 
@@ -279,3 +281,57 @@ def test_rotate_local_frame_flips_left_wrist_convention():
 
     single = t.transform({"k": chunk[0].copy()})["k"]
     np.testing.assert_allclose(single, out[0], atol=1e-12)
+
+
+def test_keypoint_converter_is_identity_and_pads_to_model_width():
+    # The 144-D keypoint action is packed identity-first; PI pads it (and the
+    # cartesian 32-slot layout) up to model.action_dim and the decode slices
+    # the native width back out of the wider vector.
+    conv = HumanBimanualKeypoints()
+    kp = torch.randn(2, 4, 144)
+    packed = conv.to32_norm_6d(kp)
+    torch.testing.assert_close(packed, kp)
+    torch.testing.assert_close(conv.from32_norm_6d(pad_to_width(packed, 160)), kp)
+    with pytest.raises(ValueError, match="expected 144-dim"):
+        conv.to32_norm_6d(torch.zeros(1, 1, 138))
+
+    eva32 = RobotBimanualCartesianEuler().to32_norm_6d(torch.ones(1, 3, 20))
+    wide = pad_to_width(eva32, 144)
+    assert wide.shape[-1] == 144 and torch.all(wide[..., 32:] == 0)
+    torch.testing.assert_close(
+        RobotBimanualCartesianEuler().from32_norm_6d(wide)[..., :20],
+        torch.ones(1, 3, 20),
+    )
+    with pytest.raises(ValueError, match="action_dim is 32"):
+        pad_to_width(kp, 32)
+
+
+def test_fix_left_wrist_convention_flag_prepends_correction():
+    from egomimic.rldb.embodiment.human import Human
+    from egomimic.rldb.zarr.action_chunk_transforms import RotateLocalFrame
+
+    tl = Human.get_transform_list(
+        "cartesian_wristframe_6d", stride=1, fix_left_wrist_convention=True
+    )
+    assert isinstance(tl[0], RotateLocalFrame)
+    assert set(tl[0].keys) == {"left.action_ee_pose", "left.obs_ee_pose"}
+    # default off: other vendors' data must be untouched
+    tl_off = Human.get_transform_list("cartesian_wristframe_6d", stride=1)
+    assert not isinstance(tl_off[0], RotateLocalFrame)
+    # keypoints modes correct the wrist_pose keys their frames are built on
+    # (the converter wrote the same double-mirrored rotation into both), plus
+    # the ee_pose keys when those are built too.
+    tl_kp = Human.get_transform_list(
+        "keypoints_wristframe_6d", fix_left_wrist_convention=True
+    )
+    assert isinstance(tl_kp[0], RotateLocalFrame)
+    assert set(tl_kp[0].keys) == {"left.action_wrist_pose", "left.obs_wrist_pose"}
+    tl_kp_ee = Human.get_transform_list(
+        "keypoints_wristframe_6d", fix_left_wrist_convention=True, include_ee_pose=True
+    )
+    assert set(tl_kp_ee[0].keys) == {
+        "left.action_wrist_pose",
+        "left.obs_wrist_pose",
+        "left.action_ee_pose",
+        "left.obs_ee_pose",
+    }

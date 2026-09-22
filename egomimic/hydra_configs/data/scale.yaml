@@ -1,3 +1,8 @@
+# One pinned scale episode (stored as human_bimanual) on the 144-D wrist-frame
+# hand-keypoint action; see data/human.yaml for the layout and the cartesian
+# override. fix_left_wrist_convention is on: scale runs its own converter,
+# but it writes the same pre-fix left-wrist convention as mecka (measured on
+# all 20 production episodes).
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -8,10 +13,12 @@ train_datasets:
       folder_path: ${paths.dataset_dir}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: keypoints
+        include_ee_pose: true
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian_6d
+        mode: keypoints_wristframe_6d
+        include_ee_pose: true
         # Scale exports were written by the pre-fix hand-pose converter too:
         # measured on all 20 production episodes, the left wrist matches
         # rot_left to <= 2.06 deg with the right-hand control clean.
