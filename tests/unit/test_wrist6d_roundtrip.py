@@ -27,8 +27,8 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     SplitKeys,
 )
 from egomimic.utils.action_utils import (
-    HumanBimanualCartesianEuler,
-    RobotBimanualCartesianEuler,
+    HumanBimanualCartesian6D,
+    RobotBimanualCartesian6D,
     _apply_norm_one,
     _apply_unnorm_one,
     _matrix_to_ypr,
@@ -253,7 +253,7 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
     obs_rot = rot6d_channels("observations.state.ee_pose", o_t.shape[-1])
     a_n = _apply_norm_one(a_t, st_act, "quantile", act_rot)
     o_n = _apply_norm_one(o_t, st_obs, "quantile", obs_rot)
-    conv = HumanBimanualCartesianEuler()
+    conv = HumanBimanualCartesian6D()
     a32 = conv.to32_norm_6d(a_n)
     assert a32.shape == (B, T, 32)
     assert torch.all(a32[..., [9, 19]] == 0) and torch.all(a32[..., 20:] == 0)
@@ -348,7 +348,7 @@ def test_eva_wristframe_6d_pipeline_round_trips_to_camframe():
     obs_rot = rot6d_channels("observations.state.ee_pose", o_t.shape[-1])
     a_n = _apply_norm_one(a_t, st_act, "quantile", act_rot)
     o_n = _apply_norm_one(o_t, st_obs, "quantile", obs_rot)
-    conv = RobotBimanualCartesianEuler()
+    conv = RobotBimanualCartesian6D()
     a32 = conv.to32_norm_6d(a_n)
     torch.testing.assert_close(conv.from32_norm_6d(a32), a_n, atol=0, rtol=0)
     a_un = _apply_unnorm_one(conv.from32_norm_6d(a32), st_act, "quantile", act_rot)

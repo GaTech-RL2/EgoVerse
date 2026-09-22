@@ -5,8 +5,6 @@ it and forward it to `MultiDataset._from_resolver` -- otherwise
 
 from __future__ import annotations
 
-import inspect
-
 import hydra
 import pytest
 from fixtures.synthetic_episodes import write_episode
@@ -17,10 +15,6 @@ from egomimic.eval import latent_dataset
 from egomimic.eval.latent_dataset import build_dataset
 
 LOCAL_RESOLVER = "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver"
-
-
-def test_build_dataset_accepts_dataset_name() -> None:
-    assert "dataset_name" in inspect.signature(build_dataset).parameters
 
 
 @pytest.mark.parametrize("mode", ["random", "custom"])

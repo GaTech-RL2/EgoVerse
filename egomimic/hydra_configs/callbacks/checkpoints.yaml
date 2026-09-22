@@ -8,4 +8,8 @@ model_checkpoint:
   filename: "epoch_{epoch}"
   save_last: true
   save_top_k: -1
-  every_n_epochs: 100
+  every_n_epochs: 50
+  # Save at the end of the train epoch, not after validation: with
+  # check_val_every_n_epoch > 1 the validation-end hook only fires on val
+  # epochs and every_n_epochs would silently miss the others.
+  save_on_train_epoch_end: true
