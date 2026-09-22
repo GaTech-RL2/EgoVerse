@@ -15,6 +15,9 @@ from egomimic.utils.viz_utils import (
     _viz_traj,
 )
 
+# A camera keymap entry "<key>_hist" is the same camera, `lag_s` seconds earlier.
+IMAGE_HISTORY_SUFFIX = "_hist"
+
 
 class EMBODIMENT(Enum):
     # All human demonstration data is one embodiment (HUMAN_*); the robot Eva is
