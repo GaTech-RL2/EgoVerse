@@ -421,13 +421,7 @@ class PI(Algo):
             )
 
             losses = self.nets["policy"].forward(processed_obs, action)
-
-            if isinstance(losses, list | tuple):
-                losses = torch.stack(losses)
-            elif not isinstance(losses, torch.Tensor):
-                losses = torch.tensor(losses, device=action.device, dtype=torch.float32)
-
-            loss = losses.mean()
+            loss = self._reduce_loss(losses, _batch[ac_key], embodiment_id, ac_key)
 
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
@@ -465,13 +459,9 @@ class PI(Algo):
 
                 # Flow-matching val loss — same call as forward_training.
                 losses = self.nets["policy"].forward(processed_obs, action)
-                if isinstance(losses, (list, tuple)):
-                    losses = torch.stack(losses)
-                elif not isinstance(losses, torch.Tensor):
-                    losses = torch.tensor(
-                        losses, device=action.device, dtype=torch.float32
-                    )
-                unnorm_preds[f"{embodiment_name}_loss"] = losses.mean()
+                unnorm_preds[f"{embodiment_name}_loss"] = self._reduce_loss(
+                    losses, _batch[ac_key], embodiment_id, ac_key
+                )
 
                 pred_actions = self.nets["policy"].sample_actions(
                     device=self.device,
@@ -480,21 +470,35 @@ class PI(Algo):
                     num_steps=self.num_steps,
                 )
 
-                predictions = OrderedDict()
-                ref = _batch[ac_key]
-                B, T, D = ref.shape
-
-                converter = self.action_registry.get(embodiment_id, ac_key)
-                pred_actions_orig = converter.from32(pred_actions)
-
-                pred = pred_actions_orig[:, :T, :D]
-                predictions[ac_key] = pred
-
-                unnorm_actions = self.norm_stats.unnormalize(predictions, embodiment_id)
+                unnorm_actions = self._postprocess_sampled_actions(
+                    pred_actions, _batch, embodiment_id, ac_key
+                )
                 for key in unnorm_actions:
                     unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
 
         return unnorm_preds
+
+    def _reduce_loss(self, losses, action, embodiment_id, ac_key) -> torch.Tensor:
+        """Mean flow-matching loss for the embodiment."""
+        if isinstance(losses, (list, tuple)):
+            losses = torch.stack(losses)
+        elif not isinstance(losses, torch.Tensor):
+            losses = torch.tensor(losses, device=action.device, dtype=torch.float32)
+        return losses.mean()
+
+    def _postprocess_sampled_actions(self, pred_actions, _batch, embodiment_id, ac_key):
+        """Raw ``sample_actions`` output -> unnormalized native action dict.
+
+        Unpack the normalized native action (xyz+6D(+gripper)) from the
+        model's action vector, then unnormalize via the standard pipeline
+        (stats were computed on the native layout)."""
+        ref = _batch[ac_key]
+        _, T, D = ref.shape
+        converter = self.action_registry.get(embodiment_id, ac_key)
+        predictions = OrderedDict()
+        pred_native = converter.from32_norm_6d(pred_actions)
+        predictions[ac_key] = pred_native[:, :T, :D]
+        return self.norm_stats.unnormalize(predictions, embodiment_id)
 
     @override
     def compute_losses(self, predictions, batch):
@@ -555,7 +559,10 @@ class PI(Algo):
 
         emb_id = get_embodiment_id(embodiment)  # embodiment is a name string
         converter = self.action_registry.get(emb_id, ac_key)
-        action32 = converter.to32(action)
+        # The action is already normalized and in its native layout (the
+        # ypr->6D conversion happened in the data transforms). Pack it into
+        # the canonical 32-slot block layout.
+        action32 = converter.to32_norm_6d(action)
 
         # OpenPI expects a fixed camera tuple under its own names. Human data
         # only has the front camera; the missing wrist slots get a copy of it
@@ -630,40 +637,3 @@ class PI(Algo):
             return batch.clone()
         else:
             return batch  # Return as is for non-tensor types
-
-    def _extract_xyz(self, x):
-        """
-        Extract xyz (3D position) and rotation from 6DoF or 6DoF+gripper actions.
-
-        Supports:
-        - 6: 6DoF (single arm)
-        - 7: 6DoF + gripper (single arm)
-        - 12: 2 arms × 6DoF
-        - 14: 2 arms × (6DoF + gripper)
-
-        Returns:
-            xyz: Tensor with only xyz per arm (shape: ..., 3) or (..., 6) for dual-arm.
-            rot: Tensor with only rotation per arm (shape: ..., 3) or (..., 6) for dual-arm.
-        """
-        if x.shape[-1] == 6:
-            return x[..., :3], x[..., 3:6]
-        elif x.shape[-1] == 7:
-            return x[..., :3], x[..., 3:6]
-        elif x.shape[-1] == 12:
-            xyz_right = x[..., :3]
-            rot_right = x[..., 3:6]
-            xyz_left = x[..., 6:9]
-            rot_left = x[..., 9:12]
-            return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat(
-                [rot_right, rot_left], dim=-1
-            )
-        elif x.shape[-1] == 14:
-            xyz_right = x[..., :3]
-            rot_right = x[..., 3:6]
-            xyz_left = x[..., 7:10]
-            rot_left = x[..., 10:13]
-            return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat(
-                [rot_right, rot_left], dim=-1
-            )
-        else:
-            raise ValueError(f"Unexpected shape for 6DoF input: {x.shape}")

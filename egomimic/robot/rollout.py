@@ -258,7 +258,10 @@ class PolicyRollout(Rollout):
         self.debug_actions = None
         self.resampled_action_len = resampled_action_len
         self.debug = debug
-        self.transform_list = Eva.get_transform_list(mode="cartesian_wristframe_ypr")
+        # Inference on checkpoints trained before the 6D conversion.
+        self.transform_list = Eva.get_transform_list(
+            mode="cartesian_wristframe_ypr", allow_legacy_rotation=True
+        )
         self.annotation = None
         self._tokenizer = None
         self.collate_fn = default_collate

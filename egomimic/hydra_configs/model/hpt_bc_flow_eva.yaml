@@ -4,7 +4,8 @@ robomimic_model:
   camera_transforms: {}
 
   dims:
-    eva_bimanual: {proprio: 14, action: 14}
+    # cartesian_wristframe_6d (data/eva.yaml): [xyz | rot6d | grip] x 2.
+    eva_bimanual: {proprio: 20, action: 20}
 
   diffusion: true 
   6dof: true

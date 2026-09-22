@@ -9,7 +9,9 @@ robomimic_model:
   camera_transforms: {}
 
   dims:
-    human_bimanual: {proprio: 12, action: 12}
+    # cartesian_6d + pad_proprio_gripper: action [xyz | rot6d] x 2 = 18,
+    # proprio ee_pose grip-padded to the robot 20-D layout.
+    human_bimanual: {proprio: 20, action: 18}
 
   diffusion: true
   6dof: true
