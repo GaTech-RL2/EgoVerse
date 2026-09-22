@@ -152,7 +152,9 @@ class _StubText(PolicyStem):
         return self.embed(ids), mask
 
 
-def _model(cond_drop=None, text=True, history_len=1, frames=2, frame_dropout=0.0):
+def _model(
+    cond_drop=None, text=True, history_len=1, frames=2, frame_dropout=0.0, memory=None
+):
     torch.manual_seed(0)
     model = RDTModel(
         embed_dim=D,
@@ -161,6 +163,7 @@ def _model(cond_drop=None, text=True, history_len=1, frames=2, frame_dropout=0.0
         cond_drop=cond_drop,
         image_history=frames,
         image_history_dropout=frame_dropout,
+        memory=memory,
     )
     shared = {"front_img_1": MLPPolicyStem(input_dim=D, output_dim=D, widths=[D])}
     if text:
@@ -179,7 +182,11 @@ def _model(cond_drop=None, text=True, history_len=1, frames=2, frame_dropout=0.0
         DOMAIN,
         FMPolicy(
             model=RDTDenoiser(
-                act_dim=ACT, act_seq=SEQ, hidden_dim=D, n_state_tokens=history_len
+                act_dim=ACT,
+                act_seq=SEQ,
+                hidden_dim=D,
+                n_state_tokens=history_len,
+                n_memory_tokens=memory["frames"] * memory["latents"] if memory else 0,
             ),
             action_horizon=SEQ,
             infer_ac_dims={DOMAIN: ACT},
@@ -194,7 +201,7 @@ def _model(cond_drop=None, text=True, history_len=1, frames=2, frame_dropout=0.0
     return model
 
 
-def _data(history_len=1, text=True, frames=2):
+def _data(history_len=1, text=True, frames=2, memory_frames=0):
     torch.manual_seed(2)
     data = {
         "front_img_1": torch.rand(B, frames, 1, 3, 32, 48),
@@ -205,6 +212,9 @@ def _data(history_len=1, text=True, frames=2):
     }
     if text:
         data["annotation"] = ["a", "b", "c"]
+    if memory_frames:
+        data["memory"] = torch.rand(B, memory_frames, 3, 32, 48)
+        data["memory_mask"] = torch.ones(B, memory_frames, dtype=torch.bool)
     return data
 
 
@@ -476,3 +486,150 @@ def test_compile_traces_the_dit_through_the_heads():
         for n, p in model.named_parameters()
         if "trunk.trunk.blocks" in n
     )
+
+
+# --------------------------------------------------------------------------
+# Long-range memory
+# --------------------------------------------------------------------------
+
+MEM_FRAMES, LATENTS = 3, 2
+
+
+def _memory(**kwargs):
+    return {
+        "encoder": _dino(),
+        "frames": MEM_FRAMES,
+        "stride_s": 1.0,
+        "latents": LATENTS,
+        **kwargs,
+    }
+
+
+def _mem_cond(backbone=None):
+    cond = _cond(backbone)
+    torch.manual_seed(3)
+    cond.memory = torch.randn(B, 4, D)
+    cond.memory_mask = torch.ones(B, 4, dtype=torch.bool)
+    return cond
+
+
+def test_denoiser_ignores_masked_memory_tokens_and_uses_the_rest():
+    net, x, t = _denoiser(n_memory_tokens=4), torch.randn(B, SEQ, ACT), torch.rand(B)
+    cond = _mem_cond()
+    cond.memory_mask[:, :2] = False
+    ref = net(x, t, cond)
+    cond.memory[:, :2] += 10.0
+    assert torch.allclose(net(x, t, cond), ref, atol=1e-5)
+    cond.memory[:, 3] += 1.0
+    assert not torch.allclose(net(x, t, cond), ref, atol=1e-4)
+
+
+def test_a_denoiser_without_memory_is_unchanged_by_the_new_arguments():
+    old = _denoiser()
+    new = _denoiser(n_memory_tokens=0)
+    x, t = torch.randn(B, SEQ, ACT), torch.rand(B)
+    assert torch.equal(old(x, t, _cond()), new(x, t, _cond()))
+
+
+def test_denoiser_rejects_wrong_memory_token_count():
+    with pytest.raises(ValueError, match="n_memory_tokens"):
+        _denoiser(n_memory_tokens=3)(
+            torch.randn(B, SEQ, ACT), torch.rand(B), _mem_cond()
+        )
+
+
+def test_model_memory_tokens_and_mask():
+    model = _model(memory=_memory()).eval()
+    data = _data(memory_frames=MEM_FRAMES)
+    data["memory_mask"][0, 0] = False
+    cond, _ = model.forward_features(DOMAIN, data)
+    assert cond.memory.shape == (B, MEM_FRAMES * LATENTS, D)
+    assert cond.memory_mask[0].tolist() == [False] * LATENTS + [True] * (
+        LATENTS * (MEM_FRAMES - 1)
+    )
+    assert cond.memory_mask[1:].all()
+    out = model.forward(DOMAIN, data)
+    assert out[DOMAIN].shape == (B, SEQ, ACT)
+
+
+def test_memory_frames_are_tagged_by_age():
+    model = _model(memory=_memory()).eval()
+    data = _data(memory_frames=MEM_FRAMES)
+    data["memory"][:] = data["memory"][:, :1].clone()  # three identical frames
+    cond, _ = model.forward_features(DOMAIN, data)
+    per_frame = cond.memory.reshape(B, MEM_FRAMES, LATENTS, D)
+    assert not torch.allclose(per_frame[:, 0], per_frame[:, 1], atol=1e-4)
+
+
+def test_memory_dropout_is_train_only_and_masks_the_whole_window():
+    model = _model(memory=_memory(dropout=1.0))
+    data = _data(memory_frames=MEM_FRAMES)
+    cond, _ = model.train().forward_features(DOMAIN, data)
+    assert not cond.memory_mask.any()
+    cond, _ = model.eval().forward_features(DOMAIN, data)
+    assert cond.memory_mask.all()
+
+
+@pytest.mark.parametrize("fuse", [False, True])
+def test_memory_loss_reaches_every_trainable_parameter(fuse):
+    history = MEM_FRAMES + 1 if fuse else 1
+    model = _model(
+        history_len=history, memory=_memory(fuse_proprio=fuse, dropout=0.5)
+    ).train()
+    nn.init.normal_(model.heads[DOMAIN].model.ffn_final.fc2.weight, std=0.1)
+    data = _data(history_len=history, memory_frames=MEM_FRAMES)
+    model.compute_loss({"domain": DOMAIN, "data": data}).backward()
+    missing = [
+        n for n, p in model.named_parameters() if p.requires_grad and p.grad is None
+    ]
+    assert not missing, missing
+    tower = model.long_memory.encoder.tower
+    assert all(not p.requires_grad for p in tower.parameters())
+
+
+def test_fused_memory_reads_the_proprio_of_its_own_step():
+    history = MEM_FRAMES + 1
+    model = _model(history_len=history, memory=_memory(fuse_proprio=True)).eval()
+    data = _data(history_len=history, memory_frames=MEM_FRAMES)
+    ref, _ = model.forward_features(DOMAIN, data)
+    data["state_ee_pose"][:, 0] += 1.0  # the oldest step <-> the oldest frame
+    cond, _ = model.forward_features(DOMAIN, data)
+    diff = (cond.memory - ref.memory).abs().reshape(B, MEM_FRAMES, -1).amax(-1)
+    assert (diff[:, 0] > 1e-4).all() and (diff[:, 1:] < 1e-6).all()
+
+
+def test_fused_memory_needs_the_proprio_on_its_grid():
+    model = _model(history_len=1, memory=_memory(fuse_proprio=True)).eval()
+    with pytest.raises(ValueError, match="fuse_proprio"):
+        model.forward_features(DOMAIN, _data(memory_frames=MEM_FRAMES))
+
+
+def test_memory_config_and_batch_must_agree():
+    with pytest.raises(ValueError, match="image_memory"):
+        _model(memory=_memory()).forward_features(DOMAIN, _data())
+    with pytest.raises(ValueError, match="image_memory"):
+        _model().forward_features(DOMAIN, _data(memory_frames=MEM_FRAMES))
+    with pytest.raises(ValueError, match="frames"):
+        _model(memory=_memory()).forward_features(DOMAIN, _data(memory_frames=2))
+
+
+def test_memory_encoder_must_be_frozen():
+    with pytest.raises(ValueError, match="frozen"):
+        _model(memory=_memory(encoder=_dino(freeze_backbone=False)))
+
+
+def test_algo_hands_the_memory_window_over_unaugmented():
+    algo = _pairing_algo(_Shift())
+    window = torch.rand(B, 4, 3, 8, 8)
+    mask = torch.tensor([[0.0, 1.0, 1.0, 1.0]] * B)
+    cam, batch = _pair_batch(torch.rand(B, 3, 8, 8), torch.rand(B, 3, 8, 8))
+    batch[f"{cam}_mem"] = window
+    batch[f"{cam}_mem_mask"] = mask
+    data = algo._robomimic_to_hpt_data(
+        batch, [cam, f"{cam}_hist", f"{cam}_mem"], [], [], "actions"
+    )
+    assert torch.equal(data["memory"], window)
+    assert data["memory_mask"].dtype == torch.bool
+    assert data["memory_mask"].tolist() == [[False, True, True, True]] * B
+    assert data["front_img_1"].shape == (B, 2, 1, 3, 8, 8)
+    assert "front_img_1_mem" not in data
