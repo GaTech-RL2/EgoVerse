@@ -43,6 +43,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.resolve_memo import memoized
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -59,6 +60,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 SEED = 42
+
+
+def _episode_table() -> pd.DataFrame:
+    return memoized(
+        ("episode_table",), lambda: episode_table_to_df(create_default_engine())
+    )
 
 
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
@@ -307,6 +314,49 @@ class EpisodeResolver:
 
         return datasets
 
+    def _memo_fields(self) -> tuple:
+        """Resolver state that affects which paths ``_compute_paths`` returns."""
+        raise NotImplementedError
+
+    def _compute_paths(
+        self, filters: DatasetFilter, expected_embodiment: str | None
+    ) -> list[tuple[str, str]]:
+        raise NotImplementedError
+
+    def resolve_paths(
+        self,
+        filters: DatasetFilter | None = None,
+        expected_embodiment: str | None = None,
+    ) -> list[tuple[str, str]]:
+        """(path, episode_hash) pairs matching `filters`; memoized inside
+        resolve_once(). Datasets are not memoized: each resolver carries its own
+        keymap, so load() always runs."""
+        filters = _ensure_dataset_filter(filters)
+        filter_key = filters.cache_key()
+        # Keyed on the _compute_paths function itself: subclasses that only
+        # change loading share entries, one that overrides path finding gets its own.
+        key = (
+            None
+            if filter_key is None
+            else (
+                type(self)._compute_paths,
+                *self._memo_fields(),
+                filter_key,
+                expected_embodiment,
+            )
+        )
+        return list(
+            memoized(
+                key, lambda: tuple(self._compute_paths(filters, expected_embodiment))
+            )
+        )
+
+    def load(self, paths: list[tuple[str, str]]) -> dict[str, "ZarrDataset"]:
+        valid = {h for _, h in paths}
+        return self._load_zarr_datasets(
+            search_path=self.folder_path, valid_folder_names=valid
+        )
+
     @classmethod
     def _episode_already_present(cls, local_dir: Path, episode_hash: str) -> bool:
         direct = local_dir / episode_hash
@@ -338,6 +388,24 @@ class S3EpisodeResolver(EpisodeResolver):
             transform_list=transform_list,
         )
 
+    # Deliberately keyed on "S3" rather than type(self).__name__: every
+    # subclass shares this exact path resolution and differs only in load().
+    def _memo_fields(self) -> tuple:
+        return (str(self.folder_path), self.bucket_name, self.main_prefix, self.debug)
+
+    def _compute_paths(
+        self, filters: DatasetFilter, expected_embodiment: str | None
+    ) -> list[tuple[str, str]]:
+        self.folder_path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Filters: {filters}")
+        return self.sync_from_filters(
+            bucket_name=self.bucket_name,
+            filters=filters,
+            local_dir=self.folder_path,
+            debug=self.debug,
+            expected_embodiment=expected_embodiment,
+        )
+
     def resolve(
         self,
         filters: DatasetFilter | None = None,
@@ -347,36 +415,13 @@ class S3EpisodeResolver(EpisodeResolver):
         Outputs a dict of ZarrDatasets with relevant filters.
         Syncs S3 paths to local_root before indexing.
         """
-        filters = _ensure_dataset_filter(filters)
-
-        if self.folder_path.is_dir():
-            logger.info(f"Using existing directory: {self.folder_path}")
-        if not self.folder_path.is_dir():
-            self.folder_path.mkdir(parents=True, exist_ok=True)
-
-        logger.info(f"Filters: {filters}")
-
-        filtered_paths = self.sync_from_filters(
-            bucket_name=self.bucket_name,
-            filters=filters,
-            local_dir=self.folder_path,
-            debug=self.debug,
-            expected_embodiment=expected_embodiment,
-        )
-
-        valid_hashes = {hashes for _, hashes in filtered_paths}
-        if not valid_hashes:
+        paths = self.resolve_paths(filters, expected_embodiment)
+        if not paths:
             raise ValueError(
                 "No valid collection names from _get_filtered_paths: "
                 "filters matched no episodes in the SQL table."
             )
-
-        datasets = self._load_zarr_datasets(
-            search_path=self.folder_path,
-            valid_folder_names=valid_hashes,
-        )
-
-        return datasets
+        return self.load(paths)
 
     @staticmethod
     def _get_filtered_paths(
@@ -398,8 +443,7 @@ class S3EpisodeResolver(EpisodeResolver):
                                    for episodes passing the filter criteria.
         """
         filters = _ensure_dataset_filter(filters)
-        engine = create_default_engine()
-        df = episode_table_to_df(engine)
+        df = _episode_table()
         # Before the empty-table early return: pins against an empty table are
         # still invalid and must raise rather than silently resolve to nothing.
         _check_pins(df, filters, expected_embodiment)
@@ -787,6 +831,21 @@ class LocalEpisodeResolver(EpisodeResolver):
         logger.info("Local filtered paths: %s", filtered)
         return filtered
 
+    # Deliberately keyed on "Local" rather than type(self).__name__: every
+    # subclass shares this exact path resolution and differs only in load().
+    def _memo_fields(self) -> tuple:
+        return (str(self.folder_path), self.debug)
+
+    def _compute_paths(
+        self, filters: DatasetFilter, expected_embodiment: str | None
+    ) -> list[tuple[str, str]]:
+        return self._get_local_filtered_paths(
+            self.folder_path,
+            filters,
+            debug=self.debug,
+            expected_embodiment=expected_embodiment,
+        )
+
     def resolve(
         self,
         sync_from_s3=False,
@@ -801,28 +860,14 @@ class LocalEpisodeResolver(EpisodeResolver):
                 "LocalEpisodeResolver does not sync from S3; ignoring sync_from_s3=True."
             )
 
-        filters = _ensure_dataset_filter(filters)
-
-        filtered_paths = self._get_local_filtered_paths(
-            self.folder_path,
-            filters,
-            debug=self.debug,
-            expected_embodiment=expected_embodiment,
-        )
-
-        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
-        logger.info(f"Valid folder names: {valid_folder_names}")
-        if not valid_folder_names:
+        paths = self.resolve_paths(filters, expected_embodiment)
+        if not paths:
             raise ValueError(
                 "No valid collection names from local filtering: "
                 "filters matched no episodes in the local directory."
             )
 
-        datasets = self._load_zarr_datasets(
-            search_path=self.folder_path, valid_folder_names=valid_folder_names
-        )
-
-        return datasets
+        return self.load(paths)
 
 
 class MultiDataset(torch.utils.data.Dataset):
