@@ -51,8 +51,8 @@ class HPTEvalVideo(EvalVideo):
                     preds[pred_key].cpu(), _batch[ac_key].cpu()
                 )
                 metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
-                    preds[pred_key][:, -1].cpu(),
-                    _batch[ac_key][:, -1].cpu(),
+                    preds[pred_key][:, -1].cpu().contiguous(),
+                    _batch[ac_key][:, -1].cpu().contiguous(),
                 )
                 fd = frechet_gaussian_over_time(preds[pred_key], _batch[ac_key])
                 metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = fd.mean().item()
@@ -70,7 +70,8 @@ class HPTEvalVideo(EvalVideo):
                             preds[pred_key].cpu(), _batch[aux_key].cpu()
                         )
                         metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
-                            preds[pred_key][:, -1].cpu(), _batch[aux_key][:, -1].cpu()
+                            preds[pred_key][:, -1].cpu().contiguous(),
+                            _batch[aux_key][:, -1].cpu().contiguous(),
                         )
                         fd = frechet_gaussian_over_time(
                             preds[pred_key], _batch[aux_key]
@@ -90,8 +91,8 @@ class HPTEvalVideo(EvalVideo):
                     preds[pred_key].cpu(), _batch[algo.shared_ac_key].cpu()
                 )
                 metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
-                    preds[pred_key][:, -1].cpu(),
-                    _batch[algo.shared_ac_key][:, -1].cpu(),
+                    preds[pred_key][:, -1].cpu().contiguous(),
+                    _batch[algo.shared_ac_key][:, -1].cpu().contiguous(),
                 )
                 fd = frechet_gaussian_over_time(
                     preds[pred_key], _batch[algo.shared_ac_key]
