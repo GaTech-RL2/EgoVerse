@@ -35,4 +35,6 @@ norm_stats:
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null
+  cache_dir: ${paths.cache_dir}/norm_stats   # content-keyed cache shared across runs
+  use_cache: true                            # false: always recompute, never write
 reject_outliers: true
