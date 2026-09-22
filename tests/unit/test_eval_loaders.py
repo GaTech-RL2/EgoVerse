@@ -334,6 +334,26 @@ def test_k_scales_with_the_world_size():
     assert len(th._subsample_val_datasets(cfg, "valid", split)[HUMAN]) == 20
 
 
+def test_auto_k_is_derived_from_the_resolved_split():
+    """`auto` = floor(limit_val_batches * batch_size / episodes), per dataset,
+    from the head's own loader batch size, then scaled by the world size."""
+    cfg = _cfg(metric={"valid": "auto"})
+    cfg.trainer = {"limit_val_batches": 4, "devices": 2}
+    split = {HUMAN: _split({"ep0": 100, "ep1": 100, "ep2": 100})}
+    params = {HUMAN: {"batch_size": 5}}
+    wrapped = th._subsample_val_datasets(cfg, "valid", split, params)[HUMAN]
+    assert wrapped.frames_per_episode == (4 * 5 // 3) * 2
+    for limit in (1.0, None, True):
+        cfg.trainer.limit_val_batches = limit
+        with pytest.raises(ValueError, match="auto"):
+            th._subsample_val_datasets(cfg, "valid", split, params)
+    cfg.trainer.limit_val_batches = 0  # validation off, as the bench scripts run
+    assert th._subsample_val_datasets(cfg, "valid", split, params) == split
+    cfg.trainer.limit_val_batches = 4
+    with pytest.raises(ValueError, match="batch_size"):
+        th._subsample_val_datasets(cfg, "valid", split, {})
+
+
 # ------------------------------------------------------------- 3. video loaders
 def test_video_dataset_holds_only_the_pins_in_frame_order():
     split = _split({"ep0": 30, "ep1": 20, "ep2": 25})
