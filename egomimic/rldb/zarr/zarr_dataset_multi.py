@@ -40,6 +40,7 @@ import zarr
 from tqdm import tqdm
 
 from egomimic.rldb.embodiment.embodiment import (
+    HISTORY_MASK_SUFFIX,
     canonical_embodiment_name,
     get_embodiment_id,
 )
@@ -2217,59 +2218,62 @@ class ZarrDataset(torch.utils.data.Dataset):
         mask[: max(n_real, 0)] = 1.0
         return mask
 
-    def _proprio_history(self) -> tuple[int, int] | None:
-        """``(K, stride)`` of the keymap's ``history`` entries, else None."""
+    def _proprio_history_spec(self) -> dict | None:
+        """The first non-camera keymap entry with ``history`` > 1, else None."""
         for spec in self.key_map.values():
-            history = spec.get("history")
-            if history is not None and int(history) > 1:
-                return int(history), int(spec.get("history_stride", 1) or 1)
+            if spec.get("key_type") == "camera_keys":
+                continue
+            if int(spec.get("history") or 1) > 1:
+                return spec
         return None
 
     def _proprio_history_mask(self, idx: int) -> np.ndarray | None:
-        """1.0 per real history frame, 0.0 per front-padded one, ``(K,)``.
-
-        The backward window is clamped at the episode start, so the first
-        stride * (K - 1) samples are short and ``_front_pad_history`` repeats
-        their first real frame. ``None`` when the keymap has no history key.
-        """
-        spec = self._proprio_history()
+        """1.0 per real history frame, 0.0 per front-padded one, ``(K,)``;
+        ``None`` when the keymap has no proprio history key."""
+        spec = self._proprio_history_spec()
         if spec is None:
             return None
-        history, stride = spec
-        n_real = min(history, idx // stride + 1)
-        mask = np.zeros(history, dtype=np.float32)
-        mask[history - n_real :] = 1.0
-        return mask
+        return self._history_indices(idx, spec)[1]
 
     def _fps(self) -> float:
         """The episode's frame rate (zarr ``fps`` attr; 30 when absent)."""
         return float(self.metadata.get("fps") or 30)
 
+    def _seconds_to_frames(self, seconds: float) -> int:
+        """``seconds`` in this episode's fps, at least one frame."""
+        return max(1, round(float(seconds) * self._fps()))
+
     def _lagged_idx(self, idx: int, lag_s: float) -> int:
         """Frame ``lag_s`` seconds before ``idx`` (at least one frame back),
         clamped at the episode start -- so the first samples read frame 0,
-        the same front padding ``_front_pad_history`` gives proprio."""
-        return max(0, idx - max(1, round(float(lag_s) * self._fps())))
+        the same front padding a history window gets."""
+        return max(0, idx - self._seconds_to_frames(lag_s))
 
-    @staticmethod
-    def _stride_history(array: np.ndarray, history: int, stride: int) -> np.ndarray:
-        """Take the current frame and every ``stride``-th frame before it, in
-        order, from a contiguous backward window."""
-        if stride > 1:
-            array = array[::-1][::stride][::-1]
-        return ZarrDataset._front_pad_history(array, history)
+    def _history_stride(self, spec: dict) -> int:
+        """Frames between history steps: ``history_stride_s`` (seconds, so a
+        window spans the same time at any fps) wins over ``history_stride``."""
+        stride_s = spec.get("history_stride_s")
+        if stride_s is not None:
+            return self._seconds_to_frames(stride_s)
+        return int(spec.get("history_stride", 1) or 1)
 
-    @staticmethod
-    def _front_pad_history(array: np.ndarray, history: int) -> np.ndarray:
-        """Front-pad a backward window to ``history`` steps by repeating its
-        first real frame, so the current frame is always ``[-1]``. The mirror
-        of ``_pad_to_horizon``, which repeat-pads the TAIL of a forward chunk.
+    def _history_indices(self, idx: int, spec: dict) -> tuple[np.ndarray, np.ndarray]:
+        """``(K,)`` frame indices of a ``history`` entry, oldest first, and their
+        ``(K,)`` float32 mask.
+
+        The newest step is ``idx`` or, with ``lag_s``, that many seconds before
+        it. Steps before the episode start are masked 0 and repeat the oldest
+        real step (frame 0 when none is real), so the newest step is always
+        ``[-1]``.
         """
-        seq_len = array.shape[0]
-        if seq_len >= history:
-            return array
-        padding = np.repeat(array[:1], history - seq_len, axis=0)
-        return np.concatenate([padding, array], axis=0)
+        history = int(spec["history"])
+        newest = idx
+        if spec.get("lag_s") is not None:
+            newest = idx - self._seconds_to_frames(spec["lag_s"])
+        steps = newest - self._history_stride(spec) * np.arange(history - 1, -1, -1)
+        real = steps >= 0
+        fill = steps[real][0] if real.any() else 0
+        return np.where(real, steps, fill), real.astype(np.float32)
 
     @staticmethod
     def _pad_to_horizon(array, horizon: int | None):
@@ -2290,11 +2294,14 @@ class ZarrDataset(torch.utils.data.Dataset):
             data[k] = self._pad_to_horizon(data[k], horizon)
         return data
 
-    def _read_windows(self, idx: int) -> dict[str, tuple[str, tuple[int, int | None]]]:
-        """``{keymap key: (zarr key, (start, end))}`` for frame *idx*.
+    def _read_windows(
+        self, idx: int
+    ) -> dict[str, tuple[str, tuple[int, int | None] | np.ndarray]]:
+        """``{keymap key: (zarr key, window)}`` for frame *idx*.
 
-        ``end`` None means the single frame at ``start``. Annotation keys read
-        nothing and are left out.
+        ``window`` is ``(start, end)``, ``end`` None meaning the single frame
+        at ``start``, or for a ``history`` entry the ``(K,)`` frame indices of
+        ``_history_indices``. Annotation keys read nothing and are left out.
         """
         windows = {}
         for k, spec in self.key_map.items():
@@ -2304,26 +2311,25 @@ class ZarrDataset(torch.utils.data.Dataset):
             history = spec.get("history")
             lag_s = spec.get("lag_s")
             if horizon is not None:
-                interval = (
+                window = (
                     idx,
                     self._chunk_end_idx(idx, horizon, spec.get("key_type")),
                 )
+            elif history is not None and (
+                int(history) > 1 or spec.get("key_type") == "camera_keys"
+            ):
+                # A camera window keeps its (K, ...) axis even at K = 1. Point
+                # reads, not a contiguous span: on a JPEG key (one frame per
+                # chunk) a span would fetch every frame between the steps.
+                # ZarrEpisode.plan_reads still merges them on numeric keys.
+                window = self._history_indices(idx, spec)[0]
             elif lag_s is not None:
                 # A single PAST frame (image history): the same zarr array as
                 # the current-frame entry, read ``lag_s`` seconds back.
-                interval = (self._lagged_idx(idx, lag_s), None)
-            elif history is not None and int(history) > 1:
-                # Backward window ending at (and including) the current frame,
-                # every `history_stride`-th step; clamped at the episode start,
-                # thinned and front-padded by the caller, so the key is always
-                # (K, D) with `[..., -1]` the single frame a K = 1 keymap would
-                # have read. Read contiguously: numeric keys are chunked 100 rows,
-                # so the skipped rows sit in chunks the read fetches anyway.
-                stride = int(spec.get("history_stride", 1) or 1)
-                interval = (max(0, idx - stride * (int(history) - 1)), idx + 1)
+                window = (self._lagged_idx(idx, lag_s), None)
             else:
-                interval = (idx, None)
-            windows[k] = (spec["zarr_key"], interval)
+                window = (idx, None)
+            windows[k] = (spec["zarr_key"], window)
         return windows
 
     def __getitem__(
@@ -2368,11 +2374,26 @@ class ZarrDataset(torch.utils.data.Dataset):
             # ZarrEpisode.plan_reads), so two frames far apart on a JPEG key
             # stay two rows.
             intervals: dict[str, list[tuple[int, int]]] = {}
-            for zarr_key, (start, end) in windows.values():
-                intervals.setdefault(zarr_key, []).append(
-                    (start, start + 1 if end is None else end)
-                )
+            for zarr_key, window in windows.values():
+                if isinstance(window, np.ndarray):
+                    spans = [(int(i), int(i) + 1) for i in np.unique(window)]
+                else:
+                    start, end = window
+                    spans = [(start, start + 1 if end is None else end)]
+                intervals.setdefault(zarr_key, []).extend(spans)
             groups = self.episode_reader.read_intervals(intervals)
+
+            def _rows(zarr_key: str, start: int, stop: int):
+                for lo, rows in groups[zarr_key]:
+                    if lo <= start and stop <= lo + len(rows):
+                        return rows[start - lo : stop - lo]
+                # A StopIteration escaping __getitem__ reads as "epoch over"
+                # to the DataLoader; a short array must fail loudly.
+                raise ValueError(
+                    f"ep={Path(self.episode_path).name} key={zarr_key}: "
+                    f"window [{start}, {stop}) is past the rows read "
+                    f"{[(lo, lo + len(rows)) for lo, rows in groups[zarr_key]]}"
+                )
 
             data = {}
             retry = False
@@ -2380,53 +2401,40 @@ class ZarrDataset(torch.utils.data.Dataset):
                 zarr_key = self.key_map[k]["zarr_key"]
                 key_type = self.key_map[k].get("key_type", None)
                 horizon = self.key_map[k].get("horizon", None)
-                history = self.key_map[k].get("history", None)
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
                     continue
 
-                start, end = windows[k][1]
-                stop = start + 1 if end is None else end
-                found = next(
-                    (
-                        (lo, rows)
-                        for lo, rows in groups[zarr_key]
-                        if lo <= start and stop <= lo + len(rows)
-                    ),
-                    None,
-                )
-                if found is None:
-                    # A StopIteration escaping __getitem__ reads as "epoch
-                    # over" to the DataLoader; a short array must fail loudly.
-                    raise ValueError(
-                        f"ep={Path(self.episode_path).name} key={zarr_key}: "
-                        f"window [{start}, {stop}) is past the rows read "
-                        f"{[(lo, lo + len(rows)) for lo, rows in groups[zarr_key]]}"
-                    )
-                base, block = found
-                chunk = (
-                    block[start - base]
-                    if end is None
-                    else block[start - base : end - base]
-                )
-                if isinstance(chunk, np.ndarray):
-                    # A slice of a shared read is a view; every keymap entry
-                    # owned its own array before this coalescing and transforms
-                    # are free to write into it.
-                    chunk = chunk.copy()
+                window = windows[k][1]
+                if isinstance(window, np.ndarray):
+                    # (K,) rows; np.stack copies, so nothing aliases the read.
+                    rows = [_rows(zarr_key, int(i), int(i) + 1)[0] for i in window]
+                    chunk = rows if zarr_key in self._image_keys else np.stack(rows)
+                else:
+                    start, end = window
+                    chunk = _rows(zarr_key, start, start + 1 if end is None else end)
+                    chunk = chunk[0] if end is None else chunk
+                    if isinstance(chunk, np.ndarray):
+                        # A slice of a shared read is a view; every keymap entry
+                        # owned its own array before this coalescing and
+                        # transforms are free to write into it.
+                        chunk = chunk.copy()
                 data[k] = self._pad_to_horizon(chunk, horizon)
-                if horizon is None and history is not None and int(history) > 1:
-                    data[k] = self._stride_history(
-                        data[k],
-                        int(history),
-                        int(self.key_map[k].get("history_stride", 1) or 1),
-                    )
 
                 if zarr_key in self._image_keys:
-                    jpeg_bytes = data[k]
                     try:
-                        decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                        if isinstance(data[k], list):
+                            # A history window, (K, H, W, 3): decode each
+                            # distinct frame once (front padding repeats one).
+                            window = windows[k][1]
+                            unique = {
+                                int(i): simplejpeg.decode_jpeg(b, colorspace="RGB")
+                                for i, b in zip(window, data[k])
+                            }
+                            decoded = np.stack([unique[int(i)] for i in window])
+                        else:
+                            decoded = simplejpeg.decode_jpeg(data[k], colorspace="RGB")
                     except Exception:
                         idx = _next("JPEG decode failed", key=k)
                         retry = True
@@ -2440,7 +2448,7 @@ class ZarrDataset(torch.utils.data.Dataset):
                     # possible values and float32(u)/float32(255) equals
                     # float32(u / 255.0) for every one of them (see
                     # tests/unit/test_image_decode_dtype.py).
-                    data[k] = np.transpose(decoded, (2, 0, 1)).astype(
+                    data[k] = np.moveaxis(decoded, -1, -3).astype(
                         np.float32
                     ) / np.float32(255.0)
                 elif zarr_key in self._json_keys:
@@ -2456,6 +2464,14 @@ class ZarrDataset(torch.utils.data.Dataset):
                 # Travels with the chunk through the interpolators
                 # (InterpolatePadMask) to the model horizon.
                 data["action_pad_mask"] = pad_mask
+
+            for k, spec in self.key_map.items():
+                if spec.get("key_type") == "camera_keys" and spec.get("history"):
+                    # Unlike proprio, a padded frame has to be masked out of
+                    # attention, so each image window carries its own mask.
+                    data[f"{k}{HISTORY_MASK_SUFFIX}"] = self._history_indices(
+                        idx, spec
+                    )[1]
 
             history_mask = self._proprio_history_mask(idx)
             if history_mask is not None:
