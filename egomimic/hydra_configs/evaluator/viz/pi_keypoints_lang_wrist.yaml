@@ -1,0 +1,10 @@
+# Pi twin of keypoints_wrist: eva cartesian trajectory + human MANO keypoint
+# overlay with the sampled prompt drawn on the frame.
+defaults:
+  - keypoints_wrist
+  - _self_
+
+eva_bimanual:
+  annotation_key: sampled_prompt
+human_bimanual:
+  annotation_key: sampled_prompt

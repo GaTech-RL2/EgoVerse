@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 import torch
+from lightning import LightningModule
 from scipy.spatial.transform import Rotation as R
 
 import egomimic
@@ -360,3 +361,190 @@ def test_bounds_check_has_relative_slack_but_catches_corrupt_values():
     assert check(1.0 + 0.4 * 2.0) is None  # within 50 % of the [-1, 1] range
     assert check(1.0 + 0.6 * 2.0) is not None
     assert check(1e9) is not None
+
+
+# ------------------------------------------------------ train_viz second loader
+class _Dicts:
+    def __init__(self, n, tag):
+        self.n, self.tag = n, tag
+
+    def __len__(self):
+        return self.n
+
+    def __getitem__(self, i):
+        return {"x": np.float32(i), "tag": [self.tag]}
+
+
+def test_val_dataloader_returns_two_loaders_with_train_viz():
+    from lightning.pytorch.utilities.combined_loader import CombinedLoader
+
+    from egomimic.pl_utils.pl_data_utils import MultiDataModuleWrapper
+
+    params = {"human_bimanual": {"batch_size": 2, "num_workers": 0}}
+    dm = MultiDataModuleWrapper(
+        train_datasets={"human_bimanual": _Dicts(4, "train")},
+        valid_datasets={"human_bimanual": _Dicts(4, "valid")},
+        train_dataloader_params=params,
+        valid_dataloader_params=params,
+        held_out_operators=["op1"],
+    )
+    assert isinstance(dm.val_dataloader(), CombinedLoader)
+    dm = MultiDataModuleWrapper(
+        train_datasets={"human_bimanual": _Dicts(4, "train")},
+        valid_datasets={"human_bimanual": _Dicts(4, "valid")},
+        train_dataloader_params=params,
+        valid_dataloader_params=params,
+        train_viz_datasets={"human_bimanual": _Dicts(4, "viz")},
+        train_viz_dataloader_params={
+            "human_bimanual": {**params["human_bimanual"], "shuffle": False}
+        },
+    )
+    loaders = dm.val_dataloader()
+    assert isinstance(loaders, list) and len(loaders) == 2
+    batch, _, _ = next(iter(loaders[1]))
+    assert batch["human_bimanual"]["tag"] == [["viz"], ["viz"]]
+
+
+def test_validation_step_routes_by_dataloader_idx():
+    from egomimic.pl_utils.pl_model import ModelWrapper
+
+    calls = []
+
+    class _Ev:
+        def __init__(self, name):
+            self.name = name
+
+        def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
+            calls.append((self.name, batch, batch_idx, dataloader_idx))
+
+    w = ModelWrapper.__new__(ModelWrapper)
+    LightningModule.__init__(w)  # global_rank etc. without a trainer
+    w.model = SimpleNamespace(process_batch_for_training=lambda b: {"processed": b})
+    w.evaluator = _Ev("valid")
+    w.train_viz_evaluator = _Ev("train_viz")
+    # Lightning hands the outer sequential loader's inner triple as `batch`
+    w.validation_step(({"k": 1}, 0, 0), 0, dataloader_idx=0)
+    w.validation_step(({"k": 2}, 0, 1), 3, dataloader_idx=1)
+    w.validation_step({"k": 3}, 1, dataloader_idx=0)
+    assert calls == [
+        ("valid", {"processed": {"k": 1}}, 0, 0),
+        ("train_viz", {"processed": {"k": 2}}, 3, 1),
+        ("valid", {"processed": {"k": 3}}, 1, 0),
+    ]
+    w.train_viz_evaluator = None
+    w.validation_step({"k": 4}, 0, dataloader_idx=1)  # no second head: ignored
+    assert len(calls) == 3
+
+
+def test_unseen_op_valid_third_loader_and_routing():
+    """unseen_op_valid_datasets adds a loader after train_viz; without train_viz it
+    takes idx 1, and ModelWrapper routes by val_loader_names, not position."""
+    from egomimic.pl_utils.pl_data_utils import MultiDataModuleWrapper
+    from egomimic.pl_utils.pl_model import ModelWrapper
+
+    params = {"human_bimanual": {"batch_size": 2, "num_workers": 0}}
+    common = dict(
+        train_datasets={"human_bimanual": _Dicts(4, "train")},
+        valid_datasets={"human_bimanual": _Dicts(4, "valid")},
+        train_dataloader_params=params,
+        valid_dataloader_params=params,
+        unseen_op_valid_datasets={"human_bimanual": _Dicts(4, "unseen")},
+        unseen_op_valid_dataloader_params=params,
+    )
+    dm = MultiDataModuleWrapper(
+        **common,
+        train_viz_datasets={"human_bimanual": _Dicts(4, "viz")},
+        train_viz_dataloader_params=params,
+    )
+    assert dm.val_loader_names() == ["valid", "train_viz", "unseen_op_valid"]
+    loaders = dm.val_dataloader()
+    tags = [next(iter(ld))[0]["human_bimanual"]["tag"][0][0] for ld in loaders]
+    assert tags == ["valid", "viz", "unseen"]
+
+    dm = MultiDataModuleWrapper(**common)
+    assert dm.val_loader_names() == ["valid", "unseen_op_valid"]
+
+    calls = []
+
+    class _Ev:
+        def __init__(self, name):
+            self.name = name
+
+        def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
+            calls.append((self.name, dataloader_idx))
+
+    w = ModelWrapper.__new__(ModelWrapper)
+    LightningModule.__init__(w)
+    w.model = SimpleNamespace(process_batch_for_training=lambda b: b)
+    w.evaluator = _Ev("valid")
+    w.train_viz_evaluator = None
+    w.unseen_op_valid_evaluator = _Ev("unseen_op_valid")
+    w.val_loader_names = dm.val_loader_names()
+    w.validation_step({"k": 1}, 0, dataloader_idx=0)
+    w.validation_step({"k": 2}, 0, dataloader_idx=1)
+    assert calls == [("valid", 0), ("unseen_op_valid", 1)]
+
+
+# ------------------------------------------------------ train_viz on by default
+def _viz_cfg(**top):
+    from omegaconf import OmegaConf
+
+    data = top.pop("data", {})
+    cfg = {
+        "mode": "train",
+        "evaluator": {
+            "_target_": "egomimic.eval.eval_hpt.HPTEvalVideo",
+            "viz_every_n_epochs": 7,
+        },
+        "data": {
+            "valid_dataloader_params": {HUMAN: {"batch_size": 4, "num_workers": 3}},
+            **data,
+        },
+        **top,
+    }
+    return OmegaConf.create(cfg)
+
+
+def test_train_viz_defaults_to_the_train_datasets():
+    import egomimic.trainHydra as th
+
+    train = {HUMAN: object()}
+    viz, params = th._train_viz_datasets(_viz_cfg(), train, instantiate=None)
+    assert viz[HUMAN] is train[HUMAN], "reuses the train split, no second resolve"
+    # valid loader params, never shuffled (same leading slice every val)
+    assert params == {HUMAN: {"batch_size": 4, "num_workers": 3, "shuffle": False}}
+
+
+def test_train_viz_explicit_datasets_and_opt_outs():
+    import egomimic.trainHydra as th
+
+    train = {HUMAN: object()}
+    explicit = _viz_cfg(
+        data={
+            "train_viz_datasets": {HUMAN: {"tag": "explicit"}},
+            "train_viz_dataloader_params": {HUMAN: {"batch_size": 32}},
+        }
+    )
+    viz, params = th._train_viz_datasets(
+        explicit, train, instantiate=lambda node, dataset_name: ("built", node.tag)
+    )
+    assert viz == {HUMAN: ("built", "explicit")}
+    assert params is None, "the data config's own params are left to Hydra"
+
+    for off in (
+        _viz_cfg(train_viz=False),
+        _viz_cfg(mode="eval"),
+        _viz_cfg(evaluator=None),
+    ):
+        assert th._train_viz_datasets(off, train, instantiate=None) == ({}, None)
+
+
+def test_train_viz_evaluator_wraps_the_canonical_evaluator():
+    import egomimic.trainHydra as th
+    from egomimic.eval.eval_train_viz import TrainVizEvalVideo
+
+    cfg = _viz_cfg()
+    ev = th._build_train_viz_evaluator(cfg)
+    assert isinstance(ev, TrainVizEvalVideo)
+    assert ev.viz_every_n_epochs == 7
+    assert th._build_train_viz_evaluator(_viz_cfg(train_viz=False)) is None
