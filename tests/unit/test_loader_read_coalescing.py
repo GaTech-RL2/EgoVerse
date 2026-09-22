@@ -240,7 +240,7 @@ def test_union_does_not_depend_on_keymap_order(episode):
     }
     for key_map in (order, dict(reversed(order.items()))):
         ds = ZarrDataset(episode, key_map=key_map, transform_list=None)
-        starts = [w[1] for w in ds._read_windows(60).values()]
+        starts = [w[1][0] for w in ds._read_windows(60).values()]
         assert min(starts) == 57 and max(starts) == 60
         sample = ds[60]
         np.testing.assert_array_equal(
