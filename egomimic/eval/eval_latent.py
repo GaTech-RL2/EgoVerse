@@ -277,8 +277,8 @@ class PILatentEvalVideo(EvalVideo):
                         unnorm_preds[pred_key].cpu(), unnorm_batch[ac_key].cpu()
                     )
                     metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
-                        unnorm_preds[pred_key][:, -1].cpu(),
-                        unnorm_batch[ac_key][:, -1].cpu(),
+                        unnorm_preds[pred_key][:, -1].cpu().contiguous(),
+                        unnorm_batch[ac_key][:, -1].cpu().contiguous(),
                     )
 
                 if do_viz and self.viz_func is not None:

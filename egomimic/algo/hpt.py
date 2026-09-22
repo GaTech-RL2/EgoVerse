@@ -1383,9 +1383,10 @@ class HPT(DeterministicEvalMixin, Algo):
         cotrain run has one per domain, so the domain has to be named -- a
         suffix match would return whichever came first in the dict.
         """
+        # an nn.ModuleDict once built: `in` and [] work on it, .get does not
         stems = getattr(self.nets["policy"], "stems", None) or {}
-        stem = stems.get(f"{domain}_{modality}", stems.get(modality))
-        return int(getattr(stem, "history_len", 1)) if stem is not None else 1
+        name = next((n for n in (f"{domain}_{modality}", modality) if n in stems), None)
+        return int(getattr(stems[name], "history_len", 1)) if name else 1
 
     def _robomimic_to_hpt_data(
         self,
