@@ -1460,9 +1460,16 @@ class MultiDataset(torch.utils.data.Dataset):
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
         pool_horizon: bool = False,
+        episode_cache: str | Path | None = None,
+        episode_fingerprints: Mapping[str, str | None] | None = None,
     ):
         """Fill ``self.norm_stats[embodiment]`` from a precomputed file or by
         sampling ``dataset``.
+
+        ``episode_cache``: a per-episode sample store
+        (``episode_norm_samples.cache_root``). Rows are read from, and new
+        episodes written to, it instead of sampling the whole dataset.
+        ``episode_fingerprints`` saves recomputing the episodes' fingerprints.
 
         ``pool_horizon``: compute each chunked key's stats over every timestep
         of the chunk (one set per channel, like openpi) instead of per
@@ -1520,14 +1527,16 @@ class MultiDataset(torch.utils.data.Dataset):
                 )
                 return
 
-        loader = torch.utils.data.DataLoader(
-            dataset,
-            batch_size=batch_size,
-            num_workers=num_workers,
-            shuffle=True,
-            generator=torch.Generator().manual_seed(seed),
-            worker_init_fn=die_with_parent,
-        )
+        if episode_cache is not None and any(
+            isinstance(ds, MultiDataset) or getattr(ds, "episode_path", None) is None
+            for ds in dataset.datasets.values()
+        ):
+            logger.warning(
+                "[MultiDataset] per-episode norm cache needs a flat dataset of "
+                "zarr episodes; sampling the whole dataset instead"
+            )
+            episode_cache = None
+
         N = len(dataset)
         if N <= 0:
             raise ValueError("Dataset is empty")
@@ -1542,9 +1551,38 @@ class MultiDataset(torch.utils.data.Dataset):
         )
 
         loading_start = time.time()
-        collected = self._collect_norm_samples(
-            loader, norm_keys, embodiment, n_samples, batch_size, num_workers
-        )
+        episode_meta = {}
+        if episode_cache is not None:
+            from egomimic.rldb.zarr import episode_norm_samples
+
+            zarr_keys = {
+                k: z
+                for k in norm_keys
+                if (z := self.keyname_to_zarr_key(k, embodiment)) is not None
+            }
+            collected, episode_meta = episode_norm_samples.collect(
+                Path(episode_cache),
+                dataset.datasets,
+                zarr_keys,
+                n_samples,
+                seed=seed,
+                num_workers=num_workers,
+                fingerprints=episode_fingerprints,
+            )
+            for k in norm_keys:
+                collected.setdefault(k, [])
+        else:
+            loader = torch.utils.data.DataLoader(
+                dataset,
+                batch_size=batch_size,
+                num_workers=num_workers,
+                shuffle=True,
+                generator=torch.Generator().manual_seed(seed),
+                worker_init_fn=die_with_parent,
+            )
+            collected = self._collect_norm_samples(
+                loader, norm_keys, embodiment, n_samples, batch_size, num_workers
+            )
         for k in [k for k, v in collected.items() if not v]:
             del collected[k]
             norm_keys.remove(k)
@@ -1577,6 +1615,7 @@ class MultiDataset(torch.utils.data.Dataset):
             "loading_time": loading_time,
             "computing_time": computing_time,
             "frames": n_samples,
+            **episode_meta,
         }
         logger.info(
             f"[MultiDataset] Finished norm inference, loading={loading_time:.2f}s, computing={computing_time:.2f}s"
