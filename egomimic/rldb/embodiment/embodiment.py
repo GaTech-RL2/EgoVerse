@@ -17,6 +17,11 @@ from egomimic.utils.viz_utils import (
 
 # A camera keymap entry "<key>_hist" is the same camera, `lag_s` seconds earlier.
 IMAGE_HISTORY_SUFFIX = "_hist"
+# "<key>_mem" is the same camera's long-range window: `history` frames,
+# `history_stride_s` apart, the newest `lag_s` seconds back.
+IMAGE_MEMORY_SUFFIX = "_mem"
+# A camera window "<key>" comes with "<key>_mask", (K,) 1.0 per real frame.
+HISTORY_MASK_SUFFIX = "_mask"
 
 
 class EMBODIMENT(Enum):
