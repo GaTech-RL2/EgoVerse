@@ -6,6 +6,12 @@
 # and the 80 tokens join the DiT's self-attention prefix. Steps before the
 # episode start are masked, and 20 % of samples lose the whole memory
 # (training only). See train_zarr_mecka_20pct_6d_rdt_mem_base.yaml.
+#
+# Cost, 8xH100, 32 / GPU, bf16 (2026-09-22): base 0.40 s / step, both 0.91 s.
+# Per GPU: frozen tower over 320 frames 136 ms fwd, resampler +20 ms, DiT
+# with the 80-token prefix +45 ms, fp32 window H2D 20 ms. Not loader-bound
+# (12 workers deliver a memory batch in 0.21 s), so no feature cache; if the
+# time matters, cache the frozen tower's features or lower its image_size.
 defaults:
   - train_zarr_mecka_20pct_6d_rdt_mem_base
   - _self_
