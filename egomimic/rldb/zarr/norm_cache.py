@@ -18,7 +18,6 @@ import inspect
 import json
 import logging
 import os
-import subprocess
 import uuid
 from collections.abc import Mapping
 from datetime import datetime, timezone
@@ -27,6 +26,8 @@ from pathlib import Path
 import numpy as np
 from hydra.utils import get_class, get_object
 from omegaconf import DictConfig, OmegaConf
+
+from egomimic.utils.git_info import git_sha
 
 logger = logging.getLogger(__name__)
 
@@ -195,21 +196,9 @@ def find_cached(
     return p
 
 
-@functools.cache
+@functools.lru_cache(maxsize=1)
 def _git_sha() -> str | None:
-    """HEAD of the checkout that contains this file, or None (installed wheel, no git)."""
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=Path(__file__).resolve().parent,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    sha = out.stdout.strip()
-    return sha if out.returncode == 0 and len(sha) == 40 else None
+    return git_sha()
 
 
 def write_cached(
