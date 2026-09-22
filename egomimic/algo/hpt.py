@@ -26,6 +26,7 @@ from egomimic.models.hpt_nets import (
 )
 from egomimic.models.image_augs import PerSampleAugs
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
+from egomimic.utils.compile_utils import compile_modules
 from egomimic.utils.hf_utils import download_from_huggingface
 from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
 
@@ -1025,6 +1026,23 @@ class HPT(DeterministicEvalMixin, Algo):
         self.training_step = 0
 
     @override
+    def compile_for_training(self, mode=None, dynamic=False):
+        """Compile the trunk, the flow head's denoiser and the image encoders.
+
+        Only these three are invoked through ``__call__``; the stems run via
+        ``compute_latent`` and the heads via ``compute_loss``, which
+        ``Module.compile`` does not route (and which measured no gain anyway).
+        """
+        policy = self.nets["policy"]
+        targets = [("trunk", policy.trunk["trunk"] if not policy.no_trunk else None)]
+        targets += [
+            (f"head[{name}].model", getattr(head, "model", None))
+            for name, head in policy.heads.items()
+        ]
+        targets += [(f"encoder[{name}]", enc) for name, enc in policy.encoders.items()]
+        return compile_modules(targets, mode=mode, dynamic=dynamic)
+
+    @override
     def process_batch_for_training(self, batch):
         """
         Processes input batch from a data loader to filter out
@@ -1095,7 +1113,11 @@ class HPT(DeterministicEvalMixin, Algo):
             # TODO make this work with any fp type
             for key, value in processed_batch[embodiment_id].items():
                 if isinstance(value, torch.Tensor):
-                    value = value.to(self.device)
+                    # non_blocking: a no-op from pageable memory, and from a
+                    # pin_memory loader it lets the copy overlap the previous
+                    # step. Everything downstream is queued on the same stream,
+                    # so ordering holds without an explicit wait.
+                    value = value.to(self.device, non_blocking=True)
                     if value.is_floating_point():
                         value = value.float()
                     processed_batch[embodiment_id][key] = value
@@ -1139,7 +1161,10 @@ class HPT(DeterministicEvalMixin, Algo):
                 "domain": embodiment_name,  # readability on config side
                 "data": data,
             }
-            hpt_batches[embodiment_id] = self._clone_batch(hpt_batch)
+            # Only the OT loss reads this second copy; cloning every image
+            # tensor each step for a loss that is off is pure allocation.
+            if self.ot:
+                hpt_batches[embodiment_id] = self._clone_batch(hpt_batch)
 
             if self.freeze_repr:
                 loss = self.nets["policy"].compute_loss_depth(
@@ -1322,13 +1347,23 @@ class HPT(DeterministicEvalMixin, Algo):
     def _apply_image_augs(self, images, short):
         """
         helper method that augments one camera's (B, 3, H, W) batch; train augs
-        are per-sample, the deterministic eval augs stay batched
+        are per-sample, the deterministic eval augs stay batched.
+
+        An absent camera arrives as an all-zero image and must stay zero
+        (normalizing it would make it -mean/std). The test is per sample, so a
+        batch mixing present and absent samples is covered, and it is a
+        torch.where rather than an `if`, which would read the predicate on the
+        host and serialise the step against the next batch's copy.
         """
         if self.nets.training and self.train_image_augs and short in self.encoders:
-            return self.train_image_augs(images)
+            augs = self.train_image_augs
         elif self.eval_image_augs and short in self.encoders:
-            return self.eval_image_augs(images)
-        return images
+            augs = self.eval_image_augs
+        else:
+            return images
+        absent = (images == 0).flatten(1).all(1)
+        out = augs(images)
+        return torch.where(absent.view(-1, *[1] * (out.dim() - 1)), 0.0, out)
 
     def _stem_history_len(self, domain: str, modality: str) -> int:
         """``history_len`` of ``domain``'s ``modality`` stem (1 when the stem
@@ -1381,11 +1416,9 @@ class HPT(DeterministicEvalMixin, Algo):
         for key in cam_keys:
             if key in batch:
                 short = key.rsplit(".", 1)[-1]
-                _data = batch[key]
-                if not torch.all(_data == 0):
-                    _data = self._apply_image_augs(_data, short)
-
-                data[short] = _data.unsqueeze(1).unsqueeze(1)
+                data[short] = (
+                    self._apply_image_augs(batch[key], short).unsqueeze(1).unsqueeze(1)
+                )
 
         for key in lang_keys:
             if key in batch:
