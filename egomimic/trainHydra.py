@@ -24,6 +24,7 @@ from egomimic.rldb.resolve_memo import resolve_once
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, PinError
 from egomimic.utils.checkpoint_utils import load_checkpoint_weights
+from egomimic.utils.compile_cache import set_per_job_compile_cache_dir
 from egomimic.utils.env import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
@@ -446,6 +447,10 @@ def main(cfg: DictConfig) -> Optional[float]:
     :param cfg: DictConfig configuration composed by Hydra.
     :return: Optional[float] with optimized metric value.
     """
+    # Here, not at import: a `-m` submitit launcher imports this module but only
+    # the job runs main(), so each job keys the cache on its own SLURM_JOB_ID.
+    set_per_job_compile_cache_dir()
+
     # apply extra utilities
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)
     extras(cfg)
