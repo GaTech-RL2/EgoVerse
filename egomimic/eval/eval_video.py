@@ -3,6 +3,7 @@ from abc import abstractmethod
 
 import torch
 import torchvision.io as tvio
+from lightning.pytorch.loggers import WandbLogger
 
 from egomimic.eval.eval import Eval
 from egomimic.rldb.embodiment.embodiment import get_embodiment
@@ -115,6 +116,21 @@ class EvalVideo(Eval):
         )
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tvio.write_video(path, frames, fps=self._video_fps(), video_codec="h264")
+        self._upload_video(key, path)
+
+    def _upload_video(self, key, path) -> None:
+        name = f"{os.path.basename(self.video_dir())}/{get_embodiment(key)}"
+        if self.val_counter[key]:
+            name += f"_{self.val_counter[key]}"
+        for logger in self.trainer.loggers:
+            if isinstance(logger, WandbLogger):
+                logger.log_video(
+                    name,
+                    [path],
+                    step=self.trainer.global_step,
+                    caption=[f"epoch {self.trainer.current_epoch}"],
+                    format=["mp4"],
+                )
 
     def on_validation_start(self):
         if self.trainer.is_global_zero and self._should_viz():
