@@ -1,0 +1,28 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# Loaner H100 cluster: 5 bare-metal nodes, 8x H100 80GB, 224 logical CPUs,
+# ~2 TiB RAM per node. Nodes are allocated exclusively to one job.
+name: ${hydra.job.name}
+partition: "loaner"
+account: "loaner"
+
+# 224 logical CPUs / 8 tasks-per-node (one task per GPU) = 28
+cpus_per_task: 28
+
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+
+# NOTE: Slurm --gres is PER NODE, so this is deliberately NOT multiplied by
+# ${launch_params.nodes} the way submitit.yaml / submitit_pace.yaml do. Those
+# over-request whenever nodes > 1; here that would exceed the 8 GPUs a node has.
+gres: "gpu:h100:${launch_params.gpus_per_node}"
+
+mem_per_gpu: 200G
+timeout_min: 2880   # 48h
+
+# This partition has no QoS and no nodes worth excluding.
+additional_parameters:
+  requeue: true
