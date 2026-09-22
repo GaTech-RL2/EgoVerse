@@ -152,6 +152,10 @@ robomimic_model:
         mean: [0.485, 0.456, 0.406]
         std: [0.229, 0.224, 0.225]
 
+# LR multiplier for the image encoders' pretrained backbones; 1.0 keeps the
+# single optimizer param group (ModelWrapper.configure_optimizers).
+backbone_lr_scale: 1.0
+
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
