@@ -50,9 +50,14 @@ norm_stats:
   # compared on a real run here.
   pool_horizon: false
   sample_frac: 1.0
+  # Hard cap on sampled frames. Memory is ~2 x N x T x D x 4 bytes per key, so
+  # set it on large splits (200000 on full mecka keypoints is ~23 GB).
+  max_samples: null
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null
-  cache_dir: ${paths.cache_dir}/norm_stats   # content-keyed cache shared across runs
+  # Content-keyed cache shared across runs: one entry per split, plus per-episode
+  # samples under episodes/ that any other split of the same recipe reuses.
+  cache_dir: ${paths.cache_dir}/norm_stats
   use_cache: true                            # false: always recompute, never write
 reject_outliers: true
