@@ -311,8 +311,12 @@ def _trainer_world_size(cfg: DictConfig) -> int:
 
     DistributedSampler strides rather than chunks, so W ranks between them walk
     the WHOLE split; the per-rank ``limit_val_batches`` window is therefore W
-    times wider than it looks from one rank.
+    times wider than it looks from one rank. Eval mode runs on one device
+    (``train`` forces ``devices=1`` after the loaders are built), so it is 1.
     """
+    legacy = "train" if cfg.get("train") else "eval" if cfg.get("eval") else None
+    if (cfg.get("mode") or legacy) == "eval":  # _resolve_mode, minus its raise
+        return 1
     devices = cfg.get("trainer", {}).get("devices", 1)
     if isinstance(devices, (list, ListConfig)):
         n = len(devices)
