@@ -17,7 +17,7 @@ from fixtures.train_harness import compose_recipe, hermetic_env, write_fixtures
 from omegaconf import OmegaConf
 
 import egomimic.trainHydra as train_hydra
-from egomimic.rldb.zarr import norm_cache
+from egomimic.rldb.zarr import episode_norm_samples, norm_cache
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
@@ -290,6 +290,14 @@ def test_train_writes_then_reuses_norm_cache(tmp_path, monkeypatch) -> None:
         lambda self, *a, **k: seen.append(k.get("precomputed_norm_path"))
         or orig(self, *a, **k),
     )
+    sampled = []
+    orig_sample = episode_norm_samples._sample_episodes
+    monkeypatch.setattr(
+        episode_norm_samples,
+        "_sample_episodes",
+        lambda root, leaves, *a, **k: sampled.append(sorted(leaves))
+        or orig_sample(root, leaves, *a, **k),
+    )
 
     train_hydra.train(_cfg(tmp_path, cache_dir, data, out, hashes))
     files = list((cache_dir / "norm_stats" / "human_bimanual").glob("*.json"))
@@ -305,11 +313,13 @@ def test_train_writes_then_reuses_norm_cache(tmp_path, monkeypatch) -> None:
     train_hydra.train(_cfg(tmp_path, cache_dir, data, out, hashes))
     assert seen[2] is None
     assert len(list((cache_dir / "norm_stats" / "human_bimanual").glob("*.json"))) == 2
+    assert sampled == [sorted(hashes), [hashes[0]]]  # only the re-export resampled
 
     train_hydra.train(_cfg(tmp_path, cache_dir, data, out, hashes[:2]))
     assert (
         len(list((cache_dir / "norm_stats" / "human_bimanual").glob("*.json"))) == 3
     )  # new episode set, new key
+    assert len(sampled) == 2  # ...served from the per-episode samples
 
 
 def test_common_overrides_keep_the_cache_out_of_the_checkout(tmp_path) -> None:
