@@ -20,14 +20,7 @@ DATA_CONFIGS = sorted(p.stem for p in DATA_DIR.glob("*.yaml"))
 
 # name -> reason. Strict xfail: remove the entry once the config is fixed.
 KNOWN_BROKEN_COMPOSE: dict[str, str] = {}
-KNOWN_BROKEN_INSTANTIATE: dict[str, str] = {
-    **KNOWN_BROKEN_COMPOSE,
-    "aria_pi": "Human.get_keymap called without keymap_mode (TypeError)",
-    "mecka_pi": "Human.get_keymap called without keymap_mode (TypeError)",
-    "scale_pi": "Human.get_keymap called without keymap_mode (TypeError)",
-    "industry_eva_pi": "eva domain: Eva.get_keymap called without keymap_mode (TypeError)",
-    "mecka_scale_cotrain_pi": "Human.get_keymap called without keymap_mode (TypeError)",
-}
+KNOWN_BROKEN_INSTANTIATE: dict[str, str] = {**KNOWN_BROKEN_COMPOSE}
 
 
 def _params(known_broken: dict[str, str]):
@@ -110,7 +103,27 @@ def test_scale_loads_head_pose():
     assert "obs_head_pose" in Human.get_keymap(keymap_mode="cartesian")
 
 
-def test_cotrain_pi_base_human_uses_pi_keymap():
-    cfg = compose_data("cotrain_pi_base")
-    km = cfg.data.train_datasets.human_bimanual.resolver.key_map
-    assert km.keymap_mode == "cartesian_pi"
+@pytest.mark.parametrize("name", _params(KNOWN_BROKEN_COMPOSE))
+def test_no_data_config_uses_a_pi_keymap_mode(name):
+    # Camera naming is the Pi wrapper's job (PI_CAMERA_SLOTS); a `_pi` keymap
+    # mode is only a deprecated alias kept for configs saved by earlier runs.
+    cfg = compose_data(name)
+    for split in ("train_datasets", "valid_datasets"):
+        for emb, node in (cfg.data.get(split) or {}).items():
+            if node is None:
+                continue
+            mode = node.resolver.key_map.get("keymap_mode")
+            assert not str(mode).endswith("_pi"), (name, split, emb, mode)
+
+
+def test_pi_train_config_defaults_to_all_eva_with_annotations():
+    # data=eva is a one-episode smoke config without annotations; Pi's default
+    # must not silently train on that with an empty prompt.
+    with initialize_config_module(
+        config_module="egomimic.hydra_configs", version_base=None
+    ):
+        cfg = compose(config_name="train_zarr_cartesian_pi")
+    eva = cfg.data.train_datasets.eva_bimanual
+    assert eva.resolver.key_map.annotation_key == "annotations"
+    assert not eva.filters.get("episode_hashes")
+    assert cfg.model.robomimic_model.default_prompt == ""

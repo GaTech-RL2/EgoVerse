@@ -21,26 +21,13 @@ class Recipe:
     extra: tuple[str, ...] = ()
 
 
-def _pi_human(model: str, stride: int) -> Recipe:
-    # There is no shipped single-vendor human Pi data config that instantiates:
-    # aria_pi/mecka_pi/scale_pi call Human.get_keymap without keymap_mode (see
-    # KNOWN_BROKEN_INSTANTIATE in test_data_configs_compose). So the human Pi
-    # rows use cotrain_pi_base's human domain with the eva domain nulled and the
-    # vendor's stride. On this branch mecka and scale then differ from each other
-    # only by model config name (pi0.5_bc_{aria,mecka,scale}.yaml are identical);
-    # both rows stay so a future per-vendor divergence is covered.
+def _pi(data: str, model: str, emb: str) -> Recipe:
     return Recipe(
         "train_zarr_cartesian_pi",
-        "cotrain_pi_base",
+        data,
         model,
-        "human_bimanual",
-        (
-            "data.train_datasets.eva_bimanual=null",
-            "data.valid_datasets.eva_bimanual=null",
-            f"data.train_datasets.human_bimanual.resolver.transform_list.stride={stride}",
-            "data.train_datasets.human_bimanual.mode=total",
-            "data.valid_datasets.human_bimanual.mode=total",
-        ),
+        emb,
+        (f"+data.train_datasets.{emb}.resolver.key_map.annotation_key=annotations",),
     )
 
 
@@ -57,12 +44,15 @@ RECIPES: dict[tuple[str, str], Recipe] = {
     ("scale", "hpt"): Recipe(
         "train_zarr_cartesian", "scale", "hpt_bc_flow_scale", "human_bimanual"
     ),
-    ("eva", "pi"): Recipe(
-        "train_zarr_cartesian_pi", "eva_pi", "pi0.5_bc_eva", "eva_bimanual"
-    ),
-    ("aria", "pi"): _pi_human("pi0.5_bc_aria", 3),
-    ("mecka", "pi"): _pi_human("pi0.5_bc_mecka", 1),
-    ("scale", "pi"): _pi_human("pi0.5_bc_scale", 1),
+    # Pi trains on the same per-vendor data configs as HPT: datasets emit one
+    # camera naming and the Pi wrapper renames onto openpi's slots. The plain
+    # vendor configs load no language field (that is a data choice the *_lang
+    # configs make); opt in here so the prompt path is exercised, not the
+    # default-prompt fallback.
+    ("eva", "pi"): _pi("eva", "pi0.5_bc_eva", "eva_bimanual"),
+    ("aria", "pi"): _pi("aria", "pi0.5_bc_aria", "human_bimanual"),
+    ("mecka", "pi"): _pi("mecka", "pi0.5_bc_mecka", "human_bimanual"),
+    ("scale", "pi"): _pi("scale", "pi0.5_bc_scale", "human_bimanual"),
 }
 
 

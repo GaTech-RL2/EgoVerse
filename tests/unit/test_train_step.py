@@ -101,15 +101,16 @@ def test_pi_train_step(tmp_path, monkeypatch, vendor):
     )
     spy = BatchKeySpy(monkeypatch, PI)
     _run(cfg)
+    # The wrapper sees dataset camera names; StubPI0 asserts it was handed
+    # openpi's slot names, which is the remap working end to end.
     seen = spy.keys[recipe.embodiment]
-    expected = {
-        "actions_cartesian",
-        "observations.state.ee_pose",
-        "base_0_rgb",
-        "annotations",
-    }
+    front = Eva.VIZ_IMAGE_KEY if is_eva else Human.VIZ_IMAGE_KEY
+    expected = {"actions_cartesian", "observations.state.ee_pose", front, "annotations"}
     if is_eva:
-        expected |= {"left_wrist_0_rgb", "right_wrist_0_rgb"}
+        expected |= {
+            "observations.images.left_wrist_img",
+            "observations.images.right_wrist_img",
+        }
     assert (
         expected <= seen
     ), f"{vendor}/pi missing {expected - seen}; saw {sorted(seen)}"
