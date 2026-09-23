@@ -5,6 +5,9 @@
 # DiT's self-attention prefix, with steps before the episode start masked.
 # 30 % of training samples lose the short pair (a learned null token), so the
 # policy cannot lean on the latest frames alone.
+#
+# Cost, 8xH100, 32 / GPU, bf16 (2026-09-23): both arm 1.19 s / step (base 0.40),
+# ~33 h per 100k steps.
 # See train_zarr_mecka_20pct_6d_rdt_mem_base.yaml.
 defaults:
   - train_zarr_mecka_20pct_6d_rdt_mem_base
@@ -30,6 +33,8 @@ model:
           freeze_backbone: false
           image_size: ${model.robomimic_model.encoder_specs.front_img_1.image_size}
           pool: cls
+          # 320 frames / GPU: their activations OOM an H100 without it
+          grad_checkpointing: true
         # Must equal key_map.image_memory / image_memory_stride_s above: the
         # model is built from the model config alone, so it cannot interpolate
         # them. A frame-count mismatch raises at the first batch.
