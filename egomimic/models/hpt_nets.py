@@ -976,6 +976,7 @@ class DINOv3Stem(PretrainedWeights, PolicyStem):
             RoPE-based, so non-square inputs need no position interpolation.
         pretrained: ``False`` builds a randomly initialised tower (tests).
         tower_kwargs: timm architecture overrides (tests).
+        pool: ``"patch"`` (every patch token) or ``"cls"`` (one token per image).
     """
 
     DEFAULT_MODEL = "vit_base_patch16_dinov3.lvd1689m"
@@ -989,10 +990,15 @@ class DINOv3Stem(PretrainedWeights, PolicyStem):
         image_size=256,
         pretrained: bool = True,
         tower_kwargs: Optional[dict] = None,
+        pool: str = "patch",
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         import timm
+
+        if pool not in ("patch", "cls"):
+            raise ValueError(f"DINOv3Stem pool must be 'patch' or 'cls', got {pool!r}")
+        self.pool = pool
 
         self.model_name = model_name
         self.pretrained = pretrained
@@ -1069,8 +1075,10 @@ class DINOv3Stem(PretrainedWeights, PolicyStem):
             not self.freeze_backbone and torch.is_grad_enabled()
         ):
             feat = self.tower.forward_features(x)
-        # drop CLS + register tokens; RDT conditions on patch tokens only
-        feat = feat[:, self.num_prefix_tokens :]
+        if self.pool == "cls":
+            feat = feat[:, :1]
+        else:
+            feat = feat[:, self.num_prefix_tokens :]
         return self.proj(feat.reshape(B, -1, self.hidden_size))
 
 

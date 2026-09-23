@@ -42,7 +42,8 @@ def test_model_sizes_match_the_keymap(arm, compose_resolve):
         return
     assert memory.frames == km.image_memory
     assert memory.stride_s == km.image_memory_stride_s
-    assert denoiser.n_memory_tokens == memory.frames * memory.latents
+    assert denoiser.n_memory_tokens == memory.frames
+    assert memory.encoder.pool == "cls"
     if memory.fuse_proprio:
-        assert history == memory.frames + 1
+        assert history >= memory.frames
         assert km.history_stride_s == memory.stride_s

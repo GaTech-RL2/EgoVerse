@@ -238,9 +238,8 @@ class Human(Embodiment):
         ``history_stride_s`` replaces ``history_stride`` by a spacing in
         seconds, read in each episode's fps. ``image_memory`` (N) adds
         ``<front key>_mem``: N front frames ``image_memory_stride_s`` apart,
-        the newest that far before the current frame (so it never repeats the
-        short ``_hist`` pair), plus a ``<front key>_mem_mask`` of the steps
-        that fall inside the episode. Same caveat as ``_hist``: only an algo
+        the newest the current frame, plus a ``<front key>_mem_mask`` of the
+        steps that fall inside the episode. Same caveat as ``_hist``: only an algo
         that consumes it uses it.
         """
         key_map = cls._get_keymap(
@@ -268,7 +267,6 @@ class Human(Embodiment):
                 **front,
                 "history": int(image_memory),
                 "history_stride_s": float(image_memory_stride_s),
-                "lag_s": float(image_memory_stride_s),
             }
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
