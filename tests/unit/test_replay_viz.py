@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import types
+
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from egomimic.eval.replay_viz import ReplayClip, render_replay, rigid_fit
+from egomimic.eval.eval_video import EvalVideo
+from egomimic.eval.replay_viz import ReplayClip, infer_stride, render_replay, rigid_fit
 from egomimic.rldb.embodiment.human import Human
 
 
@@ -70,3 +73,70 @@ def test_tail_and_concat_round_trip():
         joined.gt, np.concatenate([clip.gt[8:], clip.gt[10:]])
     )
     assert joined.intrinsics == clip.intrinsics[8:] + clip.intrinsics[10:]
+
+
+def _moving_camera_clip(stride, n=60, horizon=12, seed=0):
+    """GT chunks of a hand moving in the world, seen by a rotating camera."""
+    rng = np.random.default_rng(seed)
+    steps = n + horizon * stride
+    world = np.cumsum(rng.normal(scale=0.01, size=(steps, 42, 3)), axis=0)
+    world += rng.normal(scale=0.05, size=(42, 3)) + [0.0, 0.0, 0.5]
+    cams = Rotation.from_rotvec(np.cumsum(rng.normal(scale=0.02, size=(steps, 3)), 0))
+    gt = np.stack(
+        [
+            np.stack(
+                [
+                    cams[t].inv().apply(world[t + k * stride]).reshape(-1)
+                    for k in range(horizon)
+                ]
+            )
+            for t in range(n)
+        ]
+    ).astype(np.float32)
+    return ReplayClip(np.zeros((n, 90, 160, 3), np.uint8), gt, gt, [None] * n)
+
+
+def test_infer_stride_recovers_the_frames_per_step():
+    for stride in (1, 2, 3):
+        assert infer_stride(_moving_camera_clip(stride)) == stride
+
+
+def test_infer_stride_needs_keypoints():
+    clip = _clip(20, 10)
+    clip.gt = clip.gt[..., :12]
+    assert infer_stride(clip) is None
+
+
+class _Buffering(EvalVideo):
+    def __init__(self, images_fn):
+        super().__init__(viz_max_batches=100)
+        self._images_fn = images_fn
+
+    def compute_metrics_and_viz(self, batch, do_viz=True):
+        return {}, ({3: self._images_fn()} if do_viz else {})
+
+
+def test_overlay_buffer_counts_frames_not_pixel_rows(monkeypatch):
+    written = []
+    monkeypatch.setattr(
+        "egomimic.eval.eval_video.tvio.write_video",
+        lambda path, frames, **kw: written.append(len(frames)),
+    )
+    ev = _Buffering(lambda: np.zeros((8, 360, 640, 3), np.uint8))
+    ev.trainer = types.SimpleNamespace(
+        is_global_zero=True,
+        current_epoch=0,
+        max_epochs=1,
+        global_step=0,
+        loggers=[],
+        default_root_dir="/tmp/unused",
+        lightning_module=types.SimpleNamespace(
+            device="cpu", log_dict=lambda *a, **k: None
+        ),
+    )
+    monkeypatch.setattr(ev, "_upload_video", lambda key, path: None)
+    monkeypatch.setattr("os.makedirs", lambda *a, **k: None)
+    for i in range(10):
+        ev.on_validation_step({}, i, mode="both")
+    ev.on_validation_end()
+    assert written == [80]

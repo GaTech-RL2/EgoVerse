@@ -61,7 +61,8 @@ class PILatentEvalVideo(EvalVideo):
         emit_combined: bool = True,
         color_by: str = "embodiment",  # "embodiment" or "hash"
     ):
-        super().__init__(limit_val_batches=limit_val_batches)
+        # Its own _visualize_preds renders overlay frames only.
+        super().__init__(limit_val_batches=limit_val_batches, viz_mode="overlay")
         self.compute_umap = compute_umap
         self.compute_tsne_2d = compute_tsne_2d
         self.compute_tsne_3d = compute_tsne_3d
