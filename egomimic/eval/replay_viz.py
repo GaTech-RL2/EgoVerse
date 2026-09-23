@@ -88,6 +88,34 @@ def rigid_fit(src, dst):
     return R, mu_d - mu_s @ R.T
 
 
+def infer_stride(clip: ReplayClip, candidates=(1, 2, 3, 4), steps: int = 8):
+    """Frames per chunk step, from the GT alone: step ``k`` of the first chunk
+    is the same hand as frame ``k * stride``'s own step 0, up to a rigid
+    camera motion, so the right stride has the smallest fit residual.
+
+    None when the layout has no keypoints to fit or the clip is too short.
+    """
+    if clip.gt.shape[-1] != _KP_WIDTH:
+        return None
+    errors = {}
+    for s in candidates:
+        ks = [k for k in range(1, min(steps, clip.gt.shape[1] - 1) + 1)]
+        ks = [k for k in ks if k * s < len(clip)]
+        if len(ks) < 2:
+            continue
+        res = []
+        for k in ks:
+            src = clip.gt[0, k].reshape(-1, 3)
+            dst = clip.gt[k * s, 0].reshape(-1, 3)
+            R, t = rigid_fit(src, dst)
+            ok = _valid_points(src) & _valid_points(dst)
+            if ok.sum() >= 3:
+                res.append(np.linalg.norm(src[ok] @ R.T + t - dst[ok], axis=1).mean())
+        if res:
+            errors[s] = float(np.mean(res))
+    return min(errors, key=errors.get) if errors else None
+
+
 def _apply_rigid(chunk, R, t):
     pts = chunk.reshape(*chunk.shape[:-1], -1, 3)
     return (pts @ R.T + t).reshape(chunk.shape).astype(np.float32)
@@ -140,7 +168,7 @@ def render_replay(
     clip: ReplayClip,
     embodiment_cls,
     mode: str,
-    stride: int = 1,
+    stride: int | None = None,
     trail: int = 5,
     viz_kwargs: dict | None = None,
 ):
@@ -149,10 +177,14 @@ def render_replay(
     The 126-D keypoint layout draws each step as both hands' skeletons;
     any other layout draws the last ``trail`` steps with ``embodiment_cls.viz``.
 
+    ``stride`` (frames per chunk step) is inferred when None; see infer_stride.
+
     Returns ``(frames (M, H, W, 3) uint8, consumed)``; ``clip.tail(consumed)``
     holds the frames a later clip needs to complete the next chunk.
     """
     viz_kwargs = viz_kwargs or {}
+    if stride is None:
+        stride = infer_stride(clip) or 1
     n, horizon = len(clip), clip.gt.shape[1]
     span = horizon * stride
     keypoints = clip.gt.shape[-1] == _KP_WIDTH
