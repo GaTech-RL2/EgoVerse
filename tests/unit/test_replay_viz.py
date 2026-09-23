@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import types
+
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from egomimic.eval.replay_viz import ReplayClip, render_replay, rigid_fit
+from egomimic.eval.eval_video import EvalVideo
+from egomimic.eval.replay_viz import ReplayClip, infer_stride, render_replay, rigid_fit
 from egomimic.rldb.embodiment.human import Human
+from egomimic.utils.viz_utils import HEAD_KEYPOINT_WIDTH
 
 
 def _clip(n, horizon, seed=0):
     rng = np.random.default_rng(seed)
-    gt = rng.normal(size=(n, horizon, 126)) * 0.05 + np.tile([0.0, 0.0, 0.5], 42)
+    width = HEAD_KEYPOINT_WIDTH
+    gt = rng.normal(size=(n, horizon, width)) * 0.05 + np.tile([0, 0, 0.5], width // 3)
     gt = gt.astype(np.float32)
     return ReplayClip(
         images=np.zeros((n, 90, 160, 3), np.uint8),
@@ -47,6 +52,27 @@ def test_render_replays_each_complete_chunk_twice():
     assert frames.dtype == np.uint8
 
 
+def test_render_draws_the_prompt():
+    clip = _clip(10, 10)
+    plain, _ = render_replay(clip, Human, mode="keypoints", stride=1)
+    clip.annotations = ["pick up the cup"] * len(clip)
+    captioned, _ = render_replay(clip, Human, mode="keypoints", stride=1)
+    assert len(plain) and not np.array_equal(plain, captioned)
+    joined = ReplayClip.concat([clip.tail(4), clip.tail(6)])
+    assert joined.annotations == clip.annotations[4:] + clip.annotations[6:]
+
+
+def test_a_chunk_never_spans_two_episodes():
+    horizon = 10
+    clip = _clip(37, horizon)
+    clip.episodes = ["a"] * 15 + ["b"] * 22
+    frames, used = render_replay(clip, Human, mode="keypoints", stride=1)
+    # a: one chunk at 0 (10-14 cannot hold another); b: chunks at 15 and 25
+    assert len(frames) == 3 * 2 * horizon
+    assert used == 35
+    assert ReplayClip.concat([clip.tail(30)]).episodes == ["b"] * 7
+
+
 def test_render_with_stride_spans_stride_frames_per_step():
     horizon, stride = 5, 3
     frames, used = render_replay(
@@ -70,3 +96,70 @@ def test_tail_and_concat_round_trip():
         joined.gt, np.concatenate([clip.gt[8:], clip.gt[10:]])
     )
     assert joined.intrinsics == clip.intrinsics[8:] + clip.intrinsics[10:]
+
+
+def _moving_camera_clip(stride, n=60, horizon=12, seed=0):
+    """GT chunks of a hand moving in the world, seen by a rotating camera."""
+    rng = np.random.default_rng(seed)
+    steps = n + horizon * stride
+    world = np.cumsum(rng.normal(scale=0.01, size=(steps, 42, 3)), axis=0)
+    world += rng.normal(scale=0.05, size=(42, 3)) + [0.0, 0.0, 0.5]
+    cams = Rotation.from_rotvec(np.cumsum(rng.normal(scale=0.02, size=(steps, 3)), 0))
+    gt = np.stack(
+        [
+            np.stack(
+                [
+                    cams[t].inv().apply(world[t + k * stride]).reshape(-1)
+                    for k in range(horizon)
+                ]
+            )
+            for t in range(n)
+        ]
+    ).astype(np.float32)
+    return ReplayClip(np.zeros((n, 90, 160, 3), np.uint8), gt, gt, [None] * n)
+
+
+def test_infer_stride_recovers_the_frames_per_step():
+    for stride in (1, 2, 3):
+        assert infer_stride(_moving_camera_clip(stride)) == stride
+
+
+def test_infer_stride_needs_keypoints():
+    clip = _clip(20, 10)
+    clip.gt = clip.gt[..., :12]
+    assert infer_stride(clip) is None
+
+
+class _Buffering(EvalVideo):
+    def __init__(self, images_fn):
+        super().__init__(viz_max_batches=100)
+        self._images_fn = images_fn
+
+    def compute_metrics_and_viz(self, batch, do_viz=True):
+        return {}, ({3: self._images_fn()} if do_viz else {})
+
+
+def test_overlay_buffer_counts_frames_not_pixel_rows(monkeypatch):
+    written = []
+    monkeypatch.setattr(
+        "egomimic.eval.eval_video.tvio.write_video",
+        lambda path, frames, **kw: written.append(len(frames)),
+    )
+    ev = _Buffering(lambda: np.zeros((8, 360, 640, 3), np.uint8))
+    ev.trainer = types.SimpleNamespace(
+        is_global_zero=True,
+        current_epoch=0,
+        max_epochs=1,
+        global_step=0,
+        loggers=[],
+        default_root_dir="/tmp/unused",
+        lightning_module=types.SimpleNamespace(
+            device="cpu", log_dict=lambda *a, **k: None
+        ),
+    )
+    monkeypatch.setattr(ev, "_upload_video", lambda key, path: None)
+    monkeypatch.setattr("os.makedirs", lambda *a, **k: None)
+    for i in range(10):
+        ev.on_validation_step({}, i, mode="both")
+    ev.on_validation_end()
+    assert written == [80]

@@ -19,11 +19,17 @@ import cv2
 import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import _intrinsics_from_batch, get_embodiment
-from egomimic.utils.pose_utils import cam_frame_to_cam_pixels
 from egomimic.utils.type_utils import _to_numpy
-from egomimic.utils.viz_utils import _prepare_viz_image
+from egomimic.utils.viz_utils import (
+    HEAD_KEYPOINT_WIDTH,
+    _prepare_viz_image,
+    _viz_keypoints_skeleton,
+)
 
-_KP_WIDTH = 126
+STRIDE_CANDIDATES = (1, 2, 3, 4)
+STRIDE_STEPS = 8
+# Frames infer_stride needs to compare every step against every candidate.
+MIN_FRAMES_FOR_STRIDE = max(STRIDE_CANDIDATES) * STRIDE_STEPS + 8
 
 
 @dataclass
@@ -34,6 +40,8 @@ class ReplayClip:
     gt: np.ndarray  # (N, T, D)
     pred: np.ndarray  # (N, T, D)
     intrinsics: list  # N x (K | None)
+    annotations: list | None = None  # N prompts, when viz_fn has annotation_key
+    episodes: list | None = None  # N episode hashes; chunks never cross one
 
     def __len__(self):
         return len(self.images)
@@ -44,6 +52,7 @@ class ReplayClip:
         kw = viz_fn.keywords
         name = get_embodiment(batch["embodiment"][0].item()).lower()
         images = _to_numpy(batch[kw["image_key"]])
+        ann_key = kw.get("annotation_key")
         return cls(
             images=np.stack([_prepare_viz_image(im) for im in images]),
             gt=_to_numpy(batch[kw["action_key"]]).astype(np.float32),
@@ -51,6 +60,8 @@ class ReplayClip:
                 np.float32
             ),
             intrinsics=[_intrinsics_from_batch(batch, i) for i in range(len(images))],
+            annotations=None if ann_key is None else list(batch[ann_key]),
+            episodes=list(batch["episode_hash"]) if "episode_hash" in batch else None,
         )
 
     @classmethod
@@ -60,6 +71,16 @@ class ReplayClip:
             gt=np.concatenate([c.gt for c in clips]),
             pred=np.concatenate([c.pred for c in clips]),
             intrinsics=[k for c in clips for k in c.intrinsics],
+            annotations=(
+                None
+                if any(c.annotations is None for c in clips)
+                else [a for c in clips for a in c.annotations]
+            ),
+            episodes=(
+                None
+                if any(c.episodes is None for c in clips)
+                else [e for c in clips for e in c.episodes]
+            ),
         )
 
     def tail(self, start):
@@ -68,6 +89,8 @@ class ReplayClip:
             self.gt[start:],
             self.pred[start:],
             self.intrinsics[start:],
+            None if self.annotations is None else self.annotations[start:],
+            None if self.episodes is None else self.episodes[start:],
         )
 
 
@@ -86,6 +109,36 @@ def rigid_fit(src, dst):
     d = np.sign(np.linalg.det(Vt.T @ U.T))
     R = Vt.T @ np.diag([1.0, 1.0, d]) @ U.T
     return R, mu_d - mu_s @ R.T
+
+
+def infer_stride(
+    clip: ReplayClip, candidates=STRIDE_CANDIDATES, steps: int = STRIDE_STEPS
+):
+    """Frames per chunk step, from the GT alone: step ``k`` of the first chunk
+    is the same hand as frame ``k * stride``'s own step 0, up to a rigid
+    camera motion, so the right stride has the smallest fit residual.
+
+    None when the layout has no keypoints to fit or the clip is too short.
+    """
+    if clip.gt.shape[-1] != HEAD_KEYPOINT_WIDTH:
+        return None
+    errors = {}
+    for s in candidates:
+        ks = [k for k in range(1, min(steps, clip.gt.shape[1] - 1) + 1)]
+        ks = [k for k in ks if k * s < len(clip)]
+        if len(ks) < 2:
+            continue
+        res = []
+        for k in ks:
+            src = clip.gt[0, k].reshape(-1, 3)
+            dst = clip.gt[k * s, 0].reshape(-1, 3)
+            R, t = rigid_fit(src, dst)
+            ok = _valid_points(src) & _valid_points(dst)
+            if ok.sum() >= 3:
+                res.append(np.linalg.norm(src[ok] @ R.T + t - dst[ok], axis=1).mean())
+        if res:
+            errors[s] = float(np.mean(res))
+    return min(errors, key=errors.get) if errors else None
 
 
 def _apply_rigid(chunk, R, t):
@@ -114,33 +167,11 @@ def _label(image, text, color):
     return image
 
 
-def _draw_skeleton(image, keypoints, intrinsics, edges, color):
-    """Both hands' 21 MANO keypoints (``(126,)``, camera frame) with bones."""
-    vis = np.ascontiguousarray(_prepare_viz_image(image)).copy()
-    h, w = vis.shape[:2]
-    pts = keypoints.reshape(2, -1, 3)
-    ok = _valid_points(pts) & (pts[..., 2] > 0.01)
-    safe = np.where(ok[..., None], pts, [0.0, 0.0, 1.0])
-    px = cam_frame_to_cam_pixels(safe.reshape(-1, 3), intrinsics)[:, :2]
-    px = np.round(px).astype(np.int32).reshape(2, -1, 2)
-    ok &= (px[..., 0] >= 0) & (px[..., 0] < w) & (px[..., 1] >= 0) & (px[..., 1] < h)
-    bone = tuple(int(0.6 * c + 0.4 * 255) for c in color)
-    for hand in range(2):
-        for i, j in edges:
-            if ok[hand, i] and ok[hand, j]:
-                cv2.line(
-                    vis, tuple(px[hand, i]), tuple(px[hand, j]), bone, 2, cv2.LINE_AA
-                )
-        for i in np.flatnonzero(ok[hand]):
-            cv2.circle(vis, tuple(px[hand, i]), 3, color, -1, cv2.LINE_AA)
-    return vis
-
-
 def render_replay(
     clip: ReplayClip,
     embodiment_cls,
     mode: str,
-    stride: int = 1,
+    stride: int | None = None,
     trail: int = 5,
     viz_kwargs: dict | None = None,
 ):
@@ -149,17 +180,26 @@ def render_replay(
     The 126-D keypoint layout draws each step as both hands' skeletons;
     any other layout draws the last ``trail`` steps with ``embodiment_cls.viz``.
 
+    ``stride`` (frames per chunk step) is inferred when None; see infer_stride.
+
     Returns ``(frames (M, H, W, 3) uint8, consumed)``; ``clip.tail(consumed)``
     holds the frames a later clip needs to complete the next chunk.
     """
     viz_kwargs = viz_kwargs or {}
+    if stride is None:
+        stride = infer_stride(clip) or 1
     n, horizon = len(clip), clip.gt.shape[1]
     span = horizon * stride
-    keypoints = clip.gt.shape[-1] == _KP_WIDTH
+    keypoints = clip.gt.shape[-1] == HEAD_KEYPOINT_WIDTH
 
     out = []
     a = 0
     while a + span <= n:
+        eps = clip.episodes
+        if eps is not None and eps[a + span - 1] != eps[a]:
+            # The chunk would run into the next pinned episode: restart there.
+            a = next(i for i in range(a + 1, a + span) if eps[i] != eps[a])
+            continue
         fits = []
         for k in range(horizon):
             f = a + k * stride
@@ -178,7 +218,7 @@ def render_replay(
                 f = a + k * stride
                 K = clip.intrinsics[f]
                 if keypoints:
-                    im = _draw_skeleton(
+                    im = _viz_keypoints_skeleton(
                         clip.images[f],
                         _apply_rigid(chunk[k], *fits[k]),
                         K if K is not None else embodiment_cls.INTRINSICS,
@@ -193,6 +233,10 @@ def render_replay(
                         color=color,
                         intrinsics=K,
                         **viz_kwargs,
+                    )
+                if clip.annotations is not None:
+                    im = embodiment_cls.viz(
+                        im, [clip.annotations[f]], mode="annotations"
                     )
                 im = _label(np.ascontiguousarray(im), f"{role}  {k + 1}/{horizon}", rgb)
                 out.extend([im] * stride)

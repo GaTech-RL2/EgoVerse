@@ -304,9 +304,35 @@ _SPLIT_KWARGS = {
     138: dict(wrist_in_data=True, is_quat=False),
     126: dict(wrist_in_data=False),
 }
+HEAD_KEYPOINT_WIDTH = 2 * 3 * _N_KP  # bare head-frame keypoints, both hands
 # Each finger runs base -> tip, so the tips are the last slot of each group of
 # four (slot 0 is the wrist).
 FINGERTIP_SLOTS = (4, 8, 12, 16, 20)
+
+
+def _viz_keypoints_skeleton(image, keypoints, intrinsics, edges, color):
+    """ONE timestep of both hands' MANO keypoints (``(HEAD_KEYPOINT_WIDTH,)``,
+    camera frame) with bones. Not reachable through ``Human.viz``: only the
+    GT/prediction replay (egomimic/eval/replay_viz.py) calls it, one frame per
+    chunk step, so a static overlay cannot stand in for a chunk by accident."""
+    vis = np.ascontiguousarray(_prepare_viz_image(image)).copy()
+    h, w = vis.shape[:2]
+    pts = np.asarray(keypoints).reshape(2, _N_KP, 3)
+    ok = np.isfinite(pts).all(-1) & (np.abs(pts) < 1e8).all(-1) & (pts[..., 2] > 0.01)
+    safe = np.where(ok[..., None], pts, [0.0, 0.0, 1.0])
+    px = cam_frame_to_cam_pixels(safe.reshape(-1, 3), intrinsics)[:, :2]
+    px = np.round(px).astype(np.int32).reshape(2, _N_KP, 2)
+    ok &= (px[..., 0] >= 0) & (px[..., 0] < w) & (px[..., 1] >= 0) & (px[..., 1] < h)
+    bone = tuple(int(0.6 * c + 0.4 * 255) for c in color)
+    for hand in range(2):
+        for i, j in edges:
+            if ok[hand, i] and ok[hand, j]:
+                cv2.line(
+                    vis, tuple(px[hand, i]), tuple(px[hand, j]), bone, 2, cv2.LINE_AA
+                )
+        for i in np.flatnonzero(ok[hand]):
+            cv2.circle(vis, tuple(px[hand, i]), 3, color, -1, cv2.LINE_AA)
+    return vis
 
 
 def _viz_keypoints_horizon_trace(
