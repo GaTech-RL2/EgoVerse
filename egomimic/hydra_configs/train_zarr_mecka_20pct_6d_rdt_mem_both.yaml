@@ -1,6 +1,6 @@
 # RDT memory ablation, BOTH arm: the vision arm's memory plus the proprio arm's
-# history on the same 1 s grid (11 steps, t-10 s .. t). Each memory frame's
-# latents also get a projection of that step's proprio token; the 11 state
+# history on the same 1 s grid (11 steps, t-10 s .. t). Each memory token also
+# gets a projection of its step's proprio token (the newest 10); the 11 state
 # tokens stay in the prefix as in the proprio arm.
 # See train_zarr_mecka_20pct_6d_rdt_mem_base.yaml.
 defaults:
