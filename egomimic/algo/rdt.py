@@ -43,10 +43,11 @@ class RDTModel(HPTModel):
     input, current frame last); ``image_history_dropout`` replaces the past
     frames by the current one, which is also what an episode start looks like.
 
-    ``memory`` (``RDTMemory`` kwargs, its ``encoder`` a frozen image stem, plus
-    ``dropout``) adds long-range memory tokens to the DiT's self-attention
-    prefix from the batch's ``memory`` window; padded steps are masked out,
-    and ``dropout`` masks a sample's whole memory (training only).
+    ``memory`` (``RDTMemory`` kwargs) adds long-range memory tokens to the
+    DiT's self-attention prefix from the batch's ``memory`` window; padded
+    steps are masked out. ``short_dropout`` replaces a sample's whole short
+    image stream by a learned null token (training only), so the policy cannot
+    lean on the latest frames alone.
     """
 
     def __init__(
@@ -59,7 +60,7 @@ class RDTModel(HPTModel):
         image_history: int = 1,
         image_history_dropout: float = 0.0,
         memory: dict | None = None,
-        **kwargs,
+        short_dropout: float = 0.0,
     ):
         super().__init__(
             embed_dim=embed_dim, no_trunk=True, token_postprocessing="no-op"
@@ -71,13 +72,10 @@ class RDTModel(HPTModel):
         self.image_history = int(image_history)
         self.image_history_dropout = float(image_history_dropout)
         self.stem_modality = {}
-        self.long_memory = None
-        self.memory_dropout = 0.0
-        if memory is not None:
-            memory = dict(memory)
-            self.memory_dropout = float(memory.pop("dropout", 0.0))
-            memory.setdefault("num_heads", num_heads)
-            self.long_memory = RDTMemory(hidden_dim=embed_dim, **memory)
+        self.short_dropout = float(short_dropout)
+        self.long_memory = (
+            None if memory is None else RDTMemory(hidden_dim=embed_dim, **memory)
+        )
 
     def _create_policy_trunk(self, *args, **kwargs):
         return nn.ModuleDict()
@@ -108,6 +106,11 @@ class RDTModel(HPTModel):
 
     def finalize_modules(self):
         D = self.embed_dim
+        n_memory = 0 if self.long_memory is None else self.long_memory.n_tokens
+        for head in self.heads.values():
+            resize = getattr(getattr(head, "model", None), "set_n_memory_tokens", None)
+            if callable(resize):
+                resize(n_memory)
         streams = {
             name: self._stream(self.stem_modality[name], stem)
             for name, stem in self.stems.items()
@@ -127,6 +130,8 @@ class RDTModel(HPTModel):
             self.null_state = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
         if self.cond_drop["img"] > 0 and len(cameras) > 1:
             self.null_img = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
+        if self.short_dropout > 0:
+            self.null_short = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
         self.trunk["trunk"].initialize_weights()
         for head in self.heads.values():
             init = getattr(getattr(head, "model", None), "initialize_weights", None)
@@ -219,6 +224,9 @@ class RDTModel(HPTModel):
                 f"{self.long_memory is not None}, batch memory: {'memory' in data})"
             )
         img = torch.cat(self._drop_cameras(img), dim=1)
+        drop = self._drop(self.short_dropout, len(img), img.device)
+        if drop is not None:
+            img = torch.where(drop[:, None, None], self.null_short.to(img), img)
         cond = RDTConditions(
             img=img,
             freq=data["fps"].reshape(-1).expand(len(img)),
@@ -234,13 +242,9 @@ class RDTModel(HPTModel):
             cond.lang = torch.cat(lang, dim=1)
             cond.lang_mask = torch.cat(lang_mask, dim=1)
         if self.long_memory is not None:
-            mask = data["memory_mask"].bool()
-            drop = self._drop(self.memory_dropout, len(mask), mask.device)
-            if drop is not None:
-                mask = mask & ~drop[:, None]
             # after state dropout, so a fused memory loses its proprio with it
             cond.memory, cond.memory_mask = self.long_memory(
-                data["memory"], mask, cond.state
+                data["memory"], data["memory_mask"], cond.state
             )
         return cond, None
 
@@ -267,8 +271,8 @@ class RDT(HPT):
     ):
         """HPT's layout plus ``fps``; per camera with a ``*_hist`` twin, the
         (past, current) frame pair on the image input's time axis; and a
-        ``*_mem`` window as ``memory`` / ``memory_mask``, un-augmented (its
-        tower is frozen and the stem normalizes)."""
+        ``*_mem`` window as ``memory`` / ``memory_mask``, un-augmented (the
+        memory stem normalizes)."""
         past = {
             key[: -len(IMAGE_HISTORY_SUFFIX)]: key
             for key in cam_keys
