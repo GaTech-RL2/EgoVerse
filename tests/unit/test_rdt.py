@@ -153,7 +153,13 @@ class _StubText(PolicyStem):
 
 
 def _model(
-    cond_drop=None, text=True, history_len=1, frames=2, frame_dropout=0.0, memory=None
+    cond_drop=None,
+    text=True,
+    history_len=1,
+    frames=2,
+    frame_dropout=0.0,
+    memory=None,
+    short_dropout=0.0,
 ):
     torch.manual_seed(0)
     model = RDTModel(
@@ -164,6 +170,7 @@ def _model(
         image_history=frames,
         image_history_dropout=frame_dropout,
         memory=memory,
+        short_dropout=short_dropout,
     )
     shared = {"front_img_1": MLPPolicyStem(input_dim=D, output_dim=D, widths=[D])}
     if text:
@@ -186,7 +193,7 @@ def _model(
                 act_seq=SEQ,
                 hidden_dim=D,
                 n_state_tokens=history_len,
-                n_memory_tokens=memory["frames"] * memory["latents"] if memory else 0,
+                n_memory_tokens=memory["frames"] if memory else 0,
             ),
             action_horizon=SEQ,
             infer_ac_dims={DOMAIN: ACT},
@@ -492,15 +499,14 @@ def test_compile_traces_the_dit_through_the_heads():
 # Long-range memory
 # --------------------------------------------------------------------------
 
-MEM_FRAMES, LATENTS = 3, 2
+MEM_FRAMES = 3
 
 
 def _memory(**kwargs):
     return {
-        "encoder": _dino(),
+        "encoder": _dino(pool="cls", freeze_backbone=False),
         "frames": MEM_FRAMES,
         "stride_s": 1.0,
-        "latents": LATENTS,
         **kwargs,
     }
 
@@ -543,10 +549,8 @@ def test_model_memory_tokens_and_mask():
     data = _data(memory_frames=MEM_FRAMES)
     data["memory_mask"][0, 0] = False
     cond, _ = model.forward_features(DOMAIN, data)
-    assert cond.memory.shape == (B, MEM_FRAMES * LATENTS, D)
-    assert cond.memory_mask[0].tolist() == [False] * LATENTS + [True] * (
-        LATENTS * (MEM_FRAMES - 1)
-    )
+    assert cond.memory.shape == (B, MEM_FRAMES, D)
+    assert cond.memory_mask[0].tolist() == [False] + [True] * (MEM_FRAMES - 1)
     assert cond.memory_mask[1:].all()
     out = model.forward(DOMAIN, data)
     assert out[DOMAIN].shape == (B, SEQ, ACT)
@@ -557,24 +561,28 @@ def test_memory_frames_are_tagged_by_age():
     data = _data(memory_frames=MEM_FRAMES)
     data["memory"][:] = data["memory"][:, :1].clone()  # three identical frames
     cond, _ = model.forward_features(DOMAIN, data)
-    per_frame = cond.memory.reshape(B, MEM_FRAMES, LATENTS, D)
-    assert not torch.allclose(per_frame[:, 0], per_frame[:, 1], atol=1e-4)
+    assert not torch.allclose(cond.memory[:, 0], cond.memory[:, 1], atol=1e-4)
 
 
-def test_memory_dropout_is_train_only_and_masks_the_whole_window():
-    model = _model(memory=_memory(dropout=1.0))
+def test_short_dropout_is_train_only_and_nulls_the_whole_short_stream():
+    model = _model(memory=_memory(), short_dropout=1.0)
     data = _data(memory_frames=MEM_FRAMES)
     cond, _ = model.train().forward_features(DOMAIN, data)
-    assert not cond.memory_mask.any()
-    cond, _ = model.eval().forward_features(DOMAIN, data)
+    assert torch.equal(cond.img, model.null_short.expand_as(cond.img))
     assert cond.memory_mask.all()
+    cond, _ = model.eval().forward_features(DOMAIN, data)
+    assert not torch.equal(cond.img, model.null_short.expand_as(cond.img))
+
+
+def test_no_short_dropout_adds_no_parameter():
+    assert not hasattr(_model(memory=_memory()), "null_short")
 
 
 @pytest.mark.parametrize("fuse", [False, True])
 def test_memory_loss_reaches_every_trainable_parameter(fuse):
     history = MEM_FRAMES + 1 if fuse else 1
     model = _model(
-        history_len=history, memory=_memory(fuse_proprio=fuse, dropout=0.5)
+        history_len=history, memory=_memory(fuse_proprio=fuse), short_dropout=0.5
     ).train()
     nn.init.normal_(model.heads[DOMAIN].model.ffn_final.fc2.weight, std=0.1)
     data = _data(history_len=history, memory_frames=MEM_FRAMES)
@@ -583,8 +591,7 @@ def test_memory_loss_reaches_every_trainable_parameter(fuse):
         n for n, p in model.named_parameters() if p.requires_grad and p.grad is None
     ]
     assert not missing, missing
-    tower = model.long_memory.encoder.tower
-    assert all(not p.requires_grad for p in tower.parameters())
+    assert all(p.requires_grad for p in model.long_memory.encoder.tower.parameters())
 
 
 def test_fused_memory_reads_the_proprio_of_its_own_step():
@@ -592,10 +599,36 @@ def test_fused_memory_reads_the_proprio_of_its_own_step():
     model = _model(history_len=history, memory=_memory(fuse_proprio=True)).eval()
     data = _data(history_len=history, memory_frames=MEM_FRAMES)
     ref, _ = model.forward_features(DOMAIN, data)
-    data["state_ee_pose"][:, 0] += 1.0  # the oldest step <-> the oldest frame
+    data["state_ee_pose"][:, 1] += 1.0  # the current step is last, so 1 <-> 0
     cond, _ = model.forward_features(DOMAIN, data)
     diff = (cond.memory - ref.memory).abs().reshape(B, MEM_FRAMES, -1).amax(-1)
     assert (diff[:, 0] > 1e-4).all() and (diff[:, 1:] < 1e-6).all()
+
+
+def test_the_memory_tower_trains_in_the_backbone_lr_group():
+    from types import SimpleNamespace
+
+    from egomimic.pl_utils.pl_model import ModelWrapper
+
+    model = _model(memory=_memory())
+    root = nn.Module()
+    root.nets = nn.ModuleDict({"policy": model})
+    stub = SimpleNamespace(model=root, trainer=SimpleNamespace(model=root))
+    backbone, rest = ModelWrapper._backbone_param_groups(stub, 1.0, 0.1)
+    assert backbone["lr"] == pytest.approx(0.1)
+    tower = {id(p) for p in model.long_memory.encoder.tower.parameters()}
+    assert {id(p) for p in backbone["params"]} == tower
+    assert not tower & {id(p) for p in rest["params"]}
+
+
+def test_fused_memory_ignores_proprio_steps_older_than_its_window():
+    history = MEM_FRAMES + 1
+    model = _model(history_len=history, memory=_memory(fuse_proprio=True)).eval()
+    data = _data(history_len=history, memory_frames=MEM_FRAMES)
+    ref, _ = model.forward_features(DOMAIN, data)
+    data["state_ee_pose"][:, 0] += 1.0
+    cond, _ = model.forward_features(DOMAIN, data)
+    assert torch.equal(cond.memory, ref.memory)
 
 
 def test_fused_memory_needs_the_proprio_on_its_grid():
@@ -613,9 +646,10 @@ def test_memory_config_and_batch_must_agree():
         _model(memory=_memory()).forward_features(DOMAIN, _data(memory_frames=2))
 
 
-def test_memory_encoder_must_be_frozen():
-    with pytest.raises(ValueError, match="frozen"):
-        _model(memory=_memory(encoder=_dino(freeze_backbone=False)))
+def test_memory_encoder_must_pool_each_frame_to_one_token():
+    model = _model(memory=_memory(encoder=_dino(freeze_backbone=False)))
+    with pytest.raises(ValueError, match="pool: cls"):
+        model.forward_features(DOMAIN, _data(memory_frames=MEM_FRAMES))
 
 
 def test_algo_hands_the_memory_window_over_unaugmented():
