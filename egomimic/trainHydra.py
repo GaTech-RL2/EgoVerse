@@ -829,6 +829,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         eval_obj.trainer = trainer
         eval_obj.model = model.model
         model.evaluator = eval_obj
+        # Without the names, loader indices fall back to [valid, train_viz] and
+        # the pinned video loader is misrouted.
+        model.val_loader_names = datamodule.val_loader_names()
 
         if hasattr(eval_obj, "run"):
             eval_obj.run(trainer, model, datamodule, cfg)
