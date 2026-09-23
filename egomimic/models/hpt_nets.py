@@ -977,6 +977,8 @@ class DINOv3Stem(PretrainedWeights, PolicyStem):
         pretrained: ``False`` builds a randomly initialised tower (tests).
         tower_kwargs: timm architecture overrides (tests).
         pool: ``"patch"`` (every patch token) or ``"cls"`` (one token per image).
+        grad_checkpointing: recompute the tower's blocks in backward, for a
+            fine-tuned tower over many frames.
     """
 
     DEFAULT_MODEL = "vit_base_patch16_dinov3.lvd1689m"
@@ -991,6 +993,7 @@ class DINOv3Stem(PretrainedWeights, PolicyStem):
         pretrained: bool = True,
         tower_kwargs: Optional[dict] = None,
         pool: str = "patch",
+        grad_checkpointing: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -1005,6 +1008,7 @@ class DINOv3Stem(PretrainedWeights, PolicyStem):
         self.tower = timm.create_model(
             model_name, pretrained=pretrained, num_classes=0, **dict(tower_kwargs or {})
         )
+        self.tower.set_grad_checkpointing(grad_checkpointing)
         self.hidden_size = int(self.tower.embed_dim)
         self.num_prefix_tokens = int(self.tower.num_prefix_tokens)
         size = [image_size] * 2 if isinstance(image_size, int) else list(image_size)
