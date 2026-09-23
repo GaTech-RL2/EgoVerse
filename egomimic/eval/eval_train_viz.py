@@ -36,7 +36,16 @@ class TrainVizEvalVideo(EvalVideo):
             transform_lists=base.transform_lists,
             viz_every_n_epochs=base.viz_every_n_epochs,
             viz_max_batches=base.viz_max_batches,
+            viz_mode=base.viz_mode,
+            replay_chunks=base.replay_chunks,
+            replay_trail=base.replay_trail,
+            action_stride=base.action_stride,
         )
+
+    def _set_replay_now(self, value: bool) -> None:
+        # The base renders the batch, so it must know which mode this step is.
+        super()._set_replay_now(value)
+        self.base._set_replay_now(value)
 
     @property
     def trainer(self):

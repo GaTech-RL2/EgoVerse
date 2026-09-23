@@ -6,7 +6,7 @@ import torchvision.io as tvio
 from lightning.pytorch.loggers import WandbLogger
 
 from egomimic.eval.eval import Eval
-from egomimic.eval.replay_viz import ReplayClip, render_replay
+from egomimic.eval.replay_viz import ReplayClip, infer_stride, render_replay
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 # viz_gt_preds kwargs that ReplayClip / render_replay consume themselves.
@@ -34,9 +34,10 @@ class EvalVideo(Eval):
         transform_lists: dict | None = None,
         viz_every_n_epochs: int = 1,
         viz_max_batches: int | None = None,
-        viz_mode: str = "overlay",
+        viz_mode: str = "replay",
+        replay_chunks: int = 5,
         replay_trail: int = 5,
-        action_stride: int = 1,
+        action_stride: int | None = None,
     ):
         super().__init__()
         self.trainer = None
@@ -51,12 +52,21 @@ class EvalVideo(Eval):
         # viz-epoch wall time; metrics are still computed on EVERY batch
         # regardless. Required on heads with pinned video loaders (trainHydra).
         self.viz_max_batches = viz_max_batches
-        # "overlay": every frame draws its GT and predicted chunk as traces.
-        # "replay": see egomimic/eval/replay_viz.py. ``action_stride`` is the
-        # data config's action stride (frames per chunk step).
+        # "replay" (egomimic/eval/replay_viz.py) plays each chunk as GT then
+        # prediction; it needs consecutive frames, so it runs only on a pinned
+        # video loader and caps it at ``replay_chunks`` chunks instead of
+        # ``viz_max_batches``. "overlay" draws each frame's whole GT and
+        # predicted chunk, and is what a head without a video loader gets.
+        # ``action_stride`` is frames per chunk step (None: inferred from the
+        # GT keypoints, see replay_viz.infer_stride).
         if viz_mode not in ("overlay", "replay"):
             raise ValueError(f"unknown viz_mode {viz_mode!r}")
         self.viz_mode = viz_mode
+        self.replay_chunks = replay_chunks
+        self._replay_now = False
+        self._replay_seen = {}
+        self._replay_stride = {}
+        self._replay_horizon = {}
         self.replay_trail = replay_trail
         self.action_stride = action_stride
         # Per-embodiment list[Transform] applied once during eval to project
@@ -129,7 +139,7 @@ class EvalVideo(Eval):
             raise ValueError("viz_func is not set")
         embodiment_name = get_embodiment(batch["embodiment"][0].item()).lower()
         viz_fn = self.viz_func[embodiment_name]
-        if self.viz_mode == "replay":
+        if self._replay_now:
             return ReplayClip.from_batch(viz_fn, predictions, batch)
         return viz_fn(predictions, batch)
 
@@ -144,7 +154,7 @@ class EvalVideo(Eval):
             clip,
             embodiment_cls=viz_fn.func.__self__,
             mode=viz_fn.keywords["mode"],
-            stride=self.action_stride,
+            stride=self._replay_stride.get(key, self.action_stride),
             trail=self.replay_trail,
             viz_kwargs={
                 k: v for k, v in viz_fn.keywords.items() if k not in _REPLAY_OWN_KWARGS
@@ -153,11 +163,29 @@ class EvalVideo(Eval):
         self.val_image_buffer[key] = [] if final else [clip.tail(used)]
         return torch.from_numpy(frames) if len(frames) else None
 
+    def _set_replay_now(self, value: bool) -> None:
+        self._replay_now = value
+
+    def _is_replay_buffer(self, key) -> bool:
+        buffer = self.val_image_buffer[key]
+        return bool(buffer) and isinstance(buffer[0], ReplayClip)
+
+    def _replay_done(self) -> bool:
+        return bool(self._replay_seen) and all(
+            k in self._replay_stride
+            and seen
+            >= self.replay_chunks * self._replay_horizon[k] * self._replay_stride[k]
+            for k, seen in self._replay_seen.items()
+        )
+
     def _buffered_frames(self, key) -> int:
-        return sum(len(c) for c in self.val_image_buffer[key])
+        # Overlay buffers hold one (H, W, 3) tensor per frame, not clips.
+        if self._is_replay_buffer(key):
+            return sum(len(c) for c in self.val_image_buffer[key])
+        return len(self.val_image_buffer[key])
 
     def _flush(self, key, final: bool) -> None:
-        if self.viz_mode == "replay":
+        if self._is_replay_buffer(key):
             frames = self._render_replay(key, final)
         else:
             buffer = self.val_image_buffer[key]
@@ -211,6 +239,7 @@ class EvalVideo(Eval):
             self._flush(key, final=True)
             self.val_counter[key] = 0
             self.val_image_buffer[key] = []
+        self._replay_seen, self._replay_stride = {}, {}
 
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0, mode="both"):
         """``mode`` splits metrics from video so one head can serve two loaders:
@@ -220,16 +249,26 @@ class EvalVideo(Eval):
           subsampled video would be an incoherent time-lapse anyway).
         * ``"video"`` -- the contiguous pinned-episode loader. Renders and
           buffers, and logs NOTHING, so no ``Valid/...`` key is averaged over
-          it. On a non-viz epoch, or past ``viz_max_batches``, it returns before
-          the forward pass: there is nothing such a call could produce.
+          it. On a non-viz epoch, or past its cap (``viz_max_batches``, or
+          ``replay_chunks`` chunks in replay mode), it returns before the
+          forward pass: there is nothing such a call could produce.
         * ``"both"`` (default) -- today's single-loader behaviour, which is what
           a data config without ``video_episodes`` still gets.
         """
         if mode not in ("both", "metrics", "video"):
             raise ValueError(f"unknown validation mode {mode!r}")
-        past_viz_cap = (
-            self.viz_max_batches is not None and batch_idx >= self.viz_max_batches
-        )
+        replay = mode == "video" and self.viz_mode == "replay"
+        self._set_replay_now(replay)
+        if replay:
+            # viz_max_batches still bounds a loader that yields no clips.
+            nothing_yet = not self._replay_seen and (
+                self.viz_max_batches is not None and batch_idx >= self.viz_max_batches
+            )
+            past_viz_cap = self._replay_done() or nothing_yet
+        else:
+            past_viz_cap = (
+                self.viz_max_batches is not None and batch_idx >= self.viz_max_batches
+            )
         if mode == "video" and (past_viz_cap or not self._should_viz()):
             return
         do_viz = mode != "metrics" and self._should_viz() and not past_viz_cap
@@ -249,8 +288,17 @@ class EvalVideo(Eval):
                 ):
                     self.val_image_buffer[key] = []
                     self.val_counter[key] = 0
-                if self.viz_mode == "replay":
+                if isinstance(images, ReplayClip):
                     self.val_image_buffer[key].append(images)
+                    seen = self._replay_seen.get(key, 0) + len(images)
+                    self._replay_seen[key] = seen
+                    self._replay_horizon[key] = images.gt.shape[1]
+                    # infer_stride compares steps 1-8 against up to 32 frames on.
+                    if key not in self._replay_stride and seen >= 40:
+                        buffered = ReplayClip.concat(self.val_image_buffer[key])
+                        self._replay_stride[key] = (
+                            self.action_stride or infer_stride(buffered) or 1
+                        )
                 else:
                     self.val_image_buffer[key].extend(torch.from_numpy(images))
                 if self._buffered_frames(key) >= 1000:
