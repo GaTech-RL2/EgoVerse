@@ -179,3 +179,34 @@ def test_dataset_filter_single_string_pin_is_one_hash() -> None:
     filters = DatasetFilter(episode_hashes="2026-04-30-09-41-51-255837")
 
     assert filters.episode_hashes == {"2026-04-30-09-41-51-255837"}
+
+
+def test_dataset_filter_exclude_hashes_never_match(tmp_path) -> None:
+    listed = DatasetFilter(exclude_hashes=["bad"])
+    assert not listed.matches({"episode_hash": "bad"})
+    assert listed.matches({"episode_hash": "good"})
+
+    path = tmp_path / "block.txt"
+    path.write_text("# header\nbad  # constant\n\n")
+    from_file = DatasetFilter(exclude_hashes=str(path))
+    assert from_file.exclude_hashes == frozenset({"bad"})
+
+
+def test_dataset_filter_exclude_hashes_missing_file_raises(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError, match="no_such_blocklist"):
+        DatasetFilter(exclude_hashes=str(tmp_path / "no_such_blocklist.txt"))
+
+
+def test_dataset_filter_drops_excluded_pins_but_not_all_of_them() -> None:
+    filters = DatasetFilter(episode_hashes=["a", "bad"], exclude_hashes=["bad"])
+    assert filters.episode_hashes == frozenset({"a"})
+    assert not filters.matches({"episode_hash": "bad"})
+    # An empty pin set would mean "match everything".
+    with pytest.raises(ValueError, match="pinned episode"):
+        DatasetFilter(episode_hashes=["bad"], exclude_hashes=["bad"])
+
+
+def test_dataset_filter_cache_key_reflects_exclusions() -> None:
+    a = DatasetFilter(exclude_hashes=["x"])
+    b = DatasetFilter(exclude_hashes=["y"])
+    assert a.cache_key() != b.cache_key()
