@@ -3,10 +3,11 @@
 # mecka_20pct_6d), with the short image pair (current + 0.1 s back) and the
 # current proprio only. The other arms change one thing each (2x2):
 #   _proprio  + proprio history: 11 steps 1 s apart (t-10 s .. t)
-#   _vision   + long-range visual memory: 10 frames 1 s apart (t-10 s .. t-1 s),
-#               8 resampler latents each from a frozen DINOv3, in the DiT's
-#               self-attention prefix
-#   _both     both, each memory frame's latents fused with that step's proprio
+#   _vision   + long-range visual memory: 10 frames 1 s apart (t-9 s .. t),
+#               one CLS token each from a second fine-tuned DINOv3, in the
+#               DiT's self-attention prefix; the short pair is dropped for 30 %
+#               of training samples
+#   _both     both, each memory token fused with that step's proprio
 #
 # One 8xH100 node per arm, the same budget everywhere: global batch 256
 # (32 / GPU x 8), 1000 epochs x 100 steps, RDT's AdamW 1e-4 / 1k-step warmup,

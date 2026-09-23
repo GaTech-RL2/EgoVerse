@@ -1,17 +1,11 @@
 # RDT memory ablation, VISION arm: the baseline plus a long-range visual
-# memory, 10 front frames 1 s apart (t-10 s .. t-1 s; the short pair still
-# covers t and t-0.1 s). A frozen copy of the DINOv3 tower encodes each frame
-# (no_grad; only its proj trains), a 1-layer Perceiver resampler shared across
-# frames pools it to 8 latents, tagged by the frame's age (sin-cos, seconds),
-# and the 80 tokens join the DiT's self-attention prefix. Steps before the
-# episode start are masked, and 20 % of samples lose the whole memory
-# (training only). See train_zarr_mecka_20pct_6d_rdt_mem_base.yaml.
-#
-# Cost, 8xH100, 32 / GPU, bf16 (2026-09-22): base 0.40 s / step, both 0.91 s.
-# Per GPU: frozen tower over 320 frames 136 ms fwd, resampler +20 ms, DiT
-# with the 80-token prefix +45 ms, fp32 window H2D 20 ms. Not loader-bound
-# (12 workers deliver a memory batch in 0.21 s), so no feature cache; if the
-# time matters, cache the frozen tower's features or lower its image_size.
+# memory, 10 front frames 1 s apart (t-9 s .. t). A second DINOv3 tower,
+# fine-tuned at the same 0.1x LR as the short one, pools each frame to its CLS
+# token, tagged by the frame's age (sin-cos, seconds); the 10 tokens join the
+# DiT's self-attention prefix, with steps before the episode start masked.
+# 30 % of training samples lose the short pair (a learned null token), so the
+# policy cannot lean on the latest frames alone.
+# See train_zarr_mecka_20pct_6d_rdt_mem_base.yaml.
 defaults:
   - train_zarr_mecka_20pct_6d_rdt_mem_base
   - _self_
@@ -27,24 +21,23 @@ data:
 model:
   robomimic_model:
     trunk:
+      short_dropout: 0.3
       memory:
         encoder:
           _target_: egomimic.models.hpt_nets.DINOv3Stem
           model_name: ${model.robomimic_model.encoder_specs.front_img_1.model_name}
           output_dim: ${model.robomimic_model.width}
-          freeze_backbone: true
+          freeze_backbone: false
           image_size: ${model.robomimic_model.encoder_specs.front_img_1.image_size}
+          pool: cls
         # Must equal key_map.image_memory / image_memory_stride_s above: the
         # model is built from the model config alone, so it cannot interpolate
         # them. A frame-count mismatch raises at the first batch.
         frames: 10
         stride_s: 1.0
-        latents: 8
-        depth: 1
         fuse_proprio: false
-        dropout: 0.2
     head_specs:
       human_bimanual:
         model:
-          # memory frames x latents = 10 x 8
-          n_memory_tokens: 80
+          # one token per memory frame
+          n_memory_tokens: 10

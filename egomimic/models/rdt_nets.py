@@ -289,7 +289,7 @@ class RDTDenoiser(nn.Module):
         if n_memory != self.n_memory_tokens:
             raise ValueError(
                 f"RDTDenoiser got {n_memory} memory tokens but n_memory_tokens="
-                f"{self.n_memory_tokens}; set it to (memory frames x latents)"
+                f"{self.n_memory_tokens}; set it to the memory's frames"
             )
         tokens = [cond.backbone.prefix(timesteps * self.time_scale, cond.freq, len(x))]
         if n_state:
@@ -308,33 +308,15 @@ class RDTDenoiser(nn.Module):
         return self.ffn_final(self.norm_final(h))[:, -self.act_seq :]
 
 
-class _ResamplerLayer(nn.Module):
-    """Latents cross-attend to one frame's patch tokens, then an FFN."""
-
-    def __init__(self, dim: int, num_heads: int, mlp_ratio: float = 4.0):
-        super().__init__()
-        self.norm_q = nn.RMSNorm(dim, eps=1e-6)
-        self.norm_kv = nn.RMSNorm(dim, eps=1e-6)
-        self.attn = _Attention(dim, num_heads)
-        self.norm_ffn = nn.RMSNorm(dim, eps=1e-6)
-        self.ffn = _Mlp(dim, int(dim * mlp_ratio))
-
-    def forward(self, latents, feats):
-        latents = latents + self.attn(self.norm_q(latents), self.norm_kv(feats))
-        return latents + self.ffn(self.norm_ffn(latents))
-
-
 class RDTMemory(nn.Module):
-    """Long-range visual memory: ``frames`` past frames of one camera, each
-    compressed to ``latents`` tokens for the DiT's self-attention prefix.
+    """Long-range visual memory: ``frames`` frames of one camera ``stride_s``
+    apart, the newest the current one, one token each for the DiT's
+    self-attention prefix.
 
-    A frozen image tower (a ``DINOv3Stem`` with ``freeze_backbone``; only its
-    ``proj`` trains) encodes every frame; a Perceiver resampler, shared across
-    frames, pools the patch tokens into learned latents; a fixed sin-cos code
-    of each frame's age in seconds (``stride_s`` apart, the newest
-    ``stride_s`` back) tags its latents. ``fuse_proprio`` adds a projection of
-    that step's proprio token, which needs the proprio history on the same
-    grid: ``frames + 1`` steps ``stride_s`` apart, the current one last.
+    ``encoder`` must pool each frame to a single token (``DINOv3Stem`` with
+    ``pool="cls"``); a fixed sin-cos code of the frame's age in seconds tags
+    it. ``fuse_proprio`` adds a projection of that step's proprio token, which
+    needs the proprio history on the same grid, current step last.
     """
 
     def __init__(
@@ -343,36 +325,16 @@ class RDTMemory(nn.Module):
         hidden_dim: int,
         frames: int = 10,
         stride_s: float = 1.0,
-        latents: int = 8,
-        depth: int = 1,
-        num_heads: int = 16,
         fuse_proprio: bool = False,
     ):
         super().__init__()
-        if not getattr(encoder, "freeze_backbone", False):
-            raise ValueError(
-                "the memory encoder must be frozen (freeze_backbone=true): its "
-                "only gradient would come through a few pooled tokens"
-            )
         self.encoder = encoder
         self.frames = int(frames)
-        self.latents_per_frame = int(latents)
         self.fuse_proprio = bool(fuse_proprio)
-        self.latents = nn.Parameter(torch.randn(1, latents, hidden_dim) * 0.02)
-        self.layers = nn.ModuleList(
-            [_ResamplerLayer(hidden_dim, num_heads) for _ in range(depth)]
-        )
-        self.norm_out = nn.RMSNorm(hidden_dim, eps=1e-6)
         if self.fuse_proprio:
             self.proprio_proj = nn.Linear(hidden_dim, hidden_dim)
-        grid = getattr(encoder, "grid_size", None)
-        self.register_buffer(
-            "patch_pos",
-            sincos_2d(hidden_dim, grid) if grid is not None else None,
-            persistent=False,
-        )
         # ages in 0.1 s units, oldest first, so 0.1 s apart is one sin-cos step
-        age_s = float(stride_s) * np.arange(self.frames, 0, -1)
+        age_s = float(stride_s) * np.arange(self.frames - 1, -1, -1)
         self.register_buffer(
             "age_embed",
             torch.from_numpy(sincos_1d(hidden_dim, age_s * 10.0)).float(),
@@ -381,7 +343,7 @@ class RDTMemory(nn.Module):
 
     @property
     def n_tokens(self) -> int:
-        return self.frames * self.latents_per_frame
+        return self.frames
 
     def forward(
         self,
@@ -390,32 +352,27 @@ class RDTMemory(nn.Module):
         state: Optional[torch.Tensor] = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """``(B, N, 3, H, W)`` frames, oldest first, and their ``(B, N)``
-        validity -> ``(B, N * latents, D)`` tokens and their ``(B, N * latents)``
-        bool mask."""
+        validity -> ``(B, N, D)`` tokens and their ``(B, N)`` bool mask."""
         B, N = images.shape[:2]
         if N != self.frames:
             raise ValueError(
                 f"memory window has {N} frames but trunk.memory.frames="
                 f"{self.frames}; set it to the data config's key_map.image_memory"
             )
-        feats = self.encoder(images)
-        feats = feats.reshape(B * N, -1, feats.shape[-1])
-        if self.patch_pos is not None and self.patch_pos.shape[0] == feats.shape[1]:
-            feats = feats + self.patch_pos.to(feats)
-        lat = self.latents.expand(B * N, -1, -1).to(feats)
-        for layer in self.layers:
-            lat = layer(lat, feats)
-        lat = self.norm_out(lat).reshape(B, N, self.latents_per_frame, -1)
-        lat = lat + self.age_embed.to(lat)[None, :, None]
+        tokens = self.encoder(images)
+        if tokens.shape[1] != N:
+            raise ValueError(
+                f"the memory encoder gave {tokens.shape[1] // N} tokens per frame, "
+                "not 1; use a DINOv3Stem with pool: cls"
+            )
+        tokens = tokens + self.age_embed.to(tokens)
         if self.fuse_proprio:
-            if state is None or state.shape[1] != N + 1:
+            if state is None or state.shape[1] < N:
                 got = None if state is None else state.shape[1]
                 raise ValueError(
-                    f"fuse_proprio needs {N + 1} proprio steps on the memory's "
-                    f"grid (got {got}); set key_map.proprio_history={N + 1} and "
-                    "history_stride_s to the memory stride"
+                    f"fuse_proprio needs >= {N} proprio steps on the memory's grid "
+                    f"(got {got}); set key_map.proprio_history and "
+                    "history_stride_s to match the memory"
                 )
-            lat = lat + self.proprio_proj(state[:, :N]).unsqueeze(2)
-        tokens = lat.reshape(B, N * self.latents_per_frame, -1)
-        mask = mask.bool().repeat_interleave(self.latents_per_frame, dim=1)
-        return tokens, mask
+            tokens = tokens + self.proprio_proj(state[:, -N:])
+        return tokens, mask.bool()

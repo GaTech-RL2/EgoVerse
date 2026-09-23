@@ -1,6 +1,6 @@
 """Long-range image memory in the data path: ``Human.get_keymap(image_memory=N,
 image_memory_stride_s=s)`` adds a ``<front key>_mem`` window of N frames s
-seconds apart ending s seconds back, with a ``_mem_mask`` of the steps inside
+seconds apart ending at the current frame, with a ``_mem_mask`` of the steps inside
 the episode; ``history_stride_s`` spaces proprio history in seconds too."""
 
 from __future__ import annotations
@@ -49,29 +49,31 @@ def _leaf(tmp_path, fps: int = 30, **keymap_kwargs):
 
 
 @pytest.mark.parametrize("fps", [10, 30])
-def test_memory_frames_are_stride_seconds_apart_ending_one_stride_back(tmp_path, fps):
+def test_memory_frames_are_stride_seconds_apart_ending_at_the_current_frame(
+    tmp_path, fps
+):
     leaf = _leaf(tmp_path, fps, image_memory=4, image_memory_stride_s=0.5)
     step = round(0.5 * fps)
     idx = T - 1
     sample = leaf[idx]
     assert sample[MEM].shape == (4, 3, 32, 32)
     for j, frame in enumerate(sample[MEM]):
-        assert torch.equal(frame, leaf[idx - step * (4 - j)][CAM])
+        assert torch.equal(frame, leaf[idx - step * (3 - j)][CAM])
     np.testing.assert_array_equal(np.asarray(sample[MASK]), np.ones(4))
 
 
 def test_memory_front_pads_with_the_oldest_real_step_and_masks_the_rest(tmp_path):
     leaf = _leaf(tmp_path, image_memory=4, image_memory_stride_s=1.0)
-    sample = leaf[65]  # steps 5, 35 are real; -25, -55 are not
+    sample = leaf[35]  # steps 5, 35 are real; -25, -55 are not
     np.testing.assert_array_equal(np.asarray(sample[MASK]), [0, 0, 1, 1])
     for j, src in enumerate((5, 5, 5, 35)):
         assert torch.equal(sample[MEM][j], leaf[src][CAM])
 
 
-def test_memory_is_fully_masked_before_one_stride_has_passed(tmp_path):
+def test_memory_at_the_first_frame_holds_only_the_current_step(tmp_path):
     leaf = _leaf(tmp_path, image_memory=3, image_memory_stride_s=1.0)
-    sample = leaf[10]
-    np.testing.assert_array_equal(np.asarray(sample[MASK]), np.zeros(3))
+    sample = leaf[0]
+    np.testing.assert_array_equal(np.asarray(sample[MASK]), [0, 0, 1])
     assert sample[MEM].shape == (3, 3, 32, 32)
 
 
@@ -95,7 +97,7 @@ def test_memory_reads_and_decodes_each_distinct_frame_once(tmp_path, monkeypatch
 
     monkeypatch.setattr(ZarrEpisode, "read_intervals", spy)
     leaf[T - 1]
-    # current + 0.1 s pair frame + the 4 real memory steps 119 - 30k
+    # current (also the newest memory step) + 0.1 s pair frame + 119 - 30k
     assert rows[-1]["images.front_1"] == 1 + 1 + 4
 
 
