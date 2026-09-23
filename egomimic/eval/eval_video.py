@@ -6,7 +6,18 @@ import torchvision.io as tvio
 from lightning.pytorch.loggers import WandbLogger
 
 from egomimic.eval.eval import Eval
+from egomimic.eval.replay_viz import ReplayClip, render_replay
 from egomimic.rldb.embodiment.embodiment import get_embodiment
+
+# viz_gt_preds kwargs that ReplayClip / render_replay consume themselves.
+_REPLAY_OWN_KWARGS = {
+    "image_key",
+    "action_key",
+    "annotation_key",
+    "mode",
+    "gt_alpha",
+    "pred_alpha",
+}
 
 
 class EvalVideo(Eval):
@@ -23,6 +34,9 @@ class EvalVideo(Eval):
         transform_lists: dict | None = None,
         viz_every_n_epochs: int = 1,
         viz_max_batches: int | None = None,
+        viz_mode: str = "overlay",
+        replay_trail: int = 5,
+        action_stride: int = 1,
     ):
         super().__init__()
         self.trainer = None
@@ -37,6 +51,14 @@ class EvalVideo(Eval):
         # viz-epoch wall time; metrics are still computed on EVERY batch
         # regardless. Required on heads with pinned video loaders (trainHydra).
         self.viz_max_batches = viz_max_batches
+        # "overlay": every frame draws its GT and predicted chunk as traces.
+        # "replay": see egomimic/eval/replay_viz.py. ``action_stride`` is the
+        # data config's action stride (frames per chunk step).
+        if viz_mode not in ("overlay", "replay"):
+            raise ValueError(f"unknown viz_mode {viz_mode!r}")
+        self.viz_mode = viz_mode
+        self.replay_trail = replay_trail
+        self.action_stride = action_stride
         # Per-embodiment list[Transform] applied once during eval to project
         # the model's wrist-frame actions back into cam (head) frame for the
         # viz video.
@@ -102,6 +124,49 @@ class EvalVideo(Eval):
         """
         return int(source_fps)
 
+    def _visualize_preds(self, predictions, batch):
+        if self.viz_func is None:
+            raise ValueError("viz_func is not set")
+        embodiment_name = get_embodiment(batch["embodiment"][0].item()).lower()
+        viz_fn = self.viz_func[embodiment_name]
+        if self.viz_mode == "replay":
+            return ReplayClip.from_batch(viz_fn, predictions, batch)
+        return viz_fn(predictions, batch)
+
+    def _render_replay(self, key, final: bool):
+        """Render the buffered clip's complete chunks; keep the rest unless final."""
+        clips = self.val_image_buffer[key]
+        if not clips:
+            return None
+        clip = ReplayClip.concat(clips)
+        viz_fn = self.viz_func[get_embodiment(key).lower()]
+        frames, used = render_replay(
+            clip,
+            embodiment_cls=viz_fn.func.__self__,
+            mode=viz_fn.keywords["mode"],
+            stride=self.action_stride,
+            trail=self.replay_trail,
+            viz_kwargs={
+                k: v for k, v in viz_fn.keywords.items() if k not in _REPLAY_OWN_KWARGS
+            },
+        )
+        self.val_image_buffer[key] = [] if final else [clip.tail(used)]
+        return torch.from_numpy(frames) if len(frames) else None
+
+    def _buffered_frames(self, key) -> int:
+        return sum(len(c) for c in self.val_image_buffer[key])
+
+    def _flush(self, key, final: bool) -> None:
+        if self.viz_mode == "replay":
+            frames = self._render_replay(key, final)
+        else:
+            buffer = self.val_image_buffer[key]
+            frames = torch.stack(buffer) if buffer else None
+            self.val_image_buffer[key] = []
+        if frames is not None:
+            self._write_video(key, frames)
+            self.val_counter[key] += 1
+
     def _write_video(self, key, frames) -> None:
         # Every rank that gets here renders the same frames to the same path
         # (see _video_fps on why no DistributedSampler splits them), so without
@@ -142,9 +207,8 @@ class EvalVideo(Eval):
     def on_validation_end(self):
         if not self._should_viz():
             return
-        for key, buffer in self.val_image_buffer.items():
-            if len(buffer) != 0:
-                self._write_video(key, torch.stack(buffer))
+        for key in list(self.val_image_buffer):
+            self._flush(key, final=True)
             self.val_counter[key] = 0
             self.val_image_buffer[key] = []
 
@@ -185,11 +249,12 @@ class EvalVideo(Eval):
                 ):
                     self.val_image_buffer[key] = []
                     self.val_counter[key] = 0
-                self.val_image_buffer[key].extend(torch.from_numpy(images))
-                if len(self.val_image_buffer[key]) >= 1000:
-                    self._write_video(key, torch.stack(self.val_image_buffer[key]))
-                    self.val_image_buffer[key].clear()
-                    self.val_counter[key] += 1
+                if self.viz_mode == "replay":
+                    self.val_image_buffer[key].append(images)
+                else:
+                    self.val_image_buffer[key].extend(torch.from_numpy(images))
+                if self._buffered_frames(key) >= 1000:
+                    self._flush(key, final=False)
 
         if mode == "video":
             # Video-only loader: the forward pass was for the overlay. Logging
