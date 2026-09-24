@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "repo_id": "lerobot/pi05_libero_base",
+  "source_url": "https://huggingface.co/lerobot/pi05_libero_base/tree/a217bfd3b14673cf2ce597e69997ab21866438dd",
+  "revision": "a217bfd3b14673cf2ce597e69997ab21866438dd",
+  "local_directory": "astra_reversal/.deps/checkpoints/pi05_libero_base",
+  "verified_at_utc": "2026-09-23T23:25:53.945863+00:00",
+  "download_complete": true,
+  "all_published_files_verified": true,
+  "total_size_bytes": 14467174843,
+  "files": [
+    {
+      "path": ".gitattributes",
+      "size_bytes": 1519,
+      "sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361",
+      "published_object_id": "a6344aac8c09253b3b630fb776ae94478aa0275b",
+      "verified_against": "hugging_face_git_blob_sha1"
+    },
+    {
+      "path": "README.md",
+      "size_bytes": 4255,
+      "sha256": "7a1fc74649adc4fa60c53abb20b59cb48405bf175a149b54389c29f35f415fec",
+      "published_object_id": "23b196814e2e5ea2a2686c75e59331134f4cf2cb",
+      "verified_against": "hugging_face_git_blob_sha1"
+    },
+    {
+      "path": "config.json",
+      "size_bytes": 1715,
+      "sha256": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+      "published_object_id": "e8f8438c8cdc4a8e72d7cd1471241705e2f46cf5",
+      "verified_against": "hugging_face_git_blob_sha1"
+    },
+    {
+      "path": "model.safetensors",
+      "size_bytes": 14467165872,
+      "sha256": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+      "published_object_id": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+      "verified_against": "hugging_face_lfs_sha256"
+    },
+    {
+      "path": "policy_postprocessor.json",
+      "size_bytes": 448,
+      "sha256": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+      "published_object_id": "4490f0951e4c146a36b9346d36e49c9b676cee23",
+      "verified_against": "hugging_face_git_blob_sha1"
+    },
+    {
+      "path": "policy_preprocessor.json",
+      "size_bytes": 1034,
+      "sha256": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db",
+      "published_object_id": "612de502987d83ed6df719d1cc302c5d5e72a766",
+      "verified_against": "hugging_face_git_blob_sha1"
+    }
+  ],
+  "tensor_count": 812,
+  "parameter_count": 3616757520,
+  "tensor_dtypes": [
+    "F32"
+  ],
+  "checkpoint_details": {
+    "weights_available": true,
+    "format": "lerobot_pi05",
+    "horizon": 50,
+    "default_execute_steps": 10,
+    "model_action_dim": 32,
+    "environment_action_dim": 7,
+    "state_in_language_tokens": true,
+    "checkpoint_dtype": "float32",
+    "normalization": [
+      {
+        "file": "policy_preprocessor.json",
+        "step": "normalizer_processor",
+        "features": {},
+        "norm_map": {
+          "VISUAL": "IDENTITY",
+          "STATE": "MEAN_STD",
+          "ACTION": "MEAN_STD"
+        },
+        "state_file": null
+      },
+      {
+        "file": "policy_postprocessor.json",
+        "step": "unnormalizer_processor",
+        "features": {},
+        "norm_map": {
+          "VISUAL": "IDENTITY",
+          "STATE": "MEAN_STD",
+          "ACTION": "MEAN_STD"
+        },
+        "state_file": null
+      }
+    ],
+    "openpi_loader_compatible": false,
+    "loader": "lerobot",
+    "loader_compatible": true,
+    "compatibility_note": "LeRobot PI05: load_policy selects the existing LeRobot model, saved processors, and denoise_step velocity. FrozenOpenPI is only the OpenPI-specific loader."
+  },
+  "inference_validated": true,
+  "training_overlap": "unknown",
+  "weighted_flow_smoke": "lerobot_pi05_libero_base_flow_smoke.json",
+  "weighted_flow_validated_on_synthetic_inputs": true,
+  "inference_validation_scope": "Frozen checkpoint and real tokenizer with synthetic images/state; exact 10-step upstream sampler parity. LIBERO success and reconstruction acceptance remain unvalidated.",
+  "tokenizer_manifest": "paligemma_tokenizer.json",
+  "tokenizer_flow_smoke": "lerobot_pi05_libero_base_tokenizer_flow_smoke.json"
+}
