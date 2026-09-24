@@ -490,6 +490,30 @@ def test_pi_loss_is_reduced_over_the_packed_width():
     )
 
 
+def test_pi_process_batch_keeps_the_per_sample_intrinsics():
+    from egomimic.algo.pi import PI
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+    class _NormStats:
+        def zarr_key_to_keyname(self, key, embodiment_id):
+            return key if key == "actions_keypoints" else None
+
+    pi = PI.__new__(PI)
+    pi.norm_stats = _NormStats()
+    pi.device = "cpu"
+    pi._build_prompts = lambda _batch, name, B: [""] * B
+    pi._tokenize_prompts = lambda prompts: {}
+    emb = "human_bimanual"
+    emb_id = get_embodiment_id(emb)
+    pi.ac_keys = {emb_id: "actions_keypoints"}
+    K = torch.eye(3).expand(2, 3, 3).clone()
+    out = PI.process_batch_for_training(
+        pi,
+        {emb: {"actions_keypoints": torch.zeros(2, 5, 144), "intrinsics": K}},
+    )[emb_id]
+    torch.testing.assert_close(out["intrinsics"], K)
+
+
 def test_bounds_check_has_relative_slack_but_catches_corrupt_values():
     """Per-cell bounds tolerate frames moderately beyond the stats sample's
     range (valid extreme motion) and still reject values orders of magnitude
