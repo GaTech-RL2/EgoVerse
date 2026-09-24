@@ -1,0 +1,33 @@
+# Development-only diagnostic; no inference credential or OOD checkout.
+workflow:
+  name: astra-pi05-astra-proposal-replay-20260924
+  resources:
+    default:
+      cpu: 4
+      gpu: 1
+      memory: 48Gi
+      storage: 60Gi
+      platform: ovx-l40s
+  timeout:
+    queue_timeout: 4h
+    exec_timeout: 1h
+  tasks:
+  - name: replay
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: [bash]
+    args: [/tmp/astra-bootstrap.sh]
+    environment:
+      PAYLOAD_SHA256: "{{payload_sha256}}"
+      ASTRA_RUN_ID: "{{workflow_id}}"
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.astra_proposal_replay
+      ASTRA_INCLUDE_OOD: "0"
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_TF32_OVERRIDE: "0"
+    credentials:
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+        R2_ENDPOINT_URL: r2_endpoint_url
+    files:
+    - localpath: bootstrap.sh
+      path: /tmp/astra-bootstrap.sh

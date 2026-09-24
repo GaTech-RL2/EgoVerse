@@ -1,0 +1,5016 @@
+{
+  "schema_version": "review-summary-1.0",
+  "purpose": "Development-only numerical solver selection on all recorded reference conditions",
+  "status": "complete_passing_solver",
+  "solver": "rk4",
+  "solver_options": {
+    "time_power": 3.0
+  },
+  "checkpoint": {
+    "artifact": "/workspace/astra-reversal/astra_reversal/.deps/checkpoints/pi05_libero_base",
+    "requested_artifact": "astra_reversal/.deps/checkpoints/pi05_libero_base",
+    "format": "lerobot_pi05",
+    "backend": "pytorch",
+    "frozen": true,
+    "horizon": 10,
+    "model_action_dim": 32,
+    "device": "cuda",
+    "dtype": "float32",
+    "shared_weight_aliases": {
+      "model.paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight": "model.paligemma_with_expert.paligemma.lm_head.weight"
+    },
+    "tokenizer_path": "astra_reversal/.deps/tokenizers/paligemma-3b-pt-224",
+    "tokenizer_sha256": "c44a0503146efc99bbd748f05667ddfeb0ae5d1afb63019df2d4c020cfb6b928",
+    "artifact_sha256": {
+      "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+      "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+      "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+      "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+    },
+    "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+    "adapter_source_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+    "processor_source_sha256": {
+      "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+      "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+      "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+      "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+      "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+      "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+      "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+    },
+    "torch_version": "2.7.1+cu126",
+    "transformers_version": "4.53.3",
+    "transformers_source_sha256": {
+      "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+      "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+      "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+    },
+    "normalization": {
+      "type": "quantile",
+      "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+    },
+    "provenance": "https://huggingface.co/lerobot/pi05_libero_base/tree/a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "training_overlap": "unknown",
+    "input_profile": "openpi_libero",
+    "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+    "input_profile_assets": {
+      "tokenizer": {
+        "url": "https://storage.googleapis.com/big_vision/paligemma_tokenizer.model?generation=1711547605575873",
+        "bytes": 4264023,
+        "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6",
+        "generation": "1711547605575873",
+        "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g=="
+      },
+      "norm_stats": {
+        "url": "https://storage.googleapis.com/openpi-assets/checkpoints/pi05_libero/assets/physical-intelligence/libero/norm_stats.json?generation=1757354341826612",
+        "bytes": 1914,
+        "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+        "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug=="
+      }
+    },
+    "runtime_overrides": {
+      "chunk_size": 10,
+      "discrete_state_input": false,
+      "image_size": 224
+    },
+    "interpretation": "LeRobot exported weights with OpenPI LIBERO inputs; published checkpoint success is not established"
+  },
+  "checkpoint_matches_recorded_source": {
+    "matched": true,
+    "ignored_physical_location_fields": [
+      "artifact",
+      "device",
+      "requested_artifact",
+      "tokenizer_path"
+    ]
+  },
+  "action_spec_id": "7ed74da0d42db5cbe3cd6ccac845cd84b6714b6af77af0659c4358426d4b35ba",
+  "source": {
+    "source_root": "/workspace/astra-reversal/astra_reversal/.deps/runtime-probe-input",
+    "manifest_sha256": "bdbcc405ef74fd39fe9e406b85394eea3d69cefd3bde0fe01e5745ba8604563b",
+    "events_sha256": "4c3f1d0173cd67c758f554b1f2e2eb04af9e2412fa6f473f30f161dabf2e019e",
+    "task_manifest_sha256": "4727983af2291f41dc978f4d3df52b68b89c0476d3ae7b9169bb05e6abe41a5b",
+    "split": "development",
+    "suite": "libero_10",
+    "conditions": 14,
+    "recorded_passing_conditions": 3,
+    "recorded_maximum_noise_error": 0.630013644695282,
+    "bundle_sha256": "535017cf7e09d131a9bce363d0bf5744f66af3756fbafd2e6a32e96b8f532261",
+    "original_source_root": "/Users/rpunamiya/Desktop/GEAR/EgoVerse/astra_reversal/artifacts/osmo_fixed_l40s/extracted/results/inversion_only",
+    "verified_array_inventory": {
+      "count": 154,
+      "total_bytes": 4378304,
+      "json_sha256": "835c7387d4263b47bdcd5e4ce1b4e8522ba183eef49ae6d7011356832f1c4099",
+      "digest_encoding": "UTF-8 json.dumps(original source.verified_arrays, sort_keys=True, separators=(comma, colon), allow_nan=False) without a trailing newline"
+    }
+  },
+  "tolerances": {
+    "action_atol": 0.02,
+    "noise_atol": 0.1,
+    "parity_atol": 1e-05
+  },
+  "proposal_source": "policy_generated_from_recorded_full_known_noise",
+  "selection_rule": "Minimum velocity evaluations per solve among candidates passing every one of the 14 recorded development conditions; no OOD or control-success selection",
+  "screening_rule": "Descending prior RK4/50 maximum known-noise error; reject a candidate after the screen if any screened condition fails",
+  "screening_condition_ids": [
+    "b806d4215ec662987b157c1035020277f4b4724e43dda5051402fa4fcac86291",
+    "16ad1984276fa927d5e3e08df7a2b7a447a8b9529748592c312b71ebe3653828",
+    "b1124dc504af0d541e74764f60e225a168f7390ccbee05af820dc5c82ca0fe84"
+  ],
+  "evaluate_all_candidates_on_all_conditions": false,
+  "full_condition_order": [
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:100",
+      "observation_step": 100,
+      "observation_id": "ad0a33728e2e41aa4209d10a961be27bdd0269bec3df096f786080ff8d0eede5",
+      "condition_id": "b806d4215ec662987b157c1035020277f4b4724e43dda5051402fa4fcac86291",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        100,
+        0
+      ],
+      "condition_sequence": 213,
+      "inversion_sequence": 217,
+      "reference_generation_sequence": 214,
+      "known_noise_sha256": "5ea679b2731423cb63cfe8ed3cd52c6ade8ef8bafb51fa3d38097ed225169c94",
+      "recorded_endpoint_sha256": "cc0c6a4a1bcd185d4acc6df632bef326869e7d33cc10e34599cb0040d7b7f4a3",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.043958726612210744,
+        "max_abs": 0.630013644695282
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 6.917921859559444e-06,
+        "max_abs": 8.33272933959961e-05
+      },
+      "replay_sequence": 220
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:80",
+      "observation_step": 80,
+      "observation_id": "c3457746cde584fae9edf4a5361c64bb21d3689eb7deed3ddb6c3e9d0608907f",
+      "condition_id": "16ad1984276fa927d5e3e08df7a2b7a447a8b9529748592c312b71ebe3653828",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        80,
+        0
+      ],
+      "condition_sequence": 171,
+      "inversion_sequence": 175,
+      "reference_generation_sequence": 172,
+      "known_noise_sha256": "5a137ca44ac95cfaebb7ac06c84d9416304247f37bc156cad3a0407acadd4601",
+      "recorded_endpoint_sha256": "d2f42b16da072bf0c7ff37b6ce114bfcaa476dfb96ca6287966eb6e874995c5b",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.03681131955768364,
+        "max_abs": 0.5357358455657959
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 4.825366036107191e-06,
+        "max_abs": 4.4465065002441406e-05
+      },
+      "replay_sequence": 178
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:20",
+      "observation_step": 20,
+      "observation_id": "11d4949761204c6e1599c71a66d83e6e17d18880c4fa16fda8c37a3987da6857",
+      "condition_id": "b1124dc504af0d541e74764f60e225a168f7390ccbee05af820dc5c82ca0fe84",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        20,
+        0
+      ],
+      "condition_sequence": 45,
+      "inversion_sequence": 49,
+      "reference_generation_sequence": 46,
+      "known_noise_sha256": "ac14a5bfc3ab9b2dd6d9042cf9e8023a1ce08c66b6b8880946c2d28309bfbf9d",
+      "recorded_endpoint_sha256": "df4a42e812efc3abd54a3c387f06abc974e4188bd09190c065695d9f5fdadeec",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.0263276729381246,
+        "max_abs": 0.33727025985717773
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 4.1620908524543965e-06,
+        "max_abs": 3.540515899658203e-05
+      },
+      "replay_sequence": 52
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:140",
+      "observation_step": 140,
+      "observation_id": "d3f83b850bc2ea0e5cd1bb55c1f987bab5abcf8237c1d8e5be0d2d9a3b3f6dd1",
+      "condition_id": "d82dbba2a1c5e57be982d085f38ae6c494af4a04f27b703d6ccaae932d9fa89e",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        140,
+        0
+      ],
+      "condition_sequence": 297,
+      "inversion_sequence": 301,
+      "reference_generation_sequence": 298,
+      "known_noise_sha256": "a9547972ea1952fc7ec1297077ed70b7e80fd852dad9f2fa2db8dae0f81f1838",
+      "recorded_endpoint_sha256": "55b2fdea1047db49f80ceb80ee02610c9ec16d4922ff64fd086514e5773e1d75",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.02581146819193357,
+        "max_abs": 0.33024489879608154
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 6.408899559139759e-06,
+        "max_abs": 6.258487701416016e-05
+      },
+      "replay_sequence": 304
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:220",
+      "observation_step": 220,
+      "observation_id": "205c1635c64dc4414c68cfcf6f88c08bec1d1fe58e6bc23d2772b7df5eee3c08",
+      "condition_id": "94456667d19908a1ed48401b42e6a26102b7ed4adf42739a12edf778bc6c308c",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        220,
+        0
+      ],
+      "condition_sequence": 465,
+      "inversion_sequence": 469,
+      "reference_generation_sequence": 466,
+      "known_noise_sha256": "59367a51b22fd1c87b2f075d5db9ad5a5483b0511e0d19ced2436cb0e4cd0d4a",
+      "recorded_endpoint_sha256": "e4af0eeeefbc0de22c4cf2d39e6c69e64ec11695ef0c7a4c9cc105d99cdb0065",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.027923530601132725,
+        "max_abs": 0.31716692447662354
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 5.104335291670993e-06,
+        "max_abs": 3.409385681152344e-05
+      },
+      "replay_sequence": 472
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:40",
+      "observation_step": 40,
+      "observation_id": "9db30e6bad56dd53056d1c60109828c17ede131becdb69f2716a677dfe555b25",
+      "condition_id": "a642bbaa8005df5c8bd3a8fa0a21e60db65510d990b456fbff54625e5466cc76",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        40,
+        0
+      ],
+      "condition_sequence": 87,
+      "inversion_sequence": 91,
+      "reference_generation_sequence": 88,
+      "known_noise_sha256": "2c11f8148fa331bc611c10b59bfe1b5782e17fd6c7b56fabc698c17f87f0a10e",
+      "recorded_endpoint_sha256": "b8a339a43c3c3313899ea2aecaeb72d6ff9536e6c401b156cd3ce1784fa7e8dd",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.02883236366749573,
+        "max_abs": 0.3136938214302063
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 4.618296174050535e-06,
+        "max_abs": 4.470348358154297e-05
+      },
+      "replay_sequence": 94
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:120",
+      "observation_step": 120,
+      "observation_id": "c29926499e8d88689f3db2a9a8bdddac463a814f34e3e81d53b013f2cb526b41",
+      "condition_id": "754915ca8b62fce8a6518c81ccdbccdd07b09f76a5bc3fa07c42f109e17cbc3d",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        120,
+        0
+      ],
+      "condition_sequence": 255,
+      "inversion_sequence": 259,
+      "reference_generation_sequence": 256,
+      "known_noise_sha256": "ce8b927d0b2fcb64ebd8fefcb02c8bd24ad6c7c7ec0f42ca1d83d6140be6b3c5",
+      "recorded_endpoint_sha256": "534d06ec83de33af92c4eabb786b4983c76e25dca5ffbc9c544315edda84f15f",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.02279885194571771,
+        "max_abs": 0.29866766929626465
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 6.5890498930387615e-06,
+        "max_abs": 7.617473602294922e-05
+      },
+      "replay_sequence": 262
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:180",
+      "observation_step": 180,
+      "observation_id": "82d9f79e61fb57e61e7fca967bba9224a8b74c2f96d43266d457316be7369ede",
+      "condition_id": "f05348a1b20abb20e3f2e87f754df814f82ca5b416f672a6b183cdcff8dd3733",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        180,
+        0
+      ],
+      "condition_sequence": 381,
+      "inversion_sequence": 385,
+      "reference_generation_sequence": 382,
+      "known_noise_sha256": "e424abc482383d3bab8677f85b14ec6ad13436282e5144df6feeb68d58cfe308",
+      "recorded_endpoint_sha256": "3464ee754ee07a6fd7c01f9f0071f6196e033f2bfde5711d944cae0a66a3aecf",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.019604093467663952,
+        "max_abs": 0.24816763401031494
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 5.3638427713723926e-06,
+        "max_abs": 3.707408905029297e-05
+      },
+      "replay_sequence": 388
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:240",
+      "observation_step": 240,
+      "observation_id": "5c55a077c5660fcfe95a040eac65800c7ab1e34d86cca5c1af01c559650207c8",
+      "condition_id": "4c508509be90e45bb44544c55fce08e8a9bb04b03fe730d654fef4983b261661",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        240,
+        0
+      ],
+      "condition_sequence": 507,
+      "inversion_sequence": 511,
+      "reference_generation_sequence": 508,
+      "known_noise_sha256": "6aa95ec891f0291a85518e52c9d87bb178a378e474216f62a04541773629d321",
+      "recorded_endpoint_sha256": "f24789b54b0006e12999606608a374f874898c68035ea1ee7dfecc03ff81e9ac",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.017276847326990176,
+        "max_abs": 0.23069123923778534
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 8.650290744699624e-06,
+        "max_abs": 7.510185241699219e-05
+      },
+      "replay_sequence": 514
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:160",
+      "observation_step": 160,
+      "observation_id": "d18daf170016de7b3534a1035fef184816da7145efc89e3974c7fefd09672b75",
+      "condition_id": "98d23a2c2d8c5b0d82b5b421240a5b4afd63f3aed60335146e2de9584cc45274",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        160,
+        0
+      ],
+      "condition_sequence": 339,
+      "inversion_sequence": 343,
+      "reference_generation_sequence": 340,
+      "known_noise_sha256": "01ac4b69cfb3d1b02cd8d5b0362424349396749c2da6fd2c6dbcdf859ce4bcc3",
+      "recorded_endpoint_sha256": "75291b4b9d7e4e0fa9b938983a2f71f38d6593a73f4872c3bb199a3159cad6dc",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.017113347279297125,
+        "max_abs": 0.1872727870941162
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 5.8249158458729485e-06,
+        "max_abs": 4.1961669921875e-05
+      },
+      "replay_sequence": 346
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:60",
+      "observation_step": 60,
+      "observation_id": "fed57cd73c23289ac801313653d5c123c573a0fc7c5ede44da0d9f6a1d8b70a7",
+      "condition_id": "85d805b83901f8d0069b469fc4e945692b2f3df4c9c538ca3c6f01ff8f31a4db",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        60,
+        0
+      ],
+      "condition_sequence": 129,
+      "inversion_sequence": 133,
+      "reference_generation_sequence": 130,
+      "known_noise_sha256": "b6724db13c08454c7fc533ca0a122352881d140577078e851ec8e821e62f70f9",
+      "recorded_endpoint_sha256": "37b9a9565ddef126acfbd09781eef6b222daa2a2908130db53ddbd27a86ea8f2",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.015606192592870131,
+        "max_abs": 0.18130012601613998
+      },
+      "recorded_passed_noise_tolerance": false,
+      "recorded_internal_reconstruction": {
+        "rmse": 8.412080117893976e-06,
+        "max_abs": 0.00010001659393310547
+      },
+      "replay_sequence": 136
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:260",
+      "observation_step": 260,
+      "observation_id": "bcfc4c3b2f4b53eb1a88789542ba7bab106c407d588d267033a42499c4cf9ebd",
+      "condition_id": "689de64bcc2d1061f98fd24ca3216f9d2fada34b3ffe666a05b1f3aeae38069d",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        260,
+        0
+      ],
+      "condition_sequence": 549,
+      "inversion_sequence": 553,
+      "reference_generation_sequence": 550,
+      "known_noise_sha256": "fa9781ff2cea675a6ed46bd647e99fba62cd002717ee466d4fed46bd3bda63ef",
+      "recorded_endpoint_sha256": "0e84a7a23981de45afb9de6c47c264d6f3296747e36cd90e4a58b9fc443dad03",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.007154397659505211,
+        "max_abs": 0.09114360809326172
+      },
+      "recorded_passed_noise_tolerance": true,
+      "recorded_internal_reconstruction": {
+        "rmse": 4.3730710534097476e-06,
+        "max_abs": 4.565715789794922e-05
+      },
+      "replay_sequence": 556
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:0",
+      "observation_step": 0,
+      "observation_id": "249335f684b3830fc92e1e958c2e6d36810321eaefe67e6a334eae834af66b67",
+      "condition_id": "6fa2298e2a010a7599abbf0fafff966822416092e1044b94e89b4cb825e58553",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        0,
+        0
+      ],
+      "condition_sequence": 3,
+      "inversion_sequence": 7,
+      "reference_generation_sequence": 4,
+      "known_noise_sha256": "6969a118028501769efb18d04d63413f0ea6ac12945c865e554950182dae35a6",
+      "recorded_endpoint_sha256": "aa7ad86c91ed8e792818213e0e73820c8c499b5cfce5e1f007a457b0b3c2da15",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.006183532652679688,
+        "max_abs": 0.058491051197052
+      },
+      "recorded_passed_noise_tolerance": true,
+      "recorded_internal_reconstruction": {
+        "rmse": 5.33819214879877e-06,
+        "max_abs": 5.6862831115722656e-05
+      },
+      "replay_sequence": 10
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:200",
+      "observation_step": 200,
+      "observation_id": "0cc91363b5db0e90f75e13b4ff7cff831d20114c267fccc9047f922fa6dacde8",
+      "condition_id": "a8b3e1c05e2f26b42b52725c4bd1f89b3d43364d138e37a81ef4ca58b8fae6ba",
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "noise_key": [
+        0,
+        200,
+        0
+      ],
+      "condition_sequence": 423,
+      "inversion_sequence": 427,
+      "reference_generation_sequence": 424,
+      "known_noise_sha256": "0c0db0f3c569ff3667dbe6ad4746deea1fd09c885d4930f52ddde0f89465535b",
+      "recorded_endpoint_sha256": "5c71848fc3cd96c085b53ebb5d23f95be528339c8e5534f9f834e704752efec7",
+      "recorded_solver": "rk4",
+      "recorded_steps": 50,
+      "recorded_known_noise_recovery": {
+        "rmse": 0.004307324904883315,
+        "max_abs": 0.04700756072998047
+      },
+      "recorded_passed_noise_tolerance": true,
+      "recorded_internal_reconstruction": {
+        "rmse": 3.4138937805417626e-06,
+        "max_abs": 2.1189451217651367e-05
+      },
+      "replay_sequence": 430
+    }
+  ],
+  "runtime": {
+    "gpu": "NVIDIA L40S",
+    "visible_gpu_count": 1,
+    "device": "cuda",
+    "python": "3.11.14",
+    "torch": "2.7.1+cu126",
+    "tf32": false,
+    "workflow": "astra-pi05-runtime-numerics-20260924-2",
+    "payload_sha256": "e0ec93258083ef41a732bef30504e859c95de0f0ecf406cc1f26f8ed4aa2bd7f",
+    "probe_source_sha256": "fd199fc3161757ba239984863961c02e192982fe01269f72d79a9554dc07061c"
+  },
+  "results": [
+    {
+      "steps": 100,
+      "status": "complete",
+      "conditions_tested": 14,
+      "conditions_required": 14,
+      "passing_conditions": 14,
+      "velocity_evaluations_per_solve": 400,
+      "velocity_evaluations": 16800,
+      "latency_seconds": 190.29300357587636,
+      "passed": true,
+      "conditions": [
+        {
+          "observation_step": 100,
+          "condition_id": "b806d4215ec662987b157c1035020277f4b4724e43dda5051402fa4fcac86291",
+          "steps": 100,
+          "phase": "screening",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.037271456508825e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 2.8872317857425847e-08,
+            "max_abs": 2.383710149267415e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 1.5114496093794098e-05,
+            "max_abs": 0.00015723705291748047
+          },
+          "known_noise_action_channels": {
+            "rmse": 3.144209911552272e-05,
+            "max_abs": 0.00015723705291748047
+          },
+          "known_noise_padding_channels": {
+            "rmse": 3.950172512109627e-06,
+            "max_abs": 1.3709068298339844e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.131975207832335e-05,
+            "max_abs": 0.00034473836421966553
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.761715350672603
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.61755998712033
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.545376933179796
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.92743107303977,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0100_b806d4215ec6.npz",
+            "file_sha256": "b3c7634d2c118e47c45090c21c47370a12b6aa47d5a9b4bfd94641d3510babe5",
+            "arrays": {
+              "known_noise": {
+                "sha256": "5ea679b2731423cb63cfe8ed3cd52c6ade8ef8bafb51fa3d38097ed225169c94",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "f52b48ac8b56c68f7ef1c77cd01eb4a4571406f5adefef3d236c65bdc9f5f07b",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "989f0724516a018989733619f4a6fe7b9e5a90632d266d1820c45fd32beec2fd",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "82081cf257f1f7558e8ec5a38e6e5817b177f0deae063f92f838a3dccdf5f647",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 80,
+          "condition_id": "16ad1984276fa927d5e3e08df7a2b7a447a8b9529748592c312b71ebe3653828",
+          "steps": 100,
+          "phase": "screening",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.4855125291836177e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 3.469912740114386e-08,
+            "max_abs": 1.1173641689676828e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 1.808679169322732e-05,
+            "max_abs": 0.00022792816162109375
+          },
+          "known_noise_action_channels": {
+            "rmse": 3.8048008477268155e-05,
+            "max_abs": 0.00022792816162109375
+          },
+          "known_noise_padding_channels": {
+            "rmse": 3.6587890703368565e-06,
+            "max_abs": 1.0609626770019531e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.87861399512725e-05,
+            "max_abs": 0.0006240010261535645
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.433397038839757
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.45846498478204
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.42839081492275
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.322106278501451,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0080_16ad1984276f.npz",
+            "file_sha256": "d18cc162baae286f69235fb24a043c11ba92e79ed8eeb260b889995bdaf87dd8",
+            "arrays": {
+              "known_noise": {
+                "sha256": "5a137ca44ac95cfaebb7ac06c84d9416304247f37bc156cad3a0407acadd4601",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "704b495eea9017b83aeae26fd58df3da6fbe580cb8a9fc5e2e3c77cdce030530",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "bc8a9779e727f85aa410f922d415672049178c2d723d777762a33e72a8bcf79e",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "654ee32e6f5e369d64b0a0187bbfcc2b9a0d98a1174e359e981f4aba20653f72",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 20,
+          "condition_id": "b1124dc504af0d541e74764f60e225a168f7390ccbee05af820dc5c82ca0fe84",
+          "steps": 100,
+          "phase": "screening",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.2248757051131794e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 2.4286386663007936e-08,
+            "max_abs": 1.1918550746337075e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 2.894262452700414e-05,
+            "max_abs": 0.0003352165222167969
+          },
+          "known_noise_action_channels": {
+            "rmse": 6.137554097226648e-05,
+            "max_abs": 0.0003352165222167969
+          },
+          "known_noise_padding_channels": {
+            "rmse": 4.180513159352531e-06,
+            "max_abs": 1.3589859008789062e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 5.097807864565674e-05,
+            "max_abs": 0.0003241300582885742
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.503386313095689
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.470231441780925
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.494055327028036
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.46971186902374,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0020_b1124dc504af.npz",
+            "file_sha256": "7f951ba3ee8a75b0d183e5b7c78a63c1426ab851f1cde8301e8ee2e1ea5d469d",
+            "arrays": {
+              "known_noise": {
+                "sha256": "ac14a5bfc3ab9b2dd6d9042cf9e8023a1ce08c66b6b8880946c2d28309bfbf9d",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "99eef36187ff0d62374cdc42db57121873726f58b1dd936b713b16de48d3ce32",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "c2bb638caebcc6cce1f589ffb0285cb0b1b7050ea4c07d0e5befe35b4591d6f0",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "bdd0d3090707a3f89206643a585d1c095884c88b689c404e818191ef6e5a14f6",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 140,
+          "condition_id": "d82dbba2a1c5e57be982d085f38ae6c494af4a04f27b703d6ccaae932d9fa89e",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 6.0223016803206034e-09,
+            "max_abs": 2.9802322387695312e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.5064487626293337e-08,
+            "max_abs": 1.1173641678574597e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 7.557972066154442e-06,
+            "max_abs": 9.310245513916016e-05
+          },
+          "known_noise_action_channels": {
+            "rmse": 1.403862593734766e-05,
+            "max_abs": 9.310245513916016e-05
+          },
+          "known_noise_padding_channels": {
+            "rmse": 4.234869578285845e-06,
+            "max_abs": 1.4066696166992188e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 5.671892529371308e-05,
+            "max_abs": 0.000312119722366333
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.447950937785208
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.425431138835847
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.466475043445826
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.34171433467418,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0140_d82dbba2a1c5.npz",
+            "file_sha256": "ca91cc59d172ba09f00c7adbd20a92a74d7843f48ec85c53466c6b5ff63480e8",
+            "arrays": {
+              "known_noise": {
+                "sha256": "a9547972ea1952fc7ec1297077ed70b7e80fd852dad9f2fa2db8dae0f81f1838",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "2b6a80a88c88eaf7a3cf24d872c2d16c55129c155351595bccda17bbb4372d77",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "22fcaa503f5b45737044829535eb8a5d5872adc501d433b99bce3368cf66f207",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "098fe9c2547b116d1aad319e09e72f86d3132c4cf335d89e9bee8346bc07bde8",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 220,
+          "condition_id": "94456667d19908a1ed48401b42e6a26102b7ed4adf42739a12edf778bc6c308c",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.6713714912465625e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 4.656326670445463e-08,
+            "max_abs": 2.383710144826523e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 1.4189365965172533e-05,
+            "max_abs": 0.00013148784637451172
+          },
+          "known_noise_action_channels": {
+            "rmse": 2.9515585396570585e-05,
+            "max_abs": 0.00013148784637451172
+          },
+          "known_noise_padding_channels": {
+            "rmse": 3.712847633175032e-06,
+            "max_abs": 1.0907649993896484e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 7.063997403948823e-05,
+            "max_abs": 0.0003209412097930908
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.451826999895275
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.483360670506954
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.519409398548305
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.456386305391788,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0220_94456667d199.npz",
+            "file_sha256": "5fb38b3f587d15ad0187f4df104b835d6e96de47b6a2417d1f15cabd49c0abbb",
+            "arrays": {
+              "known_noise": {
+                "sha256": "59367a51b22fd1c87b2f075d5db9ad5a5483b0511e0d19ced2436cb0e4cd0d4a",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "5ac61858c131e203421ab8e32a3ff166f400e11828e80785b9cc9d667b249bc2",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "8e1acfd9869ffb595301e773523273406f383e99458f722c484c85cf2c3c8e38",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "ce4a2eed4c3ea1999c890794580b2dae2e7e847b781edc3c604b5d9049f6d552",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 40,
+          "condition_id": "a642bbaa8005df5c8bd3a8fa0a21e60db65510d990b456fbff54625e5466cc76",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 7.56469423623698e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.4737247104651676e-08,
+            "max_abs": 5.586820850389529e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 1.3116511665891293e-05,
+            "max_abs": 0.00014813244342803955
+          },
+          "known_noise_action_channels": {
+            "rmse": 2.6790176780066178e-05,
+            "max_abs": 0.00014813244342803955
+          },
+          "known_noise_padding_channels": {
+            "rmse": 4.388061538567651e-06,
+            "max_abs": 1.7642974853515625e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 4.5381296241120256e-05,
+            "max_abs": 0.00024378299713134766
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.440712397918105
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.4525384632870555
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.4510390823706985
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.346013111062348,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0040_a642bbaa8005.npz",
+            "file_sha256": "cfbd9903eb155392ad37ce23216352108b09e30625758bfd30a331d479e7b4df",
+            "arrays": {
+              "known_noise": {
+                "sha256": "2c11f8148fa331bc611c10b59bfe1b5782e17fd6c7b56fabc698c17f87f0a10e",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "08168ef6e39929381744f6aa65b9d27e51a6d852411c2476f0dc0bb5648b14dc",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "e6acfd124c26da9f3e08e7d5061f309bfb70c0cb504eef9e8e1905663940e739",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "161af24f63050716e517022a17c27afb15e234fad5809526720e8026a34ec5cc",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 120,
+          "condition_id": "754915ca8b62fce8a6518c81ccdbccdd07b09f76a5bc3fa07c42f109e17cbc3d",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.117518818139472e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 3.620490601484322e-08,
+            "max_abs": 2.383710144826523e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 1.4134307983642103e-05,
+            "max_abs": 0.00013582594692707062
+          },
+          "known_noise_action_channels": {
+            "rmse": 2.9465811232592894e-05,
+            "max_abs": 0.00013582594692707062
+          },
+          "known_noise_padding_channels": {
+            "rmse": 3.5512193313439876e-06,
+            "max_abs": 1.2040138244628906e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 3.7909192519523814e-05,
+            "max_abs": 0.0002129077911376953
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.507919536903501
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.977578624151647
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.932951263152063
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 14.420125528238714,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0120_754915ca8b62.npz",
+            "file_sha256": "7394b35596a9f9500ad7868914af6116e7ef3f93520b2981779c6076b4a3597f",
+            "arrays": {
+              "known_noise": {
+                "sha256": "ce8b927d0b2fcb64ebd8fefcb02c8bd24ad6c7c7ec0f42ca1d83d6140be6b3c5",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "40b21d0f3aa39a14f493d995e324ac6a736586a30d6c9e51fce174d8ef1d5325",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "19eeeabe1ff513c13541e5a7488a6ce242f779d6941a7e715d6bb7db14f0b34a",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "ded845c9d5500ab8eae530753146883600ad3b4473dc0ccbfb85a4bf9c8fd971",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 180,
+          "condition_id": "f05348a1b20abb20e3f2e87f754df814f82ca5b416f672a6b183cdcff8dd3733",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.3499554579416438e-08,
+            "max_abs": 1.341104507446289e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 1.699254933028422e-08,
+            "max_abs": 5.586820850389529e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 1.840309964470505e-05,
+            "max_abs": 0.0002162456512451172
+          },
+          "known_noise_action_channels": {
+            "rmse": 3.8624198472466694e-05,
+            "max_abs": 0.0002162456512451172
+          },
+          "known_noise_padding_channels": {
+            "rmse": 3.973761419968207e-06,
+            "max_abs": 1.3113021850585938e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 4.2971074114038385e-05,
+            "max_abs": 0.00031554698944091797
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.425883545540273
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.557564386166632
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.585861600004137
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.57119761314243,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0180_f05348a1b20a.npz",
+            "file_sha256": "894a5c77f06d55c491ba35a5d6aa362943b14c4a8d30a3950f822b42b50a0b72",
+            "arrays": {
+              "known_noise": {
+                "sha256": "e424abc482383d3bab8677f85b14ec6ad13436282e5144df6feeb68d58cfe308",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "7f7b7112eaddec1fc8eada4aaf24b98214b3ad5ae45792de65f0fc49d9e986e0",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "094c09ae19da5996ed4b8bbb4723ba07a6d474f97007f06cb2b1f2f666e58cc3",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "90165eb65af9de796d9a31800dbb850f2ab14a83f172fd8c8eb3ba23b6469c34",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 240,
+          "condition_id": "4c508509be90e45bb44544c55fce08e8a9bb04b03fe730d654fef4983b261661",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.0619120769955829e-08,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.5097189847314837e-08,
+            "max_abs": 5.586820850389529e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 3.0372817465687433e-05,
+            "max_abs": 0.00027727335691452026
+          },
+          "known_noise_action_channels": {
+            "rmse": 6.418563233219191e-05,
+            "max_abs": 0.00027727335691452026
+          },
+          "known_noise_padding_channels": {
+            "rmse": 5.2218369202560596e-06,
+            "max_abs": 2.2530555725097656e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.534614363823987e-05,
+            "max_abs": 0.000469207763671875
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.513088052161038
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.67532395105809
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.427991225384176
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.618546620942652,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0240_4c508509be90.npz",
+            "file_sha256": "8089e118ad262fc1539f8e860eca44c08d012cc66162236bec9e4db389cd4f8d",
+            "arrays": {
+              "known_noise": {
+                "sha256": "6aa95ec891f0291a85518e52c9d87bb178a378e474216f62a04541773629d321",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "572de70a34fc01546faab1469c213dd1bc811fe82fcbd739d291d88c060fc99f",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "ac2a9ce229738b5f79dff08ecb9e1bb972318747ed0123c66fad244436639a3c",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "63b9e8f6a1137ba97c07c395e4d1f5912a17e16f09b6c33058883731f8e1cb7f",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 160,
+          "condition_id": "98d23a2c2d8c5b0d82b5b421240a5b4afd63f3aed60335146e2de9584cc45274",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 7.649155982448742e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.4563647682381055e-08,
+            "max_abs": 5.959275373168538e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 9.654107874138915e-06,
+            "max_abs": 0.00010269880294799805
+          },
+          "known_noise_action_channels": {
+            "rmse": 1.7256624628527835e-05,
+            "max_abs": 0.00010269880294799805
+          },
+          "known_noise_padding_channels": {
+            "rmse": 5.993062349306768e-06,
+            "max_abs": 1.9788742065429688e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 9.43661634451027e-05,
+            "max_abs": 0.00045362114906311035
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.521731951273978
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.560923527926207
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.573002659715712
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.657962493598461,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0160_98d23a2c2d8c.npz",
+            "file_sha256": "78ab50ac5afbc6bdb7b78a02f82e165b48cd2fec75d073f3d577137f0f8f766c",
+            "arrays": {
+              "known_noise": {
+                "sha256": "01ac4b69cfb3d1b02cd8d5b0362424349396749c2da6fd2c6dbcdf859ce4bcc3",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "ae62148744f22ad69223bfa3816d4a7bb1a4eb72abfa8731955726f89b9c7994",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "21836518f5e30968da1ff92c289f3fef4c89073d788cbbb831592e7d3854b551",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "914054cce7fc1190575d661e07d108e6c4835e15f10f9277e4de1ed9360daaf7",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 60,
+          "condition_id": "85d805b83901f8d0069b469fc4e945692b2f3df4c9c538ca3c6f01ff8f31a4db",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.1945817437384469e-08,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 2.316137539364643e-08,
+            "max_abs": 1.1918550724132615e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 9.50762653660691e-06,
+            "max_abs": 7.44163990020752e-05
+          },
+          "known_noise_action_channels": {
+            "rmse": 1.7799368313332148e-05,
+            "max_abs": 7.44163990020752e-05
+          },
+          "known_noise_padding_channels": {
+            "rmse": 5.1958299011086695e-06,
+            "max_abs": 1.920759677886963e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 0.00012219583989650553,
+            "max_abs": 0.0009644627571105957
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.535321551375091
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.421257000416517
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.528466185554862
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.486955183558166,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0060_85d805b83901.npz",
+            "file_sha256": "480ff41f2eb3b5de11a631eda6b5b46e2a080438eea684c8703393043d1fd197",
+            "arrays": {
+              "known_noise": {
+                "sha256": "b6724db13c08454c7fc533ca0a122352881d140577078e851ec8e821e62f70f9",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "2eeacaa3acdbcc9ce34a4ce5cb4909c0f172b18957747ca1b8b5ad463b2cd182",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "a383c3b428f1eccffd87e9d39ad95cc52339aca10d48763cfe4c90e9d1906847",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "d118f386b2a3a41a9f7cec7fb75d4fb19ac5300338a6fe4542aa59154cabe75d",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 260,
+          "condition_id": "689de64bcc2d1061f98fd24ca3216f9d2fada34b3ffe666a05b1f3aeae38069d",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 2.1907967512921433e-08,
+            "max_abs": 1.862645149230957e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 2.7877920273161704e-08,
+            "max_abs": 1.1173641700779058e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 1.609478078443804e-05,
+            "max_abs": 0.00020018219947814941
+          },
+          "known_noise_action_channels": {
+            "rmse": 3.3390893552389094e-05,
+            "max_abs": 0.00020018219947814941
+          },
+          "known_noise_padding_channels": {
+            "rmse": 4.403092487708406e-06,
+            "max_abs": 1.2159347534179688e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.389913232333147e-05,
+            "max_abs": 0.000482708215713501
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.357664234004915
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.509285728447139
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.454178364947438
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.322837131097913,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0260_689de64bcc2d.npz",
+            "file_sha256": "6b4b460a942591a32326766ee6e26f401735de2ad719269a81341bd9f6177dcd",
+            "arrays": {
+              "known_noise": {
+                "sha256": "fa9781ff2cea675a6ed46bd647e99fba62cd002717ee466d4fed46bd3bda63ef",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "f5b41253859486ca3032354a834755c9b637cd40b075173422c2190478c25b50",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "30d8bcca23296c13f87b1cda67ae43d22c1bc94e6220d12b4c4ea84a093af290",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "82b200d65ae4280c7bdac35cad66230dc7a14172583560c1559cc1862b75435e",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 0,
+          "condition_id": "6fa2298e2a010a7599abbf0fafff966822416092e1044b94e89b4cb825e58553",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.1018824160907811e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 1.475362515643316e-08,
+            "max_abs": 1.1918550724132615e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 1.798777682427216e-05,
+            "max_abs": 0.00019305944442749023
+          },
+          "known_noise_action_channels": {
+            "rmse": 3.773247366327699e-05,
+            "max_abs": 0.00019305944442749023
+          },
+          "known_noise_padding_channels": {
+            "rmse": 3.938256981483482e-06,
+            "max_abs": 1.1324882507324219e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 7.750678701469448e-05,
+            "max_abs": 0.0005160123109817505
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.5422178488224745
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.63305838778615
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.6969422865659
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.87405133061111,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0000_6fa2298e2a01.npz",
+            "file_sha256": "c01eb12f996ed85dd496e2adb2ddd0b7b73078577786eea460129b39d8f7f870",
+            "arrays": {
+              "known_noise": {
+                "sha256": "6969a118028501769efb18d04d63413f0ea6ac12945c865e554950182dae35a6",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "a5e195dd0c3072e9a38f097d9622f9ca0f37ceb4d5db6b180f17b05c3c20cda8",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "49c0b660cdbf44bb86af4bc2d0ba9d3bb4aa03ac095e1acb15cf3b304cdad6d5",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "c08b769a6ca5bddc5d3d318851901f6114464557fbdac670e66a764a1472da39",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 200,
+          "condition_id": "a8b3e1c05e2f26b42b52725c4bd1f89b3d43364d138e37a81ef4ca58b8fae6ba",
+          "steps": 100,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.6601163814162368e-08,
+            "max_abs": 1.341104507446289e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 2.753312022616876e-08,
+            "max_abs": 1.1173641689676828e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 4.381477572822417e-06,
+            "max_abs": 4.3064355850219727e-05
+          },
+          "known_noise_action_channels": {
+            "rmse": 8.440617358738665e-06,
+            "max_abs": 4.3064355850219727e-05
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.1504131072906225e-06,
+            "max_abs": 7.867813110351562e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 0.00011547836324575812,
+            "max_abs": 0.00076313316822052
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.4614560175687075
+            },
+            "inverse": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.520703778602183
+            },
+            "replay": {
+              "velocity_evaluations": 400,
+              "latency_seconds": 4.494100008159876
+            }
+          },
+          "velocity_evaluations": 1200,
+          "latency_seconds": 13.477964702993631,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_100/step_0200_a8b3e1c05e2f.npz",
+            "file_sha256": "7e023ade27046d17e713d380200880bf6d1db96d263fc854fb99f26f20047bee",
+            "arrays": {
+              "known_noise": {
+                "sha256": "0c0db0f3c569ff3667dbe6ad4746deea1fd09c885d4930f52ddde0f89465535b",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "c8d8822e318fce50ead179a9e90b58c5766759171c02a26494a02004c624d07d",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "4bb7a2eaa309c764cba9cea806307e915a7496dc3b6934b34089187b6e5feae2",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "9a4d6389d512811b82c3d46582091415d6838ee5a08a553134b89700b117f72c",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        }
+      ],
+      "full_internal_reconstruction": {
+        "rmse": 2.1907967512921433e-08,
+        "max_abs": 1.862645149230957e-07
+      },
+      "controller_reconstruction": {
+        "rmse": 4.656326670445463e-08,
+        "max_abs": 2.383710149267415e-07
+      },
+      "known_noise_recovery": {
+        "rmse": 3.0372817465687433e-05,
+        "max_abs": 0.0003352165222167969
+      },
+      "known_noise_action_channels": {
+        "rmse": 6.418563233219191e-05,
+        "max_abs": 0.0003352165222167969
+      },
+      "known_noise_padding_channels": {
+        "rmse": 5.993062349306768e-06,
+        "max_abs": 2.2530555725097656e-05
+      },
+      "reference_sampler_parity": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "aggregate_error_definition": "Maximum of per-condition errors; RMSE is worst-condition RMSE, not pooled RMSE"
+    },
+    {
+      "steps": 200,
+      "status": "complete",
+      "conditions_tested": 14,
+      "conditions_required": 14,
+      "passing_conditions": 14,
+      "velocity_evaluations_per_solve": 800,
+      "velocity_evaluations": 33600,
+      "latency_seconds": 382.4248511912301,
+      "passed": true,
+      "conditions": [
+        {
+          "observation_step": 100,
+          "condition_id": "b806d4215ec662987b157c1035020277f4b4724e43dda5051402fa4fcac86291",
+          "steps": 200,
+          "phase": "screening",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.0013789665585225e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 1.2061726838817293e-08,
+            "max_abs": 9.868299977178197e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 3.091592614551978e-05,
+            "max_abs": 0.00042808055877685547
+          },
+          "known_noise_action_channels": {
+            "rmse": 6.589075374306694e-05,
+            "max_abs": 0.00042808055877685547
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.787713472514936e-06,
+            "max_abs": 1.1146068572998047e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 3.962227834957298e-05,
+            "max_abs": 0.00018402934074401855
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.107873543165624
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.106265979819
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.059308066032827
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 27.276402244344354,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0100_b806d4215ec6.npz",
+            "file_sha256": "036ac79a31ae1ecadf27083df3f253dcf6141f300eb68c3bf47c9f5aeba14109",
+            "arrays": {
+              "known_noise": {
+                "sha256": "5ea679b2731423cb63cfe8ed3cd52c6ade8ef8bafb51fa3d38097ed225169c94",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "db701142c1742f70219dad877fadff5992d33446848a8876cd3269c41d213f1c",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "1279250ce1afe52a5342a3831e122ab29f30dcdf89be3f29024f9965330417db",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "46d84f25001aa22232d9ddb964e5fd62f87801dc99634e8197f2782647f2505c",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 80,
+          "condition_id": "16ad1984276fa927d5e3e08df7a2b7a447a8b9529748592c312b71ebe3653828",
+          "steps": 200,
+          "phase": "screening",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 6.38795595708777e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.6874142577912374e-08,
+            "max_abs": 9.868299977178197e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 1.899451433729865e-05,
+            "max_abs": 0.0002824068069458008
+          },
+          "known_noise_action_channels": {
+            "rmse": 4.0496906556275185e-05,
+            "max_abs": 0.0002824068069458008
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.6165928704682227e-06,
+            "max_abs": 5.990266799926758e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.551436585702905e-05,
+            "max_abs": 0.0003345906734466553
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.017600329592824
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.873737254180014
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.963449077680707
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 26.85747105255723,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0080_16ad1984276f.npz",
+            "file_sha256": "6a2b9f6b3bf0d87ec8a93a98a5f44081db2bac36a8d45119f3a9eaba4a2cbe2c",
+            "arrays": {
+              "known_noise": {
+                "sha256": "5a137ca44ac95cfaebb7ac06c84d9416304247f37bc156cad3a0407acadd4601",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "acf7d5c6321187fe7db595eb74b977509b6d84a1dd5672ee20f82f97ec607155",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "db7d6cf24ef0d0ec7e49e7a9536cffad6083a6a4f1bd730092518bff3eba4ad7",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "ef7ff92b7ca36a0565428848d906a610ab4b4d30f062c11473052ecc98c0e91f",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 20,
+          "condition_id": "b1124dc504af0d541e74764f60e225a168f7390ccbee05af820dc5c82ca0fe84",
+          "steps": 200,
+          "phase": "screening",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 9.808029041665981e-09,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 2.09274908975523e-08,
+            "max_abs": 1.1918550724132615e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 2.6821460669948558e-05,
+            "max_abs": 0.0003523826599121094
+          },
+          "known_noise_action_channels": {
+            "rmse": 5.719939166269954e-05,
+            "max_abs": 0.0003523826599121094
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.173579839313981e-06,
+            "max_abs": 8.881092071533203e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 4.2794855952842015e-05,
+            "max_abs": 0.0002980828285217285
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.049294419586658
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.81349304318428
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.803735108114779
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 26.668683501891792,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0020_b1124dc504af.npz",
+            "file_sha256": "7684e1c31f12438aba9383a6ef180dfc04dfbbb7ccf4ae86b1c13974baeedc03",
+            "arrays": {
+              "known_noise": {
+                "sha256": "ac14a5bfc3ab9b2dd6d9042cf9e8023a1ce08c66b6b8880946c2d28309bfbf9d",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "43d19f039738ed447af01e98c32ab04cc8edf853ed7a184d4dbc935db353a72a",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "dc2054255f1ba5fb0544e635452ccb3302732e0e6bdc7793e09fd7603079a8d8",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "ce31a549a3d586655a0797e0a8f7b7bff310805f41f3a2d8a862acdd79e9766a",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 140,
+          "condition_id": "d82dbba2a1c5e57be982d085f38ae6c494af4a04f27b703d6ccaae932d9fa89e",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 6.726736646263421e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 2.077448753883669e-08,
+            "max_abs": 1.1173641700779058e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 1.426808851702398e-05,
+            "max_abs": 0.0001666247844696045
+          },
+          "known_noise_action_channels": {
+            "rmse": 3.0275054900813727e-05,
+            "max_abs": 0.0001666247844696045
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.984485354112881e-06,
+            "max_abs": 7.510185241699219e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.0027457542885645e-05,
+            "max_abs": 0.00045818090438842773
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.866808381862938
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.845591760240495
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.804697619751096
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 26.519200483337045,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0140_d82dbba2a1c5.npz",
+            "file_sha256": "71f9704070ae77a4eb32b321ba426f90a5c3394be6d011e9298c4865bf4dafe4",
+            "arrays": {
+              "known_noise": {
+                "sha256": "a9547972ea1952fc7ec1297077ed70b7e80fd852dad9f2fa2db8dae0f81f1838",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "0172b287951cb5d7573f4fda6f549989e9858059df55f9ac61b91796462aca91",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "0c6e9e50e545c517003e788ef2089ace44f94f6a8f41fd62ab978e08a99cd750",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "1d74e647b4679fd40c2195f3adfed7713aecb71e4ef483adf341b896097dfbca",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 220,
+          "condition_id": "94456667d19908a1ed48401b42e6a26102b7ed4adf42739a12edf778bc6c308c",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.0067568029441258e-08,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 2.805550563541653e-08,
+            "max_abs": 1.1173641678574597e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 9.605651412082955e-06,
+            "max_abs": 0.0001277327537536621
+          },
+          "known_noise_action_channels": {
+            "rmse": 2.0271616133003456e-05,
+            "max_abs": 0.0001277327537536621
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.7438383538335002e-06,
+            "max_abs": 6.4373016357421875e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.3031140464382e-05,
+            "max_abs": 0.00041203200817108154
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.060706362128258
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.956035381183028
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.945477930828929
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 26.964331479743123,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0220_94456667d199.npz",
+            "file_sha256": "83082f0da53eb643f285d30117f60beb6e3e1377cd453792a3122de4f0a07ac8",
+            "arrays": {
+              "known_noise": {
+                "sha256": "59367a51b22fd1c87b2f075d5db9ad5a5483b0511e0d19ced2436cb0e4cd0d4a",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "21e0efa113d8b54a954e81d950df1b36425a4e8699f7150e8bd5c74ee725ae15",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "eec6cf53afd18762443443cddd7b287ac60e0655c64fd0c8a1261146a5735d28",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "fb0e46d629a154f7e79803624151972b82941d6f3b2ac98e97804d7de79372bb",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 40,
+          "condition_id": "a642bbaa8005df5c8bd3a8fa0a21e60db65510d990b456fbff54625e5466cc76",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 8.976609959415467e-09,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 1.7875334931503887e-08,
+            "max_abs": 1.1918550746337075e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 1.3874062795339225e-05,
+            "max_abs": 0.00015234947204589844
+          },
+          "known_noise_action_channels": {
+            "rmse": 2.9525334307186676e-05,
+            "max_abs": 0.00015234947204589844
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.5159185823858993e-06,
+            "max_abs": 4.76837158203125e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 3.0121038114648e-05,
+            "max_abs": 0.00019443035125732422
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.018566911108792
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.406538106501102
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.279228618368506
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 27.706949224695563,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0040_a642bbaa8005.npz",
+            "file_sha256": "35fab784991b9abfb999eddea0f3dba9aa8941274da3117b1967dc5a23834096",
+            "arrays": {
+              "known_noise": {
+                "sha256": "2c11f8148fa331bc611c10b59bfe1b5782e17fd6c7b56fabc698c17f87f0a10e",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "d91fc934f7413ce6a3af442231d8d77de36f60a25becdf04d9825d27ada48395",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "67c5b6e957fc9263fca40dd8a7b033e1770034273f01a5f85ed446380b7ffbe6",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "761d2e8f531f9e8863cb5ff5a14b131a6fc4ec97216b714f60dfc3c8264d86b0",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 120,
+          "condition_id": "754915ca8b62fce8a6518c81ccdbccdd07b09f76a5bc3fa07c42f109e17cbc3d",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 7.298197432961535e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.1299445206864347e-08,
+            "max_abs": 5.5868208392872987e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 2.535344239881734e-05,
+            "max_abs": 0.0002648867666721344
+          },
+          "known_noise_action_channels": {
+            "rmse": 5.404030772698126e-05,
+            "max_abs": 0.0002648867666721344
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.2540746434574628e-06,
+            "max_abs": 8.463859558105469e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 4.017750083977743e-05,
+            "max_abs": 0.00025019049644470215
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.240042489953339
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.226193899288774
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.063505925238132
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 27.53233350906521,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0120_754915ca8b62.npz",
+            "file_sha256": "8a0c503937406aff13e11f98f1eba50b4915c2299419924351bbdfcbd606ab19",
+            "arrays": {
+              "known_noise": {
+                "sha256": "ce8b927d0b2fcb64ebd8fefcb02c8bd24ad6c7c7ec0f42ca1d83d6140be6b3c5",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "23e79a2db207374fc503a5324991ba127a7ade62b274ed5b43d86fdb6b1c90c1",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "80f147841bd45b3d73bfe02cd90462305c63a6673348627be5852520d62418fc",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "de09a49b997a13f5346f39dcd8cd75092956f8af25fc1acd865c45278eae4860",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 180,
+          "condition_id": "f05348a1b20abb20e3f2e87f754df814f82ca5b416f672a6b183cdcff8dd3733",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 9.787745283237831e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.7516483599591232e-08,
+            "max_abs": 5.586820850389529e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 3.0915525211723624e-05,
+            "max_abs": 0.00043201446533203125
+          },
+          "known_noise_action_channels": {
+            "rmse": 6.571013615116866e-05,
+            "max_abs": 0.00043201446533203125
+          },
+          "known_noise_padding_channels": {
+            "rmse": 3.7940818161929934e-06,
+            "max_abs": 1.728534698486328e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 4.132268255956356e-05,
+            "max_abs": 0.00025463104248046875
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.306685885414481
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.228105819784105
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.594677980989218
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 28.132186978124082,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0180_f05348a1b20a.npz",
+            "file_sha256": "159511aad5dd96d46d75623a8d4244bb35bce50addfd3205442858a8b986d47d",
+            "arrays": {
+              "known_noise": {
+                "sha256": "e424abc482383d3bab8677f85b14ec6ad13436282e5144df6feeb68d58cfe308",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "8a39914626dde6e16ececb671c5a68b972cf86d8d4fcb44cc6be78c7485d1bac",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "cf250ef6f65a35ea962ce3bf6660fbdac3887f0bcd37802551eea9065aaf14d0",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "c9847c11e8b402fa51216dc00666afea620e3771b488bc41584ab4d12a8c1a63",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 240,
+          "condition_id": "4c508509be90e45bb44544c55fce08e8a9bb04b03fe730d654fef4983b261661",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.2753273900012505e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 3.613935489182312e-08,
+            "max_abs": 2.383710147046969e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 2.020878808784446e-05,
+            "max_abs": 0.00018453598022460938
+          },
+          "known_noise_action_channels": {
+            "rmse": 4.2966284940587145e-05,
+            "max_abs": 0.00018453598022460938
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.416048179741912e-06,
+            "max_abs": 8.672475814819336e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 5.281865011670353e-05,
+            "max_abs": 0.0003789663314819336
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.336377092637122
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.225210913456976
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.383674943819642
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 27.947724267840385,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0240_4c508509be90.npz",
+            "file_sha256": "8444c99268fd518757b30dabd6e7fd1616ae47aa387395219d8a271ed4cc2a26",
+            "arrays": {
+              "known_noise": {
+                "sha256": "6aa95ec891f0291a85518e52c9d87bb178a378e474216f62a04541773629d321",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "f9fef8186ebcac07b01d36651a90f3d3123f9425fbec38b6893fc4bad740d2e2",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "cad71c1bb3f46553422096d70389980333ed8b20f887ff328257ec971331954f",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "2f38f82bc07e292eb199aa1d76db1d07c9811cd8db60c275fd3fd85fd55d926c",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 160,
+          "condition_id": "98d23a2c2d8c5b0d82b5b421240a5b4afd63f3aed60335146e2de9584cc45274",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 8.423961641326965e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.2140222389993503e-08,
+            "max_abs": 5.959275373168538e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 2.0821680017148524e-05,
+            "max_abs": 0.0002162456512451172
+          },
+          "known_noise_action_channels": {
+            "rmse": 4.41929238584041e-05,
+            "max_abs": 0.0002162456512451172
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.8443195705531537e-06,
+            "max_abs": 1.0013580322265625e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 7.587058185051822e-05,
+            "max_abs": 0.0003757178783416748
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.058499774895608
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.130876670591533
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.421835059300065
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 27.613103760406375,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0160_98d23a2c2d8c.npz",
+            "file_sha256": "2b05c01ada2a966707ba4ea40161f4b8660e94f2f6c48dfaf9aec22841280380",
+            "arrays": {
+              "known_noise": {
+                "sha256": "01ac4b69cfb3d1b02cd8d5b0362424349396749c2da6fd2c6dbcdf859ce4bcc3",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "5cdda28a187ecf622d15d795bc4bf5987129974d73067648b463b65cee5070fc",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "1c3d4c5ec67a0e6938e12e3002d187276bd7f68312453501698ec237c0b5b48d",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "432871d2e9f5552585c1a6747b80548b01de6fbcea1b134c6a31b137b4fb8184",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 60,
+          "condition_id": "85d805b83901f8d0069b469fc4e945692b2f3df4c9c538ca3c6f01ff8f31a4db",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.2501360576185877e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 4.4391509341185894e-08,
+            "max_abs": 2.383710149267415e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 2.1121216202712085e-05,
+            "max_abs": 0.00020802021026611328
+          },
+          "known_noise_action_channels": {
+            "rmse": 4.47637808245834e-05,
+            "max_abs": 0.00020802021026611328
+          },
+          "known_noise_padding_channels": {
+            "rmse": 3.154756714773758e-06,
+            "max_abs": 1.329183578491211e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 9.583594930061894e-05,
+            "max_abs": 0.0007125139236450195
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.173788976855576
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.025045494548976
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.063074581325054
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 27.264129851944745,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0060_85d805b83901.npz",
+            "file_sha256": "dc9988fad10da6e9919198a6e6c99b169052f8305af21295c41ee6d9917ecffc",
+            "arrays": {
+              "known_noise": {
+                "sha256": "b6724db13c08454c7fc533ca0a122352881d140577078e851ec8e821e62f70f9",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "d5614e9a0cbffa968ad85b3f929e43084bbf893bc108195ed1ada4d597ba78e0",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "7935080c761f3258de320d5862b66f3b81484242a7a9996a45b7e05e546457f7",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "a92191fc7619c732dd61af624a0f4fbe2b649308a7bcbdea58c9a69448e04814",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 260,
+          "condition_id": "689de64bcc2d1061f98fd24ca3216f9d2fada34b3ffe666a05b1f3aeae38069d",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 7.3895587840036756e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 2.3963475907572887e-08,
+            "max_abs": 1.1173641700779058e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 9.728184206619666e-06,
+            "max_abs": 0.00011721253395080566
+          },
+          "known_noise_action_channels": {
+            "rmse": 2.0546204060293334e-05,
+            "max_abs": 0.00011721253395080566
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.7132036147881211e-06,
+            "max_abs": 8.404254913330078e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 5.854655556979087e-05,
+            "max_abs": 0.0005645714700222015
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.381508996710181
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.27893107291311
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.286956448107958
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 27.94998114090413,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0260_689de64bcc2d.npz",
+            "file_sha256": "620a719e1aa7405104b227eea4cf563edea03846d200d559decb9bab3cfd7e48",
+            "arrays": {
+              "known_noise": {
+                "sha256": "fa9781ff2cea675a6ed46bd647e99fba62cd002717ee466d4fed46bd3bda63ef",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "7301be04c5354bbad7a6800d52b8b8d74f5f91117687103fe6682b0643761913",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "a0ab8e1c7ca2b56f5a759dffcbb545fd9eb133c2c368b4dbabaa5bad269a2286",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "d9a9103e8eb83feb49d28e6c263266f3e5d39bc19d48986c376fd9d92a879486",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 0,
+          "condition_id": "6fa2298e2a010a7599abbf0fafff966822416092e1044b94e89b4cb825e58553",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 4.349959482113678e-09,
+            "max_abs": 4.0978193283081055e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 7.164385601581148e-09,
+            "max_abs": 4.934149983037983e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 3.430624265167937e-05,
+            "max_abs": 0.0004282444715499878
+          },
+          "known_noise_action_channels": {
+            "rmse": 7.272463138033615e-05,
+            "max_abs": 0.0004282444715499878
+          },
+          "known_noise_padding_channels": {
+            "rmse": 5.056801559043128e-06,
+            "max_abs": 1.9490718841552734e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 5.432535244649339e-05,
+            "max_abs": 0.00040067732334136963
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.891501911915839
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.848103837110102
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.964399518445134
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 26.706677101552486,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0000_6fa2298e2a01.npz",
+            "file_sha256": "463c102e48fb6fd5795adbd57042a26214be17ba3c072c15840f6df0a8d62eea",
+            "arrays": {
+              "known_noise": {
+                "sha256": "6969a118028501769efb18d04d63413f0ea6ac12945c865e554950182dae35a6",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "d97e03f95ad697f43bee993431345f16ec687d2dea3b414bca15733ace07f3b7",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "2e80e370c32e5e56651ff9c7e254f100aae17b75660b0456312b9a9229a7f292",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "4c7fc5a6f9633777769482f41070dd76e64739c42173de1abd84dacc066d8f1f",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 200,
+          "condition_id": "a8b3e1c05e2f26b42b52725c4bd1f89b3d43364d138e37a81ef4ca58b8fae6ba",
+          "steps": 200,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 6.511203570810474e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.7687378517068268e-08,
+            "max_abs": 1.1173641678574597e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 8.443900629749476e-06,
+            "max_abs": 0.00011616945266723633
+          },
+          "known_noise_action_channels": {
+            "rmse": 1.7900346896209008e-05,
+            "max_abs": 0.00011616945266723633
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.242991842456565e-06,
+            "max_abs": 4.76837158203125e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.833141711578666e-05,
+            "max_abs": 0.000439375638961792
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.234473149292171
+            },
+            "inverse": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 9.196349347941577
+            },
+            "replay": {
+              "velocity_evaluations": 800,
+              "latency_seconds": 8.852320891804993
+            }
+          },
+          "velocity_evaluations": 2400,
+          "latency_seconds": 27.2856765948236,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_200/step_0200_a8b3e1c05e2f.npz",
+            "file_sha256": "bb096739def1df4a5182cc18fd8245d7425fa5602d5443d2988a353e3adf1485",
+            "arrays": {
+              "known_noise": {
+                "sha256": "0c0db0f3c569ff3667dbe6ad4746deea1fd09c885d4930f52ddde0f89465535b",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "2282acfbcda29685cf5634b0c1cb65bad4ebd30fe97adb6faf090491519cd023",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "6b6b037dc2da9a0d720f4ed81adb0478db623a7489b982f5cb8966cdfbee18fd",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "527dc50a323d19e7a202739fde820c8b70c22d8764f580734f71c55f19899e2c",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        }
+      ],
+      "full_internal_reconstruction": {
+        "rmse": 1.2753273900012505e-08,
+        "max_abs": 1.1920928955078125e-07
+      },
+      "controller_reconstruction": {
+        "rmse": 4.4391509341185894e-08,
+        "max_abs": 2.383710149267415e-07
+      },
+      "known_noise_recovery": {
+        "rmse": 3.430624265167937e-05,
+        "max_abs": 0.00043201446533203125
+      },
+      "known_noise_action_channels": {
+        "rmse": 7.272463138033615e-05,
+        "max_abs": 0.00043201446533203125
+      },
+      "known_noise_padding_channels": {
+        "rmse": 5.056801559043128e-06,
+        "max_abs": 1.9490718841552734e-05
+      },
+      "reference_sampler_parity": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "aggregate_error_definition": "Maximum of per-condition errors; RMSE is worst-condition RMSE, not pooled RMSE"
+    },
+    {
+      "steps": 500,
+      "status": "complete",
+      "conditions_tested": 14,
+      "conditions_required": 14,
+      "passing_conditions": 14,
+      "velocity_evaluations_per_solve": 2000,
+      "velocity_evaluations": 84000,
+      "latency_seconds": 956.1308948025107,
+      "passed": true,
+      "conditions": [
+        {
+          "observation_step": 100,
+          "condition_id": "b806d4215ec662987b157c1035020277f4b4724e43dda5051402fa4fcac86291",
+          "steps": 500,
+          "phase": "screening",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 6.2485436563670254e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 6.868582574181067e-09,
+            "max_abs": 5.020204185690602e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 2.291577068982188e-05,
+            "max_abs": 0.00030934810638427734
+          },
+          "known_noise_action_channels": {
+            "rmse": 4.8810036883890875e-05,
+            "max_abs": 0.00030934810638427734
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.256577741842473e-06,
+            "max_abs": 8.106231689453125e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 4.373907452526032e-05,
+            "max_abs": 0.00022986531257629395
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.781291258521378
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.502756902948022
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.632687024772167
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 67.91980137024075,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0100_b806d4215ec6.npz",
+            "file_sha256": "1b4ac933188035d72aae34198dffc7a2c9abb88cb9a3f5091e52d8895a866efa",
+            "arrays": {
+              "known_noise": {
+                "sha256": "5ea679b2731423cb63cfe8ed3cd52c6ade8ef8bafb51fa3d38097ed225169c94",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "144135cd96f83eca28d250c69b082a460bbd4fcbaebfe96a2e64b31548f52ea9",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "5f95771a2e35c93947411ef6028fc4fe98a38d3be9d17b45106b26ca5244d4e9",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "2a52e272cc70203f045736787db370183c203598b7a596772dfd11e9272d57c2",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 80,
+          "condition_id": "16ad1984276fa927d5e3e08df7a2b7a447a8b9529748592c312b71ebe3653828",
+          "steps": 500,
+          "phase": "screening",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 7.375741725981183e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.5024811978034146e-08,
+            "max_abs": 1.1173641700779058e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 1.8103138635968675e-05,
+            "max_abs": 0.00018867850303649902
+          },
+          "known_noise_action_channels": {
+            "rmse": 3.849819441959112e-05,
+            "max_abs": 0.00018867850303649902
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.1201820314190032e-06,
+            "max_abs": 7.62939453125e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.512766629525684e-05,
+            "max_abs": 0.00032389163970947266
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.246312144212425
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.87553196027875
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.482257144525647
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 67.60717586334795,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0080_16ad1984276f.npz",
+            "file_sha256": "86ae36284b3825cfc7d86120bb36804a747a99597abe14fec2137c8f0344742f",
+            "arrays": {
+              "known_noise": {
+                "sha256": "5a137ca44ac95cfaebb7ac06c84d9416304247f37bc156cad3a0407acadd4601",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "e45f97acb3426a15dc3c081896f0c83f92cfa4178b4c97f5384398fe9584e14c",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "f0a60272c8d75a42eccfffcbe0a4ea27f011a6c40608693a7e822735dcf44dd5",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "c38a54bb26c4085c92aac6a17aefe07475f1ce4399d498c97357cdbccebf1806",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 20,
+          "condition_id": "b1124dc504af0d541e74764f60e225a168f7390ccbee05af820dc5c82ca0fe84",
+          "steps": 500,
+          "phase": "screening",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 9.958732490878032e-09,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 1.6719937248368324e-08,
+            "max_abs": 1.1918550724132615e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 3.091501226772642e-05,
+            "max_abs": 0.00048238039016723633
+          },
+          "known_noise_action_channels": {
+            "rmse": 6.601420593594956e-05,
+            "max_abs": 0.00048238039016723633
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.771866529509376e-06,
+            "max_abs": 9.290874004364014e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 3.869901540501324e-05,
+            "max_abs": 0.00024178624153137207
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.3549015391618
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.53320362791419
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.266055549494922
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 67.15709561482072,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0020_b1124dc504af.npz",
+            "file_sha256": "226006da4b9f3adea0518426378be32843ffdd44a54d4a3b17db42516bf01b42",
+            "arrays": {
+              "known_noise": {
+                "sha256": "ac14a5bfc3ab9b2dd6d9042cf9e8023a1ce08c66b6b8880946c2d28309bfbf9d",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "c2de6fd414c19d640b8af81c700a3038efcaa331227528c673d460c14ba52810",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "a4135f62e8b6fb2adba4e92e8598df2b0171b94ec53c972abfd4796069dc45c0",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "be78383c6e8ff884a76dca5b61e8d6339eb6a826446d9d73dbc002126caafdc3",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 140,
+          "condition_id": "d82dbba2a1c5e57be982d085f38ae6c494af4a04f27b703d6ccaae932d9fa89e",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 5.380562028580741e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.4641073276198487e-08,
+            "max_abs": 1.1173641689676828e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 2.3073367142741296e-05,
+            "max_abs": 0.0002250075340270996
+          },
+          "known_noise_action_channels": {
+            "rmse": 4.9172322404405944e-05,
+            "max_abs": 0.0002250075340270996
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.104734161071907e-06,
+            "max_abs": 7.510185241699219e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 5.715376037941902e-05,
+            "max_abs": 0.00040012598037719727
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.14027518313378
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.26950474176556
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.355580530129373
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 66.7681525470689,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0140_d82dbba2a1c5.npz",
+            "file_sha256": "49ec0a0bd9b4e3f529b40a94bf5c89de6884c03e1af498d1b5609e1a7f1af2fa",
+            "arrays": {
+              "known_noise": {
+                "sha256": "a9547972ea1952fc7ec1297077ed70b7e80fd852dad9f2fa2db8dae0f81f1838",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "00b6017dac44de6c9ef7b9737f2a6c9bd72f8dca6cf8ebd91ebad452c8d182e5",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "76963c14d32c36a62b71509710aea33d6e18720480d35ea0f1289aa059bb110a",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "0573c86ecda3a6cbc09426990bc45c621b0f9a03b369c595e004c761d9c56ff4",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 220,
+          "condition_id": "94456667d19908a1ed48401b42e6a26102b7ed4adf42739a12edf778bc6c308c",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.0836879728838115e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 3.535934438965927e-08,
+            "max_abs": 2.383710144826523e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 2.8947275939164746e-05,
+            "max_abs": 0.00035788118839263916
+          },
+          "known_noise_action_channels": {
+            "rmse": 6.167518679634641e-05,
+            "max_abs": 0.00035788118839263916
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.738119303398777e-06,
+            "max_abs": 1.0728836059570312e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.196513138291948e-05,
+            "max_abs": 0.00047250837087631226
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.293257572688162
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.869556423276663
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.027716612443328
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 67.19351035077125,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0220_94456667d199.npz",
+            "file_sha256": "5c2ae52b9e11b386cb3fa3f1b564cbc8dc7df71e2230c11e5b738887f4a0c5dd",
+            "arrays": {
+              "known_noise": {
+                "sha256": "59367a51b22fd1c87b2f075d5db9ad5a5483b0511e0d19ced2436cb0e4cd0d4a",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "6134597cfc3c34ef2843652d3228cff3d470e9fad1f24996edff5bebc0506e9d",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "b88396fa6ce2ee746f74eb9742560471bbcfd94e3f28942854c671a41436cdf2",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "f7884a46b067cecba67243e9a0d60711d46665d296fbee79e73226ce83255359",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 40,
+          "condition_id": "a642bbaa8005df5c8bd3a8fa0a21e60db65510d990b456fbff54625e5466cc76",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 5.296067954885062e-09,
+            "max_abs": 4.470348358154297e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.2241561177885821e-08,
+            "max_abs": 5.020204185690602e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 7.927735679288553e-05,
+            "max_abs": 0.0009808540344238281
+          },
+          "known_noise_action_channels": {
+            "rmse": 0.0001690513335103897,
+            "max_abs": 0.0009808540344238281
+          },
+          "known_noise_padding_channels": {
+            "rmse": 6.536984230178614e-06,
+            "max_abs": 2.491474151611328e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 3.276953164339008e-05,
+            "max_abs": 0.00019371509552001953
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.326941496692598
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.700670793652534
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.027657222002745
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 70.058165169321,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0040_a642bbaa8005.npz",
+            "file_sha256": "eaddbc32c36b40839a7071451ef3353b76ab7233b82d195d7efed2d6a5e00a22",
+            "arrays": {
+              "known_noise": {
+                "sha256": "2c11f8148fa331bc611c10b59bfe1b5782e17fd6c7b56fabc698c17f87f0a10e",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "84b9fc78cf2c60956dcdbab7a0105aa2f018a87e54120ccf2bb692200149a4f3",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "63ab6fe76667e4e0775683c6432f14fc0ededf3a88a08fc838c455760f67154c",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "c8ce2517ce18425117f71ef63a896cde482d0176f3fa468c927b269e30f5984f",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 120,
+          "condition_id": "754915ca8b62fce8a6518c81ccdbccdd07b09f76a5bc3fa07c42f109e17cbc3d",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 6.551364804862054e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.927629514110605e-08,
+            "max_abs": 9.868299977178197e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 1.3676663905441025e-05,
+            "max_abs": 0.00016558170318603516
+          },
+          "known_noise_action_channels": {
+            "rmse": 2.9126040940628734e-05,
+            "max_abs": 0.00016558170318603516
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.3762632380517886e-06,
+            "max_abs": 6.332993507385254e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 3.762429572045718e-05,
+            "max_abs": 0.00023537874221801758
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.04547378141433
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.005478713661432
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.136051748879254
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 69.18989828974009,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0120_754915ca8b62.npz",
+            "file_sha256": "cf7535b211a1e738196bbb9cadc816fc69d1d0745a826df56fa95f3c0c6734f8",
+            "arrays": {
+              "known_noise": {
+                "sha256": "ce8b927d0b2fcb64ebd8fefcb02c8bd24ad6c7c7ec0f42ca1d83d6140be6b3c5",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "b17181e38252bc99433940e375331889645a08016114f7c708006b812d1416db",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "1abf8626377232a9eb6ea5491f580c0ae80f2f1886def1ca7adcc6f66c6b5c0d",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "72cc51a00d3b254f5748a40f0ebffd1d58af7e311b3bca6dcc98e8be6b536867",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 180,
+          "condition_id": "f05348a1b20abb20e3f2e87f754df814f82ca5b416f672a6b183cdcff8dd3733",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 9.417743869822462e-09,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 2.1508028833439576e-08,
+            "max_abs": 1.1918550724132615e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 2.2609853455622044e-05,
+            "max_abs": 0.0002334117889404297
+          },
+          "known_noise_action_channels": {
+            "rmse": 4.808323888231136e-05,
+            "max_abs": 0.0002334117889404297
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.6426510569244323e-06,
+            "max_abs": 1.3589859008789062e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 3.577127654371668e-05,
+            "max_abs": 0.00021828711032867432
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.973082354292274
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.9700501030311
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.079379205591977
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 69.02569200471044,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0180_f05348a1b20a.npz",
+            "file_sha256": "856bb490d163c8fffbb00e39936c2f67d136a45545cc47f556ef7ed4e2b8b238",
+            "arrays": {
+              "known_noise": {
+                "sha256": "e424abc482383d3bab8677f85b14ec6ad13436282e5144df6feeb68d58cfe308",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "8aa79aafe133fc9eda4c463d0b98adb0f333b9b48bbcabffe9daf3eb06ba2855",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "66f907960623a3a9de7b55e03a0d915821ca05b9e147a250baa5b544dc3fb946",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "e4159fde3e3cb6313f9d1fed623c07ad3901944c1125244a98096ed9cac6e62f",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 240,
+          "condition_id": "4c508509be90e45bb44544c55fce08e8a9bb04b03fe730d654fef4983b261661",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 7.319054773211319e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.7803025701043757e-08,
+            "max_abs": 9.868299966075966e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 1.6773356122092783e-05,
+            "max_abs": 0.00017875432968139648
+          },
+          "known_noise_action_channels": {
+            "rmse": 3.556083562876219e-05,
+            "max_abs": 0.00017875432968139648
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.457999225733176e-06,
+            "max_abs": 1.0371208190917969e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 5.0602796185367447e-05,
+            "max_abs": 0.00038316845893859863
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.146180777810514
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.24973972979933
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.087921884842217
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 67.48663738928735,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0240_4c508509be90.npz",
+            "file_sha256": "76793e2a96bce57c7f022b4fae4e718cc08c8a91dcb8b9818ad37dfde542178a",
+            "arrays": {
+              "known_noise": {
+                "sha256": "6aa95ec891f0291a85518e52c9d87bb178a378e474216f62a04541773629d321",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "56733ea9bd0b042465899b7468b734792a62ac12708c4d4ee25d3ce2d02345d1",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "fff92f810beb54ec4fc3a7b1cf358ba855ea10861a3e9df9b100140d937109ee",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "9b077376b7fcf8152df6a1420eefdf8418eb36fb0a9a734ecd35244bec2c42ab",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 160,
+          "condition_id": "98d23a2c2d8c5b0d82b5b421240a5b4afd63f3aed60335146e2de9584cc45274",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 7.686535319670021e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.0672396639142362e-08,
+            "max_abs": 4.934149977486868e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 2.1767674487195032e-05,
+            "max_abs": 0.00028455257415771484
+          },
+          "known_noise_action_channels": {
+            "rmse": 4.629132904457876e-05,
+            "max_abs": 0.00028455257415771484
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.548747689208776e-06,
+            "max_abs": 9.655952453613281e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 7.878917463571441e-05,
+            "max_abs": 0.0004032552242279053
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.820103840902448
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.254742656834424
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.067503355443478
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 69.14526162669063,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0160_98d23a2c2d8c.npz",
+            "file_sha256": "bb50fe58192cf49a09d083fae89b4b2469fcf9e80847081efdea37613f0b580e",
+            "arrays": {
+              "known_noise": {
+                "sha256": "01ac4b69cfb3d1b02cd8d5b0362424349396749c2da6fd2c6dbcdf859ce4bcc3",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "b4caa35cbd8ae441fefb0a45ba1205d92f6fa9f81c20b13910ddec37ac7b14e3",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "c21ace27b192313d991000f73c7f275052dcb645bdae6231d25fa41bd9ed3f9e",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "0752d4801cd7e3bfc258e5a72f95ad95d1c2d8d3ad4444c4060323ddcb98fe80",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 60,
+          "condition_id": "85d805b83901f8d0069b469fc4e945692b2f3df4c9c538ca3c6f01ff8f31a4db",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 1.1601901023921731e-08,
+            "max_abs": 1.1920928955078125e-07
+          },
+          "controller_reconstruction": {
+            "rmse": 2.146323078560972e-08,
+            "max_abs": 1.1918550746337075e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 2.3383549780030464e-05,
+            "max_abs": 0.00023359060287475586
+          },
+          "known_noise_action_channels": {
+            "rmse": 4.968403976494255e-05,
+            "max_abs": 0.00023359060287475586
+          },
+          "known_noise_padding_channels": {
+            "rmse": 2.9513804128540094e-06,
+            "max_abs": 1.1324882507324219e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 9.086706122820067e-05,
+            "max_abs": 0.0006428062915802002
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.13592235557735
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.378077804110944
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.18351947516203
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 67.70033932197839,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0060_85d805b83901.npz",
+            "file_sha256": "b0759e04c54f014ddf071a6a7690544fb81b078d2964940626093aab5f07c70f",
+            "arrays": {
+              "known_noise": {
+                "sha256": "b6724db13c08454c7fc533ca0a122352881d140577078e851ec8e821e62f70f9",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "0efc91fb171a69ce5ec41644d096098a947ecebad22d15dd33e26ad118e5408a",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "6f489a0ddd924acc63d7b0725e4362ae213f8111762038eaddfb11dd4f586265",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "a951056ef5b047e6467487a8cd4f5c272fb6724081dd6fc02cf31b0b3c283081",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 260,
+          "condition_id": "689de64bcc2d1061f98fd24ca3216f9d2fada34b3ffe666a05b1f3aeae38069d",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 7.42144884765795e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.9611248366463725e-08,
+            "max_abs": 1.1173641678574597e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 9.817580096265309e-06,
+            "max_abs": 8.401274681091309e-05
+          },
+          "known_noise_action_channels": {
+            "rmse": 2.084222505090929e-05,
+            "max_abs": 8.401274681091309e-05
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.3195106787208325e-06,
+            "max_abs": 5.4836273193359375e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 5.89582061679005e-05,
+            "max_abs": 0.0005862079560756683
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.475218441337347
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.7729067299515
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.775281368754804
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 69.02634004410356,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0260_689de64bcc2d.npz",
+            "file_sha256": "08e8806557fd7810603c5b1a552f25b3179935d6e0b3594c3ebaa40c5bf9c4bb",
+            "arrays": {
+              "known_noise": {
+                "sha256": "fa9781ff2cea675a6ed46bd647e99fba62cd002717ee466d4fed46bd3bda63ef",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "832624228a4c4d8fc11c9ce015b4e934e028c604041b22f31dc46cf8d4bbbb61",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "db2ead749f17227a28e4fdf8bcc2dd550962291b588c89f6395624a8b72081fd",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "5b21021a1882e6cd32d7034dbf02f76f0676549f148e2ded423c48cb9f911179",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 0,
+          "condition_id": "6fa2298e2a010a7599abbf0fafff966822416092e1044b94e89b4cb825e58553",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 8.374348273897803e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 1.9288338029625205e-08,
+            "max_abs": 9.868299954973736e-08
+          },
+          "known_noise_recovery": {
+            "rmse": 1.9697639792860958e-05,
+            "max_abs": 0.00024503469467163086
+          },
+          "known_noise_action_channels": {
+            "rmse": 4.19817790801838e-05,
+            "max_abs": 0.00024503469467163086
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.7733133500436368e-06,
+            "max_abs": 8.344650268554688e-06
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 6.802162634028707e-05,
+            "max_abs": 0.0004952847957611084
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.361365783028305
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.99655209388584
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.179938098415732
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 69.54086906928569,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0000_6fa2298e2a01.npz",
+            "file_sha256": "1619e05ac1625b01c0304016fa358d1592868986dbef9cb12f2bc2b7500db87c",
+            "arrays": {
+              "known_noise": {
+                "sha256": "6969a118028501769efb18d04d63413f0ea6ac12945c865e554950182dae35a6",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "2d6f263536857fe01c6abb7abc5f59d4e793f48bb918e4cc3b4ccf8f20147345",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "54d59da1e9a46cb0859d2976457f30018ea007abd9bcae2033ee913240678dae",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "60ee172c65fdf05768084dd3d2f9fc59a80621c9a7e1aa001b42ac75711db9d0",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        },
+        {
+          "observation_step": 200,
+          "condition_id": "a8b3e1c05e2f26b42b52725c4bd1f89b3d43364d138e37a81ef4ca58b8fae6ba",
+          "steps": 500,
+          "phase": "all_conditions",
+          "full_internal_shape": [
+            1,
+            10,
+            32
+          ],
+          "full_internal_reconstruction": {
+            "rmse": 8.36912372580714e-09,
+            "max_abs": 5.960464477539063e-08
+          },
+          "controller_reconstruction": {
+            "rmse": 2.1828958627470724e-08,
+            "max_abs": 1.1173641700779058e-07
+          },
+          "known_noise_recovery": {
+            "rmse": 1.5792877996750123e-05,
+            "max_abs": 0.00020074844360351562
+          },
+          "known_noise_action_channels": {
+            "rmse": 3.358992649204699e-05,
+            "max_abs": 0.00020074844360351562
+          },
+          "known_noise_padding_channels": {
+            "rmse": 1.8253517059421973e-06,
+            "max_abs": 1.4662742614746094e-05
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "reference_sampler_parity_steps": 10,
+          "endpoint_change_from_recorded_rk4_50": {
+            "rmse": 8.153648040862747e-05,
+            "max_abs": 0.0005667954683303833
+          },
+          "solves": {
+            "forward": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.445883761160076
+            },
+            "inverse": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 22.609947750344872
+            },
+            "replay": {
+              "velocity_evaluations": 2000,
+              "latency_seconds": 23.25314448401332
+            }
+          },
+          "velocity_evaluations": 6000,
+          "latency_seconds": 68.31195614114404,
+          "artifacts": {
+            "path": "astra_reversal/artifacts/osmo/runtime_arrays/rk4_500/step_0200_a8b3e1c05e2f.npz",
+            "file_sha256": "9b6a87c51e2eeeec4d03cf7f49e23515c8039f491645f3f7ab9c57d9240a4e43",
+            "arrays": {
+              "known_noise": {
+                "sha256": "0c0db0f3c569ff3667dbe6ad4746deea1fd09c885d4930f52ddde0f89465535b",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "endpoint": {
+                "sha256": "674b8f945bc28bf01957302fd0552cd67394f89205643e054532f2fe7dbd0a16",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "recovered_noise": {
+                "sha256": "ac36a3583ecca6ffe6cf72217b88591170f484c7a550eca9a416e279d241213e",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              },
+              "replay": {
+                "sha256": "8ca5d34aded3ee6ae531f5818b65cd9878c9990fe362a9767e98d52729338f57",
+                "shape": [
+                  1,
+                  10,
+                  32
+                ],
+                "dtype": "float32"
+              }
+            }
+          },
+          "passed": true
+        }
+      ],
+      "full_internal_reconstruction": {
+        "rmse": 1.1601901023921731e-08,
+        "max_abs": 1.1920928955078125e-07
+      },
+      "controller_reconstruction": {
+        "rmse": 3.535934438965927e-08,
+        "max_abs": 2.383710144826523e-07
+      },
+      "known_noise_recovery": {
+        "rmse": 7.927735679288553e-05,
+        "max_abs": 0.0009808540344238281
+      },
+      "known_noise_action_channels": {
+        "rmse": 0.0001690513335103897,
+        "max_abs": 0.0009808540344238281
+      },
+      "known_noise_padding_channels": {
+        "rmse": 6.536984230178614e-06,
+        "max_abs": 2.491474151611328e-05
+      },
+      "reference_sampler_parity": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "aggregate_error_definition": "Maximum of per-condition errors; RMSE is worst-condition RMSE, not pooled RMSE"
+    }
+  ],
+  "native_parity": {
+    "b806d4215ec662987b157c1035020277f4b4724e43dda5051402fa4fcac86291": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.4356596823781729,
+      "passed": true,
+      "preparation_seconds": 2.4031893564388156
+    },
+    "16ad1984276fa927d5e3e08df7a2b7a447a8b9529748592c312b71ebe3653828": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.39226606767624617,
+      "passed": true,
+      "preparation_seconds": 0.1690409267321229
+    },
+    "b1124dc504af0d541e74764f60e225a168f7390ccbee05af820dc5c82ca0fe84": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.4005191419273615,
+      "passed": true,
+      "preparation_seconds": 0.16974854469299316
+    },
+    "d82dbba2a1c5e57be982d085f38ae6c494af4a04f27b703d6ccaae932d9fa89e": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.3964559771120548,
+      "passed": true,
+      "preparation_seconds": 0.17049895878881216
+    },
+    "94456667d19908a1ed48401b42e6a26102b7ed4adf42739a12edf778bc6c308c": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.399302801117301,
+      "passed": true,
+      "preparation_seconds": 0.1737982202321291
+    },
+    "a642bbaa8005df5c8bd3a8fa0a21e60db65510d990b456fbff54625e5466cc76": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.39577349554747343,
+      "passed": true,
+      "preparation_seconds": 0.17291832622140646
+    },
+    "754915ca8b62fce8a6518c81ccdbccdd07b09f76a5bc3fa07c42f109e17cbc3d": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.4031775528565049,
+      "passed": true,
+      "preparation_seconds": 0.17234256397932768
+    },
+    "f05348a1b20abb20e3f2e87f754df814f82ca5b416f672a6b183cdcff8dd3733": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.39103045780211687,
+      "passed": true,
+      "preparation_seconds": 0.1731837010011077
+    },
+    "4c508509be90e45bb44544c55fce08e8a9bb04b03fe730d654fef4983b261661": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.40829060412943363,
+      "passed": true,
+      "preparation_seconds": 0.17102686874568462
+    },
+    "98d23a2c2d8c5b0d82b5b421240a5b4afd63f3aed60335146e2de9584cc45274": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.4173649065196514,
+      "passed": true,
+      "preparation_seconds": 0.1702067432925105
+    },
+    "85d805b83901f8d0069b469fc4e945692b2f3df4c9c538ca3c6f01ff8f31a4db": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.4296151865273714,
+      "passed": true,
+      "preparation_seconds": 0.1702262917533517
+    },
+    "689de64bcc2d1061f98fd24ca3216f9d2fada34b3ffe666a05b1f3aeae38069d": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.3929512379691005,
+      "passed": true,
+      "preparation_seconds": 0.1714620590209961
+    },
+    "6fa2298e2a010a7599abbf0fafff966822416092e1044b94e89b4cb825e58553": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.3952549612149596,
+      "passed": true,
+      "preparation_seconds": 0.1736660236492753
+    },
+    "a8b3e1c05e2f26b42b52725c4bd1f89b3d43364d138e37a81ef4ca58b8fae6ba": {
+      "steps": 10,
+      "error": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 20,
+      "latency_seconds": 0.4072094261646271,
+      "passed": true,
+      "preparation_seconds": 0.16990795638412237
+    }
+  },
+  "selected_solver": {
+    "solver": "rk4",
+    "steps": 100,
+    "solver_options": {
+      "time_power": 3.0
+    },
+    "velocity_evaluations_per_solve": 400,
+    "conditions_passed": 14,
+    "diagnostics": "astra_reversal/artifacts/osmo/runtime_diagnostics.json"
+  },
+  "experiments_run": false,
+  "astra_calls_run": false,
+  "interpretation": "Only matched-condition numerical reconstruction on one recorded development trajectory; no Astra-proposal, OOD, or control-success claim",
+  "velocity_evaluations": 134680,
+  "latency_seconds": 1571.5421182541177,
+  "report_kind": "compact_numerical_review_snapshot",
+  "use_as_runtime_gate": false,
+  "source_report": {
+    "path_relative_to_astra_reversal": "artifacts/osmo_runtime_l40s/runtime_diagnostics.json",
+    "sha256": "c9629a7b0d3d2447f1eaaf168479b1572665e44e93912649450f31e91cadd788",
+    "bytes": 1452975
+  },
+  "compaction": {
+    "purpose": "Review every recorded-condition metric and provenance without storing repeated solver grids or binary arrays in Git; runtime workers continue to require the complete original gate.",
+    "omissions": [
+      "Per-solve grid arrays; unchanged formula is t_j=(j/N)^3, reversed for forward/replay.",
+      "The 154-entry source verified-array inventory, represented below by count, byte total, and a digest of its exact JSON data.",
+      "Per-condition provenance repeated inside each candidate; exact values are retained once in full_condition_order and keyed by condition_id."
+    ],
+    "preserved": "All 42 condition/candidate numerical metrics, pass flags, solve costs/latencies, endpoint artifact hashes, native parity rows, checkpoint and source identities, prior RK4/50 errors, screening and selection rules."
+  },
+  "source_schema_version": "1.0"
+}

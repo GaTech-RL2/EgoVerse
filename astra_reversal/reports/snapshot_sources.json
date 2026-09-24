@@ -1,0 +1,387 @@
+{
+  "schema_version": "1.0",
+  "snapshot_date": "2026-09-24",
+  "scope": "Completed standard and OOD policy baselines, all four paired 200-episode OOD methods, complete 25-archive/32-shard Stage 1 audits, initial numerical gates, genuine development failure and fixed-resolution replay. Numerical failures and task outcomes are retained separately; no Stage 2 or paper reproduction claim.",
+  "notes": [
+    "No new Astra calls, pi05 flow solves, or environment rollouts were performed to create these review snapshots.",
+    "Original run paths and workflow identifiers are retained as provenance, not as tracked artifacts.",
+    "Raw lossless image/tensor arrays, provider response bodies, credentials, and signed download URLs are excluded. Original compressed videos cover one development episode and the first frozen OOD episode of each suite for every method."
+  ],
+  "files": [
+    {
+      "report": "ood_baseline.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "40c6828cc18cf166663d88d33f656da7bda26215d9c1eed341522282cb72b0b9",
+      "bytes": 26668,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_baseline_report/report.json",
+        "sha256": "40c6828cc18cf166663d88d33f656da7bda26215d9c1eed341522282cb72b0b9",
+        "bytes": 26668
+      }
+    },
+    {
+      "report": "ood_baseline_tasks.csv",
+      "transformation": "byte-for-byte copy",
+      "sha256": "c9b1c0db695d69dad8336f233972be9491c3702219b721915aaf7b8e7b085d03",
+      "bytes": 4147,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_baseline_report/tasks.csv",
+        "sha256": "c9b1c0db695d69dad8336f233972be9491c3702219b721915aaf7b8e7b085d03",
+        "bytes": 4147
+      }
+    },
+    {
+      "report": "astra_proposal_preflight.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "5bb35d7416a46dced3080541918ee664818dd16321abde84ac59c68e5bfa2c63",
+      "bytes": 10983,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_ood_steering_group0/astra_proposal_diagnostics.json",
+        "sha256": "5bb35d7416a46dced3080541918ee664818dd16321abde84ac59c68e5bfa2c63",
+        "bytes": 10983
+      }
+    },
+    {
+      "report": "runtime_numerics.json",
+      "transformation": "compact review summary; exact omission rules recorded in report.compaction",
+      "sha256": "fc2de163b9a6131909d059a787914d5de2993443d75d07bdcfc069601be5ae70",
+      "bytes": 171471,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_runtime_l40s/runtime_diagnostics.json",
+        "sha256": "c9629a7b0d3d2447f1eaaf168479b1572665e44e93912649450f31e91cadd788",
+        "bytes": 1452975
+      }
+    },
+    {
+      "report": "astra_development_smoke.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "4563d2c7f3a0e995f6a973fc027b8c82a407935ae375bf932b06f5aa8e26bca3",
+      "bytes": 5341,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_astra_dev_smoke/development_smoke.json",
+        "sha256": "4563d2c7f3a0e995f6a973fc027b8c82a407935ae375bf932b06f5aa8e26bca3",
+        "bytes": 5341
+      }
+    },
+    {
+      "report": "astra_development_review.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "3e0c651ab3d3779f484ca757470241c44fd1f841156c0851b9d02ee749f30541",
+      "bytes": 37811,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_astra_dev_smoke/review_summary.json",
+        "sha256": "3e0c651ab3d3779f484ca757470241c44fd1f841156c0851b9d02ee749f30541",
+        "bytes": 37811
+      }
+    },
+    {
+      "report": "astra_development_smoke.mp4",
+      "transformation": "byte-for-byte copy",
+      "sha256": "48e05439f6a881070b0e78ac1ddcdb91f5ba5314e7e95585465ec4b504551e51",
+      "bytes": 211493,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_astra_dev_smoke/reversal/episode_00000.mp4",
+        "sha256": "48e05439f6a881070b0e78ac1ddcdb91f5ba5314e7e95585465ec4b504551e51",
+        "bytes": 211493
+      }
+    },
+    {
+      "report": "payload_source_parity.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "78f1eac33dcdf9e34b304807db795c279bc90e1851cacab31e4cc41085963ebb",
+      "bytes": 45954,
+      "source": {
+        "path_relative_to_astra_reversal": ".deps/payload-source-parity.json",
+        "sha256": "78f1eac33dcdf9e34b304807db795c279bc90e1851cacab31e4cc41085963ebb",
+        "bytes": 45954
+      }
+    },
+    {
+      "report": "astra_development_replay_plan.json",
+      "transformation": "byte-for-byte copy of development-only plan fixed before GPU replay",
+      "sha256": "81791c2c96a100c6892cdf3d70cec381dfa1e90da6321b93a32d22bec3000e6c",
+      "bytes": 18625,
+      "source": {
+        "path_relative_to_astra_reversal": ".deps/astra-dev-proposal-replay-plan.json",
+        "sha256": "81791c2c96a100c6892cdf3d70cec381dfa1e90da6321b93a32d22bec3000e6c",
+        "bytes": 18625
+      }
+    },
+    {
+      "report": "ood_matched_controls.json",
+      "transformation": "byte-for-byte historical completed-control summary; original episode rows checked against frozen assignments and summary totals; superseded for all-method comparison by ood_paired.json",
+      "sha256": "3c36b65151866bb9edd0f418ac889c68e7aff0839ee2a961cdad5068a3f5639b",
+      "bytes": 14061,
+      "source": {
+        "path_relative_to_astra_reversal": ".deps/matched-controls-completed-summary.json",
+        "sha256": "3c36b65151866bb9edd0f418ac889c68e7aff0839ee2a961cdad5068a3f5639b",
+        "bytes": 14061
+      }
+    },
+    {
+      "report": "astra_development_replay.json",
+      "transformation": "byte-for-byte copy of independently verified development replay review; all nine error/cost rows and source/output array identities retained; full grids and arrays remain in the worker report/archive",
+      "sha256": "cc7140f4128062c09450d17ea94957a61b7310bc1248130975b6d6ce6d03aa37",
+      "bytes": 35480,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_astra_proposal_replay/review_summary.json",
+        "sha256": "cc7140f4128062c09450d17ea94957a61b7310bc1248130975b6d6ce6d03aa37",
+        "bytes": 35480
+      },
+      "original_worker_report": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_astra_proposal_replay/astra_proposal_replay.json",
+        "sha256": "1eab21229796473a16c8e08128ba9180c16638a9a432dac4a1504cb74ba4cdec",
+        "bytes": 183789
+      }
+    },
+    {
+      "report": "ood_examples/libero_goal_ood/baseline_euler10.mp4",
+      "transformation": "byte-for-byte copy of first frozen episode video; same episode ID for every method, selected independently of task result",
+      "sha256": "140019f6a9c692f7890187f770c7dc3528629f8a0df02dc2e811dbf7a831a1b0",
+      "bytes": 99791,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_fixed_example_videos/libero_goal_ood/baseline_euler10.mp4",
+        "sha256": "140019f6a9c692f7890187f770c7dc3528629f8a0df02dc2e811dbf7a831a1b0",
+        "bytes": 99791
+      },
+      "episode_id": "libero_goal_ood:task0:state0"
+    },
+    {
+      "report": "ood_examples/libero_goal_ood/policy_fresh.mp4",
+      "transformation": "byte-for-byte copy of first frozen episode video; same episode ID for every method, selected independently of task result",
+      "sha256": "1edaa4bb51c662ff8ee0d02e62f915b0d25695676ae32479a1f856ab4343efe8",
+      "bytes": 96793,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_fixed_example_videos/libero_goal_ood/policy_fresh.mp4",
+        "sha256": "1edaa4bb51c662ff8ee0d02e62f915b0d25695676ae32479a1f856ab4343efe8",
+        "bytes": 96793
+      },
+      "episode_id": "libero_goal_ood:task0:state0"
+    },
+    {
+      "report": "ood_examples/libero_goal_ood/policy_reused.mp4",
+      "transformation": "byte-for-byte copy of first frozen episode video; same episode ID for every method, selected independently of task result",
+      "sha256": "fe63f3dfd949b70b21ac05e028f284bca3d35431490cb84efdaf014a2d4560d9",
+      "bytes": 100612,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_fixed_example_videos/libero_goal_ood/policy_reused.mp4",
+        "sha256": "fe63f3dfd949b70b21ac05e028f284bca3d35431490cb84efdaf014a2d4560d9",
+        "bytes": 100612
+      },
+      "episode_id": "libero_goal_ood:task0:state0"
+    },
+    {
+      "report": "ood_examples/libero_goal_ood/reversal.mp4",
+      "transformation": "byte-for-byte copy of first frozen episode video; same episode ID for every method, selected independently of task result",
+      "sha256": "ffc58b2826e57409e7b783ddff9b57b074629f7dc2acfa96ea8e7c0f0603cc99",
+      "bytes": 123391,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_fixed_example_videos/libero_goal_ood/reversal.mp4",
+        "sha256": "ffc58b2826e57409e7b783ddff9b57b074629f7dc2acfa96ea8e7c0f0603cc99",
+        "bytes": 123391
+      },
+      "episode_id": "libero_goal_ood:task0:state0"
+    },
+    {
+      "report": "ood_examples/libero_spatial_ood/baseline_euler10.mp4",
+      "transformation": "byte-for-byte copy of first frozen episode video; same episode ID for every method, selected independently of task result",
+      "sha256": "5eb094beb3a681e28344bfca22b7a76d45cfab012ab1518b16e9c9c308e5bc3a",
+      "bytes": 32811,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_fixed_example_videos/libero_spatial_ood/baseline_euler10.mp4",
+        "sha256": "5eb094beb3a681e28344bfca22b7a76d45cfab012ab1518b16e9c9c308e5bc3a",
+        "bytes": 32811
+      },
+      "episode_id": "libero_spatial_ood:task0:state0"
+    },
+    {
+      "report": "ood_examples/libero_spatial_ood/policy_fresh.mp4",
+      "transformation": "byte-for-byte copy of first frozen episode video; same episode ID for every method, selected independently of task result",
+      "sha256": "e5ccf16f46cdbfb08fcf4248fc45915c10e32c778de5c5267f4f71624bcf0694",
+      "bytes": 32528,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_fixed_example_videos/libero_spatial_ood/policy_fresh.mp4",
+        "sha256": "e5ccf16f46cdbfb08fcf4248fc45915c10e32c778de5c5267f4f71624bcf0694",
+        "bytes": 32528
+      },
+      "episode_id": "libero_spatial_ood:task0:state0"
+    },
+    {
+      "report": "ood_examples/libero_spatial_ood/policy_reused.mp4",
+      "transformation": "byte-for-byte copy of first frozen episode video; same episode ID for every method, selected independently of task result",
+      "sha256": "7cf1434cfe6530161f73bf20f48f70e57c3596f559a1474c3f21afe05c46d732",
+      "bytes": 33639,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_fixed_example_videos/libero_spatial_ood/policy_reused.mp4",
+        "sha256": "7cf1434cfe6530161f73bf20f48f70e57c3596f559a1474c3f21afe05c46d732",
+        "bytes": 33639
+      },
+      "episode_id": "libero_spatial_ood:task0:state0"
+    },
+    {
+      "report": "ood_examples/libero_spatial_ood/reversal.mp4",
+      "transformation": "byte-for-byte copy of first frozen episode video; same episode ID for every method, selected independently of task result",
+      "sha256": "bc93b42259d60013da5d35fe1c0e90c0f2d531c2793b09d40bad3b641af50aef",
+      "bytes": 77707,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_fixed_example_videos/libero_spatial_ood/reversal.mp4",
+        "sha256": "bc93b42259d60013da5d35fe1c0e90c0f2d531c2793b09d40bad3b641af50aef",
+        "bytes": 77707
+      },
+      "episode_id": "libero_spatial_ood:task0:state0"
+    },
+    {
+      "report": "ood_examples/video_manifest.json",
+      "transformation": "byte-for-byte copy; original source paths, episode selection, frame counts, and video hashes preserved",
+      "sha256": "886ac70cbb4fd0e6e003bf09e2b4ce66a58eeec8d2cc1e25e0145b391dc3a90a",
+      "bytes": 4073,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_fixed_example_videos/video_manifest.json",
+        "sha256": "886ac70cbb4fd0e6e003bf09e2b4ce66a58eeec8d2cc1e25e0145b391dc3a90a",
+        "bytes": 4073
+      }
+    },
+    {
+      "report": "ood_paired.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "f3281b0594ee0131ecf3c0432d5134ac2a6f4444268fb8ab2068228cd7a8f941",
+      "bytes": 330988,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_paired_report/report.json",
+        "sha256": "f3281b0594ee0131ecf3c0432d5134ac2a6f4444268fb8ab2068228cd7a8f941",
+        "bytes": 330988
+      }
+    },
+    {
+      "report": "ood_paired_methods.csv",
+      "transformation": "byte-for-byte copy",
+      "sha256": "bb798e10f39fba5b410d40cfe84f75aa1af10eb429300e1b5a6b118fdddcb603",
+      "bytes": 2223,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_paired_report/methods.csv",
+        "sha256": "bb798e10f39fba5b410d40cfe84f75aa1af10eb429300e1b5a6b118fdddcb603",
+        "bytes": 2223
+      }
+    },
+    {
+      "report": "ood_paired_tasks.csv",
+      "transformation": "byte-for-byte copy",
+      "sha256": "aec42b569b23a758208a22bdb96b0d524ace209baa50987d91a140f4020e94d6",
+      "bytes": 14862,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_paired_report/tasks.csv",
+        "sha256": "aec42b569b23a758208a22bdb96b0d524ace209baa50987d91a140f4020e94d6",
+        "bytes": 14862
+      }
+    },
+    {
+      "report": "ood_runtime_audit.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "bad17aa2b1e561a36477acf971b2c69203f355f83aae8c34f688c39cbd4d399f",
+      "bytes": 40159,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_runtime_audit/summary.json",
+        "sha256": "bad17aa2b1e561a36477acf971b2c69203f355f83aae8c34f688c39cbd4d399f",
+        "bytes": 40159
+      }
+    },
+    {
+      "report": "ood_provider_review.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "397905ca359e24b70b6732fc79195c061582048602756fb7c92dbbdcf63e0d19",
+      "bytes": 217071,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_provider_review/review.json",
+        "sha256": "397905ca359e24b70b6732fc79195c061582048602756fb7c92dbbdcf63e0d19",
+        "bytes": 217071
+      }
+    },
+    {
+      "report": "ood_reversal_success_context.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "3e429394dee324362f0b54a03edf4a5c7d19690ebe9b3eb7272d190880a2910a",
+      "bytes": 7058,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_provider_review/success_action_context.json",
+        "sha256": "3e429394dee324362f0b54a03edf4a5c7d19690ebe9b3eb7272d190880a2910a",
+        "bytes": 7058
+      }
+    },
+    {
+      "report": "ood_archive_provenance.json",
+      "transformation": "compact cross-verified provenance from all 25 final per-unit audit reports; omission rules in compaction",
+      "sha256": "d2542e5958b35b39d84bdb9552c7385536ec95b6487806177f1e87ebd50a68ac",
+      "bytes": 312492,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_runtime_audit/summary.json",
+        "sha256": "bad17aa2b1e561a36477acf971b2c69203f355f83aae8c34f688c39cbd4d399f",
+        "bytes": 40159
+      }
+    },
+    {
+      "report": "ood_paired_episodes.csv",
+      "transformation": "all 800 episode outcomes as CSV; listed outcome/cost/protocol/reset and source-hash fields retained without rounding; original event sequence/timestamp, duplicated absolute paths and duplicate method labels omitted",
+      "sha256": "d913681e1c858196b7d70d0a7096c261204a7f87059d54246e27fd5b73042f25",
+      "bytes": 415807,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_paired_report/canonical_episodes.json",
+        "sha256": "9f03e5ac4885ea315e9be47328f082d314217eab20337192e9c0108250edd049",
+        "bytes": 1276179
+      },
+      "retained_columns": [
+        "analysis_method",
+        "episode_id",
+        "suite",
+        "task_id",
+        "initial_state_id",
+        "seed",
+        "success",
+        "actions",
+        "wall_seconds",
+        "velocity_evaluations",
+        "agent_calls",
+        "invalid_responses",
+        "retry_calls",
+        "fallbacks",
+        "completed_subgoals",
+        "failure",
+        "reset_state_sha256",
+        "protocol",
+        "task_action_budget",
+        "split",
+        "workflow",
+        "source_file_sha256",
+        "source_row_sha256",
+        "task_manifest_sha256",
+        "reset_model_sha256",
+        "repair_debugger_affects_wall_latency"
+      ]
+    }
+  ],
+  "existing_tracked_standard_baseline": {
+    "path_relative_to_astra_reversal": "checkpoints/libero_l40s_full_baseline.json",
+    "sha256": "e9db4e0e1a5932c646377b9268e3c747c7002158605c036a34f20020dd528591",
+    "bytes": 5857
+  },
+  "review_validation": {
+    "unit_tests": {
+      "command": "PYTHONPATH=/Users/rpunamiya/Desktop/GEAR/EgoVerse/astra_reversal/.deps/test-tools python -m pytest tests/unit -q -rs",
+      "passed": 468,
+      "skipped": 5,
+      "skip_reason": "Existing optional OpenPI tests; openpi is not installed in this local environment",
+      "duration_seconds": 46.9,
+      "exit_code": 0,
+      "log": {
+        "path_relative_to_astra_reversal": ".deps/final-results-unit-tests.log",
+        "sha256": "6a1eeda6540fff5d11712299c1c588908d3f977583a925e2983404d8214cd57e",
+        "bytes": 3619
+      }
+    },
+    "verified_outcome_input_files": 210,
+    "paired_episode_rows": 800,
+    "all_scalar_counts_match_outcomes_provider_and_audits": true,
+    "all_175_final_reversal_metadata_inputs_match_archived_bytes": true,
+    "fixed_example_video_hash_episode_and_frame_counts_verified": 8,
+    "production_runtime_changes_in_this_results_update": false
+  }
+}

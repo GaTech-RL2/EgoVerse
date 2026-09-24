@@ -1,0 +1,1041 @@
+{
+  "schema_version": "1.0",
+  "report_kind": "development_stage1_smoke_review",
+  "created_at_utc": "2026-09-24T19:05:48.150957+00:00",
+  "workflow": "astra-pi05-astra-dev-smoke-20260924-1",
+  "worker_status": "complete_with_issues",
+  "worker_exit_code": 2,
+  "scope": "One full-budget standard LIBERO-10 task0/state0 Stage 1 development episode. Numerical interface validation failed; task outcome is reported separately. No OOD result or benchmark success-rate claim.",
+  "overall_interface_passed": false,
+  "interface_checks": {
+    "completed_intended_episode_without_execution_error": true,
+    "several_genuine_replans": true,
+    "all_accepted_proposals_have_recorded_inversions": true,
+    "same_condition_roundtrips_pass": false,
+    "recovered_latents_reused_exactly": true,
+    "fresh_observations_used_during_reuse": true,
+    "no_hidden_policy_reference_proposals": true,
+    "no_fallback_actions": true,
+    "configured_model_observed": true
+  },
+  "required_interface_coverage": {
+    "minimum_accepted_plans": 4,
+    "minimum_replans": 3,
+    "minimum_fresh_observation_reuses": 3
+  },
+  "episode_outcome": {
+    "kind": "episode_end",
+    "sequence": 1094,
+    "timestamp": 1790276248.6331055,
+    "episode_id": "libero_10:task0:state0",
+    "method": "reversal",
+    "success": false,
+    "actions": 520,
+    "wall_seconds": 1169.2097518809605,
+    "velocity_evaluations": 52800,
+    "fallbacks": 0,
+    "agent_calls": 32,
+    "invalid_responses": 4,
+    "retry_calls": 4,
+    "completed_subgoals": 0,
+    "failure": null,
+    "suite": "libero_10",
+    "task_id": 0,
+    "initial_state_id": 0,
+    "reset_state_sha256": "c4adbbf953e1f1b86b6045a58ab2fdc8591e15e7803229aef8e7e665814d373a",
+    "seed": 7,
+    "protocol": "standard_libero_10",
+    "task_action_budget": 520,
+    "split": "development"
+  },
+  "runtime": {
+    "gpu": "NVIDIA L40S",
+    "visible_gpu_count": 1,
+    "tf32": false,
+    "flow_dtype": "float32",
+    "payload_sha256": "3717db31adb9682ce5eab89be57accd6d38ca7ba791362828435a97b5ee8f420",
+    "selected_solver": {
+      "solver": "rk4",
+      "steps": 100,
+      "solver_options": {
+        "time_power": 3.0
+      },
+      "velocity_evaluations_per_solve": 400,
+      "conditions_passed": 14,
+      "diagnostics": "astra_reversal/artifacts/osmo/runtime_diagnostics.json"
+    }
+  },
+  "budget_decision": {
+    "requested_development_budget": 80,
+    "truncated_budget_permitted": false,
+    "validator_reason": "Benchmark settings must match the complete suite preset; custom protocols need a separate implementation",
+    "actual_action_budget": 520,
+    "scope": "One full-budget standard LIBERO-10 development episode; no benchmark success-rate claim"
+  },
+  "actual_model": "azure/openai/gpt-6-astra",
+  "counts": {
+    "episodes_started": 1,
+    "episodes_ended": 1,
+    "accepted_agent_proposals": 28,
+    "accepted_proposals_without_inversion": 0,
+    "rejected_agent_responses": 4,
+    "astra_inversions": 28,
+    "paired_same_condition_roundtrips": 28,
+    "passing_roundtrips": 26,
+    "failing_roundtrips": 2,
+    "unpaired_inversions": 0,
+    "plans_without_activation": 0,
+    "paired_on_first_generation": 28,
+    "generations": 104,
+    "subsequent_generations": 76,
+    "changed_condition_generations": 76,
+    "generations_with_wrong_recovered_latent": 0,
+    "generations_with_latent_changed_within_plan": 0,
+    "plans_with_latent_mismatch": 0,
+    "subsequent_steps_advanced": 76,
+    "subsequent_steps_not_advanced": 0,
+    "subsequent_observation_ids_changed": 76,
+    "subsequent_observation_ids_unchanged": 0,
+    "orphan_generation_flows": 0,
+    "fallback_flows": 0,
+    "verified_array_files": 856
+  },
+  "accepted_proposal_steps": [
+    0,
+    20,
+    40,
+    60,
+    80,
+    100,
+    120,
+    140,
+    160,
+    180,
+    200,
+    220,
+    240,
+    260,
+    280,
+    300,
+    310,
+    330,
+    350,
+    370,
+    390,
+    410,
+    430,
+    445,
+    465,
+    485,
+    505,
+    515
+  ],
+  "numerical_result": {
+    "action_atol": 0.02,
+    "tensor_shape": [
+      1,
+      10,
+      32
+    ],
+    "coordinate_space": "Full internal model action space; first seven action channels remain normalized model coordinates, not decoded controller metrics.",
+    "passing_plans": 26,
+    "failing_plans": 2,
+    "maximum_full_internal_error": 0.45937466621398926,
+    "maximum_per_plan_rmse": 0.02810232969306107,
+    "known_noise_recovery": null,
+    "known_noise_explanation": "Actual Astra controller actions have no known generating policy noise; recovered latents are checked for reuse only",
+    "failure_interpretation": "Two genuine Astra endpoints fail the original same-condition reconstruction limit. This is a development numerical negative despite the prior policy-generated 14-condition gate and one genuine proposal preflight passing. No error is attributed to changed conditioning, no tolerance is relaxed, and the cause is not isolated."
+  },
+  "plans": [
+    {
+      "plan_id": "plan_000_approach",
+      "observation_step": 0,
+      "condition_id": "6fa2298e2a010a7599abbf0fafff966822416092e1044b94e89b4cb825e58553",
+      "request_fingerprint": "e045bc9bffc6ec5e1d5a63762a2f72973b9c89f721f812eff64cf3128c8872db",
+      "inverse_flow_sequence": 5,
+      "first_generation_sequence": 9,
+      "full_internal_reconstruction": {
+        "rmse": 6.24824233012469e-08,
+        "max_abs": 3.8743019104003906e-07
+      },
+      "action_channel_reconstruction": {
+        "rmse": 1.3358536908601006e-07,
+        "max_abs": 3.8743019104003906e-07
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 7.5755538833153e-10,
+        "max_abs": 2.28709673422145e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "approach_soup_step20_v1",
+      "observation_step": 20,
+      "condition_id": "0852321f27822263274e22455c30888439dd9f220724975369672e5bac8f3455",
+      "request_fingerprint": "d6f23aac7c72fb922f46933922bc5248f3a85a63f74755cdb7a2e806215f2330",
+      "inverse_flow_sequence": 46,
+      "first_generation_sequence": 50,
+      "full_internal_reconstruction": {
+        "rmse": 6.710421083540984e-08,
+        "max_abs": 7.152557373046875e-07
+      },
+      "action_channel_reconstruction": {
+        "rmse": 1.4346573470717472e-07,
+        "max_abs": 7.152557373046875e-07
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 8.55203683206417e-10,
+        "max_abs": 3.2163924856831727e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "s40_soup_alignment_01",
+      "observation_step": 40,
+      "condition_id": "ae5424dcbc8081c8eeb080ab8fed1b88406d017e09d2070f7f7fd3617e76c961",
+      "request_fingerprint": "a08090930bc8072ee3c16a94d0bc4985b09b2c1956af33460af40cd41f09b72f",
+      "inverse_flow_sequence": 88,
+      "first_generation_sequence": 92,
+      "full_internal_reconstruction": {
+        "rmse": 3.0291930183169505e-07,
+        "max_abs": 1.8924474716186523e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 6.476614667868866e-07,
+        "max_abs": 1.8924474716186523e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.6208712059897955e-09,
+        "max_abs": 5.322505103322328e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_alignment_60_v1",
+      "observation_step": 60,
+      "condition_id": "d062452948d587c555776a06cc4cae3ac7a5ab6186a4ec53d2abf531190ab3a3",
+      "request_fingerprint": "74c6eb34cd391b890b442c40adaf825a8279f61d6b1bbb7451294fe2f75e4d9c",
+      "inverse_flow_sequence": 129,
+      "first_generation_sequence": 133,
+      "full_internal_reconstruction": {
+        "rmse": 8.595297687636343e-08,
+        "max_abs": 6.016343832015991e-07
+      },
+      "action_channel_reconstruction": {
+        "rmse": 1.8376752176327435e-07,
+        "max_abs": 6.016343832015991e-07
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 8.886191528172663e-10,
+        "max_abs": 2.7337421215634095e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_alignment_80_b",
+      "observation_step": 80,
+      "condition_id": "242ff86fcbb9377e5a26ed0de52ca4946535bea7b48b86c96489bd9d3c86417f",
+      "request_fingerprint": "cba694aa8bc8359abeade337d824e446a058d52ac0109afe7691302c4565103e",
+      "inverse_flow_sequence": 171,
+      "first_generation_sequence": 175,
+      "full_internal_reconstruction": {
+        "rmse": 8.001031972845655e-08,
+        "max_abs": 6.239861249923706e-07
+      },
+      "action_channel_reconstruction": {
+        "rmse": 1.7106158687921502e-07,
+        "max_abs": 6.239861249923706e-07
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 8.573185673575781e-10,
+        "max_abs": 3.4196716569567798e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "approach_soup_100_c",
+      "observation_step": 100,
+      "condition_id": "4a0612337ab18c5b9a0a15f373c8c1233485a2623598f6216e3409d963d24c4d",
+      "request_fingerprint": "4528ab6e7a9cc651fb253d904acf41432ec48894f03c81fdb9e59e9bca46cffd",
+      "inverse_flow_sequence": 212,
+      "first_generation_sequence": 216,
+      "full_internal_reconstruction": {
+        "rmse": 6.641388131729633e-08,
+        "max_abs": 5.289912223815918e-07
+      },
+      "action_channel_reconstruction": {
+        "rmse": 1.419919982611878e-07,
+        "max_abs": 5.289912223815918e-07
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 7.381929465210387e-10,
+        "max_abs": 2.648575581076784e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "s120_soup_lateral_realign_v1",
+      "observation_step": 120,
+      "condition_id": "68bb4ca5e124f0830f785a3f565ae3eb29945eff5b8b5ec191358e39db7c897b",
+      "request_fingerprint": "d771ceae8051b2875513d084b3a4c527803a1084d25772351ebba1cfe6b359c7",
+      "inverse_flow_sequence": 255,
+      "first_generation_sequence": 259,
+      "full_internal_reconstruction": {
+        "rmse": 2.949934522235104e-06,
+        "max_abs": 2.2213906049728394e-05
+      },
+      "action_channel_reconstruction": {
+        "rmse": 6.3071914819665945e-06,
+        "max_abs": 2.2213906049728394e-05
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.0931063696969044e-08,
+        "max_abs": 3.458349695506513e-08
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_realign_140_b",
+      "observation_step": 140,
+      "condition_id": "c23e2d580f141e4fad59fb9c475ec613935820ad8cadc8f70a7f8406364393ad",
+      "request_fingerprint": "77265213d00c3815c041e064e10706583d9b98bd46552f398567aa931c01ef0d",
+      "inverse_flow_sequence": 296,
+      "first_generation_sequence": 300,
+      "full_internal_reconstruction": {
+        "rmse": 7.626737672799811e-07,
+        "max_abs": 4.492700099945068e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 1.6306587620837966e-06,
+        "max_abs": 4.492700099945068e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 2.4068317815602203e-09,
+        "max_abs": 6.382151696016081e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_realign_160_b",
+      "observation_step": 160,
+      "condition_id": "aae03f2c57a2c2de20ea4df0ebca96aca77e260dc4da4c756f68e1c26532d1b7",
+      "request_fingerprint": "2a1c44ac682d36af72a71e43770824ccbcd34481fb643d138b6e72860953384d",
+      "inverse_flow_sequence": 338,
+      "first_generation_sequence": 342,
+      "full_internal_reconstruction": {
+        "rmse": 1.4553386567923545e-06,
+        "max_abs": 8.601826266385615e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 3.111627944873347e-06,
+        "max_abs": 8.601826266385615e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 5.44102680197847e-09,
+        "max_abs": 1.7596214263448928e-08
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_realign_180_b",
+      "observation_step": 180,
+      "condition_id": "0c78f03a17ec9d526ce8943f243f571b5585711fc9f236a2cf848991aab218b5",
+      "request_fingerprint": "40aaf1e081be57d6ea326c498d5e6d49b523e19d4ff49901f7dbc6bbf22f69b3",
+      "inverse_flow_sequence": 379,
+      "first_generation_sequence": 383,
+      "full_internal_reconstruction": {
+        "rmse": 3.487347611230045e-07,
+        "max_abs": 1.8477439880371094e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 7.456224263255736e-07,
+        "max_abs": 1.8477439880371094e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.2689715388725516e-09,
+        "max_abs": 4.071637249580817e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_align_200_a",
+      "observation_step": 200,
+      "condition_id": "392d5b1a8a966475bf2fa1ecd63b2b635c3da1176441921ced42236dbacc009c",
+      "request_fingerprint": "f32011bc7f79feec40568f9b0ca04d8df6233cd36a32da0fe0f1fa277cd134fc",
+      "inverse_flow_sequence": 420,
+      "first_generation_sequence": 424,
+      "full_internal_reconstruction": {
+        "rmse": 6.688065435556482e-08,
+        "max_abs": 4.76837158203125e-07
+      },
+      "action_channel_reconstruction": {
+        "rmse": 1.429881342920363e-07,
+        "max_abs": 4.76837158203125e-07
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 8.356034152901966e-10,
+        "max_abs": 2.327972481452889e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_align_220_c",
+      "observation_step": 220,
+      "condition_id": "d74e04839a9a28fb914122042bf6f37dde00be0c68c5ca38ef7e2685b9274018",
+      "request_fingerprint": "4eb801f9ceebb9c00f44d2fbbfd8eaef51ea226e35e2ae5f1331e7eae375143f",
+      "inverse_flow_sequence": 462,
+      "first_generation_sequence": 466,
+      "full_internal_reconstruction": {
+        "rmse": 3.4232455566465777e-07,
+        "max_abs": 2.0116567611694336e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 7.319137085026589e-07,
+        "max_abs": 2.0116567611694336e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.691251529087198e-09,
+        "max_abs": 5.311022732712445e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "plan_240_soup_lift_check",
+      "observation_step": 240,
+      "condition_id": "5b3a81c265d77e878efffbf5142a0149bc6089032caa3c4b128b5f4fc3f6c748",
+      "request_fingerprint": "53e8b1ea1f110e4329b1aa6228bf7faf4b13608ba3429fab84739a669edbb4df",
+      "inverse_flow_sequence": 503,
+      "first_generation_sequence": 507,
+      "full_internal_reconstruction": {
+        "rmse": 1.1625509504893094e-05,
+        "max_abs": 0.00011833012104034424
+      },
+      "action_channel_reconstruction": {
+        "rmse": 2.4856218210158148e-05,
+        "max_abs": 0.00011833012104034424
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 4.816387464814514e-08,
+        "max_abs": 2.4234179818449775e-07
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_regrasp_260_a",
+      "observation_step": 260,
+      "condition_id": "b18acd4c7edf20e5a5fc9d0816cee900decdf5de304016390707d5fe06488f61",
+      "request_fingerprint": "8e2af337598ef7f2f5366b8e79387a949edd7e7eea52adb2d69980c73544a938",
+      "inverse_flow_sequence": 544,
+      "first_generation_sequence": 548,
+      "full_internal_reconstruction": {
+        "rmse": 2.782202793364296e-07,
+        "max_abs": 2.041459083557129e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 5.948514755182473e-07,
+        "max_abs": 2.041459083557129e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.6830591868045983e-09,
+        "max_abs": 6.394344609361724e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_lift_check_280_v1",
+      "observation_step": 280,
+      "condition_id": "ebbe6de39c65ba73d00463fa81829cf0e04d2c1a5efb253957c327b85903e72f",
+      "request_fingerprint": "d5473ba672779fc45c0553f01bdc31a014b86d749a193ad24a593679c75521b4",
+      "inverse_flow_sequence": 587,
+      "first_generation_sequence": 591,
+      "full_internal_reconstruction": {
+        "rmse": 1.1775710676608145e-05,
+        "max_abs": 0.00012257695198059082
+      },
+      "action_channel_reconstruction": {
+        "rmse": 2.5177433387729414e-05,
+        "max_abs": 0.00012257695198059082
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 3.6615897637553234e-08,
+        "max_abs": 1.2466243504150043e-07
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_recovery_300_a",
+      "observation_step": 300,
+      "condition_id": "7ec097480147f80f6e74793c8b1bfa1108e39ab356398093df3464cdf67b278b",
+      "request_fingerprint": "01ff51c020dcecf1b9e72e5f0e4c8860207fac1c2aacaf4238f133ad72520965",
+      "inverse_flow_sequence": 628,
+      "first_generation_sequence": 632,
+      "full_internal_reconstruction": {
+        "rmse": 3.5596583990559937e-07,
+        "max_abs": 3.680586814880371e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 7.610823901396112e-07,
+        "max_abs": 3.680586814880371e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.3985948090408059e-09,
+        "max_abs": 3.974015783114737e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 2,
+      "subsequent_generations": 1,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_reapproach_310_a",
+      "observation_step": 310,
+      "condition_id": "94276dd6d921dcede13f26fbb27c51a6b49c07cef1e8a1789947d6a348b383bd",
+      "request_fingerprint": "3b4378f1bcb42a47320f01e6138f0d23321d15bbabce313ff5a0d23b60a7eee6",
+      "inverse_flow_sequence": 652,
+      "first_generation_sequence": 656,
+      "full_internal_reconstruction": {
+        "rmse": 1.3890772104993967e-07,
+        "max_abs": 1.1026859283447266e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 2.969919956746235e-07,
+        "max_abs": 1.1026859283447266e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 9.303867935891992e-10,
+        "max_abs": 3.0285560725928917e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_regrasp_330_a",
+      "observation_step": 330,
+      "condition_id": "123a84d5ad39385d6de866006fa4b1d7028be6b5b7ca0a8e413dc87eddcfb4f4",
+      "request_fingerprint": "dfb1735a84d5a9385358b57598e0517154216092faeaa41d6c6e6c5d67e7f305",
+      "inverse_flow_sequence": 693,
+      "first_generation_sequence": 697,
+      "full_internal_reconstruction": {
+        "rmse": 0.02810232969306107,
+        "max_abs": 0.45937466621398926
+      },
+      "action_channel_reconstruction": {
+        "rmse": 0.060084327585024314,
+        "max_abs": 0.45937466621398926
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 0.00018165288530006928,
+        "max_abs": 0.0008095885859802365
+      },
+      "passed_action_tolerance": false,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "s350_soup_regrasp_01",
+      "observation_step": 350,
+      "condition_id": "0d30ae17c9f73c9df8c5c48efdd323610d8031de77866d243452b33f9f1971c8",
+      "request_fingerprint": "23e904c2959a5d87cf9b376591a8d7a727038938e73f61004b572a69c5c01232",
+      "inverse_flow_sequence": 734,
+      "first_generation_sequence": 738,
+      "full_internal_reconstruction": {
+        "rmse": 1.833894326070689e-07,
+        "max_abs": 1.564621925354004e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 3.92092004833487e-07,
+        "max_abs": 1.564621925354004e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.5608454345392423e-09,
+        "max_abs": 5.012289250316826e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "plan_370_sustained_soup_grasp",
+      "observation_step": 370,
+      "condition_id": "3ad4e351c1d9875d06cd21d91387fe0a87a8c94c2b16d7e8bddfca9f01b76fa2",
+      "request_fingerprint": "ed1fbb944906a6140c7f897c37dbd64bc47c76d1df684200626f49f23bca830a",
+      "inverse_flow_sequence": 776,
+      "first_generation_sequence": 780,
+      "full_internal_reconstruction": {
+        "rmse": 5.582161964716049e-07,
+        "max_abs": 6.06420508120209e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 1.1934930314014272e-06,
+        "max_abs": 6.06420508120209e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 3.954703917269731e-09,
+        "max_abs": 1.0767099212216635e-08
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_reapproach_390_v1",
+      "observation_step": 390,
+      "condition_id": "0718796cacb793aa1e716cb840d2c39052966bbbd889c6f195dbf909a8c0e8de",
+      "request_fingerprint": "6086e7daaa7239c59befc2411d3dd161840545536d24d1ff727053208b9a5db4",
+      "inverse_flow_sequence": 817,
+      "first_generation_sequence": 821,
+      "full_internal_reconstruction": {
+        "rmse": 1.962685347223965e-07,
+        "max_abs": 1.4901161193847656e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 4.1963443705592975e-07,
+        "max_abs": 1.4901161193847656e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.1203885704599973e-09,
+        "max_abs": 3.378744395376998e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "plan_410_soup_regrasp_01",
+      "observation_step": 410,
+      "condition_id": "e6238ac7d0d29450bcffafd8964e6feddc2228048f38c9176138eb006df59db9",
+      "request_fingerprint": "c217b35472560c6ec6e0139130473c86854b7a5af2545e9c9ab302939d02cd77",
+      "inverse_flow_sequence": 860,
+      "first_generation_sequence": 864,
+      "full_internal_reconstruction": {
+        "rmse": 4.1089960587448846e-07,
+        "max_abs": 3.11434268951416e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 8.785083903121739e-07,
+        "max_abs": 3.11434268951416e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 3.9628903982374215e-09,
+        "max_abs": 1.2481052635848755e-08
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_regrasp_close_430_v1",
+      "observation_step": 430,
+      "condition_id": "040b8d6cda1b6603d6e5bbb74cc6a44ab1bb542df6af01a66952bc32587afb95",
+      "request_fingerprint": "86b57156c90d846cec8265ce52bfb993898cfe45d9e4ec50b7f15dcf27d9dd8b",
+      "inverse_flow_sequence": 901,
+      "first_generation_sequence": 905,
+      "full_internal_reconstruction": {
+        "rmse": 4.763820112543918e-07,
+        "max_abs": 3.999623004347086e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 1.0185123134798852e-06,
+        "max_abs": 3.999623004347086e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 4.4852278689457455e-09,
+        "max_abs": 1.1122580190203735e-08
+      },
+      "passed_action_tolerance": true,
+      "generations": 3,
+      "subsequent_generations": 2,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "regrasp_alignment_445_v1",
+      "observation_step": 445,
+      "condition_id": "57e4159f87daf4ebe67b6154d54d87650ddd9698b04dba4762d222c5fd48de73",
+      "request_fingerprint": "fcc8141425a3c61c1436f9af34714f89e74e7dd23b9eb3ef716849dd7f0714ce",
+      "inverse_flow_sequence": 934,
+      "first_generation_sequence": 938,
+      "full_internal_reconstruction": {
+        "rmse": 3.3955582169038367e-07,
+        "max_abs": 2.1457672119140625e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 7.259952308430997e-07,
+        "max_abs": 2.1457672119140625e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.5161392301796272e-09,
+        "max_abs": 4.115506158086646e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_regrasp_465_b",
+      "observation_step": 465,
+      "condition_id": "519168e4d37c3c5d97f58ab50668cf3b57c132e7169eb0129ff937221381eb70",
+      "request_fingerprint": "ac262ee73f71993daee482d295b6c84dd1daa33f6edc0238ddadf2c7f2cb6d69",
+      "inverse_flow_sequence": 975,
+      "first_generation_sequence": 979,
+      "full_internal_reconstruction": {
+        "rmse": 1.2502928854988264e-06,
+        "max_abs": 9.402632713317871e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 2.6731336105220218e-06,
+        "max_abs": 9.402632713317871e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.253871924862644e-08,
+        "max_abs": 4.202903625127874e-08
+      },
+      "passed_action_tolerance": true,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "soup_regrasp_485_close",
+      "observation_step": 485,
+      "condition_id": "7bd626d27defb6fb303d907786d799535f33041b678206d6af110b17bbc3f155",
+      "request_fingerprint": "4dd5ef88aff1c181ba9bb90de2155e4eec8b821e5132236c89db68ddba9e5961",
+      "inverse_flow_sequence": 1017,
+      "first_generation_sequence": 1021,
+      "full_internal_reconstruction": {
+        "rmse": 0.006661244260261544,
+        "max_abs": 0.1186169981956482
+      },
+      "action_channel_reconstruction": {
+        "rmse": 0.014240217757847852,
+        "max_abs": 0.1186169981956482
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 0.00013007543953856644,
+        "max_abs": 0.0008759765769354999
+      },
+      "passed_action_tolerance": false,
+      "generations": 4,
+      "subsequent_generations": 3,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "regrasp_realign_505_b",
+      "observation_step": 505,
+      "condition_id": "6e880b4c59e94a21cf6a70cd9183bde14a0507d6b3fe03177a0e80425f26671f",
+      "request_fingerprint": "7c84e75de14b5014c62d07f19edb82fbbd52b36e4c5c86a10a50d052522d88b1",
+      "inverse_flow_sequence": 1058,
+      "first_generation_sequence": 1062,
+      "full_internal_reconstruction": {
+        "rmse": 2.7267470593800295e-07,
+        "max_abs": 1.9669532775878906e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 5.829996428369456e-07,
+        "max_abs": 1.9669532775878906e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.0538203262789748e-09,
+        "max_abs": 5.322725371570414e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 2,
+      "subsequent_generations": 1,
+      "latent_reuse_verified": true
+    },
+    {
+      "plan_id": "plan_515_soup_alignment_b",
+      "observation_step": 515,
+      "condition_id": "fa15ab5afd9ea1722d3535ccc9ff4631d5ada968d27196c9d1653172565ff087",
+      "request_fingerprint": "1feb4e9cf12b3018e0b77f046f7c0632726629cc359d26962c7ed8bbcc92f26f",
+      "inverse_flow_sequence": 1083,
+      "first_generation_sequence": 1087,
+      "full_internal_reconstruction": {
+        "rmse": 1.4592039999410955e-08,
+        "max_abs": 1.1920928955078125e-07
+      },
+      "action_channel_reconstruction": {
+        "rmse": 3.1164643681959597e-08,
+        "max_abs": 1.1920928955078125e-07
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 7.756053701868716e-10,
+        "max_abs": 2.327865900042525e-09
+      },
+      "passed_action_tolerance": true,
+      "generations": 1,
+      "subsequent_generations": 0,
+      "latent_reuse_verified": true
+    }
+  ],
+  "controller_rejections": [
+    {
+      "sequence": 252,
+      "observation_step": 120,
+      "reason": "ValueError: Subgoal is already completed or has exhausted recovery replans"
+    },
+    {
+      "sequence": 584,
+      "observation_step": 280,
+      "reason": "ValueError: Subgoal is already completed or has exhausted recovery replans"
+    },
+    {
+      "sequence": 857,
+      "observation_step": 410,
+      "reason": "ValueError: Subgoal is already completed or has exhausted recovery replans"
+    },
+    {
+      "sequence": 1080,
+      "observation_step": 515,
+      "reason": "ValueError: Subgoal is already completed or has exhausted recovery replans"
+    }
+  ],
+  "costs": {
+    "counts": {
+      "agent_calls": 32,
+      "accepted_proposals": 28,
+      "invalid_proposals": 4,
+      "retry_calls": 4,
+      "fallbacks": 0,
+      "velocity_evaluations": 52800,
+      "recorded_api_calls": 32,
+      "api_schema_accepted": 32,
+      "executed_actions": 520,
+      "fallback_actions": 0,
+      "latent_actions": 520,
+      "nonfallback_latent_actions": 520,
+      "astra_inversion_solves": 28,
+      "generation_solves": 104,
+      "clipped_action_values": 437
+    },
+    "fallback_categories": {},
+    "invalid_response_rate": 0.125,
+    "actual_api_models": {
+      "azure/openai/gpt-6-astra": 32
+    },
+    "api_usage_totals": {
+      "completion_tokens": 17372,
+      "prompt_tokens": 197805,
+      "total_tokens": 215177,
+      "completion_tokens_details.reasoning_tokens": 6346,
+      "prompt_tokens_details.cached_tokens": 0,
+      "prompt_tokens_details.cache_write_tokens": 197709,
+      "prompt_tokens_details.cache_creation_tokens": 197709
+    },
+    "action_fractions": {
+      "fallback_actions": 0.0,
+      "latent_actions": 1.0,
+      "nonfallback_latent_actions": 1.0
+    },
+    "max_action_clip": 0.06569886207580566,
+    "latency_seconds": {
+      "agent_response": {
+        "total": 494.808474779129,
+        "mean": 15.462764836847782,
+        "p95": 30.011200261116027
+      },
+      "flow": {
+        "total": 639.7386034813244,
+        "mean": 4.846504571828215,
+        "p95": 5.090889978676569
+      },
+      "api": {
+        "total": 487.13564380211756,
+        "mean": 15.222988868816174,
+        "p95": 29.7755757753388
+      }
+    },
+    "currency_cost": null,
+    "cost_note": "Measured tokens, latency and velocity evaluations; no billing rate was assumed."
+  },
+  "provider_binding": {
+    "recorded_calls": 32,
+    "provider_schema_accepted_calls": 32,
+    "accepted_controller_proposals_verified": 28,
+    "provider_log_sha256": "d2d622e7bd3c38daa6f6711ff8dcafff890bf28e7733872c3c468e537483ca3e",
+    "local_recomputation_matches_worker_report": true,
+    "note": "All 32 API outputs passed transport/schema validation; four were subsequently rejected by controller exhausted-subgoal validation and regenerated."
+  },
+  "verification": {
+    "event_and_manifest_hashes_match_worker_audit": true,
+    "event_sequence_contiguous": true,
+    "event_count": 1095,
+    "worker_audit_source_sha256": "3ff6621cff344b6a0cdefe5c46146e51338c3ca852d26a7fcfdd9a52b92cdbe8",
+    "worker_audit_source_matches_frozen_implementation": true,
+    "worker_verified_array_files": 856,
+    "worker_verified_array_inventory_sha256": "30aca94dbd754837ad1fbd1f643eb3cefa01ce2df81258e244350c43fa4b2f27",
+    "local_verified_inventory_digest": true,
+    "local_inverse_forward_event_bindings_verified": 28,
+    "local_provider_binding_recomputed": true,
+    "local_interface_checks_match_worker": true,
+    "local_binary_arrays_downloaded": false,
+    "numerical_metrics_origin": "Worker read-only audit of recorded arrays, with its event/manifest/source/inventory hashes independently checked locally. Binary array values were not downloaded or numerically re-audited locally.",
+    "additional_gpu_solves": 0,
+    "additional_astra_api_calls": 0,
+    "local_summary_matches_exact_worker_summary": true
+  },
+  "provenance": {
+    "task_manifest_sha256": "b5e8676518347191465e2247255ce23d8118903c43d88e507d74640e7acff0ac",
+    "frozen_plan_sha256": "bee820a9d3738ad38f30c30836ce3333950ddaa899f10a7fcbfc88ff8a6975fa",
+    "action_spec_id": "7ed74da0d42db5cbe3cd6ccac845cd84b6714b6af77af0659c4358426d4b35ba",
+    "checkpoint_provenance": "https://huggingface.co/lerobot/pi05_libero_base/tree/a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "checkpoint_artifact_sha256": {
+      "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+      "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+      "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+      "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+    },
+    "source_files": [
+      {
+        "path": "runtime.json",
+        "sha256": "62283da06547a4547bb4cb5e1d9fb61f06f09eec38364f6693ddd73664a37775",
+        "bytes": 3062
+      },
+      {
+        "path": "status.json",
+        "sha256": "7d9be02ff39e3182d3d96bac37fa371b7f93bbb39331ba3cf2745194dc34cbeb",
+        "bytes": 1145
+      },
+      {
+        "path": "progress.json",
+        "sha256": "2e6b83bc2a665615ff4462a1a20101d0ef62b438450dfea80cdd45ddc103d534",
+        "bytes": 224
+      },
+      {
+        "path": "frozen_plan.json",
+        "sha256": "012996d3211c5b8355ad52746efd1975a847eaef2afb4b5e2e28d17f45aad6b3",
+        "bytes": 6369
+      },
+      {
+        "path": "runtime_inversion_audit.json",
+        "sha256": "6e229271af090d50c8bdda741b2b1474cbea9f423350c2f5a5e8ea6598e1a0fc",
+        "bytes": 359631
+      },
+      {
+        "path": "live_proposal_provenance.json",
+        "sha256": "4557814d9a983aa5b0384faec45c45f2ba51789ecbddf02e4500a45df9441acb",
+        "bytes": 8896
+      },
+      {
+        "path": "astra_provider.jsonl",
+        "sha256": "d2d622e7bd3c38daa6f6711ff8dcafff890bf28e7733872c3c468e537483ca3e",
+        "bytes": 138722
+      },
+      {
+        "path": "astra_proposal_diagnostics.json",
+        "sha256": "5d16a695ad24601c45d3dbd4a1a039448d59956579b3c5c4fb22999cf8d35ef6",
+        "bytes": 10984
+      },
+      {
+        "path": "reversal/events.jsonl",
+        "sha256": "b37d77da4f7610ff063f5ee340e9769856118479d262f87d160f177ce2739759",
+        "bytes": 2682005
+      },
+      {
+        "path": "reversal/manifest.json",
+        "sha256": "f49326521b6d40ae9b32edb0b169cb9a19da68c391c3dab05c12f80cc42ac85b",
+        "bytes": 8112
+      },
+      {
+        "path": "frozen/development_config.json",
+        "sha256": "f47afd91e209af5583d61cae3d0f77ea136f43b94e1ea719c1044b8362849965",
+        "bytes": 1703
+      },
+      {
+        "path": "frozen/development_manifest.json",
+        "sha256": "57b447afe754c314bae1953b1fa8ccc57e0d4fa642bbe9ac5341e24efeb678fd",
+        "bytes": 3245
+      },
+      {
+        "path": "archive_receipt.json",
+        "sha256": "1674c7bb8bf4122348bf6cf1988970179c8f7de80d2c14e23f7e557ea37e3609",
+        "bytes": 115
+      },
+      {
+        "path": "development_smoke.json",
+        "sha256": "4563d2c7f3a0e995f6a973fc027b8c82a407935ae375bf932b06f5aa8e26bca3",
+        "bytes": 5341
+      },
+      {
+        "path": "reversal/episode_00000.mp4",
+        "sha256": "48e05439f6a881070b0e78ac1ddcdb91f5ba5314e7e95585465ec4b504551e51",
+        "bytes": 211493
+      }
+    ]
+  },
+  "archive": {
+    "artifact_prefix": "experiments/astra-reversal-20260924/astra-pi05-astra-dev-smoke-20260924-1",
+    "range_receipt": {
+      "status": 206,
+      "content_range": "bytes 0-0/102180346",
+      "etag": "\"a22fbf5067086a395046d12bff9607ef-13\""
+    },
+    "bytes": 102180346,
+    "full_archive_downloaded": false,
+    "full_archive_sha256": null,
+    "scope": "HTTP one-byte range receipt verifies object presence and reported size/ETag, not full archive contents."
+  },
+  "worker_generated_summary_retrieved": true,
+  "benchmark_success_rate_claimed": false,
+  "ood_episodes_run": 0,
+  "production_decision": "Preserve the currently frozen OOD methods, solver, and prompt; report observed numerical failures alongside eventual task scores. No production settings were changed from this development result.",
+  "video": {
+    "path": "reversal/episode_00000.mp4",
+    "bytes": 211493,
+    "sha256": "48e05439f6a881070b0e78ac1ddcdb91f5ba5314e7e95585465ec4b504551e51",
+    "downloaded": true,
+    "qualitative_control_review_performed": false
+  }
+}

@@ -1,0 +1,1017 @@
+{
+  "schema_version": "development-proposal-replay-review-1.0",
+  "review_status": "verified",
+  "worker_status": "complete_reproduced",
+  "workflow_status": "COMPLETED",
+  "interpretation": "The fixed development replay completed and reproduced all three original N100 latent/endpoint pairs bit-for-bit. Numerical reconstruction is not valid for all tested Astra endpoints: step330 remains above 0.02 at N100, N200, and N500. No solver is selected and no OOD/controller setting changes follow from this characterization.",
+  "scope": {
+    "source_split": "development",
+    "source_suite": "libero_10",
+    "source_episode_id": "libero_10:task0:state0",
+    "source_episode_task_success": false,
+    "selected_observation_steps": [
+      310,
+      330,
+      485
+    ],
+    "selected_proposals": 3,
+    "selection": "One passing control and two previously observed failures, fixed before the replay; not an unbiased sample.",
+    "solver": "rk4",
+    "solver_steps": [
+      100,
+      200,
+      500
+    ],
+    "solver_options": {
+      "time_power": 3.0
+    },
+    "unchanged_full_internal_action_atol": 0.02,
+    "direct_controller_action_atol": 0.02,
+    "selected_solver": null,
+    "known_generating_noise_for_astra": null,
+    "new_astra_api_calls": 0,
+    "new_environment_rollouts": 0,
+    "ood_inputs": 0
+  },
+  "counts": {
+    "pairs": 9,
+    "solves": 18,
+    "velocity_evaluations": 19200,
+    "source_arrays_verified": 21,
+    "result_npz_files_verified": 9,
+    "result_arrays_verified": 36,
+    "archive_regular_files_verified": 46,
+    "n100_bitwise_reproduced_pairs": 3,
+    "original_provider_calls_bound": 32,
+    "original_accepted_controller_proposals_bound": 28,
+    "selected_actual_astra_proposals_bound": 3
+  },
+  "pass_counts_by_steps": {
+    "100": {
+      "full_internal": 1,
+      "direct_controller": 1,
+      "total": 3
+    },
+    "200": {
+      "full_internal": 2,
+      "direct_controller": 2,
+      "total": 3
+    },
+    "500": {
+      "full_internal": 2,
+      "direct_controller": 2,
+      "total": 3
+    }
+  },
+  "runtime": {
+    "gpu": "NVIDIA L40S",
+    "device": "cuda",
+    "tf32": false,
+    "flow_dtype": "float32",
+    "native_velocity_dtype": "float32",
+    "python": "3.11.14",
+    "torch": "2.7.1+cu126",
+    "workflow": "astra-pi05-astra-proposal-replay-20260924-2",
+    "payload_sha256": "b8c4cffdc1275383cd04944e15fe0a800b4423e093c7f3bc7adf2e8c02d99ad5",
+    "probe_source_sha256": "70250fed5510284041a65ff8f96ef08d9f52b33162c37f02679302ce9259b72c",
+    "probe_wall_seconds": 285.55803123900023,
+    "sum_solve_latency_seconds": 214.62359393599945,
+    "pool": "groot-l40s-03",
+    "priority": "LOW",
+    "actual_node": "osmogroot-dgxc-k8s-forge-az41-prd1-w-2428",
+    "workflow_started_at": "2026-09-24T19:44:27.622306",
+    "workflow_ended_at": "2026-09-24T19:52:18.354645"
+  },
+  "checkpoint": {
+    "format": "lerobot_pi05",
+    "backend": "pytorch",
+    "frozen": true,
+    "horizon": 10,
+    "model_action_dim": 32,
+    "dtype": "float32",
+    "input_profile": "openpi_libero",
+    "artifact_sha256": {
+      "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+      "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+      "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+      "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+    },
+    "tokenizer_sha256": "c44a0503146efc99bbd748f05667ddfeb0ae5d1afb63019df2d4c020cfb6b928",
+    "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+    "adapter_source_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+    "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+    "normalization": {
+      "type": "quantile",
+      "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+    },
+    "provenance": "https://huggingface.co/lerobot/pi05_libero_base/tree/a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "training_overlap": "unknown"
+  },
+  "actual_model": "azure/openai/gpt-6-astra",
+  "selected_provider_bindings": [
+    {
+      "plan_id": "soup_reapproach_310_a",
+      "observation_step": 310,
+      "request_fingerprint": "3b4378f1bcb42a47320f01e6138f0d23321d15bbabce313ff5a0d23b60a7eee6",
+      "provider_response_id": "chatcmpl-d4d3de3c-f5a5-4cd0-9117-3b8d41d0d7ca",
+      "actual_model": "azure/openai/gpt-6-astra",
+      "condition_id": "94276dd6d921dcede13f26fbb27c51a6b49c07cef1e8a1789947d6a348b383bd",
+      "observation_id": "4759a59bc967c8a2920c7bd3886bca81f512552f401aa5819d5ab9fffcaf6629"
+    },
+    {
+      "plan_id": "soup_regrasp_330_a",
+      "observation_step": 330,
+      "request_fingerprint": "dfb1735a84d5a9385358b57598e0517154216092faeaa41d6c6e6c5d67e7f305",
+      "provider_response_id": "chatcmpl-59946416-0e13-460a-99b1-1465b4babdaf",
+      "actual_model": "azure/openai/gpt-6-astra",
+      "condition_id": "123a84d5ad39385d6de866006fa4b1d7028be6b5b7ca0a8e413dc87eddcfb4f4",
+      "observation_id": "b36b408e4534c88681b6d922905be9f5892b4fe243b532aa8dd1f0dbb1a6f19d"
+    },
+    {
+      "plan_id": "soup_regrasp_485_close",
+      "observation_step": 485,
+      "request_fingerprint": "4dd5ef88aff1c181ba9bb90de2155e4eec8b821e5132236c89db68ddba9e5961",
+      "provider_response_id": "chatcmpl-ed4fa961-4a59-4e6b-8a6b-4dcde72801e9",
+      "actual_model": "azure/openai/gpt-6-astra",
+      "condition_id": "7bd626d27defb6fb303d907786d799535f33041b678206d6af110b17bbc3f155",
+      "observation_id": "242fc7088fa2b87aa4ba80389373ca38518dd471cc3d2031b7ce2152ce956881"
+    }
+  ],
+  "source": {
+    "workflow": "astra-pi05-astra-dev-smoke-20260924-1",
+    "payload_sha256": "3717db31adb9682ce5eab89be57accd6d38ca7ba791362828435a97b5ee8f420",
+    "archive": {
+      "sha256": "2e33328c6ebfc63e2d4fa71dc154d4b4d19ebe60a1c1c3209809a61ded3cfa0c",
+      "bytes": 102180346,
+      "etag": "\"a22fbf5067086a395046d12bff9607ef-13\""
+    },
+    "input_bundle_sha256": "2fb9a7458a0d47524947709898e85e473694a21651965c332cffa948b7382b82",
+    "input_bundle_file_sha256": "a944dd04b5dfe6b0e0b166ef2212ad126a0d38d100209e1389ffb70a6cb4bad5",
+    "source_file_inventory": {
+      "arrays/00001813.npy": {
+        "sha256": "2719aa398f154d233b3cf54a22213c5eea012b4b8b175fcbdf614e25c0d547d0",
+        "bytes": 408
+      },
+      "arrays/00001814.npy": {
+        "sha256": "a4a9602a22c42c70405f3893fc0b6e1ccc081c9f44f8db32f6fe6cead1d7c657",
+        "bytes": 150656
+      },
+      "arrays/00001815.npy": {
+        "sha256": "953b74a706b6e1ef125f3ee5d2279f19b7076e83f43583e4f74a178a9733c583",
+        "bytes": 150656
+      },
+      "arrays/00001816.npy": {
+        "sha256": "47c943949707b175049d5843789ecc33191d1e9213b573107910c54d4219559f",
+        "bytes": 160
+      },
+      "arrays/00001817.npy": {
+        "sha256": "71e1240cdd1e50eb1d58253f4bde287e521995e735e276d38534930cfbef54d0",
+        "bytes": 1408
+      },
+      "arrays/00001818.npy": {
+        "sha256": "f742e1a29d2906093364c01a43aa8e2d8a4e6f6704981ca0757d6766cfcbcbd0",
+        "bytes": 1408
+      },
+      "arrays/00001826.npy": {
+        "sha256": "e5c4c872e0ef16b2acfed493ec0b57cf747e543c33e10e8b252e068df659706f",
+        "bytes": 1408
+      },
+      "arrays/00001929.npy": {
+        "sha256": "62b45c12e0010953f1c630fd17e33ecad3db04b242ec21f80eec65d520e8e75b",
+        "bytes": 408
+      },
+      "arrays/00001930.npy": {
+        "sha256": "1192d0c05b9ed16b0ddb22d0fe43d85b365cf11af4e5e7401815886962f26fa3",
+        "bytes": 150656
+      },
+      "arrays/00001931.npy": {
+        "sha256": "4eb58a454e04dfa9440068a6c175f2ed9edb2cdf44c81d378b362ed769918e71",
+        "bytes": 150656
+      },
+      "arrays/00001932.npy": {
+        "sha256": "4a83f2ba6eb72e80c3d2b1b67d0ae23ccdb4fc6390390f51d73d1318779fc4c7",
+        "bytes": 160
+      },
+      "arrays/00001933.npy": {
+        "sha256": "564002110cf90b00bafb57203e1e639da4971aaee786376e8a4e4c016b630d34",
+        "bytes": 1408
+      },
+      "arrays/00001934.npy": {
+        "sha256": "56ccb1a5789e6407b49f94290c0825432c1caa9eb202f6a6c37822a6c25f0490",
+        "bytes": 1408
+      },
+      "arrays/00001942.npy": {
+        "sha256": "7417bf028d6caecfa68bfdfe1b47ab967ce67b538c3e20ed5f995c5948de5a70",
+        "bytes": 1408
+      },
+      "arrays/00002834.npy": {
+        "sha256": "0c313f3c6259ed74e7090950a68cc34ff52293c4ab83815cacec9fbe1a6f00c4",
+        "bytes": 408
+      },
+      "arrays/00002835.npy": {
+        "sha256": "c1cfca60bdb4a654bf8ad50075b4a1faa04940012c8e332f75757a4aa6a0cab3",
+        "bytes": 150656
+      },
+      "arrays/00002836.npy": {
+        "sha256": "572b1ea2f3a9d7092bbd143b17b40e3a0d109191037150bd5d0826938a8a8734",
+        "bytes": 150656
+      },
+      "arrays/00002837.npy": {
+        "sha256": "48bffcfd094e24beab9c4ead99a0e898fba5570d73f62ce511c0cf7b19a9763f",
+        "bytes": 160
+      },
+      "arrays/00002838.npy": {
+        "sha256": "82fa6f228cebedf8aaf6555a553229b2cace471a333fe2626410e24d9d3be228",
+        "bytes": 1408
+      },
+      "arrays/00002839.npy": {
+        "sha256": "b52a6cc259ea5f6db192f2b1c4fa502d58243b7ce8461cff3cbe44127d037bea",
+        "bytes": 1408
+      },
+      "arrays/00002847.npy": {
+        "sha256": "b461f1ad7d1092543d8c53448b6904ed849698aba5a51b94191a12c3d16de8f0",
+        "bytes": 1408
+      },
+      "audit.json": {
+        "sha256": "6e229271af090d50c8bdda741b2b1474cbea9f423350c2f5a5e8ea6598e1a0fc",
+        "bytes": 359631
+      },
+      "events.jsonl": {
+        "sha256": "b37d77da4f7610ff063f5ee340e9769856118479d262f87d160f177ce2739759",
+        "bytes": 2682005
+      },
+      "frozen_plan.json": {
+        "sha256": "012996d3211c5b8355ad52746efd1975a847eaef2afb4b5e2e28d17f45aad6b3",
+        "bytes": 6369
+      },
+      "live_proposal_provenance.json": {
+        "sha256": "4557814d9a983aa5b0384faec45c45f2ba51789ecbddf02e4500a45df9441acb",
+        "bytes": 8896
+      },
+      "manifest.json": {
+        "sha256": "f49326521b6d40ae9b32edb0b169cb9a19da68c391c3dab05c12f80cc42ac85b",
+        "bytes": 8112
+      },
+      "provider.jsonl": {
+        "sha256": "d2d622e7bd3c38daa6f6711ff8dcafff890bf28e7733872c3c468e537483ca3e",
+        "bytes": 138722
+      },
+      "replay_plan.json": {
+        "sha256": "81791c2c96a100c6892cdf3d70cec381dfa1e90da6321b93a32d22bec3000e6c",
+        "bytes": 18625
+      },
+      "task_manifest.json": {
+        "sha256": "57b447afe754c314bae1953b1fa8ccc57e0d4fa642bbe9ac5341e24efeb678fd",
+        "bytes": 3245
+      },
+      "worker_config.json": {
+        "sha256": "f47afd91e209af5583d61cae3d0f77ea136f43b94e1ea719c1044b8362849965",
+        "bytes": 1703
+      },
+      "worker_runtime.json": {
+        "sha256": "62283da06547a4547bb4cb5e1d9fb61f06f09eec38364f6693ddd73664a37775",
+        "bytes": 3062
+      },
+      "worker_summary.json": {
+        "sha256": "4563d2c7f3a0e995f6a973fc027b8c82a407935ae375bf932b06f5aa8e26bca3",
+        "bytes": 5341
+      }
+    },
+    "common_production_python_files_byte_identical_to_source_payload": 34,
+    "existing_source_delta": [
+      "osmo/package_payload.py"
+    ],
+    "new_runtime_module": "osmo/astra_proposal_replay.py"
+  },
+  "verification": {
+    "archive_byte_hash_and_receipt_match": true,
+    "archive_paths_unique_safe_regular_files_only": true,
+    "downloaded_and_archived_report_bytes_identical": true,
+    "archived_probe_matches_frozen_payload_source": true,
+    "frozen_input_bundle_hashes_provider_requests_conditions_actions_revalidated": true,
+    "all_original_28_provider_bindings_match_original_provenance_report": true,
+    "checkpoint_profile_tokenizer_native_source_metadata_match_original_execution": true,
+    "all_nine_encoded_endpoints_equal_original_arrays": true,
+    "all_reported_full_action_padding_controller_error_metrics_recomputed_from_archive_arrays": true,
+    "all_n100_latents_and_endpoints_bitwise_equal_original_arrays": true,
+    "all_cubic_grids_and_rk4_evaluation_counts_verified": true,
+    "no_new_gpu_solves_used_by_review": true
+  },
+  "results": [
+    {
+      "observation_step": 310,
+      "plan_id": "soup_reapproach_310_a",
+      "condition_id": "94276dd6d921dcede13f26fbb27c51a6b49c07cef1e8a1789947d6a348b383bd",
+      "steps": 100,
+      "full_internal_reconstruction": {
+        "rmse": 1.3890772104993967e-07,
+        "max_abs": 1.1026859283447266e-06
+      },
+      "action_channel_reconstruction": {
+        "rmse": 2.969919956746235e-07,
+        "max_abs": 1.1026859283447266e-06
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 9.303867935891992e-10,
+        "max_abs": 3.0285560725928917e-09
+      },
+      "direct_controller_reconstruction": {
+        "rmse": 2.771908320497739e-07,
+        "max_abs": 1.0563380719030846e-06
+      },
+      "passed_full_internal_tolerance": true,
+      "passed_direct_controller_tolerance": true,
+      "velocity_evaluations": 800,
+      "latency_seconds": 8.812269699999888,
+      "artifacts": {
+        "path": "arrays/step_0310_rk4_100.npz",
+        "file_sha256": "a9d0699babd6205b769f1e457e0b5ccd0b6f65e6e7f53a00a57f52e83c4bf4d3",
+        "arrays": {
+          "encoded_endpoint": {
+            "sha256": "c4a39cca36925d896a43ee403944572462f12cf65f9781599a19ee5898f36693",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "recovered_latent": {
+            "sha256": "3b06d17efed08ee77631ece84de3491cfe71257979a7429a390891741ba413b0",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "replayed_endpoint": {
+            "sha256": "2e02733cd20ffd65c6c4934e208826d88a4ed30303a06cd3bcc54943e5493307",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "decoded_replay": {
+            "sha256": "5721a52ac98d618631ff111a8cf203cc89b10e75ec9e67f2e23112477e0a3a10",
+            "shape": [
+              10,
+              7
+            ],
+            "dtype": "float64"
+          }
+        }
+      },
+      "n100_recorded_reproduction": {
+        "latent_difference": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        },
+        "endpoint_difference": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        },
+        "latent_bitwise_equal": true,
+        "endpoint_bitwise_equal": true,
+        "recorded_full_internal_reconstruction": {
+          "rmse": 1.3890772104993967e-07,
+          "max_abs": 1.1026859283447266e-06
+        },
+        "recorded_pass_fail_reproduced": true
+      }
+    },
+    {
+      "observation_step": 330,
+      "plan_id": "soup_regrasp_330_a",
+      "condition_id": "123a84d5ad39385d6de866006fa4b1d7028be6b5b7ca0a8e413dc87eddcfb4f4",
+      "steps": 100,
+      "full_internal_reconstruction": {
+        "rmse": 0.02810232969306107,
+        "max_abs": 0.45937466621398926
+      },
+      "action_channel_reconstruction": {
+        "rmse": 0.060084327585024314,
+        "max_abs": 0.45937466621398926
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 0.00018165288530006928,
+        "max_abs": 0.0008095885859802365
+      },
+      "direct_controller_reconstruction": {
+        "rmse": 0.059824676653405955,
+        "max_abs": 0.4592830457769035
+      },
+      "passed_full_internal_tolerance": false,
+      "passed_direct_controller_tolerance": false,
+      "velocity_evaluations": 800,
+      "latency_seconds": 8.719685999000376,
+      "artifacts": {
+        "path": "arrays/step_0330_rk4_100.npz",
+        "file_sha256": "20afbcc68e4c7d1c8707d2e27aade53cb8ed80d0df042149adf5d6fefb40de1a",
+        "arrays": {
+          "encoded_endpoint": {
+            "sha256": "7a0b6b2466cab4b471db5a8d95eab35661202fd81443ebe81efafb2f01dac875",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "recovered_latent": {
+            "sha256": "da980eb079bb522c6b87e87fb55eb8870462472fb07f17d05c82b76f8f56b51b",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "replayed_endpoint": {
+            "sha256": "5eb170a3cacb1b17c2c2bc2309cde390f8adfbb2976e297f1b3c7acb9ce717b6",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "decoded_replay": {
+            "sha256": "67a7262da701553217d9dbdb171a39ff79c5ad781279e3f2bde44b2cabd52cd2",
+            "shape": [
+              10,
+              7
+            ],
+            "dtype": "float64"
+          }
+        }
+      },
+      "n100_recorded_reproduction": {
+        "latent_difference": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        },
+        "endpoint_difference": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        },
+        "latent_bitwise_equal": true,
+        "endpoint_bitwise_equal": true,
+        "recorded_full_internal_reconstruction": {
+          "rmse": 0.02810232969306107,
+          "max_abs": 0.45937466621398926
+        },
+        "recorded_pass_fail_reproduced": true
+      }
+    },
+    {
+      "observation_step": 485,
+      "plan_id": "soup_regrasp_485_close",
+      "condition_id": "7bd626d27defb6fb303d907786d799535f33041b678206d6af110b17bbc3f155",
+      "steps": 100,
+      "full_internal_reconstruction": {
+        "rmse": 0.006661244260261544,
+        "max_abs": 0.1186169981956482
+      },
+      "action_channel_reconstruction": {
+        "rmse": 0.014240217757847852,
+        "max_abs": 0.1186169981956482
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 0.00013007543953856644,
+        "max_abs": 0.0008759765769354999
+      },
+      "direct_controller_reconstruction": {
+        "rmse": 0.014225675224074296,
+        "max_abs": 0.1185932497029305
+      },
+      "passed_full_internal_tolerance": false,
+      "passed_direct_controller_tolerance": false,
+      "velocity_evaluations": 800,
+      "latency_seconds": 8.764147015999697,
+      "artifacts": {
+        "path": "arrays/step_0485_rk4_100.npz",
+        "file_sha256": "49e44969dd1c0174c4ceac85e28bbd8ed8f1f0b73c5b3653b403234a247a78a3",
+        "arrays": {
+          "encoded_endpoint": {
+            "sha256": "28af6fc17c33bd9ca818b4107206d11b6a95818620d5e96d0eb04e21cfec7173",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "recovered_latent": {
+            "sha256": "cb9298689d13727020c7bde0757a9b6211879832b8ee3f5d2f7afb1dce2dd2d1",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "replayed_endpoint": {
+            "sha256": "61371e4d7cf34fd882631cfa0732a2cc78c14a12f319ee05c6a02e143d0f6655",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "decoded_replay": {
+            "sha256": "6c18ca3c9f5c8d39ea988a4b80765018b0f3c805bf726b9075e5f16dfd037fac",
+            "shape": [
+              10,
+              7
+            ],
+            "dtype": "float64"
+          }
+        }
+      },
+      "n100_recorded_reproduction": {
+        "latent_difference": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        },
+        "endpoint_difference": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        },
+        "latent_bitwise_equal": true,
+        "endpoint_bitwise_equal": true,
+        "recorded_full_internal_reconstruction": {
+          "rmse": 0.006661244260261544,
+          "max_abs": 0.1186169981956482
+        },
+        "recorded_pass_fail_reproduced": true
+      }
+    },
+    {
+      "observation_step": 310,
+      "plan_id": "soup_reapproach_310_a",
+      "condition_id": "94276dd6d921dcede13f26fbb27c51a6b49c07cef1e8a1789947d6a348b383bd",
+      "steps": 200,
+      "full_internal_reconstruction": {
+        "rmse": 3.908084169435581e-08,
+        "max_abs": 3.5762786865234375e-07
+      },
+      "action_channel_reconstruction": {
+        "rmse": 8.355429542385498e-08,
+        "max_abs": 3.5762786865234375e-07
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 4.357987985193238e-10,
+        "max_abs": 1.539959715302075e-09
+      },
+      "direct_controller_reconstruction": {
+        "rmse": 7.885623804725804e-08,
+        "max_abs": 3.3005136257369116e-07
+      },
+      "passed_full_internal_tolerance": true,
+      "passed_direct_controller_tolerance": true,
+      "velocity_evaluations": 1600,
+      "latency_seconds": 17.317730625999957,
+      "artifacts": {
+        "path": "arrays/step_0310_rk4_200.npz",
+        "file_sha256": "f103b8bbc70302d3367b24f53f4016121e5b28db60acd9cd6dabdbb625a5c640",
+        "arrays": {
+          "encoded_endpoint": {
+            "sha256": "c4a39cca36925d896a43ee403944572462f12cf65f9781599a19ee5898f36693",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "recovered_latent": {
+            "sha256": "c8b4a80b5e1ffe2da951ac1418797db60e7c64fc1a3f750847702c1fee400dd7",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "replayed_endpoint": {
+            "sha256": "5a26dfb284829831d9cdb6c20f9fe0022e515ecd4ee16a09af83ebac17455b2a",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "decoded_replay": {
+            "sha256": "68d534682a6670d932e22bf3e3b23405fbc46e28b1d10922be3b5600e8335e73",
+            "shape": [
+              10,
+              7
+            ],
+            "dtype": "float64"
+          }
+        }
+      },
+      "n100_recorded_reproduction": null
+    },
+    {
+      "observation_step": 330,
+      "plan_id": "soup_regrasp_330_a",
+      "condition_id": "123a84d5ad39385d6de866006fa4b1d7028be6b5b7ca0a8e413dc87eddcfb4f4",
+      "steps": 200,
+      "full_internal_reconstruction": {
+        "rmse": 0.022246623854492147,
+        "max_abs": 0.3875763416290283
+      },
+      "action_channel_reconstruction": {
+        "rmse": 0.047564763674295324,
+        "max_abs": 0.3875763416290283
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 0.00011756356635186944,
+        "max_abs": 0.000663630838971585
+      },
+      "direct_controller_reconstruction": {
+        "rmse": 0.047521479732256434,
+        "max_abs": 0.3874990449576974
+      },
+      "passed_full_internal_tolerance": false,
+      "passed_direct_controller_tolerance": false,
+      "velocity_evaluations": 1600,
+      "latency_seconds": 17.787723640999957,
+      "artifacts": {
+        "path": "arrays/step_0330_rk4_200.npz",
+        "file_sha256": "be08cb8996e8490ee375e07db615c2ba118aaa0ff9df3034ba3a71693d0b0ae2",
+        "arrays": {
+          "encoded_endpoint": {
+            "sha256": "7a0b6b2466cab4b471db5a8d95eab35661202fd81443ebe81efafb2f01dac875",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "recovered_latent": {
+            "sha256": "5ff902f2a0554a0b7a666cf11d482510710a3ed3190c28df213bb3dde3778057",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "replayed_endpoint": {
+            "sha256": "c847f6e6f8f3ddb6452c258b21334d63c3b4fcda2ff56b78ffd08476edaf7312",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "decoded_replay": {
+            "sha256": "dd571727f97cd07c8ad386aa95a603a64c8176aa264d152013e9304f9276e545",
+            "shape": [
+              10,
+              7
+            ],
+            "dtype": "float64"
+          }
+        }
+      },
+      "n100_recorded_reproduction": null
+    },
+    {
+      "observation_step": 485,
+      "plan_id": "soup_regrasp_485_close",
+      "condition_id": "7bd626d27defb6fb303d907786d799535f33041b678206d6af110b17bbc3f155",
+      "steps": 200,
+      "full_internal_reconstruction": {
+        "rmse": 0.0010319596141992386,
+        "max_abs": 0.018395960330963135
+      },
+      "action_channel_reconstruction": {
+        "rmse": 0.0022062914331645125,
+        "max_abs": 0.018395960330963135
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.2723890030778807e-05,
+        "max_abs": 8.076232188614085e-05
+      },
+      "direct_controller_reconstruction": {
+        "rmse": 0.0022045238159060787,
+        "max_abs": 0.018392325120806685
+      },
+      "passed_full_internal_tolerance": true,
+      "passed_direct_controller_tolerance": true,
+      "velocity_evaluations": 1600,
+      "latency_seconds": 17.31992742700004,
+      "artifacts": {
+        "path": "arrays/step_0485_rk4_200.npz",
+        "file_sha256": "b5e5e9faa3fbf3c7b71cab3e828329eb61e4440b1c92a3145fa73719437f3fed",
+        "arrays": {
+          "encoded_endpoint": {
+            "sha256": "28af6fc17c33bd9ca818b4107206d11b6a95818620d5e96d0eb04e21cfec7173",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "recovered_latent": {
+            "sha256": "3ecfcfe24c1a97d8ffa46cbbd62b4c7e528568bfe2c94a32696ce0c4c3ec6391",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "replayed_endpoint": {
+            "sha256": "b139350653186fa25826e6bef23f122ab0685e948478bb06eed97f5995779f56",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "decoded_replay": {
+            "sha256": "1bfdcb82bd2245cccba5b1dd1597a1aabd1fe4137515e63c0947f83f4b24e052",
+            "shape": [
+              10,
+              7
+            ],
+            "dtype": "float64"
+          }
+        }
+      },
+      "n100_recorded_reproduction": null
+    },
+    {
+      "observation_step": 310,
+      "plan_id": "soup_reapproach_310_a",
+      "condition_id": "94276dd6d921dcede13f26fbb27c51a6b49c07cef1e8a1789947d6a348b383bd",
+      "steps": 500,
+      "full_internal_reconstruction": {
+        "rmse": 4.2856794342916365e-09,
+        "max_abs": 4.470348358154297e-08
+      },
+      "action_channel_reconstruction": {
+        "rmse": 9.157591887691183e-09,
+        "max_abs": 4.470348358154297e-08
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.6912936608138857e-10,
+        "max_abs": 5.074319853193288e-10
+      },
+      "direct_controller_reconstruction": {
+        "rmse": 1.566115281169548e-08,
+        "max_abs": 6.394517426677737e-08
+      },
+      "passed_full_internal_tolerance": true,
+      "passed_direct_controller_tolerance": true,
+      "velocity_evaluations": 4000,
+      "latency_seconds": 45.30288950499971,
+      "artifacts": {
+        "path": "arrays/step_0310_rk4_500.npz",
+        "file_sha256": "ed6f84bfc743673bd92983189d6286a47149317396539b4e95b8fafe36fbafcc",
+        "arrays": {
+          "encoded_endpoint": {
+            "sha256": "c4a39cca36925d896a43ee403944572462f12cf65f9781599a19ee5898f36693",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "recovered_latent": {
+            "sha256": "33caa9d048bee441f761ecb62dc3188151e934a99a011eca16f163599afaea53",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "replayed_endpoint": {
+            "sha256": "5108226ffb06c36be15374c35aeb12ac8b341b40ea1697539926e31a6b0a6a49",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "decoded_replay": {
+            "sha256": "1116c9d0ce5727b1e56df1c08f6d20af6a75eb07f9c7c5991d15bdf74cabfd09",
+            "shape": [
+              10,
+              7
+            ],
+            "dtype": "float64"
+          }
+        }
+      },
+      "n100_recorded_reproduction": null
+    },
+    {
+      "observation_step": 330,
+      "plan_id": "soup_regrasp_330_a",
+      "condition_id": "123a84d5ad39385d6de866006fa4b1d7028be6b5b7ca0a8e413dc87eddcfb4f4",
+      "steps": 500,
+      "full_internal_reconstruction": {
+        "rmse": 0.017614480359962183,
+        "max_abs": 0.31380367279052734
+      },
+      "action_channel_reconstruction": {
+        "rmse": 0.03766088824241843,
+        "max_abs": 0.31380367279052734
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 9.795198666184889e-05,
+        "max_abs": 0.0006266071577556431
+      },
+      "direct_controller_reconstruction": {
+        "rmse": 0.0376429072058291,
+        "max_abs": 0.3137410937666296
+      },
+      "passed_full_internal_tolerance": false,
+      "passed_direct_controller_tolerance": false,
+      "velocity_evaluations": 4000,
+      "latency_seconds": 45.471097626999835,
+      "artifacts": {
+        "path": "arrays/step_0330_rk4_500.npz",
+        "file_sha256": "7540ce6d88b46d8e19b2c2e5ce57530eafe6689380e834753fda6c6724be3550",
+        "arrays": {
+          "encoded_endpoint": {
+            "sha256": "7a0b6b2466cab4b471db5a8d95eab35661202fd81443ebe81efafb2f01dac875",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "recovered_latent": {
+            "sha256": "01b5c21dc2922b42885d68cbeed3ce3032676dc2e69597130a53e5b153ea0b7d",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "replayed_endpoint": {
+            "sha256": "b5880205380053b8562b7c1ba70f779207552c69cfd9db2a6290ca81d9d7d19d",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "decoded_replay": {
+            "sha256": "2f0e3f8f52cd5ade8e16f4a7b1105ae7aa0182d6c3a64691cbd7252fb8d57266",
+            "shape": [
+              10,
+              7
+            ],
+            "dtype": "float64"
+          }
+        }
+      },
+      "n100_recorded_reproduction": null
+    },
+    {
+      "observation_step": 485,
+      "plan_id": "soup_regrasp_485_close",
+      "condition_id": "7bd626d27defb6fb303d907786d799535f33041b678206d6af110b17bbc3f155",
+      "steps": 500,
+      "full_internal_reconstruction": {
+        "rmse": 0.00010812414763559301,
+        "max_abs": 0.001927703619003296
+      },
+      "action_channel_reconstruction": {
+        "rmse": 0.00023116743935743127,
+        "max_abs": 0.001927703619003296
+      },
+      "padding_channel_reconstruction": {
+        "rmse": 1.2313655517484852e-06,
+        "max_abs": 7.762640962027945e-06
+      },
+      "direct_controller_reconstruction": {
+        "rmse": 0.00023098752746306453,
+        "max_abs": 0.0019273240296839855
+      },
+      "passed_full_internal_tolerance": true,
+      "passed_direct_controller_tolerance": true,
+      "velocity_evaluations": 4000,
+      "latency_seconds": 45.12812239499999,
+      "artifacts": {
+        "path": "arrays/step_0485_rk4_500.npz",
+        "file_sha256": "964037742e74ce5caeb7a1ae16f8252892a5b04c89d6e38ec342282761e16609",
+        "arrays": {
+          "encoded_endpoint": {
+            "sha256": "28af6fc17c33bd9ca818b4107206d11b6a95818620d5e96d0eb04e21cfec7173",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "recovered_latent": {
+            "sha256": "7a8ae4d904b3315ac420771078094984dc012c3be5c5e6c14bf27c4ae4852c74",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "replayed_endpoint": {
+            "sha256": "10bfaeb0ce013f2a1c6f51485d9e89ed54b0f678737d25a28120835deaa554a0",
+            "shape": [
+              1,
+              10,
+              32
+            ],
+            "dtype": "float32"
+          },
+          "decoded_replay": {
+            "sha256": "13e5be1eb0dc9e91e210f8a72f0f509c81d1fd9091340ed34afbd01280bbdfa5",
+            "shape": [
+              10,
+              7
+            ],
+            "dtype": "float64"
+          }
+        }
+      },
+      "n100_recorded_reproduction": null
+    }
+  ],
+  "artifact_provenance": {
+    "report": {
+      "path": "astra_proposal_replay.json",
+      "bytes": 183789,
+      "sha256": "1eab21229796473a16c8e08128ba9180c16638a9a432dac4a1504cb74ba4cdec"
+    },
+    "status": {
+      "path": "status.json",
+      "sha256": "4531ecd2cdcf5e5de0a9a258d3eebd4def29ff312157035ebaff025340a8499b"
+    },
+    "archive": {
+      "path": "artifacts.tar.gz",
+      "bytes": 1226183,
+      "sha256": "af117e8ec227e47b598e8e16d621a1a4524489975fdb65e3316f881ecd8ee6ee",
+      "etag": "\"0781eaf3a893cc31a7ae440ddf234746\""
+    },
+    "archive_receipt": {
+      "status": 206,
+      "content_range": "bytes 0-0/1226183",
+      "etag": "\"0781eaf3a893cc31a7ae440ddf234746\""
+    },
+    "placement_change": {
+      "previous_workflow": "astra-pi05-astra-proposal-replay-20260924-1",
+      "reason": "No GPU capacity in pool01 after over 15 minutes; healthy pool03 slots now available",
+      "target_pool": "groot-l40s-03",
+      "priority": "LOW",
+      "nodes_excluded": [
+        "osmogroot-dgxc-k8s-forge-az41-prd1-w-5728"
+      ],
+      "payload_sha256": "b8c4cffdc1275383cd04944e15fe0a800b4423e093c7f3bc7adf2e8c02d99ad5",
+      "source_payload_unchanged": true,
+      "resources": {
+        "cpu": 4,
+        "gpu": 1,
+        "memory": "48Gi",
+        "storage": "60Gi",
+        "platform": "ovx-l40s",
+        "nodesExcluded": [
+          "osmogroot-dgxc-k8s-forge-az41-prd1-w-5728"
+        ]
+      },
+      "operational_spec_sha256": "3d15e3067c9036c846f3e715f3f4299f335a15429afe28759d496664d6c218c5",
+      "bootstrap_sha256": "a39064e2dcdc9286b41726d6dea14741d6dfbef88ae52e6689be0b0f29cff862",
+      "resource_field_reference": "https://nvidia.github.io/OSMO/main/user_guide/workflows/specification/resources.html"
+    },
+    "source_identity_report_sha256": "b5847516f4e7e8280e2011adfe94ce9b75bc61390ff3c98711d5e1704c5a3431"
+  },
+  "limitations": [
+    "Three deliberately selected endpoints from one standard development episode; not broad endpoint coverage, an OOD evaluation, or a success-rate estimate.",
+    "No known generating policy noise exists for these Astra action chunks; recovered latent identity is a reproduction check, not known-noise recovery.",
+    "Residual reductions at these three fixed resolutions do not establish asymptotic convergence or identify an exact failure cause.",
+    "N500 still fails step330, so this experiment does not establish a generally valid reversal method or provide a replacement solver.",
+    "No policy-native parity solve was repeated by this replay; the original checkpoint/profile/source identities are checked against the development execution.",
+    "This was a read-only endpoint replay, with no new API calls, environment rollout, controller-quality measurement, or change to the ongoing frozen OOD evaluation."
+  ]
+}

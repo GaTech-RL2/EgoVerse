@@ -1,0 +1,288 @@
+{
+  "status": "passed",
+  "actual_model": "azure/openai/gpt-6-astra",
+  "tolerances": {
+    "action_atol": 0.02,
+    "noise_atol": 0.1,
+    "parity_atol": 1e-05
+  },
+  "results": [
+    {
+      "steps": 100,
+      "full_internal_reconstruction": {
+        "rmse": 2.2319084670202385e-08,
+        "max_abs": 1.4156103134155273e-07
+      },
+      "controller_reconstruction": {
+        "rmse": 4.105647326831235e-08,
+        "max_abs": 1.1173641678574597e-07
+      },
+      "known_noise_recovery": {
+        "rmse": 1.798777682427216e-05,
+        "max_abs": 0.00019305944442749023
+      },
+      "known_noise_action_channels": {
+        "rmse": 3.773247366327699e-05,
+        "max_abs": 0.00019305944442749023
+      },
+      "known_noise_padding_channels": {
+        "rmse": 3.938256981483482e-06,
+        "max_abs": 1.1324882507324219e-05
+      },
+      "reference_sampler_parity": {
+        "rmse": 0.0,
+        "max_abs": 0.0
+      },
+      "velocity_evaluations": 1800,
+      "latency_seconds": 19.953690373993595,
+      "passed": true,
+      "diagnose_passed": true
+    }
+  ],
+  "astra_calls_run": false,
+  "probe_source_sha256": "0687e0ad505c8acd0d09c9983f1c2472ea1e500658c8a04a25be5cb79778b291",
+  "interpretation": "Round-trip numerical preflight of one recorded genuine Astra development proposal, plus a separate same-observation known-noise check; no OOD or control-success claim",
+  "proposal_provenance": {
+    "file_sha256": {
+      "request.json": "1742730edff547cf932d7233785e31556dfcd4bbede22ab8b90bc8f2bddfd777",
+      "response.json": "83148481657a8691c8a189f7b061e47906914f3692369157ba0a4db9282b6643",
+      "provider.jsonl": "7cc876e14ae8e65d230b1d766aa9bb55589a0a2397790841e60163b26cfdf951"
+    },
+    "request_fingerprint": "e045bc9bffc6ec5e1d5a63762a2f72973b9c89f721f812eff64cf3128c8872db",
+    "observation_id": "249335f684b3830fc92e1e958c2e6d36810321eaefe67e6a334eae834af66b67",
+    "condition_id": "6fa2298e2a010a7599abbf0fafff966822416092e1044b94e89b4cb825e58553",
+    "episode_id": "libero_10:task0:state0",
+    "observation_step": 0,
+    "plan_id": "plan_000_approach",
+    "actual_model": "azure/openai/gpt-6-astra",
+    "requested_model": "azure/openai/gpt-6-astra",
+    "provider_response_id": "chatcmpl-5c180c50-1776-4f2c-9b2b-e32f72d3337c",
+    "provider_accepted": true,
+    "request_time": 1790270357.4955251,
+    "response_time": 1790270387.888563,
+    "action_chunk_sha256": "ad62369bc3c9884dfe5b93d29c280f4d6bcae638deba5c1eb53d868250a1ab01",
+    "action_chunk_shape": [
+      10,
+      7
+    ],
+    "observation_arrays": {
+      "observation/image": {
+        "sha256": "394e80b72751b876083d5856c37926eb2323e42055ec2518f14fd01921f223d4",
+        "dtype": "uint8",
+        "shape": [
+          224,
+          224,
+          3
+        ]
+      },
+      "observation/wrist_image": {
+        "sha256": "252ec6aacc2c3379f873e74a5bbc18288e1cb7000cd642d82844fe52649752d7",
+        "dtype": "uint8",
+        "shape": [
+          224,
+          224,
+          3
+        ]
+      },
+      "observation/state": {
+        "sha256": "7cc552c8bc8900fbe102b3c3fb7061cafb72faed0dd6f5ee17e3b44e1688ea32",
+        "dtype": "float32",
+        "shape": [
+          8
+        ]
+      }
+    }
+  },
+  "runtime_diagnostics_sha256": "c9629a7b0d3d2447f1eaaf168479b1572665e44e93912649450f31e91cadd788",
+  "selected_solver": {
+    "solver": "rk4",
+    "steps": 100,
+    "solver_options": {
+      "time_power": 3.0
+    },
+    "velocity_evaluations_per_solve": 400,
+    "conditions_passed": 14,
+    "diagnostics": "astra_reversal/artifacts/osmo/runtime_diagnostics.json"
+  },
+  "schema_version": "1.0",
+  "solver": "rk4",
+  "solver_options": {
+    "time_power": 3.0
+  },
+  "checkpoint": {
+    "artifact": "/workspace/astra-reversal/astra_reversal/.deps/checkpoints/pi05_libero_base",
+    "requested_artifact": "astra_reversal/.deps/checkpoints/pi05_libero_base",
+    "format": "lerobot_pi05",
+    "backend": "pytorch",
+    "frozen": true,
+    "horizon": 10,
+    "model_action_dim": 32,
+    "device": "cuda",
+    "dtype": "float32",
+    "shared_weight_aliases": {
+      "model.paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight": "model.paligemma_with_expert.paligemma.lm_head.weight"
+    },
+    "tokenizer_path": "astra_reversal/.deps/tokenizers/paligemma-3b-pt-224",
+    "tokenizer_sha256": "c44a0503146efc99bbd748f05667ddfeb0ae5d1afb63019df2d4c020cfb6b928",
+    "artifact_sha256": {
+      "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+      "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+      "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+      "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+    },
+    "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+    "adapter_source_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+    "processor_source_sha256": {
+      "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+      "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+      "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+      "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+      "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+      "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+      "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+    },
+    "torch_version": "2.7.1+cu126",
+    "transformers_version": "4.53.3",
+    "transformers_source_sha256": {
+      "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+      "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+      "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+    },
+    "normalization": {
+      "type": "quantile",
+      "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+    },
+    "provenance": "https://huggingface.co/lerobot/pi05_libero_base/tree/a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "training_overlap": "unknown",
+    "input_profile": "openpi_libero",
+    "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+    "input_profile_assets": {
+      "tokenizer": {
+        "url": "https://storage.googleapis.com/big_vision/paligemma_tokenizer.model?generation=1711547605575873",
+        "bytes": 4264023,
+        "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6",
+        "generation": "1711547605575873",
+        "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g=="
+      },
+      "norm_stats": {
+        "url": "https://storage.googleapis.com/openpi-assets/checkpoints/pi05_libero/assets/physical-intelligence/libero/norm_stats.json?generation=1757354341826612",
+        "bytes": 1914,
+        "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+        "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug=="
+      }
+    },
+    "runtime_overrides": {
+      "chunk_size": 10,
+      "discrete_state_input": false,
+      "image_size": 224
+    },
+    "interpretation": "LeRobot exported weights with OpenPI LIBERO inputs; published checkpoint success is not established"
+  },
+  "action_spec_id": "7ed74da0d42db5cbe3cd6ccac845cd84b6714b6af77af0659c4358426d4b35ba",
+  "observation_id": "249335f684b3830fc92e1e958c2e6d36810321eaefe67e6a334eae834af66b67",
+  "condition_id": "6fa2298e2a010a7599abbf0fafff966822416092e1044b94e89b4cb825e58553",
+  "seed": 0,
+  "proposal_source": "supplied_controller_actions",
+  "experiments_run": false,
+  "actual_controller_proposal": {
+    "known_source_noise": null,
+    "known_source_noise_explanation": "Astra supplied controller actions; no true generating policy noise exists for this proposal",
+    "encoding_decoding_error": {
+      "rmse": 1.0181907138078214e-08,
+      "max_abs": 2.4983882962459347e-08
+    },
+    "reconstruction": {
+      "rmse": 4.471063866354319e-08,
+      "max_abs": 1.3213491434349578e-07
+    },
+    "action_atol": 0.02,
+    "clipping_applied_to_metric": false,
+    "passed": true,
+    "velocity_evaluations": 800,
+    "latency_seconds": 8.761268575995928
+  },
+  "known_noise_recovery_scope": "Separate policy-generated sample from seed 0 on the same observation; never a known-noise claim for Astra actions",
+  "roundtrip_artifacts": {
+    "path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/astra_proposal_diagnostics.npz",
+    "file_sha256": "177b87ab5f50439c5b9a45744dc2a2b9cb24ad04394f25170fced28043132b35",
+    "arrays": {
+      "proposal_controller_actions": {
+        "sha256": "ad62369bc3c9884dfe5b93d29c280f4d6bcae638deba5c1eb53d868250a1ab01",
+        "shape": [
+          10,
+          7
+        ],
+        "dtype": "float32"
+      },
+      "proposal_encoded_model_actions": {
+        "sha256": "687d63a1c2814ee5a5d655fcb61422cc083f966e52ec22fe5f6d9854709833ed",
+        "shape": [
+          1,
+          10,
+          32
+        ],
+        "dtype": "float32"
+      },
+      "proposal_recovered_noise": {
+        "sha256": "8dbd27c13ea6fc79ed06490be63b0cd112dff8f67e95346820333182d799b55e",
+        "shape": [
+          1,
+          10,
+          32
+        ],
+        "dtype": "float32"
+      },
+      "proposal_replay_model_actions": {
+        "sha256": "2ca9c06f2a2d2adb366b57e574cbd7267bedd8958af1917d7ef541eeec443947",
+        "shape": [
+          1,
+          10,
+          32
+        ],
+        "dtype": "float32"
+      },
+      "proposal_replay_controller_actions": {
+        "sha256": "4d15e50faa79613644034fe9ffe5440e90de3990f362e195f15c9abc74c56889",
+        "shape": [
+          10,
+          7
+        ],
+        "dtype": "float64"
+      },
+      "policy_reference_known_noise": {
+        "sha256": "6969a118028501769efb18d04d63413f0ea6ac12945c865e554950182dae35a6",
+        "shape": [
+          1,
+          10,
+          32
+        ],
+        "dtype": "float32"
+      },
+      "policy_reference_endpoint": {
+        "sha256": "a5e195dd0c3072e9a38f097d9622f9ca0f37ceb4d5db6b180f17b05c3c20cda8",
+        "shape": [
+          1,
+          10,
+          32
+        ],
+        "dtype": "float32"
+      },
+      "policy_reference_recovered_noise": {
+        "sha256": "49c0b660cdbf44bb86af4bc2d0ba9d3bb4aa03ac095e1acb15cf3b304cdad6d5",
+        "shape": [
+          1,
+          10,
+          32
+        ],
+        "dtype": "float32"
+      }
+    }
+  },
+  "runtime": {
+    "gpu": "NVIDIA L40S",
+    "visible_gpu_count": 8,
+    "device": "cuda",
+    "tf32": false
+  },
+  "wall_seconds": 63.0629916389953
+}

@@ -1,0 +1,337 @@
+{
+  "workflow": "astra-pi05-libero-dev-20260924-3",
+  "gpu": "NVIDIA L40S",
+  "checkpoint_revision": "a217bfd3b14673cf2ce597e69997ab21866438dd",
+  "published_model_sha256": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+  "scope": "Three paired development episodes; not a full benchmark reproduction",
+  "baseline_comparison": {
+    "native_baseline": {
+      "episodes": 3,
+      "macro_success": 0.0,
+      "per_task": {
+        "libero_10:0": {
+          "episodes": 1,
+          "success_rate": 0.0,
+          "actions_to_success": null,
+          "seconds_to_success": null,
+          "mean_actions": 520.0,
+          "mean_wall_seconds": 29.734334995038807,
+          "mean_velocity_evaluations": 1040.0,
+          "mean_fallbacks": 0.0,
+          "mean_agent_calls": 0.0,
+          "invalid_response_rate": null
+        },
+        "libero_10:1": {
+          "episodes": 1,
+          "success_rate": 0.0,
+          "actions_to_success": null,
+          "seconds_to_success": null,
+          "mean_actions": 520.0,
+          "mean_wall_seconds": 27.569443660788238,
+          "mean_velocity_evaluations": 1040.0,
+          "mean_fallbacks": 0.0,
+          "mean_agent_calls": 0.0,
+          "invalid_response_rate": null
+        },
+        "libero_10:2": {
+          "episodes": 1,
+          "success_rate": 0.0,
+          "actions_to_success": null,
+          "seconds_to_success": null,
+          "mean_actions": 520.0,
+          "mean_wall_seconds": 26.501128727104515,
+          "mean_velocity_evaluations": 1040.0,
+          "mean_fallbacks": 0.0,
+          "mean_agent_calls": 0.0,
+          "invalid_response_rate": null
+        }
+      }
+    },
+    "openpi_inputs_baseline": {
+      "episodes": 3,
+      "macro_success": 1.0,
+      "per_task": {
+        "libero_10:0": {
+          "episodes": 1,
+          "success_rate": 1.0,
+          "actions_to_success": 280.0,
+          "seconds_to_success": 17.320993318222463,
+          "mean_actions": 280.0,
+          "mean_wall_seconds": 17.320993318222463,
+          "mean_velocity_evaluations": 560.0,
+          "mean_fallbacks": 0.0,
+          "mean_agent_calls": 0.0,
+          "invalid_response_rate": null
+        },
+        "libero_10:1": {
+          "episodes": 1,
+          "success_rate": 1.0,
+          "actions_to_success": 247.0,
+          "seconds_to_success": 13.770095345098525,
+          "mean_actions": 247.0,
+          "mean_wall_seconds": 13.770095345098525,
+          "mean_velocity_evaluations": 500.0,
+          "mean_fallbacks": 0.0,
+          "mean_agent_calls": 0.0,
+          "invalid_response_rate": null
+        },
+        "libero_10:2": {
+          "episodes": 1,
+          "success_rate": 1.0,
+          "actions_to_success": 242.0,
+          "seconds_to_success": 12.464240747969598,
+          "mean_actions": 242.0,
+          "mean_wall_seconds": 12.464240747969598,
+          "mean_velocity_evaluations": 490.0,
+          "mean_fallbacks": 0.0,
+          "mean_agent_calls": 0.0,
+          "invalid_response_rate": null
+        }
+      }
+    }
+  },
+  "numerics": {
+    "native_euler": {
+      "solver": "euler",
+      "tolerances": {
+        "action_atol": 0.02,
+        "noise_atol": 0.1,
+        "parity_atol": 1e-05
+      },
+      "results": [
+        {
+          "steps": 10,
+          "full_internal_reconstruction": {
+            "rmse": 0.00441157204812623,
+            "max_abs": 0.03748351335525513
+          },
+          "controller_reconstruction": {
+            "rmse": 0.009321274395992145,
+            "max_abs": 0.03748351335525513
+          },
+          "known_noise_recovery": {
+            "rmse": 0.6626458731288777,
+            "max_abs": 4.4719250202178955
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 40,
+          "latency_seconds": 0.592662138864398,
+          "passed": false
+        },
+        {
+          "steps": 20,
+          "full_internal_reconstruction": {
+            "rmse": 0.003736616483222862,
+            "max_abs": 0.030433103442192078
+          },
+          "controller_reconstruction": {
+            "rmse": 0.007784519507069363,
+            "max_abs": 0.030433103442192078
+          },
+          "known_noise_recovery": {
+            "rmse": 0.635787720752358,
+            "max_abs": 3.8298956751823425
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 80,
+          "latency_seconds": 1.0390102192759514,
+          "passed": false
+        },
+        {
+          "steps": 50,
+          "full_internal_reconstruction": {
+            "rmse": 0.0025247305155524182,
+            "max_abs": 0.019913524389266968
+          },
+          "controller_reconstruction": {
+            "rmse": 0.005193981220039094,
+            "max_abs": 0.019913524389266968
+          },
+          "known_noise_recovery": {
+            "rmse": 0.7022641711508151,
+            "max_abs": 3.6723693907260895
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 200,
+          "latency_seconds": 2.373697286937386,
+          "passed": false
+        }
+      ]
+    },
+    "openpi_inputs_euler": {
+      "solver": "euler",
+      "tolerances": {
+        "action_atol": 0.02,
+        "noise_atol": 0.1,
+        "parity_atol": 1e-05
+      },
+      "results": [
+        {
+          "steps": 10,
+          "full_internal_reconstruction": {
+            "rmse": 0.004194967917008936,
+            "max_abs": 0.027763456106185913
+          },
+          "controller_reconstruction": {
+            "rmse": 0.00444483194608168,
+            "max_abs": 0.014250811973810174
+          },
+          "known_noise_recovery": {
+            "rmse": 1.5521076058214331,
+            "max_abs": 6.4448606967926025
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 40,
+          "latency_seconds": 0.5525458198972046,
+          "passed": false
+        },
+        {
+          "steps": 20,
+          "full_internal_reconstruction": {
+            "rmse": 0.0036335840276460786,
+            "max_abs": 0.02248338609933853
+          },
+          "controller_reconstruction": {
+            "rmse": 0.00421006776511447,
+            "max_abs": 0.013825537586987124
+          },
+          "known_noise_recovery": {
+            "rmse": 1.4394119198675945,
+            "max_abs": 6.11218523979187
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 80,
+          "latency_seconds": 0.9738300596363842,
+          "passed": false
+        },
+        {
+          "steps": 50,
+          "full_internal_reconstruction": {
+            "rmse": 0.0025985598399865624,
+            "max_abs": 0.015871480107307434
+          },
+          "controller_reconstruction": {
+            "rmse": 0.0033027376172880918,
+            "max_abs": 0.009290362973868815
+          },
+          "known_noise_recovery": {
+            "rmse": 1.15526790608423,
+            "max_abs": 4.896257162094116
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 200,
+          "latency_seconds": 2.369986101053655,
+          "passed": false
+        }
+      ]
+    },
+    "openpi_inputs_heun": {
+      "solver": "heun",
+      "tolerances": {
+        "action_atol": 0.02,
+        "noise_atol": 0.1,
+        "parity_atol": 1e-05
+      },
+      "results": [
+        {
+          "steps": 50,
+          "full_internal_reconstruction": {
+            "rmse": 0.0023451848891682925,
+            "max_abs": 0.009390261024236679
+          },
+          "controller_reconstruction": {
+            "rmse": 0.0012271657149594355,
+            "max_abs": 0.0047970974832178825
+          },
+          "known_noise_recovery": {
+            "rmse": 0.9611602280878943,
+            "max_abs": 3.591437339782715
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 400,
+          "latency_seconds": 4.651094824075699,
+          "passed": false
+        },
+        {
+          "steps": 100,
+          "full_internal_reconstruction": {
+            "rmse": 0.0007834604194520542,
+            "max_abs": 0.0057611893862485886
+          },
+          "controller_reconstruction": {
+            "rmse": 0.0005048876335800293,
+            "max_abs": 0.0014966124151347682
+          },
+          "known_noise_recovery": {
+            "rmse": 0.7382214731994784,
+            "max_abs": 2.540938377380371
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 800,
+          "latency_seconds": 9.257589796092361,
+          "passed": false
+        },
+        {
+          "steps": 200,
+          "full_internal_reconstruction": {
+            "rmse": 0.00048754896378896067,
+            "max_abs": 0.0019092559814453125
+          },
+          "controller_reconstruction": {
+            "rmse": 0.0003045108314776565,
+            "max_abs": 0.0019088750848770264
+          },
+          "known_noise_recovery": {
+            "rmse": 0.5583345214061654,
+            "max_abs": 1.8401157855987549
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 1600,
+          "latency_seconds": 18.1659017871134,
+          "passed": false
+        }
+      ]
+    }
+  },
+  "astra_calls_run": false,
+  "weight_checks": {
+    "strict_load": true,
+    "all_parameters_frozen": true,
+    "cpu_cuda_internal_difference": {
+      "rmse": 1.0056224666440361e-07,
+      "max_abs": 7.152557373046875e-07
+    },
+    "cuda_native_sampler_parity": {
+      "rmse": 0.0,
+      "max_abs": 0.0
+    }
+  },
+  "lossless_archive_sha256": "252cc41b97984ae83bd5236efc9b7f20db27f8d4d84ea5515f7d92ba70cf419c"
+}

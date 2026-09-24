@@ -1,0 +1,21 @@
+method,label,suite,task_id,instruction,episodes,successes,success_rate,execution_errors,zero_action_successes,zero_action_failures,total_actions,mean_actions,actions_to_success,total_wall_seconds,mean_wall_seconds,velocity_evaluations,agent_calls,fallbacks
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,0,put the cream cheese in the basket,10,4,0.4,0,0,0,2476,247.6,169.0,149.0481600209605,14.90481600209605,4960,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,1,put the orange juice on the stove,10,7,0.7,0,0,0,1437,143.7,76.71428571428571,89.56166245165514,8.956166245165514,2910,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,2,put the bbq source on the plate,10,5,0.5,0,0,0,2227,222.7,145.4,133.78819554985967,13.378819554985967,4480,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,3,put the tomato sauce on top of the cabinet,10,0,0.0,0,0,0,3000,300.0,,184.3539043199853,18.43539043199853,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,4,put the wine bottle on the stove,10,10,1.0,0,0,0,803,80.3,80.3,48.63616980641382,4.863616980641382,1640,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,5,put the wine bottle on the plate,10,8,0.8,0,0,0,1491,149.1,111.375,90.71949332294753,9.071949332294754,3010,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,6,put the wine bottle in the bowl,10,3,0.3,0,0,0,2324,232.4,74.66666666666667,136.07677485182649,13.607677485182649,4660,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,7,put the cream cheese on the plate,10,2,0.2,0,0,0,2624,262.4,112.0,161.935914439091,16.1935914439091,5260,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,8,put the cream cheese on the stove,10,0,0.0,0,0,0,3000,300.0,,178.30601890018443,17.830601890018443,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,9,put the cream cheese on top of the cabinet,10,8,0.8,0,0,0,1730,173.0,141.25,106.07834128622198,10.607834128622198,3490,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,0,put the butter on the plate,10,10,1.0,0,0,0,840,84.0,84.0,50.74765111407032,5.074765111407032,1720,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,1,put the chocolate pudding on the plate,10,10,1.0,0,0,0,998,99.8,99.8,57.41992400906747,5.741992400906748,2030,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,2,put the milk on the plate,10,4,0.4,0,0,0,2137,213.7,84.25,123.36729385709623,12.336729385709623,4280,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,3,put the orange juice on the plate,10,10,1.0,0,0,0,953,95.3,95.3,56.034864664892666,5.603486466489267,1940,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,4,put the bowl on cookie box on the stove,10,0,0.0,0,0,0,3000,300.0,,170.0139574080822,17.00139574080822,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,5,put the bowl on cookie box on the cabinet,10,0,0.0,0,0,0,3000,300.0,,166.5845263079391,16.65845263079391,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,6,put the bowl next to the plate on the cabinet,10,0,0.0,0,0,0,3000,300.0,,169.3847385199042,16.93847385199042,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,7,put the bowl next to the plate on the stove,10,0,0.0,0,0,0,3000,300.0,,167.8894650430302,16.78894650430302,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,8,put the bowl at table center on the cabinet,10,4,0.4,0,0,0,2205,220.5,101.25,125.8428585549118,12.58428585549118,4430,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,9,put the bowl at table center on the stove,10,1,0.1,0,0,0,2807,280.7,107.0,158.60889789892826,15.860889789892827,5620,0,0

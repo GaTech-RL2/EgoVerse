@@ -1,0 +1,2 @@
+# Preserve the archived CSV bytes and their recorded hashes.
+reports/*.csv -text whitespace=cr-at-eol

@@ -1,0 +1,192 @@
+{
+  "scope": "All successful reversal episodes; no outcome is removed or reclassified.",
+  "episodes": 200,
+  "successes": 5,
+  "successful_episodes_with_fallback": 1,
+  "successful_episodes_without_fallback": 4,
+  "review_sha256": "397905ca359e24b70b6732fc79195c061582048602756fb7c92dbbdcf63e0d19",
+  "numerical_summary_sha256": "bad17aa2b1e561a36477acf971b2c69203f355f83aae8c34f688c39cbd4d399f",
+  "outcome_sources": [
+    {
+      "unit": "group_0/single_node",
+      "episode_outcomes_sha256": "a51faf20c903fd91face0af8d7e2cc9bf5cce181487b830225a0715b5db65399"
+    },
+    {
+      "unit": "group_1/worker_0",
+      "episode_outcomes_sha256": "0279e15a57447cf07941deacf9ce3182e1be845ad6392f64ddb8aa7a047f784c"
+    },
+    {
+      "unit": "group_1/worker_1",
+      "episode_outcomes_sha256": "1a2a0cc67a08d2a0e744b7347bc28a4a8fadcc5f0714957cd03da5e67b17eade"
+    },
+    {
+      "unit": "group_1/worker_2",
+      "episode_outcomes_sha256": "b2af576bda4d55da5de03fa058415c212835deda2384cb7f8c45443170620b6e"
+    },
+    {
+      "unit": "group_1/worker_3",
+      "episode_outcomes_sha256": "4dcc7eec66e1dd7d275c146d0be96ae006d338259a5766ed497b86ba844e4592"
+    },
+    {
+      "unit": "group_1/worker_4",
+      "episode_outcomes_sha256": "58076ce4f036401701bb2e1809a5f0d4699c049c1978e02f4dfc844f8c221f59"
+    },
+    {
+      "unit": "group_1/worker_5",
+      "episode_outcomes_sha256": "1c007da35c082de4a095337aac20352f987aa0202a94405b6834e4d0860a8856"
+    },
+    {
+      "unit": "group_1/worker_6",
+      "episode_outcomes_sha256": "f4e483acf23021d5508cc08ce7299c08e89cc77ffa6bcd007675ccbb55e61a72"
+    },
+    {
+      "unit": "group_1/worker_7",
+      "episode_outcomes_sha256": "a1bda8002e57623acd8b2f101e3a59d1389c9af8dd12abfbe54a312d3a1cc02a"
+    },
+    {
+      "unit": "group_2/worker_0",
+      "episode_outcomes_sha256": "8907dd8439a06c7040a4d43104eb0a4b487f3e05ae42daa2c993b3de6f0c1d36"
+    },
+    {
+      "unit": "group_2/worker_1",
+      "episode_outcomes_sha256": "2cbe389777b9a1ece1cb384c210462f9449fb35af68a60ca56200a6b1dfcf6f9"
+    },
+    {
+      "unit": "group_2/worker_2",
+      "episode_outcomes_sha256": "f3256f6f8c37ed0d1350a6acc71045aefce0dc183d29981241c6661b6bf5adf6"
+    },
+    {
+      "unit": "group_2/worker_3",
+      "episode_outcomes_sha256": "53104b3331dff3bdb8e1ce8a45084fe8b5ac508527444aec17a1ad2857362968"
+    },
+    {
+      "unit": "group_2/worker_4",
+      "episode_outcomes_sha256": "1b2cfff900b9554691594604827df5ac3c634797283513681d27bbc0491593fe"
+    },
+    {
+      "unit": "group_2/worker_5",
+      "episode_outcomes_sha256": "8520b6af136ff30d67efa0812fa92153f6205207272f67e10dff1f3144adb596"
+    },
+    {
+      "unit": "group_2/worker_6",
+      "episode_outcomes_sha256": "8bb0211d31c083d011ea91b4f8463dae3840058bfbbd32ae601d7fbe884846e0"
+    },
+    {
+      "unit": "group_2/worker_7",
+      "episode_outcomes_sha256": "8afcc279db1c7fbbf7d0419412c7476f4b40de398ced7f1c8a20befbafd39ac7"
+    },
+    {
+      "unit": "group_3/worker_0",
+      "episode_outcomes_sha256": "cb72b301981aded7e545adbbebc556410f8cce2b8c538c46fe31eff3237688c9"
+    },
+    {
+      "unit": "group_3/worker_1",
+      "episode_outcomes_sha256": "66e3354c93b7bbb21d0a3b7649cac7cf44ecd008595c2677b6c5e4148707e7c1"
+    },
+    {
+      "unit": "group_3/worker_2",
+      "episode_outcomes_sha256": "45cb88ae2515225037236ec0e857665e7d3a37623626d4a2eeb579fbf5207206"
+    },
+    {
+      "unit": "group_3/worker_3",
+      "episode_outcomes_sha256": "6cf37d7a0e9e415dccba5f1fa4cd0cb5de72a4885c66306ae2ce841558342c39"
+    },
+    {
+      "unit": "group_3/worker_4",
+      "episode_outcomes_sha256": "01a55b32f64f9a750f578a706303ae94b4961d603983cc4538f23c4016b24f6d"
+    },
+    {
+      "unit": "group_3/worker_5",
+      "episode_outcomes_sha256": "95b1b8d78d37c5c8085d5a39f4034d32b021ba33fca8af2858408b27bec48dab"
+    },
+    {
+      "unit": "group_3/worker_6",
+      "episode_outcomes_sha256": "8eb2364bbe6aacf988f730079ccf12e18a53854ea59d565566af35c1d1cdcb1b"
+    },
+    {
+      "unit": "group_3/worker_7",
+      "episode_outcomes_sha256": "7f0b964b76df807e12f0fdbbeef75110ec903e0f6b128401a31e27558b68b0b2"
+    }
+  ],
+  "successful_episodes": [
+    {
+      "unit": "group_0/single_node",
+      "episode_id": "libero_goal_ood:task1:state7",
+      "actions": 169,
+      "latent_actions": 169,
+      "fallback_actions": 0,
+      "fallback_windows": [],
+      "event_sha256": "83ae392b25c233b85c5972412a42244fdd37635876a208483f5ebcd94a1de9dd"
+    },
+    {
+      "unit": "group_0/single_node",
+      "episode_id": "libero_goal_ood:task6:state5",
+      "actions": 169,
+      "latent_actions": 149,
+      "fallback_actions": 20,
+      "fallback_windows": [
+        {
+          "episode_id": "libero_goal_ood:task6:state5",
+          "first_step": 120,
+          "last_step": 139,
+          "actions": 20,
+          "preceding_attempts": [
+            {
+              "sequence": 2503,
+              "attempt": 0,
+              "observation_step": 120,
+              "request_fingerprint": "d75f431a0693650e2efda557ce3ae1a08920adde655c9cde17cc5021940197c6",
+              "controller_accepted": false,
+              "controller_error_category": "backend_process_failure",
+              "provider_record_present": true,
+              "provider_schema_accepted": false,
+              "http_status": 200,
+              "provider_error": "Proposal rejected: Wrong schema or episode"
+            },
+            {
+              "sequence": 2504,
+              "attempt": 1,
+              "observation_step": 120,
+              "request_fingerprint": "5175b73f7eb8a1c79d9cf49dcbd3d14b7b9738d5fe22bf2bd0232191d760ea7e",
+              "controller_accepted": false,
+              "controller_error_category": "subgoal_completed_or_recovery_exhausted",
+              "provider_record_present": true,
+              "provider_schema_accepted": true,
+              "http_status": 200,
+              "provider_error": null
+            }
+          ]
+        }
+      ],
+      "event_sha256": "83ae392b25c233b85c5972412a42244fdd37635876a208483f5ebcd94a1de9dd"
+    },
+    {
+      "unit": "group_2/worker_3",
+      "episode_id": "libero_goal_ood:task1:state1",
+      "actions": 135,
+      "latent_actions": 135,
+      "fallback_actions": 0,
+      "fallback_windows": [],
+      "event_sha256": "f025c7ec0633646b4d3dcc923b38a97133993bf8b73d9258e5b725cb9374c090"
+    },
+    {
+      "unit": "group_3/worker_1",
+      "episode_id": "libero_goal_ood:task4:state5",
+      "actions": 101,
+      "latent_actions": 101,
+      "fallback_actions": 0,
+      "fallback_windows": [],
+      "event_sha256": "165ab6e997a2a2916a0ac68a4e26b83a568d7b7516e54ecf90781a062a85be6b"
+    },
+    {
+      "unit": "group_3/worker_3",
+      "episode_id": "libero_goal_ood:task6:state3",
+      "actions": 234,
+      "latent_actions": 234,
+      "fallback_actions": 0,
+      "fallback_windows": [],
+      "event_sha256": "846f618a621237e257776ac0155c7e1c453296362b7eb8726ed8101f23780d45"
+    }
+  ],
+  "interpretation": "These are observed action counts, not a causal attribution of task success to any individual action or model."
+}

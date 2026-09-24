@@ -1,0 +1,240 @@
+{
+  "workflow": "astra-pi05-reversal-numerics-20260924-1",
+  "payload_sha256": "af2f9df7eab05fc4608c6bdb2eb703996fbd5f673efcf8af11fc47a96a580aa4",
+  "purpose": "Development-only adaptive reference integration; no Astra or success claim",
+  "velocity_precision": "float32",
+  "accumulation_precision": "float64",
+  "tolerances": {
+    "action_atol": 0.02,
+    "noise_atol": 0.1,
+    "parity_atol": 1e-05
+  },
+  "task_manifest_sha256": "4727983af2291f41dc978f4d3df52b68b89c0476d3ae7b9169bb05e6abe41a5b",
+  "action_spec_id": "7ed74da0d42db5cbe3cd6ccac845cd84b6714b6af77af0659c4358426d4b35ba",
+  "condition_id": "6fa2298e2a010a7599abbf0fafff966822416092e1044b94e89b4cb825e58553",
+  "seed": 0,
+  "native_euler_parity": {
+    "rmse": 0.0,
+    "max_abs": 0.0
+  },
+  "checkpoint_revision": "a217bfd3b14673cf2ce597e69997ab21866438dd",
+  "results": [
+    {
+      "rtol": 0.001,
+      "atol": 1e-05,
+      "method": "RK45",
+      "endpoint_precision": "float32",
+      "reconstruction": {
+        "full": {
+          "rmse": 0.00040391949602674803,
+          "max_abs": 0.0019489295865710854
+        },
+        "action_channels": {
+          "rmse": 0.0007662935042946066,
+          "max_abs": 0.0019489295865710854
+        },
+        "padding_channels": {
+          "rmse": 0.00021075014150290003,
+          "max_abs": 0.000689669361561859
+        }
+      },
+      "known_noise_recovery": {
+        "full": {
+          "rmse": 0.30523978765570553,
+          "max_abs": 1.5709663927555084
+        },
+        "action_channels": {
+          "rmse": 0.2560411075119035,
+          "max_abs": 1.5709663927555084
+        },
+        "padding_channels": {
+          "rmse": 0.31765283904462444,
+          "max_abs": 1.1796436309814453
+        }
+      },
+      "controller_reconstruction": {
+        "rmse": 0.00040634545990875904,
+        "max_abs": 0.001135681953165435
+      },
+      "passed": false,
+      "solves": {
+        "forward": {
+          "velocity_evaluations": 110,
+          "latency_seconds": 1.3130629290826619
+        },
+        "inverse": {
+          "velocity_evaluations": 74,
+          "latency_seconds": 0.8667192501015961
+        },
+        "replay": {
+          "velocity_evaluations": 110,
+          "latency_seconds": 1.2874558637849987
+        }
+      }
+    },
+    {
+      "rtol": 0.0001,
+      "atol": 1e-06,
+      "method": "RK45",
+      "endpoint_precision": "float32",
+      "reconstruction": {
+        "full": {
+          "rmse": 8.421663207408458e-05,
+          "max_abs": 0.0005374715061524926
+        },
+        "action_channels": {
+          "rmse": 0.00017845677618600266,
+          "max_abs": 0.0005374715061524926
+        },
+        "padding_channels": {
+          "rmse": 1.2697037459105275e-05,
+          "max_abs": 3.967188722252485e-05
+        }
+      },
+      "known_noise_recovery": {
+        "full": {
+          "rmse": 0.04659109800703262,
+          "max_abs": 0.34328585118055344
+        },
+        "action_channels": {
+          "rmse": 0.09117422266279747,
+          "max_abs": 0.34328585118055344
+        },
+        "padding_channels": {
+          "rmse": 0.021236008179384196,
+          "max_abs": 0.0985671877861023
+        }
+      },
+      "controller_reconstruction": {
+        "rmse": 9.305535043799524e-05,
+        "max_abs": 0.000258144410838268
+      },
+      "passed": false,
+      "solves": {
+        "forward": {
+          "velocity_evaluations": 212,
+          "latency_seconds": 2.457222600001842
+        },
+        "inverse": {
+          "velocity_evaluations": 212,
+          "latency_seconds": 2.4437926239334047
+        },
+        "replay": {
+          "velocity_evaluations": 212,
+          "latency_seconds": 2.5328394072130322
+        }
+      }
+    },
+    {
+      "rtol": 1e-05,
+      "atol": 1.0000000000000001e-07,
+      "method": "RK45",
+      "endpoint_precision": "float32",
+      "reconstruction": {
+        "full": {
+          "rmse": 1.6414654995269684e-05,
+          "max_abs": 0.00013416319969485405
+        },
+        "action_channels": {
+          "rmse": 3.482287495763516e-05,
+          "max_abs": 0.00013416319969485405
+        },
+        "padding_channels": {
+          "rmse": 2.312404925040317e-06,
+          "max_abs": 7.37241731378548e-06
+        }
+      },
+      "known_noise_recovery": {
+        "full": {
+          "rmse": 0.01640939406005524,
+          "max_abs": 0.16235566139221191
+        },
+        "action_channels": {
+          "rmse": 0.033689342207926645,
+          "max_abs": 0.16235566139221191
+        },
+        "padding_channels": {
+          "rmse": 0.005183745289121064,
+          "max_abs": 0.017081022262573242
+        }
+      },
+      "controller_reconstruction": {
+        "rmse": 2.1946225825757213e-05,
+        "max_abs": 6.885843621412535e-05
+      },
+      "passed": false,
+      "solves": {
+        "forward": {
+          "velocity_evaluations": 596,
+          "latency_seconds": 6.892963042017072
+        },
+        "inverse": {
+          "velocity_evaluations": 686,
+          "latency_seconds": 8.131658606696874
+        },
+        "replay": {
+          "velocity_evaluations": 614,
+          "latency_seconds": 7.134109457023442
+        }
+      }
+    },
+    {
+      "rtol": 1e-06,
+      "atol": 1e-08,
+      "method": "RK45",
+      "endpoint_precision": "float32",
+      "reconstruction": {
+        "full": {
+          "rmse": 2.207713175438114e-06,
+          "max_abs": 1.5160705426564558e-05
+        },
+        "action_channels": {
+          "rmse": 4.571525985491675e-06,
+          "max_abs": 1.5160705426564558e-05
+        },
+        "padding_channels": {
+          "rmse": 6.221244257515644e-07,
+          "max_abs": 1.8193661234066748e-06
+        }
+      },
+      "known_noise_recovery": {
+        "full": {
+          "rmse": 0.002135582211960347,
+          "max_abs": 0.018050067126750946
+        },
+        "action_channels": {
+          "rmse": 0.0034676539544800876,
+          "max_abs": 0.018050067126750946
+        },
+        "padding_channels": {
+          "rmse": 0.0015718829047123915,
+          "max_abs": 0.0047886669635772705
+        }
+      },
+      "controller_reconstruction": {
+        "rmse": 3.433154897840253e-06,
+        "max_abs": 1.5012763238120286e-05
+      },
+      "passed": true,
+      "solves": {
+        "forward": {
+          "velocity_evaluations": 2348,
+          "latency_seconds": 27.334509268868715
+        },
+        "inverse": {
+          "velocity_evaluations": 2624,
+          "latency_seconds": 30.5360549245961
+        },
+        "replay": {
+          "velocity_evaluations": 2348,
+          "latency_seconds": 27.37691901670769
+        }
+      }
+    }
+  ],
+  "workflow_status": {
+    "status": "failed",
+    "error": "RuntimeError: Adaptive velocity evaluation limit reached"
+  },
+  "interpretation": "RK45 at rtol=1e-6 and atol=1e-8 passed the declared reconstruction and known-noise criteria on one development observation. The subsequent DOP853 solve exceeded 20000 evaluations and stopped the workflow; no control/Astra run was made."
+}

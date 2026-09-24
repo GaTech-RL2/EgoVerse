@@ -148,7 +148,25 @@ def main():
         for entry in inventory["files"]:
             assert file_sha256(path / entry["path"]) == entry["sha256"], entry["path"]
 
-        command("tests", "-m", "pytest", "astra_reversal/tests", "-q")
+        command(
+            "unit_tests",
+            "-m",
+            "pytest",
+            "--confcutdir=tests/unit/astra",
+            "tests/unit/astra",
+            "-q",
+        )
+        os.environ["EGOVERSE_TEST_PI05_INPUT_ASSETS"] = str(
+            ROOT / "astra_reversal/.deps/reference/pi05_libero"
+        )
+        command(
+            "native_tests",
+            "-m",
+            "pytest",
+            "--confcutdir=tests/integration",
+            "tests/integration/test_astra_lerobot_policy.py",
+            "-q",
+        )
         from astra_reversal.flow import error_metrics
         from astra_reversal.lerobot_policy import FrozenLeRobotPI05
 
