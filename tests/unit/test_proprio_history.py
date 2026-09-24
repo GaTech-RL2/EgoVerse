@@ -813,6 +813,7 @@ def _eval_once(proprio):
         return np.zeros((2, 4, 4, 3), dtype=np.uint8)
 
     ev = HPTEvalVideo.__new__(HPTEvalVideo)
+    ev._replay_now = False
     ev.model = _StubAlgo(emb_id, preds)
     ev.viz_func = {emb_name: _viz}
     ev.transform_lists = {
