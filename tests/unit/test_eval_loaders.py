@@ -532,6 +532,7 @@ class _Trainer:
         self.max_epochs = max_epochs
         self.world_size = 1
         self.is_global_zero = True
+        self.loggers = []
         self.logged: list[dict] = []
         outer = self
 
