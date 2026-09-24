@@ -1,0 +1,1178 @@
+{
+  "schema_version": "1.0",
+  "report_kind": "frozen_payload_source_identity_review",
+  "created_at_utc": "2026-09-24T18:57:12.111095+00:00",
+  "status": "completed_identity_review_no_experiment_logic_drift_found",
+  "interpretation": "Review of code identity between pinned Git commits and a frozen worker payload. This is not a proof of overall implementation correctness, numerical correctness, benchmark validity, or completed experiment outcomes.",
+  "reviewed_refs": {
+    "execution": {
+      "ref": "astra/ood-execution",
+      "commit": "bb576bd80c2f8e0c01df6847e90b2a1573362435"
+    },
+    "core": {
+      "ref": "astra/reversal-core",
+      "commit": "4d006718430831ffe9dd32162f267202c27a13f4"
+    }
+  },
+  "archive": {
+    "path_relative_to_workspace": "astra_reversal/.deps/osmo-upload/payload.tar.gz",
+    "sha256": "3717db31adb9682ce5eab89be57accd6d38ca7ba791362828435a97b5ee8f420",
+    "bytes": 9692590
+  },
+  "method": {
+    "git_source": "Read file contents using git show at full pinned commit IDs; no branch switching or Git mutations.",
+    "archive_source": "Read tar members without extracting them; verify SHA-256 of complete compressed archive first.",
+    "byte_comparison": "Compare exact bytes, record SHA-256 and byte lengths for both sides.",
+    "ast_comparison": "Python 3.11 ast.parse followed by ast.dump(annotate_fields=True, include_attributes=False); location attributes are excluded, all statements, expressions, constants, and docstrings remain.",
+    "normalized_ast_comparison": "Applied only to the three enumerated byte differences. Exact per-file rules and normalized AST SHA-256 values are recorded below; no broad import removal or normalization was performed.",
+    "source_scope": "All tracked astra_reversal Python modules at the execution commit, plus non-Markdown configuration, workflow, dependency, and inventory files. Root tests and documentation excluded from source parity.",
+    "limitations": [
+      "AST equality is evidence of unchanged parsed code, not a formal runtime equivalence proof.",
+      "Removing unused import os changes the module namespace by removing fixed_probe.os; it does not change the inspected experiment logic.",
+      "Test relocation and test-only path bootstrapping are allowed and outside the production comparison.",
+      "The expected reporting postprocessor ood_report.py is absent from the execution commit and is listed separately.",
+      "No GPU solves, API calls, benchmark jobs, or correctness tests were run for this identity review."
+    ]
+  },
+  "counts": {
+    "execution_tracked_files": 58,
+    "python_files_compared": 34,
+    "python_byte_identical": 31,
+    "python_raw_ast_identical": 32,
+    "python_raw_ast_changed": 2,
+    "precisely_reviewed_byte_deltas": 3,
+    "python_matching_after_documented_normalization": 34,
+    "supporting_files_byte_identical": 23,
+    "core_python_files_byte_identical_to_execution": 17,
+    "git_python_missing_from_archive": 0,
+    "expected_archive_only_python": 1
+  },
+  "python_files": [
+    {
+      "path": "astra_reversal/__init__.py",
+      "archive": {
+        "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036",
+        "bytes": 230
+      },
+      "git": {
+        "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036",
+        "bytes": 230
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "a8918057460aff75ba18be6893db10dd03ac20515dc9eab37dbb201c8c206c83",
+      "git_ast_sha256": "a8918057460aff75ba18be6893db10dd03ac20515dc9eab37dbb201c8c206c83"
+    },
+    {
+      "path": "astra_reversal/__main__.py",
+      "archive": {
+        "sha256": "d18a389f1ad96cbda9d85c5b379b809e9e12b2a61aac5706f7d85a7f22d30afc",
+        "bytes": 15922
+      },
+      "git": {
+        "sha256": "d18a389f1ad96cbda9d85c5b379b809e9e12b2a61aac5706f7d85a7f22d30afc",
+        "bytes": 15922
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "67a4ebce4e360cb903c9a4cca642c3fd5e21f6592f92a1a7622a55d0b706f788",
+      "git_ast_sha256": "67a4ebce4e360cb903c9a4cca642c3fd5e21f6592f92a1a7622a55d0b706f788"
+    },
+    {
+      "path": "astra_reversal/action_adapter.py",
+      "archive": {
+        "sha256": "4e3b800923761aae73933340c646db945399005eec3b7e0c9dc933db69cb84e6",
+        "bytes": 7127
+      },
+      "git": {
+        "sha256": "4e3b800923761aae73933340c646db945399005eec3b7e0c9dc933db69cb84e6",
+        "bytes": 7127
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "c0058cf525e1dcba4d609d74511fca63a4283ee27dfb6869be99c226837f1125",
+      "git_ast_sha256": "c0058cf525e1dcba4d609d74511fca63a4283ee27dfb6869be99c226837f1125"
+    },
+    {
+      "path": "astra_reversal/adaptive_probe.py",
+      "archive": {
+        "sha256": "ef6c2dc1aeb92cffa42433d86f82f78949b016878b97e5f3e05502269d3afcb0",
+        "bytes": 2508
+      },
+      "git": {
+        "sha256": "ef6c2dc1aeb92cffa42433d86f82f78949b016878b97e5f3e05502269d3afcb0",
+        "bytes": 2508
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "d665ec16fc787207cd11502f12336ee15810f7036e2b39f5563cca77cbd1e18a",
+      "git_ast_sha256": "d665ec16fc787207cd11502f12336ee15810f7036e2b39f5563cca77cbd1e18a"
+    },
+    {
+      "path": "astra_reversal/agent.py",
+      "archive": {
+        "sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741",
+        "bytes": 13985
+      },
+      "git": {
+        "sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741",
+        "bytes": 13985
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "07f0a6dd6ac7eec555e5a55f35a40dac60cfba3a42a2f46903d659361493f389",
+      "git_ast_sha256": "07f0a6dd6ac7eec555e5a55f35a40dac60cfba3a42a2f46903d659361493f389"
+    },
+    {
+      "path": "astra_reversal/analyze_inversions.py",
+      "archive": {
+        "sha256": "94c17f915ec9f263c81fa9a7aa1ccb0503096ae1a36ec68f5baf93946381cc68",
+        "bytes": 3724
+      },
+      "git": {
+        "sha256": "94c17f915ec9f263c81fa9a7aa1ccb0503096ae1a36ec68f5baf93946381cc68",
+        "bytes": 3724
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "eb9599e954638eb1a225a5b0258344738f864f0e5fe79a4b6d7150dfc5988af8",
+      "git_ast_sha256": "eb9599e954638eb1a225a5b0258344738f864f0e5fe79a4b6d7150dfc5988af8"
+    },
+    {
+      "path": "astra_reversal/astra_client.py",
+      "archive": {
+        "sha256": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f",
+        "bytes": 21911
+      },
+      "git": {
+        "sha256": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f",
+        "bytes": 21911
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "9269346a8851bb7b56fa7d5ec50102995705b37cc2099e24c3f84e19612b613d",
+      "git_ast_sha256": "9269346a8851bb7b56fa7d5ec50102995705b37cc2099e24c3f84e19612b613d"
+    },
+    {
+      "path": "astra_reversal/audit_astra_inversions.py",
+      "archive": {
+        "sha256": "3ff6621cff344b6a0cdefe5c46146e51338c3ca852d26a7fcfdd9a52b92cdbe8",
+        "bytes": 25006
+      },
+      "git": {
+        "sha256": "3ff6621cff344b6a0cdefe5c46146e51338c3ca852d26a7fcfdd9a52b92cdbe8",
+        "bytes": 25006
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "de66c4d5c2507d28a411fc630541de5b734849873c5673ccd668e5dc493ef3fc",
+      "git_ast_sha256": "de66c4d5c2507d28a411fc630541de5b734849873c5673ccd668e5dc493ef3fc"
+    },
+    {
+      "path": "astra_reversal/augmentation.py",
+      "archive": {
+        "sha256": "de639ef3a64721e2af0a12604292c8a3409a7b7c0914c13488f11c9b8575d364",
+        "bytes": 1877
+      },
+      "git": {
+        "sha256": "de639ef3a64721e2af0a12604292c8a3409a7b7c0914c13488f11c9b8575d364",
+        "bytes": 1877
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "8ca43355c8cf8deb695b33c270619719e49612b92846677d617505d7b600e9f1",
+      "git_ast_sha256": "8ca43355c8cf8deb695b33c270619719e49612b92846677d617505d7b600e9f1"
+    },
+    {
+      "path": "astra_reversal/checkpoint.py",
+      "archive": {
+        "sha256": "813ab81f6ce1bc39b990707f179ded9e752f9402f494c9ee708836a51aeeefad",
+        "bytes": 3096
+      },
+      "git": {
+        "sha256": "813ab81f6ce1bc39b990707f179ded9e752f9402f494c9ee708836a51aeeefad",
+        "bytes": 3096
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "51f09a3739f52ac19538b37b70a3d205764d04b18a8e8818846c79dbc52a5649",
+      "git_ast_sha256": "51f09a3739f52ac19538b37b70a3d205764d04b18a8e8818846c79dbc52a5649"
+    },
+    {
+      "path": "astra_reversal/config.py",
+      "archive": {
+        "sha256": "2afe7c901e0fd0b339cec2f37c62efb46ce5b0621199acd454c41c31327f4e21",
+        "bytes": 8181
+      },
+      "git": {
+        "sha256": "2afe7c901e0fd0b339cec2f37c62efb46ce5b0621199acd454c41c31327f4e21",
+        "bytes": 8181
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "d807e7e0b64fe7ad364eed4dabd21c798b3e34155cc5c90321351ec0fc10d4f4",
+      "git_ast_sha256": "d807e7e0b64fe7ad364eed4dabd21c798b3e34155cc5c90321351ec0fc10d4f4"
+    },
+    {
+      "path": "astra_reversal/controller.py",
+      "archive": {
+        "sha256": "b8de844cf752be00cddc23d0981a4aafdfce6acca7428d5f0dd3788e69304059",
+        "bytes": 26806
+      },
+      "git": {
+        "sha256": "b8de844cf752be00cddc23d0981a4aafdfce6acca7428d5f0dd3788e69304059",
+        "bytes": 26806
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "4f8f261278fae29662c38b37ca2ad243db015e73f6777c72279fe73d38e4e77f",
+      "git_ast_sha256": "4f8f261278fae29662c38b37ca2ad243db015e73f6777c72279fe73d38e4e77f"
+    },
+    {
+      "path": "astra_reversal/diagnostics.py",
+      "archive": {
+        "sha256": "d2d5ec65b239d4afbb06cf78cc5ad8989f89587f42708685e887cf3e0b13a80a",
+        "bytes": 6189
+      },
+      "git": {
+        "sha256": "d2d5ec65b239d4afbb06cf78cc5ad8989f89587f42708685e887cf3e0b13a80a",
+        "bytes": 6189
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "465f8295136cd7c21de93ccd8ee8b4c45ba20101aa647318cef8e664d7062d82",
+      "git_ast_sha256": "465f8295136cd7c21de93ccd8ee8b4c45ba20101aa647318cef8e664d7062d82"
+    },
+    {
+      "path": "astra_reversal/evaluate.py",
+      "archive": {
+        "sha256": "251795fe4011813d0ee6f233afac7a4a11bf5c625743cd2cd6b1cd285fddafba",
+        "bytes": 7707
+      },
+      "git": {
+        "sha256": "251795fe4011813d0ee6f233afac7a4a11bf5c625743cd2cd6b1cd285fddafba",
+        "bytes": 7707
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "7ca64fa2923f61eccbc15f62dd5b9d7691cdb400eb7c72e37153a328bbd835bd",
+      "git_ast_sha256": "7ca64fa2923f61eccbc15f62dd5b9d7691cdb400eb7c72e37153a328bbd835bd"
+    },
+    {
+      "path": "astra_reversal/flow.py",
+      "archive": {
+        "sha256": "98f54818bc99ca10c53d723f27a8763023403a70a5bf839dd038a4a1742f1784",
+        "bytes": 4586
+      },
+      "git": {
+        "sha256": "98f54818bc99ca10c53d723f27a8763023403a70a5bf839dd038a4a1742f1784",
+        "bytes": 4586
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "c200744d417c40fbee78b2ddaf21810f9cac2447543cc178bb66f9399776b00e",
+      "git_ast_sha256": "c200744d417c40fbee78b2ddaf21810f9cac2447543cc178bb66f9399776b00e"
+    },
+    {
+      "path": "astra_reversal/lerobot_policy.py",
+      "archive": {
+        "sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+        "bytes": 15520
+      },
+      "git": {
+        "sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+        "bytes": 15520
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "d732c662d4095528dd85a93bc83ff8db9c73f709422ebab01e4b19b4b23b8c0c",
+      "git_ast_sha256": "d732c662d4095528dd85a93bc83ff8db9c73f709422ebab01e4b19b4b23b8c0c"
+    },
+    {
+      "path": "astra_reversal/libero_runner.py",
+      "archive": {
+        "sha256": "d6208cca61c0bba92fc108aab41801ba19af247e1472b58995a122c4cb0e0c00",
+        "bytes": 16787
+      },
+      "git": {
+        "sha256": "4f96aca61c2d8534377ba6ad92e946b9aba2432f5643fb3c5444177045cad61b",
+        "bytes": 16825
+      },
+      "byte_identical": false,
+      "ast_identical": true,
+      "archive_ast_sha256": "47c948920665300bc7381369353790bd0328ac3008a69323007b26b95892d315",
+      "git_ast_sha256": "47c948920665300bc7381369353790bd0328ac3008a69323007b26b95892d315"
+    },
+    {
+      "path": "astra_reversal/openpi_inputs.py",
+      "archive": {
+        "sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+        "bytes": 5068
+      },
+      "git": {
+        "sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+        "bytes": 5068
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "4c9f27540276a7214546e6c796d8a018365af5843646a955dcf548619c4275a9",
+      "git_ast_sha256": "4c9f27540276a7214546e6c796d8a018365af5843646a955dcf548619c4275a9"
+    },
+    {
+      "path": "astra_reversal/osmo/__init__.py",
+      "archive": {
+        "sha256": "1c4837f0508d4031ba9388a08eb19623869cbff6e07df10b689e743494e81f5a",
+        "bytes": 49
+      },
+      "git": {
+        "sha256": "1c4837f0508d4031ba9388a08eb19623869cbff6e07df10b689e743494e81f5a",
+        "bytes": 49
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "3fad8a172805785cd15e44a92c39c0f1711e30afb0371733f1ccad9855209bc7",
+      "git_ast_sha256": "3fad8a172805785cd15e44a92c39c0f1711e30afb0371733f1ccad9855209bc7"
+    },
+    {
+      "path": "astra_reversal/osmo/astra_dev_smoke.py",
+      "archive": {
+        "sha256": "388cc3ca5df3fe741c55a2cfbd131583eef06eecaab25aa02afb8a7953b4ed61",
+        "bytes": 20520
+      },
+      "git": {
+        "sha256": "388cc3ca5df3fe741c55a2cfbd131583eef06eecaab25aa02afb8a7953b4ed61",
+        "bytes": 20520
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "aff822fb6750529af8db689c756815a54c75e733a3c9c3b9e609ec50547fb83b",
+      "git_ast_sha256": "aff822fb6750529af8db689c756815a54c75e733a3c9c3b9e609ec50547fb83b"
+    },
+    {
+      "path": "astra_reversal/osmo/benchmark.py",
+      "archive": {
+        "sha256": "b8f53fda128666a31522185369b0d7e79b3491e7a4a416f6fac0afd93c369834",
+        "bytes": 8096
+      },
+      "git": {
+        "sha256": "35832e85e7ac3401f84d7e057e615e04eff9f6b219eb3902f8ec8fcf57502e61",
+        "bytes": 8096
+      },
+      "byte_identical": false,
+      "ast_identical": false,
+      "archive_ast_sha256": "73cfb9070f1e779af6e3d880b846c278501e88bab8b47b258a1b278f62db23b7",
+      "git_ast_sha256": "c75585cf75a18e3a24ef2e2336407167c2709e4468cdfabdb579bf1fee3d6795"
+    },
+    {
+      "path": "astra_reversal/osmo/download_reports.py",
+      "archive": {
+        "sha256": "5426754094836288ef19e56a86883ea3d0631f6586e63d8034440fe21a84ee64",
+        "bytes": 2614
+      },
+      "git": {
+        "sha256": "5426754094836288ef19e56a86883ea3d0631f6586e63d8034440fe21a84ee64",
+        "bytes": 2614
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "2b6ae31a70e621d7821d1e5a84e0f50289665e16b8998eff0f03355c9998db2e",
+      "git_ast_sha256": "2b6ae31a70e621d7821d1e5a84e0f50289665e16b8998eff0f03355c9998db2e"
+    },
+    {
+      "path": "astra_reversal/osmo/experiment.py",
+      "archive": {
+        "sha256": "5665c9e5db2fd4e62e34cd7a2c0611a73869f5780108e66b8149de53567cc36b",
+        "bytes": 11003
+      },
+      "git": {
+        "sha256": "5665c9e5db2fd4e62e34cd7a2c0611a73869f5780108e66b8149de53567cc36b",
+        "bytes": 11003
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "14c3a24d4fc938e3ffdca6e9e578616d19cd9cfa0f9a5763def632716ecdb686",
+      "git_ast_sha256": "14c3a24d4fc938e3ffdca6e9e578616d19cd9cfa0f9a5763def632716ecdb686"
+    },
+    {
+      "path": "astra_reversal/osmo/fixed_probe.py",
+      "archive": {
+        "sha256": "90ea35a84e00d9e43945f0204b983ff844825de529cf8876439788dedf903ca7",
+        "bytes": 7684
+      },
+      "git": {
+        "sha256": "ab5ef09e76338e91309e94b97846cceafeb5172140de0a4368173dfc09b9921b",
+        "bytes": 7674
+      },
+      "byte_identical": false,
+      "ast_identical": false,
+      "archive_ast_sha256": "c4ec37b54f466908215a7c8dce9e786ceb873e45f8e19099ebca84121b215e49",
+      "git_ast_sha256": "f9d12a8d224c34633054effcb8b3fdb49b0ee6ffce9b64499127cdb6662fa187"
+    },
+    {
+      "path": "astra_reversal/osmo/ood_baseline_repair.py",
+      "archive": {
+        "sha256": "bac16514b4725b78c2cd0ff42ad825fcab72f535326423cdeaf98f4886836674",
+        "bytes": 5859
+      },
+      "git": {
+        "sha256": "bac16514b4725b78c2cd0ff42ad825fcab72f535326423cdeaf98f4886836674",
+        "bytes": 5859
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "be8cd3a0aaaa00ebc878573f9773f8d177ef2549545f15949dd32c11bf6812fd",
+      "git_ast_sha256": "be8cd3a0aaaa00ebc878573f9773f8d177ef2549545f15949dd32c11bf6812fd"
+    },
+    {
+      "path": "astra_reversal/osmo/ood_benchmark.py",
+      "archive": {
+        "sha256": "f82275b1188dc975d3da015b7683c3d6b45e0a4d1dd3d98a9039027be14fc14f",
+        "bytes": 10680
+      },
+      "git": {
+        "sha256": "f82275b1188dc975d3da015b7683c3d6b45e0a4d1dd3d98a9039027be14fc14f",
+        "bytes": 10680
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "c6dfd209dafe6f5bae731d63125fa2e210b5aaa09b6ae71af902daa94de08cab",
+      "git_ast_sha256": "c6dfd209dafe6f5bae731d63125fa2e210b5aaa09b6ae71af902daa94de08cab"
+    },
+    {
+      "path": "astra_reversal/osmo/ood_distributed.py",
+      "archive": {
+        "sha256": "1d531a018204dc3a932630d89eab76d9bde1e67e48c0259611bca5560f82f5bf",
+        "bytes": 19076
+      },
+      "git": {
+        "sha256": "1d531a018204dc3a932630d89eab76d9bde1e67e48c0259611bca5560f82f5bf",
+        "bytes": 19076
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "9f823edf41e5727b13799c1ac05059334836386b8908ebf9e5b6234c403a3be0",
+      "git_ast_sha256": "9f823edf41e5727b13799c1ac05059334836386b8908ebf9e5b6234c403a3be0"
+    },
+    {
+      "path": "astra_reversal/osmo/ood_steering.py",
+      "archive": {
+        "sha256": "a6435e5a2657dc2fbfc35f2a96d65a9f0ff975d25ebefbe34487997e04dbffd3",
+        "bytes": 35657
+      },
+      "git": {
+        "sha256": "a6435e5a2657dc2fbfc35f2a96d65a9f0ff975d25ebefbe34487997e04dbffd3",
+        "bytes": 35657
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "5f538701f7a39c8204810f58ec69b84156fff5bbe5e6adc34dfabd2cc178fdcb",
+      "git_ast_sha256": "5f538701f7a39c8204810f58ec69b84156fff5bbe5e6adc34dfabd2cc178fdcb"
+    },
+    {
+      "path": "astra_reversal/osmo/package_payload.py",
+      "archive": {
+        "sha256": "e251ce4de384aa41b95ad8986d5814bd8b626a155cd3a7f2dfa496077ef5994e",
+        "bytes": 3038
+      },
+      "git": {
+        "sha256": "e251ce4de384aa41b95ad8986d5814bd8b626a155cd3a7f2dfa496077ef5994e",
+        "bytes": 3038
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "878d79701d20c649b98f65533df2c533e7dd216527355b2bf646aaa64403ab2b",
+      "git_ast_sha256": "878d79701d20c649b98f65533df2c533e7dd216527355b2bf646aaa64403ab2b"
+    },
+    {
+      "path": "astra_reversal/osmo/proposal_probe.py",
+      "archive": {
+        "sha256": "0687e0ad505c8acd0d09c9983f1c2472ea1e500658c8a04a25be5cb79778b291",
+        "bytes": 20566
+      },
+      "git": {
+        "sha256": "0687e0ad505c8acd0d09c9983f1c2472ea1e500658c8a04a25be5cb79778b291",
+        "bytes": 20566
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "04571233593bff1b9ab1053247ca21fc854baab814381121c18da180d0965f46",
+      "git_ast_sha256": "04571233593bff1b9ab1053247ca21fc854baab814381121c18da180d0965f46"
+    },
+    {
+      "path": "astra_reversal/osmo/reversal_probe.py",
+      "archive": {
+        "sha256": "5e7ab7f27c62d28865801879cd57c933abde2c22a33987a688e59560c7072675",
+        "bytes": 8737
+      },
+      "git": {
+        "sha256": "5e7ab7f27c62d28865801879cd57c933abde2c22a33987a688e59560c7072675",
+        "bytes": 8737
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "811e77ee434847d31dc4e21526d0d1e4f53b77d691ab23aabeb9911bcfdb43ee",
+      "git_ast_sha256": "811e77ee434847d31dc4e21526d0d1e4f53b77d691ab23aabeb9911bcfdb43ee"
+    },
+    {
+      "path": "astra_reversal/osmo/runtime_probe.py",
+      "archive": {
+        "sha256": "fd199fc3161757ba239984863961c02e192982fe01269f72d79a9554dc07061c",
+        "bytes": 30960
+      },
+      "git": {
+        "sha256": "fd199fc3161757ba239984863961c02e192982fe01269f72d79a9554dc07061c",
+        "bytes": 30960
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "541b98def5042e6533c4e20ea20b6b2cc63fc9cdd7d95f627615d1f768593ee4",
+      "git_ast_sha256": "541b98def5042e6533c4e20ea20b6b2cc63fc9cdd7d95f627615d1f768593ee4"
+    },
+    {
+      "path": "astra_reversal/policy_adapter.py",
+      "archive": {
+        "sha256": "250934787e9f9fe796e126be466966998c7d30219a5fedebe2ccafc643b23b6b",
+        "bytes": 13443
+      },
+      "git": {
+        "sha256": "250934787e9f9fe796e126be466966998c7d30219a5fedebe2ccafc643b23b6b",
+        "bytes": 13443
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "2358b4986c9d8f5072773d1e7df9b0f72dbba90d27b58e6d2ca0aceddede6623",
+      "git_ast_sha256": "2358b4986c9d8f5072773d1e7df9b0f72dbba90d27b58e6d2ca0aceddede6623"
+    },
+    {
+      "path": "astra_reversal/records.py",
+      "archive": {
+        "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+        "bytes": 4350
+      },
+      "git": {
+        "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+        "bytes": 4350
+      },
+      "byte_identical": true,
+      "ast_identical": true,
+      "archive_ast_sha256": "b055e97b6500f106b314031c69ad3b44208e9796cbe1772009105d565f8699ed",
+      "git_ast_sha256": "b055e97b6500f106b314031c69ad3b44208e9796cbe1772009105d565f8699ed"
+    }
+  ],
+  "reviewed_deltas": [
+    {
+      "path": "astra_reversal/libero_runner.py",
+      "description": "Only line wrapping of the existing ValueError(\"Captured model body poses differ from the environment\") call changed; the unnormalized AST is identical.",
+      "normalization": {
+        "rule": "none",
+        "raw_ast_identical": true
+      },
+      "normalized_ast_identical": true,
+      "archive_normalized_ast_sha256": "47c948920665300bc7381369353790bd0328ac3008a69323007b26b95892d315",
+      "git_normalized_ast_sha256": "47c948920665300bc7381369353790bd0328ac3008a69323007b26b95892d315"
+    },
+    {
+      "path": "astra_reversal/osmo/benchmark.py",
+      "description": "Only ROOT and RESULTS ordering in the same from-import changed. Imported bindings are unchanged, and experiment.py declares ordinary module attributes without module __getattr__.",
+      "normalization": {
+        "rule": "Sort only names of the single top-level ImportFrom for astra_reversal.osmo.experiment in both trees; preserve aliases and all other nodes.",
+        "archive_names": [
+          {
+            "name": "ROOT",
+            "asname": null
+          },
+          {
+            "name": "RESULTS",
+            "asname": null
+          },
+          {
+            "name": "Archive",
+            "asname": null
+          },
+          {
+            "name": "write_json",
+            "asname": null
+          }
+        ],
+        "git_names": [
+          {
+            "name": "RESULTS",
+            "asname": null
+          },
+          {
+            "name": "ROOT",
+            "asname": null
+          },
+          {
+            "name": "Archive",
+            "asname": null
+          },
+          {
+            "name": "write_json",
+            "asname": null
+          }
+        ],
+        "module_getattr_defined": false
+      },
+      "normalized_ast_identical": true,
+      "archive_normalized_ast_sha256": "bff72462c60248ded33f0f963a70be6b8717585c10200affb501b9bf93c492d6",
+      "git_normalized_ast_sha256": "bff72462c60248ded33f0f963a70be6b8717585c10200affb501b9bf93c492d6"
+    },
+    {
+      "path": "astra_reversal/osmo/fixed_probe.py",
+      "description": "Only the unused top-level stdlib import os was removed. No os name references or eval/exec/globals/locals calls occur in the remaining module; all remaining AST nodes match.",
+      "normalization": {
+        "rule": "Remove exactly one unaliased top-level import os from the archive AST only; preserve all remaining nodes.",
+        "remaining_os_name_references": 0,
+        "remaining_direct_dynamic_namespace_calls": 0,
+        "namespace_caveat": "The unused module attribute fixed_probe.os disappears; no experiment execution logic uses it."
+      },
+      "normalized_ast_identical": true,
+      "archive_normalized_ast_sha256": "f9d12a8d224c34633054effcb8b3fdb49b0ee6ffce9b64499127cdb6662fa187",
+      "git_normalized_ast_sha256": "f9d12a8d224c34633054effcb8b3fdb49b0ee6ffce9b64499127cdb6662fa187"
+    }
+  ],
+  "supporting_files": [
+    {
+      "path": "astra_reversal/.gitignore",
+      "archive": {
+        "sha256": "e5f1ebed14356f93908be7c705835ac8c34657a9a60660ab25ca28256a083449",
+        "bytes": 66
+      },
+      "git": {
+        "sha256": "e5f1ebed14356f93908be7c705835ac8c34657a9a60660ab25ca28256a083449",
+        "bytes": 66
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/checkpoints/lerobot_pi05_libero_base.json",
+      "archive": {
+        "sha256": "0ef9771414297ac9110798824363c7a8ef2de5c8e96b64a69f6214f062b65382",
+        "bytes": 3999
+      },
+      "git": {
+        "sha256": "0ef9771414297ac9110798824363c7a8ef2de5c8e96b64a69f6214f062b65382",
+        "bytes": 3999
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/checkpoints/libero_runtime.json",
+      "archive": {
+        "sha256": "72add20b5bc1f407bd6ab430ac0f90d6277cd65a8c14539312220420f6dd7616",
+        "bytes": 674
+      },
+      "git": {
+        "sha256": "72add20b5bc1f407bd6ab430ac0f90d6277cd65a8c14539312220420f6dd7616",
+        "bytes": 674
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/checkpoints/openpi_libero_input_assets.json",
+      "archive": {
+        "sha256": "066dbf1f8cb1a075f240d4f5f56b14ae28661e8b1f379861ce461760165cff9f",
+        "bytes": 648
+      },
+      "git": {
+        "sha256": "066dbf1f8cb1a075f240d4f5f56b14ae28661e8b1f379861ce461760165cff9f",
+        "bytes": 648
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/checkpoints/paligemma_tokenizer.json",
+      "archive": {
+        "sha256": "607c9048c69d75ea38ade5339a95290783c8a6cc1ae9eb2249495723037b6ca9",
+        "bytes": 2172
+      },
+      "git": {
+        "sha256": "607c9048c69d75ea38ade5339a95290783c8a6cc1ae9eb2249495723037b6ca9",
+        "bytes": 2172
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/configs/pi05_libero_native_baseline.json",
+      "archive": {
+        "sha256": "42fabb60f283548721759e1bee8e319f840483d42508dfca294f5fd19f5d8363",
+        "bytes": 1478
+      },
+      "git": {
+        "sha256": "42fabb60f283548721759e1bee8e319f840483d42508dfca294f5fd19f5d8363",
+        "bytes": 1478
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/configs/pi05_libero_native_baseline_mps.json",
+      "archive": {
+        "sha256": "0a3be1b40731a77cad7613aa8dc8fa034244f90fd5d67c32b1a60c8b6ea0599b",
+        "bytes": 1478
+      },
+      "git": {
+        "sha256": "0a3be1b40731a77cad7613aa8dc8fa034244f90fd5d67c32b1a60c8b6ea0599b",
+        "bytes": 1478
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/configs/pi05_libero_openpi_inputs_baseline.json",
+      "archive": {
+        "sha256": "79dd750b8e70ff8717bb535fd120104e82050ca6c2a17f7442695665520f6632",
+        "bytes": 1586
+      },
+      "git": {
+        "sha256": "79dd750b8e70ff8717bb535fd120104e82050ca6c2a17f7442695665520f6632",
+        "bytes": 1586
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/configs/pi05_libero_openpi_inputs_reversal.json",
+      "archive": {
+        "sha256": "d078f09f8d507a8e7a8b428e6ef4c9bf9ddc218a61873d8a1f91ed3587796474",
+        "bytes": 1603
+      },
+      "git": {
+        "sha256": "d078f09f8d507a8e7a8b428e6ef4c9bf9ddc218a61873d8a1f91ed3587796474",
+        "bytes": 1603
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/configs/pi05_libero_reversal.json",
+      "archive": {
+        "sha256": "eeebf872596531bb513e2ca1d093767758e2e447d1209f1c03b99920f3aab205",
+        "bytes": 1474
+      },
+      "git": {
+        "sha256": "eeebf872596531bb513e2ca1d093767758e2e447d1209f1c03b99920f3aab205",
+        "bytes": 1474
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/astra_dev_smoke_l40s.yaml",
+      "archive": {
+        "sha256": "2007f4527f2dacbc4f7ec0c6b9015d0aa8cc0eff5067d391792c311c3f4dfdb5",
+        "bytes": 1265
+      },
+      "git": {
+        "sha256": "2007f4527f2dacbc4f7ec0c6b9015d0aa8cc0eff5067d391792c311c3f4dfdb5",
+        "bytes": 1265
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/benchmark_l40s.yaml",
+      "archive": {
+        "sha256": "85fb684290dff1de4941b6c51e932d9e764c0885599ba135fdfedd99494e0542",
+        "bytes": 837
+      },
+      "git": {
+        "sha256": "85fb684290dff1de4941b6c51e932d9e764c0885599ba135fdfedd99494e0542",
+        "bytes": 837
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/bootstrap.sh",
+      "archive": {
+        "sha256": "a39064e2dcdc9286b41726d6dea14741d6dfbef88ae52e6689be0b0f29cff862",
+        "bytes": 3701
+      },
+      "git": {
+        "sha256": "a39064e2dcdc9286b41726d6dea14741d6dfbef88ae52e6689be0b0f29cff862",
+        "bytes": 3701
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/fixed_l40s.yaml",
+      "archive": {
+        "sha256": "8e5bb86151eb8c4ddf2d6ec52c584516667b51e582a56194204288afa263ff44",
+        "bytes": 805
+      },
+      "git": {
+        "sha256": "8e5bb86151eb8c4ddf2d6ec52c584516667b51e582a56194204288afa263ff44",
+        "bytes": 805
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/l40s.yaml",
+      "archive": {
+        "sha256": "99e5a7b4d91a88038c4cfdd25cc894000f2bf1dfc827cbc74b7e83e1d73e97df",
+        "bytes": 743
+      },
+      "git": {
+        "sha256": "99e5a7b4d91a88038c4cfdd25cc894000f2bf1dfc827cbc74b7e83e1d73e97df",
+        "bytes": 743
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/ood_baseline_l40s.yaml",
+      "archive": {
+        "sha256": "81c51a14800c4b988e97426f5dcb4d8e93e2400f3cf88f1f13eed57ddd5e813e",
+        "bytes": 867
+      },
+      "git": {
+        "sha256": "81c51a14800c4b988e97426f5dcb4d8e93e2400f3cf88f1f13eed57ddd5e813e",
+        "bytes": 867
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/ood_distributed_l40s.yaml",
+      "archive": {
+        "sha256": "eaec40644bec4f3388f91daf63a946bd0397b552d62c119db638369f394da01a",
+        "bytes": 2563
+      },
+      "git": {
+        "sha256": "eaec40644bec4f3388f91daf63a946bd0397b552d62c119db638369f394da01a",
+        "bytes": 2563
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/ood_repair_l40s.yaml",
+      "archive": {
+        "sha256": "aaef3fe75b0ea7c5a45ab2b58d1227ff078d014dfc52adb3699d225db3747a72",
+        "bytes": 879
+      },
+      "git": {
+        "sha256": "aaef3fe75b0ea7c5a45ab2b58d1227ff078d014dfc52adb3699d225db3747a72",
+        "bytes": 879
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/ood_steering_l40s.yaml",
+      "archive": {
+        "sha256": "437186250b369517e3c9b4ae988695510fa4a13f62e91349047dede4e94fc1fc",
+        "bytes": 1560
+      },
+      "git": {
+        "sha256": "437186250b369517e3c9b4ae988695510fa4a13f62e91349047dede4e94fc1fc",
+        "bytes": 1560
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/reversal_l40s.yaml",
+      "archive": {
+        "sha256": "32060fdb777064dc8a7542875c0b6e591d163a53cd77b6f707ffcb41f46aeb61",
+        "bytes": 811
+      },
+      "git": {
+        "sha256": "32060fdb777064dc8a7542875c0b6e591d163a53cd77b6f707ffcb41f46aeb61",
+        "bytes": 811
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/osmo/runtime_probe_l40s.yaml",
+      "archive": {
+        "sha256": "aec9600fa4bde22c15c464a2222501ae14bc9e6fad8d3000e58af0c13b54edc4",
+        "bytes": 809
+      },
+      "git": {
+        "sha256": "aec9600fa4bde22c15c464a2222501ae14bc9e6fad8d3000e58af0c13b54edc4",
+        "bytes": 809
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/requirements-lerobot.txt",
+      "archive": {
+        "sha256": "d7b84aac63d581396e4d36b183daf22233f26483357b09d9c6d6ff907f0c4211",
+        "bytes": 393
+      },
+      "git": {
+        "sha256": "d7b84aac63d581396e4d36b183daf22233f26483357b09d9c6d6ff907f0c4211",
+        "bytes": 393
+      },
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/requirements-libero.txt",
+      "archive": {
+        "sha256": "8d9cf6edd39eb97e78cdd50cdb34d8035d9125046ec6b4a8371e97affc5fb8b7",
+        "bytes": 303
+      },
+      "git": {
+        "sha256": "8d9cf6edd39eb97e78cdd50cdb34d8035d9125046ec6b4a8371e97affc5fb8b7",
+        "bytes": 303
+      },
+      "byte_identical": true
+    }
+  ],
+  "core_to_execution": [
+    {
+      "path": "astra_reversal/__init__.py",
+      "core_sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036",
+      "execution_sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036",
+      "bytes": 230,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/__main__.py",
+      "core_sha256": "d18a389f1ad96cbda9d85c5b379b809e9e12b2a61aac5706f7d85a7f22d30afc",
+      "execution_sha256": "d18a389f1ad96cbda9d85c5b379b809e9e12b2a61aac5706f7d85a7f22d30afc",
+      "bytes": 15922,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/action_adapter.py",
+      "core_sha256": "4e3b800923761aae73933340c646db945399005eec3b7e0c9dc933db69cb84e6",
+      "execution_sha256": "4e3b800923761aae73933340c646db945399005eec3b7e0c9dc933db69cb84e6",
+      "bytes": 7127,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/adaptive_probe.py",
+      "core_sha256": "ef6c2dc1aeb92cffa42433d86f82f78949b016878b97e5f3e05502269d3afcb0",
+      "execution_sha256": "ef6c2dc1aeb92cffa42433d86f82f78949b016878b97e5f3e05502269d3afcb0",
+      "bytes": 2508,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/agent.py",
+      "core_sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741",
+      "execution_sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741",
+      "bytes": 13985,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/augmentation.py",
+      "core_sha256": "de639ef3a64721e2af0a12604292c8a3409a7b7c0914c13488f11c9b8575d364",
+      "execution_sha256": "de639ef3a64721e2af0a12604292c8a3409a7b7c0914c13488f11c9b8575d364",
+      "bytes": 1877,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/checkpoint.py",
+      "core_sha256": "813ab81f6ce1bc39b990707f179ded9e752f9402f494c9ee708836a51aeeefad",
+      "execution_sha256": "813ab81f6ce1bc39b990707f179ded9e752f9402f494c9ee708836a51aeeefad",
+      "bytes": 3096,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/config.py",
+      "core_sha256": "2afe7c901e0fd0b339cec2f37c62efb46ce5b0621199acd454c41c31327f4e21",
+      "execution_sha256": "2afe7c901e0fd0b339cec2f37c62efb46ce5b0621199acd454c41c31327f4e21",
+      "bytes": 8181,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/controller.py",
+      "core_sha256": "b8de844cf752be00cddc23d0981a4aafdfce6acca7428d5f0dd3788e69304059",
+      "execution_sha256": "b8de844cf752be00cddc23d0981a4aafdfce6acca7428d5f0dd3788e69304059",
+      "bytes": 26806,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/diagnostics.py",
+      "core_sha256": "d2d5ec65b239d4afbb06cf78cc5ad8989f89587f42708685e887cf3e0b13a80a",
+      "execution_sha256": "d2d5ec65b239d4afbb06cf78cc5ad8989f89587f42708685e887cf3e0b13a80a",
+      "bytes": 6189,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/evaluate.py",
+      "core_sha256": "251795fe4011813d0ee6f233afac7a4a11bf5c625743cd2cd6b1cd285fddafba",
+      "execution_sha256": "251795fe4011813d0ee6f233afac7a4a11bf5c625743cd2cd6b1cd285fddafba",
+      "bytes": 7707,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/flow.py",
+      "core_sha256": "98f54818bc99ca10c53d723f27a8763023403a70a5bf839dd038a4a1742f1784",
+      "execution_sha256": "98f54818bc99ca10c53d723f27a8763023403a70a5bf839dd038a4a1742f1784",
+      "bytes": 4586,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/lerobot_policy.py",
+      "core_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+      "execution_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+      "bytes": 15520,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/libero_runner.py",
+      "core_sha256": "4f96aca61c2d8534377ba6ad92e946b9aba2432f5643fb3c5444177045cad61b",
+      "execution_sha256": "4f96aca61c2d8534377ba6ad92e946b9aba2432f5643fb3c5444177045cad61b",
+      "bytes": 16825,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/openpi_inputs.py",
+      "core_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+      "execution_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+      "bytes": 5068,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/policy_adapter.py",
+      "core_sha256": "250934787e9f9fe796e126be466966998c7d30219a5fedebe2ccafc643b23b6b",
+      "execution_sha256": "250934787e9f9fe796e126be466966998c7d30219a5fedebe2ccafc643b23b6b",
+      "bytes": 13443,
+      "byte_identical": true
+    },
+    {
+      "path": "astra_reversal/records.py",
+      "core_sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+      "execution_sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+      "bytes": 4350,
+      "byte_identical": true
+    }
+  ],
+  "expected_exclusions": {
+    "markdown_files": [
+      "astra_reversal/SPEC.md"
+    ],
+    "archive_only_python": [
+      {
+        "path": "astra_reversal/ood_report.py",
+        "archive": {
+          "sha256": "60ef57b3aeb79957307f1cb8ecc5cb132bbe3a91997d5f5e52738c6bedbf1918",
+          "bytes": 41034
+        },
+        "reason": "Reporting postprocessor belongs to the separate reporting PR and does not execute controller or OOD worker logic."
+      }
+    ],
+    "tests": "Root tests and payload tests are excluded; their relocation and path bootstrap changes were authorized separately.",
+    "report_snapshots": "Reviewed for specific diagnostic/input/source bindings below, not asserted byte-identical to historical payload documentation."
+  },
+  "diagnostic_bindings": {
+    "runtime_gate": {
+      "archive_path": "astra_reversal/.deps/ood-inputs/runtime_diagnostics.json",
+      "archive": {
+        "sha256": "c9629a7b0d3d2447f1eaaf168479b1572665e44e93912649450f31e91cadd788",
+        "bytes": 1452975
+      },
+      "compact_snapshot_path": "astra_reversal/reports/runtime_numerics.json",
+      "compact_snapshot": {
+        "sha256": "fc2de163b9a6131909d059a787914d5de2993443d75d07bdcfc069601be5ae70",
+        "bytes": 171471
+      },
+      "compact_source_report_sha256": "c9629a7b0d3d2447f1eaaf168479b1572665e44e93912649450f31e91cadd788",
+      "proposal_recorded_runtime_sha256": "c9629a7b0d3d2447f1eaaf168479b1572665e44e93912649450f31e91cadd788",
+      "matched": true
+    },
+    "genuine_proposal_preflight": {
+      "path_relative_to_workspace": "astra_reversal/reports/astra_proposal_preflight.json",
+      "snapshot": {
+        "sha256": "5bb35d7416a46dced3080541918ee664818dd16321abde84ac59c68e5bfa2c63",
+        "bytes": 10983
+      },
+      "actual_model": "azure/openai/gpt-6-astra",
+      "status": "passed",
+      "request_fingerprint": "e045bc9bffc6ec5e1d5a63762a2f72973b9c89f721f812eff64cf3128c8872db",
+      "observation_id": "249335f684b3830fc92e1e958c2e6d36810321eaefe67e6a334eae834af66b67",
+      "known_generating_noise_for_astra": null,
+      "scope": "Saved genuine proposal round trip; its known-noise metric concerns a separate policy-generated sample."
+    },
+    "proposal_inputs": [
+      {
+        "path": "astra_reversal/.deps/astra-proposal-input/request.json",
+        "archive": {
+          "sha256": "1742730edff547cf932d7233785e31556dfcd4bbede22ab8b90bc8f2bddfd777",
+          "bytes": 149473
+        },
+        "preflight_recorded_sha256": "1742730edff547cf932d7233785e31556dfcd4bbede22ab8b90bc8f2bddfd777",
+        "matched": true
+      },
+      {
+        "path": "astra_reversal/.deps/astra-proposal-input/response.json",
+        "archive": {
+          "sha256": "83148481657a8691c8a189f7b061e47906914f3692369157ba0a4db9282b6643",
+          "bytes": 725
+        },
+        "preflight_recorded_sha256": "83148481657a8691c8a189f7b061e47906914f3692369157ba0a4db9282b6643",
+        "matched": true
+      },
+      {
+        "path": "astra_reversal/.deps/astra-proposal-input/provider.jsonl",
+        "archive": {
+          "sha256": "7cc876e14ae8e65d230b1d766aa9bb55589a0a2397790841e60163b26cfdf951",
+          "bytes": 4449
+        },
+        "preflight_recorded_sha256": "7cc876e14ae8e65d230b1d766aa9bb55589a0a2397790841e60163b26cfdf951",
+        "matched": true
+      }
+    ],
+    "source_hash_bindings": [
+      {
+        "label": "genuine proposal probe",
+        "path": "astra_reversal/osmo/proposal_probe.py",
+        "archive_sha256": "0687e0ad505c8acd0d09c9983f1c2472ea1e500658c8a04a25be5cb79778b291",
+        "execution_sha256": "0687e0ad505c8acd0d09c9983f1c2472ea1e500658c8a04a25be5cb79778b291",
+        "diagnostic_recorded_sha256": "0687e0ad505c8acd0d09c9983f1c2472ea1e500658c8a04a25be5cb79778b291",
+        "matched": true
+      },
+      {
+        "label": "recorded-condition runtime probe",
+        "path": "astra_reversal/osmo/runtime_probe.py",
+        "archive_sha256": "fd199fc3161757ba239984863961c02e192982fe01269f72d79a9554dc07061c",
+        "execution_sha256": "fd199fc3161757ba239984863961c02e192982fe01269f72d79a9554dc07061c",
+        "diagnostic_recorded_sha256": "fd199fc3161757ba239984863961c02e192982fe01269f72d79a9554dc07061c",
+        "matched": true
+      },
+      {
+        "label": "runtime checkpoint adapter",
+        "path": "astra_reversal/lerobot_policy.py",
+        "archive_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+        "execution_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+        "diagnostic_recorded_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+        "matched": true
+      },
+      {
+        "label": "runtime input profile",
+        "path": "astra_reversal/openpi_inputs.py",
+        "archive_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+        "execution_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+        "diagnostic_recorded_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+        "matched": true
+      },
+      {
+        "label": "proposal checkpoint adapter",
+        "path": "astra_reversal/lerobot_policy.py",
+        "archive_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+        "execution_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+        "diagnostic_recorded_sha256": "7ee259f55a2f48700ac317c6752f1fd46ba422c2a97edcb18811d31dd9f2baaa",
+        "matched": true
+      },
+      {
+        "label": "proposal input profile",
+        "path": "astra_reversal/openpi_inputs.py",
+        "archive_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+        "execution_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+        "diagnostic_recorded_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+        "matched": true
+      }
+    ]
+  },
+  "documentation_review": {
+    "reviewed_paths": [
+      "astra_reversal/README.md",
+      "astra_reversal/RESULTS.md",
+      "astra_reversal/NUMERICAL_RESULTS.md",
+      "astra_reversal/reports/README.md"
+    ],
+    "finding": "No severe inconsistency found in the reviewed snapshot bindings or interpretation. Documents distinguish pending Stage 1 outcomes, TF32 settings, and the absence of known generating policy noise for Astra actions.",
+    "scope": "Documentation snapshot review, not a live benchmark status assertion."
+  },
+  "operations": {
+    "gpu_solves": 0,
+    "api_calls": 0,
+    "benchmark_jobs": 0,
+    "source_edits": 0,
+    "git_mutations": 0,
+    "output": "This operational JSON report only."
+  }
+}

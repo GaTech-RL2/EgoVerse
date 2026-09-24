@@ -1,4 +1,5 @@
 !osmo/
+!reports/astra_development_smoke.mp4
 .deps/
 artifacts/
 __pycache__/

@@ -1,6 +1,6 @@
 # Measured LIBERO and flow-reversal results
 
-Measured on 2026-09-24 using OSMO L40S GPUs. The selected checkpoint is frozen; no training or weight conversion was performed. This snapshot contains completed policy baselines and development numerical checks. Paired RK4 OOD controls, genuine Stage 1 closed-loop evaluation, and the live development integration smoke remain pending; no Astra success-rate improvement or Stage 2 result is reported. Compact evidence is tracked in [reports/](reports/README.md).
+Measured on 2026-09-24 using OSMO L40S GPUs. The selected checkpoint is frozen; no training or weight conversion was performed. This snapshot contains completed policy baselines, initial numerical gates, and a genuine Astra development rollout that failed numerical validation and task completion. Paired RK4 OOD controls and Stage 1 OOD evaluation remain in progress; no Astra success-rate improvement or Stage 2 result is reported. Compact evidence is tracked in [reports/](reports/README.md).
 
 ## Weight loading
 
@@ -81,9 +81,26 @@ All 14 saved standard-LIBERO development conditions passed cubic-grid RK4 at 100
 
 The authenticated NVIDIA endpoint returned a valid Stage 1 proposal from `azure/openai/gpt-6-astra` for a real two-camera development observation, and authenticated vision inference also succeeded from the OSMO worker. The [genuine-proposal GPU preflight](reports/astra_proposal_preflight.json) passed with maximum direct controller replay error **1.32135e-7**, before clipping, and maximum full internal reconstruction error **1.41561e-7**. The tracked report preserves model identity, request/response/provider hashes, and the measured errors. The original images, numeric response, and provider usage remain in the [optional local vision-smoke artifacts](artifacts/astra_vision_smoke).
 
-There is no known generating policy noise for Astra's actions. The preflight's known-noise result belongs to a separate policy-generated sample. See the [numerical audit](NUMERICAL_RESULTS.md). Paired OOD fresh-noise, reused-noise, and Astra-reversal work is in progress, with final results pending. The genuine closed-loop development smoke is also pending. Its one standard development episode uses the unchanged 520-action preset because validation disallows an 80-action budget; it is an interface check without a benchmark success-rate claim. The current experiment concerns Stage 1; Stage 2 augmentation has no measured result here.
+There is no known generating policy noise for Astra's actions. The preflight's known-noise result belongs to a separate policy-generated sample. See the [numerical audit](NUMERICAL_RESULTS.md). Paired OOD fresh-noise, reused-noise, and Astra-reversal work is in progress, with final results pending. The current experiment concerns Stage 1; Stage 2 augmentation has no measured result here.
 
 The Euler baseline enables TF32 while the matched RK4 conditions disable it. Comparisons against Euler therefore include solver and runtime changes. The three matched conditions share those numerical settings and frozen reset states, enabling paired assessment of noise reuse and Astra steering without that solver/runtime difference. Numerical reconstruction alone does not establish control quality or OOD improvement.
+
+## Genuine development rollout: numerical and task failures
+
+The full standard LIBERO-10 task-0/state-0 smoke used seed 7 and the frozen RK4/100 configuration. It completed 520 actions without an execution exception or fallback, but the task was unsuccessful and no subgoal was completed. Its 32 actual Astra calls yielded 28 accepted proposals; four exhausted-subgoal responses were rejected and regenerated. Episode wall time was 1,169.21 seconds, with 52,800 velocity evaluations. This single development episode is not a benchmark success-rate estimate.
+
+All 28 inverse/first-forward pairs used identical recorded conditions and exact recovered latents. The worker verified 856 array files. All 104 forward generations retained the intended latent, including 76 later generations with advancing steps and changed observation IDs. Independent local checks reproduced the binding of every accepted proposal to the original provider response and configured model.
+
+The unchanged maximum full-internal-error limit of 0.02 passed on **26/28** proposals and failed on two:
+
+| Observation step | Maximum full internal error | Per-plan RMSE |
+|---:|---:|---:|
+| 330 | 0.459374666 | 0.028102330 |
+| 485 | 0.118616998 | 0.006661244 |
+
+These errors are in normalized model coordinates, including all 32 channels; they are not decoded controller errors or known-noise recovery measurements. The same failures appear in the first seven channels, while padding errors remain below 0.000877. The workflow returned `complete_with_issues` / exit 2 for this numerical negative. The cause has not been isolated. The initial policy-generated gate and one-proposal preflight were insufficient to establish coverage for this live rollout.
+
+See the exact [worker summary](reports/astra_development_smoke.json), [review and provenance checks](reports/astra_development_review.json), and unchanged [rollout video](reports/astra_development_smoke.mp4). The full 102,180,346-byte archive is preserved under the recorded workflow prefix. OOD runs retain their frozen settings, and their task scores will be reported together with runtime reconstruction failures. No tolerances or prompts were changed to remove this negative result.
 
 ## Validation
 

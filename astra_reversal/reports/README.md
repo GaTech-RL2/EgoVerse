@@ -1,9 +1,10 @@
 # Review snapshots — 2026-09-24
 
-These small text reports make the completed measurements reviewable without
-downloading worker archives. They contain no binary arrays, images, raw provider
-response bodies, credentials, or signed download URLs. No new inference calls
-or numerical solves were performed to create them.
+These compact reports and one original development video make the completed
+measurements reviewable without downloading worker archives. They contain no
+lossless tensor arrays, raw provider response bodies, credentials, or signed
+download URLs. No new inference calls or numerical solves were performed to
+create the review copies.
 
 | File | Content | Relationship to worker artifacts |
 |---|---|---|
@@ -11,14 +12,19 @@ or numerical solves were performed to create them.
 | [ood_baseline_tasks.csv](ood_baseline_tasks.csv) | All 20 task names, denominators, successes, errors, actions, and costs | Unchanged copy of the aggregator's task table |
 | [runtime_numerics.json](runtime_numerics.json) | All 14 conditions at each of RK4/100, /200, and /500; full error metrics, costs, native parity, source/checkpoint identities, and artifact hashes | Compact review summary of the 1.45 MB numerical gate |
 | [astra_proposal_preflight.json](astra_proposal_preflight.json) | Passed genuine Stage 1 proposal round trip, actual model, request/response/provider hashes, controller and full internal errors | Unchanged copy of the GPU preflight report |
+| [astra_development_smoke.json](astra_development_smoke.json) | Exact completed development episode summary: unsuccessful task, 26/28 roundtrips passing, zero fallback | Unchanged worker summary |
+| [astra_development_review.json](astra_development_review.json) | All 28 recorded roundtrip metrics and independently checked provider/observation bindings; two numerical failures retained | Unchanged read-only review report |
+| [astra_development_smoke.mp4](astra_development_smoke.mp4) | Original 211 KB video of the unsuccessful 520-action development episode | Unchanged worker video |
+| [payload_source_parity.json](payload_source_parity.json) | Execution/core commit identities versus frozen payload; exact file hashes and three harmless formatting/import differences | Code-identity review, not an implementation-correctness proof |
 | [snapshot_sources.json](snapshot_sources.json) | Source paths, source and snapshot SHA-256 values, sizes, and copy/compaction descriptions | Snapshot provenance manifest |
 
 The standard LIBERO-10 455/500 baseline is already tracked in
 [checkpoints/libero_l40s_full_baseline.json](../checkpoints/libero_l40s_full_baseline.json).
 The interpretation and protocol limits are in [RESULTS.md](../RESULTS.md) and
 [NUMERICAL_RESULTS.md](../NUMERICAL_RESULTS.md). Paired RK4 OOD controls, genuine
-Stage 1 closed-loop evaluation, and the live development integration smoke are
-pending in this snapshot.
+Stage 1 OOD evaluation remain in progress in this snapshot. The live development
+smoke completed with numerical issues: two same-condition roundtrips exceeded
+the unchanged 0.02 internal-space limit, and the task separately failed.
 
 The numerical summary preserves all 42 condition/candidate metric rows without
 rounding. Common condition provenance appears once in `full_condition_order`,

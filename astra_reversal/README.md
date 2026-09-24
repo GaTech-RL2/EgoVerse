@@ -5,11 +5,10 @@ policy and genuine Astra proposals. Experiment code, isolated dependencies, and
 records live in this directory; existing training code is unchanged.
 
 **Status on 2026-09-24:** the policy baselines and development numerical gates
-are complete. The actual Astra client is configured and its genuine Stage 1
-proposal passed GPU inversion/reconstruction. Paired OOD controls, Stage 1
-closed-loop evaluation, and the live development integration smoke remain
-pending in this documentation snapshot. No Astra success-rate improvement or
-Stage 2 result is reported.
+are complete. The initial numerical gates passed, but the subsequent genuine
+Astra development rollout failed the roundtrip limit on 2 of 28 proposals and
+did not complete its task. Paired OOD controls and Stage 1 OOD steering remain
+in progress. No Astra success-rate improvement or Stage 2 result is reported.
 
 | Completed measurement | Result | Tracked evidence |
 |---|---|---|
@@ -17,6 +16,7 @@ Stage 2 result is reported.
 | Released LIBERO-OOD, Euler-10 fresh noise, TF32 on | 86/200 (43.0%): Goal 47/100, Spatial 39/100; zero canonical execution errors | [Repaired baseline report](reports/ood_baseline.json), [20-task table](reports/ood_baseline_tasks.csv) |
 | Recorded-condition flow gate, TF32 off | Cubic RK4/100 passed all 14 development conditions; maximum known-noise error 0.000335217 | [Numerical summary](reports/runtime_numerics.json) |
 | Genuine Astra proposal, cubic RK4/100 | Direct controller replay maximum error 1.32135e-7 before clipping | [Proposal preflight](reports/astra_proposal_preflight.json) |
+| Genuine closed-loop development rollout | 26/28 roundtrips within 0.02; worst internal error 0.459375. Task failed at 520 actions, with zero execution errors/fallbacks | [Development audit](reports/astra_development_review.json), [video](reports/astra_development_smoke.mp4) |
 
 The OOD baseline replaces the entire 25-episode shard affected by a CUDA failure,
 including its previously successful episodes. Its original and replacement
@@ -98,6 +98,18 @@ actions have **no known generating policy noise**. The report's known-noise metr
 comes from a separate policy-generated sample on the same observation. A passing
 preflight establishes numerical reconstruction under fixed conditioning; it
 does not establish useful proposals or successful closed-loop control.
+
+The subsequent [development episode](reports/astra_development_smoke.json) made
+32 real Astra calls and accepted 28 plans. Four exhausted-subgoal responses were
+rejected and regenerated. All 104 generations used the recorded recovered
+latent, including 76 fresh-observation reuses. Nevertheless, proposals at steps
+330 and 485 failed the unchanged full internal reconstruction limit, with
+maximum errors 0.459375 and 0.118617. The audit verified their identical
+conditioning and exact latent hashes. These are normalized model-space errors;
+they are separate from the preflight's decoded controller metric. The earlier
+14 policy-generated conditions and one genuine proposal did not establish
+coverage for arbitrary Astra endpoints. Current OOD configurations remain frozen,
+and their final results will include the observed numerical failures.
 
 ## Numerical gate and paired OOD controls
 

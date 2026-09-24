@@ -1,11 +1,11 @@
 {
   "schema_version": "1.0",
   "snapshot_date": "2026-09-24",
-  "scope": "Completed baseline and development numerical measurements only. Paired RK4 OOD controls, Stage 1 reversal, and the live development integration smoke remain pending at this documentation snapshot.",
+  "scope": "Completed baselines, initial numerical gates, and the genuine Stage 1 development rollout, which failed numerical validation and task completion. Full paired OOD results remain pending.",
   "notes": [
     "No new model calls or numerical solves were performed to create these review snapshots.",
     "Original run paths and workflow identifiers are retained as provenance, not as tracked artifacts.",
-    "Raw images, tensors, provider response bodies, credentials, and signed download URLs are excluded."
+    "Raw lossless image/tensor arrays, provider response bodies, credentials, and signed download URLs are excluded; one original compressed development video is included."
   ],
   "files": [
     {
@@ -50,6 +50,50 @@
         "path_relative_to_astra_reversal": "artifacts/osmo_runtime_l40s/runtime_diagnostics.json",
         "sha256": "c9629a7b0d3d2447f1eaaf168479b1572665e44e93912649450f31e91cadd788",
         "bytes": 1452975
+      }
+    },
+    {
+      "report": "astra_development_smoke.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "4563d2c7f3a0e995f6a973fc027b8c82a407935ae375bf932b06f5aa8e26bca3",
+      "bytes": 5341,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_astra_dev_smoke/development_smoke.json",
+        "sha256": "4563d2c7f3a0e995f6a973fc027b8c82a407935ae375bf932b06f5aa8e26bca3",
+        "bytes": 5341
+      }
+    },
+    {
+      "report": "astra_development_review.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "3e0c651ab3d3779f484ca757470241c44fd1f841156c0851b9d02ee749f30541",
+      "bytes": 37811,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_astra_dev_smoke/review_summary.json",
+        "sha256": "3e0c651ab3d3779f484ca757470241c44fd1f841156c0851b9d02ee749f30541",
+        "bytes": 37811
+      }
+    },
+    {
+      "report": "astra_development_smoke.mp4",
+      "transformation": "byte-for-byte copy",
+      "sha256": "48e05439f6a881070b0e78ac1ddcdb91f5ba5314e7e95585465ec4b504551e51",
+      "bytes": 211493,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_astra_dev_smoke/reversal/episode_00000.mp4",
+        "sha256": "48e05439f6a881070b0e78ac1ddcdb91f5ba5314e7e95585465ec4b504551e51",
+        "bytes": 211493
+      }
+    },
+    {
+      "report": "payload_source_parity.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "78f1eac33dcdf9e34b304807db795c279bc90e1851cacab31e4cc41085963ebb",
+      "bytes": 45954,
+      "source": {
+        "path_relative_to_astra_reversal": ".deps/payload-source-parity.json",
+        "sha256": "78f1eac33dcdf9e34b304807db795c279bc90e1851cacab31e4cc41085963ebb",
+        "bytes": 45954
       }
     }
   ],
