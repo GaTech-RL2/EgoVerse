@@ -31,7 +31,8 @@ from egomimic.utils.git_info import git_sha
 
 logger = logging.getLogger(__name__)
 
-KEY_VERSION = 2
+# 3: rows come from the per-episode sample store (episode_norm_samples).
+KEY_VERSION = 3
 # Resolver fields that say where the data lives, not what it is.
 _LOCATION_FIELDS = (
     "folder_path",
@@ -154,6 +155,7 @@ def cache_inputs(
     dataset_cfg,
     sample_frac: float,
     pool_horizon: bool = False,
+    max_samples: int | None = None,
 ) -> dict:
     """Everything the key hashes. ``episodes`` maps episode hash to its
     ``episode_fingerprint``. norm_mode is not an input: every stat is computed
@@ -166,6 +168,7 @@ def cache_inputs(
         "recipe": recipe_inputs(cfg),
         "sample_frac": float(sample_frac),
         "pool_horizon": bool(pool_horizon),
+        "max_samples": None if max_samples is None else int(max_samples),
         "code": code_hash(cfg),
     }
 
