@@ -1,0 +1,32 @@
+workflow:
+  name: astra-pi05-ood-baseline-repair-20260924
+  resources:
+    default:
+      cpu: 12
+      gpu: 1
+      memory: 64Gi
+      storage: 128Gi
+      platform: ovx-l40s
+  timeout:
+    queue_timeout: 4h
+    exec_timeout: 2h
+  tasks:
+  - name: libero
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: [bash]
+    args: [/tmp/astra-bootstrap.sh]
+    environment:
+      PAYLOAD_SHA256: "{{payload_sha256}}"
+      ASTRA_RUN_ID: "{{workflow_id}}"
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.ood_baseline_repair
+      ASTRA_INCLUDE_OOD: "1"
+      CUDA_LAUNCH_BLOCKING: "1"
+      NVIDIA_DRIVER_CAPABILITIES: all
+    credentials:
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+        R2_ENDPOINT_URL: r2_endpoint_url
+    files:
+    - localpath: bootstrap.sh
+      path: /tmp/astra-bootstrap.sh
