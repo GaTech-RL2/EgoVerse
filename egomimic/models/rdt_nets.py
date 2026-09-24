@@ -80,6 +80,8 @@ class RDTConditions:
     state: Optional[torch.Tensor] = None  # (B, K, D)
     lang: Optional[torch.Tensor] = None  # (B, L, D)
     lang_mask: Optional[torch.Tensor] = None  # (B, L) bool, True = attend
+    memory: Optional[torch.Tensor] = None  # (B, M, D), self-attended
+    memory_mask: Optional[torch.Tensor] = None  # (B, M) bool, True = attend
 
     def __len__(self):
         return self.img.shape[0]
@@ -169,8 +171,8 @@ class RDTBlock(nn.Module):
         self.norm3 = nn.RMSNorm(hidden_size, eps=1e-6)
         self.ffn = _Mlp(hidden_size, int(hidden_size * mlp_ratio))
 
-    def forward(self, x, c, mask=None):
-        x = x + self.attn(self.norm1(x))
+    def forward(self, x, c, mask=None, self_mask=None):
+        x = x + self.attn(self.norm1(x), mask=self_mask)
         x = x + self.cross_attn(self.norm2(x), c, mask)
         return x + self.ffn(self.norm3(x))
 
@@ -215,20 +217,27 @@ class RDTBackbone(nn.Module):
         t = self.t_embedder(t.reshape(-1)).unsqueeze(1).expand(batch_size, -1, -1)
         return torch.cat([t, self.freq_embedder(freq.reshape(-1)).unsqueeze(1)], dim=1)
 
-    def forward(self, h: torch.Tensor, cond: "RDTConditions") -> torch.Tensor:
+    def forward(
+        self,
+        h: torch.Tensor,
+        cond: "RDTConditions",
+        self_mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """``self_mask`` (B, N) bool: which of ``h``'s tokens may be attended
+        to (padded memory steps may not)."""
         conds = [(cond.img, None)]
         if cond.lang is not None:
             conds.insert(0, (cond.lang, cond.lang_mask))
         for i, block in enumerate(self.blocks):
             c, mask = conds[i % len(conds)]
-            h = block(h, c, mask)
+            h = block(h, c, mask, self_mask)
         return h
 
 
 class RDTDenoiser(nn.Module):
     """One embodiment's view of RDT: the action adaptor, the position table of
-    ``[timestep; ctrl freq; state tokens; noisy action chunk]`` and the output
-    layer. The blocks in between are ``cond.backbone``, shared across
+    ``[timestep; ctrl freq; state tokens; memory tokens; noisy action chunk]``
+    and the output layer. The blocks in between are ``cond.backbone``, shared across
     embodiments. ``forward`` has the ``model(x_t, t, cond)`` signature of the
     other denoising nets, with ``cond`` an ``RDTConditions``.
 
@@ -243,14 +252,16 @@ class RDTDenoiser(nn.Module):
         hidden_dim: int = 1024,
         n_state_tokens: int = 1,
         time_scale: float = 1000.0,
+        n_memory_tokens: int = 0,
     ):
         super().__init__()
         self.act_seq = act_seq
         self.n_state_tokens = n_state_tokens
+        self.n_memory_tokens = n_memory_tokens
         self.time_scale = time_scale
         self.action_adaptor = mlp_gelu(act_dim, hidden_dim, depth=3)
         self.x_pos_embed = nn.Parameter(
-            torch.zeros(1, 2 + n_state_tokens + act_seq, hidden_dim)
+            torch.zeros(1, 2 + n_state_tokens + n_memory_tokens + act_seq, hidden_dim)
         )
         self.norm_final = nn.RMSNorm(hidden_dim, eps=1e-6)
         self.ffn_final = _Mlp(hidden_dim, hidden_dim, act_dim)
@@ -260,7 +271,7 @@ class RDTDenoiser(nn.Module):
         """RDT's init. ``RDTModel.finalize_modules`` calls it again, after HPT's
         xavier pass over every Linear."""
         self.apply(_xavier)
-        lens = [1, 1, self.n_state_tokens, self.act_seq]
+        lens = [1, 1, self.n_state_tokens, self.n_memory_tokens, self.act_seq]
         self.x_pos_embed.data.copy_(
             multimodal_sincos(self.x_pos_embed.shape[-1], [n for n in lens if n > 0])
         )
@@ -274,10 +285,94 @@ class RDTDenoiser(nn.Module):
                 f"RDTDenoiser got {n_state} state tokens but n_state_tokens="
                 f"{self.n_state_tokens}; set it to (proprio stems x history_len)"
             )
+        n_memory = 0 if cond.memory is None else cond.memory.shape[1]
+        if n_memory != self.n_memory_tokens:
+            raise ValueError(
+                f"RDTDenoiser got {n_memory} memory tokens but n_memory_tokens="
+                f"{self.n_memory_tokens}; set it to the memory's frames"
+            )
         tokens = [cond.backbone.prefix(timesteps * self.time_scale, cond.freq, len(x))]
         if n_state:
             tokens.append(cond.state)
+        self_mask = None
+        if n_memory:
+            tokens.append(cond.memory)
+            B = len(x)
+            keep = torch.ones(B, 2 + n_state, dtype=torch.bool, device=x.device)
+            self_mask = torch.cat(
+                [keep, cond.memory_mask, keep.new_ones(B, self.act_seq)], dim=1
+            )
         tokens.append(self.action_adaptor(x))
         h = torch.cat(tokens, dim=1) + self.x_pos_embed
-        h = cond.backbone(h, cond)
+        h = cond.backbone(h, cond, self_mask)
         return self.ffn_final(self.norm_final(h))[:, -self.act_seq :]
+
+
+class RDTMemory(nn.Module):
+    """Long-range visual memory: ``frames`` frames of one camera ``stride_s``
+    apart, the newest the current one, one token each for the DiT's
+    self-attention prefix.
+
+    ``encoder`` must pool each frame to a single token (``DINOv3Stem`` with
+    ``pool="cls"``); a fixed sin-cos code of the frame's age in seconds tags
+    it. ``fuse_proprio`` adds a projection of that step's proprio token, which
+    needs the proprio history on the same grid, current step last.
+    """
+
+    def __init__(
+        self,
+        encoder: nn.Module,
+        hidden_dim: int,
+        frames: int = 10,
+        stride_s: float = 1.0,
+        fuse_proprio: bool = False,
+    ):
+        super().__init__()
+        self.encoder = encoder
+        self.frames = int(frames)
+        self.fuse_proprio = bool(fuse_proprio)
+        if self.fuse_proprio:
+            self.proprio_proj = nn.Linear(hidden_dim, hidden_dim)
+        # ages in 0.1 s units, oldest first, so 0.1 s apart is one sin-cos step
+        age_s = float(stride_s) * np.arange(self.frames - 1, -1, -1)
+        self.register_buffer(
+            "age_embed",
+            torch.from_numpy(sincos_1d(hidden_dim, age_s * 10.0)).float(),
+            persistent=False,
+        )
+
+    @property
+    def n_tokens(self) -> int:
+        return self.frames
+
+    def forward(
+        self,
+        images: torch.Tensor,
+        mask: torch.Tensor,
+        state: Optional[torch.Tensor] = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """``(B, N, 3, H, W)`` frames, oldest first, and their ``(B, N)``
+        validity -> ``(B, N, D)`` tokens and their ``(B, N)`` bool mask."""
+        B, N = images.shape[:2]
+        if N != self.frames:
+            raise ValueError(
+                f"memory window has {N} frames but trunk.memory.frames="
+                f"{self.frames}; set it to the data config's key_map.image_memory"
+            )
+        tokens = self.encoder(images)
+        if tokens.shape[1] != N:
+            raise ValueError(
+                f"the memory encoder gave {tokens.shape[1] // N} tokens per frame, "
+                "not 1; use a DINOv3Stem with pool: cls"
+            )
+        tokens = tokens + self.age_embed.to(tokens)
+        if self.fuse_proprio:
+            if state is None or state.shape[1] < N:
+                got = None if state is None else state.shape[1]
+                raise ValueError(
+                    f"fuse_proprio needs >= {N} proprio steps on the memory's grid "
+                    f"(got {got}); set key_map.proprio_history and "
+                    "history_stride_s to match the memory"
+                )
+            tokens = tokens + self.proprio_proj(state[:, -N:])
+        return tokens, mask.bool()

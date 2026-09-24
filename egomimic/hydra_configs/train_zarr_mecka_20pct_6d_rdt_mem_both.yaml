@@ -1,0 +1,30 @@
+# RDT memory ablation, BOTH arm: the vision arm's memory plus the proprio arm's
+# history on the same 1 s grid (11 steps, t-10 s .. t). Each memory token also
+# gets a projection of its step's proprio token (the newest 10); the 11 state
+# tokens stay in the prefix as in the proprio arm.
+# See train_zarr_mecka_20pct_6d_rdt_mem_base.yaml.
+defaults:
+  - train_zarr_mecka_20pct_6d_rdt_mem_vision
+  - _self_
+
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          proprio_history: 11
+          history_stride_s: 1.0
+
+model:
+  robomimic_model:
+    trunk:
+      memory:
+        fuse_proprio: true
+    stem_specs:
+      human_bimanual:
+        state_ee_pose:
+          history_len: 11
+    head_specs:
+      human_bimanual:
+        model:
+          n_state_tokens: 11

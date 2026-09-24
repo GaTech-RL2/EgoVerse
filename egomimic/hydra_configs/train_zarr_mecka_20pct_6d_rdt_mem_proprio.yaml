@@ -1,0 +1,25 @@
+# RDT memory ablation, PROPRIO arm: the baseline plus proprio history, 11
+# ee_pose steps 1 s apart (t-10 s .. t, current last), one state token each.
+# See train_zarr_mecka_20pct_6d_rdt_mem_base.yaml for the arms and recipe.
+defaults:
+  - train_zarr_mecka_20pct_6d_rdt_mem_base
+  - _self_
+
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          proprio_history: 11
+          history_stride_s: 1.0
+
+model:
+  robomimic_model:
+    stem_specs:
+      human_bimanual:
+        state_ee_pose:
+          history_len: 11
+    head_specs:
+      human_bimanual:
+        model:
+          n_state_tokens: 11

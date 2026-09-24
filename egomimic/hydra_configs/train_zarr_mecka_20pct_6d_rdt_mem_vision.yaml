@@ -1,0 +1,48 @@
+# RDT memory ablation, VISION arm: the baseline plus a long-range visual
+# memory, 10 front frames 1 s apart (t-9 s .. t). A second DINOv3 tower,
+# fine-tuned at the same 0.1x LR as the short one, pools each frame to its CLS
+# token, tagged by the frame's age (sin-cos, seconds); the 10 tokens join the
+# DiT's self-attention prefix, with steps before the episode start masked.
+# 30 % of training samples lose the short pair (a learned null token), so the
+# policy cannot lean on the latest frames alone.
+#
+# Cost, 8xH100, 32 / GPU, bf16 (2026-09-23): both arm 1.19 s / step (base 0.40),
+# ~33 h per 100k steps.
+# See train_zarr_mecka_20pct_6d_rdt_mem_base.yaml.
+defaults:
+  - train_zarr_mecka_20pct_6d_rdt_mem_base
+  - _self_
+
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          image_memory: 10
+          image_memory_stride_s: 1.0
+
+model:
+  robomimic_model:
+    trunk:
+      short_dropout: 0.3
+      memory:
+        encoder:
+          _target_: egomimic.models.hpt_nets.DINOv3Stem
+          model_name: ${model.robomimic_model.encoder_specs.front_img_1.model_name}
+          output_dim: ${model.robomimic_model.width}
+          freeze_backbone: false
+          image_size: ${model.robomimic_model.encoder_specs.front_img_1.image_size}
+          pool: cls
+          # 320 frames / GPU: their activations OOM an H100 without it
+          grad_checkpointing: true
+        # Must equal key_map.image_memory / image_memory_stride_s above: the
+        # model is built from the model config alone, so it cannot interpolate
+        # them. A frame-count mismatch raises at the first batch.
+        frames: 10
+        stride_s: 1.0
+        fuse_proprio: false
+    head_specs:
+      human_bimanual:
+        model:
+          # one token per memory frame
+          n_memory_tokens: 10

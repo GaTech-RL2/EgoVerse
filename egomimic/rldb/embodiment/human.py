@@ -6,6 +6,7 @@ import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import (
     IMAGE_HISTORY_SUFFIX,
+    IMAGE_MEMORY_SUFFIX,
     Embodiment,
     _reject_legacy_rotation,
     _strip_pi_keymap_mode,
@@ -204,7 +205,10 @@ class Human(Embodiment):
         annotation_key: str = None,
         proprio_history: int = 1,
         history_stride: int = 1,
+        history_stride_s: float | None = None,
         image_history_gap_s: float | None = None,
+        image_memory: int = 0,
+        image_memory_stride_s: float = 1.0,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (False only for contributors that truly omit
@@ -230,6 +234,13 @@ class Human(Embodiment):
         The algo must consume it explicitly: HPT has no stem for it and skips
         augs and normalization on cameras outside its encoders, so under plain
         HPT it is decoded and dropped.
+
+        ``history_stride_s`` replaces ``history_stride`` by a spacing in
+        seconds, read in each episode's fps. ``image_memory`` (N) adds
+        ``<front key>_mem``: N front frames ``image_memory_stride_s`` apart,
+        the newest the current frame, plus a ``<front key>_mem_mask`` of the
+        steps that fall inside the episode. Same caveat as ``_hist``: only an algo
+        that consumes it uses it.
         """
         key_map = cls._get_keymap(
             keymap_mode,
@@ -238,12 +249,24 @@ class Human(Embodiment):
             include_ee_pose=include_ee_pose,
             proprio_history=proprio_history,
             history_stride=history_stride,
+            history_stride_s=history_stride_s,
         )
         if image_history_gap_s is not None:
             front = key_map[cls.VIZ_IMAGE_KEY]
             key_map[f"{cls.VIZ_IMAGE_KEY}{IMAGE_HISTORY_SUFFIX}"] = {
                 **front,
                 "lag_s": float(image_history_gap_s),
+            }
+        if image_memory > 0:
+            if image_memory_stride_s <= 0:
+                raise ValueError(
+                    f"image_memory_stride_s must be > 0, got {image_memory_stride_s}"
+                )
+            front = key_map[cls.VIZ_IMAGE_KEY]
+            key_map[f"{cls.VIZ_IMAGE_KEY}{IMAGE_MEMORY_SUFFIX}"] = {
+                **front,
+                "history": int(image_memory),
+                "history_stride_s": float(image_memory_stride_s),
             }
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
@@ -269,6 +292,7 @@ class Human(Embodiment):
         include_ee_pose: bool = False,
         proprio_history: int = 1,
         history_stride: int = 1,
+        history_stride_s: float | None = None,
     ):
         """Canonical MANO keymap. ``include_aria_keypoints`` additionally exposes
         the raw Aria-layout proprio keypoints alongside the MANO ones;
@@ -408,6 +432,8 @@ class Human(Embodiment):
             for key in history_keys:
                 key_map[key]["history"] = int(proprio_history)
                 key_map[key]["history_stride"] = int(history_stride)
+                if history_stride_s is not None:
+                    key_map[key]["history_stride_s"] = float(history_stride_s)
         return key_map
 
     @classmethod
