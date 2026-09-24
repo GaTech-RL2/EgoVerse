@@ -1,0 +1,443 @@
+{
+  "schema_version": "1.0",
+  "report_kind": "proposed_development_only_endpoint_replay",
+  "status": "plan_only_not_launched",
+  "created_at_utc": "2026-09-24T19:08:06.323307+00:00",
+  "purpose": "Characterize numerical resolution sensitivity for two failed genuine Astra development endpoints and one passing control. This plan does not select a solver, change the current experiment, or consume OOD outcomes.",
+  "source_workflow": "astra-pi05-astra-dev-smoke-20260924-1",
+  "source_payload_sha256": "3717db31adb9682ce5eab89be57accd6d38ca7ba791362828435a97b5ee8f420",
+  "source_split": "development",
+  "source_suite": "libero_10",
+  "source_episode_id": "libero_10:task0:state0",
+  "case_selection_rule": "Use both failed same-condition proposals from the completed development smoke (steps 330 and 485), plus the immediately preceding accepted plan before the first failure (step 310) as a passing control. No OOD records are used.",
+  "cases": [
+    {
+      "case_id": "step_0310",
+      "role": "passing_control_immediately_before_first_failure",
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "soup_reapproach_310_a",
+      "observation_step": 310,
+      "condition_id": "94276dd6d921dcede13f26fbb27c51a6b49c07cef1e8a1789947d6a348b383bd",
+      "observation_id": "4759a59bc967c8a2920c7bd3886bca81f512552f401aa5819d5ab9fffcaf6629",
+      "request_fingerprint": "3b4378f1bcb42a47320f01e6138f0d23321d15bbabce313ff5a0d23b60a7eee6",
+      "agent_response_sequence": 650,
+      "inverse_flow_sequence": 652,
+      "first_generation_sequence": 656,
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "actual_model": "azure/openai/gpt-6-astra",
+      "provider_response_id": "chatcmpl-d4d3de3c-f5a5-4cd0-9117-3b8d41d0d7ca",
+      "raw_provider_content_sha256": "c313d59fd0b37cb0fc48b519cbf772e9c44969321c0015813f9de11c58c95f8c",
+      "recorded_full_internal_reconstruction": {
+        "rmse": 1.3890772104993967e-07,
+        "max_abs": 1.1026859283447266e-06
+      },
+      "recorded_passed": true,
+      "arrays": {
+        "observation/image": {
+          "archive_member": "results/reversal/arrays/00001814.npy",
+          "array": "arrays/00001814.npy",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "dtype": "uint8",
+          "sha256": "9dac6af2749f725ee0868bcc9842b418f32e781755ddc30a444bd28f88067f9b"
+        },
+        "observation/wrist_image": {
+          "archive_member": "results/reversal/arrays/00001815.npy",
+          "array": "arrays/00001815.npy",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "dtype": "uint8",
+          "sha256": "b9e46711b9cc6654898e80ba0c1c1a7e7c3483ce63161d6c3ba8796cfda3523b"
+        },
+        "observation/state": {
+          "archive_member": "results/reversal/arrays/00001816.npy",
+          "array": "arrays/00001816.npy",
+          "shape": [
+            8
+          ],
+          "dtype": "float32",
+          "sha256": "a2b5cf1369c3c71076dec6b8088e3550f8342d48ee6b9b11df279d5047ee1e94"
+        },
+        "controller_actions": {
+          "archive_member": "results/reversal/arrays/00001813.npy",
+          "array": "arrays/00001813.npy",
+          "shape": [
+            10,
+            7
+          ],
+          "dtype": "float32",
+          "sha256": "bbfd66a9e069440d77e8e1c29aee8ad3f1f953e0de7849a127d50866566acd4a"
+        },
+        "encoded_endpoint": {
+          "archive_member": "results/reversal/arrays/00001817.npy",
+          "array": "arrays/00001817.npy",
+          "shape": [
+            1,
+            10,
+            32
+          ],
+          "dtype": "float32",
+          "sha256": "c4a39cca36925d896a43ee403944572462f12cf65f9781599a19ee5898f36693"
+        },
+        "recorded_recovered_latent": {
+          "archive_member": "results/reversal/arrays/00001818.npy",
+          "array": "arrays/00001818.npy",
+          "shape": [
+            1,
+            10,
+            32
+          ],
+          "dtype": "float32",
+          "sha256": "3b06d17efed08ee77631ece84de3491cfe71257979a7429a390891741ba413b0"
+        },
+        "recorded_first_generation": {
+          "archive_member": "results/reversal/arrays/00001826.npy",
+          "array": "arrays/00001826.npy",
+          "shape": [
+            1,
+            10,
+            32
+          ],
+          "dtype": "float32",
+          "sha256": "2e02733cd20ffd65c6c4934e208826d88a4ed30303a06cd3bcc54943e5493307"
+        }
+      }
+    },
+    {
+      "case_id": "step_0330",
+      "role": "first_failed_development_proposal",
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "soup_regrasp_330_a",
+      "observation_step": 330,
+      "condition_id": "123a84d5ad39385d6de866006fa4b1d7028be6b5b7ca0a8e413dc87eddcfb4f4",
+      "observation_id": "b36b408e4534c88681b6d922905be9f5892b4fe243b532aa8dd1f0dbb1a6f19d",
+      "request_fingerprint": "dfb1735a84d5a9385358b57598e0517154216092faeaa41d6c6e6c5d67e7f305",
+      "agent_response_sequence": 691,
+      "inverse_flow_sequence": 693,
+      "first_generation_sequence": 697,
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "actual_model": "azure/openai/gpt-6-astra",
+      "provider_response_id": "chatcmpl-59946416-0e13-460a-99b1-1465b4babdaf",
+      "raw_provider_content_sha256": "e1f56a22fe9a1c94699373667c6a3feb63ce6f1676edce4e5c31cef6485c8fcb",
+      "recorded_full_internal_reconstruction": {
+        "rmse": 0.02810232969306107,
+        "max_abs": 0.45937466621398926
+      },
+      "recorded_passed": false,
+      "arrays": {
+        "observation/image": {
+          "archive_member": "results/reversal/arrays/00001930.npy",
+          "array": "arrays/00001930.npy",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "dtype": "uint8",
+          "sha256": "4147a9455e47ad46618ec758afa89b57548823582207901d1cae00ebda1806ed"
+        },
+        "observation/wrist_image": {
+          "archive_member": "results/reversal/arrays/00001931.npy",
+          "array": "arrays/00001931.npy",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "dtype": "uint8",
+          "sha256": "1e31ec0a09d90008bbfac708d9ec7e949e930349e202c1f8b9a65c0ceffa016e"
+        },
+        "observation/state": {
+          "archive_member": "results/reversal/arrays/00001932.npy",
+          "array": "arrays/00001932.npy",
+          "shape": [
+            8
+          ],
+          "dtype": "float32",
+          "sha256": "abece4eabfb43a3d860d22110e6b3eb12ccd5a5a3f71bb4de6619dee93df3958"
+        },
+        "controller_actions": {
+          "archive_member": "results/reversal/arrays/00001929.npy",
+          "array": "arrays/00001929.npy",
+          "shape": [
+            10,
+            7
+          ],
+          "dtype": "float32",
+          "sha256": "a953a0409a6322267878c80ed53c6900867f6bb7fd5616251ac2e2242a5c284f"
+        },
+        "encoded_endpoint": {
+          "archive_member": "results/reversal/arrays/00001933.npy",
+          "array": "arrays/00001933.npy",
+          "shape": [
+            1,
+            10,
+            32
+          ],
+          "dtype": "float32",
+          "sha256": "7a0b6b2466cab4b471db5a8d95eab35661202fd81443ebe81efafb2f01dac875"
+        },
+        "recorded_recovered_latent": {
+          "archive_member": "results/reversal/arrays/00001934.npy",
+          "array": "arrays/00001934.npy",
+          "shape": [
+            1,
+            10,
+            32
+          ],
+          "dtype": "float32",
+          "sha256": "da980eb079bb522c6b87e87fb55eb8870462472fb07f17d05c82b76f8f56b51b"
+        },
+        "recorded_first_generation": {
+          "archive_member": "results/reversal/arrays/00001942.npy",
+          "array": "arrays/00001942.npy",
+          "shape": [
+            1,
+            10,
+            32
+          ],
+          "dtype": "float32",
+          "sha256": "5eb170a3cacb1b17c2c2bc2309cde390f8adfbb2976e297f1b3c7acb9ce717b6"
+        }
+      }
+    },
+    {
+      "case_id": "step_0485",
+      "role": "second_failed_development_proposal",
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "soup_regrasp_485_close",
+      "observation_step": 485,
+      "condition_id": "7bd626d27defb6fb303d907786d799535f33041b678206d6af110b17bbc3f155",
+      "observation_id": "242fc7088fa2b87aa4ba80389373ca38518dd471cc3d2031b7ce2152ce956881",
+      "request_fingerprint": "4dd5ef88aff1c181ba9bb90de2155e4eec8b821e5132236c89db68ddba9e5961",
+      "agent_response_sequence": 1015,
+      "inverse_flow_sequence": 1017,
+      "first_generation_sequence": 1021,
+      "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+      "actual_model": "azure/openai/gpt-6-astra",
+      "provider_response_id": "chatcmpl-ed4fa961-4a59-4e6b-8a6b-4dcde72801e9",
+      "raw_provider_content_sha256": "d93405bbe8eea40574a2afb8432b2c7ced4d130cdf9a9c1498068ca1becd2f38",
+      "recorded_full_internal_reconstruction": {
+        "rmse": 0.006661244260261544,
+        "max_abs": 0.1186169981956482
+      },
+      "recorded_passed": false,
+      "arrays": {
+        "observation/image": {
+          "archive_member": "results/reversal/arrays/00002835.npy",
+          "array": "arrays/00002835.npy",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "dtype": "uint8",
+          "sha256": "2930daef74a64b7437f0de71724cb2cbfc4787773d961ddd857f69207517b410"
+        },
+        "observation/wrist_image": {
+          "archive_member": "results/reversal/arrays/00002836.npy",
+          "array": "arrays/00002836.npy",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "dtype": "uint8",
+          "sha256": "4443f6757195547509ae490539e1d78183fd5de3174b2ea875bac5e4361a3026"
+        },
+        "observation/state": {
+          "archive_member": "results/reversal/arrays/00002837.npy",
+          "array": "arrays/00002837.npy",
+          "shape": [
+            8
+          ],
+          "dtype": "float32",
+          "sha256": "d137700cd214faeeeda984f6b2610fab85688f9181f04effc0211d9329d8bd05"
+        },
+        "controller_actions": {
+          "archive_member": "results/reversal/arrays/00002834.npy",
+          "array": "arrays/00002834.npy",
+          "shape": [
+            10,
+            7
+          ],
+          "dtype": "float32",
+          "sha256": "d4e652a2a53ab3cb2fe9ab89662f9a31a6517fac0b73ee718c920efef7357243"
+        },
+        "encoded_endpoint": {
+          "archive_member": "results/reversal/arrays/00002838.npy",
+          "array": "arrays/00002838.npy",
+          "shape": [
+            1,
+            10,
+            32
+          ],
+          "dtype": "float32",
+          "sha256": "28af6fc17c33bd9ca818b4107206d11b6a95818620d5e96d0eb04e21cfec7173"
+        },
+        "recorded_recovered_latent": {
+          "archive_member": "results/reversal/arrays/00002839.npy",
+          "array": "arrays/00002839.npy",
+          "shape": [
+            1,
+            10,
+            32
+          ],
+          "dtype": "float32",
+          "sha256": "cb9298689d13727020c7bde0757a9b6211879832b8ee3f5d2f7afb1dce2dd2d1"
+        },
+        "recorded_first_generation": {
+          "archive_member": "results/reversal/arrays/00002847.npy",
+          "array": "arrays/00002847.npy",
+          "shape": [
+            1,
+            10,
+            32
+          ],
+          "dtype": "float32",
+          "sha256": "61371e4d7cf34fd882631cfa0732a2cc78c14a12f319ee05c6a02e143d0f6655"
+        }
+      }
+    }
+  ],
+  "source_records": [
+    {
+      "path": "reversal/events.jsonl",
+      "sha256": "b37d77da4f7610ff063f5ee340e9769856118479d262f87d160f177ce2739759",
+      "bytes": 2682005
+    },
+    {
+      "path": "reversal/manifest.json",
+      "sha256": "f49326521b6d40ae9b32edb0b169cb9a19da68c391c3dab05c12f80cc42ac85b",
+      "bytes": 8112
+    },
+    {
+      "path": "astra_provider.jsonl",
+      "sha256": "d2d622e7bd3c38daa6f6711ff8dcafff890bf28e7733872c3c468e537483ca3e",
+      "bytes": 138722
+    },
+    {
+      "path": "runtime_inversion_audit.json",
+      "sha256": "6e229271af090d50c8bdda741b2b1474cbea9f423350c2f5a5e8ea6598e1a0fc",
+      "bytes": 359631
+    },
+    {
+      "path": "live_proposal_provenance.json",
+      "sha256": "4557814d9a983aa5b0384faec45c45f2ba51789ecbddf02e4500a45df9441acb",
+      "bytes": 8896
+    },
+    {
+      "path": "development_smoke.json",
+      "sha256": "4563d2c7f3a0e995f6a973fc027b8c82a407935ae375bf932b06f5aa8e26bca3",
+      "bytes": 5341
+    }
+  ],
+  "input_extraction": {
+    "source_archive_prefix": "experiments/astra-reversal-20260924/astra-pi05-astra-dev-smoke-20260924-1",
+    "source_archive_name": "artifacts.tar.gz",
+    "source_archive_bytes": 102180346,
+    "source_archive_etag": "\"a22fbf5067086a395046d12bff9607ef-13\"",
+    "source_archive_full_sha256": null,
+    "destination_suggestion": "astra_reversal/.deps/astra-dev-proposal-replay-input",
+    "unique_npy_members": 21,
+    "raw_array_value_bytes": 915624,
+    "members": [
+      "results/reversal/arrays/00001813.npy",
+      "results/reversal/arrays/00001814.npy",
+      "results/reversal/arrays/00001815.npy",
+      "results/reversal/arrays/00001816.npy",
+      "results/reversal/arrays/00001817.npy",
+      "results/reversal/arrays/00001818.npy",
+      "results/reversal/arrays/00001826.npy",
+      "results/reversal/arrays/00001929.npy",
+      "results/reversal/arrays/00001930.npy",
+      "results/reversal/arrays/00001931.npy",
+      "results/reversal/arrays/00001932.npy",
+      "results/reversal/arrays/00001933.npy",
+      "results/reversal/arrays/00001934.npy",
+      "results/reversal/arrays/00001942.npy",
+      "results/reversal/arrays/00002834.npy",
+      "results/reversal/arrays/00002835.npy",
+      "results/reversal/arrays/00002836.npy",
+      "results/reversal/arrays/00002837.npy",
+      "results/reversal/arrays/00002838.npy",
+      "results/reversal/arrays/00002839.npy",
+      "results/reversal/arrays/00002847.npy"
+    ],
+    "procedure": [
+      "Retrieve the completed development archive through a private catalog. A gzip tar requires one sequential compressed-stream read (about 102 MB); only the 21 named members need to be retained on disk (about 0.92 MB plus metadata).",
+      "Compute the full compressed-archive SHA-256 during transfer and record it; the existing one-byte receipt establishes only presence, size, and ETag.",
+      "Accept only the exact allowlisted regular-file members; reject path traversal or duplicate members. Load NPY with allow_pickle=False, preserve uint8 RGB and float32 numeric arrays, and check dtype, shape, and records.digest(array) against every recorded reference. Also record each extracted file SHA-256.",
+      "Retain only the three selected accepted request/proposal records and matching provider rows, with hashes of their full source files. Reconstruct request observations from the selected condition arrays and verify observation IDs, condition IDs, request fingerprints, actual model, and raw provider/proposal equality.",
+      "Re-encode each accepted controller action chunk with the unchanged pinned ActionAdapter and require agreement with its saved full [1,10,32] encoded endpoint before any GPU solve. Keep saved latent and first-generation endpoint only as N100 reproduction references."
+    ]
+  },
+  "gpu_probe_plan": {
+    "prospective_new_module": "astra_reversal/osmo/dev_proposal_replay.py",
+    "implemented": false,
+    "job_launched": false,
+    "resources": {
+      "gpu": "one allocated NVIDIA L40S",
+      "host_memory": "48Gi",
+      "storage": "60Gi"
+    },
+    "checkpoint_and_profile": "Exact pinned checkpoint, tokenizer, OpenPI LIBERO input assets, and source identities from the completed smoke manifest. No training or weight conversion.",
+    "solver": "rk4",
+    "candidate_steps": [
+      100,
+      200,
+      500
+    ],
+    "solver_options": {
+      "time_power": 3.0
+    },
+    "flow_dtype": "float32",
+    "native_velocity_dtype": "float32",
+    "tf32": false,
+    "noise_mix_rho": 0.0,
+    "action_atol": 0.02,
+    "direct_controller_action_atol": 0.02,
+    "known_noise_recovery": null,
+    "known_noise_explanation": "Astra endpoints have no known generating policy noise; do not fabricate one or use recovered latents as ground truth.",
+    "execution_order": "Evaluate N100 for steps 310,330,485, then N200 for the same cases, then N500. Retain every result, including failures; do not stop at the first passing resolution or select a replacement solver.",
+    "per_case_resolution_procedure": [
+      "Prepare the exact saved observation and full original task instruction; hold conditioning fixed.",
+      "Invert the saved encoded endpoint at the candidate resolution, then generate from that recovered latent at the same resolution and condition.",
+      "Measure full internal, first-seven-channel, padding-channel, and direct decoded-controller max/RMSE against the saved proposal endpoint/actions, before clipping.",
+      "For N100, additionally compare new recovered latent and generated endpoint to the recorded N100 arrays to distinguish reproduction differences from resolution effects. This comparison is not known-noise recovery.",
+      "Record tensor hashes, full solver grids, actual velocity-evaluation counts, synchronized latency, actual GPU/TF32/precision, and all input/source hashes; write incremental progress after every case."
+    ],
+    "number_case_resolution_pairs": 9,
+    "number_flow_solves": 18,
+    "velocity_evaluations_by_steps": {
+      "100": 2400,
+      "200": 4800,
+      "500": 12000
+    },
+    "total_planned_velocity_evaluations": 19200,
+    "estimated_flow_seconds": 232.63221944775432,
+    "estimate_basis": "Observed development smoke mean 4.8465 s per 400-evaluation solve; setup/loading excluded and actual timings may differ.",
+    "extra_astra_calls": 0,
+    "environment_rollouts": 0,
+    "ood_inputs": 0
+  },
+  "interpretation_limits": [
+    "The existing development result remains a failed numerical interface validation even if a larger resolution improves these selected cases.",
+    "Three diagnostic cases do not establish robustness for arbitrary Astra endpoints, closed-loop control quality, or OOD success.",
+    "The currently frozen OOD methods and settings remain unchanged; any future method revision requires a separately declared development decision and validation."
+  ],
+  "operations_performed_for_this_plan": {
+    "archive_downloads": 0,
+    "array_extractions": 0,
+    "gpu_solves": 0,
+    "astra_api_calls": 0,
+    "job_launches": 0,
+    "source_edits": 0
+  }
+}

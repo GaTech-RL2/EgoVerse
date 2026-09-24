@@ -182,6 +182,7 @@ OSMO entrypoints and resource specifications:
 | Paired OOD controls and reversal | [ood_steering.py](osmo/ood_steering.py) | [Eight L40S GPUs](osmo/ood_steering_l40s.yaml) |
 | Distributed OOD shards | [ood_distributed.py](osmo/ood_distributed.py) | [Eight independent one-L40S tasks](osmo/ood_distributed_l40s.yaml) |
 | Genuine development integration smoke | [astra_dev_smoke.py](osmo/astra_dev_smoke.py) | [One L40S](osmo/astra_dev_smoke_l40s.yaml) |
+| Recorded genuine-proposal diagnostic | [astra_proposal_replay.py](osmo/astra_proposal_replay.py) | [One L40S](osmo/astra_proposal_replay_l40s.yaml) |
 
 The distributed workflow changes scheduling while preserving the logical shards
 and resolved method configurations. Each worker repeats the required gates.
@@ -197,6 +198,22 @@ local inputs; completed runs use their frozen payload hashes. Checkpoint weights
 are downloaded and verified on the worker. Reports and videos are periodically
 archived under `s3://rldb/experiments/astra-reversal-20260924/<workflow-id>/`;
 the final archive contains lossless arrays.
+
+New payloads include `tests/unit/astra`, the native integration test, and its
+small fixture. The standalone development entrypoint runs these tests without
+the repository-wide pytest hooks. A freshly extracted payload passed all 161
+Astra unit tests and all seven native integration tests. Existing experiment
+payloads remain unchanged and retain their recorded source hashes.
+
+The recorded-proposal diagnostic fixes development steps 310, 330, and 485
+(one passing control and both failures) and RK4 resolutions 100, 200, and 500.
+Its [input plan](reports/astra_development_replay_plan.json) predates the GPU
+replay. It verifies exact original arrays, conditions, and provider responses;
+measures reconstruction before clipping; and reports N100 reproduction
+separately. It makes no new Astra calls, uses no OOD observations, and selects
+no solver. Results are pending. Use the packager's
+`--include-astra-proposal-replay --output NEW_PATH/payload.tar.gz` flags to
+include the verified input bundle without replacing a frozen upload.
 
 The checked-in [OpenPI-input reversal JSON](configs/pi05_libero_openpi_inputs_reversal.json)
 is the historical development template with RK4/50 and an unset agent model.
@@ -222,9 +239,9 @@ and can read authorized local input assets through `EGOVERSE_TEST_PI05_INPUT_ASS
 python -m pytest --integration tests/integration/test_astra_lerobot_policy.py -q
 ```
 
-Fresh-main validation passed **463 repository unit tests**, with five existing
+Fresh-main validation passed **468 repository unit tests**, with five existing
 optional OpenPI tests skipped. All **seven native LeRobot integration tests**
-passed separately in the pinned runtime. The Astra-specific total is 156 unit
+passed separately in the pinned runtime. The Astra-specific total is 161 unit
 tests plus those seven integration tests. The standalone tests support both
 the `pytest` console command and `python -m pytest`. Local tests do not substitute
 for the recorded GPU gates or environment rollouts.

@@ -23,7 +23,7 @@ def main():
         if not path.is_relative_to(destination):
             raise ValueError("Artifact key escapes the destination")
         try:
-            if key == "artifacts.tar.gz":
+            if path.name == "artifacts.tar.gz":
                 if not args.archive_receipt:
                     return {"key": key, "status": "skipped_large_archive"}
                 request = urllib.request.Request(
@@ -36,7 +36,8 @@ def main():
                         "content_range": response.headers.get("Content-Range"),
                         "etag": response.headers.get("ETag"),
                     }
-                (destination / "archive_receipt.json").write_text(
+                path.parent.mkdir(parents=True, exist_ok=True)
+                (path.parent / "archive_receipt.json").write_text(
                     json.dumps(receipt, indent=2) + "\n"
                 )
                 return {"key": key, **receipt}

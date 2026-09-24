@@ -95,6 +95,17 @@
         "sha256": "78f1eac33dcdf9e34b304807db795c279bc90e1851cacab31e4cc41085963ebb",
         "bytes": 45954
       }
+    },
+    {
+      "report": "astra_development_replay_plan.json",
+      "transformation": "byte-for-byte copy of development-only plan fixed before GPU replay",
+      "sha256": "81791c2c96a100c6892cdf3d70cec381dfa1e90da6321b93a32d22bec3000e6c",
+      "bytes": 18625,
+      "source": {
+        "path_relative_to_astra_reversal": ".deps/astra-dev-proposal-replay-plan.json",
+        "sha256": "81791c2c96a100c6892cdf3d70cec381dfa1e90da6321b93a32d22bec3000e6c",
+        "bytes": 18625
+      }
     }
   ],
   "existing_tracked_standard_baseline": {

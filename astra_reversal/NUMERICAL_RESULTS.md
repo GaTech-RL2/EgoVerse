@@ -8,6 +8,15 @@ this numerical result. See the [development audit](reports/astra_development_rev
 The initial passing checks below therefore do not establish reconstruction
 accuracy for arbitrary Astra endpoints.
 
+A separate [recorded-proposal replay](osmo/astra_proposal_replay.py) fixes one
+passing development control at step 310 and both failures at steps 330 and 485,
+then measures all three at RK4 resolutions 100, 200, and 500. The
+[predeclared input plan](reports/astra_development_replay_plan.json) binds all 21
+input arrays to their original requests, provider responses, and conditions.
+CPU replay of the stored endpoints reproduced all three original metrics exactly.
+The GPU diagnostic is pending; it makes no new agent calls, selects no solver,
+and leaves the frozen OOD configuration unchanged.
+
 Cubic RK4 with **100 steps** passed all 14 recorded LIBERO-10 development conditions and was selected on 2026-09-24. The tracked [L40S numerical summary](reports/runtime_numerics.json) covers one task-0/state-0 trajectory at observation steps 0, 20, …, 260, rather than 14 independent episodes. The checkpoint is frozen and uses the OpenPI LIBERO input profile. The summary preserves all 42 candidate/condition metric rows, native parity, source/checkpoint identities, costs, and endpoint hashes; it omits repeated grids and is not a replacement for the complete worker gate. [Snapshot provenance](reports/snapshot_sources.json) identifies the original report by SHA-256.
 
 Each candidate regenerated an endpoint from the recorded full `[1, 10, 32]` noise tensor, inverted that endpoint, and regenerated actions under the same condition. All camera/state/prompt identities and known-noise hashes were checked. The grid is `t_j = (j/N)^3`, reversed for generation. The unchanged gates require maximum absolute known-noise error ≤ **0.1**, full internal and decoded controller reconstruction errors ≤ **0.02**, and native-sampler parity error ≤ **1e-5**. Decoded reconstruction is measured before clipping.

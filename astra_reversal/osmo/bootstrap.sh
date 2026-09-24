@@ -67,7 +67,7 @@ clone_revision https://github.com/Physical-Intelligence/openpi.git 981483dca0fd9
 
 # Give source snapshots a real, local revision for the existing run manifests.
 git init -q
-git add astra_reversal
+git add astra_reversal tests
 git -c user.name='Astra experiment snapshot' -c user.email='snapshot@localhost' commit -qm 'Immutable uploaded experiment source'
 export PYTHONPATH="$PWD/astra_reversal/.deps/lerobot/src:$PWD/external/openpi/packages/openpi-client/src${PYTHONPATH:+:$PYTHONPATH}"
 python -m "${ASTRA_ENTRY_MODULE:-astra_reversal.osmo.experiment}"

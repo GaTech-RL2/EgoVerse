@@ -6,15 +6,27 @@ import json
 import tarfile
 from pathlib import Path
 
+TEST_PATHS = (
+    Path("tests/unit/astra"),
+    Path("tests/integration/test_astra_lerobot_policy.py"),
+    Path("tests/fixtures/astra/lerobot_pi05"),
+)
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--include-runtime-probe", action="store_true")
     parser.add_argument("--include-ood-inputs", action="store_true")
     parser.add_argument("--include-ood-manifests", action="store_true")
+    parser.add_argument("--include-astra-proposal-replay", action="store_true")
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = Path("astra_reversal")
-    output = root / ".deps/osmo-upload/payload.tar.gz"
+    output = args.output or root / ".deps/osmo-upload/payload.tar.gz"
+    if args.output and output.exists():
+        raise FileExistsError(
+            "An explicit immutable payload destination already exists"
+        )
     output.parent.mkdir(parents=True, exist_ok=True)
 
     def include(info):
@@ -23,6 +35,10 @@ def main():
 
     with tarfile.open(output, "w:gz") as archive:
         archive.add(root, arcname="astra_reversal", filter=include)
+        # Include only this experiment's relocated tests and small native fixture.
+        # The standalone worker does not need the repository-wide pytest hooks.
+        for path in TEST_PATHS:
+            archive.add(path, arcname=str(path), filter=include)
         tokenizer = root / ".deps/tokenizers/paligemma-3b-pt-224"
         inventory = json.loads(
             (root / "checkpoints/paligemma_tokenizer.json").read_text()
@@ -44,6 +60,12 @@ def main():
                     "Prepare the verified development probe input first"
                 )
             archive.add(path, arcname=str(path))
+        if args.include_astra_proposal_replay:
+            from astra_reversal.osmo.astra_proposal_replay import load_inputs
+
+            path = root / ".deps/astra-dev-proposal-replay-input"
+            load_inputs(path)
+            archive.add(path, arcname=str(path))
         if args.include_ood_inputs or args.include_ood_manifests:
             # Only explicitly named public experiment artifacts are packaged;
             # credentials and presigned download catalogs stay excluded.
@@ -60,7 +82,12 @@ def main():
             for filename in ("request.json", "response.json", "provider.jsonl"):
                 archive.add(proposal / filename, arcname=str(proposal / filename))
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
-    (root / ".deps/osmo-payload.sha256").write_text(digest + "\n")
+    checksum = (
+        output.parent / "payload.sha256"
+        if args.output
+        else root / ".deps/osmo-payload.sha256"
+    )
+    checksum.write_text(digest + "\n")
     print(
         json.dumps(
             {"archive": str(output), "bytes": output.stat().st_size, "sha256": digest}

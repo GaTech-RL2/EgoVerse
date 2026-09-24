@@ -15,6 +15,7 @@ create the review copies.
 | [astra_development_smoke.json](astra_development_smoke.json) | Exact completed development episode summary: unsuccessful task, 26/28 roundtrips passing, zero fallback | Unchanged worker summary |
 | [astra_development_review.json](astra_development_review.json) | All 28 recorded roundtrip metrics and independently checked provider/observation bindings; two numerical failures retained | Unchanged read-only review report |
 | [astra_development_smoke.mp4](astra_development_smoke.mp4) | Original 211 KB video of the unsuccessful 520-action development episode | Unchanged worker video |
+| [astra_development_replay_plan.json](astra_development_replay_plan.json) | Fixed development cases 310/330/485 and resolutions 100/200/500, with exact original array/provider bindings | Input plan recorded before the separate GPU diagnostic; results pending |
 | [payload_source_parity.json](payload_source_parity.json) | Execution/core commit identities versus frozen payload; exact file hashes and three harmless formatting/import differences | Code-identity review, not an implementation-correctness proof |
 | [snapshot_sources.json](snapshot_sources.json) | Source paths, source and snapshot SHA-256 values, sizes, and copy/compaction descriptions | Snapshot provenance manifest |
 
