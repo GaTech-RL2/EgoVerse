@@ -1,0 +1,15 @@
+# Dev database (created on first run from config.yaml)
+data/*.db
+data/*.db-journal
+data/*.db-wal
+
+# Local virtualenvs
+.venv/
+venv/
+
+# Video clips (large; drop your own in here)
+videos/*
+!videos/.gitkeep
+
+__pycache__/
+*.pyc

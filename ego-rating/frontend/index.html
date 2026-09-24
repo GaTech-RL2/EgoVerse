@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ego-rating · multi-axis Glicko-2</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9A%96%EF%B8%8F</text></svg>"
+    />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>ego<span class="brand-dot">·</span>rating</h1>
+      <nav class="nav-links" id="nav">
+        <a href="#compare" data-route="compare" class="nav-link">Compare</a>
+        <a href="#leaderboard" data-route="leaderboard" class="nav-link">Leaderboard</a>
+        <a href="#admin" data-route="admin" class="nav-link">Admin</a>
+      </nav>
+      <div class="spacer"></div>
+      <div class="ctrl">
+        <label for="rater">Rater</label>
+        <input type="number" id="rater" min="1" step="1" />
+      </div>
+      <div class="ctrl">
+        <label for="scene">Scene</label>
+        <select id="scene"></select>
+      </div>
+      <div class="ctrl">
+        <label for="operator">Operator</label>
+        <select id="operator"></select>
+      </div>
+    </header>
+
+    <main id="app" class="page"></main>
+    <div id="toasts"></div>
+
+    <script>
+      const state = {
+        config: { annotation: "", axes: [], scenes: [], operators: [], similarity_threshold: null },
+        raterId: parseInt(sessionStorage.getItem("raterId") || "1", 10) || 1,
+        scene: sessionStorage.getItem("scene") || "",
+        operator: sessionStorage.getItem("operator") || "",
+        pair: null,
+        activeAxis: 0,
+        rate: parseFloat(sessionStorage.getItem("rate") || "1") || 1,
+        lbAxis: "total",
+        lbRows: null,
+        lbAxes: [],
+        weights: {},
+      };
+      const app = document.getElementById("app");
+
+      // ---------------- helpers ----------------
+      function qs(extra = {}) {
+        const p = new URLSearchParams();
+        if (state.scene) p.set("scene", state.scene);
+        if (state.operator) p.set("operator", state.operator);
+        for (const [k, v] of Object.entries(extra)) {
+          if (v !== undefined && v !== null && v !== "") p.set(k, v);
+        }
+        const s = p.toString();
+        return s ? "?" + s : "";
+      }
+      async function api(path, opts) {
+        const res = await fetch(path, opts);
+        if (!res.ok) throw new Error(`${res.status} ${path}: ${await res.text()}`);
+        return res.json();
+      }
+      function fmt(x, d = 1) {
+        return x === null || x === undefined ? "—" : Number(x).toFixed(d);
+      }
+      function esc(s) {
+        return String(s).replace(
+          /[&<>"']/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+        );
+      }
+      function currentRoute() {
+        const r = (location.hash || "#compare").slice(1);
+        return ["compare", "leaderboard", "admin"].includes(r) ? r : "compare";
+      }
+      function toast(msg, type = "") {
+        const el = document.createElement("div");
+        el.className = `toast ${type}`;
+        el.textContent = msg;
+        document.getElementById("toasts").appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+      }
+
+      // ---------------- header ----------------
+      function populateFilters() {
+        const opts = (arr) =>
+          ['<option value="">All</option>']
+            .concat(arr.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`))
+            .join("");
+        const sc = document.getElementById("scene");
+        const op = document.getElementById("operator");
+        sc.innerHTML = opts(state.config.scenes);
+        op.innerHTML = opts(state.config.operators);
+        sc.value = state.scene;
+        op.value = state.operator;
+        document.getElementById("rater").value = state.raterId;
+      }
+      function wireHeader() {
+        document.getElementById("rater").addEventListener("change", (e) => {
+          state.raterId = parseInt(e.target.value, 10) || 1;
+          e.target.value = state.raterId;
+          sessionStorage.setItem("raterId", state.raterId);
+          render();
+        });
+        document.getElementById("scene").addEventListener("change", (e) => {
+          state.scene = e.target.value;
+          sessionStorage.setItem("scene", state.scene);
+          render();
+        });
+        document.getElementById("operator").addEventListener("change", (e) => {
+          state.operator = e.target.value;
+          sessionStorage.setItem("operator", state.operator);
+          render();
+        });
+      }
+      function highlightNav() {
+        const r = currentRoute();
+        document.querySelectorAll("#nav a").forEach((a) =>
+          a.classList.toggle("active", a.dataset.route === r)
+        );
+      }
+
+      // ---------------- compare screen ----------------
+      async function renderCompare() {
+        app.innerHTML = `
+          <div class="panel">
+            <div class="panel-title">Task</div>
+            <div class="annotation-text" id="annotation-text"></div>
+            <div class="progress">
+              <span id="progress-text">…</span>
+              <div class="bar"><div id="progress-fill"></div></div>
+            </div>
+          </div>
+          <div id="compare-body"></div>
+        `;
+        document.getElementById("annotation-text").textContent = state.config.annotation;
+        document.getElementById("compare-body").innerHTML = `
+          <div class="empty-msg"><span class="spinner-inline"></span>
+            Grouping episodes by annotation similarity — the first load runs the
+            embedding model on Modal and can take ~30 s; it's instant after that.
+          </div>`;
+        await loadProgress();
+        await loadPair();
+      }
+
+      async function loadProgress() {
+        try {
+          const d = await api("/progress" + qs({ rater_id: state.raterId }));
+          const t = document.getElementById("progress-text");
+          const f = document.getElementById("progress-fill");
+          if (t) t.textContent = `${d.done} of ${d.total} comparisons`;
+          if (f) f.style.width = d.total ? (d.done / d.total) * 100 + "%" : "0%";
+        } catch (e) {
+          /* progress is best-effort */
+        }
+      }
+
+      function slotPanel(side, span) {
+        const hasWindow = span.end > span.start;
+        const url = `/video/${encodeURIComponent(span.span_id)}`;
+        const src = hasWindow ? `${url}#t=${span.start},${span.end}` : url;
+        const label = side.toUpperCase();
+        return `
+          <div class="compare-slot slot-${side}">
+            <div class="compare-header">
+              <span class="compare-label">Slot ${label}</span>
+              <span class="compare-meta"><code>${esc(span.span_id)}</code>
+                · scene ${esc(span.scene)} · op ${esc(span.operator)}</span>
+            </div>
+            <div class="video-wrap">
+              <video id="clip-${side}" src="${src}" autoplay muted loop playsinline></video>
+            </div>
+            <div class="scrubber-wrap" id="scrubber-${side}">
+              <div class="scrubber-track"><div class="scrubber-fill fill-${side}" id="fill-${side}"></div></div>
+              <div class="scrubber-thumb thumb-${side}" id="thumb-${side}"></div>
+              <div class="scrubber-hover-line" id="hover-${side}"></div>
+              <span class="scrubber-time" id="time-${side}">—</span>
+            </div>
+            <div class="compare-info"><strong>${esc(span.label || span.span_id)}</strong></div>
+            <div class="annot" id="annot-${side}"></div>
+          </div>`;
+      }
+
+      function axisRows() {
+        const head = `
+          <div class="col-headers">
+            <span>Axis</span>
+            <div class="col-header-radios">
+              <span class="col-header-a">A</span>
+              <span class="col-header-eq">Equal</span>
+              <span class="col-header-b">B</span>
+            </div>
+          </div>`;
+        const rows = state.config.axes
+          .map(
+            (ax, i) => `
+            <div class="dim-row" data-idx="${i}" data-axis="${esc(ax.name)}">
+              <div class="dim-name">
+                <div class="dim-title">${esc(ax.name)}</div>
+                <div class="dim-desc">${esc(ax.description || "")}</div>
+              </div>
+              <div class="radio-group">
+                <input type="radio" name="ax_${i}" id="ax_${i}_a" value="a" />
+                <label for="ax_${i}_a">A</label>
+                <input type="radio" name="ax_${i}" id="ax_${i}_equal" value="equal" />
+                <label for="ax_${i}_equal">Equal</label>
+                <input type="radio" name="ax_${i}" id="ax_${i}_b" value="b" />
+                <label for="ax_${i}_b">B</label>
+              </div>
+            </div>`
+          )
+          .join("");
+        return head + `<div id="dim-rows">${rows}</div>`;
+      }
+
+      async function loadPair() {
+        const pair = await api("/next-pair" + qs({ rater_id: state.raterId }));
+        renderPairBody(pair);
+      }
+
+      function renderPairBody(pair, priorRatings) {
+        state.pair = pair;
+        const body = document.getElementById("compare-body");
+        if (!body) return;
+        if (!pair) {
+          body.innerHTML = `
+            <div class="empty-msg">
+              <h2>No more comparable pairs for this filter 🎉</h2>
+              <p>Every eligible pair has been judged. Adjust the filter or rater, or</p>
+              <p><a href="#leaderboard">see the per-axis Glicko-2 ranking →</a></p>
+            </div>`;
+          return;
+        }
+        const simPct = pair.similarity != null ? `${(pair.similarity * 100).toFixed(0)}%` : "—";
+        const phaseTag = pair.phase === "active"
+          ? `<span class="phase active">active learning</span>`
+          : pair.phase === "undo"
+          ? `<span class="phase warmup">undone — edit & resave</span>`
+          : `<span class="phase warmup">warm-up</span>`;
+        const speedBtns = [1, 1.5, 2, 3]
+          .map((r) => `<button class="speed-btn ${r === state.rate ? "active" : ""}" data-rate="${r}">${r}×</button>`)
+          .join("");
+        body.innerHTML = `
+          <div class="panel">
+            <div class="panel-title">Compare
+              <span class="pair-sim">${phaseTag} · annotation similarity <strong>${simPct}</strong></span>
+              <span class="speed-group" id="speed-group" title="Playback speed (both clips)">${speedBtns}</span>
+            </div>
+            <div class="comparison-grid">
+              ${slotPanel("a", pair.a)}
+              ${slotPanel("b", pair.b)}
+            </div>
+          </div>
+          <div class="rating-wrap">
+            <div class="rating-title">Rate each axis</div>
+            <div class="rating-hint">
+              <kbd>↑</kbd>/<kbd>↓</kbd> pick an axis · <kbd>1</kbd> A · <kbd>2</kbd> Equal ·
+              <kbd>3</kbd> B · <kbd>↵ Enter</kbd> save · <kbd>S</kbd> skip ·
+              <kbd>⌫</kbd> undo last
+            </div>
+            ${axisRows()}
+          </div>
+          <div class="action-bar">
+            <span class="action-bar-hint">Hover a scrubber to step both clips in sync.
+              All ${state.config.axes.length} axes need a choice before saving.
+              Skipped pairs come back later; Undo takes back your last submission.</span>
+            <button class="btn" id="undo-btn" title="Undo your last submission (rated or skipped)">↶ Undo</button>
+            <button class="btn" id="skip-btn">Skip pair</button>
+            <button class="btn btn-primary" id="save-btn" disabled>Save comparison</button>
+          </div>
+        `;
+        setupLoop("clip-a", pair.a);
+        setupLoop("clip-b", pair.b);
+        wireScrubbers(pair);
+        wireAxisRows();
+        applyRate(state.rate);
+        loadAnnotations(pair);
+        document.getElementById("skip-btn").addEventListener("click", () => submitComparison(true));
+        document.getElementById("save-btn").addEventListener("click", () => submitComparison(false));
+        document.getElementById("undo-btn").addEventListener("click", undoLast);
+        document.querySelectorAll(".speed-btn").forEach((b) =>
+          b.addEventListener("click", () => applyRate(parseFloat(b.dataset.rate)))
+        );
+        if (priorRatings) {
+          document.querySelectorAll(".dim-row").forEach((row) => {
+            const val = priorRatings[row.dataset.axis];
+            if (val) {
+              const radio = document.getElementById(`ax_${row.dataset.idx}_${val}`);
+              if (radio) radio.checked = true;
+            }
+          });
+          updateSaveEnabled();
+        }
+      }
+
+      // ----- playback speed (applies to both clips, persists per session) -----
+      function applyRate(rate) {
+        state.rate = rate;
+        sessionStorage.setItem("rate", rate);
+        ["a", "b"].forEach((side) => {
+          const v = document.getElementById(`clip-${side}`);
+          if (v) v.playbackRate = rate;
+        });
+        document.querySelectorAll(".speed-btn").forEach((b) =>
+          b.classList.toggle("active", parseFloat(b.dataset.rate) === rate)
+        );
+      }
+
+      // ----- undo last submission -----
+      async function undoLast() {
+        try {
+          const pair = await api(`/comparisons/last?rater_id=${state.raterId}`, {
+            method: "DELETE",
+          });
+          toast(pair.was_skip ? "Skip undone" : "Comparison undone — edit & resave", "success");
+          await loadProgress();
+          renderPairBody(pair, pair.prior_ratings);
+        } catch (err) {
+          toast(err.message.includes("404") ? "Nothing to undo" : err.message, "error");
+        }
+      }
+
+      // ----- annotation context (subtask segments + objects/scene/env) -----
+      function fmtSec(s) {
+        if (s === null || s === undefined) return "?";
+        const m = Math.floor(s / 60), r = Math.round(s % 60);
+        return m > 0 ? `${m}:${String(r).padStart(2, "0")}` : `${s.toFixed(1)}s`;
+      }
+
+      function loadAnnotations(pair) {
+        [["a", pair.a], ["b", pair.b]].forEach(([side, span]) => {
+          fetch(`/annotation/${encodeURIComponent(span.span_id)}`)
+            .then((r) => r.json())
+            .then((d) => {
+              const el = document.getElementById(`annot-${side}`);
+              if (!el || state.pair !== pair) return;
+              const segs = d.segments || [];
+              const segHtml = segs.length
+                ? `<div class="annot-line"><span class="annot-k">subtasks</span></div>
+                   <ol class="subtask-list">${segs
+                     .map(
+                       (s, i) =>
+                         `<li class="subtask" data-side="${side}" data-start="${s.start_seconds ?? ""}"
+                              title="Jump clip ${side.toUpperCase()} to ${fmtSec(s.start_seconds)}">
+                            <span class="subtask-idx">${i + 1}</span>
+                            <span class="subtask-label">${esc(s.label || "(unlabeled)")}</span>
+                            <span class="subtask-time">${fmtSec(s.start_seconds)}–${fmtSec(s.end_seconds)}</span>
+                          </li>`
+                     )
+                     .join("")}</ol>`
+                : `<div class="annot-line annot-none">no subtask annotations</div>`;
+              const chips = (d.objects || [])
+                .concat(d.tools || [])
+                .map((o) => `<span class="obj-chip">${esc(o)}</span>`)
+                .join("");
+              el.innerHTML =
+                segHtml +
+                (chips ? `<div class="annot-line">${chips}</div>` : "") +
+                (d.scene_desc
+                  ? `<div class="annot-line"><span class="annot-k">scene</span>${esc(d.scene_desc)}</div>`
+                  : "") +
+                (d.environment_desc
+                  ? `<div class="annot-line"><span class="annot-k">env</span>${esc(d.environment_desc)}</div>`
+                  : "");
+              el.querySelectorAll(".subtask").forEach((li) =>
+                li.addEventListener("click", () => seekTo(li.dataset.side, li.dataset.start))
+              );
+            })
+            .catch(() => {});
+        });
+      }
+
+      // seek a clip to a subtask's start (offset by the span window start)
+      function seekTo(side, startStr) {
+        const start = parseFloat(startStr);
+        if (Number.isNaN(start)) return;
+        const v = document.getElementById(`clip-${side}`);
+        const span = side === "a" ? state.pair.a : state.pair.b;
+        if (!v) return;
+        v.currentTime = (span.start || 0) + start;
+        v.play().catch(() => {});
+      }
+
+      // ----- video looping within the span window -----
+      function setupLoop(id, span) {
+        const v = document.getElementById(id);
+        const hasWindow = span.end > span.start;
+        if (!v || !hasWindow) return;
+        v.addEventListener("loadedmetadata", () => {
+          v.currentTime = span.start;
+        });
+        v.addEventListener("timeupdate", () => {
+          if (scrubbing) return;
+          if (v.currentTime >= span.end - 0.05 || v.currentTime < span.start) {
+            v.currentTime = span.start;
+          }
+        });
+      }
+
+      // ----- synced scrubbers (ported from the fpl cross-pair UI) -----
+      let scrubbing = false;
+      const SCRUB_PAD = 12;
+
+      function spanWindow(side) {
+        const span = side === "a" ? state.pair.a : state.pair.b;
+        const v = document.getElementById(`clip-${side}`);
+        const start = span.start || 0;
+        let end = span.end > span.start ? span.end : (v && v.duration) || 0;
+        return { v, start, end, len: Math.max(end - start, 0) };
+      }
+
+      function updateScrubUI(side) {
+        const { v, start, len } = spanWindow(side);
+        if (!v || len <= 0) return;
+        const frac = Math.max(0, Math.min(1, (v.currentTime - start) / len));
+        const pct = (frac * 100).toFixed(2);
+        const fill = document.getElementById(`fill-${side}`);
+        const thumb = document.getElementById(`thumb-${side}`);
+        const time = document.getElementById(`time-${side}`);
+        if (fill) fill.style.width = `${pct}%`;
+        if (thumb) thumb.style.left = `calc(${SCRUB_PAD}px + ${frac} * (100% - ${SCRUB_PAD * 2}px))`;
+        if (time) time.textContent = `${(v.currentTime - start).toFixed(1)}s / ${len.toFixed(1)}s`;
+      }
+
+      function wireScrubbers(pair) {
+        ["a", "b"].forEach((side) => {
+          const wrap = document.getElementById(`scrubber-${side}`);
+          wrap.addEventListener("mousemove", (e) => onScrub(e, side));
+          wrap.addEventListener("mousedown", (e) => onScrub(e, side));
+          wrap.addEventListener("mouseleave", () => onScrubEnd(side));
+          const v = document.getElementById(`clip-${side}`);
+          v.addEventListener("timeupdate", () => {
+            if (!scrubbing) updateScrubUI(side);
+          });
+        });
+      }
+
+      function onScrub(e, hoveredSide) {
+        const wrap = document.getElementById(`scrubber-${hoveredSide}`);
+        const rect = wrap.getBoundingClientRect();
+        const frac = Math.max(
+          0,
+          Math.min(1, (e.clientX - rect.left - SCRUB_PAD) / (rect.width - SCRUB_PAD * 2))
+        );
+        const hover = document.getElementById(`hover-${hoveredSide}`);
+        if (hover) hover.style.left = `${e.clientX - rect.left}px`;
+        scrubbing = true;
+        // The same fraction drives BOTH clips (they can differ in length).
+        ["a", "b"].forEach((side) => {
+          const { v, start, len } = spanWindow(side);
+          if (!v || len <= 0) return;
+          v.pause();
+          v.currentTime = start + frac * Math.max(len - 0.1, 0);
+          updateScrubUI(side);
+        });
+      }
+
+      function onScrubEnd() {
+        scrubbing = false;
+        ["a", "b"].forEach((side) => {
+          const v = document.getElementById(`clip-${side}`);
+          if (v) v.play().catch(() => {});
+        });
+      }
+
+      // ----- fixed axis rows -----
+      function wireAxisRows() {
+        state.activeAxis = 0;
+        document.querySelectorAll(".dim-row").forEach((row) => {
+          const idx = parseInt(row.dataset.idx, 10);
+          row.addEventListener("click", () => setActiveAxis(idx));
+          row.addEventListener("focusin", () => setActiveAxis(idx));
+          row.querySelectorAll("input[type=radio]").forEach((r) =>
+            r.addEventListener("change", updateSaveEnabled)
+          );
+        });
+        setActiveAxis(0);
+      }
+
+      function setActiveAxis(idx) {
+        const n = state.config.axes.length;
+        state.activeAxis = Math.max(0, Math.min(idx, n - 1));
+        document.querySelectorAll(".dim-row").forEach((row) =>
+          row.classList.toggle("active", parseInt(row.dataset.idx, 10) === state.activeAxis)
+        );
+      }
+
+      function setAxisValue(idx, value) {
+        const radio = document.getElementById(`ax_${idx}_${value}`);
+        if (!radio) return;
+        radio.checked = true;
+        const label = document.querySelector(`label[for="ax_${idx}_${value}"]`);
+        if (label) {
+          label.style.transition = "none";
+          label.style.transform = "scale(1.15)";
+          setTimeout(() => {
+            label.style.transition = "";
+            label.style.transform = "";
+          }, 120);
+        }
+        updateSaveEnabled();
+        // advance to the next unrated axis, if any
+        const next = firstUnratedAxis();
+        if (next !== null) setActiveAxis(next);
+      }
+
+      function collectRatings() {
+        const out = {};
+        document.querySelectorAll(".dim-row").forEach((row) => {
+          const idx = row.dataset.idx;
+          const sel = row.querySelector(`input[name="ax_${idx}"]:checked`);
+          if (sel) out[row.dataset.axis] = sel.value;
+        });
+        return out;
+      }
+
+      function firstUnratedAxis() {
+        const rows = document.querySelectorAll(".dim-row");
+        for (const row of rows) {
+          const idx = row.dataset.idx;
+          if (!row.querySelector(`input[name="ax_${idx}"]:checked`)) return parseInt(idx, 10);
+        }
+        return null;
+      }
+
+      function updateSaveEnabled() {
+        const btn = document.getElementById("save-btn");
+        if (btn) btn.disabled = firstUnratedAxis() !== null;
+      }
+
+      let submitting = false;
+      async function submitComparison(skip) {
+        if (!state.pair || submitting) return;
+        const body = {
+          span_a: state.pair.a.span_id,
+          span_b: state.pair.b.span_id,
+          rater_id: state.raterId,
+          skip,
+        };
+        if (!skip) {
+          const ratings = collectRatings();
+          if (Object.keys(ratings).length !== state.config.axes.length) {
+            toast("Rate every axis before saving", "error");
+            return;
+          }
+          body.ratings = ratings;
+        }
+        submitting = true;
+        try {
+          await api("/compare", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          toast(skip ? "Skipped" : "Saved ✓", "success");
+          await loadProgress();
+          await loadPair();
+        } catch (err) {
+          toast(err.message, "error");
+        } finally {
+          submitting = false;
+        }
+      }
+
+      // keyboard shortcuts (compare screen)
+      document.addEventListener("keydown", (e) => {
+        if (currentRoute() !== "compare" || !state.pair) return;
+        const tag = (document.activeElement.tagName || "").toLowerCase();
+        if (tag === "input" && document.activeElement.type === "number") return;
+        if (tag === "select" || tag === "textarea") return;
+
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setActiveAxis(state.activeAxis - 1);
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setActiveAxis(state.activeAxis + 1);
+        } else if (e.key === "1") {
+          e.preventDefault();
+          setAxisValue(state.activeAxis, "a");
+        } else if (e.key === "2") {
+          e.preventDefault();
+          setAxisValue(state.activeAxis, "equal");
+        } else if (e.key === "3") {
+          e.preventDefault();
+          setAxisValue(state.activeAxis, "b");
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          if (firstUnratedAxis() === null) submitComparison(false);
+        } else if (e.key === "s" || e.key === "S") {
+          e.preventDefault();
+          submitComparison(true);
+        } else if (e.key === "Backspace") {
+          e.preventDefault();
+          undoLast();
+        }
+      });
+
+      // ---------------- leaderboard ----------------
+      async function renderLeaderboard() {
+        app.innerHTML = `
+          <div class="panel">
+            <div class="panel-title">Per-axis Glicko-2 ranking</div>
+            <div class="toolbar">
+              <div class="axis-pills" id="axis-pills"></div>
+              <span class="spacer"></span>
+              <button class="btn" id="refresh">Refresh</button>
+              <button class="btn" id="export-total">⬇ Total ranking (.jsonl)</button>
+              <button class="btn btn-primary" id="export-reward">⬇ Reward dataset (.jsonl)</button>
+              <span class="muted" id="lb-count"></span>
+            </div>
+            <div class="weights-panel" id="weights-panel"></div>
+            <div class="table-wrap">
+              <table>
+                <thead id="lb-head"></thead>
+                <tbody id="lb-body"></tbody>
+              </table>
+            </div>
+            <div class="note" id="lb-note"></div>
+          </div>
+        `;
+        document.getElementById("refresh").addEventListener("click", loadLeaderboard);
+        document.getElementById("export-reward").addEventListener("click", () => {
+          window.location = "/export/reward_dataset.jsonl";
+        });
+        document.getElementById("export-total").addEventListener("click", () => {
+          window.location = "/export/total_ranking.jsonl";
+        });
+        await loadLeaderboard();
+      }
+
+      function axisPills(axes) {
+        const el = document.getElementById("axis-pills");
+        const all = ["total", ...axes];
+        el.innerHTML = all
+          .map(
+            (a) =>
+              `<button class="pill-btn ${a === state.lbAxis ? "active" : ""}" data-axis="${esc(a)}">
+                ${esc(a)}</button>`
+          )
+          .join("");
+        el.querySelectorAll(".pill-btn").forEach((b) =>
+          b.addEventListener("click", () => {
+            state.lbAxis = b.dataset.axis;
+            axisPills(state.lbAxes);
+            renderLbTable();
+          })
+        );
+      }
+
+      async function loadLeaderboard() {
+        const data = await api("/leaderboard" + qs());
+        state.lbRows = data.rows;
+        state.lbAxes = data.axes;
+        state.weights = data.weights || {};
+        if (state.lbAxis !== "total" && !data.axes.includes(state.lbAxis)) {
+          state.lbAxis = "total";
+        }
+        axisPills(data.axes);
+        renderWeights();
+        renderLbTable();
+        const g = data.glicko || {};
+        document.getElementById("lb-note").innerHTML =
+          `Each axis is an independent Glicko-2 system (start ${g.initial ?? 1500}, τ=${g.tau ?? 0.3}); ` +
+          `<strong>Equal = a draw</strong>. <strong>Score</strong> is on a <strong>1–10</strong> scale: ` +
+          `1 + 9 × P(beat the span's comparability-group average), so 5.5 = group average. ` +
+          `<strong>Total</strong> is the weighted mean of the axis scores under the sliders above ` +
+          `(weights persist and drive the total-ranking export). Spans only meet others in the same ` +
+          `<strong>group</strong> (annotation cosine ≥ ${fmt(state.config.similarity_threshold, 2)}).`;
+      }
+
+      // ----- axis weights (drive the Total column + export, persisted) -----
+      function renderWeights() {
+        const el = document.getElementById("weights-panel");
+        if (!el) return;
+        el.innerHTML =
+          `<span class="weights-title">Total-score weights</span>` +
+          state.lbAxes
+            .map((ax) => {
+              const w = state.weights[ax] ?? 1;
+              return `
+              <div class="weight-ctrl">
+                <span class="weight-name">${esc(ax)}</span>
+                <input type="range" min="0" max="5" step="0.1" value="${w}" data-axis="${esc(ax)}" />
+                <span class="weight-val" data-axis-val="${esc(ax)}">${Number(w).toFixed(1)}</span>
+              </div>`;
+            })
+            .join("");
+        el.querySelectorAll("input[type=range]").forEach((sl) => {
+          sl.addEventListener("input", () => {
+            const ax = sl.dataset.axis;
+            state.weights[ax] = parseFloat(sl.value);
+            el.querySelector(`[data-axis-val="${CSS.escape(ax)}"]`).textContent =
+              state.weights[ax].toFixed(1);
+            renderLbTable(); // instant re-rank client-side
+            saveWeightsDebounced(); // persist so the export matches
+          });
+        });
+      }
+
+      let weightsTimer = null;
+      function saveWeightsDebounced() {
+        clearTimeout(weightsTimer);
+        weightsTimer = setTimeout(async () => {
+          try {
+            await api("/weights", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ weights: state.weights }),
+            });
+          } catch (err) {
+            toast(`Weights not saved: ${err.message}`, "error");
+          }
+        }, 500);
+      }
+
+      function totalScore(row) {
+        let sw = 0, acc = 0;
+        for (const ax of state.lbAxes) {
+          const w = state.weights[ax] ?? 1;
+          sw += w;
+          acc += w * row.axes[ax].score;
+        }
+        if (sw <= 0) {
+          // all-zero weights degrade to the plain mean (same rule as the server)
+          const vals = state.lbAxes.map((a) => row.axes[a].score);
+          return vals.reduce((x, y) => x + y, 0) / (vals.length || 1);
+        }
+        return acc / sw;
+      }
+
+      function renderLbTable() {
+        const head = document.getElementById("lb-head");
+        const body = document.getElementById("lb-body");
+        if (!head || !body || !state.lbRows) return;
+        const isTotal = state.lbAxis === "total";
+
+        head.innerHTML = isTotal
+          ? `<tr><th>#</th><th>Grp</th><th>Span</th><th>Scene</th><th>Operator</th><th>Task</th>
+              <th>Total</th>${state.lbAxes.map((a) => `<th>${esc(a)}</th>`).join("")}<th>Games</th></tr>`
+          : `<tr><th>#</th><th>Grp</th><th>Span</th><th>Scene</th><th>Operator</th><th>Task</th>
+              <th>Rating</th><th>± RD</th><th>Score</th><th>Games</th><th>W–L–D</th><th>Win%</th></tr>`;
+
+        let rows;
+        if (isTotal) {
+          rows = [...state.lbRows].sort(
+            (x, y) => totalScore(y) - totalScore(x) || y.games - x.games
+          );
+        } else {
+          rows = [...state.lbRows].sort(
+            (x, y) =>
+              y.axes[state.lbAxis].rating - x.axes[state.lbAxis].rating ||
+              x.axes[state.lbAxis].rd - y.axes[state.lbAxis].rd
+          );
+        }
+        body.innerHTML = rows
+          .map((r, i) => {
+            const common = `
+              <td>${i + 1}</td>
+              <td><span class="grp">${r.group}</span></td>
+              <td><code>${esc(r.span_id)}</code></td>
+              <td>${esc(r.scene)}</td>
+              <td>${esc(r.operator)}</td>
+              <td class="task-cell" title="${esc(r.label || "")}">${esc((r.label || "").slice(0, 60))}</td>`;
+            if (isTotal) {
+              const axCells = state.lbAxes
+                .map((a) => `<td>${fmt(r.axes[a].score, 2)}</td>`)
+                .join("");
+              return `<tr class="${r.games === 0 ? "unrated" : ""}">${common}
+                <td><strong>${fmt(totalScore(r), 2)}</strong></td>
+                ${axCells}
+                <td>${r.games}</td></tr>`;
+            }
+            const a = r.axes[state.lbAxis];
+            const wld = `${a.wins}–${a.losses}–${a.draws}`;
+            const wr = a.win_rate === null ? "—" : `${(a.win_rate * 100).toFixed(0)}%`;
+            return `<tr class="${a.games === 0 ? "unrated" : ""}">${common}
+              <td><strong>${fmt(a.rating, 0)}</strong></td>
+              <td class="muted">±${fmt(a.rd, 0)}</td>
+              <td>${fmt(a.score, 2)}</td>
+              <td>${a.games}</td>
+              <td>${wld}</td>
+              <td>${wr}</td></tr>`;
+          })
+          .join("");
+        const count = document.getElementById("lb-count");
+        if (count) count.textContent = `${rows.length} spans`;
+      }
+
+      // ---------------- admin ----------------
+      async function renderAdmin() {
+        app.innerHTML = `
+          <div class="panel">
+            <div class="panel-title">Admin</div>
+            <div class="toolbar">
+              <button class="btn" id="reload">Reload config</button>
+              <button class="btn" id="resample" title="Draw a fresh random pool from the dataset filter — comparisons of episodes that fall out of the pool are dropped">↺ Re-sample pool</button>
+              <button class="btn" id="refresh-admin">Refresh log</button>
+              <button class="btn" id="export-prefs">⬇ Preference log (.jsonl)</button>
+              <span class="muted" id="admin-status"></span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>ID</th><th>Result</th><th>A</th><th>B</th><th>Axes</th><th>Rater</th><th>Time</th></tr>
+                </thead>
+                <tbody id="admin-body"></tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        const reload = async (force) => {
+          document.getElementById("admin-status").textContent = force
+            ? "Re-sampling pool…"
+            : "Reloading…";
+          try {
+            const r = await api(`/reload-config${force ? "?force=true" : ""}`, { method: "POST" });
+            document.getElementById("admin-status").textContent = `Reloaded — ${r.span_count} spans.`;
+            await loadConfig();
+            populateFilters();
+          } catch (err) {
+            document.getElementById("admin-status").textContent = "";
+            toast(err.message, "error");
+          }
+        };
+        document.getElementById("reload").addEventListener("click", () => reload(false));
+        document.getElementById("resample").addEventListener("click", () => {
+          if (
+            confirm(
+              "Re-sample the episode pool from the dataset filter?\n\n" +
+                "With shuffle/limit this draws a NEW random pool — comparisons " +
+                "of episodes that fall out of it are permanently dropped."
+            )
+          )
+            reload(true);
+        });
+        document.getElementById("refresh-admin").addEventListener("click", loadAdmin);
+        document.getElementById("export-prefs").addEventListener("click", () => {
+          window.location = "/export/preferences.jsonl";
+        });
+        await loadAdmin();
+      }
+
+      function outcomeChip(axis, outcome) {
+        return `<span class="axis-chip axis-chip-${outcome}">${esc(axis)}: ${
+          { a: "A", b: "B", equal: "=" }[outcome] || esc(outcome)
+        }</span>`;
+      }
+
+      async function loadAdmin() {
+        const data = await api("/raw-comparisons");
+        const body = document.getElementById("admin-body");
+        if (!data.rows.length) {
+          body.innerHTML = `<tr><td colspan="7" class="muted">No comparisons yet.</td></tr>`;
+          return;
+        }
+        body.innerHTML = data.rows
+          .map((r) => {
+            const chips = Object.entries(r.ratings || {})
+              .map(([ax, o]) => outcomeChip(ax, o))
+              .join(" ");
+            const result = r.skipped
+              ? `<span class="pill-skip">skip</span>`
+              : `<span class="pill-rated">rated</span>`;
+            return `
+              <tr>
+                <td>${r.comparison_id}</td>
+                <td>${result}</td>
+                <td title="${esc(r.label_a || "")}"><code>${esc(r.span_a)}</code></td>
+                <td title="${esc(r.label_b || "")}"><code>${esc(r.span_b)}</code></td>
+                <td>${chips || '<span class="muted">—</span>'}</td>
+                <td>${r.rater_id}</td>
+                <td class="muted">${esc(r.ts)}</td>
+              </tr>`;
+          })
+          .join("");
+      }
+
+      // ---------------- router ----------------
+      async function render() {
+        highlightNav();
+        try {
+          const r = currentRoute();
+          if (r === "compare") await renderCompare();
+          else if (r === "leaderboard") await renderLeaderboard();
+          else if (r === "admin") await renderAdmin();
+        } catch (err) {
+          app.innerHTML = `<div class="empty-msg"><h2>Error</h2><p class="muted">${esc(err.message)}</p></div>`;
+          console.error(err);
+        }
+      }
+      async function loadConfig() {
+        state.config = await api("/config");
+      }
+      window.addEventListener("hashchange", render);
+
+      (async function init() {
+        try {
+          wireHeader();
+          await loadConfig();
+          populateFilters();
+          if (!location.hash) location.hash = "#compare";
+          await render();
+        } catch (err) {
+          app.innerHTML =
+            `<div class="empty-msg"><h2>Failed to load</h2><p class="muted">${esc(err.message)}</p>` +
+            `<p class="muted">Is the server running? Try a hard refresh (Ctrl-Shift-R).</p></div>`;
+          console.error(err);
+        }
+      })();
+    </script>
+  </body>
+</html>

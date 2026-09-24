@@ -1,0 +1,107 @@
+# ego-rating config.
+#
+# Spans are selected the SAME way episodes are fed to a model: a `dataset` block
+# with DatasetFilter `filter_lambdas` (cf. egomimic/hydra_configs/data/*.yaml),
+# resolved against app.episodes. Every matching episode becomes one rating unit,
+# and the app streams their videos one after another. Each video resolves to a
+# short-lived presigned R2 URL (episode_hash -> MongoDB video_1) and streams over
+# HTTP Range — nothing is downloaded.
+#
+# Requires DB + R2 creds in the env / ~/.egoverse_env (DATABASE_URL, MONGODB_URI,
+# R2_*). For an offline demo with local files, use the legacy `spans:` form below.
+
+annotation: "Which clip performs the described task better?"
+
+# Fixed set of rating axes. Every comparison rates ALL of these as A / Equal / B
+# (Equal = a Glicko-2 draw). Each axis gets its own independent Glicko-2 ranking
+# and a 1-10 score in the exported reward-model dataset — so don't rename axes
+# mid-collection (recorded outcomes are keyed by name).
+#
+# `weight` seeds how much the axis contributes to the TOTAL score (weighted mean
+# of the 1-10 axis scores). Weights are adjusted live from the leaderboard
+# sliders and persisted in the DB; the config value only seeds a NEW axis — a
+# reload never clobbers a slider-adjusted weight.
+axes:
+  - name: annotation_accuracy
+    description: "Which episode's annotation (the description, objects, and scene shown under the clip) more accurately matches what actually happens?"
+    weight: 1.0
+  - name: efficiency
+    description: "Which episode achieves the task with less wasted time and motion?"
+    weight: 1.0
+  - name: minimal_head_motion
+    description: "Which episode has steadier, less erratic head/camera motion?"
+    weight: 1.0
+  - name: consistency
+    description: "Which episode executes the task more consistently (steady pacing, uniform technique throughout)?"
+    weight: 1.0
+  - name: grasp_transferability
+    description: "Which episode uses grasps a parallel-jaw gripper could replicate (clean pinch/power grasps — no in-hand rolling, multi-finger dexterity, or palm smoothing)?"
+    weight: 1.0
+  - name: fold_quality
+    description: "Which episode produces a neater final fold (crisp edges, aligned corners, compact result)?"
+    weight: 1.0
+
+# Comparability: two spans are pitted against each other only when their
+# annotations (task_description) are at least `threshold` cosine-similar.
+similarity:
+  # On all-mpnet-base-v2's scale, 0.8 cleanly separates same-sub-task pairs
+  # (~0.83) from different-sub-task pairs (~0.75). Raise toward 0.83 for stricter
+  # near-duplicate matching; lower toward 0.75 for more (looser) pairs.
+  threshold: 0.8
+  # Embedding backend: "modal" runs the model on Modal (deploy once with
+  # `modal deploy backend/modal_embed.py`) — used because this box can't load
+  # torch in-process. Alternatives: "local" (in-process), "tfidf" (lexical, no
+  # torch), "auto" (modal, falling back to tfidf). Any failure falls back to tfidf.
+  backend: "modal"
+  model: "sentence-transformers/all-mpnet-base-v2"   # stronger than MiniLM; used by "local"
+
+# Glicko-2 ranking derived from the pairwise comparison log (rating, RD, volatility).
+glicko:
+  initial: 1500
+  rd: 350          # initial rating deviation (uncertainty)
+  vol: 0.06        # initial volatility
+  tau: 0.3         # system constant; low because clip quality is stable
+
+# Pairing strategy: warm up with most-similar pairs, then switch to active
+# learning (maximise expected information gain ≈ (rd_a+rd_b)·p·(1−p)).
+pairing:
+  warmup_comparisons: 10   # rater's first N comparisons are most-similar-first
+  epsilon: 0.1             # active phase: fraction of random-exploration pairs
+  prefer_diverse: true     # serve different-operator (and different-scene) pairs
+                           # first; same-operator pairs only as fallback
+
+dataset:
+  # ---- Episode selection — choose any combination -------------------------
+  # The legacy fold-clothes pool: ALL freeform folding_clothes episodes in
+  # app.episodes (462, all human 'mecka' embodiment, all with per-episode
+  # task_descriptions). Deterministic (no sampling), so the pool is stable
+  # across restarts/reloads.
+  filters:
+    filter_lambdas:
+      - "lambda row: row['task'] == 'folding_clothes'"
+      - "lambda row: row['data_type'] == 'freeform'"
+
+  # Other selection styles (combine freely):
+  # (a) episode-hash allowlist:    episode_ids_file: egomimic/hydra_configs/data/extra/fold_clothes_all.json
+  # (b) structured `where`:        where: {task: ["folding_clothes"], data_type: "flagship"}
+  # (c) reuse a model data config:  data_config: egomimic/hydra_configs/data/deminf_mecka.yaml
+  # (d) inline ids / raw SQL:       episode_ids: [...]   |   sql_where: "num_frames > 1000"
+  # For a broad random sample instead, add `shuffle: true` + `limit: N`
+  # (episodes without a task_description are best excluded then:
+  #  sql_where: "task_description IS NOT NULL AND task_description != ''").
+
+  # ---- Stream / queue options ---------------------------------------------
+  fps: 30          # clip end = num_frames / fps (length of the #t window)
+  shuffle: false   # bounded, deterministic set — no sampling needed
+
+# ---- Legacy offline form -------------------------------------------------
+# Provide `spans:` INSTEAD of `dataset:` (mutually exclusive) to hand-list clips
+# with no DB — `video` accepts a local path, r2:// key, https URL, or episode_hash:
+#
+# spans:
+#   - id: "span_001"
+#     video: "videos/alice_bench1_take1.mp4"
+#     start: 4.2
+#     end: 11.0
+#     scene: "lab_bench_1"
+#     operator: "alice"
