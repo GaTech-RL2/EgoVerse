@@ -1,0 +1,331 @@
+{
+  "scope": "Post-hoc audit of actual control-rollout reference inversions; arrays hash-verified",
+  "noise_atol": 0.1,
+  "inversions": 14,
+  "passing_inversions": 3,
+  "maximum_noise_error": 0.630013644695282,
+  "rows": [
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:0",
+      "observation_step": 0,
+      "condition_id": "6fa2298e2a010a7599abbf0fafff966822416092e1044b94e89b4cb825e58553",
+      "known_noise_recovery": {
+        "rmse": 0.006183532652679688,
+        "max_abs": 0.058491051197052
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.012571719427224352,
+        "max_abs": 0.058491051197052
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.0021653408843712117,
+        "max_abs": 0.006547875702381134
+      },
+      "passed_noise_tolerance": true,
+      "same_condition_internal_reconstruction": {
+        "rmse": 5.33819214879877e-06,
+        "max_abs": 5.6862831115722656e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:20",
+      "observation_step": 20,
+      "condition_id": "b1124dc504af0d541e74764f60e225a168f7390ccbee05af820dc5c82ca0fe84",
+      "known_noise_recovery": {
+        "rmse": 0.0263276729381246,
+        "max_abs": 0.33727025985717773
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.05553807305622509,
+        "max_abs": 0.33727025985717773
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.004855267997502483,
+        "max_abs": 0.017592430114746094
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 4.1620908524543965e-06,
+        "max_abs": 3.540515899658203e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:40",
+      "observation_step": 40,
+      "condition_id": "a642bbaa8005df5c8bd3a8fa0a21e60db65510d990b456fbff54625e5466cc76",
+      "known_noise_recovery": {
+        "rmse": 0.02883236366749573,
+        "max_abs": 0.3136938214302063
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.06124087099583933,
+        "max_abs": 0.3136938214302063
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.003734467922733002,
+        "max_abs": 0.016302943229675293
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 4.618296174050535e-06,
+        "max_abs": 4.470348358154297e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:60",
+      "observation_step": 60,
+      "condition_id": "85d805b83901f8d0069b469fc4e945692b2f3df4c9c538ca3c6f01ff8f31a4db",
+      "known_noise_recovery": {
+        "rmse": 0.015606192592870131,
+        "max_abs": 0.18130012601613998
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.03277692784346034,
+        "max_abs": 0.18130012601613998
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.0033070525842587117,
+        "max_abs": 0.012136220932006836
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 8.412080117893976e-06,
+        "max_abs": 0.00010001659393310547
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:80",
+      "observation_step": 80,
+      "condition_id": "16ad1984276fa927d5e3e08df7a2b7a447a8b9529748592c312b71ebe3653828",
+      "known_noise_recovery": {
+        "rmse": 0.03681131955768364,
+        "max_abs": 0.5357358455657959
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.07769727370455773,
+        "max_abs": 0.5357358455657959
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.006646140337507609,
+        "max_abs": 0.04689669609069824
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 4.825366036107191e-06,
+        "max_abs": 4.4465065002441406e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:100",
+      "observation_step": 100,
+      "condition_id": "b806d4215ec662987b157c1035020277f4b4724e43dda5051402fa4fcac86291",
+      "known_noise_recovery": {
+        "rmse": 0.043958726612210744,
+        "max_abs": 0.630013644695282
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.09293640773923886,
+        "max_abs": 0.630013644695282
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.007417809561934885,
+        "max_abs": 0.05145862698554993
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 6.917921859559444e-06,
+        "max_abs": 8.33272933959961e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:120",
+      "observation_step": 120,
+      "condition_id": "754915ca8b62fce8a6518c81ccdbccdd07b09f76a5bc3fa07c42f109e17cbc3d",
+      "known_noise_recovery": {
+        "rmse": 0.02279885194571771,
+        "max_abs": 0.29866766929626465
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.048081949638904664,
+        "max_abs": 0.29866766929626465
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.004243053776802974,
+        "max_abs": 0.019798198249191046
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 6.5890498930387615e-06,
+        "max_abs": 7.617473602294922e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:140",
+      "observation_step": 140,
+      "condition_id": "d82dbba2a1c5e57be982d085f38ae6c494af4a04f27b703d6ccaae932d9fa89e",
+      "known_noise_recovery": {
+        "rmse": 0.02581146819193357,
+        "max_abs": 0.33024489879608154
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.054810447309679274,
+        "max_abs": 0.33024489879608154
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.003406608560621292,
+        "max_abs": 0.01642143726348877
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 6.408899559139759e-06,
+        "max_abs": 6.258487701416016e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:160",
+      "observation_step": 160,
+      "condition_id": "98d23a2c2d8c5b0d82b5b421240a5b4afd63f3aed60335146e2de9584cc45274",
+      "known_noise_recovery": {
+        "rmse": 0.017113347279297125,
+        "max_abs": 0.1872727870941162
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.035629714338899145,
+        "max_abs": 0.1872727870941162
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.0044063461332834696,
+        "max_abs": 0.016380183398723602
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 5.8249158458729485e-06,
+        "max_abs": 4.1961669921875e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:180",
+      "observation_step": 180,
+      "condition_id": "f05348a1b20abb20e3f2e87f754df814f82ca5b416f672a6b183cdcff8dd3733",
+      "known_noise_recovery": {
+        "rmse": 0.019604093467663952,
+        "max_abs": 0.24816763401031494
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.04141550321372168,
+        "max_abs": 0.24816763401031494
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.0034149555600294893,
+        "max_abs": 0.01640380173921585
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 5.3638427713723926e-06,
+        "max_abs": 3.707408905029297e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:200",
+      "observation_step": 200,
+      "condition_id": "a8b3e1c05e2f26b42b52725c4bd1f89b3d43364d138e37a81ef4ca58b8fae6ba",
+      "known_noise_recovery": {
+        "rmse": 0.004307324904883315,
+        "max_abs": 0.04700756072998047
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.008882431892203226,
+        "max_abs": 0.04700756072998047
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.0012870797414596354,
+        "max_abs": 0.0046844482421875
+      },
+      "passed_noise_tolerance": true,
+      "same_condition_internal_reconstruction": {
+        "rmse": 3.4138937805417626e-06,
+        "max_abs": 2.1189451217651367e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:220",
+      "observation_step": 220,
+      "condition_id": "94456667d19908a1ed48401b42e6a26102b7ed4adf42739a12edf778bc6c308c",
+      "known_noise_recovery": {
+        "rmse": 0.027923530601132725,
+        "max_abs": 0.31716692447662354
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.05890763229114946,
+        "max_abs": 0.31716692447662354
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.005139610741648569,
+        "max_abs": 0.026624470949172974
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 5.104335291670993e-06,
+        "max_abs": 3.409385681152344e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:240",
+      "observation_step": 240,
+      "condition_id": "4c508509be90e45bb44544c55fce08e8a9bb04b03fe730d654fef4983b261661",
+      "known_noise_recovery": {
+        "rmse": 0.017276847326990176,
+        "max_abs": 0.23069123923778534
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.03627696382394949,
+        "max_abs": 0.23069123923778534
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.003685299357908965,
+        "max_abs": 0.016812801361083984
+      },
+      "passed_noise_tolerance": false,
+      "same_condition_internal_reconstruction": {
+        "rmse": 8.650290744699624e-06,
+        "max_abs": 7.510185241699219e-05
+      }
+    },
+    {
+      "episode_id": "libero_10:task0:state0",
+      "plan_id": "libero_10:task0:state0:noise:260",
+      "observation_step": 260,
+      "condition_id": "689de64bcc2d1061f98fd24ca3216f9d2fada34b3ffe666a05b1f3aeae38069d",
+      "known_noise_recovery": {
+        "rmse": 0.007154397659505211,
+        "max_abs": 0.09114360809326172
+      },
+      "action_channel_noise_error": {
+        "rmse": 0.014702064221130164,
+        "max_abs": 0.09114360809326172
+      },
+      "padding_channel_noise_error": {
+        "rmse": 0.002234977774520601,
+        "max_abs": 0.008032560348510742
+      },
+      "passed_noise_tolerance": true,
+      "same_condition_internal_reconstruction": {
+        "rmse": 4.3730710534097476e-06,
+        "max_abs": 4.565715789794922e-05
+      }
+    }
+  ]
+}

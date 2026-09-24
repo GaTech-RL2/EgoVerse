@@ -1,0 +1,187 @@
+{
+  "scope": "one development episode, no Astra calls; not a 500-episode reproduction",
+  "baseline": {
+    "kind": "episode_end",
+    "sequence": 963,
+    "timestamp": 1790214572.7881,
+    "episode_id": "libero_10:task0:state0",
+    "method": "policy_fresh",
+    "success": false,
+    "actions": 520,
+    "wall_seconds": 4248.7094693750005,
+    "velocity_evaluations": 1040,
+    "fallbacks": 0,
+    "agent_calls": 0,
+    "invalid_responses": 0,
+    "retry_calls": 0,
+    "completed_subgoals": 0,
+    "failure": null,
+    "suite": "libero_10",
+    "task_id": 0,
+    "initial_state_id": 0,
+    "reset_state_sha256": "c4adbbf953e1f1b86b6045a58ab2fdc8591e15e7803229aef8e7e665814d373a",
+    "seed": 0,
+    "protocol": "standard_libero_10",
+    "task_action_budget": 520,
+    "split": "development"
+  },
+  "diagnostics": {
+    "schema_version": "1.0",
+    "solver": "euler",
+    "checkpoint": {
+      "artifact": "/Users/rpunamiya/Desktop/GEAR/EgoVerse/astra_reversal/.deps/checkpoints/pi05_libero_base",
+      "requested_artifact": "astra_reversal/.deps/checkpoints/pi05_libero_base",
+      "format": "lerobot_pi05",
+      "backend": "pytorch",
+      "frozen": true,
+      "horizon": 50,
+      "model_action_dim": 32,
+      "device": "cpu",
+      "dtype": "float32",
+      "shared_weight_aliases": {
+        "model.paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight": "model.paligemma_with_expert.paligemma.lm_head.weight"
+      },
+      "tokenizer_path": "astra_reversal/.deps/tokenizers/paligemma-3b-pt-224",
+      "tokenizer_sha256": "c44a0503146efc99bbd748f05667ddfeb0ae5d1afb63019df2d4c020cfb6b928",
+      "artifact_sha256": {
+        "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+        "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+        "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+        "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+      },
+      "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+      "adapter_source_sha256": "152c455eb326ffc04362cc91db5c81165061968ba854cc912daff51b956953a7",
+      "processor_source_sha256": {
+        "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+        "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+        "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+        "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+        "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+        "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+        "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+      },
+      "torch_version": "2.7.1",
+      "transformers_version": "4.53.3",
+      "transformers_source_sha256": {
+        "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+        "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+        "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+      },
+      "normalization": [
+        {
+          "file": "policy_preprocessor.json",
+          "step": "normalizer_processor",
+          "features": {},
+          "norm_map": {
+            "VISUAL": "IDENTITY",
+            "STATE": "MEAN_STD",
+            "ACTION": "MEAN_STD"
+          },
+          "state_file": null
+        },
+        {
+          "file": "policy_postprocessor.json",
+          "step": "unnormalizer_processor",
+          "features": {},
+          "norm_map": {
+            "VISUAL": "IDENTITY",
+            "STATE": "MEAN_STD",
+            "ACTION": "MEAN_STD"
+          },
+          "state_file": null
+        }
+      ],
+      "provenance": "https://huggingface.co/lerobot/pi05_libero_base/tree/a217bfd3b14673cf2ce597e69997ab21866438dd",
+      "training_overlap": "unknown"
+    },
+    "action_spec_id": "e1a3512420ddd2ee37ba921bec0658b8a25bfede91077a9a32ec706ab95cb0fe",
+    "observation_id": "b523ecbca389c326e4b3ad1b92d0225214b20d6214465e40acf62e0c7bfa7112",
+    "condition_id": "524792792d30632853817858f82e6b269c85b6eda2c00854bb20a0f564fd5b24",
+    "seed": 0,
+    "tolerances": {
+      "action_atol": 0.02,
+      "noise_atol": 0.1,
+      "parity_atol": 1e-05
+    },
+    "proposal_source": "policy_generated_numerical_diagnostic",
+    "results": [
+      {
+        "steps": 10,
+        "full_internal_reconstruction": {
+          "rmse": 0.004392652195586087,
+          "max_abs": 0.03763270378112793
+        },
+        "controller_reconstruction": {
+          "rmse": 0.009280350967064437,
+          "max_abs": 0.03763270378112793
+        },
+        "known_noise_recovery": {
+          "rmse": 0.6640093953196614,
+          "max_abs": 4.552584290504456
+        },
+        "reference_sampler_parity": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        },
+        "velocity_evaluations": 40,
+        "latency_seconds": 52.14417554199997,
+        "passed": false
+      },
+      {
+        "steps": 20,
+        "full_internal_reconstruction": {
+          "rmse": 0.0037355423555609896,
+          "max_abs": 0.03049778938293457
+        },
+        "controller_reconstruction": {
+          "rmse": 0.007783837006926478,
+          "max_abs": 0.03049778938293457
+        },
+        "known_noise_recovery": {
+          "rmse": 0.6358149938292367,
+          "max_abs": 3.83363538980484
+        },
+        "reference_sampler_parity": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        },
+        "velocity_evaluations": 80,
+        "latency_seconds": 42.87719600000014,
+        "passed": false
+      },
+      {
+        "steps": 50,
+        "full_internal_reconstruction": {
+          "rmse": 0.002529634021455019,
+          "max_abs": 0.01977013796567917
+        },
+        "controller_reconstruction": {
+          "rmse": 0.0052054604938333825,
+          "max_abs": 0.01977013796567917
+        },
+        "known_noise_recovery": {
+          "rmse": 0.7015157165188517,
+          "max_abs": 3.7108245491981506
+        },
+        "reference_sampler_parity": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        },
+        "velocity_evaluations": 200,
+        "latency_seconds": 61.24186820800014,
+        "passed": false
+      }
+    ],
+    "experiments_run": false,
+    "interpretation": "Reconstruction and reference parity only; no control-success or generalization claim"
+  },
+  "artifact_directory": "astra_reversal/artifacts/native_baseline_task0_cpu",
+  "video": "astra_reversal/artifacts/native_baseline_task0_cpu/episode_00000.mp4",
+  "osmo_workflow": {
+    "name": "astra-pi05-libero-dev-20260924-1",
+    "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/astra-pi05-libero-dev-20260924-1",
+    "logs": "https://us-west-2-aws.osmo.nvidia.com/api/workflow/astra-pi05-libero-dev-20260924-1/logs",
+    "spec": null,
+    "dashboard_url": "https://ovx-l40s-03.osmo.nvidia.com/dashboard/#/search?namespace=osmo-prod&q=d55c56033b784476"
+  }
+}

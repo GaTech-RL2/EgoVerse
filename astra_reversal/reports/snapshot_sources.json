@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "snapshot_date": "2026-09-24",
+  "scope": "Completed baseline and development numerical measurements only. Paired RK4 OOD controls, Stage 1 reversal, and the live development integration smoke remain pending at this documentation snapshot.",
+  "notes": [
+    "No new model calls or numerical solves were performed to create these review snapshots.",
+    "Original run paths and workflow identifiers are retained as provenance, not as tracked artifacts.",
+    "Raw images, tensors, provider response bodies, credentials, and signed download URLs are excluded."
+  ],
+  "files": [
+    {
+      "report": "ood_baseline.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "40c6828cc18cf166663d88d33f656da7bda26215d9c1eed341522282cb72b0b9",
+      "bytes": 26668,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_baseline_report/report.json",
+        "sha256": "40c6828cc18cf166663d88d33f656da7bda26215d9c1eed341522282cb72b0b9",
+        "bytes": 26668
+      }
+    },
+    {
+      "report": "ood_baseline_tasks.csv",
+      "transformation": "byte-for-byte copy",
+      "sha256": "c9b1c0db695d69dad8336f233972be9491c3702219b721915aaf7b8e7b085d03",
+      "bytes": 4147,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/ood_baseline_report/tasks.csv",
+        "sha256": "c9b1c0db695d69dad8336f233972be9491c3702219b721915aaf7b8e7b085d03",
+        "bytes": 4147
+      }
+    },
+    {
+      "report": "astra_proposal_preflight.json",
+      "transformation": "byte-for-byte copy",
+      "sha256": "5bb35d7416a46dced3080541918ee664818dd16321abde84ac59c68e5bfa2c63",
+      "bytes": 10983,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_ood_steering_group0/astra_proposal_diagnostics.json",
+        "sha256": "5bb35d7416a46dced3080541918ee664818dd16321abde84ac59c68e5bfa2c63",
+        "bytes": 10983
+      }
+    },
+    {
+      "report": "runtime_numerics.json",
+      "transformation": "compact review summary; exact omission rules recorded in report.compaction",
+      "sha256": "fc2de163b9a6131909d059a787914d5de2993443d75d07bdcfc069601be5ae70",
+      "bytes": 171471,
+      "source": {
+        "path_relative_to_astra_reversal": "artifacts/osmo_runtime_l40s/runtime_diagnostics.json",
+        "sha256": "c9629a7b0d3d2447f1eaaf168479b1572665e44e93912649450f31e91cadd788",
+        "bytes": 1452975
+      }
+    }
+  ],
+  "existing_tracked_standard_baseline": {
+    "path_relative_to_astra_reversal": "checkpoints/libero_l40s_full_baseline.json",
+    "sha256": "e9db4e0e1a5932c646377b9268e3c747c7002158605c036a34f20020dd528591",
+    "bytes": 5857
+  }
+}

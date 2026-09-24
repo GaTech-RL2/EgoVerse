@@ -1,0 +1,73 @@
+{
+  "checkpoint_revision": "a217bfd3b14673cf2ce597e69997ab21866438dd",
+  "input_kind": "synthetic images and fixed token IDs; gated tokenizer not used",
+  "horizon": 50,
+  "model_action_dim": 32,
+  "device": "cpu",
+  "dtype": "float32",
+  "strict_weight_load": true,
+  "shared_weight_aliases": {
+    "model.paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight": "model.paligemma_with_expert.paligemma.lm_head.weight"
+  },
+  "frozen": true,
+  "solver_steps": 2,
+  "full_internal_sampler_parity": {
+    "rmse": 0.0,
+    "max_abs": 0.0
+  },
+  "inverse_finite": true,
+  "inverse_shape": [
+    1,
+    50,
+    32
+  ],
+  "wall_seconds": 79.73363141699883,
+  "libero_rollouts_run": false,
+  "tokenizer_validated": false,
+  "recorded_at_utc": "2026-09-23T23:52:37.296501+00:00",
+  "weights_sha256": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+  "source_revisions": {
+    "lerobot": "8fff0fde7c79f23a93d845d1a50e985de01f8b8a",
+    "transformers": "dcddb970176382c0fcf4521b0c0e6fc15894dfe0"
+  },
+  "source_sha256": {
+    "lerobot.policies.pi05.modeling_pi05": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+    "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+    "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+    "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+  },
+  "package_versions": {
+    "torch": "2.7.1",
+    "torchvision": "0.22.1",
+    "transformers": "4.53.3",
+    "safetensors": "0.8.0",
+    "numpy": "2.4.6"
+  },
+  "synthetic_inputs": {
+    "front_camera": [
+      1,
+      3,
+      256,
+      256
+    ],
+    "front_pixel_value": 0.0,
+    "wrist_camera": [
+      1,
+      3,
+      256,
+      256
+    ],
+    "wrist_pixel_value": 0.5,
+    "language_length": 200,
+    "unmasked_token_ids": [
+      2,
+      100,
+      200,
+      108
+    ],
+    "remaining_tokens": 0,
+    "noise_seed": 0,
+    "torch_threads": 4
+  },
+  "interpretation": "Weighted numerical smoke check only. This does not pass the full reconstruction gate, validate tokenizer preprocessing, or measure control success."
+}

@@ -1,0 +1,175 @@
+{
+  "per_task": {
+    "libero_10:0": {
+      "episodes": 50,
+      "success_rate": 0.98,
+      "actions_to_success": 280.81632653061223,
+      "seconds_to_success": 15.727854927714212,
+      "mean_actions": 285.6,
+      "mean_wall_seconds": 15.974170813379969,
+      "mean_velocity_evaluations": 574.4,
+      "mean_fallbacks": 0.0,
+      "mean_agent_calls": 0.0,
+      "invalid_response_rate": null
+    },
+    "libero_10:1": {
+      "episodes": 50,
+      "success_rate": 1.0,
+      "actions_to_success": 251.3,
+      "seconds_to_success": 13.65566318889978,
+      "mean_actions": 251.3,
+      "mean_wall_seconds": 13.65566318889978,
+      "mean_velocity_evaluations": 505.8,
+      "mean_fallbacks": 0.0,
+      "mean_agent_calls": 0.0,
+      "invalid_response_rate": null
+    },
+    "libero_10:2": {
+      "episodes": 50,
+      "success_rate": 0.94,
+      "actions_to_success": 253.38297872340425,
+      "seconds_to_success": 13.024610555105879,
+      "mean_actions": 269.38,
+      "mean_wall_seconds": 13.830297096619542,
+      "mean_velocity_evaluations": 543.0,
+      "mean_fallbacks": 0.0,
+      "mean_agent_calls": 0.0,
+      "invalid_response_rate": null
+    },
+    "libero_10:3": {
+      "episodes": 50,
+      "success_rate": 0.92,
+      "actions_to_success": 229.8695652173913,
+      "seconds_to_success": 12.020580097173834,
+      "mean_actions": 253.08,
+      "mean_wall_seconds": 13.311932175379916,
+      "mean_velocity_evaluations": 510.0,
+      "mean_fallbacks": 0.0,
+      "mean_agent_calls": 0.0,
+      "invalid_response_rate": null
+    },
+    "libero_10:4": {
+      "episodes": 50,
+      "success_rate": 0.96,
+      "actions_to_success": 235.41666666666666,
+      "seconds_to_success": 12.714005393895908,
+      "mean_actions": 246.8,
+      "mean_wall_seconds": 13.325288964700013,
+      "mean_velocity_evaluations": 497.4,
+      "mean_fallbacks": 0.0,
+      "mean_agent_calls": 0.0,
+      "invalid_response_rate": null
+    },
+    "libero_10:5": {
+      "episodes": 50,
+      "success_rate": 0.98,
+      "actions_to_success": 187.59183673469389,
+      "seconds_to_success": 9.507548228367583,
+      "mean_actions": 194.24,
+      "mean_wall_seconds": 9.848864478420218,
+      "mean_velocity_evaluations": 392.6,
+      "mean_fallbacks": 0.0,
+      "mean_agent_calls": 0.0,
+      "invalid_response_rate": null
+    },
+    "libero_10:6": {
+      "episodes": 50,
+      "success_rate": 0.94,
+      "actions_to_success": 226.70212765957447,
+      "seconds_to_success": 11.901071392362203,
+      "mean_actions": 244.3,
+      "mean_wall_seconds": 12.848125562500499,
+      "mean_velocity_evaluations": 492.2,
+      "mean_fallbacks": 0.0,
+      "mean_agent_calls": 0.0,
+      "invalid_response_rate": null
+    },
+    "libero_10:7": {
+      "episodes": 50,
+      "success_rate": 1.0,
+      "actions_to_success": 264.46,
+      "seconds_to_success": 13.816564729399907,
+      "mean_actions": 264.46,
+      "mean_wall_seconds": 13.816564729399907,
+      "mean_velocity_evaluations": 532.6,
+      "mean_fallbacks": 0.0,
+      "mean_agent_calls": 0.0,
+      "invalid_response_rate": null
+    },
+    "libero_10:8": {
+      "episodes": 50,
+      "success_rate": 0.44,
+      "actions_to_success": 404.54545454545456,
+      "seconds_to_success": 20.933745139863195,
+      "mean_actions": 469.2,
+      "mean_wall_seconds": 24.23097463517981,
+      "mean_velocity_evaluations": 939.8,
+      "mean_fallbacks": 0.0,
+      "mean_agent_calls": 0.0,
+      "invalid_response_rate": null
+    },
+    "libero_10:9": {
+      "episodes": 50,
+      "success_rate": 0.94,
+      "actions_to_success": 264.9574468085106,
+      "seconds_to_success": 13.708221321659407,
+      "mean_actions": 280.26,
+      "mean_wall_seconds": 14.489296359359942,
+      "mean_velocity_evaluations": 563.8,
+      "mean_fallbacks": 0.0,
+      "mean_agent_calls": 0.0,
+      "invalid_response_rate": null
+    }
+  },
+  "per_suite": {
+    "libero_10": {
+      "macro_success": 0.9099999999999999,
+      "tasks": 10,
+      "complete_ten_task_suite": true
+    }
+  },
+  "macro_success": 0.9099999999999999,
+  "episodes": 500,
+  "interpretation": "Full standard LIBERO-10 evaluation of the selected LeRobot weights with OpenPI input settings; no Astra calls",
+  "successes": 455,
+  "execution_errors": 0,
+  "task_manifest_sha256": "dc68d9096e712f6c8c8e6af89eaf1701e66382d4301c523f86474f32fea21ada",
+  "input_profile": "openpi_libero",
+  "workflow": "astra-pi05-libero-baseline-20260924-1",
+  "runtime": {
+    "workflow": "astra-pi05-libero-baseline-20260924-1",
+    "gpu_names": [
+      "NVIDIA L40S",
+      "NVIDIA L40S",
+      "NVIDIA L40S",
+      "NVIDIA L40S",
+      "NVIDIA L40S",
+      "NVIDIA L40S",
+      "NVIDIA L40S",
+      "NVIDIA L40S"
+    ],
+    "payload_sha256": "3265cc11ec22a473b3ed252efbeb0fd40bce77609abcf926656d09cf9cdce58f",
+    "python": "3.11.14",
+    "packages": {
+      "torch": "2.7.1+cu126",
+      "numpy": "1.26.4",
+      "mujoco": "3.2.3",
+      "robosuite": "1.4.1",
+      "transformers": "4.53.3",
+      "lerobot": "0.4.4"
+    }
+  },
+  "protocol_notes": {
+    "environment_seed": 0,
+    "model_precision": "float32",
+    "noise_schedule": "NumPy SeedSequence([episode seed, environment step, draw index]); common seed 0 across prescribed states",
+    "debug_reset_overlap": "First prescribed reset for tasks 0, 1, and 2 used in the three-episode input comparison; included in this full standard manifest",
+    "published_reference_success": 0.924,
+    "comparison_scope": "Selected LeRobot weight export with OpenPI input settings; full OpenPI model/PRNG parity not established"
+  },
+  "artifact_prefix": "s3://rldb/experiments/astra-reversal-20260924/astra-pi05-libero-baseline-20260924-1/",
+  "workflow_status": "COMPLETED",
+  "workflow_end_time": "2026-09-24T07:47:03.047638",
+  "archive_bytes": 21650006730,
+  "archive_etag": "\"b3529b868959d0821750748f33238e6e-2581\""
+}

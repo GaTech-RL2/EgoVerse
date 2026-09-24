@@ -1,0 +1,115 @@
+{
+  "recorded_at_utc": "2026-09-24T00:16:37.240232+00:00",
+  "checkpoint": {
+    "artifact": "/Users/rpunamiya/Desktop/GEAR/EgoVerse/astra_reversal/.deps/checkpoints/pi05_libero_base",
+    "requested_artifact": "astra_reversal/.deps/checkpoints/pi05_libero_base",
+    "format": "lerobot_pi05",
+    "backend": "pytorch",
+    "frozen": true,
+    "horizon": 50,
+    "model_action_dim": 32,
+    "device": "cpu",
+    "dtype": "float32",
+    "shared_weight_aliases": {
+      "model.paligemma_with_expert.paligemma.model.language_model.embed_tokens.weight": "model.paligemma_with_expert.paligemma.lm_head.weight"
+    },
+    "tokenizer_path": "astra_reversal/.deps/tokenizers/paligemma-3b-pt-224",
+    "tokenizer_sha256": "c44a0503146efc99bbd748f05667ddfeb0ae5d1afb63019df2d4c020cfb6b928",
+    "artifact_sha256": {
+      "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+      "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+      "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+      "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+    },
+    "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+    "adapter_source_sha256": "fd8014a50ded7bb7c7cf2fae56c294a0f8cbb55c31ac6316d5326ce8bc85c9b9",
+    "processor_source_sha256": {
+      "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+      "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+      "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+      "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+      "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+      "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+      "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+    },
+    "torch_version": "2.7.1",
+    "transformers_version": "4.53.3",
+    "transformers_source_sha256": {
+      "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+      "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+      "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+    },
+    "normalization": [
+      {
+        "file": "policy_preprocessor.json",
+        "step": "normalizer_processor",
+        "features": {},
+        "norm_map": {
+          "VISUAL": "IDENTITY",
+          "STATE": "MEAN_STD",
+          "ACTION": "MEAN_STD"
+        },
+        "state_file": null
+      },
+      {
+        "file": "policy_postprocessor.json",
+        "step": "unnormalizer_processor",
+        "features": {},
+        "norm_map": {
+          "VISUAL": "IDENTITY",
+          "STATE": "MEAN_STD",
+          "ACTION": "MEAN_STD"
+        },
+        "state_file": null
+      }
+    ],
+    "provenance": "https://huggingface.co/lerobot/pi05_libero_base/tree/a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "training_overlap": "unknown"
+  },
+  "tokenizer_manifest": "paligemma_tokenizer.json",
+  "input_kind": "synthetic camera pixels and robot state with real natural-language prompt",
+  "prompt": "Pick up the red cup and place it on the plate.",
+  "formatted_prompt": "Task: Pick up the red cup and place it on the plate., State: 140 102 166 128 128 128 133 133 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128 128;\nAction: ",
+  "prompt_tokens": 150,
+  "token_budget": 200,
+  "observation_id": "182fd43b3b02c411d73acf1d62338a72546dd3eb6dba7ced421219b12594bb08",
+  "condition_id": "d26ab66e1c9345368e25f7277fc0aa53a2e374f8f61896785942627ab1c4da6c",
+  "horizon": 50,
+  "model_action_dim": 32,
+  "environment_action_dim": 7,
+  "frozen": true,
+  "device": "cpu",
+  "solver": "euler",
+  "solver_steps": 10,
+  "seed": 0,
+  "tokenizer_validated": true,
+  "saved_processors_loaded": true,
+  "action_transform_roundtrip_exact": true,
+  "upstream_sampler_parity": {
+    "rmse": 0.0,
+    "max_abs": 0.0
+  },
+  "inverse_finite": true,
+  "inverse_shape": [
+    1,
+    50,
+    32
+  ],
+  "full_internal_reconstruction": {
+    "rmse": 0.015258140939253517,
+    "max_abs": 0.12512025237083435
+  },
+  "known_noise_recovery": {
+    "rmse": 0.6796909468637046,
+    "max_abs": 4.10840368270874
+  },
+  "augmented_prompt": "Pick up the red cup and place it on the plate.\nCurrent subgoal: Grasp the cup.\nConstraint: Keep the cup upright.",
+  "omitted_prompt_parts": [],
+  "wall_seconds": 96.82018662499831,
+  "libero_rollouts_run": false,
+  "astra_calls_run": false,
+  "acceptance_gate_passed": false,
+  "interpretation": "Complete checkpoint/tokenizer smoke on synthetic observations. Finite reverse integration and sampler parity do not establish accurate inversion or LIBERO success; benchmark diagnostics are still required.",
+  "array_artifact": "astra_reversal/artifacts/tokenizer_flow_smoke/arrays.npz",
+  "array_artifact_sha256": "d8bad2954f35b9319757e2ede96038daef9baf5d05766463837e45f6babc1ebc"
+}

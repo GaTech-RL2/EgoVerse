@@ -1,0 +1,254 @@
+{
+  "workflow": "astra-pi05-reversal-pilot-20260924-1",
+  "scope": "One development observation; unchanged acceptance criteria",
+  "selected_solver": {
+    "solver": "rk4",
+    "steps": 50,
+    "time_power": 3,
+    "velocity_evaluations_per_solve": 200
+  },
+  "results": {
+    "heun": {
+      "solver_options": {
+        "time_power": 3.0
+      },
+      "tolerances": {
+        "action_atol": 0.02,
+        "noise_atol": 0.1,
+        "parity_atol": 1e-05
+      },
+      "results": [
+        {
+          "steps": 50,
+          "full_internal_reconstruction": {
+            "rmse": 1.2352498030877572e-05,
+            "max_abs": 0.00010645389556884766
+          },
+          "controller_reconstruction": {
+            "rmse": 2.125805619053665e-05,
+            "max_abs": 0.00010643265801668633
+          },
+          "known_noise_recovery": {
+            "rmse": 0.02537827725153384,
+            "max_abs": 0.26915137469768524
+          },
+          "known_noise_action_channels": {
+            "rmse": 0.04865192831240202,
+            "max_abs": 0.26915137469768524
+          },
+          "known_noise_padding_channels": {
+            "rmse": 0.012713381455108317,
+            "max_abs": 0.03951060771942139
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 400,
+          "latency_seconds": 5.099208431784064,
+          "passed": false
+        },
+        {
+          "steps": 100,
+          "full_internal_reconstruction": {
+            "rmse": 4.856855281803854e-06,
+            "max_abs": 5.543231964111328e-05
+          },
+          "controller_reconstruction": {
+            "rmse": 9.309931474680645e-06,
+            "max_abs": 5.542126089341792e-05
+          },
+          "known_noise_recovery": {
+            "rmse": 0.010637090936201611,
+            "max_abs": 0.10367333889007568
+          },
+          "known_noise_action_channels": {
+            "rmse": 0.021962652485118504,
+            "max_abs": 0.10367333889007568
+          },
+          "known_noise_padding_channels": {
+            "rmse": 0.003125506585794661,
+            "max_abs": 0.010967403650283813
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 800,
+          "latency_seconds": 9.585159599781036,
+          "passed": false
+        },
+        {
+          "steps": 200,
+          "full_internal_reconstruction": {
+            "rmse": 1.7353736862195511e-06,
+            "max_abs": 1.5139579772949219e-05
+          },
+          "controller_reconstruction": {
+            "rmse": 3.1701639499015134e-06,
+            "max_abs": 1.5136559426753848e-05
+          },
+          "known_noise_recovery": {
+            "rmse": 0.006711515083720727,
+            "max_abs": 0.07630787789821625
+          },
+          "known_noise_action_channels": {
+            "rmse": 0.014109945784990873,
+            "max_abs": 0.07630787789821625
+          },
+          "known_noise_padding_channels": {
+            "rmse": 0.001382576155163614,
+            "max_abs": 0.004402637481689453
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 1600,
+          "latency_seconds": 19.08315371023491,
+          "passed": true
+        }
+      ]
+    },
+    "rk4": {
+      "solver_options": {
+        "time_power": 3.0
+      },
+      "tolerances": {
+        "action_atol": 0.02,
+        "noise_atol": 0.1,
+        "parity_atol": 1e-05
+      },
+      "results": [
+        {
+          "steps": 20,
+          "full_internal_reconstruction": {
+            "rmse": 8.249317403809897e-06,
+            "max_abs": 7.95125961303711e-05
+          },
+          "controller_reconstruction": {
+            "rmse": 1.5349149427005114e-05,
+            "max_abs": 7.949673336749008e-05
+          },
+          "known_noise_recovery": {
+            "rmse": 0.02719139936641386,
+            "max_abs": 0.3221393823623657
+          },
+          "known_noise_action_channels": {
+            "rmse": 0.056605160700227156,
+            "max_abs": 0.3221393823623657
+          },
+          "known_noise_padding_channels": {
+            "rmse": 0.007016839342131756,
+            "max_abs": 0.022530317306518555
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 280,
+          "latency_seconds": 3.2496692277491093,
+          "passed": false
+        },
+        {
+          "steps": 50,
+          "full_internal_reconstruction": {
+            "rmse": 5.33819214879877e-06,
+            "max_abs": 5.6862831115722656e-05
+          },
+          "controller_reconstruction": {
+            "rmse": 1.0790815347951136e-05,
+            "max_abs": 5.6851486980757926e-05
+          },
+          "known_noise_recovery": {
+            "rmse": 0.006183532652679688,
+            "max_abs": 0.058491051197052
+          },
+          "known_noise_action_channels": {
+            "rmse": 0.012571719427224352,
+            "max_abs": 0.058491051197052
+          },
+          "known_noise_padding_channels": {
+            "rmse": 0.0021653408843712117,
+            "max_abs": 0.006547875702381134
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 700,
+          "latency_seconds": 8.192028307821602,
+          "passed": true
+        },
+        {
+          "steps": 100,
+          "full_internal_reconstruction": {
+            "rmse": 1.9747627184866715e-06,
+            "max_abs": 1.4543533325195312e-05
+          },
+          "controller_reconstruction": {
+            "rmse": 3.5685423361054866e-06,
+            "max_abs": 1.4540631890103128e-05
+          },
+          "known_noise_recovery": {
+            "rmse": 0.004634244599764267,
+            "max_abs": 0.051434218883514404
+          },
+          "known_noise_action_channels": {
+            "rmse": 0.009645410631749304,
+            "max_abs": 0.051434218883514404
+          },
+          "known_noise_padding_channels": {
+            "rmse": 0.0012000252088815342,
+            "max_abs": 0.004684567451477051
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 1400,
+          "latency_seconds": 15.927584839984775,
+          "passed": true
+        },
+        {
+          "steps": 200,
+          "full_internal_reconstruction": {
+            "rmse": 1.520373272188195e-06,
+            "max_abs": 1.4066696166992188e-05
+          },
+          "controller_reconstruction": {
+            "rmse": 3.010613159420202e-06,
+            "max_abs": 1.4063889861137824e-05
+          },
+          "known_noise_recovery": {
+            "rmse": 0.003339107092989285,
+            "max_abs": 0.025005996227264404
+          },
+          "known_noise_action_channels": {
+            "rmse": 0.00697963357896136,
+            "max_abs": 0.025005996227264404
+          },
+          "known_noise_padding_channels": {
+            "rmse": 0.0007945152845474709,
+            "max_abs": 0.0021534264087677
+          },
+          "reference_sampler_parity": {
+            "rmse": 0.0,
+            "max_abs": 0.0
+          },
+          "velocity_evaluations": 2800,
+          "latency_seconds": 31.85044654784724,
+          "passed": true
+        }
+      ]
+    }
+  },
+  "control_pilots_status": "complete",
+  "astra_calls_run": false,
+  "runtime_noise_check": {
+    "passing_inversions": 3,
+    "total_inversions": 14,
+    "max_abs": 0.630013644695282,
+    "scope": "Distinct observations throughout the recorded inversion-only control rollout"
+  }
+}
