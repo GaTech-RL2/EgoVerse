@@ -106,6 +106,17 @@
         "sha256": "81791c2c96a100c6892cdf3d70cec381dfa1e90da6321b93a32d22bec3000e6c",
         "bytes": 18625
       }
+    },
+    {
+      "report": "ood_matched_controls.json",
+      "transformation": "byte-for-byte copy of completed-control summary; original episode rows checked against frozen assignments and summary totals; full all-method aggregation pending",
+      "sha256": "3c36b65151866bb9edd0f418ac889c68e7aff0839ee2a961cdad5068a3f5639b",
+      "bytes": 14061,
+      "source": {
+        "path_relative_to_astra_reversal": ".deps/matched-controls-completed-summary.json",
+        "sha256": "3c36b65151866bb9edd0f418ac889c68e7aff0839ee2a961cdad5068a3f5639b",
+        "bytes": 14061
+      }
     }
   ],
   "existing_tracked_standard_baseline": {

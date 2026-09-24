@@ -1,0 +1,328 @@
+{
+  "status": "both_controls_completed_reversal_pending",
+  "methods": {
+    "policy_fresh": {
+      "overall": {
+        "episodes": 200,
+        "successes": 91,
+        "execution_errors": 0,
+        "zero_action_successes": 0,
+        "zero_action_failures": 0,
+        "total_actions": 42368,
+        "total_wall_seconds": 41118.14384268602,
+        "velocity_evaluations": 3402800,
+        "agent_calls": 0,
+        "fallbacks": 0,
+        "success_rate": 0.455,
+        "mean_actions": 211.84,
+        "actions_to_success": 106.24175824175825,
+        "mean_wall_seconds": 205.5907192134301
+      },
+      "suites": {
+        "libero_goal_ood": {
+          "episodes": 100,
+          "successes": 51,
+          "execution_errors": 0,
+          "zero_action_successes": 0,
+          "zero_action_failures": 0,
+          "total_actions": 20368,
+          "total_wall_seconds": 19648.42318107553,
+          "velocity_evaluations": 1635600,
+          "agent_calls": 0,
+          "fallbacks": 0,
+          "success_rate": 0.51,
+          "mean_actions": 203.68,
+          "actions_to_success": 111.13725490196079,
+          "mean_wall_seconds": 196.4842318107553
+        },
+        "libero_spatial_ood": {
+          "episodes": 100,
+          "successes": 40,
+          "execution_errors": 0,
+          "zero_action_successes": 0,
+          "zero_action_failures": 0,
+          "total_actions": 22000,
+          "total_wall_seconds": 21469.72066161049,
+          "velocity_evaluations": 1767200,
+          "agent_calls": 0,
+          "fallbacks": 0,
+          "success_rate": 0.4,
+          "mean_actions": 220.0,
+          "actions_to_success": 100.0,
+          "mean_wall_seconds": 214.6972066161049
+        }
+      }
+    },
+    "policy_reused": {
+      "overall": {
+        "episodes": 200,
+        "successes": 90,
+        "execution_errors": 0,
+        "zero_action_successes": 0,
+        "zero_action_failures": 0,
+        "total_actions": 43451,
+        "total_wall_seconds": 42262.308990778445,
+        "velocity_evaluations": 3491600,
+        "agent_calls": 0,
+        "fallbacks": 0,
+        "success_rate": 0.45,
+        "mean_actions": 217.255,
+        "actions_to_success": 116.12222222222222,
+        "mean_wall_seconds": 211.31154495389222
+      },
+      "suites": {
+        "libero_goal_ood": {
+          "episodes": 100,
+          "successes": 51,
+          "execution_errors": 0,
+          "zero_action_successes": 0,
+          "zero_action_failures": 0,
+          "total_actions": 20917,
+          "total_wall_seconds": 20222.515361572005,
+          "velocity_evaluations": 1682000,
+          "agent_calls": 0,
+          "fallbacks": 0,
+          "success_rate": 0.51,
+          "mean_actions": 209.17,
+          "actions_to_success": 121.90196078431373,
+          "mean_wall_seconds": 202.22515361572005
+        },
+        "libero_spatial_ood": {
+          "episodes": 100,
+          "successes": 39,
+          "execution_errors": 0,
+          "zero_action_successes": 0,
+          "zero_action_failures": 0,
+          "total_actions": 22534,
+          "total_wall_seconds": 22039.79362920644,
+          "velocity_evaluations": 1809600,
+          "agent_calls": 0,
+          "fallbacks": 0,
+          "success_rate": 0.39,
+          "mean_actions": 225.34,
+          "actions_to_success": 108.56410256410257,
+          "mean_wall_seconds": 220.3979362920644
+        }
+      }
+    }
+  },
+  "fresh_to_reused": {
+    "difference_right_minus_left": -0.004999999999999996,
+    "paired_bootstrap_95_percent": [
+      -0.055,
+      0.045000000000000005
+    ],
+    "paired_episodes": 200,
+    "tasks": 20,
+    "bootstrap_samples": 2000,
+    "resampling_unit": "initial states within task; repeated seeds averaged within state"
+  },
+  "sources": [
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group0/policy_fresh/episodes.json",
+      "sha256": "d749f537625b8f5dcc93d50e9eb59f019c1c1f40585d20dc40ef1fe0ed21f6a5"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_0/policy_fresh/episodes.json",
+      "sha256": "1c3fade5747fcd519f306cbd4b7366dfdb2295c91df2ed56d5486729394a3571"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_1/policy_fresh/episodes.json",
+      "sha256": "fe0b09dcb4aff0ee4f584d3ee660d0937cbd070b072f8a229de1baf38ddf4258"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_2/policy_fresh/episodes.json",
+      "sha256": "07fe6767678f1bcb5c0e327a211f0af24cf5f00badb54b12cae4bedbd9c257d4"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_3/policy_fresh/episodes.json",
+      "sha256": "ca3ae4d7c2769595410337eb0e732e01dad1d3aef624947f70b70435a249db13"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_4/policy_fresh/episodes.json",
+      "sha256": "5eff8b7c9cec2a4864481235ad15cd95bc68de5b1efe4ac530bc26b3eb51e6e4"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_5/policy_fresh/episodes.json",
+      "sha256": "7ae6bf1aa44bf9f10593da369d17b404ab221ae2db1a43a85589e1faaef4b43c"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_6/policy_fresh/episodes.json",
+      "sha256": "bd4090846602fed467c85f473c8a97892271196742fb942db1f84da85f485879"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_7/policy_fresh/episodes.json",
+      "sha256": "15733e032488815e880a7e7b9a5bf9fcd06752055cf00dc95a27f65f35b8d026"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_0/policy_fresh/episodes.json",
+      "sha256": "9c01a734a1ffb8edd736b0c87c170afc78a28a718fa617b7c1ed7bd853fb584a"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_1/policy_fresh/episodes.json",
+      "sha256": "09bb2d878ab77525129a560c7c716e671232f9657469167d3662f3d8d04306db"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_2/policy_fresh/episodes.json",
+      "sha256": "e60568d1cbe88388e12d275530b6ce09e4bad5fc2d7a02dd5fc6ac31f21d3e81"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_3/policy_fresh/episodes.json",
+      "sha256": "0748024c7b6d712c8f82ea9a399c45188b678b07ac1b31bc0f6902a6203484c5"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_4/policy_fresh/episodes.json",
+      "sha256": "6fb6dc3e5d4fcff2abaaa32bb3ae314b4aff2ceb4432ebcdff32111cdf64e682"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_5/policy_fresh/episodes.json",
+      "sha256": "564fc16c386ef74451d7ecd3192d3a17156831ffaa0b5b5434116dcccff440dc"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_6/policy_fresh/episodes.json",
+      "sha256": "c9e0c89dcc5465ae8c0b5d27dd78b454248af5a2d4d444ef87f139d047246d48"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_7/policy_fresh/episodes.json",
+      "sha256": "41656f0f623c0d72c869f775aaae260c407291f5bcb36f2f9ab2576d3b06b84f"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_0/policy_fresh/episodes.json",
+      "sha256": "ed87555495c67ac35b9c94ccf7416050d8cca787c4fda3bab5e787a6c9bce761"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_1/policy_fresh/episodes.json",
+      "sha256": "f27059c375a6b7f8493d00ea02c119959f34bf0d6d39aab5218f1d7ab762b503"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_2/policy_fresh/episodes.json",
+      "sha256": "0147a1fbd5043db67f9d49ca2f04ae99b97bed7ac560839498af3b50472b67bd"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_3/policy_fresh/episodes.json",
+      "sha256": "1dea407f57511353b9be773bf18af67ebac4817872c54fac93e4f315c5b8ffba"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_4/policy_fresh/episodes.json",
+      "sha256": "082c128179e6a001539f107d3740693163d543e88187f172840bfaa1c3b04a63"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_5/policy_fresh/episodes.json",
+      "sha256": "c82e8be077b62460553076411d12b7b16f8e0f5d346d69c20fab46d704c8e868"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_6/policy_fresh/episodes.json",
+      "sha256": "8f1b596c06d4d18dffe8292176f58feae00a7f34c3c9d9c53878229b45a6279f"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_7/policy_fresh/episodes.json",
+      "sha256": "5993df12f5bd20fddaea821a1cf649380abfdeed10222a4924934120e261e39d"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group0/policy_reused/episodes.json",
+      "sha256": "11477af765be454e2720fb294e0c06f316b7bd641a5b2f359e16e180e8567a91"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_0/policy_reused/episodes.json",
+      "sha256": "1269f0119f0d0a2af2ebbbe6822320a77b2e86e40d7f62da8a2bd201ed0f6bce"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_1/policy_reused/episodes.json",
+      "sha256": "a39e8ca266a7c450eec8a4f0a457f2c664a213d63e15bd1ff239414553ab2e6f"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_2/policy_reused/episodes.json",
+      "sha256": "911699665f293ef26bc11e159ff25cfaaad0469e02d809c44f75b703209c8c06"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_3/policy_reused/episodes.json",
+      "sha256": "83cb4bdf24987bcea734a92a5eb9f1716a828bb6f067e6f5d0cf02c32364a621"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_4/policy_reused/episodes.json",
+      "sha256": "bf468983c03392b6477d694efd9649d05fea95f7c79c99c984860a7a9bafc3a3"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_5/policy_reused/episodes.json",
+      "sha256": "a24825130bd3385916561ce33ad58e76065f7340c2fc0deffeb10f5484628071"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_6/policy_reused/episodes.json",
+      "sha256": "12445059e057b6c1aa84596dbf69de82f1f2a289397e43d956f3eb54d43302ee"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group1/worker_7/policy_reused/episodes.json",
+      "sha256": "22aaa483971944cfeb7e41adc1266eeebf22f85572d30a673a83a2a521c88b06"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_0/policy_reused/episodes.json",
+      "sha256": "344107c1f02034ce7845b89647ccf86249a4556115b5a312a390484b232f4173"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_1/policy_reused/episodes.json",
+      "sha256": "a98c79b748b134cb3bcc394ad3a44661b719ec2e2151d017817b035230d02ea4"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_2/policy_reused/episodes.json",
+      "sha256": "1c74224ef1adfd3bc73fecba57ddf7acb492757be0935dd1e17750b9f9be2581"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_3/policy_reused/episodes.json",
+      "sha256": "73de024835b2e8d7c3b5205d166a7f7869c62a0fc02f2a9163d0f2f48537428f"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_4/policy_reused/episodes.json",
+      "sha256": "2ae7788650ecd0c83783e1200d5c5f24ec26117a1429df1f138d6e7ba456535e"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_5/policy_reused/episodes.json",
+      "sha256": "cd039c1000b6b4ee49e2099cce7f703fc3b7fdb2f8cf1b357bc3e0f84f2aa6a6"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_6/policy_reused/episodes.json",
+      "sha256": "75014f03f13989822f1767cf05c05d34113c17a4390cd3595e307acfbbf48bf5"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group2/worker_7/policy_reused/episodes.json",
+      "sha256": "95c0712a376ab3d78d67bdd060830e60e940b8891fc5b2c411c6b3dd1d912325"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_0/policy_reused/episodes.json",
+      "sha256": "f5368e1b7660eeb888e66c7f2c8c1f8c1a084582a3a0a890e47b5a328b484640"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_1/policy_reused/episodes.json",
+      "sha256": "7172a5a19e713ee1ab3c16a0adc134897f9c5630e11cd0135389ef8db953589f"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_2/policy_reused/episodes.json",
+      "sha256": "b8bba962d0c620bd7614aabd18a796eb62b063a240d7edb4ea56d70a73eff550"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_3/policy_reused/episodes.json",
+      "sha256": "020c3a1ebe4535a01a69bb1bb7cb0c1a3b2f934a548a8ffc18b09409389cd252"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_4/policy_reused/episodes.json",
+      "sha256": "a8dd5c1c1ac1c4785701e2e90ee132d88e8f1c7a6d731eb9a042dec35adaef92"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_5/policy_reused/episodes.json",
+      "sha256": "ab3af847dbf08f777d6518acd27b62eaa3076817231d9c31d95448a65a48240a"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_6/policy_reused/episodes.json",
+      "sha256": "11adc2020f645d2f9bbbe6871114de759316b77760c60731ab5849db382eef54"
+    },
+    {
+      "path": "astra_reversal/artifacts/osmo_ood_steering_group3/worker_7/policy_reused/episodes.json",
+      "sha256": "2fc9a5ed86a597896c1658ba0a93db868db21743f7528a7c419b4a224f1a5fd3"
+    }
+  ],
+  "analysis_provenance": {
+    "bootstrap_seed": 7,
+    "paired_episode_ids_and_full_reset_state_hashes_verified": true,
+    "each_shard_validated_against_its_frozen_plan_and_summary": true,
+    "scope": "Completed matched controls only. Complete all-method provenance validation and Astra numerical/provider audits remain pending."
+  }
+}
