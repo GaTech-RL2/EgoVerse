@@ -8,11 +8,14 @@ regressions fast; the separate weighted smoke report tests the actual checkpoint
 # ruff: noqa: E402
 
 import os
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 torch = pytest.importorskip("torch")
 native = pytest.importorskip("lerobot.policies.pi05.modeling_pi05")
