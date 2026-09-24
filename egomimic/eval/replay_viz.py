@@ -2,8 +2,12 @@
 spans, first drawing where the ground-truth hand is at each step, then where
 the prediction puts it.
 
-Chunks are anchored every ``H * stride`` frames and do not overlap; step ``k``
-of the chunk anchored at frame ``a`` is drawn on frame ``a + k * stride``.
+``stride`` is video frames per chunk step, and need not be an integer: the
+keypoint pipeline resamples 30 raw frames to a 100-step chunk, so a mecka
+(action stride 1) step is 29/99 of a frame. Chunks are anchored every
+``ceil(H * stride)`` frames and do not overlap; video frame ``a + j`` of the
+chunk anchored at ``a`` shows the latest step at or before it, drawn on that
+step's nearest frame ``a + round(k * stride)``.
 
 A chunk lives in its anchor frame's camera, and the head moves while it plays.
 Each step is mapped into its frame's camera with a rigid fit of the GT
@@ -88,31 +92,43 @@ def rigid_fit(src, dst):
     return R, mu_d - mu_s @ R.T
 
 
-def infer_stride(clip: ReplayClip, candidates=(1, 2, 3, 4), steps: int = 8):
-    """Frames per chunk step, from the GT alone: step ``k`` of the first chunk
-    is the same hand as frame ``k * stride``'s own step 0, up to a rigid
-    camera motion, so the right stride has the smallest fit residual.
+def _interp_step(chunk, p):
+    lo = min(int(np.floor(p)), len(chunk) - 2)
+    w = p - lo
+    return (1 - w) * chunk[lo] + w * chunk[lo + 1]
+
+
+def infer_stride(clip: ReplayClip, max_stride: int = 4, offsets: int = 8):
+    """Frames per chunk step, from the GT alone: the chunk anchored at ``a``,
+    read at step ``j / stride``, is the same hand as frame ``a + j``'s own
+    step 0, up to a rigid camera motion, so the right stride has the smallest
+    fit residual. Candidates are ``D / (H - 1)`` for a whole number ``D`` of
+    frames spanned by the chunk, up to ``max_stride`` frames per step.
 
     None when the layout has no keypoints to fit or the clip is too short.
     """
-    if clip.gt.shape[-1] != _KP_WIDTH:
+    if clip.gt.shape[-1] != _KP_WIDTH or len(clip) < 2:
         return None
+    horizon = clip.gt.shape[1]
+    anchors = range(0, max(1, len(clip) - 32), 4)[:5]
     errors = {}
-    for s in candidates:
-        ks = [k for k in range(1, min(steps, clip.gt.shape[1] - 1) + 1)]
-        ks = [k for k in ks if k * s < len(clip)]
-        if len(ks) < 2:
-            continue
+    for span in range(1, max_stride * (horizon - 1) + 1):
+        stride = span / (horizon - 1)
         res = []
-        for k in ks:
-            src = clip.gt[0, k].reshape(-1, 3)
-            dst = clip.gt[k * s, 0].reshape(-1, 3)
-            R, t = rigid_fit(src, dst)
-            ok = _valid_points(src) & _valid_points(dst)
-            if ok.sum() >= 3:
+        for a in anchors:
+            js = np.unique(
+                np.linspace(1, min(span, 32, len(clip) - 1 - a), offsets).astype(int)
+            )
+            for j in js[js >= 1]:
+                src = _interp_step(clip.gt[a], j / stride).reshape(-1, 3)
+                dst = clip.gt[a + j, 0].reshape(-1, 3)
+                ok = _valid_points(src) & _valid_points(dst)
+                if ok.sum() < 3:
+                    continue
+                R, t = rigid_fit(src, dst)
                 res.append(np.linalg.norm(src[ok] @ R.T + t - dst[ok], axis=1).mean())
         if res:
-            errors[s] = float(np.mean(res))
+            errors[stride] = float(np.mean(res))
     return min(errors, key=errors.get) if errors else None
 
 
@@ -177,7 +193,8 @@ def render_replay(
     The 126-D keypoint layout draws each step as both hands' skeletons;
     any other layout draws the last ``trail`` steps with ``embodiment_cls.viz``.
 
-    ``stride`` (frames per chunk step) is inferred when None; see infer_stride.
+    ``stride`` (frames per chunk step, possibly fractional) is inferred when
+    None; see infer_stride.
 
     Returns ``(frames (M, H, W, 3) uint8, consumed)``; ``clip.tail(consumed)``
     holds the frames a later clip needs to complete the next chunk.
@@ -186,48 +203,53 @@ def render_replay(
     if stride is None:
         stride = infer_stride(clip) or 1
     n, horizon = len(clip), clip.gt.shape[1]
-    span = horizon * stride
+    span = int(np.ceil(horizon * stride - 1e-6))
     keypoints = clip.gt.shape[-1] == _KP_WIDTH
+    # (j + 0.5) keeps whole strides exact and lands a fractional stride's
+    # step on frame j itself.
+    steps = [min(horizon - 1, int((j + 0.5) / stride)) for j in range(span)]
 
     out = []
     a = 0
     while a + span <= n:
-        fits = []
-        for k in range(horizon):
-            f = a + k * stride
-            if keypoints:
-                fits.append(
-                    rigid_fit(
-                        clip.gt[a, k].reshape(-1, 3), clip.gt[f, 0].reshape(-1, 3)
-                    )
+        frame = {k: min(a + round(k * stride), a + span - 1) for k in set(steps)}
+        fits = {}
+        if keypoints:
+            for k, f in frame.items():
+                fits[k] = rigid_fit(
+                    clip.gt[a, k].reshape(-1, 3), clip.gt[f, 0].reshape(-1, 3)
                 )
 
         for role, chunk, color, rgb in (
             ("GT", clip.gt[a], "Greens", (80, 220, 80)),
             ("PRED", clip.pred[a], "Reds", (240, 80, 80)),
         ):
-            for k in range(horizon):
-                f = a + k * stride
-                K = clip.intrinsics[f]
-                if keypoints:
-                    im = _draw_skeleton(
-                        clip.images[f],
-                        _apply_rigid(chunk[k], *fits[k]),
-                        K if K is not None else embodiment_cls.INTRINSICS,
-                        embodiment_cls.FINGER_EDGES,
-                        rgb,
+            drawn = {}
+            for k in steps:
+                if k not in drawn:
+                    f = frame[k]
+                    K = clip.intrinsics[f]
+                    if keypoints:
+                        im = _draw_skeleton(
+                            clip.images[f],
+                            _apply_rigid(chunk[k], *fits[k]),
+                            K if K is not None else embodiment_cls.INTRINSICS,
+                            embodiment_cls.FINGER_EDGES,
+                            rgb,
+                        )
+                    else:
+                        im = embodiment_cls.viz(
+                            clip.images[f],
+                            chunk[max(0, k - trail) : k + 1],
+                            mode=mode,
+                            color=color,
+                            intrinsics=K,
+                            **viz_kwargs,
+                        )
+                    drawn[k] = _label(
+                        np.ascontiguousarray(im), f"{role}  {k + 1}/{horizon}", rgb
                     )
-                else:
-                    im = embodiment_cls.viz(
-                        clip.images[f],
-                        chunk[max(0, k - trail) : k + 1],
-                        mode=mode,
-                        color=color,
-                        intrinsics=K,
-                        **viz_kwargs,
-                    )
-                im = _label(np.ascontiguousarray(im), f"{role}  {k + 1}/{horizon}", rgb)
-                out.extend([im] * stride)
+                out.append(drawn[k])
         a += span
 
     if not out:
