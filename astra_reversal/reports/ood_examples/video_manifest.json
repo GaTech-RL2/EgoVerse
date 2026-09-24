@@ -1,0 +1,114 @@
+[
+  {
+    "path": "astra_reversal/artifacts/ood_fixed_example_videos/libero_goal_ood/baseline_euler10.mp4",
+    "episode_id": "libero_goal_ood:task0:state0",
+    "sha256": "140019f6a9c692f7890187f770c7dc3528629f8a0df02dc2e811dbf7a831a1b0",
+    "bytes": 99791,
+    "video": {
+      "width": 224,
+      "height": 224,
+      "r_frame_rate": "20/1",
+      "duration": "15.000000",
+      "nb_frames": "300"
+    },
+    "selection": "First frozen episode of each suite for every method, independent of its result"
+  },
+  {
+    "path": "astra_reversal/artifacts/ood_fixed_example_videos/libero_goal_ood/policy_fresh.mp4",
+    "episode_id": "libero_goal_ood:task0:state0",
+    "sha256": "1edaa4bb51c662ff8ee0d02e62f915b0d25695676ae32479a1f856ab4343efe8",
+    "bytes": 96793,
+    "video": {
+      "width": 224,
+      "height": 224,
+      "r_frame_rate": "20/1",
+      "duration": "15.000000",
+      "nb_frames": "300"
+    },
+    "selection": "First frozen episode of each suite for every method, independent of its result"
+  },
+  {
+    "path": "astra_reversal/artifacts/ood_fixed_example_videos/libero_goal_ood/policy_reused.mp4",
+    "episode_id": "libero_goal_ood:task0:state0",
+    "sha256": "fe63f3dfd949b70b21ac05e028f284bca3d35431490cb84efdaf014a2d4560d9",
+    "bytes": 100612,
+    "video": {
+      "width": 224,
+      "height": 224,
+      "r_frame_rate": "20/1",
+      "duration": "15.000000",
+      "nb_frames": "300"
+    },
+    "selection": "First frozen episode of each suite for every method, independent of its result"
+  },
+  {
+    "path": "astra_reversal/artifacts/ood_fixed_example_videos/libero_goal_ood/reversal.mp4",
+    "episode_id": "libero_goal_ood:task0:state0",
+    "sha256": "ffc58b2826e57409e7b783ddff9b57b074629f7dc2acfa96ea8e7c0f0603cc99",
+    "bytes": 123391,
+    "video": {
+      "width": 224,
+      "height": 224,
+      "r_frame_rate": "20/1",
+      "duration": "15.000000",
+      "nb_frames": "300"
+    },
+    "selection": "First frozen episode of each suite for every method, independent of its result"
+  },
+  {
+    "path": "astra_reversal/artifacts/ood_fixed_example_videos/libero_spatial_ood/baseline_euler10.mp4",
+    "episode_id": "libero_spatial_ood:task0:state0",
+    "sha256": "5eb094beb3a681e28344bfca22b7a76d45cfab012ab1518b16e9c9c308e5bc3a",
+    "bytes": 32811,
+    "video": {
+      "width": 224,
+      "height": 224,
+      "r_frame_rate": "20/1",
+      "duration": "4.150000",
+      "nb_frames": "83"
+    },
+    "selection": "First frozen episode of each suite for every method, independent of its result"
+  },
+  {
+    "path": "astra_reversal/artifacts/ood_fixed_example_videos/libero_spatial_ood/policy_fresh.mp4",
+    "episode_id": "libero_spatial_ood:task0:state0",
+    "sha256": "e5ccf16f46cdbfb08fcf4248fc45915c10e32c778de5c5267f4f71624bcf0694",
+    "bytes": 32528,
+    "video": {
+      "width": 224,
+      "height": 224,
+      "r_frame_rate": "20/1",
+      "duration": "4.200000",
+      "nb_frames": "84"
+    },
+    "selection": "First frozen episode of each suite for every method, independent of its result"
+  },
+  {
+    "path": "astra_reversal/artifacts/ood_fixed_example_videos/libero_spatial_ood/policy_reused.mp4",
+    "episode_id": "libero_spatial_ood:task0:state0",
+    "sha256": "7cf1434cfe6530161f73bf20f48f70e57c3596f559a1474c3f21afe05c46d732",
+    "bytes": 33639,
+    "video": {
+      "width": 224,
+      "height": 224,
+      "r_frame_rate": "20/1",
+      "duration": "4.300000",
+      "nb_frames": "86"
+    },
+    "selection": "First frozen episode of each suite for every method, independent of its result"
+  },
+  {
+    "path": "astra_reversal/artifacts/ood_fixed_example_videos/libero_spatial_ood/reversal.mp4",
+    "episode_id": "libero_spatial_ood:task0:state0",
+    "sha256": "bc93b42259d60013da5d35fe1c0e90c0f2d531c2793b09d40bad3b641af50aef",
+    "bytes": 77707,
+    "video": {
+      "width": 224,
+      "height": 224,
+      "r_frame_rate": "20/1",
+      "duration": "15.000000",
+      "nb_frames": "300"
+    },
+    "selection": "First frozen episode of each suite for every method, independent of its result"
+  }
+]

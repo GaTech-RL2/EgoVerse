@@ -4,19 +4,28 @@ Implementation of the supplied [research brief](SPEC.md), using a frozen pi0.5
 policy and genuine Astra proposals. Experiment code, isolated dependencies, and
 records live in this directory; existing training code is unchanged.
 
-**Status on 2026-09-24:** the policy baselines and development numerical gates
-are complete. The initial numerical gates passed, but the subsequent genuine
-Astra development rollout failed the roundtrip limit on 2 of 28 proposals and
-did not complete its task. Paired OOD controls and Stage 1 OOD steering remain
-in progress. No Astra success-rate improvement or Stage 2 result is reported.
+**Status on 2026-09-24:** the paired OOD evaluation is complete. Genuine Stage 1
+Astra reversal scored **5/200**, compared with **91/200** for matched fresh noise
+and **90/200** for matched reused noise. The complete runtime audit found
+**39/3,108** same-condition roundtrips above the unchanged 0.02 limit, despite
+verified provider bindings and recovered-latent reuse. The initial development
+gates passed but did not establish runtime coverage or useful control. This is
+a negative result for the tested configuration; no Stage 2 result is reported.
+One of the five successful reversal episodes included 20 policy-fallback
+actions; the other four had none. The score measures the configured controller
+with its logged fallback behavior.
 
 | Completed measurement | Result | Tracked evidence |
 |---|---|---|
 | Standard LIBERO-10, Euler-10 fresh noise | 455/500 successes (91.0%); zero execution errors | [Baseline report](checkpoints/libero_l40s_full_baseline.json) |
 | Released LIBERO-OOD, Euler-10 fresh noise, TF32 on | 86/200 (43.0%): Goal 47/100, Spatial 39/100; zero canonical execution errors | [Repaired baseline report](reports/ood_baseline.json), [20-task table](reports/ood_baseline_tasks.csv) |
+| Matched OOD controls, cubic RK4/100, TF32 off | Fresh noise 91/200; reused noise 90/200; zero execution errors or fallbacks | [Completed controls](reports/ood_matched_controls.json) |
+| Genuine Astra OOD reversal, cubic RK4/100, TF32 off | 5/200 (2.5%): Goal 5/100, Spatial 0/100; 545/59,308 actions were fallback | [Paired outcomes](reports/ood_paired.json), [task table](reports/ood_paired_tasks.csv) |
+| Complete OOD runtime audit | 3,069/3,108 roundtrips within 0.02; maximum error 1.864551; all accepted proposal bindings and latent reuses verified | [Numerical audit](reports/ood_runtime_audit.json), [provider review](reports/ood_provider_review.json) |
 | Recorded-condition flow gate, TF32 off | Cubic RK4/100 passed all 14 development conditions; maximum known-noise error 0.000335217 | [Numerical summary](reports/runtime_numerics.json) |
 | Genuine Astra proposal, cubic RK4/100 | Direct controller replay maximum error 1.32135e-7 before clipping | [Proposal preflight](reports/astra_proposal_preflight.json) |
 | Genuine closed-loop development rollout | 26/28 roundtrips within 0.02; worst internal error 0.459375. Task failed at 520 actions, with zero execution errors/fallbacks | [Development audit](reports/astra_development_review.json), [video](reports/astra_development_smoke.mp4) |
+| Fixed replay of three genuine development proposals | All N100 endpoints/latents reproduced bit-for-bit; step 330 exceeds 0.02 at N100, N200, and N500 | [Replay review](reports/astra_development_replay.json) |
 
 The OOD baseline replaces the entire 25-episode shard affected by a CUDA failure,
 including its previously successful episodes. Its original and replacement
@@ -108,8 +117,8 @@ maximum errors 0.459375 and 0.118617. The audit verified their identical
 conditioning and exact latent hashes. These are normalized model-space errors;
 they are separate from the preflight's decoded controller metric. The earlier
 14 policy-generated conditions and one genuine proposal did not establish
-coverage for arbitrary Astra endpoints. Current OOD configurations remain frozen,
-and their final results will include the observed numerical failures.
+coverage for arbitrary Astra endpoints. The OOD evaluation retained its frozen
+configuration and reports its numerical failures alongside all task outcomes.
 
 ## Numerical gate and paired OOD controls
 
@@ -133,9 +142,9 @@ The frozen [OOD plan](OOD_PLAN.md) compares:
 | Condition | Solver and runtime | Proposal/noise source | Status in this snapshot |
 |---|---|---|---|
 | Native Euler baseline | Euler 10, TF32 on | Fresh Gaussian noise, full task | Complete: 86/200 |
-| Matched fresh-noise control | Cubic RK4 100, TF32 off | Fresh Gaussian noise, full task | Pending |
-| Matched reused-noise control | Cubic RK4 100, TF32 off | Reused Gaussian noise, full task | Pending |
-| Genuine Astra reversal | Cubic RK4 100, TF32 off | Inverted Astra proposal, then latent reuse | Pending |
+| Matched fresh-noise control | Cubic RK4 100, TF32 off | Fresh Gaussian noise, full task | Complete: 91/200 |
+| Matched reused-noise control | Cubic RK4 100, TF32 off | Reused Gaussian noise, full task | Complete: 90/200 |
+| Genuine Astra reversal | Cubic RK4 100, TF32 off | Inverted Astra proposal, then latent reuse | Complete: 5/200 |
 
 All methods replay the same frozen OOD scenes, including dynamic state and
 randomized fixture transforms. Comparing the native baseline with RK4 conditions
@@ -143,6 +152,14 @@ includes both solver and TF32 changes. The three matched conditions share these
 settings and permit paired assessment of noise reuse and Astra steering.
 Additional SPEC controls and Stage 2 augmentation remain outside the completed
 measurements reported here.
+
+Reversal minus matched fresh noise is −43.0 percentage points, with a 95%
+paired bootstrap interval of [−48.0, −38.0] points. All four methods completed
+their 200 assigned episodes with zero execution errors or zero-action successes.
+The report's `valid_complete_evaluation` field concerns those execution checks;
+it does not mean numerical validation passed. The [archive audit](reports/ood_archive_provenance.json)
+verifies all 25 archives and 32 reversal shards. Numerical failures occurred in
+30 episodes; these measurements do not isolate the cause of the poor task score.
 
 The tracked [compact numerical report](reports/runtime_numerics.json) is for
 review. Workers require the complete original `runtime_diagnostics.json`, whose
@@ -211,7 +228,11 @@ Its [input plan](reports/astra_development_replay_plan.json) predates the GPU
 replay. It verifies exact original arrays, conditions, and provider responses;
 measures reconstruction before clipping; and reports N100 reproduction
 separately. It makes no new Astra calls, uses no OOD observations, and selects
-no solver. Results are pending. Use the packager's
+no solver. The [completed replay](reports/astra_development_replay.json) verifies
+all original N100 latents and endpoints bit-for-bit. Step 330 still exceeds 0.02
+at every tested resolution; step 485 passes at N200 and N500. These three
+deliberately selected endpoints do not establish general reconstruction accuracy.
+Use the packager's
 `--include-astra-proposal-replay --output NEW_PATH/payload.tar.gz` flags to
 include the verified input bundle without replacing a frozen upload.
 

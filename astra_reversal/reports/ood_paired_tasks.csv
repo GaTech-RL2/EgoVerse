@@ -1,0 +1,81 @@
+method,label,suite,task_id,instruction,episodes,successes,success_rate,execution_errors,zero_action_successes,zero_action_failures,total_actions,mean_actions,actions_to_success,total_wall_seconds,mean_wall_seconds,velocity_evaluations,agent_calls,fallbacks
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,0,put the cream cheese in the basket,10,4,0.4,0,0,0,2476,247.6,169.0,149.0481600209605,14.90481600209605,4960,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,1,put the orange juice on the stove,10,7,0.7,0,0,0,1437,143.7,76.71428571428571,89.56166245165514,8.956166245165514,2910,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,2,put the bbq source on the plate,10,5,0.5,0,0,0,2227,222.7,145.4,133.78819554985967,13.378819554985967,4480,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,3,put the tomato sauce on top of the cabinet,10,0,0.0,0,0,0,3000,300.0,,184.3539043199853,18.43539043199853,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,4,put the wine bottle on the stove,10,10,1.0,0,0,0,803,80.3,80.3,48.63616980641382,4.863616980641382,1640,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,5,put the wine bottle on the plate,10,8,0.8,0,0,0,1491,149.1,111.375,90.71949332294753,9.071949332294754,3010,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,6,put the wine bottle in the bowl,10,3,0.3,0,0,0,2324,232.4,74.66666666666667,136.07677485182649,13.607677485182649,4660,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,7,put the cream cheese on the plate,10,2,0.2,0,0,0,2624,262.4,112.0,161.935914439091,16.1935914439091,5260,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,8,put the cream cheese on the stove,10,0,0.0,0,0,0,3000,300.0,,178.30601890018443,17.830601890018443,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,9,put the cream cheese on top of the cabinet,10,8,0.8,0,0,0,1730,173.0,141.25,106.07834128622198,10.607834128622198,3490,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,0,put the butter on the plate,10,10,1.0,0,0,0,840,84.0,84.0,50.74765111407032,5.074765111407032,1720,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,1,put the chocolate pudding on the plate,10,10,1.0,0,0,0,998,99.8,99.8,57.41992400906747,5.741992400906748,2030,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,2,put the milk on the plate,10,4,0.4,0,0,0,2137,213.7,84.25,123.36729385709623,12.336729385709623,4280,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,3,put the orange juice on the plate,10,10,1.0,0,0,0,953,95.3,95.3,56.034864664892666,5.603486466489267,1940,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,4,put the bowl on cookie box on the stove,10,0,0.0,0,0,0,3000,300.0,,170.0139574080822,17.00139574080822,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,5,put the bowl on cookie box on the cabinet,10,0,0.0,0,0,0,3000,300.0,,166.5845263079391,16.65845263079391,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,6,put the bowl next to the plate on the cabinet,10,0,0.0,0,0,0,3000,300.0,,169.3847385199042,16.93847385199042,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,7,put the bowl next to the plate on the stove,10,0,0.0,0,0,0,3000,300.0,,167.8894650430302,16.78894650430302,6000,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,8,put the bowl at table center on the cabinet,10,4,0.4,0,0,0,2205,220.5,101.25,125.8428585549118,12.58428585549118,4430,0,0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,9,put the bowl at table center on the stove,10,1,0.1,0,0,0,2807,280.7,107.0,158.60889789892826,15.860889789892827,5620,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,0,put the cream cheese in the basket,10,4,0.4,0,0,0,2528,252.8,182.0,2416.980599099981,241.6980599099981,202800,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,1,put the orange juice on the stove,10,8,0.8,0,0,0,1233,123.3,79.125,1179.7646074862132,117.97646074862132,100000,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,2,put the bbq source on the plate,10,3,0.3,0,0,0,2539,253.9,146.33333333333334,2444.350241379114,244.4350241379114,203200,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,3,put the tomato sauce on top of the cabinet,10,0,0.0,0,0,0,3000,300.0,,2829.613867564716,282.9613867564716,240000,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,4,put the wine bottle on the stove,10,10,1.0,0,0,0,831,83.1,83.1,820.9471405279037,82.09471405279037,68000,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,5,put the wine bottle on the plate,10,9,0.9,0,0,0,1326,132.6,114.0,1310.2763063167658,131.02763063167657,107200,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,6,put the wine bottle in the bowl,10,5,0.5,0,0,0,1935,193.5,87.0,1838.8848225760448,183.8884822576045,155200,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,7,put the cream cheese on the plate,10,3,0.3,0,0,0,2399,239.9,99.66666666666667,2362.6832667631097,236.26832667631098,192000,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,8,put the cream cheese on the stove,10,2,0.2,0,0,0,2830,283.0,215.0,2736.897348821636,273.68973488216363,226400,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,9,put the cream cheese on top of the cabinet,10,7,0.7,0,0,0,1747,174.7,121.0,1708.0249805400454,170.80249805400453,140800,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,0,put the butter on the plate,10,10,1.0,0,0,0,993,99.3,99.3,976.7821524660612,97.67821524660613,81200,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,1,put the chocolate pudding on the plate,10,10,1.0,0,0,0,1063,106.3,106.3,1035.9763668747619,103.59763668747618,86800,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,2,put the milk on the plate,10,3,0.3,0,0,0,2355,235.5,85.0,2316.450301555218,231.64503015552182,188800,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,3,put the orange juice on the plate,10,10,1.0,0,0,0,952,95.2,95.2,938.4546014491425,93.84546014491426,78000,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,4,put the bowl on cookie box on the stove,10,0,0.0,0,0,0,3000,300.0,,2916.226298376132,291.6226298376132,240000,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,5,put the bowl on cookie box on the cabinet,10,0,0.0,0,0,0,3000,300.0,,2921.9035448632494,292.19035448632496,240000,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,6,put the bowl next to the plate on the cabinet,10,0,0.0,0,0,0,3000,300.0,,2905.2266612080566,290.52266612080564,240000,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,7,put the bowl next to the plate on the stove,10,0,0.0,0,0,0,3000,300.0,,2938.430915880017,293.8430915880017,240000,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,8,put the bowl at table center on the cabinet,10,6,0.6,0,0,0,1830,183.0,105.0,1781.6256794488,178.16256794487998,147600,0,0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,9,put the bowl at table center on the stove,10,1,0.1,0,0,0,2807,280.7,107.0,2738.64413948905,273.864413948905,224800,0,0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,0,put the cream cheese in the basket,10,6,0.6,0,0,0,2400,240.0,200.0,2309.4546211566267,230.94546211566268,192800,0,0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,1,put the orange juice on the stove,10,9,0.9,0,0,0,1043,104.3,82.55555555555556,997.6279593415384,99.76279593415384,84800,0,0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,2,put the bbq source on the plate,10,4,0.4,0,0,0,2409,240.9,152.25,2357.981326806126,235.7981326806126,193600,0,0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,3,put the tomato sauce on top of the cabinet,10,0,0.0,0,0,0,3000,300.0,,2891.1513771519167,289.1151377151917,240000,0,0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,4,put the wine bottle on the stove,10,10,1.0,0,0,0,829,82.9,82.9,812.78218400693,81.278218400693,67600,0,0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,5,put the wine bottle on the plate,10,5,0.5,0,0,0,2183,218.3,136.6,2148.262106256261,214.82621062562612,175600,0,0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,6,put the wine bottle in the bowl,10,4,0.4,0,0,0,2121,212.1,80.25,2032.4302687178133,203.24302687178132,170400,0,0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,7,put the cream cheese on the plate,10,4,0.4,0,0,0,2247,224.7,111.75,2172.2231128949206,217.22231128949207,180800,0,0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,8,put the cream cheese on the stove,10,2,0.2,0,0,0,2836,283.6,218.0,2737.6079736161555,273.7607973616156,227200,0,0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,9,put the cream cheese on top of the cabinet,10,7,0.7,0,0,0,1849,184.9,135.57142857142858,1762.994431623716,176.2994431623716,149200,0,0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,0,put the butter on the plate,10,10,1.0,0,0,0,1133,113.3,113.3,1103.1592487700036,110.31592487700036,91600,0,0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,1,put the chocolate pudding on the plate,10,10,1.0,0,0,0,1265,126.5,126.5,1222.8433334287984,122.28433334287983,103200,0,0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,2,put the milk on the plate,10,4,0.4,0,0,0,2163,216.3,90.75,2114.245333639672,211.4245333639672,173600,0,0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,3,put the orange juice on the plate,10,10,1.0,0,0,0,983,98.3,98.3,976.7303303883164,97.67303303883163,80800,0,0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,4,put the bowl on cookie box on the stove,10,0,0.0,0,0,0,3000,300.0,,2900.3706370261134,290.03706370261136,240000,0,0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,5,put the bowl on cookie box on the cabinet,10,0,0.0,0,0,0,3000,300.0,,2919.614656725069,291.9614656725069,240000,0,0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,6,put the bowl next to the plate on the cabinet,10,0,0.0,0,0,0,3000,300.0,,2887.6113536938574,288.7611353693857,240000,0,0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,7,put the bowl next to the plate on the stove,10,0,0.0,0,0,0,3000,300.0,,3009.2603412684985,300.92603412684986,240000,0,0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,8,put the bowl at table center on the cabinet,10,5,0.5,0,0,0,1990,199.0,98.0,1968.2514502661215,196.82514502661215,160400,0,0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,9,put the bowl at table center on the stove,10,0,0.0,0,0,0,3000,300.0,,2937.7069439999905,293.77069439999906,240000,0,0
+astra_reversal,Astra reversal,libero_goal_ood,0,put the cream cheese in the basket,10,0,0.0,0,0,0,3000,300.0,,6551.09469600585,655.109469600585,303200,179,0
+astra_reversal,Astra reversal,libero_goal_ood,1,put the orange juice on the stove,10,2,0.2,0,0,0,2704,270.4,152.0,5629.019196330817,562.9019196330817,275200,167,4
+astra_reversal,Astra reversal,libero_goal_ood,2,put the bbq source on the plate,10,0,0.0,0,0,0,3000,300.0,,6361.506264294032,636.1506264294032,300400,169,6
+astra_reversal,Astra reversal,libero_goal_ood,3,put the tomato sauce on top of the cabinet,10,0,0.0,0,0,0,3000,300.0,,6060.341076252174,606.0341076252174,300400,172,0
+astra_reversal,Astra reversal,libero_goal_ood,4,put the wine bottle on the stove,10,1,0.1,0,0,0,2801,280.1,101.0,6084.510298193934,608.4510298193934,283600,167,8
+astra_reversal,Astra reversal,libero_goal_ood,5,put the wine bottle on the plate,10,0,0.0,0,0,0,3000,300.0,,6796.235564736511,679.6235564736511,302400,177,8
+astra_reversal,Astra reversal,libero_goal_ood,6,put the wine bottle in the bowl,10,2,0.2,0,0,0,2803,280.3,201.5,6327.4189955239635,632.7418995523964,282400,176,12
+astra_reversal,Astra reversal,libero_goal_ood,7,put the cream cheese on the plate,10,0,0.0,0,0,0,3000,300.0,,6379.1175312439445,637.9117531243944,300000,173,12
+astra_reversal,Astra reversal,libero_goal_ood,8,put the cream cheese on the stove,10,0,0.0,0,0,0,3000,300.0,,6207.464815674903,620.7464815674903,300000,171,8
+astra_reversal,Astra reversal,libero_goal_ood,9,put the cream cheese on top of the cabinet,10,0,0.0,0,0,0,3000,300.0,,6451.322220701164,645.1322220701164,302800,181,4
+astra_reversal,Astra reversal,libero_spatial_ood,0,put the butter on the plate,10,0,0.0,0,0,0,3000,300.0,,6587.971654488159,658.7971654488159,302000,178,8
+astra_reversal,Astra reversal,libero_spatial_ood,1,put the chocolate pudding on the plate,10,0,0.0,0,0,0,3000,300.0,,6531.967582687568,653.1967582687569,301200,178,4
+astra_reversal,Astra reversal,libero_spatial_ood,2,put the milk on the plate,10,0,0.0,0,0,0,3000,300.0,,6627.3352479422465,662.7335247942246,307200,194,4
+astra_reversal,Astra reversal,libero_spatial_ood,3,put the orange juice on the plate,10,0,0.0,0,0,0,3000,300.0,,6333.822057471036,633.3822057471036,305200,183,0
+astra_reversal,Astra reversal,libero_spatial_ood,4,put the bowl on cookie box on the stove,10,0,0.0,0,0,0,3000,300.0,,6544.8859340744675,654.4885934074467,304800,184,0
+astra_reversal,Astra reversal,libero_spatial_ood,5,put the bowl on cookie box on the cabinet,10,0,0.0,0,0,0,3000,300.0,,6183.089276789207,618.3089276789208,304000,186,8
+astra_reversal,Astra reversal,libero_spatial_ood,6,put the bowl next to the plate on the cabinet,10,0,0.0,0,0,0,3000,300.0,,6145.972005097676,614.5972005097676,301200,172,8
+astra_reversal,Astra reversal,libero_spatial_ood,7,put the bowl next to the plate on the stove,10,0,0.0,0,0,0,3000,300.0,,6187.044227658538,618.7044227658538,302800,181,4
+astra_reversal,Astra reversal,libero_spatial_ood,8,put the bowl at table center on the cabinet,10,0,0.0,0,0,0,3000,300.0,,6313.838096914158,631.3838096914158,304400,185,4
+astra_reversal,Astra reversal,libero_spatial_ood,9,put the bowl at table center on the stove,10,0,0.0,0,0,0,3000,300.0,,6370.279892682018,637.0279892682017,305200,192,7

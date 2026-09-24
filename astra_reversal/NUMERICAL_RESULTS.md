@@ -1,6 +1,28 @@
-# Recorded-condition numerical validation
+# Numerical gates, development replay, and runtime audit
 
-The subsequent genuine closed-loop Astra development rollout **failed** the
+The complete Stage 1 OOD audit found **39 failing same-condition roundtrips out
+of 3,108 accepted Astra proposals**, at the unchanged full-internal maximum-error
+limit of 0.02. The largest error is **1.8645510077**. All 3,108 provider bindings,
+the exact condition/latent pairing, and all subsequent latent reuses were
+verified. This is a numerical negative for the frozen RK4/100 configuration.
+The task result was separately **5/200**, versus 91/200 and 90/200 for the matched
+fresh/reused-noise controls. These measurements do not isolate the cause of
+the low task score. See the [complete outcomes](reports/ood_paired.json) and
+[runtime audit](reports/ood_runtime_audit.json).
+
+All 25 archives and 32 reversal shards were checked, including 96,066 array
+files. The 39 failures occur in 30 episodes; every failure also exceeds 0.02
+in the first seven normalized action channels, while padding remains within
+tolerance. All 11,754 proposal-based generations use the recovered latent;
+8,646 later generations have advancing steps and changed observation IDs.
+These changed-condition outputs measure reuse, not reconstruction error.
+Astra's actions have no known generating policy noise. Every failing plan's
+full/action/padding maxima and RMSE are preserved. [Archive provenance](reports/ood_archive_provenance.json)
+binds these checks to whole-object receipts, per-unit audit hashes and frozen
+runtime/reset identities; [provider review](reports/ood_provider_review.json)
+separately accounts for accepted/rejected calls and 545 actual fallback actions.
+
+The earlier genuine closed-loop Astra development rollout **failed** the
 unchanged roundtrip limit on 2 of 28 proposals: maximum full internal errors
 were 0.459375 and 0.118617 at steps 330 and 485. Their conditions and recovered
 latents match exactly. The task also failed at 520 actions, independently of
@@ -14,8 +36,27 @@ then measures all three at RK4 resolutions 100, 200, and 500. The
 [predeclared input plan](reports/astra_development_replay_plan.json) binds all 21
 input arrays to their original requests, provider responses, and conditions.
 CPU replay of the stored endpoints reproduced all three original metrics exactly.
-The GPU diagnostic is pending; it makes no new agent calls, selects no solver,
-and leaves the frozen OOD configuration unchanged.
+The [completed GPU replay](reports/astra_development_replay.json) then reproduced
+all three N100 recovered latents and first-forward endpoints **bit-for-bit**.
+All nine prescribed pairs completed, using 18 solves and 19,200 velocity
+evaluations with float32 integration and model evaluation, TF32 disabled, and
+the original cubic grid.
+
+| Recorded development step | N100 maximum internal error | N200 | N500 |
+|---:|---:|---:|---:|
+| 310, passing control | 1.10269e-6 | 3.57628e-7 | 4.47035e-8 |
+| 330, recorded failure | 0.459375 | 0.387576 | 0.313804 |
+| 485, recorded failure | 0.118617 | 0.0183960 | 0.00192770 |
+
+Step 330 remains above the unchanged 0.02 limit at every tested resolution,
+including in decoded controller coordinates. Step 485 passes at N200 and N500.
+The archive review independently recomputed all nine error rows from 36 output
+arrays, verified the 21 source arrays, and rebound the original provider records
+and conditions. `complete_reproduced` denotes completed reproduction, not a
+passing numerical method. This diagnostic made no new agent calls, selected no
+solver, and left the frozen OOD configuration unchanged. These three selected
+endpoints do not establish broad coverage, an asymptotic convergence order, or
+the exact cause of the failures.
 
 Cubic RK4 with **100 steps** passed all 14 recorded LIBERO-10 development conditions and was selected on 2026-09-24. The tracked [L40S numerical summary](reports/runtime_numerics.json) covers one task-0/state-0 trajectory at observation steps 0, 20, …, 260, rather than 14 independent episodes. The checkpoint is frozen and uses the OpenPI LIBERO input profile. The summary preserves all 42 candidate/condition metric rows, native parity, source/checkpoint identities, costs, and endpoint hashes; it omits repeated grids and is not a replacement for the complete worker gate. [Snapshot provenance](reports/snapshot_sources.json) identifies the original report by SHA-256.
 
@@ -37,7 +78,7 @@ The [original RK4/50 rollout audit](checkpoints/libero_l40s_runtime_recovery.jso
 
 The tracked [genuine Astra GPU preflight](reports/astra_proposal_preflight.json) **passed**. Maximum direct controller reconstruction error was **1.32135e-7**, measured without clipping; maximum full internal reconstruction error was **1.41561e-7**. Its [implementation](osmo/proposal_probe.py) verifies the pinned genuine request, accepted numeric response, and provider record, including reconstructed RGB/state fingerprints, schema, raw response identity, and actual model `azure/openai/gpt-6-astra`. Their original file hashes are retained in the tracked report; raw files are excluded from Git. It requires the selected 14-condition gate and additionally checks direct decoded replay against 0.02. The separate policy-generated known-noise check had maximum error **0.000193059**: Astra's proposed actions have no known generating policy noise. The actual proposal's inverse and forward solves used 800 velocity evaluations and took 8.76 seconds together. The probe replayed a saved genuine response and made no new Astra call.
 
-The OOD native Euler-10 baseline uses TF32 on, while the three matched RK4/100 conditions use TF32 off. Comparisons against the native baseline therefore include a solver and runtime change. The matched fresh-noise, reused-noise, and genuine Astra-reversal conditions share the numerical settings and frozen scenes; final results remain pending in this snapshot.
+The OOD native Euler-10 baseline uses TF32 on, while the three matched RK4/100 conditions use TF32 off. Comparisons against the native baseline therefore include a solver and runtime change. The matched fresh-noise, reused-noise, and genuine Astra-reversal conditions share the numerical settings and frozen scenes. Their completed task scores are 91/200, 90/200, and 5/200 respectively. The aggregate report's `valid_complete_evaluation` flag concerns execution checks, not numerical accuracy.
 
 Passing the initial numerical checks establishes reconstruction only for their recorded inputs. It does not establish useful proposals, successful closed-loop control, performance after conditioning changes, or OOD improvement. The live development smoke recorded 26/28 passing same-condition roundtrips and two failures; all 76 later generations reused the intended latent on fresh observations, with zero fallbacks. The first seven normalized channels contain the worst errors, while padding maxima are below 0.000877. No cause or solver correction has yet been isolated, and no Stage 2 measurement is reported. The [runtime inversion audit](audit_astra_inversions.py) separately checks reconstruction for each recorded Astra proposal under identical conditioning and latent, then verifies latent reuse on later observations without treating changed-condition output as reconstruction error.
 

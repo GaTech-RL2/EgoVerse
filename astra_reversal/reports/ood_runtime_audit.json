@@ -1,0 +1,1216 @@
+{
+  "status": "complete",
+  "archive_helper_sha256": "57116d36e605ae4da380658fada584e9b09c02a7937379491697539263b80b5b",
+  "expected_archives": 25,
+  "audited_archives": 25,
+  "expected_reversal_shards": 32,
+  "audited_reversal_shards": 32,
+  "expected_episodes": 200,
+  "audited_episodes": 200,
+  "complete_episode_coverage": true,
+  "counts": {
+    "episodes_started": 200,
+    "episodes_ended": 200,
+    "accepted_agent_proposals": 3108,
+    "accepted_proposals_without_inversion": 0,
+    "rejected_agent_responses": 457,
+    "astra_inversions": 3108,
+    "paired_same_condition_roundtrips": 3108,
+    "passing_roundtrips": 3069,
+    "failing_roundtrips": 39,
+    "unpaired_inversions": 0,
+    "plans_without_activation": 0,
+    "paired_on_first_generation": 3108,
+    "generations": 11754,
+    "subsequent_generations": 8646,
+    "changed_condition_generations": 8646,
+    "generations_with_wrong_recovered_latent": 0,
+    "generations_with_latent_changed_within_plan": 0,
+    "plans_with_latent_mismatch": 0,
+    "subsequent_steps_advanced": 8646,
+    "subsequent_steps_not_advanced": 0,
+    "subsequent_observation_ids_changed": 8646,
+    "subsequent_observation_ids_unchanged": 0,
+    "orphan_generation_flows": 0,
+    "fallback_flows": 109,
+    "verified_array_files": 96066
+  },
+  "recorded_cost_counts": {
+    "assessor_calls": 0,
+    "assessor_errors": 0,
+    "agent_calls": 3565,
+    "invalid_responses": 457,
+    "retry_calls": 429,
+    "velocity_evaluations": 5988400,
+    "astra_inversion_calls": 3108,
+    "generation_calls": 11754,
+    "fallback_calls": 109,
+    "executed_actions": 59308,
+    "fallback_actions": 545
+  },
+  "fallback_categories": {
+    "plan_refresh_failed": 28,
+    "no_valid_plan": 81
+  },
+  "provider_counts": {
+    "recorded_calls": 3565,
+    "schema_accepted": 3433,
+    "accepted_controller_proposals": 3108,
+    "accepted_controller_proposals_verified": 3108
+  },
+  "provider_errors": {
+    "Proposal rejected: Wrong schema or episode": 11,
+    "Proposal rejected: Wrong controller action specification": 112,
+    "Inference transport failed (TimeoutError)": 2,
+    "Inference endpoint returned HTTP 500": 2,
+    "Inference endpoint returned HTTP 503": 5
+  },
+  "provider_http_status": {
+    "200": 3556,
+    "None": 2,
+    "500": 2,
+    "503": 5
+  },
+  "fallback_action_fraction": 0.00918931678694274,
+  "maximum_full_internal_error": 1.8645510077476501,
+  "all_roundtrips_passed": false,
+  "all_latents_match_recovered": true,
+  "all_recordings_complete": true,
+  "all_provider_bindings_verified": true,
+  "action_atol": 0.02,
+  "known_noise_recovery": null,
+  "interpretation": "Actual Astra actions have no known generating policy noise. Only identical-condition recovered-latent forward generations measure reconstruction; changed-condition generations test latent reuse.",
+  "observed_failure_plans": [
+    {
+      "unit": "group_0/single_node",
+      "workflow": "astra-pi05-ood-steering-20260924-1",
+      "shard": "reversal/libero_goal_ood/shard_1",
+      "episode_id": "libero_goal_ood:task1:state7",
+      "plan_id": "state7_step60_seat_and_grasp",
+      "observation_step": 60,
+      "same_condition_roundtrip": {
+        "generation_sequence": 764,
+        "generation_ordinal": 1,
+        "observation_step": 60,
+        "full_internal_reconstruction": {
+          "rmse": 0.12331642186464514,
+          "max_abs": 1.6559306383132935
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.26366032322485844,
+          "max_abs": 1.6559306383132935
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0004342601392827774,
+          "max_abs": 0.0022005641367286444
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_0/single_node",
+      "workflow": "astra-pi05-ood-steering-20260924-1",
+      "shard": "reversal/libero_goal_ood/shard_1",
+      "episode_id": "libero_goal_ood:task6:state5",
+      "plan_id": "bottle-seat-160-release-01",
+      "observation_step": 160,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2593,
+        "generation_ordinal": 1,
+        "observation_step": 160,
+        "full_internal_reconstruction": {
+          "rmse": 0.15688044311108693,
+          "max_abs": 1.7612021565437317
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.33542338886422146,
+          "max_abs": 1.7612021565437317
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00045612293432528673,
+          "max_abs": 0.0018300600349903107
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_0/single_node",
+      "workflow": "astra-pi05-ood-steering-20260924-1",
+      "shard": "reversal/libero_goal_ood/shard_2",
+      "episode_id": "libero_goal_ood:task0:state2",
+      "plan_id": "cheese_grasp_210_a",
+      "observation_step": 210,
+      "same_condition_roundtrip": {
+        "generation_sequence": 449,
+        "generation_ordinal": 1,
+        "observation_step": 210,
+        "full_internal_reconstruction": {
+          "rmse": 0.009069393014899542,
+          "max_abs": 0.16052788496017456
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.019390739168094074,
+          "max_abs": 0.16052788496017456
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 6.90248312627517e-05,
+          "max_abs": 0.0005371281877160072
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_0/single_node",
+      "workflow": "astra-pi05-ood-steering-20260924-1",
+      "shard": "reversal/libero_goal_ood/shard_2",
+      "episode_id": "libero_goal_ood:task5:state0",
+      "plan_id": "wine_align_grasp_170_a",
+      "observation_step": 170,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2251,
+        "generation_ordinal": 1,
+        "observation_step": 170,
+        "full_internal_reconstruction": {
+          "rmse": 0.24288807945146473,
+          "max_abs": 1.7591997385025024
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.5193154614702249,
+          "max_abs": 1.7591997385025024
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.000564723424162628,
+          "max_abs": 0.0015934391412883997
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_0/single_node",
+      "workflow": "astra-pi05-ood-steering-20260924-1",
+      "shard": "reversal/libero_spatial_ood/shard_1",
+      "episode_id": "libero_spatial_ood:task1:state7",
+      "plan_id": "p160_grasp_pudding_01",
+      "observation_step": 160,
+      "same_condition_roundtrip": {
+        "generation_sequence": 977,
+        "generation_ordinal": 1,
+        "observation_step": 160,
+        "full_internal_reconstruction": {
+          "rmse": 0.12972757990021055,
+          "max_abs": 1.7339004874229431
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.27736826125930353,
+          "max_abs": 1.7339004874229431
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00038848930133628513,
+          "max_abs": 0.0018708370625972748
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_0/single_node",
+      "workflow": "astra-pi05-ood-steering-20260924-1",
+      "shard": "reversal/libero_spatial_ood/shard_1",
+      "episode_id": "libero_spatial_ood:task3:state3",
+      "plan_id": "juice_grasp_170_close",
+      "observation_step": 170,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1631,
+        "generation_ordinal": 1,
+        "observation_step": 170,
+        "full_internal_reconstruction": {
+          "rmse": 0.01081249625201611,
+          "max_abs": 0.1844843626022339
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.023117539168684153,
+          "max_abs": 0.1844843626022339
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 8.44004469364133e-05,
+          "max_abs": 0.0006349767209030688
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_0/single_node",
+      "workflow": "astra-pi05-ood-steering-20260924-1",
+      "shard": "reversal/libero_spatial_ood/shard_3",
+      "episode_id": "libero_spatial_ood:task6:state7",
+      "plan_id": "grasp_bowl_125_refine_close",
+      "observation_step": 125,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2797,
+        "generation_ordinal": 1,
+        "observation_step": 125,
+        "full_internal_reconstruction": {
+          "rmse": 0.0031818203106113194,
+          "max_abs": 0.055708885192871094
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.006802929445254197,
+          "max_abs": 0.055708885192871094
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 1.8365607915571125e-05,
+          "max_abs": 9.543201304040849e-05
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_0/single_node",
+      "workflow": "astra-pi05-ood-steering-20260924-1",
+      "shard": "reversal/libero_spatial_ood/shard_3",
+      "episode_id": "libero_spatial_ood:task6:state7",
+      "plan_id": "grasp_bowl_145_close_check",
+      "observation_step": 145,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2838,
+        "generation_ordinal": 1,
+        "observation_step": 145,
+        "full_internal_reconstruction": {
+          "rmse": 0.08530250784876152,
+          "max_abs": 1.525113582611084
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.18238375816839061,
+          "max_abs": 1.525113582611084
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00026262854640744923,
+          "max_abs": 0.001089199329726398
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_1/worker_0",
+      "workflow": "astra-pi05-ood-distributed-20260924-1",
+      "shard": "reversal/libero_goal_ood/shard_4",
+      "episode_id": "libero_goal_ood:task0:state4",
+      "plan_id": "cheese_grasp_280_c1",
+      "observation_step": 280,
+      "same_condition_roundtrip": {
+        "generation_sequence": 590,
+        "generation_ordinal": 1,
+        "observation_step": 280,
+        "full_internal_reconstruction": {
+          "rmse": 0.05815812820279299,
+          "max_abs": 0.47158223390579224
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.12434515909667039,
+          "max_abs": 0.47158223390579224
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0003868797356420866,
+          "max_abs": 0.001709398115053773
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_1/worker_1",
+      "workflow": "astra-pi05-ood-distributed-20260924-1",
+      "shard": "reversal/libero_goal_ood/shard_5",
+      "episode_id": "libero_goal_ood:task6:state9",
+      "plan_id": "bottle_neck_140_grasp_v1",
+      "observation_step": 140,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2803,
+        "generation_ordinal": 1,
+        "observation_step": 140,
+        "full_internal_reconstruction": {
+          "rmse": 0.12896371047506192,
+          "max_abs": 1.7785577774047852
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.27573548435444317,
+          "max_abs": 1.7785577774047852
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00028527170229318273,
+          "max_abs": 0.0009455311810597777
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_1/worker_1",
+      "workflow": "astra-pi05-ood-distributed-20260924-1",
+      "shard": "reversal/libero_goal_ood/shard_5",
+      "episode_id": "libero_goal_ood:task6:state9",
+      "plan_id": "bottle_neck_close_150_a",
+      "observation_step": 150,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2827,
+        "generation_ordinal": 1,
+        "observation_step": 150,
+        "full_internal_reconstruction": {
+          "rmse": 0.15742014186240055,
+          "max_abs": 1.75863516330719
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.33657752163472954,
+          "max_abs": 1.75863516330719
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00041170663673293034,
+          "max_abs": 0.001785416272468865
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_1/worker_1",
+      "workflow": "astra-pi05-ood-distributed-20260924-1",
+      "shard": "reversal/libero_goal_ood/shard_5",
+      "episode_id": "libero_goal_ood:task6:state9",
+      "plan_id": "p220_close_bottle_grasp_01",
+      "observation_step": 220,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2977,
+        "generation_ordinal": 1,
+        "observation_step": 220,
+        "full_internal_reconstruction": {
+          "rmse": 0.13390851940479487,
+          "max_abs": 1.792819619178772
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.2863078231031993,
+          "max_abs": 1.792819619178772
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00031894972948355696,
+          "max_abs": 0.0014232562389224768
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_1/worker_6",
+      "workflow": "astra-pi05-ood-distributed-20260924-1",
+      "shard": "reversal/libero_spatial_ood/shard_6",
+      "episode_id": "libero_spatial_ood:task5:state4",
+      "plan_id": "step60_bowl_reapproach_01",
+      "observation_step": 60,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2027,
+        "generation_ordinal": 1,
+        "observation_step": 60,
+        "full_internal_reconstruction": {
+          "rmse": 0.002298399038280995,
+          "max_abs": 0.04101651906967163
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.00491411148065835,
+          "max_abs": 0.04101651906967163
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 1.411232525808828e-05,
+          "max_abs": 6.109481182647869e-05
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_1/worker_6",
+      "workflow": "astra-pi05-ood-distributed-20260924-1",
+      "shard": "reversal/libero_spatial_ood/shard_6",
+      "episode_id": "libero_spatial_ood:task8:state6",
+      "plan_id": "rim_grasp_140_v1",
+      "observation_step": 140,
+      "same_condition_roundtrip": {
+        "generation_sequence": 3451,
+        "generation_ordinal": 1,
+        "observation_step": 140,
+        "full_internal_reconstruction": {
+          "rmse": 0.19331205231105086,
+          "max_abs": 1.7722392678260803
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.4133176332432767,
+          "max_abs": 1.7722392678260803
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0004614997277745342,
+          "max_abs": 0.0016999176004901528
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_1/worker_7",
+      "workflow": "astra-pi05-ood-distributed-20260924-1",
+      "shard": "reversal/libero_spatial_ood/shard_7",
+      "episode_id": "libero_spatial_ood:task3:state9",
+      "plan_id": "orange_juice_80_grasp_revision",
+      "observation_step": 80,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1442,
+        "generation_ordinal": 1,
+        "observation_step": 80,
+        "full_internal_reconstruction": {
+          "rmse": 0.09166225153958771,
+          "max_abs": 1.5863582491874695
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.19598086794957145,
+          "max_abs": 1.5863582491874695
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0003732676220268511,
+          "max_abs": 0.0030012375209480524
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_1/worker_7",
+      "workflow": "astra-pi05-ood-distributed-20260924-1",
+      "shard": "reversal/libero_spatial_ood/shard_7",
+      "episode_id": "libero_spatial_ood:task8:state7",
+      "plan_id": "center_bowl_grasp_40_v1",
+      "observation_step": 40,
+      "same_condition_roundtrip": {
+        "generation_sequence": 3270,
+        "generation_ordinal": 1,
+        "observation_step": 40,
+        "full_internal_reconstruction": {
+          "rmse": 0.014561439948291937,
+          "max_abs": 0.20729881525039673
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.031132758287934856,
+          "max_abs": 0.20729881525039673
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00012595196893387553,
+          "max_abs": 0.0009161526104435325
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_1/worker_7",
+      "workflow": "astra-pi05-ood-distributed-20260924-1",
+      "shard": "reversal/libero_spatial_ood/shard_7",
+      "episode_id": "libero_spatial_ood:task8:state7",
+      "plan_id": "state7_step120_rim_grasp_v1",
+      "observation_step": 120,
+      "same_condition_roundtrip": {
+        "generation_sequence": 3437,
+        "generation_ordinal": 1,
+        "observation_step": 120,
+        "full_internal_reconstruction": {
+          "rmse": 0.1281482739259264,
+          "max_abs": 1.765074610710144
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.27399171028826014,
+          "max_abs": 1.765074610710144
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0003556616040810139,
+          "max_abs": 0.0011996048269793391
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_2/worker_1",
+      "workflow": "astra-pi05-ood-distributed-20260924-2",
+      "shard": "reversal/libero_goal_ood/shard_9",
+      "episode_id": "libero_goal_ood:task4:state1",
+      "plan_id": "placement-release-220-a",
+      "observation_step": 220,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1734,
+        "generation_ordinal": 1,
+        "observation_step": 220,
+        "full_internal_reconstruction": {
+          "rmse": 0.025135867319226575,
+          "max_abs": 0.42488034069538116
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.05373861199496398,
+          "max_abs": 0.42488034069538116
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00035267517380153,
+          "max_abs": 0.0032177751418203115
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_2/worker_1",
+      "workflow": "astra-pi05-ood-distributed-20260924-2",
+      "shard": "reversal/libero_goal_ood/shard_9",
+      "episode_id": "libero_goal_ood:task5:state7",
+      "plan_id": "p100_grasp_bottle_neck",
+      "observation_step": 100,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2114,
+        "generation_ordinal": 1,
+        "observation_step": 100,
+        "full_internal_reconstruction": {
+          "rmse": 0.18754854228689183,
+          "max_abs": 1.8645510077476501
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.400994836916063,
+          "max_abs": 1.8645510077476501
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0004274675490738031,
+          "max_abs": 0.001671518781222403
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_2/worker_1",
+      "workflow": "astra-pi05-ood-distributed-20260924-2",
+      "shard": "reversal/libero_goal_ood/shard_9",
+      "episode_id": "libero_goal_ood:task5:state7",
+      "plan_id": "reacquire_bottle_210_a",
+      "observation_step": 210,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2346,
+        "generation_ordinal": 1,
+        "observation_step": 210,
+        "full_internal_reconstruction": {
+          "rmse": 0.09191534950530016,
+          "max_abs": 1.6390451788902283
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.19652284449164137,
+          "max_abs": 1.6390451788902283
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00021984905788080628,
+          "max_abs": 0.0010414763819426298
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_2/worker_3",
+      "workflow": "astra-pi05-ood-distributed-20260924-2",
+      "shard": "reversal/libero_goal_ood/shard_11",
+      "episode_id": "libero_goal_ood:task5:state9",
+      "plan_id": "state9_step90_neck_grasp_v1",
+      "observation_step": 90,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1737,
+        "generation_ordinal": 1,
+        "observation_step": 90,
+        "full_internal_reconstruction": {
+          "rmse": 0.08122872985357679,
+          "max_abs": 1.4523292183876038
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.1736735662112034,
+          "max_abs": 1.4523292183876038
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0002725077900271727,
+          "max_abs": 0.001399325323291123
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_2/worker_4",
+      "workflow": "astra-pi05-ood-distributed-20260924-2",
+      "shard": "reversal/libero_spatial_ood/shard_8",
+      "episode_id": "libero_spatial_ood:task5:state6",
+      "plan_id": "grasp_bowl_rim_180_b",
+      "observation_step": 180,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2285,
+        "generation_ordinal": 1,
+        "observation_step": 180,
+        "full_internal_reconstruction": {
+          "rmse": 0.06570183665746199,
+          "max_abs": 1.1739593744277954
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.14047550451486818,
+          "max_abs": 1.1739593744277954
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00027065138424476606,
+          "max_abs": 0.0020239974837750196
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_2/worker_4",
+      "workflow": "astra-pi05-ood-distributed-20260924-2",
+      "shard": "reversal/libero_spatial_ood/shard_8",
+      "episode_id": "libero_spatial_ood:task5:state6",
+      "plan_id": "plan_265_rim_close_01",
+      "observation_step": 265,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2465,
+        "generation_ordinal": 1,
+        "observation_step": 265,
+        "full_internal_reconstruction": {
+          "rmse": 0.07612770734063125,
+          "max_abs": 1.359912097454071
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.1627671507663518,
+          "max_abs": 1.359912097454071
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0002586749258497836,
+          "max_abs": 0.0018478977726772428
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_2/worker_5",
+      "workflow": "astra-pi05-ood-distributed-20260924-2",
+      "shard": "reversal/libero_spatial_ood/shard_9",
+      "episode_id": "libero_spatial_ood:task2:state5",
+      "plan_id": "milk_step80_grasp_01",
+      "observation_step": 80,
+      "same_condition_roundtrip": {
+        "generation_sequence": 805,
+        "generation_ordinal": 1,
+        "observation_step": 80,
+        "full_internal_reconstruction": {
+          "rmse": 0.15990307384096544,
+          "max_abs": 1.8544725179672241
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.34188625662809835,
+          "max_abs": 1.8544725179672241
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0004142203779999425,
+          "max_abs": 0.0019597404170781374
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_2/worker_5",
+      "workflow": "astra-pi05-ood-distributed-20260924-2",
+      "shard": "reversal/libero_spatial_ood/shard_9",
+      "episode_id": "libero_spatial_ood:task4:state1",
+      "plan_id": "plan_40_align_grasp_bowl",
+      "observation_step": 40,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1363,
+        "generation_ordinal": 1,
+        "observation_step": 40,
+        "full_internal_reconstruction": {
+          "rmse": 0.01541650139691395,
+          "max_abs": 0.26437777280807495
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.03296125216676471,
+          "max_abs": 0.26437777280807495
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00010648557953738834,
+          "max_abs": 0.0004692277288995683
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_2/worker_5",
+      "workflow": "astra-pi05-ood-distributed-20260924-2",
+      "shard": "reversal/libero_spatial_ood/shard_9",
+      "episode_id": "libero_spatial_ood:task4:state1",
+      "plan_id": "step235_grasp_cookie_box_bowl_v1",
+      "observation_step": 235,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1770,
+        "generation_ordinal": 1,
+        "observation_step": 235,
+        "full_internal_reconstruction": {
+          "rmse": 0.13396513172130706,
+          "max_abs": 1.7387776970863342
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.2864285578540534,
+          "max_abs": 1.7387776970863342
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0003887038440344079,
+          "max_abs": 0.0019537853077054024
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_2/worker_6",
+      "workflow": "astra-pi05-ood-distributed-20260924-2",
+      "shard": "reversal/libero_spatial_ood/shard_10",
+      "episode_id": "libero_spatial_ood:task2:state6",
+      "plan_id": "milk_step40_secure_v1",
+      "observation_step": 40,
+      "same_condition_roundtrip": {
+        "generation_sequence": 715,
+        "generation_ordinal": 1,
+        "observation_step": 40,
+        "full_internal_reconstruction": {
+          "rmse": 0.1300313864891662,
+          "max_abs": 1.7549776434898376
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.2780181782588867,
+          "max_abs": 1.7549776434898376
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0003108064804157614,
+          "max_abs": 0.0010763753671199083
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_0",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_goal_ood/shard_12",
+      "episode_id": "libero_goal_ood:task4:state4",
+      "plan_id": "bottle_regrasp_275_c",
+      "observation_step": 275,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1837,
+        "generation_ordinal": 1,
+        "observation_step": 275,
+        "full_internal_reconstruction": {
+          "rmse": 0.008071790541853264,
+          "max_abs": 0.14399999380111694
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.017258014943343766,
+          "max_abs": 0.14399999380111694
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 4.3873981775315855e-05,
+          "max_abs": 0.00027434423100203276
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_2",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_goal_ood/shard_14",
+      "episode_id": "libero_goal_ood:task4:state6",
+      "plan_id": "release_bottle_255_v1",
+      "observation_step": 255,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1790,
+        "generation_ordinal": 1,
+        "observation_step": 255,
+        "full_internal_reconstruction": {
+          "rmse": 0.08343643578710283,
+          "max_abs": 1.483376383781433
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.1783932449181481,
+          "max_abs": 1.483376383781433
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00036841891298008733,
+          "max_abs": 0.0030024691950529814
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_3",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_goal_ood/shard_15",
+      "episode_id": "libero_goal_ood:task1:state5",
+      "plan_id": "juice_80_secure_carton",
+      "observation_step": 80,
+      "same_condition_roundtrip": {
+        "generation_sequence": 175,
+        "generation_ordinal": 1,
+        "observation_step": 80,
+        "full_internal_reconstruction": {
+          "rmse": 0.1514386451029313,
+          "max_abs": 1.7621021270751953
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.3237879079840201,
+          "max_abs": 1.7621021270751953
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0005275559834991711,
+          "max_abs": 0.0024888450279831886
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_3",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_goal_ood/shard_15",
+      "episode_id": "libero_goal_ood:task6:state3",
+      "plan_id": "bottle_grasp_80_v1",
+      "observation_step": 80,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2077,
+        "generation_ordinal": 1,
+        "observation_step": 80,
+        "full_internal_reconstruction": {
+          "rmse": 0.12791427232134522,
+          "max_abs": 1.7147635221481323
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.2734911157650734,
+          "max_abs": 1.7147635221481323
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0004109119128397057,
+          "max_abs": 0.0020655898842960596
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_3",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_goal_ood/shard_15",
+      "episode_id": "libero_goal_ood:task6:state3",
+      "plan_id": "bottle_realign_170_a",
+      "observation_step": 170,
+      "same_condition_roundtrip": {
+        "generation_sequence": 2267,
+        "generation_ordinal": 1,
+        "observation_step": 170,
+        "full_internal_reconstruction": {
+          "rmse": 0.03313659178614506,
+          "max_abs": 0.5369940102100372
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.07084784874439977,
+          "max_abs": 0.5369940102100372
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00021495901807513118,
+          "max_abs": 0.0010816914727911353
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_4",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_spatial_ood/shard_12",
+      "episode_id": "libero_spatial_ood:task9:state2",
+      "plan_id": "center_bowl_rim_grasp_110_v1",
+      "observation_step": 110,
+      "same_condition_roundtrip": {
+        "generation_sequence": 3382,
+        "generation_ordinal": 1,
+        "observation_step": 110,
+        "full_internal_reconstruction": {
+          "rmse": 0.040832524284235804,
+          "max_abs": 0.5727101266384125
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.08730248482948284,
+          "max_abs": 0.5727101266384125
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00023445764752207384,
+          "max_abs": 0.0007281249854713678
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_4",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_spatial_ood/shard_12",
+      "episode_id": "libero_spatial_ood:task9:state2",
+      "plan_id": "center_bowl_grasp_180_v1",
+      "observation_step": 180,
+      "same_condition_roundtrip": {
+        "generation_sequence": 3530,
+        "generation_ordinal": 1,
+        "observation_step": 180,
+        "full_internal_reconstruction": {
+          "rmse": 0.006034663684682966,
+          "max_abs": 0.10688024759292603
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.012902497202236164,
+          "max_abs": 0.10688024759292603
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 3.362547571137434e-05,
+          "max_abs": 0.00017343829676974565
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_5",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_spatial_ood/shard_13",
+      "episode_id": "libero_spatial_ood:task4:state5",
+      "plan_id": "state5_step170_grasp_revision",
+      "observation_step": 170,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1629,
+        "generation_ordinal": 1,
+        "observation_step": 170,
+        "full_internal_reconstruction": {
+          "rmse": 0.03285453571691584,
+          "max_abs": 0.47413623332977295
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.070243888477521,
+          "max_abs": 0.47413623332977295
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.0002849189691330469,
+          "max_abs": 0.0016136743361130357
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_6",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_spatial_ood/shard_14",
+      "episode_id": "libero_spatial_ood:task4:state6",
+      "plan_id": "grasp_cookie_bowl_105_a",
+      "observation_step": 105,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1488,
+        "generation_ordinal": 1,
+        "observation_step": 105,
+        "full_internal_reconstruction": {
+          "rmse": 0.013834359720265078,
+          "max_abs": 0.24506151676177979
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.029578548636452914,
+          "max_abs": 0.24506151676177979
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 9.602244677087051e-05,
+          "max_abs": 0.0006995982257649302
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_6",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_spatial_ood/shard_14",
+      "episode_id": "libero_spatial_ood:task9:state4",
+      "plan_id": "plan_285_release_supported_bowl",
+      "observation_step": 285,
+      "same_condition_roundtrip": {
+        "generation_sequence": 3766,
+        "generation_ordinal": 1,
+        "observation_step": 285,
+        "full_internal_reconstruction": {
+          "rmse": 0.08401692500222056,
+          "max_abs": 1.463640570640564
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.17963361503145367,
+          "max_abs": 1.463640570640564
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.000462533615673795,
+          "max_abs": 0.004758537281304598
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_7",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_spatial_ood/shard_15",
+      "episode_id": "libero_spatial_ood:task4:state7",
+      "plan_id": "bowl_grasp_alignment_100_v1",
+      "observation_step": 100,
+      "same_condition_roundtrip": {
+        "generation_sequence": 1466,
+        "generation_ordinal": 1,
+        "observation_step": 100,
+        "full_internal_reconstruction": {
+          "rmse": 0.030487846527285475,
+          "max_abs": 0.46669793128967285
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.06518487665747948,
+          "max_abs": 0.46669793128967285
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 0.00017934702967348394,
+          "max_abs": 0.0007131247548386455
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    },
+    {
+      "unit": "group_3/worker_7",
+      "workflow": "astra-pi05-ood-distributed-20260924-3",
+      "shard": "reversal/libero_spatial_ood/shard_15",
+      "episode_id": "libero_spatial_ood:task9:state5",
+      "plan_id": "center_bowl_grasp_40_v1",
+      "observation_step": 40,
+      "same_condition_roundtrip": {
+        "generation_sequence": 3234,
+        "generation_ordinal": 1,
+        "observation_step": 40,
+        "full_internal_reconstruction": {
+          "rmse": 0.016623531947961467,
+          "max_abs": 0.2954556941986084
+        },
+        "action_channel_reconstruction": {
+          "rmse": 0.035542314534767444,
+          "max_abs": 0.2954556941986084
+        },
+        "padding_channel_reconstruction": {
+          "rmse": 7.621133203614984e-05,
+          "max_abs": 0.00048458544188179076
+        },
+        "passed_action_tolerance": false
+      },
+      "latent_reuse_verified": true
+    }
+  ],
+  "state": {
+    "group_0/single_node": {
+      "status": "audited"
+    },
+    "group_1/worker_0": {
+      "status": "audited"
+    },
+    "group_1/worker_1": {
+      "status": "audited"
+    },
+    "group_1/worker_2": {
+      "status": "audited"
+    },
+    "group_1/worker_3": {
+      "status": "audited"
+    },
+    "group_1/worker_4": {
+      "status": "audited"
+    },
+    "group_1/worker_5": {
+      "status": "audited"
+    },
+    "group_1/worker_6": {
+      "status": "audited"
+    },
+    "group_1/worker_7": {
+      "status": "audited"
+    },
+    "group_2/worker_0": {
+      "status": "audited"
+    },
+    "group_2/worker_1": {
+      "status": "audited"
+    },
+    "group_2/worker_2": {
+      "status": "audited"
+    },
+    "group_2/worker_3": {
+      "status": "audited"
+    },
+    "group_2/worker_4": {
+      "status": "audited"
+    },
+    "group_2/worker_5": {
+      "status": "audited"
+    },
+    "group_2/worker_6": {
+      "status": "audited"
+    },
+    "group_2/worker_7": {
+      "status": "audited"
+    },
+    "group_3/worker_0": {
+      "status": "audited"
+    },
+    "group_3/worker_1": {
+      "status": "audited"
+    },
+    "group_3/worker_2": {
+      "status": "audited"
+    },
+    "group_3/worker_3": {
+      "status": "audited"
+    },
+    "group_3/worker_4": {
+      "status": "audited"
+    },
+    "group_3/worker_5": {
+      "status": "audited"
+    },
+    "group_3/worker_6": {
+      "status": "audited"
+    },
+    "group_3/worker_7": {
+      "status": "audited"
+    }
+  },
+  "updated_at_unix": 1790282718.6649861
+}

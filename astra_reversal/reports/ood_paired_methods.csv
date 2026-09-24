@@ -1,0 +1,13 @@
+method,label,suite,episodes,successes,success_rate,execution_errors,zero_action_successes,zero_action_failures,total_actions,mean_actions,actions_to_success,total_wall_seconds,mean_wall_seconds,velocity_evaluations,agent_calls,fallbacks,fallback_action_fraction
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",all,200,86,0.43,0,0,0,43052,215.26,102.93023255813954,2524.3988123270683,12.621994061635341,86430,0,0,0.0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_goal_ood,100,47,0.47,0,0,0,21112,211.12,110.8936170212766,1278.5046349491458,12.78504634949146,42410,0,0,0.0
+baseline_euler10,"Baseline: Euler 10, fresh noise, TF32 on",libero_spatial_ood,100,39,0.39,0,0,0,21940,219.4,93.33333333333333,1245.8941773779225,12.458941773779225,44020,0,0,0.0
+matched_fresh_noise,Matched solver: fresh noise,all,200,91,0.455,0,0,0,42368,211.84,106.24175824175825,41118.14384268602,205.5907192134301,3402800,0,0,0.0
+matched_fresh_noise,Matched solver: fresh noise,libero_goal_ood,100,51,0.51,0,0,0,20368,203.68,111.13725490196079,19648.42318107553,196.4842318107553,1635600,0,0,0.0
+matched_fresh_noise,Matched solver: fresh noise,libero_spatial_ood,100,40,0.4,0,0,0,22000,220.0,100.0,21469.72066161049,214.6972066161049,1767200,0,0,0.0
+matched_reused_noise,Matched solver: reused noise,all,200,90,0.45,0,0,0,43451,217.255,116.12222222222222,42262.308990778445,211.31154495389222,3491600,0,0,0.0
+matched_reused_noise,Matched solver: reused noise,libero_goal_ood,100,51,0.51,0,0,0,20917,209.17,121.90196078431373,20222.515361572005,202.22515361572005,1682000,0,0,0.0
+matched_reused_noise,Matched solver: reused noise,libero_spatial_ood,100,39,0.39,0,0,0,22534,225.34,108.56410256410257,22039.79362920644,220.3979362920644,1809600,0,0,0.0
+astra_reversal,Astra reversal,all,200,5,0.025,0,0,0,59308,296.54,161.6,126674.23663476238,633.3711831738119,5988400,3565,109,0.00918931678694274
+astra_reversal,Astra reversal,libero_goal_ood,100,5,0.05,0,0,0,29308,293.08,161.6,62848.030658957294,628.4803065895729,2950400,1732,62,0.01057731677357718
+astra_reversal,Astra reversal,libero_spatial_ood,100,0,0.0,0,0,0,30000,300.0,,63826.205975805075,638.2620597580508,3038000,1833,47,0.007833333333333333
