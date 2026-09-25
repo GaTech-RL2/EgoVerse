@@ -1,0 +1,8 @@
+{
+  "status": "complete",
+  "canonical_report_file_sha256": "81bd679d49d23130c2c63547043d42cd68c603fa78d676c2c433cfe26129d1bb",
+  "canonical_report_content_digest": "65308e1dd2cedc6f17011c1a26dc9f4d7dfff648f174e3336bf8c8642bfaaf0c",
+  "suite_tables_file_sha256": "60db831c435b50d33aa8e46f2fd428ddd8fccaba8c05a15e7008fefc13ad748a",
+  "suite_tables_content_digest": "856af8f3b78df268b00fc4173f74521846396c63b9355d8894f23cbfc79a6daa",
+  "source_sha256": "9aaadc7cb4bcea94806d3b97f3debb2bbfb4a92840ee2479f6b7c18c36118092"
+}

@@ -1,0 +1,121 @@
+"""Verify a downloaded live prefix without making provider or model calls."""
+import base64
+import collections
+import hashlib
+import io
+import json
+from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
+from astra_reversal.intervention_agent import parse_proposal
+from astra_reversal.records import digest, file_sha256
+
+directory = Path(__file__).resolve().parent
+path = directory / "live-feedback-events-worker0.jsonl"
+events = [json.loads(line) for line in path.read_text().splitlines()]
+provider = {}
+provider_sources = {}
+for source in sorted((directory / "live/worker_0/case_0_0").glob("*_provider.jsonl")):
+    provider_sources[source.name] = file_sha256(source)
+    for line in source.read_text().splitlines():
+        row = json.loads(line)
+        assert row["request_fingerprint"] not in provider
+        provider[row["request_fingerprint"]] = row
+
+
+def feedback(attempt):
+    return {
+        "candidate_id": attempt["candidate_id"],
+        "iteration": attempt["iteration"],
+        "proposal": attempt.get("proposal"),
+        "outcome": {
+            "success": attempt["success"] if attempt["rollout_executed"] else None,
+            "executed_steps": attempt["actions_executed"],
+            "termination": attempt["status"],
+            "error": attempt.get("error"),
+        },
+    }
+
+
+histories = collections.defaultdict(list)
+snapshots = {}
+requests = {}
+counts = collections.Counter()
+effects = []
+baseline = None
+baseline_snapshots = None
+for event in events:
+    kind = event["kind"]
+    if kind == "attempt":
+        attempt = event["attempt"]
+        proposal = attempt["proposal"]
+        if proposal is None:
+            if attempt["candidate_id"] == "reversal_identity":
+                baseline, baseline_snapshots = attempt, event["snapshots"]
+            continue
+        arm = proposal.get("arm", "random_noise")
+        histories[arm].append(attempt)
+        snapshots[arm] = event["snapshots"]
+    elif kind == "proposal_error":
+        histories[event["arm"]].append(event["attempt"])
+    elif kind == "intervention_request":
+        request = event["request"]
+        arm = request["arm"]
+        assert digest({k: v for k, v in request.items() if k != "request_fingerprint"}) == request["request_fingerprint"]
+        assert request["prior_candidates"] == [feedback(row) for row in [baseline, *histories[arm]]]
+        expected = snapshots.get(arm, baseline_snapshots)
+        assert len(request["observations"]) == len(expected)
+        for actual, recorded in zip(request["observations"], expected, strict=True):
+            assert (actual["label"], actual["step"]) == (recorded["label"], recorded["step"])
+            for camera in ("observation/image", "observation/wrist_image"):
+                wire = actual["observation"][camera]
+                pixels = np.array(Image.open(io.BytesIO(base64.b64decode(wire["data"], validate=True))))
+                assert digest(pixels) == recorded["observation"][camera]["sha256"]
+                counts["raw_feedback_camera_frames_verified"] += 1
+            state_ref = recorded["observation"]["observation/state"]
+            state = np.asarray(actual["observation"]["observation/state"], dtype=state_ref["dtype"])
+            assert digest(state) == state_ref["sha256"]
+            counts["raw_feedback_states_verified"] += 1
+        requests[request["request_fingerprint"]] = request
+        counts["requests_verified"] += 1
+        counts["history_rows_verified"] += len(request["prior_candidates"])
+    elif kind == "intervention_proposal" and event["arm"] != "random_noise":
+        proposal = event["proposal"]
+        fingerprint = proposal["request_fingerprint"]
+        assert fingerprint in requests and fingerprint in provider
+        row = provider[fingerprint]
+        assert row["accepted"]
+        assert row["response"]["model"] == "azure/openai/gpt-6-astra"
+        parsed = parse_proposal(row["response"]["choices"][0]["message"]["content"], requests[fingerprint])
+        assert parsed == proposal
+        counts["provider_bound_accepted_proposals"] += 1
+    elif kind == "candidate_generation" and event["conditioning"] is not None:
+        conditioning = event["conditioning"]
+        if conditioning["has_effect"]:
+            assert conditioning["relative_rms"] <= 0.25 + 1e-6
+            counts["recorded_nonzero_language_generations"] += 1
+            if event["observation_step"] == 0:
+                effects.append({"arm": event["mode"], "iteration": event["iteration"], "relative_rms": conditioning["relative_rms"]})
+
+result = {
+    "status": "passed",
+    "scope": "Live worker0 Goal-OOD task0 prefix only; not final evaluation coverage",
+    "workflow": "astra-pi05-interventions-eval-20260924-1",
+    "episode_id": "libero_goal_ood:seed19:task0:state0",
+    "events_sha256": file_sha256(path),
+    "provider_prefix_source_sha256": provider_sources,
+    "auditor_sha256": file_sha256(Path(__file__)),
+    "counts": dict(counts),
+    "recorded_first_generation_embedding_effects": effects,
+    "limitations": [
+        "Feedback PNGs are decoded and matched to recorded raw snapshot array hashes; the corresponding NPY files are not downloaded in this prefix check.",
+        "Language effect norms are recorded controller provenance; prefix tensors are not stored and cannot be independently reconstructed here.",
+        "This live prefix must not be used as final totals or a success claim.",
+    ],
+}
+output = directory / "worker0-feedback-prefix-review.json"
+output.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
+output.chmod(0o600)
+print(json.dumps({"path": str(output), "sha256": file_sha256(output), "counts": counts}))

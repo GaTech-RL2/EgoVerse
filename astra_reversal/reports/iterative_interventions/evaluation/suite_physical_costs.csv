@@ -1,0 +1,4 @@
+scope,cases,baseline_successes,known_noise_successes,fresh_noise_successes,rollouts,simulated_actions,execution_velocity_evaluations,initialization_velocity_evaluations,total_velocity_evaluations,provider_calls,input_tokens,input_tokens_missing_calls,output_tokens,output_tokens_missing_calls,reasoning_tokens,reasoning_tokens_missing_calls,total_tokens,total_tokens_missing_calls
+pooled,20,8,8,6,424,121433,242980,24600,267580,323,1290573,0,116153,0,19177,0,1406726,0
+libero_goal_ood,10,5,5,3,180,51008,102080,12300,114380,133,530946,0,47874,0,7496,0,578820,0
+libero_spatial_ood,10,3,3,3,244,70425,140900,12300,153200,190,759627,0,68279,0,11681,0,827906,0

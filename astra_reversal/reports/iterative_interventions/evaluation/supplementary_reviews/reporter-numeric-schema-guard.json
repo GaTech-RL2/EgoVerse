@@ -1,0 +1,7 @@
+{
+  "status": "reporter_numeric_schema_guard_validated",
+  "report_source_sha256": "e956ad36d68ae752f9414550ec18973b91cc5c507a940eacdcd7b01170c51be8",
+  "test_source_sha256": "93f42982faf41c87e62c970eb8710e1be14d17b9b7df7652f73ef3defd8a3756",
+  "operational_source_sha256": "9aaadc7cb4bcea94806d3b97f3debb2bbfb4a92840ee2479f6b7c18c36118092",
+  "validation": "29 focused tests passed; Ruff check passed; numeric list required, bool/string/nonfinite excluded, four-ULP coefficient-only bound unchanged"
+}

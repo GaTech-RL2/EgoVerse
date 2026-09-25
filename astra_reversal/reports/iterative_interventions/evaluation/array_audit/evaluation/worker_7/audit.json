@@ -1,0 +1,634 @@
+{
+  "archive": {
+    "bytes": 315941954,
+    "gzip_verified": true,
+    "receipt_after": {
+      "content_range": "bytes 0-0/315941954",
+      "etag": "\"ec930fe6d31049a28f2054abf05c6960-38\"",
+      "status": 206
+    },
+    "receipt_before": {
+      "content_range": "bytes 0-0/315941954",
+      "etag": "\"ec930fe6d31049a28f2054abf05c6960-38\"",
+      "status": 206
+    },
+    "sha256": "21e72796c9261efaea14f5303fe969977c11b7a64e57d4b3b7d5c247af3f4c2c"
+  },
+  "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+  "cases": [
+    {
+      "all_array_condition_reset_provider_bindings_verified": true,
+      "arms": {
+        "joint": {
+          "attempts": [
+            {
+              "actions_executed": 90,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "language_only": {
+          "attempts": [
+            {
+              "actions_executed": 90,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "language_vision": {
+          "attempts": [
+            {
+              "actions_executed": 90,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_language": {
+          "attempts": [
+            {
+              "actions_executed": 90,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_only": {
+          "attempts": [
+            {
+              "actions_executed": 90,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_vision": {
+          "attempts": [
+            {
+              "actions_executed": 90,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "random_noise": {
+          "attempts": [
+            {
+              "actions_executed": 90,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "vision_only": {
+          "attempts": [
+            {
+              "actions_executed": 90,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        }
+      },
+      "array_inventory_sha256": "f1eb607afee03985496a63027ac87196a782ae0f9359b649cdb0bd71e91d0c77",
+      "arrays_verified": 376,
+      "baseline": {
+        "actions_executed": 90,
+        "policy_replans": 18,
+        "success": true
+      },
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "case": "case_3_0",
+      "controls": {
+        "known_noise": {
+          "actions_executed": 90,
+          "policy_replans": 18,
+          "success": true
+        },
+        "policy_fresh": {
+          "actions_executed": 93,
+          "policy_replans": 19,
+          "success": true
+        }
+      },
+      "episode_id": "libero_spatial_ood:seed19:task3:state0",
+      "event_sha256": "afeb32534553da552d946f4b1e878fa5a8c82f7757cd8fb206aa60e6be776d28",
+      "fixed_development_probe": null,
+      "generations_verified": 55,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.043081283569336e-07,
+          "rmse": 1.395272145634264e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00014168024063110352,
+          "rmse": 1.1321304429180988e-05
+        }
+      },
+      "limitations": [
+        "Array endpoints and controller decoding are recomputed without a model solve.",
+        "Prefix embeddings are not stored; token IDs, condition hashes, boundary flags and norm metadata are checked, not independently re-embedded.",
+        "Exact alpha0 preflight parity is worker-computed because its endpoint is not separately stored.",
+        "Simulator success values are recorded outcomes; the audit does not rerun the environment."
+      ],
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "rollouts": 3,
+      "status": "verified",
+      "summary_sha256": "5df89c62417dc31efc125103b2c1295634eca116c5ff34fa6cadb36a5acbed42",
+      "vision_changed_generations": 0,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "all_array_condition_reset_provider_bindings_verified": true,
+      "arms": {
+        "joint": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "stove_destination_2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "stove_latent_probe_3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "positive_stove_guidance_4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "alternate_latent_probe_5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "language_only": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "bowl_to_burner_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "direct_stove_destination_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "concise_bowl_stove_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "positive_bowl_transport_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "language_vision": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "stove_destination_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "positive_burner_guidance_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "white_stovetop_language_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "stove_visual_focus_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "noise_language": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 0,
+              "candidate_id": "noise_language_error_2",
+              "iteration": 2,
+              "rollout_executed": false,
+              "status": "proposal_error",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "stove_destination_language_3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "stove_language_noise_probe_4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "visual_destination_language_5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "noise_only": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_02",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_03",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_04",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_05",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "noise_vision": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "stove_region_hint_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_explore_neutral_vision_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_opposite_neutral_vision_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_new_direction_neutral_vision_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "random_noise": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "vision_only": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "stove_region_box_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "stove_center_point_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "burner_outline_low_gain_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "stove_outline_salience_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        }
+      },
+      "array_inventory_sha256": "9f55773112443275995885408b3a79f2ba81f0025e9b4cc580c8b54b5ba85d65",
+      "arrays_verified": 12658,
+      "baseline": {
+        "actions_executed": 300,
+        "policy_replans": 60,
+        "success": false
+      },
+      "candidate_text": {
+        "effect": 840,
+        "enabled": 840,
+        "maximum_relative_rms": 0.15021230114460063,
+        "recorded": 900
+      },
+      "case": "case_7_0",
+      "controls": {
+        "known_noise": {
+          "actions_executed": 300,
+          "policy_replans": 60,
+          "success": false
+        },
+        "policy_fresh": {
+          "actions_executed": 300,
+          "policy_replans": 60,
+          "success": false
+        }
+      },
+      "episode_id": "libero_spatial_ood:seed19:task7:state0",
+      "event_sha256": "46c7600bb15d94881d8f4611fc6ddba8791c0e9b4f08dc2efcd7a132da310f5b",
+      "fixed_development_probe": null,
+      "generations_verified": 2040,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.2293457984924316e-07,
+          "rmse": 1.4714085065961696e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.0002282857894897461,
+          "rmse": 1.795220973810499e-05
+        }
+      },
+      "limitations": [
+        "Array endpoints and controller decoding are recomputed without a model solve.",
+        "Prefix embeddings are not stored; token IDs, condition hashes, boundary flags and norm metadata are checked, not independently re-embedded.",
+        "Exact alpha0 preflight parity is worker-computed because its endpoint is not separately stored.",
+        "Simulator success values are recorded outcomes; the audit does not rerun the environment."
+      ],
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000030444043,
+      "provider": {
+        "accepted": 27,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "rollouts": 34,
+      "status": "verified",
+      "summary_sha256": "090eaf41cf8e7d474e5298e95535dc0fb82d75392ce733ac6416cb6f7b8c2070",
+      "vision_changed_generations": 720,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    }
+  ],
+  "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+  "no_new_model_or_api_calls": true,
+  "payload_sha256": "fde89be9786f85f6ed5e889d7f736784a500dd6fc2f81e9db65480cadb606fb4",
+  "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+  "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+  "status": "complete_verified",
+  "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend",
+  "worker": 7,
+  "workflow": "astra-pi05-interventions-eval-20260924-1"
+}

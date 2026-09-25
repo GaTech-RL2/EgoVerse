@@ -1,0 +1,527 @@
+{
+  "schema_version": "iterative_review_snapshot_v1",
+  "development_runs": [
+    {
+      "workflow": "astra-pi05-interventions-dev-20260924-1",
+      "source_commit": "7a9278f5522f27adf83d1a5529300e562ff5751b",
+      "payload_sha256": "314f83bf87f4742bd9ad66047026ed1bac98b27ad102e2e84748bdf7c02c0a75",
+      "payload_bytes": 10507208,
+      "integration": "failed"
+    },
+    {
+      "workflow": "astra-pi05-interventions-dev-20260924-2",
+      "source_commit": "e02837477561a0bf94378aab48bd2ff238bf07dc",
+      "payload_sha256": "fde89be9786f85f6ed5e889d7f736784a500dd6fc2f81e9db65480cadb606fb4",
+      "payload_bytes": 10506314,
+      "integration": "passed"
+    }
+  ],
+  "snapshot_files": [
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v1-report-final/arms.csv",
+      "snapshot": "reports/iterative_interventions/development_v1/arms.csv",
+      "sha256": "344427f6b0be30280b11bfd84a3bbf578dea9ddeccf68d9826a3c05e79cdf749",
+      "bytes": 2366,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v1-report-final/attempts.csv",
+      "snapshot": "reports/iterative_interventions/development_v1/attempts.csv",
+      "sha256": "76597d66ee3c6c2df65e43358d37c677b9f4c27f58683b5d6de392b3430d7508",
+      "bytes": 6538,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v1-report-final/budgets.csv",
+      "snapshot": "reports/iterative_interventions/development_v1/budgets.csv",
+      "sha256": "d60df9aa8131412690adf777e33759cb9b53025e4f251632a1f53a920a421df0",
+      "bytes": 3429,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v1-report-final/cases.csv",
+      "snapshot": "reports/iterative_interventions/development_v1/cases.csv",
+      "sha256": "cdb8f42a19fd1aa35aaa5d8bbd1916487a1b97c8d73261d44271358a8241ffe5",
+      "bytes": 4054,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v1-report-final/report.json",
+      "snapshot": "reports/iterative_interventions/development_v1/report.json",
+      "sha256": "881c8d435abd328f9340d1ea833bee51df23c0b87110720bf6be628001d5e515",
+      "bytes": 391475,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v1-report-final/report.md",
+      "snapshot": "reports/iterative_interventions/development_v1/report.md",
+      "sha256": "507f39f1bd4dc2a469613ea49e4e7743f5991d067d08fd00a39709ec73aef0c7",
+      "bytes": 4163,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v2-report-final/arms.csv",
+      "snapshot": "reports/iterative_interventions/development_v2/arms.csv",
+      "sha256": "6cd655a111c7dd3d0c365e68afed0be1e1ae458f5d58a8bf22d11aec26e8dd68",
+      "bytes": 2422,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v2-report-final/attempts.csv",
+      "snapshot": "reports/iterative_interventions/development_v2/attempts.csv",
+      "sha256": "6ca5efb9b91bd3c94a0de371093d43a9a7a8bdaa5ac074e6b07096ed8e0ed9ba",
+      "bytes": 6797,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v2-report-final/budgets.csv",
+      "snapshot": "reports/iterative_interventions/development_v2/budgets.csv",
+      "sha256": "ef71fd7f66cfc47d712d76784e3648731087367d9a21a2f8cbe7e4eff999b2e1",
+      "bytes": 3653,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v2-report-final/cases.csv",
+      "snapshot": "reports/iterative_interventions/development_v2/cases.csv",
+      "sha256": "6221fd9d5be037d7be40e20f18d5c1c7a9dfe7b4c5b923466c08d70d4e2e6ec4",
+      "bytes": 4054,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v2-report-final/report.json",
+      "snapshot": "reports/iterative_interventions/development_v2/report.json",
+      "sha256": "0b57a81891c0fdb579996c164c6b59e0fa81db9126b920252fcf4cca4aa06b60",
+      "bytes": 438927,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-dev-v2-report-final/report.md",
+      "snapshot": "reports/iterative_interventions/development_v2/report.md",
+      "sha256": "4961aeb529fd037fb49ad0fc6a756db28620afa011938d30199bdcbd46c5fbde",
+      "bytes": 4056,
+      "relationship": "unchanged copy"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/osmo_interventions_dev_v2_l40s/worker_1/initialization_read_only_audit.json",
+      "snapshot": "reports/iterative_interventions/development_v2/worker1_initialization_read_only_audit.json",
+      "sha256": "f71d5837097c4faf55aec6c17be64cdea89ae887678e60834f50f48978e367fb",
+      "bytes": 7974,
+      "relationship": "unchanged independent read-only array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/osmo_interventions_dev_v2_l40s/worker_1/final_read_only_review.json",
+      "snapshot": "reports/iterative_interventions/development_v2/worker1_final_read_only_review.json",
+      "sha256": "d84dfb6740de1b5571651cd5944d0922b0d6ed9b7809d0b6156e5be8a277a2f4",
+      "bytes": 11501,
+      "relationship": "unchanged independent read-only array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-dev-v2/worker0-array-review.json",
+      "snapshot": "reports/iterative_interventions/development_v2/worker0_final_read_only_review.json",
+      "sha256": "dc37bfef141f2f708ae139c22a971e8d796a6661ad5a76c43a6037cde5711fe8",
+      "bytes": 2614,
+      "relationship": "unchanged independent read-only array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/arms.csv",
+      "snapshot": "reports/iterative_interventions/evaluation/arms.csv",
+      "sha256": "4e7bfef05f127023b570fa9babd24c02fc8918bbbca8e5d14f2d47b1ea90006b",
+      "bytes": 2845,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/attempts.csv",
+      "snapshot": "reports/iterative_interventions/evaluation/attempts.csv",
+      "sha256": "62aa3c5713aaa5a1cde937076d81f36ab23e55a0b836d09da930518db7d7ab8d",
+      "bytes": 116654,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/budgets.csv",
+      "snapshot": "reports/iterative_interventions/evaluation/budgets.csv",
+      "sha256": "4c4578390765c026528461f3ca8605ceebdd3661accc8c8d76b54de62866bfdc",
+      "bytes": 4359,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/cases.csv",
+      "snapshot": "reports/iterative_interventions/evaluation/cases.csv",
+      "sha256": "e5e0e8b100a610f4e27e7b4b3b661a227564d3f64149287c203529cb20e6ba14",
+      "bytes": 41111,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/download_receipts.json",
+      "snapshot": "reports/iterative_interventions/evaluation/download_receipts.json",
+      "sha256": "3e003b2f42e81c397eafe5a49f6aeb2390e9bfb2e0571e2e321f995ed86105f2",
+      "bytes": 80168,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/final_validation.json",
+      "snapshot": "reports/iterative_interventions/evaluation/final_validation.json",
+      "sha256": "56ace8b5e774557a429543f027fbdff1348d60f670294fdb88970fdd272f3176",
+      "bytes": 520,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/paired_vs_random.csv",
+      "snapshot": "reports/iterative_interventions/evaluation/paired_vs_random.csv",
+      "sha256": "91a2299ca5eaed3099d1e032a58a46554d182f5ac921559955404e962d36e753",
+      "bytes": 6440,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/paired_vs_random.json",
+      "snapshot": "reports/iterative_interventions/evaluation/paired_vs_random.json",
+      "sha256": "11ab8f65551935e1d9e1fcd84dd5513f2cbb8c2eaf2c4b017c8fc0e017568726",
+      "bytes": 52439,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/paired_vs_random.md",
+      "snapshot": "reports/iterative_interventions/evaluation/paired_vs_random.md",
+      "sha256": "d058d8fb914d3e59abf1be51ec582cc5dc8304dcbd57311712fe75d227cb93be",
+      "bytes": 2717,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/protocol_scope.json",
+      "snapshot": "reports/iterative_interventions/evaluation/protocol_scope.json",
+      "sha256": "978486ecf2d7d482a5e02bb77bd43736c86f1b0f0136acb0d73217c4105899c9",
+      "bytes": 1724,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/protocol_scope.md",
+      "snapshot": "reports/iterative_interventions/evaluation/protocol_scope.md",
+      "sha256": "e78dd9a9014478fe232a26d8612ab0c42527b1beeb4c5791ebdae243948bd2aa",
+      "bytes": 1468,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/report.json",
+      "snapshot": "reports/iterative_interventions/evaluation/report.json",
+      "sha256": "81bd679d49d23130c2c63547043d42cd68c603fa78d676c2c433cfe26129d1bb",
+      "bytes": 3649895,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/report.md",
+      "snapshot": "reports/iterative_interventions/evaluation/report.md",
+      "sha256": "3283ef2eff0084615a3408a4bb518321985ef1169959ebc21571a1bae5253354",
+      "bytes": 4462,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/source/evaluation_audit_driver.py",
+      "snapshot": "reports/iterative_interventions/evaluation/source/evaluation_audit_driver.py.txt",
+      "sha256": "9aaadc7cb4bcea94806d3b97f3debb2bbfb4a92840ee2479f6b7c18c36118092",
+      "bytes": 19586,
+      "relationship": "unchanged source snapshot; .txt appended to preserve frozen code bytes"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/source/finalize_intervention_derivatives.py",
+      "snapshot": "reports/iterative_interventions/evaluation/source/finalize_intervention_derivatives.py.txt",
+      "sha256": "bfd5e2de93201d4966084f12bc6b94422093a056e4d83883e6a7df6fa658adfb",
+      "bytes": 19150,
+      "relationship": "unchanged source snapshot; .txt appended to preserve frozen code bytes"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/suite_arms.csv",
+      "snapshot": "reports/iterative_interventions/evaluation/suite_arms.csv",
+      "sha256": "b572ded22ab57b5cfa14eca6b9227e4be355f792b4f8a60bacb0e10728a22201",
+      "bytes": 3403,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/suite_physical_costs.csv",
+      "snapshot": "reports/iterative_interventions/evaluation/suite_physical_costs.csv",
+      "sha256": "ac907f07061396e3a75e1ca10d5655b265961b80d37f58b6611770f8dbcb16c7",
+      "bytes": 661,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/suite_tables.json",
+      "snapshot": "reports/iterative_interventions/evaluation/suite_tables.json",
+      "sha256": "60db831c435b50d33aa8e46f2fd428ddd8fccaba8c05a15e7008fefc13ad748a",
+      "bytes": 724882,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/suite_tables.md",
+      "snapshot": "reports/iterative_interventions/evaluation/suite_tables.md",
+      "sha256": "b63d9be249db2918dd7b975c55256e6bfba7fa811c3c5ad4015ba01c852ccd41",
+      "bytes": 3228,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/supplementary_reviews/first-rescue-array-review.json",
+      "snapshot": "reports/iterative_interventions/evaluation/supplementary_reviews/first-rescue-array-review.json",
+      "sha256": "caa5897d6980d254072905fe091bba61100c682638032591724c273ee6c0e920",
+      "bytes": 1696,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/supplementary_reviews/invocations.json",
+      "snapshot": "reports/iterative_interventions/evaluation/supplementary_reviews/invocations.json",
+      "sha256": "ccd45392f30900d85642446aca82d5bc4d0e10b7ce01bc14d393aefd445e5bab",
+      "bytes": 781,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/supplementary_reviews/random-coefficient-array-review.json",
+      "snapshot": "reports/iterative_interventions/evaluation/supplementary_reviews/random-coefficient-array-review.json",
+      "sha256": "cc4209cea7e6190c47b2281637629fc59d6d3844bb0d3c873252373f9442f5e6",
+      "bytes": 2532,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/supplementary_reviews/random-proposal-normalization-diagnostic.json",
+      "snapshot": "reports/iterative_interventions/evaluation/supplementary_reviews/random-proposal-normalization-diagnostic.json",
+      "sha256": "0a52a6f85bc02bee1c61b2ba6cc76cb056d47eddcbdbdb037332131ac67d4fa4",
+      "bytes": 4118,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/supplementary_reviews/reporter-numeric-schema-guard.json",
+      "snapshot": "reports/iterative_interventions/evaluation/supplementary_reviews/reporter-numeric-schema-guard.json",
+      "sha256": "6e8d320d09918e1a9a7aa941a58d49d41da6247cda9a4fd02c5405e73b8d20f2",
+      "bytes": 503,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/supplementary_reviews/reporter-roundoff-fix.json",
+      "snapshot": "reports/iterative_interventions/evaluation/supplementary_reviews/reporter-roundoff-fix.json",
+      "sha256": "21378bc86e9c9a92e017f971a9f39bc934e31daa8a2bdf7b7f2fb3ec63576350",
+      "bytes": 574,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/supplementary_reviews/source/check_random_arrays.py",
+      "snapshot": "reports/iterative_interventions/evaluation/supplementary_reviews/source/check_random_arrays.py.txt",
+      "sha256": "8c5656e911cbbbaafed532fefd24551bb69e34a83cfb5e4fa9208073bf3e83e8",
+      "bytes": 6881,
+      "relationship": "unchanged source snapshot; .txt appended to preserve frozen code bytes"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/supplementary_reviews/source/check_winning_arrays.py",
+      "snapshot": "reports/iterative_interventions/evaluation/supplementary_reviews/source/check_winning_arrays.py.txt",
+      "sha256": "b9cdebc900b6ac88b55a91f00473e8f5bf3f428a189ce6731856a1341c4c6cc0",
+      "bytes": 6337,
+      "relationship": "unchanged source snapshot; .txt appended to preserve frozen code bytes"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/winning_channels.csv",
+      "snapshot": "reports/iterative_interventions/evaluation/winning_channels.csv",
+      "sha256": "bcc97dd8ef1260919a0cbf62cb835e580e71a3a0b4518a789bb7e5c2273d57b7",
+      "bytes": 25067,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/winning_channels.json",
+      "snapshot": "reports/iterative_interventions/evaluation/winning_channels.json",
+      "sha256": "f32cb94230d6efafbd617642697ce2361d75e3a891ad37a9566a9300ccef05b3",
+      "bytes": 192556,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/winning_channels.md",
+      "snapshot": "reports/iterative_interventions/evaluation/winning_channels.md",
+      "sha256": "963c5c060db3799033623b0594dee66d12adabdc288140611abcd11beab1523d",
+      "bytes": 1390,
+      "relationship": "unchanged completed evaluation artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/completion_receipt.json",
+      "snapshot": "reports/iterative_interventions/evaluation/completion_receipt.json",
+      "sha256": "494f6b290ac6fee133b248f0a41b4974ffb5eda41a8b2cb802831e5284a30e3c",
+      "bytes": 3501,
+      "relationship": "unchanged completed evaluation receipt; source filenames map to .py.txt snapshots"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-figure-final/success_and_tokens.png",
+      "snapshot": "reports/iterative_interventions/evaluation/figure/success_and_tokens.png",
+      "sha256": "e214ac3e1361cc0034f6cf0437bb8625a7f8469bbceb69ae10028db00ff5531f",
+      "bytes": 260862,
+      "relationship": "unchanged scientific plot artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-figure-final/success_and_tokens.pdf",
+      "snapshot": "reports/iterative_interventions/evaluation/figure/success_and_tokens.pdf",
+      "sha256": "a69cf6ef79b4aa700bb6ceea1e4278149bcb28387fc7138b400a61e6e75b7b48",
+      "bytes": 27264,
+      "relationship": "unchanged scientific plot artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-figure-final/plot_manifest.json",
+      "snapshot": "reports/iterative_interventions/evaluation/figure/plot_manifest.json",
+      "sha256": "4b895114f4fca245c8abd2965d3fee4e76455211571270b9259d287ccf0d1309",
+      "bytes": 789,
+      "relationship": "unchanged scientific plot artifact"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/file-sha256.json",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/file-sha256.json",
+      "sha256": "e3d6e7a44cbcb3bd1d20bc7ac3117ce37546ae44680183df6b22993cc7062ce7",
+      "bytes": 1424,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/final-provider-review.json",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/final-provider-review.json",
+      "sha256": "566e9257d8e44059406b13a22baec37a1baae60ace78e631611beb9b1a7a47f6",
+      "bytes": 73491,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/first-rescue-array-review.json",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/first-rescue-array-review.json",
+      "sha256": "caa5897d6980d254072905fe091bba61100c682638032591724c273ee6c0e920",
+      "bytes": 1696,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/manifest.json",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/manifest.json",
+      "sha256": "d62d9547d4cc7980e45bc9b19512179102fbe3e5691c3a8b5dae062bb1362121",
+      "bytes": 1988,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/random-coefficient-array-review.json",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/random-coefficient-array-review.json",
+      "sha256": "cc4209cea7e6190c47b2281637629fc59d6d3844bb0d3c873252373f9442f5e6",
+      "bytes": 2532,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/source/audit_feedback_prefix.py",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/source/audit_feedback_prefix.py.txt",
+      "sha256": "f4ecdbf74f2e23f98f93778a10168ae586d22f5bd95c2c740a5e06200db6b51c",
+      "bytes": 5675,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/source/check_random_arrays.py",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/source/check_random_arrays.py.txt",
+      "sha256": "8c5656e911cbbbaafed532fefd24551bb69e34a83cfb5e4fa9208073bf3e83e8",
+      "bytes": 6881,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/source/check_winning_arrays.py",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/source/check_winning_arrays.py.txt",
+      "sha256": "b9cdebc900b6ac88b55a91f00473e8f5bf3f428a189ce6731856a1341c4c6cc0",
+      "bytes": 6337,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/source/finalize_provider_review.py",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/source/finalize_provider_review.py.txt",
+      "sha256": "f42c222914b399268a22bbacbd33945b2797d18b62b9212f82b6cce04fa16f69",
+      "bytes": 9562,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/source/watch_evaluation.py",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/source/watch_evaluation.py.txt",
+      "sha256": "f95d9947a801c4c2590c65d04340e7c777329ac4b7f4a470fcf8b1d6b2e29cfe",
+      "bytes": 9893,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/safe-review-bundle/worker0-feedback-prefix-review.json",
+      "snapshot": "reports/iterative_interventions/evaluation/provider_review/worker0-feedback-prefix-review.json",
+      "sha256": "86f207b21804e4e2404a663f3d7c697c9f4e693e0d9003c112c202c4b753d5f5",
+      "bytes": 2099,
+      "relationship": "unchanged provider review bundle file; .txt appended to frozen Python sources"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/summary.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/summary.json",
+      "sha256": "177080e2a3d9ab259024484932bdfa5897978ec1539defe66d75f51750d07365",
+      "bytes": 9363,
+      "relationship": "unchanged independent completed raw-array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/final_validation.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/final_validation.json",
+      "sha256": "409c79ec7f12582e73b302b915e075e6bc1ffb044b953632861b54cf6bc38f1a",
+      "bytes": 14791,
+      "relationship": "unchanged independent completed raw-array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/safe_summary.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/safe_summary.json",
+      "sha256": "bde66f9f6285ccd49031165d084433e8d3c37ce1e2ab5c97ec879cb671705b77",
+      "bytes": 34779,
+      "relationship": "unchanged independent completed raw-array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/evaluation/worker_0/audit.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/evaluation/worker_0/audit.json",
+      "sha256": "f2d254177292a8a0db512a9b7e0b1b3e111ec48be9e1643c50dca44fedff3b1c",
+      "bytes": 25643,
+      "relationship": "unchanged independent completed raw-array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/evaluation/worker_1/audit.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/evaluation/worker_1/audit.json",
+      "sha256": "e1f9b9e2dc8b84de5c59dd52f1c25ea7a6af525a2bf749f514910f1f7b6dee51",
+      "bytes": 16765,
+      "relationship": "unchanged independent completed raw-array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/evaluation/worker_2/audit.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/evaluation/worker_2/audit.json",
+      "sha256": "96b1a2603432c833cb0f1abcb7e3746ee224cea73e2fabe9a94b31350e5871ce",
+      "bytes": 27322,
+      "relationship": "unchanged independent completed raw-array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/evaluation/worker_3/audit.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/evaluation/worker_3/audit.json",
+      "sha256": "8ae1fc0de8c82a288d4eaf85a9700bec34f9421574065c4e266384ba101bf396",
+      "bytes": 29310,
+      "relationship": "unchanged independent completed raw-array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/evaluation/worker_4/audit.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/evaluation/worker_4/audit.json",
+      "sha256": "4a0b005142ff5f2768018e0d14631406d5b78fb54b3ef812cf35508834d3f0e1",
+      "bytes": 33136,
+      "relationship": "unchanged independent completed raw-array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/evaluation/worker_5/audit.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/evaluation/worker_5/audit.json",
+      "sha256": "ca71bad22cebada589255a49f5d3812ccc3ad1b2142640cfc30df5fd6574fce3",
+      "bytes": 34546,
+      "relationship": "unchanged independent completed raw-array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/evaluation/worker_6/audit.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/evaluation/worker_6/audit.json",
+      "sha256": "056a97fdecc223ba941e85051f671f366c1b482bfeb602103bdd6723e8443ea9",
+      "bytes": 28992,
+      "relationship": "unchanged independent completed raw-array audit"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/intervention_runtime_audit/evaluation/worker_7/audit.json",
+      "snapshot": "reports/iterative_interventions/evaluation/array_audit/evaluation/worker_7/audit.json",
+      "sha256": "2a954a89e424238bf956538c06ba74e0e8756fd30872b1a491645b0342a0cf66",
+      "bytes": 20425,
+      "relationship": "unchanged independent completed raw-array audit"
+    }
+  ],
+  "raw_artifact_location": "s3://rldb/experiments/astra-reversal-20260924/<workflow>/worker_<index>/",
+  "scope": "Completed report tables, audit receipts, and frozen source snapshots. Raw provider ledgers and arrays remain in the recorded artifact store; selected frames have a separate provenance file. No credentials or presigned URLs are included.",
+  "evaluation_run": {
+    "workflow": "astra-pi05-interventions-eval-20260924-1",
+    "source_commit": "e02837477561a0bf94378aab48bd2ff238bf07dc",
+    "payload_sha256": "fde89be9786f85f6ed5e889d7f736784a500dd6fc2f81e9db65480cadb606fb4",
+    "payload_bytes": 10506314,
+    "canonical_report_sha256": "81bd679d49d23130c2c63547043d42cd68c603fa78d676c2c433cfe26129d1bb"
+  }
+}

@@ -1,0 +1,887 @@
+{
+  "archive": {
+    "bytes": 620180655,
+    "gzip_verified": true,
+    "receipt_after": {
+      "content_range": "bytes 0-0/620180655",
+      "etag": "\"52197367d0148e6a5c5d25c9f8517ee6-74\"",
+      "status": 206
+    },
+    "receipt_before": {
+      "content_range": "bytes 0-0/620180655",
+      "etag": "\"52197367d0148e6a5c5d25c9f8517ee6-74\"",
+      "status": 206
+    },
+    "sha256": "2b48ad37d6b4b1e9552a3e5b8734cd2d3833cf5862cecf6e484324c54917a29c"
+  },
+  "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+  "cases": [
+    {
+      "all_array_condition_reset_provider_bindings_verified": true,
+      "arms": {
+        "joint": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_identity_guidance_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_positive_noise_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_source_attention_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_alternate_noise_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "language_only": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_carton_not_bowl_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_positive_identification_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_relational_identification_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_red_top_side_grasp_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "language_vision": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_identity_plate_guidance_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_positive_identity_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_source_highlight_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_relational_identity_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "noise_language": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_identity_guidance_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_positive_guidance_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_guidance_noise_probe_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_opposite_noise_probe_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "noise_only": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_02",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_03",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_04",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_05",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "noise_vision": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_plate_visual_focus",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_plate_noise_probe",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 93,
+              "candidate_id": "milk_plate_opposite_noise_probe",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 4
+        },
+        "random_noise": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "vision_only": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_source_plate_cue_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_only_spaced_box_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "plate_only_point_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "milk_compact_point_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        }
+      },
+      "array_inventory_sha256": "5e627a3752a1e2cbe2e6c5513f588058b234c278e2cb6fd03f3bffda461fa5a3",
+      "arrays_verified": 12412,
+      "baseline": {
+        "actions_executed": 300,
+        "policy_replans": 60,
+        "success": false
+      },
+      "candidate_text": {
+        "effect": 960,
+        "enabled": 960,
+        "maximum_relative_rms": 0.20461476976961976,
+        "recorded": 960
+      },
+      "case": "case_2_0",
+      "controls": {
+        "known_noise": {
+          "actions_executed": 300,
+          "policy_replans": 60,
+          "success": false
+        },
+        "policy_fresh": {
+          "actions_executed": 300,
+          "policy_replans": 60,
+          "success": false
+        }
+      },
+      "episode_id": "libero_spatial_ood:seed19:task2:state0",
+      "event_sha256": "62dc3502431ecf2c61f06d3faa6462e73dbf9147b3d94c3658110bd71c1ccbca",
+      "fixed_development_probe": null,
+      "generations_verified": 1999,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.043081283569336e-07,
+          "rmse": 1.3422553220322212e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00014409422874450684,
+          "rmse": 1.2886012374139412e-05
+        }
+      },
+      "limitations": [
+        "Array endpoints and controller decoding are recomputed without a model solve.",
+        "Prefix embeddings are not stored; token IDs, condition hashes, boundary flags and norm metadata are checked, not independently re-embedded.",
+        "Exact alpha0 preflight parity is worker-computed because its endpoint is not separately stored.",
+        "Simulator success values are recorded outcomes; the audit does not rerun the environment."
+      ],
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000004022659,
+      "provider": {
+        "accepted": 27,
+        "calls": 27,
+        "http_status": {
+          "200": 27
+        },
+        "usage_available_calls": 27
+      },
+      "rollouts": 34,
+      "status": "verified",
+      "summary_sha256": "4d03f95013a2d35617c0a916b0af52984e1301a6e85b2c667a259ce285c1486d",
+      "vision_changed_generations": 739,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "all_array_condition_reset_provider_bindings_verified": true,
+      "arms": {
+        "joint": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_destination_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_grasp_noise_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "rim_grasp_cabinet_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "alternate_grasp_noise_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "language_only": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_destination_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "secure_lift_cabinet_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "rim_grasp_cabinet_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "simple_source_destination_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "language_vision": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_destination_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "secure_lift_unmarked_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_not_plate_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "bowl_rim_cabinet_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "noise_language": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_destination_language",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_language_noise_probe",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "bowl_transfer_not_plate",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_transfer_alternate_noise",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "noise_only": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_02",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_03",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_04",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "noise_probe_05",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "noise_vision": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_top_cue_v2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "neutral_vision_noise_probe_v3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "opposite_noise_probe_v4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "alternate_basis_probe_v5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "random_noise": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_2",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_3",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_4",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "random_noise_5",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        },
+        "vision_only": {
+          "attempts": [
+            {
+              "actions_executed": 300,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_top_box_v1",
+              "iteration": 2,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "beside_plate_point_v2",
+              "iteration": 3,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "beside_plate_lower_point_v3",
+              "iteration": 4,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            },
+            {
+              "actions_executed": 300,
+              "candidate_id": "cabinet_surface_point_v4",
+              "iteration": 5,
+              "rollout_executed": true,
+              "status": "budget_exhausted",
+              "success": false
+            }
+          ],
+          "first_success_attempt": null
+        }
+      },
+      "array_inventory_sha256": "6ddbdd230d5038cae9d8dd73b09796749026f57f25fc0f3b8e5d08297ecffa47",
+      "arrays_verified": 13030,
+      "baseline": {
+        "actions_executed": 300,
+        "policy_replans": 60,
+        "success": false
+      },
+      "candidate_text": {
+        "effect": 960,
+        "enabled": 960,
+        "maximum_relative_rms": 0.1278248201727046,
+        "recorded": 960
+      },
+      "case": "case_6_0",
+      "controls": {
+        "known_noise": {
+          "actions_executed": 300,
+          "policy_replans": 60,
+          "success": false
+        },
+        "policy_fresh": {
+          "actions_executed": 300,
+          "policy_replans": 60,
+          "success": false
+        }
+      },
+      "episode_id": "libero_spatial_ood:seed19:task6:state0",
+      "event_sha256": "1332f710dac73873c6fd3bf6f0a840f946d44877c369f831b05c7da3f6487d29",
+      "fixed_development_probe": null,
+      "generations_verified": 2100,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 5.960464477539063e-08,
+          "rmse": 8.38845278514653e-09
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 5.7190656661987305e-05,
+          "rmse": 5.775663532050529e-06
+        }
+      },
+      "limitations": [
+        "Array endpoints and controller decoding are recomputed without a model solve.",
+        "Prefix embeddings are not stored; token IDs, condition hashes, boundary flags and norm metadata are checked, not independently re-embedded.",
+        "Exact alpha0 preflight parity is worker-computed because its endpoint is not separately stored.",
+        "Simulator success values are recorded outcomes; the audit does not rerun the environment."
+      ],
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000004674962,
+      "provider": {
+        "accepted": 28,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "rollouts": 35,
+      "status": "verified",
+      "summary_sha256": "14eb388968d515408dd0c62a64e03ff941ab0a6065220c930ff26dc04918c54b",
+      "vision_changed_generations": 660,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    }
+  ],
+  "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+  "no_new_model_or_api_calls": true,
+  "payload_sha256": "fde89be9786f85f6ed5e889d7f736784a500dd6fc2f81e9db65480cadb606fb4",
+  "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+  "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+  "status": "complete_verified",
+  "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend",
+  "worker": 6,
+  "workflow": "astra-pi05-interventions-eval-20260924-1"
+}

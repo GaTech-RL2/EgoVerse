@@ -1,0 +1,17 @@
+{
+  "source_report": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/artifacts/interventions-eval-v1-report/report.json",
+  "source_report_file_sha256": "81bd679d49d23130c2c63547043d42cd68c603fa78d676c2c433cfe26129d1bb",
+  "source_report_content_digest": "65308e1dd2cedc6f17011c1a26dc9f4d7dfff648f174e3336bf8c8642bfaaf0c",
+  "plot_source_sha256": "c622cdc375bd8db3c17bd99e13e1812ccc42d16b16252943cf5d0fd386404a86",
+  "matplotlib_version": "3.11.2",
+  "outputs": {
+    "success_and_tokens.pdf": {
+      "sha256": "a69cf6ef79b4aa700bb6ceea1e4278149bcb28387fc7138b400a61e6e75b7b48",
+      "bytes": 27264
+    },
+    "success_and_tokens.png": {
+      "sha256": "e214ac3e1361cc0034f6cf0437bb8625a7f8469bbceb69ae10028db00ff5531f",
+      "bytes": 260862
+    }
+  }
+}

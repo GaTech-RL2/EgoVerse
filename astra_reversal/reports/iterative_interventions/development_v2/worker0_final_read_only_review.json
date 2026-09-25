@@ -1,0 +1,59 @@
+{
+  "status": "passed",
+  "scope": "CPU verification of archived arrays, latent construction/reuse, raw and modified observation hashes, neutral-candidate condition identities, reset identity, recorded numerical arrays, and separate fixed-probe action effects; no API or model calls",
+  "workflow": "astra-pi05-interventions-dev-20260924-2",
+  "worker": 0,
+  "episode_id": "libero_10:seed19:task0:state1",
+  "archive": {
+    "sha256": "9984325a37d62db82d0284cb96ed9a62fca5c8bc47d6a49068dc5dc4e6a4e6f9",
+    "bytes": 116362627
+  },
+  "source_commit": "e0283747",
+  "auditor_sha256": "708d002e657606cda406bef616f488fba7f4cdc2a152db1e80de33b7c3f065c6",
+  "frozen_imported_source_sha256": {
+    "astra_reversal/records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+    "astra_reversal/interventions.py": "9269b5c246ff9d3d82288aad37f6e89ca64801c1878ec3a0e17f72a6e6cd397c"
+  },
+  "array_files": 4139,
+  "array_references": 4139,
+  "array_member_manifest_sha256": "1976d4eea2c46cc7e452c02963b9320ae67baca9d780896a6692325463bded23",
+  "events_sha256": "e32900a2f51238a8f97cf27f01d799c0312eded20ce3efd397f7941c95b6defe",
+  "case_summary_sha256": "1f29846ab54f36c83bcb00e049cd690a7882b589b7cd194886181f2c55ee650f",
+  "event_count": 695,
+  "generation_count": 666,
+  "generation_counts": {
+    "reversal_identity": 62,
+    "known_noise": 61,
+    "policy_fresh": 56,
+    "random_noise": 53,
+    "noise_only": 62,
+    "language_only": 62,
+    "vision_only": 62,
+    "noise_language": 62,
+    "noise_vision": 62,
+    "language_vision": 62,
+    "joint": 62
+  },
+  "nonzero_latent_generations_relative_to_recovered": {
+    "random_noise": 53
+  },
+  "neutral_astra_generations": 434,
+  "rollouts": 11,
+  "actions_executed": 3313,
+  "numerical_recomputed": {
+    "noise_max_abs": 0.0001685619354248047,
+    "roundtrip_max_abs": 5.885958671569824e-07,
+    "native_controller_parity_max_abs": 0.0
+  },
+  "fixed_non_astra_probe": {
+    "full_internal_action_max_abs_difference": 0.0044921934604644775,
+    "first_seven_internal_channels_max_abs_difference": 0.0044921934604644775,
+    "is_astra_proposal": false,
+    "is_rollout": false
+  },
+  "limitations": [
+    "Prefix embedding tensors were not recorded, so their norms and attention/padding invariants are not independently reconstructed here.",
+    "The fixed probe is compared in internal normalized action channels; this report does not decode that probe through checkpoint output transforms.",
+    "No success claim is attributed to Astra: all seven recorded Astra proposals selected zero-strength interventions after a successful baseline."
+  ]
+}

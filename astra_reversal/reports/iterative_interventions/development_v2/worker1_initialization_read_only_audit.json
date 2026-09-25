@@ -1,0 +1,211 @@
+{
+  "condition_id_recomputed": "3a6e6dc986a2f93978adbbae4d67ab304e3fa1584ec66db4b237e1162f358431",
+  "errors_recomputed": {
+    "actions": {
+      "max_abs": 6.51925802230835e-8,
+      "rmse": 1.2137394734361402e-8
+    },
+    "native_parity": {
+      "max_abs": 0,
+      "rmse": 0
+    },
+    "noise": {
+      "max_abs": 0.00018107891082763672,
+      "rmse": 0.00001589237043834874
+    }
+  },
+  "fixed_probe": {
+    "astra_proposal": false,
+    "conditioning": {
+      "accumulator_dtype": "float64",
+      "attention_unchanged": true,
+      "bound_applied": false,
+      "bound_frobenius": 278.8079432337632,
+      "condition_id": "e0f4deefaa1b1f5706474b362d6dfb9017fa9f8a45a8a1a54515d2e8823e269c",
+      "delta_frobenius": 45.844773247869895,
+      "delta_rms": 0.2707452431384166,
+      "effective_direction_scale": 0.5,
+      "embedding_dtype": "torch.float32",
+      "enabled": true,
+      "guidance_evaluated": true,
+      "guidance_prompt_sha256": "75d6fa2750623a594d0227373cdd9e1efdce749e1ea02549a91aedab829650f4",
+      "guidance_token_mask_sha256": "306992597fbccb4209669e36ee8b9d6f30240a2859ae9aa3b42c0b7f078fc28a",
+      "guidance_token_sha256": "9ca2bf53319eb2ffc1983f60818dd36be4114cab3b3bf38e522eacb1a1c2c7dc",
+      "guidance_valid_text_tokens": 25,
+      "has_effect": true,
+      "native_reference_equivalent": false,
+      "observation_id": "fd415e579e80de2cd99a06bee4a5d9e4019ce76d6a90166e8eff0521080bca7d",
+      "operator": "pooled_text_residual",
+      "operator_source_sha256": "c6b0bd6a84108386af2e85627584f5740398ff1e70885d06d95e2cb758a3c67d",
+      "operator_version": 1,
+      "original_prompt": "put both the cream cheese box and the butter in the basket",
+      "original_prompt_sha256": "7f6ab38d23d4a284d0b14628bc690f936843d6d1399f7aaa22e6ccb05675a9cd",
+      "original_text_frobenius": 1115.2317729350527,
+      "original_token_mask_sha256": "f2b9bd0dc21bd7df94323c3345b444b3cee79cda2f4214029efab396485112e2",
+      "original_token_sha256": "3a3335c2b340aac86bc76b28dc07ad9f6999190710d3c61961810db65af4c5e3",
+      "original_valid_text_tokens": 14,
+      "padding_unchanged": true,
+      "positions_unchanged": true,
+      "precision_limited_to_identity": false,
+      "prefix_after_sha256": "5b43f924600347386786a852970e061809a43e06a65b940e1f6e2d1160ff44f7",
+      "prefix_attention_sha256": "646315aa8095c4fa23af2c9776710e7b4fa86255c44064e4a3fbc1e5bc5d13ca",
+      "prefix_before_sha256": "1ea91034cabffe47f5b53818a2d5be7d5b07dae9ffdb910dede6406d25195f7d",
+      "prefix_padding_sha256": "dfb3da7db15f509e52bd69e22a2a37a71aa0b20a2ba5125c0b495a3356766129",
+      "prefix_positions_sha256": "83b27322f84dfa9fa077cb1955dd382ef96a8b8cc2883792b8a8e64ee7f1a359",
+      "raw_condition_id": "3a6e6dc986a2f93978adbbae4d67ab304e3fa1584ec66db4b237e1162f358431",
+      "relative_rms": 0.04110784355364644,
+      "requested": {
+        "alpha": 0.5,
+        "guidance_prompt": "put both the cream cheese box and the butter in the basket\nGuidance: Focus on the target object and its destination.",
+        "max_relative_norm": 0.25
+      },
+      "requested_delta_frobenius": 45.8447692573301,
+      "rounding_bound_correction": false,
+      "text_after_sha256": "cc52e7a86ab3145ef7ffb5a71fc73f449aceb97971af32fa9faa5ae576faa351",
+      "text_before_sha256": "c3fbda93316bd2af65c68076d1528e33d3208c26b43de03387db60cc279cdcd6",
+      "text_mask_fixed": true,
+      "text_slots": 200,
+      "text_start": 768,
+      "vision_prefix_after_sha256": "2e15f457c85ca1225017c684accc6ab7975a85703f082253fd8c44037dcabc6c",
+      "vision_prefix_before_sha256": "2e15f457c85ca1225017c684accc6ab7975a85703f082253fd8c44037dcabc6c",
+      "vision_prefix_unchanged": true
+    },
+    "decoded_control_difference_recomputed": {
+      "max_abs": 0.0036954062465131,
+      "rmse": 0.0016277084570439002
+    },
+    "full_internal_difference_recomputed_from_matched_known_control": {
+      "max_abs": 0.004274249076843262,
+      "rmse": 0.0008975888855986584
+    },
+    "simulator_actions": 0
+  },
+  "no_new_model_solves": true,
+  "scope": "read_only_recorded_initial_arrays_and_fixed_probe",
+  "status": "passed",
+  "verified_arrays": [
+    {
+      "file_sha256": "48c1adf97fc9674aecb99e379d7c1cc6db1fb11dfd20d5107b701b2c928e9282",
+      "path": "arrays/00000005.npy",
+      "record_digest": "0e64831f3ae056e1429b5673abfdc616edc14e0c8f104f9555cb701094ab57dc",
+      "shape": [
+        1,
+        10,
+        32
+      ]
+    },
+    {
+      "file_sha256": "bdbec857c597be5e9b3bd6af05ccdf7a02a9285fbe15f999f1fd7a3daf653a51",
+      "path": "arrays/00000007.npy",
+      "record_digest": "59786dde4eb268f1b5cf0ff8518fc1f3147c0241b20fef55ad1be05171821e1e",
+      "shape": [
+        1,
+        10,
+        32
+      ]
+    },
+    {
+      "file_sha256": "008c68daa0aca2153cf4604b8ae03ec2529308c5f561c0f609e5a0b053983154",
+      "path": "arrays/00000006.npy",
+      "record_digest": "f68dcd500e4d048c125cfb88082242d730493e4129ce3524bc64e99088008285",
+      "shape": [
+        1,
+        10,
+        32
+      ]
+    },
+    {
+      "file_sha256": "9bab49fef6e00a53b038afbe4d2f69c4179163234b4c4702713201104b06534d",
+      "path": "arrays/00000008.npy",
+      "record_digest": "48b8db7c5c6859b7ad8ab4c3159526cb9bfa258bf1beb3d403a722ded27105d6",
+      "shape": [
+        1,
+        10,
+        32
+      ]
+    },
+    {
+      "file_sha256": "fdcf068c4ff39431b0ff9e523023aa1dc8d64dbd8208585dde8014fd8e1f12e7",
+      "path": "arrays/00000009.npy",
+      "record_digest": "5295b83d92c42949006b8dc0bb368eeeb99f8a883fd22e3b78e2005793213071",
+      "shape": [
+        10,
+        7
+      ]
+    },
+    {
+      "file_sha256": "fdcf068c4ff39431b0ff9e523023aa1dc8d64dbd8208585dde8014fd8e1f12e7",
+      "path": "arrays/00000010.npy",
+      "record_digest": "5295b83d92c42949006b8dc0bb368eeeb99f8a883fd22e3b78e2005793213071",
+      "shape": [
+        10,
+        7
+      ]
+    },
+    {
+      "file_sha256": "f22056afb400c1facc56f3d01ab200749ff972b9db9525ce288dd763b32c8435",
+      "path": "arrays/00000002.npy",
+      "record_digest": "bed484696f25ee53bb0b225ef99bd7a7de221d143b359dc58876e66d427091a7",
+      "shape": [
+        224,
+        224,
+        3
+      ]
+    },
+    {
+      "file_sha256": "6064699055d188f1a6ab8987789cf1f4d6247ad3d83bb5a7f0e4e782ea96783c",
+      "path": "arrays/00000003.npy",
+      "record_digest": "b5d0bf7b7aab7c719be6ff0f7119252f77e2873391e60017e16f590095d6a3ff",
+      "shape": [
+        224,
+        224,
+        3
+      ]
+    },
+    {
+      "file_sha256": "cf9969dd56ca3a24925e670fd240c9e021b1c5b0f1ee358838c3a1ea4cbc7b39",
+      "path": "arrays/00000004.npy",
+      "record_digest": "e640a3c89c25050406a98cb59323071225fd3ba1b26e4c10abc30bd23c46d74d",
+      "shape": [
+        8
+      ]
+    },
+    {
+      "file_sha256": "48c1adf97fc9674aecb99e379d7c1cc6db1fb11dfd20d5107b701b2c928e9282",
+      "path": "arrays/00000584.npy",
+      "record_digest": "0e64831f3ae056e1429b5673abfdc616edc14e0c8f104f9555cb701094ab57dc",
+      "shape": [
+        1,
+        10,
+        32
+      ]
+    },
+    {
+      "file_sha256": "859f86a46eda6462aa1f2a3798af5217b128a7755f1a62d646eaccb0e20f88a2",
+      "path": "arrays/00000585.npy",
+      "record_digest": "0516bce416fb6afb380ba4ef5ff5cf46e5eb3009f1800386e827e82e16112231",
+      "shape": [
+        1,
+        10,
+        32
+      ]
+    },
+    {
+      "file_sha256": "051175a67acd851506b26eba371677193417c4ffe1b6ece0146beaaa6deed2ff",
+      "path": "arrays/00000001.npy",
+      "record_digest": "70e8ac5103228cb9c1f788bbd094b038c5d3d88d96448afc3f05a58551dca320",
+      "shape": [
+        1,
+        10,
+        32
+      ]
+    }
+  ],
+  "zero_hook_limitation": "Zero solve endpoint is not separately recorded; exact zero parity is worker-computed. Its recorded prefix hashes, raw condition identity and disabled metadata were verified.",
+  "zero_hook_parity": {
+    "max_abs": 0,
+    "rmse": 0
+  },
+  "workflow": "astra-pi05-interventions-dev-20260924-2",
+  "payload_sha256": "fde89be9786f85f6ed5e889d7f736784a500dd6fc2f81e9db65480cadb606fb4"
+}

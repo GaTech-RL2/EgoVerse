@@ -1,0 +1,70 @@
+{
+  "status": "passed",
+  "scope": "Read-only CPU reconstruction of seeded random coefficients and full float64-coefficient tensordot then float32 latent operation; no inference or simulator execution",
+  "workflow": "astra-pi05-interventions-eval-20260924-1",
+  "worker": 6,
+  "episode_id": "libero_spatial_ood:seed19:task2:state0",
+  "arm": "random_noise",
+  "iteration": 4,
+  "source_events_prefix_sha256": "62dc3502431ecf2c61f06d3faa6462e73dbf9147b3d94c3658110bd71c1ccbca",
+  "source_events_prefix_bytes": 19507538,
+  "array_files_verified": 62,
+  "array_manifest_sha256": "74550bd045ac87785a63f3018eb06fdcdbe8dbbaea388834e308f6f1b3eb0803",
+  "generation_count": 60,
+  "linux_seeded_proposal_regeneration": {
+    "2": {
+      "float64_coefficients_exact": true,
+      "scale": 0.5
+    },
+    "3": {
+      "float64_coefficients_exact": true,
+      "scale": 0.3
+    },
+    "4": {
+      "float64_coefficients_exact": true,
+      "scale": 0.15
+    },
+    "5": {
+      "float64_coefficients_exact": true,
+      "scale": 0.5
+    }
+  },
+  "local_numpy_version": "2.4.6",
+  "worker_numpy_version": "1.26.4",
+  "worker_machine": "x86_64",
+  "recorded_coefficients": [
+    0.2038120445884077,
+    0.43387443434118195,
+    0.7734262323717068,
+    -0.1650399971448171,
+    -0.033663348860810016,
+    -0.032159216626775795,
+    0.16509830475690268,
+    -0.3396504108982965
+  ],
+  "laptop_regenerated_coefficients": [
+    0.20381204458840774,
+    0.433874434341182,
+    0.7734262323717069,
+    -0.16503999714481712,
+    -0.03366334886081002,
+    -0.0321592166267758,
+    0.16509830475690268,
+    -0.33965041089829656
+  ],
+  "coefficient_float64_max_abs_difference": 1.1102230246251565e-16,
+  "recorded_vs_laptop_full_latent_max_abs_difference": 0.0,
+  "all_recorded_iteration4_latents_exact_with_both_float64_coefficient_sources": true,
+  "scale": 0.15,
+  "basis_sha256": "43a65d509b16914e006c7af88535ce881e6299a323ab9bb4ad5e69adb10e398e",
+  "actual_latent_sha256": "39225d2c9201780c5d86534cf635a23736f286952940e2f3d02eaa4852ce44a5",
+  "frozen_source_sha256": {
+    "astra_reversal/records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+    "astra_reversal/interventions.py": "9269b5c246ff9d3d82288aad37f6e89ca64801c1878ec3a0e17f72a6e6cd397c"
+  },
+  "limitations": [
+    "Verification is limited to saved random-search proposals and iteration4 latent tensors in this case.",
+    "No runtime or result files were changed."
+  ],
+  "auditor_sha256": "8c5656e911cbbbaafed532fefd24551bb69e34a83cfb5e4fa9208073bf3e83e8"
+}

@@ -6,7 +6,9 @@ The only model-specific flow work here is preparing the same prefix cache as
 
 import copy
 import inspect
+import math
 import time
+from dataclasses import asdict
 from importlib.metadata import version
 from pathlib import Path
 
@@ -96,7 +98,7 @@ def load_native_model(checkpoint, device="cpu"):
     return policy
 
 
-def prepare_velocity(policy, batch):
+def prepare_velocity(policy, batch, *, prefix_transform=None):
     """Prepare the upstream prefix, then expose its existing denoise_step."""
     import torch
     from lerobot.policies.pi05.modeling_pi05 import make_att_2d_masks
@@ -114,6 +116,8 @@ def prepare_velocity(policy, batch):
             batch[OBS_LANGUAGE_TOKENS],
             batch[OBS_LANGUAGE_ATTENTION_MASK],
         )
+        if prefix_transform is not None:
+            embeddings = prefix_transform(embeddings, padding, attention)
         mask = model._prepare_attention_masks_4d(make_att_2d_masks(padding, attention))
         positions = torch.cumsum(padding, dim=1) - 1
         model.paligemma_with_expert.paligemma.language_model.config._attn_implementation = "eager"
@@ -351,6 +355,182 @@ class FrozenLeRobotPI05:
             velocity,
             time.perf_counter() - started,
         )
+
+    def prepare_intervened(
+        self, observation, observation_id, original_prompt, *, text=None
+    ):
+        """Prepare a fresh cache with a bounded, inspectable language residual.
+
+        Edited vision is supplied through ``observation`` by the caller. This
+        hook changes only valid text embeddings relative to that observation.
+        Native sampler parity is meaningful for the disabled intervention;
+        ``reference_actions`` does not implement a nonzero embedding edit.
+        """
+        import torch
+        from lerobot.utils.constants import (
+            OBS_LANGUAGE_ATTENTION_MASK,
+            OBS_LANGUAGE_TOKENS,
+        )
+
+        from . import intervention_conditioning
+        from .intervention_conditioning import TextEmbeddingIntervention
+
+        if text is not None and not isinstance(text, TextEmbeddingIntervention):
+            raise TypeError("text must be a TextEmbeddingIntervention or None")
+        enabled = text is not None and text.alpha > 0 and text.max_relative_norm > 0
+        if enabled and self.metadata.get("input_profile") != "openpi_libero":
+            raise ValueError(
+                "Nonzero text interventions require the plain-text openpi_libero profile; the saved processor can embed robot state inside language tokens"
+            )
+        started = time.perf_counter()
+        raw = {**copy.deepcopy(observation), "prompt": original_prompt}
+        raw_condition_id = digest(raw)
+        batch = self._preprocess(raw)
+        guidance_batch = (
+            self._preprocess({**raw, "prompt": text.guidance_prompt})
+            if enabled
+            else None
+        )
+        provenance = {
+            "operator": "pooled_text_residual",
+            "operator_version": 1,
+            "operator_source_sha256": file_sha256(intervention_conditioning.__file__),
+            "requested": asdict(text) if text is not None else None,
+            "enabled": enabled,
+            "guidance_evaluated": enabled,
+            "original_prompt": original_prompt,
+            "original_prompt_sha256": digest(original_prompt),
+            "guidance_prompt_sha256": digest(text.guidance_prompt) if text else None,
+            "raw_condition_id": raw_condition_id,
+            "observation_id": observation_id,
+            "original_token_sha256": digest(to_numpy(batch[OBS_LANGUAGE_TOKENS])),
+            "original_token_mask_sha256": digest(
+                to_numpy(batch[OBS_LANGUAGE_ATTENTION_MASK])
+            ),
+            "guidance_token_sha256": digest(
+                to_numpy(guidance_batch[OBS_LANGUAGE_TOKENS])
+            )
+            if enabled
+            else None,
+            "guidance_token_mask_sha256": digest(
+                to_numpy(guidance_batch[OBS_LANGUAGE_ATTENTION_MASK])
+            )
+            if enabled
+            else None,
+            "native_reference_equivalent": not enabled,
+        }
+
+        def transform(embeddings, padding, attention):
+            token_mask = batch[OBS_LANGUAGE_ATTENTION_MASK]
+            text_length = token_mask.shape[1]
+            text_start = embeddings.shape[1] - text_length
+            if (
+                embeddings.ndim != 3
+                or embeddings.shape[0] != 1
+                or text_start < 0
+                or padding.shape != embeddings.shape[:2]
+                or attention.shape != padding.shape
+                or not torch.equal(padding[:, text_start:], token_mask)
+            ):
+                raise ValueError(
+                    "Native prefix layout differs from vision followed by fixed text slots"
+                )
+            before = to_numpy(embeddings).copy()
+            padding_before = to_numpy(padding).copy()
+            attention_before = to_numpy(attention).copy()
+            positions_before = to_numpy(torch.cumsum(padding, dim=1) - 1).copy()
+            text_mask_before = to_numpy(token_mask).copy()
+            original_text = embeddings[:, text_start:]
+            guidance_embeddings = None
+            if enabled:
+                guidance_embeddings = (
+                    self.model.paligemma_with_expert.embed_language_tokens(
+                        guidance_batch[OBS_LANGUAGE_TOKENS]
+                    )
+                )
+                guidance_embeddings = guidance_embeddings * math.sqrt(
+                    guidance_embeddings.shape[-1]
+                )
+            edited_text, norms = intervention_conditioning.pooled_text_residual(
+                original_text,
+                token_mask,
+                guidance_embeddings,
+                guidance_batch[OBS_LANGUAGE_ATTENTION_MASK] if enabled else None,
+                alpha=text.alpha if text else 0.0,
+                max_relative_norm=text.max_relative_norm if text else 0.25,
+            )
+            edited = (
+                embeddings
+                if edited_text is original_text
+                else torch.cat((embeddings[:, :text_start], edited_text), dim=1)
+            )
+            after = to_numpy(edited)
+            boundaries = {
+                "vision_prefix_unchanged": np.array_equal(
+                    before[:, :text_start], after[:, :text_start]
+                ),
+                "padding_unchanged": np.array_equal(
+                    before[~padding_before], after[~padding_before]
+                ),
+                "text_mask_fixed": np.array_equal(
+                    text_mask_before, to_numpy(token_mask)
+                )
+                and np.array_equal(padding_before, to_numpy(padding)),
+                "attention_unchanged": np.array_equal(
+                    attention_before, to_numpy(attention)
+                ),
+                "positions_unchanged": np.array_equal(
+                    positions_before, to_numpy(torch.cumsum(padding, dim=1) - 1)
+                ),
+            }
+            if not all(boundaries.values()):
+                raise ValueError(
+                    "Text intervention modified vision, padding, masks or positions"
+                )
+            provenance.update(
+                **norms,
+                **boundaries,
+                prefix_before_sha256=digest(before),
+                prefix_after_sha256=digest(after),
+                text_before_sha256=digest(before[:, text_start:]),
+                text_after_sha256=digest(after[:, text_start:]),
+                vision_prefix_before_sha256=digest(before[:, :text_start]),
+                vision_prefix_after_sha256=digest(after[:, :text_start]),
+                prefix_padding_sha256=digest(padding_before),
+                prefix_attention_sha256=digest(attention_before),
+                prefix_positions_sha256=digest(positions_before),
+                has_effect=not np.array_equal(before, after),
+                text_start=text_start,
+                text_slots=text_length,
+                original_valid_text_tokens=int(token_mask.sum().item()),
+                guidance_valid_text_tokens=int(
+                    guidance_batch[OBS_LANGUAGE_ATTENTION_MASK].sum().item()
+                )
+                if enabled
+                else None,
+                embedding_dtype=str(embeddings.dtype),
+            )
+            return edited
+
+        velocity = prepare_velocity(self.policy, batch, prefix_transform=transform)
+        condition_id = (
+            digest(
+                {"raw_condition_id": raw_condition_id, "text_intervention": provenance}
+            )
+            if enabled
+            else raw_condition_id
+        )
+        provenance["condition_id"] = condition_id
+        condition = Condition(
+            condition_id,
+            observation_id,
+            original_prompt,
+            raw,
+            batch["observation.state"],
+            velocity,
+            time.perf_counter() - started,
+        )
+        return condition, provenance
 
     def sample(
         self,

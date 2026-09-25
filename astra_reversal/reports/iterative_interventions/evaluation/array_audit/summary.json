@@ -1,0 +1,203 @@
+{
+  "all_recording_checks_passed": true,
+  "archives": 8,
+  "arrays_verified": 151076,
+  "cases": 20,
+  "exact_episode_coverage": true,
+  "expected_cases": 20,
+  "failures": {},
+  "generations_verified": 24298,
+  "no_new_model_or_api_calls": true,
+  "provider_accepted": 316,
+  "provider_calls": 323,
+  "rollouts_verified": 424,
+  "status": "complete_verified",
+  "text_effect_generations": 10679,
+  "vision_changed_generations": 9119,
+  "workers": {
+    "0": {
+      "archive": {
+        "bytes": 373050635,
+        "gzip_verified": true,
+        "receipt_after": {
+          "content_range": "bytes 0-0/373050635",
+          "etag": "\"f3d82b282551a4219caf777e67944986-45\"",
+          "status": 206
+        },
+        "receipt_before": {
+          "content_range": "bytes 0-0/373050635",
+          "etag": "\"f3d82b282551a4219caf777e67944986-45\"",
+          "status": 206
+        },
+        "sha256": "536cd84fbceee6be0df6dad49a984581bdf5176b5bfec16e46dca4ad9a18b3ed"
+      },
+      "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+      "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+      "report_sha256": "f2d254177292a8a0db512a9b7e0b1b3e111ec48be9e1643c50dca44fedff3b1c",
+      "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+      "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+      "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend"
+    },
+    "1": {
+      "archive": {
+        "bytes": 35162240,
+        "gzip_verified": true,
+        "receipt_after": {
+          "content_range": "bytes 0-0/35162240",
+          "etag": "\"dec7ed3bbb0cb05adf30eab5af1a62eb-5\"",
+          "status": 206
+        },
+        "receipt_before": {
+          "content_range": "bytes 0-0/35162240",
+          "etag": "\"dec7ed3bbb0cb05adf30eab5af1a62eb-5\"",
+          "status": 206
+        },
+        "sha256": "a926fe8b5bc3268dfa6db8212d533b6de97270d81c8fae5fb1e4d99b4d6f7254"
+      },
+      "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+      "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+      "report_sha256": "e1f9b9e2dc8b84de5c59dd52f1c25ea7a6af525a2bf749f514910f1f7b6dee51",
+      "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+      "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+      "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend"
+    },
+    "2": {
+      "archive": {
+        "bytes": 558225240,
+        "gzip_verified": true,
+        "receipt_after": {
+          "content_range": "bytes 0-0/558225240",
+          "etag": "\"914686bb36b4d2acf710d1252646ab46-67\"",
+          "status": 206
+        },
+        "receipt_before": {
+          "content_range": "bytes 0-0/558225240",
+          "etag": "\"914686bb36b4d2acf710d1252646ab46-67\"",
+          "status": 206
+        },
+        "sha256": "53f569cb6f6b2e40a969d6e4a31d00fd0c439a3fa3dca8fe1fccfbd549e041cc"
+      },
+      "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+      "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+      "report_sha256": "96b1a2603432c833cb0f1abcb7e3746ee224cea73e2fabe9a94b31350e5871ce",
+      "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+      "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+      "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend"
+    },
+    "3": {
+      "archive": {
+        "bytes": 617753156,
+        "gzip_verified": true,
+        "receipt_after": {
+          "content_range": "bytes 0-0/617753156",
+          "etag": "\"ddf2680ff0a0e16c43b192feb44dde38-74\"",
+          "status": 206
+        },
+        "receipt_before": {
+          "content_range": "bytes 0-0/617753156",
+          "etag": "\"ddf2680ff0a0e16c43b192feb44dde38-74\"",
+          "status": 206
+        },
+        "sha256": "fb4b0aab9449c2b895b19ebd52283192a0a99442aa0bb41a284d7568d6d177ee"
+      },
+      "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+      "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+      "report_sha256": "8ae1fc0de8c82a288d4eaf85a9700bec34f9421574065c4e266384ba101bf396",
+      "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+      "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+      "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend"
+    },
+    "4": {
+      "archive": {
+        "bytes": 581641889,
+        "gzip_verified": true,
+        "receipt_after": {
+          "content_range": "bytes 0-0/581641889",
+          "etag": "\"fe426c119d7625f15c4b35d5da3abe72-70\"",
+          "status": 206
+        },
+        "receipt_before": {
+          "content_range": "bytes 0-0/581641889",
+          "etag": "\"fe426c119d7625f15c4b35d5da3abe72-70\"",
+          "status": 206
+        },
+        "sha256": "012a1f50533790e3d8e0c4f920210f0c4537ef46f76cabf4f507035b16579ed0"
+      },
+      "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+      "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+      "report_sha256": "4a0b005142ff5f2768018e0d14631406d5b78fb54b3ef812cf35508834d3f0e1",
+      "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+      "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+      "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend"
+    },
+    "5": {
+      "archive": {
+        "bytes": 648767438,
+        "gzip_verified": true,
+        "receipt_after": {
+          "content_range": "bytes 0-0/648767438",
+          "etag": "\"5c69c53f7285af7142a2599ae5b01918-78\"",
+          "status": 206
+        },
+        "receipt_before": {
+          "content_range": "bytes 0-0/648767438",
+          "etag": "\"5c69c53f7285af7142a2599ae5b01918-78\"",
+          "status": 206
+        },
+        "sha256": "1408d3812a9d3f915f5b2c81173d901258fc6f9a3003653452374c8f7646de54"
+      },
+      "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+      "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+      "report_sha256": "ca71bad22cebada589255a49f5d3812ccc3ad1b2142640cfc30df5fd6574fce3",
+      "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+      "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+      "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend"
+    },
+    "6": {
+      "archive": {
+        "bytes": 620180655,
+        "gzip_verified": true,
+        "receipt_after": {
+          "content_range": "bytes 0-0/620180655",
+          "etag": "\"52197367d0148e6a5c5d25c9f8517ee6-74\"",
+          "status": 206
+        },
+        "receipt_before": {
+          "content_range": "bytes 0-0/620180655",
+          "etag": "\"52197367d0148e6a5c5d25c9f8517ee6-74\"",
+          "status": 206
+        },
+        "sha256": "2b48ad37d6b4b1e9552a3e5b8734cd2d3833cf5862cecf6e484324c54917a29c"
+      },
+      "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+      "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+      "report_sha256": "056a97fdecc223ba941e85051f671f366c1b482bfeb602103bdd6723e8443ea9",
+      "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+      "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+      "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend"
+    },
+    "7": {
+      "archive": {
+        "bytes": 315941954,
+        "gzip_verified": true,
+        "receipt_after": {
+          "content_range": "bytes 0-0/315941954",
+          "etag": "\"ec930fe6d31049a28f2054abf05c6960-38\"",
+          "status": 206
+        },
+        "receipt_before": {
+          "content_range": "bytes 0-0/315941954",
+          "etag": "\"ec930fe6d31049a28f2054abf05c6960-38\"",
+          "status": 206
+        },
+        "sha256": "21e72796c9261efaea14f5303fe969977c11b7a64e57d4b3b7d5c247af3f4c2c"
+      },
+      "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+      "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+      "report_sha256": "2a954a89e424238bf956538c06ba74e0e8756fd30872b1a491645b0342a0cf66",
+      "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+      "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+      "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend"
+    }
+  }
+}
