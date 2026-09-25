@@ -1,0 +1,340 @@
+"""Ignored operational downloader/auditor. No model, workflow or configuration writes.
+
+Signed URLs stay inside the private catalog; logs and receipts contain only
+artifact keys, hashes and status codes. Completed cases are audited once, and
+the published report is created only after all twenty fixed cases complete.
+"""
+
+import argparse
+import concurrent.futures
+import csv
+import hashlib
+import json
+import shutil
+import statistics
+import time
+import urllib.request
+from pathlib import Path
+
+from astra_reversal.config import BenchmarkConfig
+from astra_reversal.intervention_report import (
+    ARMS,
+    Inputs,
+    _aggregate,
+    _assignment,
+    _case,
+    _protocol,
+    build_report,
+    require,
+    write_outputs,
+)
+from astra_reversal.intervention_rollout import load_reset_manifest
+from astra_reversal.records import digest, file_sha256
+
+ROOT = Path(__file__).resolve().parents[2]
+PRIVATE = Path(__file__).resolve().parent
+DESTINATION = ROOT / "artifacts/interventions-eval-v1"
+OUTPUT = ROOT / "artifacts/interventions-eval-v1-report"
+WORKFLOW = "astra-pi05-interventions-eval-20260924-1"
+PAYLOAD = "fde89be9786f85f6ed5e889d7f736784a500dd6fc2f81e9db65480cadb606fb4"
+BASE_FILES = ("runtime.json", "protocol.json", "reset_manifest.json", "checkpoint.json", "frozen_plan.json")
+FIELDS = ("input_tokens", "output_tokens", "reasoning_tokens", "total_tokens")
+
+
+def save(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".audit-tmp")
+    temporary.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
+    temporary.replace(path)
+
+
+def read(path):
+    return json.loads(path.read_text())
+
+
+def catalog_urls():
+    path = PRIVATE / "catalog.json"
+    if not path.exists():
+        return None
+    catalog = read(path)
+    require(catalog["workflow"] == WORKFLOW, "Unexpected catalog workflow")
+    return {key: value["url"] for key, value in catalog["objects"].items()}
+
+
+class Downloads:
+    def __init__(self):
+        path = DESTINATION / "download_receipts.json"
+        previous = read(path) if path.exists() else {"workflow": WORKFLOW, "files": {}}
+        require(previous["workflow"] == WORKFLOW, "Download receipts belong to another workflow")
+        self.receipts = previous["files"]
+
+    def fetch(self, urls, keys):
+        def one(key):
+            path = (DESTINATION / key).resolve()
+            if not path.is_relative_to(DESTINATION.resolve()):
+                return {"key": key, "status": "invalid_path"}
+            if key not in urls:
+                return {"key": key, "status": "absent_catalog_key"}
+            try:
+                with urllib.request.urlopen(urls[key], timeout=20) as response:
+                    raw = response.read()
+                    headers = {"etag": response.headers.get("ETag"),
+                               "last_modified": response.headers.get("Last-Modified")}
+                path.parent.mkdir(parents=True, exist_ok=True)
+                temporary = path.with_name(path.name + ".audit-download")
+                temporary.write_bytes(raw)
+                temporary.replace(path)
+                return {"key": key, "status": "downloaded", "bytes": len(raw),
+                        "sha256": hashlib.sha256(raw).hexdigest(), **headers}
+            except Exception as exc:
+                # Never print or retain exception text: it may contain a signed URL.
+                return {"key": key, "status": "unavailable", "exception": type(exc).__name__,
+                        "http_status": getattr(exc, "code", None)}
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(one, sorted(set(keys))))
+        for result in results:
+            self.receipts[result["key"]] = result
+        save(DESTINATION / "download_receipts.json", {"workflow": WORKFLOW, "files": self.receipts})
+        return results
+
+
+def median_rescue_tokens(aggregate, arm):
+    usages = list(aggregate["arms"][arm]["tokens_to_first_success_among_rescued_cases"]["case_usage"].values())
+    result = {}
+    for field in FIELDS:
+        complete = [usage["tokens"][field]["sum"] for usage in usages if usage["tokens"][field]["complete"]]
+        result[field] = {
+            "rescued_cases": len(usages), "complete_usage_cases": len(complete),
+            "incomplete_usage_cases": len(usages) - len(complete),
+            "median_across_all_rescued_cases": statistics.median(complete)
+                if complete and len(complete) == len(usages) else None,
+            "median_among_complete_usage_cases": statistics.median(complete) if complete else None,
+        }
+    return result
+
+
+def suite_tables(report):
+    """Bind derived per-suite medians to the canonical case/provider bytes."""
+    sources = {row["path"]: row["sha256"] for row in report["source_files"]}
+    records = []
+    for case in report["cases"]:
+        directory = Path(case["source"]["path"]).parent
+        arms = {}
+        for arm in ARMS:
+            path = directory / f"{arm}_provider.jsonl"
+            if path.exists():
+                require(file_sha256(path) == sources[str(path.resolve())], "Provider source changed after canonical audit")
+                arms[arm] = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+            else:
+                require(str(path.resolve()) in report["verified_absent_provider_ledgers"], "Unverified absent provider ledger")
+                arms[arm] = []
+        records.append(arms)
+    require(_aggregate(report["cases"], records) == report["summary"], "Pooled reconstruction differs from canonical report")
+    scopes = {"pooled": report["summary"]}
+    for suite in report["verified_full_reset_manifest_sha256"]:
+        selected = [(case, ledger) for case, ledger in zip(report["cases"], records, strict=True) if case["suite"] == suite]
+        require(len(selected) == 10, "A per-suite table must retain all ten prespecified tasks")
+        scopes[suite] = _aggregate([pair[0] for pair in selected], [pair[1] for pair in selected])
+    result = {
+        "schema_version": "intervention_suite_tables_v1", "workflow": WORKFLOW,
+        "canonical_report_file_sha256": file_sha256(OUTPUT / "report.json"),
+        "canonical_report_content_digest": report["sha256"],
+        "operational_source_sha256": file_sha256(__file__),
+        "scope_summaries": scopes,
+        "rescue_only_token_medians": {scope: {arm: median_rescue_tokens(value, arm) for arm in ARMS}
+                                      for scope, value in scopes.items()},
+        "notes": [
+            "Every suite retains all ten fixed seed19 cases; pooled results retain all twenty.",
+            "Rescue is conditional on common identity-baseline failure. Iteration counts include rejected API proposals.",
+            "A primary rescued-case token median is unknown if any rescued case has missing usage for that field; complete-case-only medians are labeled separately.",
+            "Reasoning tokens are a subset of output tokens. No USD prices or missing token usage are imputed.",
+            "Only noise_only versus random_noise holds the intervention operator/basis fixed; other comparisons also change the operator.",
+        ],
+    }
+    result["sha256"] = digest(result)
+    path = OUTPUT / "suite_tables.json"
+    require(not path.exists(), "Refusing to replace frozen suite tables")
+    save(path, result)
+    rows, costs = [], []
+    lines = ["Pooled and per-suite intervention follow-up results.", "",
+             "Success counts include the common identity baseline at attempt 1. Rescue medians exclude baseline successes.", ""]
+    for scope, value in scopes.items():
+        lines += [f"{scope}: {value['cases']} cases; identity baseline {value['baseline_successes']}/{value['cases']}.", "",
+                  "| Arm | Success 1 / 2 / 3 / 4 / 5 | Censored | Rescue | Median rescue revisions | Median rescue tokens | Calls |",
+                  "| --- | --- | ---: | ---: | ---: | ---: | ---: |"]
+        for arm in ARMS:
+            entry = value["arms"][arm]
+            rescue = entry["conditional_rescue"]
+            medians = result["rescue_only_token_medians"][scope][arm]
+            tokens = entry["token_usage_through_success_or_cap"]
+            pair = entry["paired_rescue_vs_random_noise_by_attempt"][-1]["counts"]
+            row = {"scope": scope, "arm": arm, "cases": value["cases"],
+                   **{f"success_by_attempt_{i}": entry["successes_by_attempt"][i - 1] for i in range(1, 6)},
+                   "censored_cases": entry["censored_cases"], "baseline_failed_cases": rescue["baseline_failed_cases"],
+                   "rescued_cases": rescue["rescued_cases"], "median_rescue_revisions": entry["median_intervention_iterations_among_rescued_cases"],
+                   "rescue_arm_only_vs_random": pair["arm_only"], "rescue_random_only": pair["random_only"],
+                   "provider_calls": tokens["provider_calls"], "provider_failed_calls": tokens["failed_calls"],
+                   "proposal_failures": entry["proposal_failures"]}
+            for field in FIELDS:
+                row[f"observed_{field}"] = tokens["tokens"][field]["sum"]
+                row[f"{field}_missing_calls"] = tokens["tokens"][field]["missing_calls"]
+                row[f"median_rescue_{field}"] = medians[field]["median_across_all_rescued_cases"]
+                row[f"rescue_{field}_incomplete_cases"] = medians[field]["incomplete_usage_cases"]
+            rows.append(row)
+            median = row["median_rescue_revisions"]
+            median_tokens = row["median_rescue_total_tokens"]
+            token_label = str(median_tokens) if median_tokens is not None else (
+                "unknown (missing usage)" if medians["total_tokens"]["incomplete_usage_cases"] else "—")
+            cells = [arm, " / ".join(map(str, entry["successes_by_attempt"])), entry["censored_cases"],
+                     f"{rescue['rescued_cases']}/{rescue['baseline_failed_cases']}",
+                     median if median is not None else "—", token_label, tokens["provider_calls"]]
+            lines.append("| " + " | ".join(map(str, cells)) + " |")
+        physical = value["physical_cost"]
+        cost = {"scope": scope, "cases": value["cases"], "baseline_successes": value["baseline_successes"],
+                "known_noise_successes": value["controls"]["known_noise"]["successes"],
+                "fresh_noise_successes": value["controls"]["policy_fresh"]["successes"],
+                **{key: physical[key] for key in ("rollouts", "simulated_actions", "execution_velocity_evaluations", "initialization_velocity_evaluations", "total_velocity_evaluations")},
+                "provider_calls": physical["token_usage"]["provider_calls"]}
+        for field in FIELDS:
+            cost[field] = physical["token_usage"]["tokens"][field]["sum"]
+            cost[field + "_missing_calls"] = physical["token_usage"]["tokens"][field]["missing_calls"]
+        costs.append(cost)
+        lines += ["", f"Unique physical execution: {cost['rollouts']} rollouts, {cost['simulated_actions']} actions, {cost['total_velocity_evaluations']} velocity evaluations, {cost['provider_calls']} provider calls.", ""]
+    for filename, values in (("suite_arms.csv", rows), ("suite_physical_costs.csv", costs)):
+        with (OUTPUT / filename).open("x", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=list(values[0]))
+            writer.writeheader()
+            writer.writerows(values)
+    lines.extend("- " + note for note in result["notes"])
+    (OUTPUT / "suite_tables.md").write_text("\n".join(lines) + "\n")
+    source = OUTPUT / "source"
+    source.mkdir(exist_ok=False)
+    shutil.copyfile(__file__, source / "evaluation_audit_driver.py")
+    return result
+
+
+class Monitor:
+    def __init__(self):
+        self.downloads = Downloads()
+        self.validated = {}
+
+    def cycle(self):
+        urls = catalog_urls()
+        if urls is None:
+            print(json.dumps({"status": "waiting_for_private_catalog"}), flush=True)
+            return False
+        health_path = PRIVATE / "evaluation-health.json"
+        if not health_path.exists():
+            print(json.dumps({"status": "waiting_for_shared_health_snapshot"}), flush=True)
+            return False
+        health = read(health_path)
+        keys = [f"worker_{worker}/{name}" for worker in range(8) for name in BASE_FILES
+                if health.get("workers", {}).get(str(worker), {}).get("runtime_verified")
+                and not (DESTINATION / f"worker_{worker}/{name}").exists()]
+        results = self.downloads.fetch(urls, keys)
+        unexpected = [r for r in results if r.get("http_status") not in (None, 404)]
+        workers, manifests, assignments, finished_workers = [], {}, {}, []
+        for worker in range(8):
+            directory = DESTINATION / f"worker_{worker}"
+            if not all((directory / name).exists() for name in BASE_FILES):
+                workers.append({"worker": worker, "status": "preflight_or_initializing"})
+                continue
+            runtime, protocol, plan = (read(directory / name) for name in ("runtime.json", "protocol.json", "frozen_plan.json"))
+            target = _assignment("evaluation", worker)
+            require(runtime["workflow"] == WORKFLOW and runtime["payload_sha256"] == PAYLOAD
+                    and runtime["worker"] == worker and runtime["phase"] == "evaluation"
+                    and runtime["assignment"] == target, "Worker runtime/assignment changed")
+            _protocol(protocol)
+            benchmark = BenchmarkConfig.preset(target["suite"])
+            manifest = load_reset_manifest(directory / "reset_manifest.json", benchmark)
+            require(manifest["seed"] == 19 and manifest["cases"] == [[i, 0] for i in range(10)], "Unexpected fixed follow-up case list")
+            require(manifests.get(target["suite"], manifest["sha256"]) == manifest["sha256"], "Same-suite workers captured different full reset manifests")
+            manifests[target["suite"]] = manifest["sha256"]
+            entries = manifest["episodes"][target["case_shard"] :: target["case_shards"]]
+            require(plan["runtime"] == runtime and plan["protocol_sha256"] == digest(protocol)
+                    and plan["manifest_sha256"] == manifest["sha256"]
+                    and plan["assigned_episodes"] == [entry["episode_id"] for entry in entries], "Frozen worker plan mismatch")
+            assignments[worker] = (entries, protocol, benchmark)
+            worker_health = health.get("workers", {}).get(str(worker), {})
+            require(not worker_health.get("failure"), "Evaluation worker recorded a runtime failure")
+            progress = worker_health.get("progress") or {}
+            status = progress.get("status", "awaiting_progress")
+            if status == "complete":
+                finished_workers.append(worker)
+            workers.append({"worker": worker, "status": status, "declared_complete_cases": progress.get("complete_cases", 0),
+                            "assigned_cases": len(entries)})
+        self.downloads.fetch(urls, [f"worker_{worker}/case_{entry['task_id']}_0/summary.json"
+                                   for worker, (entries, _, _) in assignments.items() for entry in entries
+                                   if entry["episode_id"] not in self.validated
+                                   and health.get("cases", {}).get(entry["episode_id"], {}).get("status") == "complete"])
+        for worker, (entries, protocol, benchmark) in assignments.items():
+            directory = DESTINATION / f"worker_{worker}"
+            for entry in entries:
+                episode = entry["episode_id"]
+                if episode in self.validated:
+                    continue
+                relative = f"worker_{worker}/case_{entry['task_id']}_0"
+                case_dir = DESTINATION / relative
+                path = case_dir / "summary.json"
+                if not path.exists() or read(path).get("status") != "complete":
+                    continue
+                self.downloads.fetch(urls, [relative + "/events.jsonl"] + [relative + f"/{arm}_provider.jsonl" for arm in ARMS])
+                inputs = Inputs()
+                case, _, _ = _case(inputs, case_dir, entry, benchmark, protocol, "evaluation", read(directory / "checkpoint.json"))
+                inputs.finish()
+                self.validated[episode] = {
+                    "worker": worker, "source_summary_sha256": file_sha256(path),
+                    "baseline_success": case["baseline"]["success"],
+                    "first_success_attempts": {arm: case["arms"][arm]["first_success_attempt"] for arm in ARMS},
+                    "physical_cost": case["physical_cost"],
+                }
+                print(json.dumps({"status": "case_verified", "episode_id": episode,
+                                  "baseline_success": case["baseline"]["success"],
+                                  "first_success_attempts": self.validated[episode]["first_success_attempts"]}), flush=True)
+        state = {"workflow": WORKFLOW, "status": "partial", "expected_cases": 20,
+                 "verified_cases": len(self.validated), "complete_workers": len(finished_workers),
+                 "verified_full_reset_manifests": manifests, "workers": workers,
+                 "cases": self.validated, "unexpected_http_errors": unexpected}
+        save(DESTINATION / "live_audit.json", state)
+        print(json.dumps({"status": "progress", "verified_cases": len(self.validated),
+                          "complete_workers": len(finished_workers), "unexpected_http_errors": unexpected}), flush=True)
+        if len(self.validated) != 20 or len(finished_workers) != 8:
+            return False
+        self.downloads.fetch(urls, [f"worker_{worker}/{name}" for worker in range(8)
+                                   for name in ("aggregate.json", "progress.json", "failure.json")])
+        report = build_report([DESTINATION / f"worker_{worker}" for worker in range(8)], phase="evaluation")
+        write_outputs(OUTPUT, report)
+        tables = suite_tables(report)
+        save(OUTPUT / "download_receipts.json", {"workflow": WORKFLOW, "files": self.downloads.receipts})
+        final = {"status": "complete", "canonical_report_file_sha256": file_sha256(OUTPUT / "report.json"),
+                 "canonical_report_content_digest": report["sha256"],
+                 "suite_tables_file_sha256": file_sha256(OUTPUT / "suite_tables.json"),
+                 "suite_tables_content_digest": tables["sha256"], "source_sha256": file_sha256(__file__)}
+        save(OUTPUT / "final_validation.json", final)
+        print(json.dumps(final), flush=True)
+        return True
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--once", action="store_true")
+    parser.add_argument("--interval", type=float, default=60)
+    args = parser.parse_args()
+    monitor = Monitor()
+    while True:
+        try:
+            complete = monitor.cycle()
+        except Exception as exc:
+            # Audit errors do not contain transport values, but keep diagnostics
+            # private anyway and print only their class to the operational log.
+            save(PRIVATE / "audit_error.json", {"type": type(exc).__name__, "message": str(exc)})
+            print(json.dumps({"status": "audit_error", "exception": type(exc).__name__}), flush=True)
+            return 1
+        if complete or args.once:
+            return 0
+        time.sleep(args.interval)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -59,6 +59,24 @@ task goal, success predicate, proprioception, and all policy weights remain fixe
   regions are therefore easier to mark consistently than moving objects.
   Astra's feedback images always remain unmodified.
 
+Arm names specify which channels Astra may change. A candidate may leave any
+allowed channel at zero, so a successful combined arm does not by itself show
+that all its channels contributed. The final records preserve the selected
+parameters and requested nonzero channels separately from arm labels.
+
+This bounded search differs from the full Stage 2 design in `Untitled.md`:
+inversion here uses the original observation and instruction once per case;
+Astra's conditioning changes apply during forward execution. It does not test
+reinversion under augmented conditioning. Visual annotations remain at fixed
+pixels for a whole candidate rollout, without tracking or expiration, and can
+become stale as objects move. These limits are part of the tested operator.
+
+The text operator also differs from the paper's demonstration-conditioned,
+per-layer text latent interpolation. Here guidance defines one pooled input
+embedding residual, with fixed original token positions and masks. The reported
+scores therefore are not a reproduction of the paper's TLI method. See the
+[LIBERO-OOD paper](https://arxiv.org/html/2505.03500v5).
+
 ## Iterations and cost
 
 Report success by attempts 1–5, first successful attempt, and intervention

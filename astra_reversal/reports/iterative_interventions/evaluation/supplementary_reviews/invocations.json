@@ -1,0 +1,10 @@
+{
+  "activation": "source /Users/rpunamiya/Desktop/GEAR/EgoVerse-dataset-weighting-20260919/emimic/bin/activate",
+  "working_directory": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924",
+  "commands": [
+    "PYTHONPATH=. python astra_reversal/.deps/interventions-eval-v1/check_winning_arrays.py",
+    "PYTHONPATH=. python astra_reversal/.deps/interventions-eval-v1/check_random_arrays.py"
+  ],
+  "execution_scope": "Read-only CPU exec on the original evaluation worker6; no model inference, provider request, environment step or runtime mutation.",
+  "replay_limit": "The exact carrier scripts require the original live worker. Their embedded REMOTE kernels can be replayed against an extracted final archive with paths supplied in the frozen Linux environment."
+}

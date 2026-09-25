@@ -1,0 +1,1483 @@
+{
+  "schema_version": "intervention_paired_at_cap_v1",
+  "canonical_report_file_sha256": "81bd679d49d23130c2c63547043d42cd68c603fa78d676c2c433cfe26129d1bb",
+  "canonical_report_content_digest": "65308e1dd2cedc6f17011c1a26dc9f4d7dfff648f174e3336bf8c8642bfaaf0c",
+  "derivative_source_sha256": "bfd5e2de93201d4966084f12bc6b94422093a056e4d83883e6a7df6fa658adfb",
+  "rows": [
+    {
+      "scope": "pooled",
+      "population": "all_prespecified_cases",
+      "arm": "noise_only",
+      "attempt_cap": 5,
+      "cases": 20,
+      "comparison": "matched_basis_and_operator_prior_source",
+      "both_succeed": 9,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0",
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0",
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "all_prespecified_cases",
+      "arm": "language_only",
+      "attempt_cap": 5,
+      "cases": 20,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 9,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task6:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0",
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "all_prespecified_cases",
+      "arm": "vision_only",
+      "attempt_cap": 5,
+      "cases": 20,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 9,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0",
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0",
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "all_prespecified_cases",
+      "arm": "noise_language",
+      "attempt_cap": 5,
+      "cases": 20,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 9,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task6:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0",
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "all_prespecified_cases",
+      "arm": "noise_vision",
+      "attempt_cap": 5,
+      "cases": 20,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 9,
+      "astra_only_succeeds": 1,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 9,
+      "astra_only_episode_ids": [
+        "libero_spatial_ood:seed19:task2:state0"
+      ],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0",
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0",
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [
+          "libero_spatial_ood:seed19:task2:state0"
+        ],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "all_prespecified_cases",
+      "arm": "language_vision",
+      "attempt_cap": 5,
+      "cases": 20,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 9,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task6:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0",
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "all_prespecified_cases",
+      "arm": "joint",
+      "attempt_cap": 5,
+      "cases": 20,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 8,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 2,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0",
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0",
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "baseline_failed_cases_only",
+      "arm": "noise_only",
+      "attempt_cap": 5,
+      "cases": 12,
+      "comparison": "matched_basis_and_operator_prior_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "baseline_failed_cases_only",
+      "arm": "language_only",
+      "attempt_cap": 5,
+      "cases": 12,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "baseline_failed_cases_only",
+      "arm": "vision_only",
+      "attempt_cap": 5,
+      "cases": 12,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "baseline_failed_cases_only",
+      "arm": "noise_language",
+      "attempt_cap": 5,
+      "cases": 12,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "baseline_failed_cases_only",
+      "arm": "noise_vision",
+      "attempt_cap": 5,
+      "cases": 12,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 1,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 9,
+      "astra_only_episode_ids": [
+        "libero_spatial_ood:seed19:task2:state0"
+      ],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [
+          "libero_spatial_ood:seed19:task2:state0"
+        ],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "baseline_failed_cases_only",
+      "arm": "language_vision",
+      "attempt_cap": 5,
+      "cases": 12,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "pooled",
+      "population": "baseline_failed_cases_only",
+      "arm": "joint",
+      "attempt_cap": 5,
+      "cases": 12,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 0,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 2,
+      "both_fail_within_budget": 10,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0",
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "all_prespecified_cases",
+      "arm": "noise_only",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "matched_basis_and_operator_prior_source",
+      "both_succeed": 5,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "all_prespecified_cases",
+      "arm": "language_only",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 6,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task6:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "all_prespecified_cases",
+      "arm": "vision_only",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 5,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "all_prespecified_cases",
+      "arm": "noise_language",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 6,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task6:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "all_prespecified_cases",
+      "arm": "noise_vision",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 5,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "all_prespecified_cases",
+      "arm": "language_vision",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 6,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task6:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "all_prespecified_cases",
+      "arm": "joint",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 5,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task1:state0",
+          "libero_goal_ood:seed19:task4:state0",
+          "libero_goal_ood:seed19:task5:state0",
+          "libero_goal_ood:seed19:task8:state0",
+          "libero_goal_ood:seed19:task9:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "noise_only",
+      "attempt_cap": 5,
+      "cases": 5,
+      "comparison": "matched_basis_and_operator_prior_source",
+      "both_succeed": 0,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "language_only",
+      "attempt_cap": 5,
+      "cases": 5,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "vision_only",
+      "attempt_cap": 5,
+      "cases": 5,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 0,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "noise_language",
+      "attempt_cap": 5,
+      "cases": 5,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "noise_vision",
+      "attempt_cap": 5,
+      "cases": 5,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 0,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "language_vision",
+      "attempt_cap": 5,
+      "cases": 5,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_goal_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "joint",
+      "attempt_cap": 5,
+      "cases": 5,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 0,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 4,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_goal_ood:seed19:task0:state0",
+          "libero_goal_ood:seed19:task2:state0",
+          "libero_goal_ood:seed19:task3:state0",
+          "libero_goal_ood:seed19:task7:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "all_prespecified_cases",
+      "arm": "noise_only",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "matched_basis_and_operator_prior_source",
+      "both_succeed": 4,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0",
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "all_prespecified_cases",
+      "arm": "language_only",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 3,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "all_prespecified_cases",
+      "arm": "vision_only",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 4,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0",
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "all_prespecified_cases",
+      "arm": "noise_language",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 3,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "all_prespecified_cases",
+      "arm": "noise_vision",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 4,
+      "astra_only_succeeds": 1,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 5,
+      "astra_only_episode_ids": [
+        "libero_spatial_ood:seed19:task2:state0"
+      ],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0",
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [
+          "libero_spatial_ood:seed19:task2:state0"
+        ],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "all_prespecified_cases",
+      "arm": "language_vision",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 3,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "all_prespecified_cases",
+      "arm": "joint",
+      "attempt_cap": 5,
+      "cases": 10,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 3,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task0:state0",
+          "libero_spatial_ood:seed19:task1:state0",
+          "libero_spatial_ood:seed19:task3:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "noise_only",
+      "attempt_cap": 5,
+      "cases": 7,
+      "comparison": "matched_basis_and_operator_prior_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "language_only",
+      "attempt_cap": 5,
+      "cases": 7,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 0,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "vision_only",
+      "attempt_cap": 5,
+      "cases": 7,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "noise_language",
+      "attempt_cap": 5,
+      "cases": 7,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 0,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "noise_vision",
+      "attempt_cap": 5,
+      "cases": 7,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 1,
+      "astra_only_succeeds": 1,
+      "random_only_succeeds": 0,
+      "both_fail_within_budget": 5,
+      "astra_only_episode_ids": [
+        "libero_spatial_ood:seed19:task2:state0"
+      ],
+      "random_only_episode_ids": [],
+      "all_outcome_episode_ids": {
+        "both_succeed": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "astra_only_succeeds": [
+          "libero_spatial_ood:seed19:task2:state0"
+        ],
+        "random_only_succeeds": [],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "language_vision",
+      "attempt_cap": 5,
+      "cases": 7,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 0,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    },
+    {
+      "scope": "libero_spatial_ood",
+      "population": "baseline_failed_cases_only",
+      "arm": "joint",
+      "attempt_cap": 5,
+      "cases": 7,
+      "comparison": "different_intervention_operator_and_proposal_source",
+      "both_succeed": 0,
+      "astra_only_succeeds": 0,
+      "random_only_succeeds": 1,
+      "both_fail_within_budget": 6,
+      "astra_only_episode_ids": [],
+      "random_only_episode_ids": [
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "all_outcome_episode_ids": {
+        "both_succeed": [],
+        "astra_only_succeeds": [],
+        "random_only_succeeds": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "both_fail_within_budget": [
+          "libero_spatial_ood:seed19:task2:state0",
+          "libero_spatial_ood:seed19:task4:state0",
+          "libero_spatial_ood:seed19:task5:state0",
+          "libero_spatial_ood:seed19:task6:state0",
+          "libero_spatial_ood:seed19:task7:state0",
+          "libero_spatial_ood:seed19:task9:state0"
+        ]
+      }
+    }
+  ],
+  "notes": [
+    "Each frozen arm is compared separately with random_noise at the full five-attempt cap; no best-arm oracle selection is evaluated.",
+    "Both all prespecified cases and the baseline-failed subset are retained, pooled and by suite.",
+    "Equal aggregate success counts can involve different cases; exact discordant episode IDs are preserved.",
+    "Only noise_only versus random_noise holds the intervention operator and basis fixed; other arms also change the operator.",
+    "Failure means no success within five attempts; unsuccessful searches remain censored."
+  ],
+  "sha256": "2a847d996c14cdb203dc590441876c90e7de44a0a97249f24f786172a8c22866"
+}

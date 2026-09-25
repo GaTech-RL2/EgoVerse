@@ -1,0 +1,122 @@
+{
+  "status": "diagnosed_cross_platform_normalization_roundoff_pending_remote_confirmation",
+  "source_summary_sha256": "4d03f95013a2d35617c0a916b0af52984e1301a6e85b2c667a259ce285c1486d",
+  "basis_sha256": "43a65d509b16914e006c7af88535ce881e6299a323ab9bb4ad5e69adb10e398e",
+  "audit_source_before_fix_sha256": "82999eb665e155b1aa360cc5caccfe5ed9ba5aeeb6098989cdc7e1e606ee7220",
+  "operational_source_before_restart_sha256": "144ae84cf83a188555ea3d865eefd6943fcc8b387ecce0f6f034e5b81d20ad24",
+  "episode_id": "libero_spatial_ood:seed19:task2:state0",
+  "rows": [
+    {
+      "iteration": 2,
+      "noncoefficient_fields_exact": true,
+      "recorded_coefficients": [
+        -0.4148913112339814,
+        -0.12316903816088971,
+        -0.04049573268716534,
+        -0.07300551735089572,
+        0.825735744225981,
+        -0.14932805858055692,
+        -0.2931506821098132,
+        0.1250966313623384
+      ],
+      "laptop_regenerated_coefficients": [
+        -0.4148913112339814,
+        -0.12316903816088971,
+        -0.04049573268716534,
+        -0.07300551735089572,
+        0.825735744225981,
+        -0.14932805858055692,
+        -0.2931506821098132,
+        0.1250966313623384
+      ],
+      "coefficient_max_abs_error": 0.0,
+      "coefficient_max_ulp_error": 0.0,
+      "laptop_computed_float32_deltas_bitwise_equal": true,
+      "laptop_computed_delta_sha256": "368bac8db5f4e0e0bfd2297bf757870d6a77deb9ec7dfe10161b9dae3a2caa2d"
+    },
+    {
+      "iteration": 3,
+      "noncoefficient_fields_exact": true,
+      "recorded_coefficients": [
+        -0.2281597340246354,
+        -0.07967457700586228,
+        -0.9246606189480349,
+        -0.11999064934522878,
+        -0.12976496101300475,
+        -0.1030129014886617,
+        0.01703682571929633,
+        -0.21085356286931242
+      ],
+      "laptop_regenerated_coefficients": [
+        -0.2281597340246354,
+        -0.07967457700586228,
+        -0.9246606189480349,
+        -0.11999064934522878,
+        -0.12976496101300475,
+        -0.1030129014886617,
+        0.01703682571929633,
+        -0.21085356286931242
+      ],
+      "coefficient_max_abs_error": 0.0,
+      "coefficient_max_ulp_error": 0.0,
+      "laptop_computed_float32_deltas_bitwise_equal": true,
+      "laptop_computed_delta_sha256": "8adb6bb1f132e7c73ec9caf925e987faf2276e8818a5169601b529f505a4d7aa"
+    },
+    {
+      "iteration": 4,
+      "noncoefficient_fields_exact": true,
+      "recorded_coefficients": [
+        0.2038120445884077,
+        0.43387443434118195,
+        0.7734262323717068,
+        -0.1650399971448171,
+        -0.033663348860810016,
+        -0.032159216626775795,
+        0.16509830475690268,
+        -0.3396504108982965
+      ],
+      "laptop_regenerated_coefficients": [
+        0.20381204458840774,
+        0.433874434341182,
+        0.7734262323717069,
+        -0.16503999714481712,
+        -0.03366334886081002,
+        -0.0321592166267758,
+        0.16509830475690268,
+        -0.33965041089829656
+      ],
+      "coefficient_max_abs_error": 1.1102230246251565e-16,
+      "coefficient_max_ulp_error": 1.0,
+      "laptop_computed_float32_deltas_bitwise_equal": true,
+      "laptop_computed_delta_sha256": "44ad72fde1366e43757e8a2e6395954da77483731ad1b41eb781bacd84d07d5d"
+    },
+    {
+      "iteration": 5,
+      "noncoefficient_fields_exact": true,
+      "recorded_coefficients": [
+        -0.23596868841451812,
+        -0.5602246324692788,
+        0.5740034680034027,
+        0.32661287343247947,
+        0.18741032502134675,
+        -0.24256988323353423,
+        -0.2694942285813547,
+        -0.16649706146248544
+      ],
+      "laptop_regenerated_coefficients": [
+        -0.23596868841451812,
+        -0.5602246324692788,
+        0.5740034680034027,
+        0.32661287343247947,
+        0.18741032502134675,
+        -0.24256988323353423,
+        -0.2694942285813547,
+        -0.16649706146248544
+      ],
+      "coefficient_max_abs_error": 0.0,
+      "coefficient_max_ulp_error": 0.0,
+      "laptop_computed_float32_deltas_bitwise_equal": true,
+      "laptop_computed_delta_sha256": "bda0ad2d76ae663d5c5073c01b28c890ab4dbd892017d96e3f5407130a7a079c"
+    }
+  ]
+}

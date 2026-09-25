@@ -1,0 +1,448 @@
+{
+  "episode_id": "libero_spatial_ood:seed19:task2:state0",
+  "instruction": "put the milk on the plate",
+  "selection": "First observed rescue during the frozen evaluation; a selected example, not a representative sample.",
+  "case_summary_sha256": "4d03f95013a2d35617c0a916b0af52984e1301a6e85b2c667a259ce285c1486d",
+  "videos": [
+    {
+      "source_key": "experiments/astra-reversal-20260924/astra-pi05-interventions-eval-20260924-1/worker_6/case_2_0/reversal_identity_1.mp4",
+      "sha256": "fb43ac20b36a71752d3e7ff14b2ab76c2618672e7471c809752ebe15b97ca05f",
+      "bytes": 97844
+    },
+    {
+      "source_key": "experiments/astra-reversal-20260924/astra-pi05-interventions-eval-20260924-1/worker_6/case_2_0/language_only_5.mp4",
+      "sha256": "80211959190427ec74ec4f1aca4f48fe62951e9dc427f04fe0fdc70833854a9d",
+      "bytes": 101959
+    },
+    {
+      "source_key": "experiments/astra-reversal-20260924/astra-pi05-interventions-eval-20260924-1/worker_6/case_2_0/noise_vision_4.mp4",
+      "sha256": "3d9fe687271e016b73ba0fddecc2ca51186d7101693047c1f9e32833b864f185",
+      "bytes": 32795
+    }
+  ],
+  "files": [
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/examples/baseline_initial.png",
+      "file": "baseline_initial.png",
+      "sha256": "36bca7947754e4d3dbd075d85756f34ce6765958da730bb4f239a3e374322e38",
+      "bytes": 38130,
+      "relationship": "unchanged extracted video frame"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/examples/baseline_final.png",
+      "file": "baseline_final.png",
+      "sha256": "eb1379d3ba79d54c514a921fa9a26a811d25d71c6e4795df35e5f427f4cf4d36",
+      "bytes": 41716,
+      "relationship": "unchanged extracted video frame"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/examples/language_final.png",
+      "file": "language_final.png",
+      "sha256": "14994ef7e7726eb9822583cf2b4386d2204ead0724ad291dc171f495b542d4d6",
+      "bytes": 42792,
+      "relationship": "unchanged extracted video frame"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/examples/noise_vision_final.png",
+      "file": "noise_vision_final.png",
+      "sha256": "cd5d5a62f43ddd9971e47829de43aa72e723d16f9d2c767070ac3e3c23be56b9",
+      "bytes": 44675,
+      "relationship": "unchanged extracted video frame"
+    },
+    {
+      "source": "/Users/rpunamiya/Desktop/GEAR/EgoVerse-astra-reversal-20260924/astra_reversal/.deps/interventions-eval-v1/first-rescue-array-review.json",
+      "file": "winning_candidate_array_review.json",
+      "sha256": "caa5897d6980d254072905fe091bba61100c682638032591724c273ee6c0e920",
+      "bytes": 1696,
+      "relationship": "unchanged read-only winning-candidate audit"
+    }
+  ],
+  "noise_vision": {
+    "summary": {
+      "first_success_attempt": 4,
+      "intervention_iterations_to_success": 3,
+      "censored_after_attempt": null,
+      "success_by_attempt": [
+        false,
+        false,
+        false,
+        true,
+        true
+      ],
+      "candidate_rollouts": 4,
+      "proposal_failures": 0,
+      "actions_through_success_or_cap": 993,
+      "velocity_evaluations_through_success_or_cap": 1990,
+      "rollout_seconds_through_success_or_cap": 99.35082798288204,
+      "standalone_velocity_evaluations_through_success_or_cap": 3220
+    },
+    "token_usage": {
+      "provider_calls": 3,
+      "accepted_proposals": 3,
+      "failed_calls": 0,
+      "usage_available_calls": 3,
+      "usage_unavailable_calls": 0,
+      "tokens": {
+        "input_tokens": {
+          "sum": 11733,
+          "available_calls": 3,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "output_tokens": {
+          "sum": 1285,
+          "available_calls": 3,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "reasoning_tokens": {
+          "sum": 175,
+          "available_calls": 3,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "total_tokens": {
+          "sum": 13018,
+          "available_calls": 3,
+          "missing_calls": 0,
+          "complete": true
+        }
+      },
+      "reasoning_tokens_are_subset_of_output_tokens": true,
+      "latency_seconds": 38.573298497824,
+      "actual_models": {
+        "azure/openai/gpt-6-astra": 3
+      },
+      "http_status": {
+        "200": 3
+      },
+      "errors": {},
+      "monetary_cost": null,
+      "monetary_cost_unavailable_reason": "No verified provider price was supplied."
+    },
+    "tokens_to_first_success": {
+      "provider_calls": 3,
+      "accepted_proposals": 3,
+      "failed_calls": 0,
+      "usage_available_calls": 3,
+      "usage_unavailable_calls": 0,
+      "tokens": {
+        "input_tokens": {
+          "sum": 11733,
+          "available_calls": 3,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "output_tokens": {
+          "sum": 1285,
+          "available_calls": 3,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "reasoning_tokens": {
+          "sum": 175,
+          "available_calls": 3,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "total_tokens": {
+          "sum": 13018,
+          "available_calls": 3,
+          "missing_calls": 0,
+          "complete": true
+        }
+      },
+      "reasoning_tokens_are_subset_of_output_tokens": true,
+      "latency_seconds": 38.573298497824,
+      "actual_models": {
+        "azure/openai/gpt-6-astra": 3
+      },
+      "http_status": {
+        "200": 3
+      },
+      "errors": {},
+      "monetary_cost": null,
+      "monetary_cost_unavailable_reason": "No verified provider price was supplied."
+    },
+    "proposals": [
+      {
+        "schema_version": "intervention-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "iteration": 2,
+        "arm": "noise_vision",
+        "request_fingerprint": "2fb3817954cde45d1d7fe5fcb1632a365d4a0306fa7532167519cf0c816962fd",
+        "candidate_id": "milk_plate_visual_focus",
+        "best_candidate_id": "milk_plate_visual_focus",
+        "rationale": "The baseline failed after 300 steps. Images suggest it moved the metal bowl toward the plate while the milk carton remained upright near the upper center. Test visual emphasis on the milk's initial location and the stable plate region to address object selection. Keep noise neutral to isolate this change, and avoid wrist annotations because their content shifts substantially. The milk annotation is static and will not follow a moved carton. This candidate is promising but untested.",
+        "language": null,
+        "noise": {
+          "basis_id": "43a65d509b16914e006c7af88535ce881e6299a323ab9bb4ad5e69adb10e398e",
+          "coefficients": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "perturbation_scale": 0
+        },
+        "vision": [
+          {
+            "camera": "observation/image",
+            "kind": "box",
+            "coordinates": [
+              103,
+              82,
+              120,
+              119
+            ],
+            "gain": 0.65
+          },
+          {
+            "camera": "observation/image",
+            "kind": "box",
+            "coordinates": [
+              28,
+              146,
+              70,
+              179
+            ],
+            "gain": 0.35
+          }
+        ]
+      },
+      {
+        "schema_version": "intervention-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "iteration": 3,
+        "arm": "noise_vision",
+        "request_fingerprint": "779f803ae61c9efd4fac837c7764939117fe30fcf02baf1cd1642cf833099653",
+        "candidate_id": "milk_plate_noise_probe",
+        "best_candidate_id": "milk_plate_noise_probe",
+        "rationale": "Both previous episodes failed at 300 steps. Like the baseline, the latest rollout visibly moved the metal bowl toward the plate while leaving the milk upright, so the visual marks alone did not resolve object selection. Keep those marks unchanged to isolate a moderate noise perturbation along an exploratory basis combination. No physical motion meaning is assigned to these coefficients, and there is no evidence that a larger scale would help. This is my preferred next candidate to test, not an observed improvement or success.",
+        "language": null,
+        "noise": {
+          "basis_id": "43a65d509b16914e006c7af88535ce881e6299a323ab9bb4ad5e69adb10e398e",
+          "coefficients": [
+            0.5,
+            -0.5,
+            0.5,
+            -0.5,
+            0,
+            0,
+            0,
+            0
+          ],
+          "perturbation_scale": 0.3
+        },
+        "vision": [
+          {
+            "camera": "observation/image",
+            "kind": "box",
+            "coordinates": [
+              103,
+              82,
+              120,
+              119
+            ],
+            "gain": 0.65
+          },
+          {
+            "camera": "observation/image",
+            "kind": "box",
+            "coordinates": [
+              28,
+              146,
+              70,
+              179
+            ],
+            "gain": 0.35
+          }
+        ]
+      },
+      {
+        "schema_version": "intervention-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "iteration": 4,
+        "arm": "noise_vision",
+        "request_fingerprint": "74f7efbbeabfa2324906da1ff2fbd9a779a75d7e2352330008d76e7fb8e7f470",
+        "candidate_id": "milk_plate_opposite_noise_probe",
+        "best_candidate_id": "milk_plate_opposite_noise_probe",
+        "rationale": "The latest episode failed at 300 steps: the bowl was moved onto or near the plate while the milk remained upright at its initial location. This repeats the object-selection problem described for the baseline and visual-only candidate; the tested noise direction did not visibly resolve it. Test the opposite coefficient direction at the same scale, holding visual annotations fixed. This explores a different bounded perturbation without assuming stronger noise helps or assigning physical meanings to basis axes. The new candidate is my preferred next test, not an observed improvement; no candidate has reported success.",
+        "language": null,
+        "noise": {
+          "basis_id": "43a65d509b16914e006c7af88535ce881e6299a323ab9bb4ad5e69adb10e398e",
+          "coefficients": [
+            -0.5,
+            0.5,
+            -0.5,
+            0.5,
+            0,
+            0,
+            0,
+            0
+          ],
+          "perturbation_scale": 0.3
+        },
+        "vision": [
+          {
+            "camera": "observation/image",
+            "kind": "box",
+            "coordinates": [
+              103,
+              82,
+              120,
+              119
+            ],
+            "gain": 0.65
+          },
+          {
+            "camera": "observation/image",
+            "kind": "box",
+            "coordinates": [
+              28,
+              146,
+              70,
+              179
+            ],
+            "gain": 0.35
+          }
+        ]
+      }
+    ]
+  },
+  "language_only": {
+    "summary": {
+      "first_success_attempt": null,
+      "intervention_iterations_to_success": null,
+      "censored_after_attempt": 5,
+      "success_by_attempt": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "candidate_rollouts": 5,
+      "proposal_failures": 0,
+      "actions_through_success_or_cap": 1500,
+      "velocity_evaluations_through_success_or_cap": 3000,
+      "rollout_seconds_through_success_or_cap": 144.50132112414576,
+      "standalone_velocity_evaluations_through_success_or_cap": 4230
+    },
+    "token_usage": {
+      "provider_calls": 4,
+      "accepted_proposals": 4,
+      "failed_calls": 0,
+      "usage_available_calls": 4,
+      "usage_unavailable_calls": 0,
+      "tokens": {
+        "input_tokens": {
+          "sum": 15409,
+          "available_calls": 4,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "output_tokens": {
+          "sum": 1189,
+          "available_calls": 4,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "reasoning_tokens": {
+          "sum": 258,
+          "available_calls": 4,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "total_tokens": {
+          "sum": 16598,
+          "available_calls": 4,
+          "missing_calls": 0,
+          "complete": true
+        }
+      },
+      "reasoning_tokens_are_subset_of_output_tokens": true,
+      "latency_seconds": 40.337561790132895,
+      "actual_models": {
+        "azure/openai/gpt-6-astra": 4
+      },
+      "http_status": {
+        "200": 4
+      },
+      "errors": {},
+      "monetary_cost": null,
+      "monetary_cost_unavailable_reason": "No verified provider price was supplied."
+    },
+    "tokens_to_first_success": null,
+    "proposals": [
+      {
+        "schema_version": "intervention-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "iteration": 2,
+        "arm": "language_only",
+        "request_fingerprint": "8a32050b70c4e366a775fe766773de90ea3cbcc0e1453fc1fa8be73306498355",
+        "candidate_id": "milk_carton_not_bowl_v2",
+        "best_candidate_id": "milk_carton_not_bowl_v2",
+        "rationale": "The baseline failed after 300 steps. Images suggest it moved the gray bowl onto the plate while leaving the milk carton at the back center. This candidate emphasizes the carton rather than the bowl and preserves the original placement goal; it is untested.",
+        "language": {
+          "target_text": "Pick up the tall milk carton at the back center, not the gray bowl. Carry the milk carton to the red-rimmed plate and release it on the plate.",
+          "scale": 0.8
+        },
+        "noise": null,
+        "vision": []
+      },
+      {
+        "schema_version": "intervention-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "iteration": 3,
+        "arm": "language_only",
+        "request_fingerprint": "b11bc888c3d9d62c56e13ed1c89eb01ee0dfdca3fccd7825b21422fec7847207",
+        "candidate_id": "milk_positive_identification_v3",
+        "best_candidate_id": "milk_positive_identification_v3",
+        "rationale": "Both previous candidates failed after 300 steps. The latest images again show the bowl moved onto the plate while the milk carton remains at the back center, so the prior contrastive guidance did not resolve object selection. This untested candidate removes references to distractors and emphasizes the visible MILK label with a shorter positive instruction at a lower scale; improvement is not established.",
+        "language": {
+          "target_text": "Grasp the upright carton labeled MILK at the back center of the table. Lift the milk carton and place it on the red-rimmed plate at the left.",
+          "scale": 0.6
+        },
+        "noise": null,
+        "vision": []
+      },
+      {
+        "schema_version": "intervention-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "iteration": 4,
+        "arm": "language_only",
+        "request_fingerprint": "f965324a4f85450ed2134889a09aacffbed431fd7640c018d096292fbe8f3870",
+        "candidate_id": "milk_relational_identification_v4",
+        "best_candidate_id": "milk_relational_identification_v4",
+        "rationale": "All three observed attempts failed. Like the baseline and candidate 2, candidate 3 visibly moved the bowl onto the plate while leaving the milk carton at the back center. This candidate keeps candidate 3's scale unchanged and tests identification by rectangular shape and location behind the cookie box instead of label recognition. It is my preferred next hypothesis, not an observed improvement.",
+        "language": {
+          "target_text": "The milk is the tall rectangular carton directly behind the cookie box. Pick up that carton and set it on the plate to the left.",
+          "scale": 0.6
+        },
+        "noise": null,
+        "vision": []
+      },
+      {
+        "schema_version": "intervention-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "iteration": 5,
+        "arm": "language_only",
+        "request_fingerprint": "36c61342541aa36a5d583ca7f53dcc080e5ef4de0a0e61f6f64deeb15b7f69ed",
+        "candidate_id": "milk_red_top_side_grasp_v5",
+        "best_candidate_id": "milk_red_top_side_grasp_v5",
+        "rationale": "All four observed attempts failed. The latest rollout again shows the bowl moved onto the plate while the milk carton remains at the back center, matching the earlier reported failure pattern. This final candidate replaces relational identification with the carton's visible red top and a side-grasp instruction, keeping scale at 0.6. It is my preferred untested hypothesis; no observed improvement distinguishes the previous candidates.",
+        "language": {
+          "target_text": "Grasp the tall red-topped milk carton at the back center by its sides. Lift it and place it on the red-rimmed plate. Move only the milk carton.",
+          "scale": 0.6
+        },
+        "noise": null,
+        "vision": []
+      }
+    ]
+  }
+}

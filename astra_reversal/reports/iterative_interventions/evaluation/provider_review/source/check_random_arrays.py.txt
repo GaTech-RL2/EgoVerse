@@ -1,0 +1,58 @@
+"""Read existing worker arrays through OSMO; never invoke a model or environment."""
+import errno
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import pty
+import select
+import shlex
+import struct
+import subprocess
+import termios
+import time
+
+REMOTE = "\nimport hashlib,json,platform\nfrom pathlib import Path\nimport numpy as np\nfrom astra_reversal.interventions import random_noise_proposal,perturb_noise\nfrom astra_reversal.records import digest,file_sha256\nroot=Path('/workspace/astra-reversal')\ndirectory=root/'astra_reversal/artifacts/osmo/case_2_0'\nraw=(directory/'events.jsonl').read_bytes()\nevents=[json.loads(line) for line in raw.splitlines()]\nchecked={}\ndef hydrate(ref):\n    p=directory/ref['array'];a=np.load(p,allow_pickle=False)\n    assert list(a.shape)==ref['shape'] and str(a.dtype)==ref['dtype']\n    assert digest(a)==ref['sha256'] and np.isfinite(a).all()\n    checked[ref['array']]={'file_sha256':file_sha256(p),'array_sha256':digest(a)}\n    return a\ncase=next(e for e in events if e['kind']=='case')\ninitial=next(e for e in events if e['kind']=='inversion_initialization')\nbasis=hydrate(case['basis']);recovered=hydrate(initial['recovered_noise'])\nepisode=case['entry']['episode_id']\nassert episode=='libero_spatial_ood:seed19:task2:state0'\nrng=np.random.default_rng(np.random.SeedSequence([case['protocol']['seed'],int(digest(episode)[:8],16),3]))\nregenerated={i:random_noise_proposal(basis,rng) for i in range(2,6)}\nrecorded={e['iteration']:e['proposal']['noise'] for e in events if e['kind']=='intervention_proposal' and e['arm']=='random_noise'}\nassert set(recorded)=={2,3,4,5}\ncomparisons={}\nfor i in range(2,6):\n    assert recorded[i]==regenerated[i], ('Linux regeneration differs',i)\n    comparisons[str(i)]={'float64_coefficients_exact':True,'scale':recorded[i]['perturbation_scale']}\nlocal=__LOCAL_REGENERATED__\nproposal=recorded[4]\nassert local['perturbation_scale']==proposal['perturbation_scale']\nlocal_proposal={**proposal,'coefficients':local['coefficients']}\nrecorded_expected=perturb_noise(recovered,basis,proposal)\nlocal_expected=perturb_noise(recovered,basis,local_proposal)\nassert np.array_equal(recorded_expected,local_expected), 'Actual F32 latent differs between recorded and local coefficients'\ngenerations=[e for e in events if e['kind']=='candidate_generation' and e['mode']=='random_noise' and e['iteration']==4]\nassert generations\nfor e in generations:\n    latent=hydrate(e['latent'])\n    assert np.array_equal(latent,recorded_expected)\n    assert np.array_equal(latent,local_expected)\ndiff=np.asarray(local['coefficients'],np.float64)-np.asarray(proposal['coefficients'],np.float64)\nresult={\n 'status':'passed','scope':'Read-only CPU reconstruction of seeded random coefficients and full float64-coefficient tensordot then float32 latent operation; no inference or simulator execution',\n 'workflow':'astra-pi05-interventions-eval-20260924-1','worker':6,'episode_id':episode,'arm':'random_noise','iteration':4,\n 'source_events_prefix_sha256':hashlib.sha256(raw).hexdigest(),'source_events_prefix_bytes':len(raw),\n 'array_files_verified':len(checked),'array_manifest_sha256':digest(checked),'generation_count':len(generations),\n 'linux_seeded_proposal_regeneration':comparisons,\n 'local_numpy_version':__LOCAL_NUMPY_VERSION__,'worker_numpy_version':np.__version__,'worker_machine':platform.machine(),\n 'recorded_coefficients':proposal['coefficients'],'laptop_regenerated_coefficients':local['coefficients'],\n 'coefficient_float64_max_abs_difference':float(np.max(np.abs(diff))),\n 'recorded_vs_laptop_full_latent_max_abs_difference':float(np.max(np.abs(recorded_expected.astype(np.float64)-local_expected.astype(np.float64)))),\n 'all_recorded_iteration4_latents_exact_with_both_float64_coefficient_sources':True,\n 'scale':proposal['perturbation_scale'],'basis_sha256':digest(basis),'actual_latent_sha256':digest(recorded_expected),\n 'frozen_source_sha256':{str(p.relative_to(root)):file_sha256(p) for p in (root/'astra_reversal/records.py',root/'astra_reversal/interventions.py')},\n 'limitations':['Verification is limited to saved random-search proposals and iteration4 latent tensors in this case.','No runtime or result files were changed.'],\n}\nprint('ASTRA_ARRAY_CHECK:'+json.dumps(result,separators=(',',':')),flush=True)\n"
+
+import numpy as np
+from astra_reversal.interventions import random_noise_proposal
+from astra_reversal.records import digest
+episode='libero_spatial_ood:seed19:task2:state0'
+rng=np.random.default_rng(np.random.SeedSequence([19,int(digest(episode)[:8],16),3]))
+for iteration in range(2,5):
+    local=random_noise_proposal(np.zeros((8,1,10,32),dtype=np.float32),rng)
+REMOTE=REMOTE.replace('__LOCAL_REGENERATED__',repr({'coefficients':local['coefficients'],'perturbation_scale':local['perturbation_scale']})).replace('__LOCAL_NUMPY_VERSION__',repr(np.__version__))
+directory = Path(__file__).resolve().parent
+command = 'cd /workspace/astra-reversal\nsource /workspace/astra-reversal/emimic/bin/activate\n' + shlex.join(['python','-c',REMOTE])
+master, slave = pty.openpty()
+fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',40,240,0,0))
+process = subprocess.Popen(['osmo','workflow','exec','astra-pi05-interventions-eval-20260924-1','worker6','--connect-timeout','20','--entry',shlex.join(['/bin/bash','-lc',command])],stdin=slave,stdout=slave,stderr=slave,start_new_session=True)
+os.close(slave)
+received=bytearray()
+deadline=time.monotonic()+80
+try:
+    while time.monotonic()<deadline:
+        ready,_,_=select.select([master],[],[],1)
+        if ready:
+            try: block=os.read(master,65536)
+            except OSError as exc:
+                if exc.errno==errno.EIO: break
+                raise
+            if not block: break
+            received.extend(block)
+        elif process.poll() is not None: break
+    if process.poll() is None: process.terminate()
+    process.wait(timeout=10)
+finally:
+    os.close(master)
+    if process.poll() is None: process.kill()
+log=directory/'random-array-check-console.log'
+log.write_bytes(received);log.chmod(0o600)
+records=[json.loads(line.split('ASTRA_ARRAY_CHECK:',1)[1]) for line in received.decode(errors='replace').splitlines() if line.startswith('ASTRA_ARRAY_CHECK:')]
+assert process.returncode==0 and len(records)==1, f'Read-only check not completed; local exit={process.returncode}; inspect private console'
+result=records[0]
+result['auditor_sha256']=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+output=directory/'random-coefficient-array-review.json'
+output.write_text(json.dumps(result,indent=2,allow_nan=False)+'\n');output.chmod(0o600)
+print(json.dumps({'path':str(output),'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),'status':result['status'],'array_files':result['array_files_verified'],'generations':result['generation_count']}))

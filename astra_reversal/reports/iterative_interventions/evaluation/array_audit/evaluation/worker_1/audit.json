@@ -1,0 +1,545 @@
+{
+  "archive": {
+    "bytes": 35162240,
+    "gzip_verified": true,
+    "receipt_after": {
+      "content_range": "bytes 0-0/35162240",
+      "etag": "\"dec7ed3bbb0cb05adf30eab5af1a62eb-5\"",
+      "status": 206
+    },
+    "receipt_before": {
+      "content_range": "bytes 0-0/35162240",
+      "etag": "\"dec7ed3bbb0cb05adf30eab5af1a62eb-5\"",
+      "status": 206
+    },
+    "sha256": "a926fe8b5bc3268dfa6db8212d533b6de97270d81c8fae5fb1e4d99b4d6f7254"
+  },
+  "auditor_wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e",
+  "cases": [
+    {
+      "all_array_condition_reset_provider_bindings_verified": true,
+      "arms": {
+        "joint": {
+          "attempts": [
+            {
+              "actions_executed": 72,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "language_only": {
+          "attempts": [
+            {
+              "actions_executed": 72,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "language_vision": {
+          "attempts": [
+            {
+              "actions_executed": 72,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_language": {
+          "attempts": [
+            {
+              "actions_executed": 72,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_only": {
+          "attempts": [
+            {
+              "actions_executed": 72,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_vision": {
+          "attempts": [
+            {
+              "actions_executed": 72,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "random_noise": {
+          "attempts": [
+            {
+              "actions_executed": 72,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "vision_only": {
+          "attempts": [
+            {
+              "actions_executed": 72,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        }
+      },
+      "array_inventory_sha256": "10f2e88ad833476ceea1d1bf5aad2a3d598824f030822435f5f1f9349a3edc99",
+      "arrays_verified": 322,
+      "baseline": {
+        "actions_executed": 72,
+        "policy_replans": 15,
+        "success": true
+      },
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "case": "case_1_0",
+      "controls": {
+        "known_noise": {
+          "actions_executed": 72,
+          "policy_replans": 15,
+          "success": true
+        },
+        "policy_fresh": {
+          "actions_executed": 76,
+          "policy_replans": 16,
+          "success": true
+        }
+      },
+      "episode_id": "libero_goal_ood:seed19:task1:state0",
+      "event_sha256": "a3ed2549d58c67ed9a28b017e11ea2a627e241db57300e961eb817126387e8e6",
+      "fixed_development_probe": null,
+      "generations_verified": 46,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.1920928955078125e-07,
+          "rmse": 1.6679914377428147e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.0001525580883026123,
+          "rmse": 1.150618068155881e-05
+        }
+      },
+      "limitations": [
+        "Array endpoints and controller decoding are recomputed without a model solve.",
+        "Prefix embeddings are not stored; token IDs, condition hashes, boundary flags and norm metadata are checked, not independently re-embedded.",
+        "Exact alpha0 preflight parity is worker-computed because its endpoint is not separately stored.",
+        "Simulator success values are recorded outcomes; the audit does not rerun the environment."
+      ],
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "rollouts": 3,
+      "status": "verified",
+      "summary_sha256": "046fcefb878601aa9111f1187dc7290b61ba93fc0971904726749105bc1212c7",
+      "vision_changed_generations": 0,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "all_array_condition_reset_provider_bindings_verified": true,
+      "arms": {
+        "joint": {
+          "attempts": [
+            {
+              "actions_executed": 104,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "language_only": {
+          "attempts": [
+            {
+              "actions_executed": 104,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "language_vision": {
+          "attempts": [
+            {
+              "actions_executed": 104,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_language": {
+          "attempts": [
+            {
+              "actions_executed": 104,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_only": {
+          "attempts": [
+            {
+              "actions_executed": 104,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_vision": {
+          "attempts": [
+            {
+              "actions_executed": 104,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "random_noise": {
+          "attempts": [
+            {
+              "actions_executed": 104,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "vision_only": {
+          "attempts": [
+            {
+              "actions_executed": 104,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        }
+      },
+      "array_inventory_sha256": "a1a9e119de5dbd2939a2005789e0413370e49207ee949c8c132919fc1e679130",
+      "arrays_verified": 664,
+      "baseline": {
+        "actions_executed": 104,
+        "policy_replans": 21,
+        "success": true
+      },
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "case": "case_5_0",
+      "controls": {
+        "known_noise": {
+          "actions_executed": 107,
+          "policy_replans": 22,
+          "success": true
+        },
+        "policy_fresh": {
+          "actions_executed": 300,
+          "policy_replans": 60,
+          "success": false
+        }
+      },
+      "episode_id": "libero_goal_ood:seed19:task5:state0",
+      "event_sha256": "641382cd9b86d73ab92626e638c66eac5fb0ee77e2aabc546f5c2ddfbc067482",
+      "fixed_development_probe": null,
+      "generations_verified": 103,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.1920928955078125e-07,
+          "rmse": 1.3636398105740599e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 4.205852746963501e-05,
+          "rmse": 4.5259317365356375e-06
+        }
+      },
+      "limitations": [
+        "Array endpoints and controller decoding are recomputed without a model solve.",
+        "Prefix embeddings are not stored; token IDs, condition hashes, boundary flags and norm metadata are checked, not independently re-embedded.",
+        "Exact alpha0 preflight parity is worker-computed because its endpoint is not separately stored.",
+        "Simulator success values are recorded outcomes; the audit does not rerun the environment."
+      ],
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "rollouts": 3,
+      "status": "verified",
+      "summary_sha256": "d5b92c5aacef5da5fe3f98491549d2c6655e7efc878d68dfcc1993d6f904a800",
+      "vision_changed_generations": 0,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "all_array_condition_reset_provider_bindings_verified": true,
+      "arms": {
+        "joint": {
+          "attempts": [
+            {
+              "actions_executed": 113,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "language_only": {
+          "attempts": [
+            {
+              "actions_executed": 113,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "language_vision": {
+          "attempts": [
+            {
+              "actions_executed": 113,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_language": {
+          "attempts": [
+            {
+              "actions_executed": 113,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_only": {
+          "attempts": [
+            {
+              "actions_executed": 113,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "noise_vision": {
+          "attempts": [
+            {
+              "actions_executed": 113,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "random_noise": {
+          "attempts": [
+            {
+              "actions_executed": 113,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        },
+        "vision_only": {
+          "attempts": [
+            {
+              "actions_executed": 113,
+              "candidate_id": "reversal_identity",
+              "iteration": 1,
+              "rollout_executed": true,
+              "status": "success",
+              "success": true
+            }
+          ],
+          "first_success_attempt": 1
+        }
+      },
+      "array_inventory_sha256": "d0dc2d849dd4efbcb877c963a2ce4b8a46baa29c70173090f6043bad28eefa6a",
+      "arrays_verified": 454,
+      "baseline": {
+        "actions_executed": 113,
+        "policy_replans": 23,
+        "success": true
+      },
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "case": "case_9_0",
+      "controls": {
+        "known_noise": {
+          "actions_executed": 114,
+          "policy_replans": 23,
+          "success": true
+        },
+        "policy_fresh": {
+          "actions_executed": 109,
+          "policy_replans": 22,
+          "success": true
+        }
+      },
+      "episode_id": "libero_goal_ood:seed19:task9:state0",
+      "event_sha256": "901ee1dfd0aadccf26a07e4960541acf039ac977a0c9f2f73d7ae61bf8d6550a",
+      "fixed_development_probe": null,
+      "generations_verified": 68,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 7.450580596923828e-08,
+          "rmse": 1.0759810233249852e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00013566017150878906,
+          "rmse": 1.2142656793352152e-05
+        }
+      },
+      "limitations": [
+        "Array endpoints and controller decoding are recomputed without a model solve.",
+        "Prefix embeddings are not stored; token IDs, condition hashes, boundary flags and norm metadata are checked, not independently re-embedded.",
+        "Exact alpha0 preflight parity is worker-computed because its endpoint is not separately stored.",
+        "Simulator success values are recorded outcomes; the audit does not rerun the environment."
+      ],
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "rollouts": 3,
+      "status": "verified",
+      "summary_sha256": "839fcef5fc04a74d5a9aca614fd2da94ba638c5cb6bca6eaeb155705c65e4e35",
+      "vision_changed_generations": 0,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    }
+  ],
+  "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+  "no_new_model_or_api_calls": true,
+  "payload_sha256": "fde89be9786f85f6ed5e889d7f736784a500dd6fc2f81e9db65480cadb606fb4",
+  "source_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+  "source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+  "status": "complete_verified",
+  "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend",
+  "worker": 1,
+  "workflow": "astra-pi05-interventions-eval-20260924-1"
+}

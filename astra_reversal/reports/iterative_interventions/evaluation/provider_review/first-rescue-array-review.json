@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "scope": "Read-only CPU verification of saved winning candidate arrays; no model, API, or environment execution",
+  "workflow": "astra-pi05-interventions-eval-20260924-1",
+  "worker": 6,
+  "episode_id": "libero_spatial_ood:seed19:task2:state0",
+  "arm": "noise_vision",
+  "iteration": 4,
+  "candidate_id": "milk_plate_opposite_noise_probe",
+  "source_events_prefix_sha256": "1c49760edf4fdcce480e0bb5e99625b7347da31546d883cdad38cef8ab785fc5",
+  "source_events_prefix_bytes": 18698530,
+  "array_files_verified": 124,
+  "array_manifest_sha256": "5ee363323948b3286d327ac1c75ab4cdbd5d55bf53673b1c8a77c98386ae4f3f",
+  "proposal_sha256": "d2c663c9fcb8498650d59c2354975f765a338ef2c9764aba770ca0f58d938b17",
+  "basis_sha256": "43a65d509b16914e006c7af88535ce881e6299a323ab9bb4ad5e69adb10e398e",
+  "generation_count": 19,
+  "actions_executed": 93,
+  "success_recorded": true,
+  "noise_delta_rms": 0.3000000166423747,
+  "noise_delta_max_abs": 0.9529762268066406,
+  "vision_changed_scalar_values_by_camera": {
+    "observation/image": 41382,
+    "observation/wrist_image": 0
+  },
+  "frozen_source_sha256": {
+    "astra_reversal/records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+    "astra_reversal/interventions.py": "9269b5c246ff9d3d82288aad37f6e89ca64801c1878ec3a0e17f72a6e6cd397c"
+  },
+  "limitations": [
+    "Success is the recorded simulator result; no independent environment replay.",
+    "Controller actions are checked for integrity/shape; no additional policy decoding or inference.",
+    "The full case and provider-accounting audit is separate."
+  ],
+  "auditor_sha256": "b9cdebc900b6ac88b55a91f00473e8f5bf3f428a189ce6731856a1341c4c6cc0"
+}

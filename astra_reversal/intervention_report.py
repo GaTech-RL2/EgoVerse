@@ -29,6 +29,7 @@ SUITES = ("libero_goal_ood", "libero_spatial_ood")
 TOKEN_FIELDS = ("input_tokens", "output_tokens", "reasoning_tokens", "total_tokens")
 CONTROLS = ("known_noise", "policy_fresh")
 SUPPORTED_PROMPTS = {"astra-intervention-http-1", "astra-intervention-http-2"}
+RANDOM_COEFFICIENT_ULPS = 4
 LIMITATIONS = [
     "Online adaptation with simulator reset access; not zero-shot evaluation. "
     "The OOD tasks and seed7 outcomes were previously observed. Checkpoint "
@@ -57,6 +58,10 @@ LIMITATIONS = [
     "bounds. Comparisons of language/vision arms against random noise change "
     "the intervention operator as well as the proposal source. The 20-case "
     "OOD follow-up is exploratory and uses known tasks with new resets.",
+    "Regenerated random directions allow at most four float64 ULPs of "
+    "coefficient normalization roundoff across CPU libraries; basis identities, "
+    "coefficient shapes, kinds and scales remain exact. Observed differences "
+    "are logged, and recorded proposals are never altered.",
 ]
 
 
@@ -586,6 +591,50 @@ def _events(inputs, directory, report, entry, protocol, records, expected_basis)
     }
 
 
+def _random_noise_check(row, expected):
+    """Allow only float64 normalization roundoff when regenerating directions.
+
+    BLAS reductions can differ by a few ULPs across the audit and worker hosts.
+    The recorded proposal remains authoritative for the actual noise operation;
+    neither its coefficients nor any recorded events are rewritten here.
+    """
+    message = "Random-search candidate differs from the matched seeded basis/scales"
+    proposal = row["proposal"]
+    observed = proposal["noise"]
+    require(
+        row["rollout_executed"]
+        and proposal["language"] is None
+        and proposal["vision"] == []
+        and isinstance(observed, dict)
+        and {key: value for key, value in observed.items() if key != "coefficients"}
+        == {key: value for key, value in expected.items() if key != "coefficients"},
+        message,
+    )
+    coefficients = observed.get("coefficients")
+    require(
+        isinstance(coefficients, list)
+        and all(
+            type(value) in (int, float) and math.isfinite(value)
+            for value in coefficients
+        ),
+        message,
+    )
+    actual = np.asarray(coefficients, dtype=np.float64)
+    wanted = np.asarray(expected["coefficients"], dtype=np.float64)
+    require(actual.shape == wanted.shape and np.isfinite(actual).all(), message)
+    difference = np.abs(actual - wanted)
+    spacing = np.spacing(np.abs(wanted))
+    require(np.all(difference <= RANDOM_COEFFICIENT_ULPS * spacing), message)
+    return {
+        "iteration": row["iteration"],
+        "coefficient_tolerance_ulps": RANDOM_COEFFICIENT_ULPS,
+        "coefficient_max_abs_difference": float(difference.max()),
+        "coefficient_max_ulp_difference": float((difference / spacing).max()),
+        "coefficients_exact": bool(np.array_equal(actual, wanted)),
+        "basis_kind_and_scale_exact": True,
+    }
+
+
 def _case(inputs, directory, entry, benchmark, protocol, phase, checkpoint):
     report = inputs.read(directory / "summary.json")
     require(
@@ -674,7 +723,7 @@ def _case(inputs, directory, entry, benchmark, protocol, phase, checkpoint):
         np.random.SeedSequence(seed_words + [1]),
     )
     random_rng = np.random.default_rng(np.random.SeedSequence(seed_words + [3]))
-    arms, compatibility = {}, []
+    arms, compatibility, random_checks = {}, [], []
     for arm in ARMS:
         value = report["arms"][arm]
         attempts = value["attempts"]
@@ -695,13 +744,8 @@ def _case(inputs, directory, entry, benchmark, protocol, phase, checkpoint):
             _attempt(row, entry, benchmark, reset)
         if arm == "random_noise":
             for row in attempts[1:]:
-                require(
-                    row["rollout_executed"]
-                    and row["proposal"]["language"] is None
-                    and row["proposal"]["vision"] == []
-                    and row["proposal"]["noise"]
-                    == random_noise_proposal(basis, random_rng),
-                    "Random-search candidate differs from the matched seeded basis/scales",
+                random_checks.append(
+                    _random_noise_check(row, random_noise_proposal(basis, random_rng))
                 )
         for row in attempts[1:]:
             noise = (row.get("proposal") or {}).get("noise")
@@ -806,6 +850,7 @@ def _case(inputs, directory, entry, benchmark, protocol, phase, checkpoint):
         "instruction": entry["instruction"],
         "reset_entry_sha256": digest(entry),
         "reset_audit": reset,
+        "random_noise_reconstruction": random_checks,
         "baseline": baseline,
         "controls": report["controls"],
         "initialization": initial,
@@ -1248,6 +1293,9 @@ def build_report(directories, *, phase):
         "Neutral accepted proposals exercise the integration but do not establish a nonzero effect. "
         "The fixed development probe is separate from Astra proposals and environment rollouts.",
     }
+    random_checks = [
+        check for case in cases for check in case["random_noise_reconstruction"]
+    ]
     report = {
         "schema_version": "intervention_report_v1",
         "status": "complete_verified_recording",
@@ -1272,6 +1320,27 @@ def build_report(directories, *, phase):
             ),
             "numerical_errors_independently_recomputed": False,
             "native_resets_independently_replayed": False,
+            "random_noise_coefficient_reconstruction": {
+                "maximum_allowed_ulps": RANDOM_COEFFICIENT_ULPS,
+                "proposals_checked": len(random_checks),
+                "nonexact_proposals": sum(
+                    not check["coefficients_exact"] for check in random_checks
+                ),
+                "maximum_abs_difference": max(
+                    (
+                        check["coefficient_max_abs_difference"]
+                        for check in random_checks
+                    ),
+                    default=0.0,
+                ),
+                "maximum_ulp_difference": max(
+                    (
+                        check["coefficient_max_ulp_difference"]
+                        for check in random_checks
+                    ),
+                    default=0.0,
+                ),
+            },
         },
         "summary": aggregate,
         "integration": integration,

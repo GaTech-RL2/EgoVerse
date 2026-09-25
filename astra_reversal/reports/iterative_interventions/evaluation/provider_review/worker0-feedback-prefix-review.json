@@ -1,0 +1,54 @@
+{
+  "status": "passed",
+  "scope": "Live worker0 Goal-OOD task0 prefix only; not final evaluation coverage",
+  "workflow": "astra-pi05-interventions-eval-20260924-1",
+  "episode_id": "libero_goal_ood:seed19:task0:state0",
+  "events_sha256": "8e04025dcc479e95c28da6c5d8c3ef36265250caf01b04b286f500f7a9123d7d",
+  "provider_prefix_source_sha256": {
+    "language_only_provider.jsonl": "f88e74701a44cb0f521f8679f24ee0877ed99329f0c2afc259b554ae4158808e",
+    "noise_language_provider.jsonl": "48db485b9c47a4c6ebe5508aa4f4641132714f4e74bf354f05cf2812dea9c46d",
+    "noise_only_provider.jsonl": "c0de2a7ed20b55774f3ca35889d649aa6f53f29d4445a15c2d83ea0fe43d6ef4",
+    "vision_only_provider.jsonl": "262c7c49bffe00d9d4cccbffee8e88c992071dd8a3a1210e73e38ea6f852b71b"
+  },
+  "auditor_sha256": "f4ecdbf74f2e23f98f93778a10168ae586d22f5bd95c2c740a5e06200db6b51c",
+  "counts": {
+    "raw_feedback_camera_frames_verified": 104,
+    "raw_feedback_states_verified": 52,
+    "requests_verified": 13,
+    "history_rows_verified": 31,
+    "provider_bound_accepted_proposals": 12,
+    "recorded_nonzero_language_generations": 300
+  },
+  "recorded_first_generation_embedding_effects": [
+    {
+      "arm": "language_only",
+      "iteration": 2,
+      "relative_rms": 0.1515295025439258
+    },
+    {
+      "arm": "language_only",
+      "iteration": 3,
+      "relative_rms": 0.15253008755338113
+    },
+    {
+      "arm": "language_only",
+      "iteration": 4,
+      "relative_rms": 0.09591194310466951
+    },
+    {
+      "arm": "language_only",
+      "iteration": 5,
+      "relative_rms": 0.09968224713567371
+    },
+    {
+      "arm": "noise_language",
+      "iteration": 2,
+      "relative_rms": 0.1574485665089024
+    }
+  ],
+  "limitations": [
+    "Feedback PNGs are decoded and matched to recorded raw snapshot array hashes; the corresponding NPY files are not downloaded in this prefix check.",
+    "Language effect norms are recorded controller provenance; prefix tensors are not stored and cannot be independently reconstructed here.",
+    "This live prefix must not be used as final totals or a success claim."
+  ]
+}

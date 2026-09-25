@@ -1,0 +1,165 @@
+{
+  "runs": [
+    {
+      "name": "astra-pi05-interventions-dev-20260924-1",
+      "status": "COMPLETED",
+      "pool": "groot-l40s-03",
+      "submit_time": "2026-09-25T06:06:29.823189",
+      "start_time": "2026-09-25T06:06:47.950786",
+      "end_time": "2026-09-25T06:18:02.974253",
+      "source_query_sha256": "4b16229580687d9a9b750d5901d4dd424b81cc75420e82e3ebad5c30c32306bd",
+      "tasks": [
+        {
+          "name": "worker0",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:10:20.886345",
+          "end_time": "2026-09-25T06:18:02.974253",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-0664",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 462.087908
+        },
+        {
+          "name": "worker1",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:06:47.950786",
+          "end_time": "2026-09-25T06:17:47.750473",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-3506",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 659.799687
+        }
+      ],
+      "workflow_elapsed_seconds": 675.023467,
+      "sum_task_start_to_end_hours": 0.3116354430555555
+    },
+    {
+      "name": "astra-pi05-interventions-dev-20260924-2",
+      "status": "COMPLETED",
+      "pool": "groot-l40s-03",
+      "submit_time": "2026-09-25T06:29:02.630110",
+      "start_time": "2026-09-25T06:29:10.582720",
+      "end_time": "2026-09-25T06:42:09.687830",
+      "source_query_sha256": "2d1222da48ce4889febdaa7a8341d8048a6b7f88636928207cc34dfa72932fdf",
+      "tasks": [
+        {
+          "name": "worker0",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:29:10.582720",
+          "end_time": "2026-09-25T06:39:18.773853",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-3506",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 608.191133
+        },
+        {
+          "name": "worker1",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:29:12.690709",
+          "end_time": "2026-09-25T06:42:09.687830",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-0664",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 776.997121
+        }
+      ],
+      "workflow_elapsed_seconds": 779.10511,
+      "sum_task_start_to_end_hours": 0.38477451500000004
+    },
+    {
+      "name": "astra-pi05-interventions-eval-20260924-1",
+      "status": "COMPLETED",
+      "pool": "groot-l40s-03",
+      "submit_time": "2026-09-25T06:43:02.481684",
+      "start_time": "2026-09-25T06:43:11.134582",
+      "end_time": "2026-09-25T07:41:07.518539",
+      "source_query_sha256": "e237b35f85949b461ca108c6a1201ff7b552252058c6b40dafc334b45ced7b1f",
+      "tasks": [
+        {
+          "name": "worker0",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:43:11.670565",
+          "end_time": "2026-09-25T07:11:24.182352",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-0664",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 1692.511787
+        },
+        {
+          "name": "worker1",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:43:11.134582",
+          "end_time": "2026-09-25T06:49:15.766339",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-5565",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 364.631757
+        },
+        {
+          "name": "worker2",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:43:14.002437",
+          "end_time": "2026-09-25T07:27:42.350335",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-5693",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 2668.347898
+        },
+        {
+          "name": "worker3",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:46:41.346554",
+          "end_time": "2026-09-25T07:41:07.518539",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-9427",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 3266.171985
+        },
+        {
+          "name": "worker4",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:43:15.926948",
+          "end_time": "2026-09-25T07:32:32.662483",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-2428",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 2956.735535
+        },
+        {
+          "name": "worker5",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:43:16.902250",
+          "end_time": "2026-09-25T07:36:35.209558",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-2428",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 3198.307308
+        },
+        {
+          "name": "worker6",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:43:16.182480",
+          "end_time": "2026-09-25T07:31:24.784728",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-3115",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 2888.602248
+        },
+        {
+          "name": "worker7",
+          "status": "COMPLETED",
+          "start_time": "2026-09-25T06:43:19.141866",
+          "end_time": "2026-09-25T07:08:03.242458",
+          "node_name": "osmogroot-dgxc-k8s-forge-az41-prd1-w-3115",
+          "exit_code": 0,
+          "requested_l40s_gpus": 1,
+          "start_to_end_seconds": 1484.100592
+        }
+      ],
+      "workflow_elapsed_seconds": 3476.383957,
+      "sum_task_start_to_end_hours": 5.144280308333332
+    }
+  ],
+  "interpretation": "OSMO task start-to-end windows, with one requested L40S per task. Includes waiting, API calls, recording and upload; excludes time before each task start. These are resource window measurements, not active GPU kernel hours or monetary charges. Task processing timestamps can precede task starts and are not used.",
+  "private_raw_query_files_not_published": true
+}

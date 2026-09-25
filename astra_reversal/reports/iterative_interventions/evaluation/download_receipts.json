@@ -1,0 +1,1949 @@
+{
+  "workflow": "astra-pi05-interventions-eval-20260924-1",
+  "files": {
+    "worker_0/checkpoint.json": {
+      "key": "worker_0/checkpoint.json",
+      "status": "downloaded",
+      "bytes": 3858,
+      "sha256": "62663c53c38900b8bfbbe1ed6d01584b76341b20bdd372eaf459d3621d8cca09",
+      "etag": "\"cfc59cf260659d17ac2a499cc7ad9629\"",
+      "last_modified": "Fri, 25 Sep 2026 06:47:53 GMT"
+    },
+    "worker_0/frozen_plan.json": {
+      "key": "worker_0/frozen_plan.json",
+      "status": "downloaded",
+      "bytes": 919,
+      "sha256": "af92fe6086e0a2889b394a0b66521db9d06e0a8d1f4d9fb32419a10c0fe63c85",
+      "etag": "\"9b98c3ef8a20e4ab8aca13631832ef18\"",
+      "last_modified": "Fri, 25 Sep 2026 06:47:34 GMT"
+    },
+    "worker_0/protocol.json": {
+      "key": "worker_0/protocol.json",
+      "status": "downloaded",
+      "bytes": 2803,
+      "sha256": "b0c8494417577bc3a04d0e9c5da8a4d913f4f443b956e26b8e74189e75cca474",
+      "etag": "\"1e5efa5eadbed9034f95d4e555d50a31\"",
+      "last_modified": "Fri, 25 Sep 2026 06:45:43 GMT"
+    },
+    "worker_0/reset_manifest.json": {
+      "key": "worker_0/reset_manifest.json",
+      "status": "downloaded",
+      "bytes": 89337,
+      "sha256": "de0042de36409fa3b3b6d161e5b6550eeb71b0b4d5ec0191983ec943ea4103fb",
+      "etag": "\"e600f982b8b707fa02fffa168f51159d\"",
+      "last_modified": "Fri, 25 Sep 2026 06:47:34 GMT"
+    },
+    "worker_0/runtime.json": {
+      "key": "worker_0/runtime.json",
+      "status": "downloaded",
+      "bytes": 524,
+      "sha256": "7e0da825bb2aa79757ab874750c39cf73fe9577dd7c03e7373e3bf93c63c5e0b",
+      "etag": "\"34382110e97c2cbecca4bb393f046554\"",
+      "last_modified": "Fri, 25 Sep 2026 06:45:43 GMT"
+    },
+    "worker_1/checkpoint.json": {
+      "key": "worker_1/checkpoint.json",
+      "status": "downloaded",
+      "bytes": 3858,
+      "sha256": "62663c53c38900b8bfbbe1ed6d01584b76341b20bdd372eaf459d3621d8cca09",
+      "etag": "\"cfc59cf260659d17ac2a499cc7ad9629\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:30 GMT"
+    },
+    "worker_1/frozen_plan.json": {
+      "key": "worker_1/frozen_plan.json",
+      "status": "downloaded",
+      "bytes": 919,
+      "sha256": "6d40864107f82571d4284234fc17a01cdf8c6840dc49a855e4f00e5c9abf7d76",
+      "etag": "\"0a1260b3627bc59322d102122be33a0c\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:10 GMT"
+    },
+    "worker_1/protocol.json": {
+      "key": "worker_1/protocol.json",
+      "status": "downloaded",
+      "bytes": 2803,
+      "sha256": "b0c8494417577bc3a04d0e9c5da8a4d913f4f443b956e26b8e74189e75cca474",
+      "etag": "\"1e5efa5eadbed9034f95d4e555d50a31\"",
+      "last_modified": "Fri, 25 Sep 2026 06:44:50 GMT"
+    },
+    "worker_1/reset_manifest.json": {
+      "key": "worker_1/reset_manifest.json",
+      "status": "downloaded",
+      "bytes": 89337,
+      "sha256": "de0042de36409fa3b3b6d161e5b6550eeb71b0b4d5ec0191983ec943ea4103fb",
+      "etag": "\"e600f982b8b707fa02fffa168f51159d\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:10 GMT"
+    },
+    "worker_1/runtime.json": {
+      "key": "worker_1/runtime.json",
+      "status": "downloaded",
+      "bytes": 524,
+      "sha256": "e0ba88e8cffe685bfb1c958bec5c7b4648d00ccbd64189dec5e52bd59c0d86af",
+      "etag": "\"b460948781305ed37248c882fbc92f79\"",
+      "last_modified": "Fri, 25 Sep 2026 06:44:50 GMT"
+    },
+    "worker_2/checkpoint.json": {
+      "key": "worker_2/checkpoint.json",
+      "status": "downloaded",
+      "bytes": 3858,
+      "sha256": "62663c53c38900b8bfbbe1ed6d01584b76341b20bdd372eaf459d3621d8cca09",
+      "etag": "\"cfc59cf260659d17ac2a499cc7ad9629\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:24 GMT"
+    },
+    "worker_2/frozen_plan.json": {
+      "key": "worker_2/frozen_plan.json",
+      "status": "downloaded",
+      "bytes": 876,
+      "sha256": "075ec3a0363885858629e4c9aaa225746d045d67e5796740a4497f8e6caf1d3f",
+      "etag": "\"e9fb50c6124ab4b8b97dfcb97b78e1e1\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:04 GMT"
+    },
+    "worker_2/protocol.json": {
+      "key": "worker_2/protocol.json",
+      "status": "downloaded",
+      "bytes": 2803,
+      "sha256": "b0c8494417577bc3a04d0e9c5da8a4d913f4f443b956e26b8e74189e75cca474",
+      "etag": "\"1e5efa5eadbed9034f95d4e555d50a31\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:17 GMT"
+    },
+    "worker_2/reset_manifest.json": {
+      "key": "worker_2/reset_manifest.json",
+      "status": "downloaded",
+      "bytes": 89337,
+      "sha256": "de0042de36409fa3b3b6d161e5b6550eeb71b0b4d5ec0191983ec943ea4103fb",
+      "etag": "\"e600f982b8b707fa02fffa168f51159d\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:04 GMT"
+    },
+    "worker_2/runtime.json": {
+      "key": "worker_2/runtime.json",
+      "status": "downloaded",
+      "bytes": 524,
+      "sha256": "aa8102533ecb7564db72f0c158f778d0a94d70ff93f31d52a5cefe90f5b4551d",
+      "etag": "\"1664ab8c1ea94a483e45af078cd7e221\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:17 GMT"
+    },
+    "worker_4/checkpoint.json": {
+      "key": "worker_4/checkpoint.json",
+      "status": "downloaded",
+      "bytes": 3858,
+      "sha256": "62663c53c38900b8bfbbe1ed6d01584b76341b20bdd372eaf459d3621d8cca09",
+      "etag": "\"cfc59cf260659d17ac2a499cc7ad9629\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:29 GMT"
+    },
+    "worker_4/frozen_plan.json": {
+      "key": "worker_4/frozen_plan.json",
+      "status": "downloaded",
+      "bytes": 931,
+      "sha256": "3cde446787de29fc72954ac121d25886a1a9aa18db21c0c893d92dbc088cd865",
+      "etag": "\"2cc4a6d23cfa7c75784a8a315348d873\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:08 GMT"
+    },
+    "worker_4/protocol.json": {
+      "key": "worker_4/protocol.json",
+      "status": "downloaded",
+      "bytes": 2803,
+      "sha256": "b0c8494417577bc3a04d0e9c5da8a4d913f4f443b956e26b8e74189e75cca474",
+      "etag": "\"1e5efa5eadbed9034f95d4e555d50a31\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:07 GMT"
+    },
+    "worker_4/reset_manifest.json": {
+      "key": "worker_4/reset_manifest.json",
+      "status": "downloaded",
+      "bytes": 92972,
+      "sha256": "33c96a91ff566181091a28d7e2acd40e281097c772b649b80182cc2080e20df7",
+      "etag": "\"3125ee8d23f4b3cee777d943dcf3094d\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:08 GMT"
+    },
+    "worker_4/runtime.json": {
+      "key": "worker_4/runtime.json",
+      "status": "downloaded",
+      "bytes": 527,
+      "sha256": "03f70b13f39d08dde74464f1b35746ef66dad8cadd79013cd49824645a28a825",
+      "etag": "\"a7d03005e2680535afe71b3e5ec35114\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:07 GMT"
+    },
+    "worker_5/checkpoint.json": {
+      "key": "worker_5/checkpoint.json",
+      "status": "downloaded",
+      "bytes": 3858,
+      "sha256": "62663c53c38900b8bfbbe1ed6d01584b76341b20bdd372eaf459d3621d8cca09",
+      "etag": "\"cfc59cf260659d17ac2a499cc7ad9629\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:41 GMT"
+    },
+    "worker_5/frozen_plan.json": {
+      "key": "worker_5/frozen_plan.json",
+      "status": "downloaded",
+      "bytes": 931,
+      "sha256": "a94192edabd7d4f9c42ed975d154bc20fc12418dedacddcf5d00768e20919539",
+      "etag": "\"55086c233c500ab42219680947e2310b\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:19 GMT"
+    },
+    "worker_5/protocol.json": {
+      "key": "worker_5/protocol.json",
+      "status": "downloaded",
+      "bytes": 2803,
+      "sha256": "b0c8494417577bc3a04d0e9c5da8a4d913f4f443b956e26b8e74189e75cca474",
+      "etag": "\"1e5efa5eadbed9034f95d4e555d50a31\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:12 GMT"
+    },
+    "worker_5/reset_manifest.json": {
+      "key": "worker_5/reset_manifest.json",
+      "status": "downloaded",
+      "bytes": 92972,
+      "sha256": "33c96a91ff566181091a28d7e2acd40e281097c772b649b80182cc2080e20df7",
+      "etag": "\"3125ee8d23f4b3cee777d943dcf3094d\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:19 GMT"
+    },
+    "worker_5/runtime.json": {
+      "key": "worker_5/runtime.json",
+      "status": "downloaded",
+      "bytes": 527,
+      "sha256": "32e37f8dbf05c1776274a5d77f9662c6a12fa48c71e7217c03a8a8c2fb1fea31",
+      "etag": "\"55ea56276d63b30e831691b5fc11b315\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:12 GMT"
+    },
+    "worker_6/checkpoint.json": {
+      "key": "worker_6/checkpoint.json",
+      "status": "downloaded",
+      "bytes": 3858,
+      "sha256": "62663c53c38900b8bfbbe1ed6d01584b76341b20bdd372eaf459d3621d8cca09",
+      "etag": "\"cfc59cf260659d17ac2a499cc7ad9629\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:26 GMT"
+    },
+    "worker_6/frozen_plan.json": {
+      "key": "worker_6/frozen_plan.json",
+      "status": "downloaded",
+      "bytes": 885,
+      "sha256": "d5e83f08e6535783eea9fdcac51df564155c81235d6de608ffaead9067bd6605",
+      "etag": "\"8006558711c8f5beeacf229311afecb1\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:08 GMT"
+    },
+    "worker_6/protocol.json": {
+      "key": "worker_6/protocol.json",
+      "status": "downloaded",
+      "bytes": 2803,
+      "sha256": "b0c8494417577bc3a04d0e9c5da8a4d913f4f443b956e26b8e74189e75cca474",
+      "etag": "\"1e5efa5eadbed9034f95d4e555d50a31\"",
+      "last_modified": "Fri, 25 Sep 2026 06:44:50 GMT"
+    },
+    "worker_6/reset_manifest.json": {
+      "key": "worker_6/reset_manifest.json",
+      "status": "downloaded",
+      "bytes": 92972,
+      "sha256": "33c96a91ff566181091a28d7e2acd40e281097c772b649b80182cc2080e20df7",
+      "etag": "\"3125ee8d23f4b3cee777d943dcf3094d\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:08 GMT"
+    },
+    "worker_6/runtime.json": {
+      "key": "worker_6/runtime.json",
+      "status": "downloaded",
+      "bytes": 527,
+      "sha256": "dbf2ccf88c34ae368ca2b29d8c0ff950a6b91b83c4214103a00c5a428af1ae08",
+      "etag": "\"2fbb3c16c8880defc6ef618a728ac06f\"",
+      "last_modified": "Fri, 25 Sep 2026 06:44:50 GMT"
+    },
+    "worker_7/checkpoint.json": {
+      "key": "worker_7/checkpoint.json",
+      "status": "downloaded",
+      "bytes": 3858,
+      "sha256": "62663c53c38900b8bfbbe1ed6d01584b76341b20bdd372eaf459d3621d8cca09",
+      "etag": "\"cfc59cf260659d17ac2a499cc7ad9629\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:25 GMT"
+    },
+    "worker_7/frozen_plan.json": {
+      "key": "worker_7/frozen_plan.json",
+      "status": "downloaded",
+      "bytes": 885,
+      "sha256": "44178a8cf22b8fdac14583dc65a7a023fca661d01c6ec9615e5a800249fecb7c",
+      "etag": "\"e2047f0d05c8ab111186c9182589f356\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:07 GMT"
+    },
+    "worker_7/protocol.json": {
+      "key": "worker_7/protocol.json",
+      "status": "downloaded",
+      "bytes": 2803,
+      "sha256": "b0c8494417577bc3a04d0e9c5da8a4d913f4f443b956e26b8e74189e75cca474",
+      "etag": "\"1e5efa5eadbed9034f95d4e555d50a31\"",
+      "last_modified": "Fri, 25 Sep 2026 06:44:50 GMT"
+    },
+    "worker_7/reset_manifest.json": {
+      "key": "worker_7/reset_manifest.json",
+      "status": "downloaded",
+      "bytes": 92972,
+      "sha256": "33c96a91ff566181091a28d7e2acd40e281097c772b649b80182cc2080e20df7",
+      "etag": "\"3125ee8d23f4b3cee777d943dcf3094d\"",
+      "last_modified": "Fri, 25 Sep 2026 06:46:07 GMT"
+    },
+    "worker_7/runtime.json": {
+      "key": "worker_7/runtime.json",
+      "status": "downloaded",
+      "bytes": 527,
+      "sha256": "907910d374ff295a0ba06bba1e4033b96d09f6b205d0999293d534fab8411294",
+      "etag": "\"f0300425014b0a456f9469c16031fe4e\"",
+      "last_modified": "Fri, 25 Sep 2026 06:44:50 GMT"
+    },
+    "worker_1/case_1_0/summary.json": {
+      "key": "worker_1/case_1_0/summary.json",
+      "status": "downloaded",
+      "bytes": 51891,
+      "sha256": "046fcefb878601aa9111f1187dc7290b61ba93fc0971904726749105bc1212c7",
+      "etag": "\"d67f2d454c9b6034572fff9556f500e8\"",
+      "last_modified": "Fri, 25 Sep 2026 06:47:12 GMT"
+    },
+    "worker_1/case_5_0/summary.json": {
+      "key": "worker_1/case_5_0/summary.json",
+      "status": "downloaded",
+      "bytes": 51943,
+      "sha256": "d5b92c5aacef5da5fe3f98491549d2c6655e7efc878d68dfcc1993d6f904a800",
+      "etag": "\"5bf5b378e3cd5e00cd3a9924f60f86fa\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:15 GMT"
+    },
+    "worker_1/case_9_0/summary.json": {
+      "key": "worker_1/case_9_0/summary.json",
+      "status": "downloaded",
+      "bytes": 51942,
+      "sha256": "839fcef5fc04a74d5a9aca614fd2da94ba638c5cb6bca6eaeb155705c65e4e35",
+      "etag": "\"f794192ebe115d92e6d69728164e18bf\"",
+      "last_modified": "Fri, 25 Sep 2026 06:49:03 GMT"
+    },
+    "worker_4/case_0_0/summary.json": {
+      "key": "worker_4/case_0_0/summary.json",
+      "status": "downloaded",
+      "bytes": 51969,
+      "sha256": "1f41f891a648074e4921e636f8e6749dfc65ffacd65025034162ac047fd3b55a",
+      "etag": "\"f29697d49f0dbf619ddc8c46ecbbd330\"",
+      "last_modified": "Fri, 25 Sep 2026 06:49:34 GMT"
+    },
+    "worker_5/case_1_0/summary.json": {
+      "key": "worker_5/case_1_0/summary.json",
+      "status": "downloaded",
+      "bytes": 51995,
+      "sha256": "c85f2872fc100265d560b74d471f4076372995ed45cfb2cfa42057dfc6ab273c",
+      "etag": "\"43d51fe3e476e46600dc0f657c5a5fe2\"",
+      "last_modified": "Fri, 25 Sep 2026 06:49:36 GMT"
+    },
+    "worker_7/case_3_0/summary.json": {
+      "key": "worker_7/case_3_0/summary.json",
+      "status": "downloaded",
+      "bytes": 51956,
+      "sha256": "5df89c62417dc31efc125103b2c1295634eca116c5ff34fa6cadb36a5acbed42",
+      "etag": "\"49a72fe7c11c9afa14caa3cce6a62c78\"",
+      "last_modified": "Fri, 25 Sep 2026 06:47:14 GMT"
+    },
+    "worker_1/case_1_0/events.jsonl": {
+      "key": "worker_1/case_1_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 95819,
+      "sha256": "a3ed2549d58c67ed9a28b017e11ea2a627e241db57300e961eb817126387e8e6",
+      "etag": "\"1b24fbfcf41ddc6f780879e8b5d40db4\"",
+      "last_modified": "Fri, 25 Sep 2026 06:47:11 GMT"
+    },
+    "worker_1/case_1_0/joint_provider.jsonl": {
+      "key": "worker_1/case_1_0/joint_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_1_0/language_only_provider.jsonl": {
+      "key": "worker_1/case_1_0/language_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_1_0/language_vision_provider.jsonl": {
+      "key": "worker_1/case_1_0/language_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_1_0/noise_language_provider.jsonl": {
+      "key": "worker_1/case_1_0/noise_language_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_1_0/noise_only_provider.jsonl": {
+      "key": "worker_1/case_1_0/noise_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_1_0/noise_vision_provider.jsonl": {
+      "key": "worker_1/case_1_0/noise_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_1_0/random_noise_provider.jsonl": {
+      "key": "worker_1/case_1_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_1_0/vision_only_provider.jsonl": {
+      "key": "worker_1/case_1_0/vision_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_5_0/events.jsonl": {
+      "key": "worker_1/case_5_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 184392,
+      "sha256": "641382cd9b86d73ab92626e638c66eac5fb0ee77e2aabc546f5c2ddfbc067482",
+      "etag": "\"3f11dfcf68185d997cdac746d18c0874\"",
+      "last_modified": "Fri, 25 Sep 2026 06:48:13 GMT"
+    },
+    "worker_1/case_5_0/joint_provider.jsonl": {
+      "key": "worker_1/case_5_0/joint_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_5_0/language_only_provider.jsonl": {
+      "key": "worker_1/case_5_0/language_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_5_0/language_vision_provider.jsonl": {
+      "key": "worker_1/case_5_0/language_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_5_0/noise_language_provider.jsonl": {
+      "key": "worker_1/case_5_0/noise_language_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_5_0/noise_only_provider.jsonl": {
+      "key": "worker_1/case_5_0/noise_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_5_0/noise_vision_provider.jsonl": {
+      "key": "worker_1/case_5_0/noise_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_5_0/random_noise_provider.jsonl": {
+      "key": "worker_1/case_5_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_5_0/vision_only_provider.jsonl": {
+      "key": "worker_1/case_5_0/vision_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_9_0/events.jsonl": {
+      "key": "worker_1/case_9_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 129749,
+      "sha256": "901ee1dfd0aadccf26a07e4960541acf039ac977a0c9f2f73d7ae61bf8d6550a",
+      "etag": "\"6a0e2b1f8832b72301911f83ec7a2897\"",
+      "last_modified": "Fri, 25 Sep 2026 06:49:01 GMT"
+    },
+    "worker_1/case_9_0/joint_provider.jsonl": {
+      "key": "worker_1/case_9_0/joint_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_9_0/language_only_provider.jsonl": {
+      "key": "worker_1/case_9_0/language_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_9_0/language_vision_provider.jsonl": {
+      "key": "worker_1/case_9_0/language_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_9_0/noise_language_provider.jsonl": {
+      "key": "worker_1/case_9_0/noise_language_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_9_0/noise_only_provider.jsonl": {
+      "key": "worker_1/case_9_0/noise_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_9_0/noise_vision_provider.jsonl": {
+      "key": "worker_1/case_9_0/noise_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_9_0/random_noise_provider.jsonl": {
+      "key": "worker_1/case_9_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/case_9_0/vision_only_provider.jsonl": {
+      "key": "worker_1/case_9_0/vision_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/case_0_0/events.jsonl": {
+      "key": "worker_4/case_0_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 145697,
+      "sha256": "49902f9cb3d1212666af7e1efb825beb370a7a188ad9f7f0bf2c1698bc042bf5",
+      "etag": "\"a8f56ac6981f5b34791b7cadbffa3e88\"",
+      "last_modified": "Fri, 25 Sep 2026 06:49:32 GMT"
+    },
+    "worker_4/case_0_0/joint_provider.jsonl": {
+      "key": "worker_4/case_0_0/joint_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/case_0_0/language_only_provider.jsonl": {
+      "key": "worker_4/case_0_0/language_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/case_0_0/language_vision_provider.jsonl": {
+      "key": "worker_4/case_0_0/language_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/case_0_0/noise_language_provider.jsonl": {
+      "key": "worker_4/case_0_0/noise_language_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/case_0_0/noise_only_provider.jsonl": {
+      "key": "worker_4/case_0_0/noise_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/case_0_0/noise_vision_provider.jsonl": {
+      "key": "worker_4/case_0_0/noise_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/case_0_0/random_noise_provider.jsonl": {
+      "key": "worker_4/case_0_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/case_0_0/vision_only_provider.jsonl": {
+      "key": "worker_4/case_0_0/vision_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/case_1_0/events.jsonl": {
+      "key": "worker_5/case_1_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 113031,
+      "sha256": "fa29fd2ee9815264b3d1b79ddc8006535153050156f7731e9d72d42629ca77be",
+      "etag": "\"a83c920caa02b6649dd853b3572d2f8a\"",
+      "last_modified": "Fri, 25 Sep 2026 06:49:35 GMT"
+    },
+    "worker_5/case_1_0/joint_provider.jsonl": {
+      "key": "worker_5/case_1_0/joint_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/case_1_0/language_only_provider.jsonl": {
+      "key": "worker_5/case_1_0/language_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/case_1_0/language_vision_provider.jsonl": {
+      "key": "worker_5/case_1_0/language_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/case_1_0/noise_language_provider.jsonl": {
+      "key": "worker_5/case_1_0/noise_language_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/case_1_0/noise_only_provider.jsonl": {
+      "key": "worker_5/case_1_0/noise_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/case_1_0/noise_vision_provider.jsonl": {
+      "key": "worker_5/case_1_0/noise_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/case_1_0/random_noise_provider.jsonl": {
+      "key": "worker_5/case_1_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/case_1_0/vision_only_provider.jsonl": {
+      "key": "worker_5/case_1_0/vision_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_7/case_3_0/events.jsonl": {
+      "key": "worker_7/case_3_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 109786,
+      "sha256": "afeb32534553da552d946f4b1e878fa5a8c82f7757cd8fb206aa60e6be776d28",
+      "etag": "\"77bdbf0f9529eb200250b49f829947bd\"",
+      "last_modified": "Fri, 25 Sep 2026 06:47:12 GMT"
+    },
+    "worker_7/case_3_0/joint_provider.jsonl": {
+      "key": "worker_7/case_3_0/joint_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_7/case_3_0/language_only_provider.jsonl": {
+      "key": "worker_7/case_3_0/language_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_7/case_3_0/language_vision_provider.jsonl": {
+      "key": "worker_7/case_3_0/language_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_7/case_3_0/noise_language_provider.jsonl": {
+      "key": "worker_7/case_3_0/noise_language_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_7/case_3_0/noise_only_provider.jsonl": {
+      "key": "worker_7/case_3_0/noise_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_7/case_3_0/noise_vision_provider.jsonl": {
+      "key": "worker_7/case_3_0/noise_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_7/case_3_0/random_noise_provider.jsonl": {
+      "key": "worker_7/case_3_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_7/case_3_0/vision_only_provider.jsonl": {
+      "key": "worker_7/case_3_0/vision_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_3/checkpoint.json": {
+      "key": "worker_3/checkpoint.json",
+      "status": "downloaded",
+      "bytes": 3858,
+      "sha256": "62663c53c38900b8bfbbe1ed6d01584b76341b20bdd372eaf459d3621d8cca09",
+      "etag": "\"cfc59cf260659d17ac2a499cc7ad9629\"",
+      "last_modified": "Fri, 25 Sep 2026 06:53:57 GMT"
+    },
+    "worker_3/frozen_plan.json": {
+      "key": "worker_3/frozen_plan.json",
+      "status": "downloaded",
+      "bytes": 876,
+      "sha256": "380105bb3f583191f5f4d85ef0c955f72d6d2cf40bed41fb4b8ecd816ffd06ad",
+      "etag": "\"0ef9c5e9c02cb5baf7ebafe5c73b94e9\"",
+      "last_modified": "Fri, 25 Sep 2026 06:53:37 GMT"
+    },
+    "worker_3/protocol.json": {
+      "key": "worker_3/protocol.json",
+      "status": "downloaded",
+      "bytes": 2803,
+      "sha256": "b0c8494417577bc3a04d0e9c5da8a4d913f4f443b956e26b8e74189e75cca474",
+      "etag": "\"1e5efa5eadbed9034f95d4e555d50a31\"",
+      "last_modified": "Fri, 25 Sep 2026 06:51:52 GMT"
+    },
+    "worker_3/reset_manifest.json": {
+      "key": "worker_3/reset_manifest.json",
+      "status": "downloaded",
+      "bytes": 89337,
+      "sha256": "de0042de36409fa3b3b6d161e5b6550eeb71b0b4d5ec0191983ec943ea4103fb",
+      "etag": "\"e600f982b8b707fa02fffa168f51159d\"",
+      "last_modified": "Fri, 25 Sep 2026 06:53:36 GMT"
+    },
+    "worker_3/runtime.json": {
+      "key": "worker_3/runtime.json",
+      "status": "downloaded",
+      "bytes": 524,
+      "sha256": "98751db4eec555b406932de65ad34bea328ddcc4eab4ff05985bd399681ee85c",
+      "etag": "\"6d26fc93e2c4202a565779c558dbfd32\"",
+      "last_modified": "Fri, 25 Sep 2026 06:51:52 GMT"
+    },
+    "worker_6/case_2_0/summary.json": {
+      "key": "worker_6/case_2_0/summary.json",
+      "status": "downloaded",
+      "bytes": 198489,
+      "sha256": "4d03f95013a2d35617c0a916b0af52984e1301a6e85b2c667a259ce285c1486d",
+      "etag": "\"bba7d8827936e65109203c3eb51d95db\"",
+      "last_modified": "Fri, 25 Sep 2026 07:06:36 GMT"
+    },
+    "worker_6/case_2_0/events.jsonl": {
+      "key": "worker_6/case_2_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 19507538,
+      "sha256": "62dc3502431ecf2c61f06d3faa6462e73dbf9147b3d94c3658110bd71c1ccbca",
+      "etag": "\"64c4849d3076198f45e7b8c981be66f4-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:06:35 GMT"
+    },
+    "worker_6/case_2_0/joint_provider.jsonl": {
+      "key": "worker_6/case_2_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 18801,
+      "sha256": "7eb44e29f744f624944959412a2f77615aaad081783b6de903a4db8dc85bda1e",
+      "etag": "\"37ebf6ebc04fe798fdb6f1dd9c6f3bd0\"",
+      "last_modified": "Fri, 25 Sep 2026 07:06:34 GMT"
+    },
+    "worker_6/case_2_0/language_only_provider.jsonl": {
+      "key": "worker_6/case_2_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 13772,
+      "sha256": "d23ab1a09db68a7c6173d3d85dc70a4331d0687aa1603c03f6042c867a14d608",
+      "etag": "\"f85724692e97ac23080da9f9088f794a\"",
+      "last_modified": "Fri, 25 Sep 2026 06:54:31 GMT"
+    },
+    "worker_6/case_2_0/language_vision_provider.jsonl": {
+      "key": "worker_6/case_2_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 14404,
+      "sha256": "5d797b7bf88f11f5a432632f82870e923929fb82d75c29dfac14a0def1531224",
+      "etag": "\"c958b083377b6af3a2f449b15e8b7665\"",
+      "last_modified": "Fri, 25 Sep 2026 07:03:53 GMT"
+    },
+    "worker_6/case_2_0/noise_language_provider.jsonl": {
+      "key": "worker_6/case_2_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 14720,
+      "sha256": "1420a707c89b01422412e15cb1695153104c3c381dc10dce4f7cf358d92d58b8",
+      "etag": "\"249e5ca794618d4b76a8b12c6202041f\"",
+      "last_modified": "Fri, 25 Sep 2026 06:59:39 GMT"
+    },
+    "worker_6/case_2_0/noise_only_provider.jsonl": {
+      "key": "worker_6/case_2_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 10170,
+      "sha256": "7fb85ea21a044fba930bef25cc4b2ea1feb5565420bc11197931f73ed3e6ac2d",
+      "etag": "\"171fa646ca15f8f265d61be27116db3d\"",
+      "last_modified": "Fri, 25 Sep 2026 06:52:01 GMT"
+    },
+    "worker_6/case_2_0/noise_vision_provider.jsonl": {
+      "key": "worker_6/case_2_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 12001,
+      "sha256": "cf1a25638b142cf3df19b88008dc82ed2293558cec7740398e126e596bd699e6",
+      "etag": "\"d64f0551445a2b1354307968760c9096\"",
+      "last_modified": "Fri, 25 Sep 2026 07:01:21 GMT"
+    },
+    "worker_6/case_2_0/random_noise_provider.jsonl": {
+      "key": "worker_6/case_2_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_6/case_2_0/vision_only_provider.jsonl": {
+      "key": "worker_6/case_2_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17269,
+      "sha256": "29a998542e61ad6e5d59fc18d10a5ce6fd6472e855d2d72b0423093ddeabaefd",
+      "etag": "\"30fa7ac67da7bc4de299a07cae471c73\"",
+      "last_modified": "Fri, 25 Sep 2026 06:57:11 GMT"
+    },
+    "worker_0/case_0_0/summary.json": {
+      "key": "worker_0/case_0_0/summary.json",
+      "status": "downloaded",
+      "bytes": 199261,
+      "sha256": "90f6e719477667d0a85449bbc1094fc320632d51869a75337a7caa6b8ee35ee8",
+      "etag": "\"42476a6823b4847dd3dbe1de4365ea60\"",
+      "last_modified": "Fri, 25 Sep 2026 07:08:34 GMT"
+    },
+    "worker_0/case_4_0/summary.json": {
+      "key": "worker_0/case_4_0/summary.json",
+      "status": "downloaded",
+      "bytes": 51905,
+      "sha256": "993b7e4cf0a50d47f4a9b2a0c17aa9a58ff302ff0ad7711d0dcadf35da0efe54",
+      "etag": "\"ae541f20ba69a8a2dd51e66f81a0693d\"",
+      "last_modified": "Fri, 25 Sep 2026 07:09:24 GMT"
+    },
+    "worker_0/case_8_0/summary.json": {
+      "key": "worker_0/case_8_0/summary.json",
+      "status": "downloaded",
+      "bytes": 51949,
+      "sha256": "ab0bbc8b240b98d3659847b41d446f27022161bb5581f8f0e1a9b93354a52b56",
+      "etag": "\"f44cfe4bc12082082d08861ff78fc59a\"",
+      "last_modified": "Fri, 25 Sep 2026 07:10:59 GMT"
+    },
+    "worker_2/case_2_0/summary.json": {
+      "key": "worker_2/case_2_0/summary.json",
+      "status": "downloaded",
+      "bytes": 199682,
+      "sha256": "02aacfc85f8df41a200227351018d31688570bdca11e869dba4780959048d139",
+      "etag": "\"402732d64aa990d052061a0f85ea5ff4\"",
+      "last_modified": "Fri, 25 Sep 2026 07:09:12 GMT"
+    },
+    "worker_4/case_4_0/summary.json": {
+      "key": "worker_4/case_4_0/summary.json",
+      "status": "downloaded",
+      "bytes": 198096,
+      "sha256": "dab8d898a046be98182ad3de40770e24191991721c1d085a1ce8918b33f9eb83",
+      "etag": "\"b5e6bed684ae4a3a4edb3cbebd1dde25\"",
+      "last_modified": "Fri, 25 Sep 2026 07:11:21 GMT"
+    },
+    "worker_5/case_5_0/summary.json": {
+      "key": "worker_5/case_5_0/summary.json",
+      "status": "downloaded",
+      "bytes": 196355,
+      "sha256": "14bf2e745517982179955315125b18089d1a7e7728869dcabf642c7ce2987aba",
+      "etag": "\"ef20fb3639e0579941c33e7f629f050b\"",
+      "last_modified": "Fri, 25 Sep 2026 07:11:52 GMT"
+    },
+    "worker_7/case_7_0/summary.json": {
+      "key": "worker_7/case_7_0/summary.json",
+      "status": "downloaded",
+      "bytes": 198185,
+      "sha256": "090eaf41cf8e7d474e5298e95535dc0fb82d75392ce733ac6416cb6f7b8c2070",
+      "etag": "\"cf3da58c664ee28ce1c02b3a4719d524\"",
+      "last_modified": "Fri, 25 Sep 2026 07:07:41 GMT"
+    },
+    "worker_0/case_0_0/events.jsonl": {
+      "key": "worker_0/case_0_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 21705778,
+      "sha256": "91833a39af79993435fc88ca990eba1245034dad7a8ea1bd100d488fb289b3e5",
+      "etag": "\"17dd18f1b8bc6ca998f11cba88149b56-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:08:33 GMT"
+    },
+    "worker_0/case_0_0/joint_provider.jsonl": {
+      "key": "worker_0/case_0_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 19717,
+      "sha256": "4547247e2163b9aa6fcd845b7ab5cd8ad5082b4a101ec2d12afb0c0e1f22de57",
+      "etag": "\"a0202ed611f0b875f322e02fad7ea4b2\"",
+      "last_modified": "Fri, 25 Sep 2026 07:08:34 GMT"
+    },
+    "worker_0/case_0_0/language_only_provider.jsonl": {
+      "key": "worker_0/case_0_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 13445,
+      "sha256": "f88e74701a44cb0f521f8679f24ee0877ed99329f0c2afc259b554ae4158808e",
+      "etag": "\"9a330baeba4c035f6048ea13b65371f6\"",
+      "last_modified": "Fri, 25 Sep 2026 06:55:56 GMT"
+    },
+    "worker_0/case_0_0/language_vision_provider.jsonl": {
+      "key": "worker_0/case_0_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17643,
+      "sha256": "2d8ffdd9d0ee33c338ec20af10acf8ce34e77d93c746527c57dc03ed58c60e71",
+      "etag": "\"04c75b4ee4867c2015cf500c51b4c5a9\"",
+      "last_modified": "Fri, 25 Sep 2026 07:05:31 GMT"
+    },
+    "worker_0/case_0_0/noise_language_provider.jsonl": {
+      "key": "worker_0/case_0_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 14649,
+      "sha256": "48db485b9c47a4c6ebe5508aa4f4641132714f4e74bf354f05cf2812dea9c46d",
+      "etag": "\"af1e86f442d686a1e505d2ab67e2e944\"",
+      "last_modified": "Fri, 25 Sep 2026 07:00:24 GMT"
+    },
+    "worker_0/case_0_0/noise_only_provider.jsonl": {
+      "key": "worker_0/case_0_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 10203,
+      "sha256": "c0de2a7ed20b55774f3ca35889d649aa6f53f29d4445a15c2d83ea0fe43d6ef4",
+      "etag": "\"f6d62ba87a7a443adda7a3a941a99abb\"",
+      "last_modified": "Fri, 25 Sep 2026 06:53:29 GMT"
+    },
+    "worker_0/case_0_0/noise_vision_provider.jsonl": {
+      "key": "worker_0/case_0_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 18090,
+      "sha256": "708b44db6d5dd0ec423ae61ce83e8fc3c98fd964b17985e5f55c6ae47facbf9f",
+      "etag": "\"bdf57d95ae905b01c3d842507b40ddc9\"",
+      "last_modified": "Fri, 25 Sep 2026 07:02:50 GMT"
+    },
+    "worker_0/case_0_0/random_noise_provider.jsonl": {
+      "key": "worker_0/case_0_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_0_0/vision_only_provider.jsonl": {
+      "key": "worker_0/case_0_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 15182,
+      "sha256": "262c7c49bffe00d9d4cccbffee8e88c992071dd8a3a1210e73e38ea6f852b71b",
+      "etag": "\"1722a4d87b0f149f441e480e74d30fe1\"",
+      "last_modified": "Fri, 25 Sep 2026 06:57:50 GMT"
+    },
+    "worker_0/case_4_0/events.jsonl": {
+      "key": "worker_0/case_4_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 103573,
+      "sha256": "69775564095cbeae9e8dc1052ef8663643df39d5791f24da84d6ba9275182e6b",
+      "etag": "\"209449407ec2cde6f4d5f12d79f4cbad\"",
+      "last_modified": "Fri, 25 Sep 2026 07:09:20 GMT"
+    },
+    "worker_0/case_4_0/joint_provider.jsonl": {
+      "key": "worker_0/case_4_0/joint_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_4_0/language_only_provider.jsonl": {
+      "key": "worker_0/case_4_0/language_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_4_0/language_vision_provider.jsonl": {
+      "key": "worker_0/case_4_0/language_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_4_0/noise_language_provider.jsonl": {
+      "key": "worker_0/case_4_0/noise_language_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_4_0/noise_only_provider.jsonl": {
+      "key": "worker_0/case_4_0/noise_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_4_0/noise_vision_provider.jsonl": {
+      "key": "worker_0/case_4_0/noise_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_4_0/random_noise_provider.jsonl": {
+      "key": "worker_0/case_4_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_4_0/vision_only_provider.jsonl": {
+      "key": "worker_0/case_4_0/vision_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_8_0/events.jsonl": {
+      "key": "worker_0/case_8_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 291935,
+      "sha256": "b2bd675c33e38f2c19282dc2c6d9116d45206a95f6cc7b02d582f34c2c0b470e",
+      "etag": "\"739cfc5dfd3e05c3d941af24f84a8491\"",
+      "last_modified": "Fri, 25 Sep 2026 07:10:54 GMT"
+    },
+    "worker_0/case_8_0/joint_provider.jsonl": {
+      "key": "worker_0/case_8_0/joint_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_8_0/language_only_provider.jsonl": {
+      "key": "worker_0/case_8_0/language_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_8_0/language_vision_provider.jsonl": {
+      "key": "worker_0/case_8_0/language_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_8_0/noise_language_provider.jsonl": {
+      "key": "worker_0/case_8_0/noise_language_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_8_0/noise_only_provider.jsonl": {
+      "key": "worker_0/case_8_0/noise_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_8_0/noise_vision_provider.jsonl": {
+      "key": "worker_0/case_8_0/noise_vision_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_8_0/random_noise_provider.jsonl": {
+      "key": "worker_0/case_8_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/case_8_0/vision_only_provider.jsonl": {
+      "key": "worker_0/case_8_0/vision_only_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_2/case_2_0/events.jsonl": {
+      "key": "worker_2/case_2_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 19992376,
+      "sha256": "34593daf56139980abbf026562680a871c16f8c2559e83f52bcabec83bf743f6",
+      "etag": "\"1cb94d8b53c3c572a4adbf90aed77a0c-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:09:11 GMT"
+    },
+    "worker_2/case_2_0/joint_provider.jsonl": {
+      "key": "worker_2/case_2_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 18006,
+      "sha256": "da47f8563bc9196305048eacbb56dbef66e4af1feba20f035f1e7c1689ca872c",
+      "etag": "\"564349ccc65a2392c9c79c55e4bde1b0\"",
+      "last_modified": "Fri, 25 Sep 2026 07:09:11 GMT"
+    },
+    "worker_2/case_2_0/language_only_provider.jsonl": {
+      "key": "worker_2/case_2_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 14925,
+      "sha256": "f2e6ac9aa3ce35a10dd4728c5467283a738d8d353ab80e0f4de2dcdbdf64c6e3",
+      "etag": "\"7a8c45217e18262175f68a0c113d20e9\"",
+      "last_modified": "Fri, 25 Sep 2026 06:56:26 GMT"
+    },
+    "worker_2/case_2_0/language_vision_provider.jsonl": {
+      "key": "worker_2/case_2_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16196,
+      "sha256": "2df4c457edff341970b725776a87e7e03f37499ab3babb09a58a8b92e9f1bd05",
+      "etag": "\"a0cee85f5f62c69b215f5d40e6c9b361\"",
+      "last_modified": "Fri, 25 Sep 2026 07:06:32 GMT"
+    },
+    "worker_2/case_2_0/noise_language_provider.jsonl": {
+      "key": "worker_2/case_2_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 14304,
+      "sha256": "f45c82834313abbe68b3151d803ce403454253cf094bc8dfe26780c9261c276c",
+      "etag": "\"3e8e821614aa80fd5d30ff8b8c5a4f7b\"",
+      "last_modified": "Fri, 25 Sep 2026 07:00:53 GMT"
+    },
+    "worker_2/case_2_0/noise_only_provider.jsonl": {
+      "key": "worker_2/case_2_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 10014,
+      "sha256": "d7d702e5ad1a09c75c749992ae7b5dea046dd792713996d20aa6da89dab094a9",
+      "etag": "\"dbcb309671794925da3b07366ac0fe07\"",
+      "last_modified": "Fri, 25 Sep 2026 06:54:05 GMT"
+    },
+    "worker_2/case_2_0/noise_vision_provider.jsonl": {
+      "key": "worker_2/case_2_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17605,
+      "sha256": "afb02d17cbdc11b2b08cd1346f4cb62266416a9218c469354f959fd12ae67a80",
+      "etag": "\"32b9da8dddb21280b89805977166e800\"",
+      "last_modified": "Fri, 25 Sep 2026 07:04:04 GMT"
+    },
+    "worker_2/case_2_0/random_noise_provider.jsonl": {
+      "key": "worker_2/case_2_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_2/case_2_0/vision_only_provider.jsonl": {
+      "key": "worker_2/case_2_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17477,
+      "sha256": "b6e5d4e8c6301138736605952033561a4dd1ccfa9d3ffa08e2b42dae96a245b4",
+      "etag": "\"5471c2fe5d6070221e1b86b4d90cee0c\"",
+      "last_modified": "Fri, 25 Sep 2026 06:58:50 GMT"
+    },
+    "worker_4/case_4_0/events.jsonl": {
+      "key": "worker_4/case_4_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 20694983,
+      "sha256": "90160bb825bb86c2319875229a08438e4a1ebbf729edcf0bf09ab86218def10b",
+      "etag": "\"4c57299ed61737a2a18160f1066298a7-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:11:20 GMT"
+    },
+    "worker_4/case_4_0/joint_provider.jsonl": {
+      "key": "worker_4/case_4_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 18589,
+      "sha256": "eeafc6573288a27a823aa6cc5de9a3c8f29a1b9197a94603aedb12f98805795e",
+      "etag": "\"a64525eabcc658d30e1abac3be6bba81\"",
+      "last_modified": "Fri, 25 Sep 2026 07:11:20 GMT"
+    },
+    "worker_4/case_4_0/language_only_provider.jsonl": {
+      "key": "worker_4/case_4_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 13360,
+      "sha256": "f744426764fa8f4f27666bbdd308b2894df3197faf35dc379b19d3714229bb02",
+      "etag": "\"55c56fd28e3e103990ab43a28f911fae\"",
+      "last_modified": "Fri, 25 Sep 2026 06:57:28 GMT"
+    },
+    "worker_4/case_4_0/language_vision_provider.jsonl": {
+      "key": "worker_4/case_4_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17152,
+      "sha256": "0d67924b1a8c747d291d5104a4733d41a8b5f3e38f7b2879c9ba10bf8757d4f8",
+      "etag": "\"72804555da1732e7dccc0827bc593128\"",
+      "last_modified": "Fri, 25 Sep 2026 07:08:17 GMT"
+    },
+    "worker_4/case_4_0/noise_language_provider.jsonl": {
+      "key": "worker_4/case_4_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17243,
+      "sha256": "12588e70eb2977797c988c69b96d127d2d948cb7af7adea55c42a15089cd3e5a",
+      "etag": "\"67234d3d47351514e522eb26d814f1fa\"",
+      "last_modified": "Fri, 25 Sep 2026 07:02:41 GMT"
+    },
+    "worker_4/case_4_0/noise_only_provider.jsonl": {
+      "key": "worker_4/case_4_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 9897,
+      "sha256": "ffdc40c146057b13a2bb37e540e7e279593ac38fd8da8342aa9d43762790b709",
+      "etag": "\"04a35a249024217e1eb695711b5437c4\"",
+      "last_modified": "Fri, 25 Sep 2026 06:55:24 GMT"
+    },
+    "worker_4/case_4_0/noise_vision_provider.jsonl": {
+      "key": "worker_4/case_4_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17108,
+      "sha256": "9067cc38ab9a61de73cc30b58f6757e5daa0867f9d103c802653978b50b4fe1b",
+      "etag": "\"55ab70e2683f544c768f374a40c5e72e\"",
+      "last_modified": "Fri, 25 Sep 2026 07:05:27 GMT"
+    },
+    "worker_4/case_4_0/random_noise_provider.jsonl": {
+      "key": "worker_4/case_4_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/case_4_0/vision_only_provider.jsonl": {
+      "key": "worker_4/case_4_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 15336,
+      "sha256": "61539dc25e715c184c37e17c909a0cd32dd7e8e6ae24e12cf3262cc4a16a2283",
+      "etag": "\"7b96ee6b890dfcff6522b64973698b2f\"",
+      "last_modified": "Fri, 25 Sep 2026 07:00:04 GMT"
+    },
+    "worker_5/case_5_0/events.jsonl": {
+      "key": "worker_5/case_5_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 20783561,
+      "sha256": "68847ecbf4fd12b94a3df8a05da45fbbddf3516cadaf227b414a6942f0eda3a3",
+      "etag": "\"9566a81c923a3ccdf42ea4e0744ff983-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:11:51 GMT"
+    },
+    "worker_5/case_5_0/joint_provider.jsonl": {
+      "key": "worker_5/case_5_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 19984,
+      "sha256": "075dd56166370041f3d9bd451549d243b055b5396750ec1db55f22c76df4f49c",
+      "etag": "\"2c4f64549f7e9d821aa1a3f1cea5735a\"",
+      "last_modified": "Fri, 25 Sep 2026 07:11:51 GMT"
+    },
+    "worker_5/case_5_0/language_only_provider.jsonl": {
+      "key": "worker_5/case_5_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16851,
+      "sha256": "d7763920156f9de437e68263a03ef2e7f3ff7e1309476e92697f70d02f5bcd3b",
+      "etag": "\"c19b952d93bb173dfb582b60d88baaa6\"",
+      "last_modified": "Fri, 25 Sep 2026 06:58:07 GMT"
+    },
+    "worker_5/case_5_0/language_vision_provider.jsonl": {
+      "key": "worker_5/case_5_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17928,
+      "sha256": "0efae28fc25a49cdbcf278f295072a1397bcdb1a416520c0ba04afc741788017",
+      "etag": "\"5b3f7e8f89db5bd3253248daeb959ab2\"",
+      "last_modified": "Fri, 25 Sep 2026 07:08:51 GMT"
+    },
+    "worker_5/case_5_0/noise_language_provider.jsonl": {
+      "key": "worker_5/case_5_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16946,
+      "sha256": "1dd6d0f500e887c158b55791c81315e3e1100b5c6ddaca7532770f3d30a3312c",
+      "etag": "\"6ad910ca6137a33d1e917692f9f186fd\"",
+      "last_modified": "Fri, 25 Sep 2026 07:03:20 GMT"
+    },
+    "worker_5/case_5_0/noise_only_provider.jsonl": {
+      "key": "worker_5/case_5_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 9771,
+      "sha256": "6d437a674585e6f2c7aaca3cc78407fecd2a50a942877ea42f664183b3cf482b",
+      "etag": "\"38a3167c22afa5519967dda0044fb5ee\"",
+      "last_modified": "Fri, 25 Sep 2026 06:55:40 GMT"
+    },
+    "worker_5/case_5_0/noise_vision_provider.jsonl": {
+      "key": "worker_5/case_5_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 15202,
+      "sha256": "eb76611e35a2334b1c6bcc51ef0d57e6aeacae3950d25becd4693e55c4eb0aac",
+      "etag": "\"f1591cd17b53b30829e87f4c5212f660\"",
+      "last_modified": "Fri, 25 Sep 2026 07:05:52 GMT"
+    },
+    "worker_5/case_5_0/random_noise_provider.jsonl": {
+      "key": "worker_5/case_5_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/case_5_0/vision_only_provider.jsonl": {
+      "key": "worker_5/case_5_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16749,
+      "sha256": "c1708913dffd7a48fbac7640509045fe8d08c9aca114361aed831794637bb27f",
+      "etag": "\"dbb680559c07c21c1b031a05471279d2\"",
+      "last_modified": "Fri, 25 Sep 2026 07:00:41 GMT"
+    },
+    "worker_7/case_7_0/events.jsonl": {
+      "key": "worker_7/case_7_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 19765490,
+      "sha256": "46c7600bb15d94881d8f4611fc6ddba8791c0e9b4f08dc2efcd7a132da310f5b",
+      "etag": "\"abb41e9b680e24cf026338e0e7e9310b-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:07:40 GMT"
+    },
+    "worker_7/case_7_0/joint_provider.jsonl": {
+      "key": "worker_7/case_7_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 19357,
+      "sha256": "83c8bd156a9264802df6ca22df7252e67b4ad1d2883cbe59779419d2fbd46fed",
+      "etag": "\"9ea45539b6da21f88e2778cd7461e3b6\"",
+      "last_modified": "Fri, 25 Sep 2026 07:07:38 GMT"
+    },
+    "worker_7/case_7_0/language_only_provider.jsonl": {
+      "key": "worker_7/case_7_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16338,
+      "sha256": "3f3eec4eaf0d95e3092771cbce35511275b71604c339ca27c0c8d19558caf920",
+      "etag": "\"462515c33ae5224512087f0ca5979c33\"",
+      "last_modified": "Fri, 25 Sep 2026 06:55:08 GMT"
+    },
+    "worker_7/case_7_0/language_vision_provider.jsonl": {
+      "key": "worker_7/case_7_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 18163,
+      "sha256": "65fb95b8e3ac22a653ea1dbabf95acfdd015febc9fae707cc32d2de1a7354cf9",
+      "etag": "\"babda1223c44cacecb63b763afc13a9d\"",
+      "last_modified": "Fri, 25 Sep 2026 07:04:43 GMT"
+    },
+    "worker_7/case_7_0/noise_language_provider.jsonl": {
+      "key": "worker_7/case_7_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 18194,
+      "sha256": "9e7f98fa9aeb4a400f0696dfd28c32d427abd218f54783da84eefd024380f591",
+      "etag": "\"3bb7835137473dc0911df92eb8dbba5b\"",
+      "last_modified": "Fri, 25 Sep 2026 06:59:39 GMT"
+    },
+    "worker_7/case_7_0/noise_only_provider.jsonl": {
+      "key": "worker_7/case_7_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 9865,
+      "sha256": "5a474fca054e3b20e71ac7182a5ba868e104d56755387c06e4fd61e249441809",
+      "etag": "\"d0e6f49a1d6b020d0f27cdd9abe217af\"",
+      "last_modified": "Fri, 25 Sep 2026 06:52:43 GMT"
+    },
+    "worker_7/case_7_0/noise_vision_provider.jsonl": {
+      "key": "worker_7/case_7_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16797,
+      "sha256": "d5522ac6353d47a72646a31a6d9f3c7d2017a0683bd71b963ea18089e2897a90",
+      "etag": "\"dc64fbbd19b733208dce8683fd95e3ec\"",
+      "last_modified": "Fri, 25 Sep 2026 07:02:12 GMT"
+    },
+    "worker_7/case_7_0/random_noise_provider.jsonl": {
+      "key": "worker_7/case_7_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_7/case_7_0/vision_only_provider.jsonl": {
+      "key": "worker_7/case_7_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17586,
+      "sha256": "4dfe483a96f66a748ffbf94421d7ba9b8883e57dc9aab20b4eab1632b6ff1441",
+      "etag": "\"283809db231ef5a572d2641e4ba935f9\"",
+      "last_modified": "Fri, 25 Sep 2026 06:57:34 GMT"
+    },
+    "worker_3/case_3_0/summary.json": {
+      "key": "worker_3/case_3_0/summary.json",
+      "status": "downloaded",
+      "bytes": 201780,
+      "sha256": "8f58c3f7169213ec3dd3d00fd8c3f1bb558451d4f5dd0371ef6a5eb38d49331a",
+      "etag": "\"08a647868f6b50aee57bd3cbf99535a2\"",
+      "last_modified": "Fri, 25 Sep 2026 07:16:23 GMT"
+    },
+    "worker_3/case_3_0/events.jsonl": {
+      "key": "worker_3/case_3_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 19436710,
+      "sha256": "5d904cfc42280d6e4ed2be3a490d50216f43c40da5101641288d474a3cc84ef9",
+      "etag": "\"2f7d32ff52b1087630e4a7e953139c5f-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:16:21 GMT"
+    },
+    "worker_3/case_3_0/joint_provider.jsonl": {
+      "key": "worker_3/case_3_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16623,
+      "sha256": "e91b71be7a00092b3f985b33cb0068c65706be2f25f7dba0826b6e3999efd02b",
+      "etag": "\"0aec0e26e42316cc57642522d9b76e95\"",
+      "last_modified": "Fri, 25 Sep 2026 07:16:22 GMT"
+    },
+    "worker_3/case_3_0/language_only_provider.jsonl": {
+      "key": "worker_3/case_3_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 15412,
+      "sha256": "c16f9026a8382386109015b658478282542047e661fb533db85a2b732ac63702",
+      "etag": "\"d57a553ffc106521b288e0c3f78b24a1\"",
+      "last_modified": "Fri, 25 Sep 2026 07:02:36 GMT"
+    },
+    "worker_3/case_3_0/language_vision_provider.jsonl": {
+      "key": "worker_3/case_3_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17896,
+      "sha256": "3ab315f31b2028c53cca7ad1a93c11f443890a6531a57d6441667c4c4c173cf6",
+      "etag": "\"968dcc2fcf2012ab30aab8b413c5650f\"",
+      "last_modified": "Fri, 25 Sep 2026 07:13:11 GMT"
+    },
+    "worker_3/case_3_0/noise_language_provider.jsonl": {
+      "key": "worker_3/case_3_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 15779,
+      "sha256": "59a9c7a0c806ff797529aa90880a2d59388ade4d86c19fd5a6a63d71ce83954a",
+      "etag": "\"3ca030c4ce08ccbbd347f2264710fff6\"",
+      "last_modified": "Fri, 25 Sep 2026 07:07:37 GMT"
+    },
+    "worker_3/case_3_0/noise_only_provider.jsonl": {
+      "key": "worker_3/case_3_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 10000,
+      "sha256": "5e50186d14286aaea6de2c014e6c40f95b06cd67c88d6075cdbb35fa5d7b3b36",
+      "etag": "\"8c9fb3ae9430585cf049381e48d49baf\"",
+      "last_modified": "Fri, 25 Sep 2026 06:59:39 GMT"
+    },
+    "worker_3/case_3_0/noise_vision_provider.jsonl": {
+      "key": "worker_3/case_3_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17435,
+      "sha256": "95dca10539d7005e73b9d6b61043047e90ab08ed9ac7087f78def45dad26ac66",
+      "etag": "\"3b7818db2d4e3422ba52a39e1e9bed59\"",
+      "last_modified": "Fri, 25 Sep 2026 07:10:14 GMT"
+    },
+    "worker_3/case_3_0/random_noise_provider.jsonl": {
+      "key": "worker_3/case_3_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_3/case_3_0/vision_only_provider.jsonl": {
+      "key": "worker_3/case_3_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17090,
+      "sha256": "861dacfe1464f713794a7f1954116ca018e48d9db7f2c96957c5641bd32fbe9d",
+      "etag": "\"16000fd6095ff23bac80d30aa3a161c7\"",
+      "last_modified": "Fri, 25 Sep 2026 07:05:01 GMT"
+    },
+    "worker_2/case_6_0/summary.json": {
+      "key": "worker_2/case_6_0/summary.json",
+      "status": "downloaded",
+      "bytes": 171049,
+      "sha256": "77cfdd74db1e5e0c719c932f47b267f7d741cdf294875e2085a772e1b8ae7114",
+      "etag": "\"86869ed268513379fcfc8e1797805310\"",
+      "last_modified": "Fri, 25 Sep 2026 07:26:11 GMT"
+    },
+    "worker_2/case_6_0/events.jsonl": {
+      "key": "worker_2/case_6_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 14109232,
+      "sha256": "204c4d478ab1eeb35c1dd2a46b52c024232e31022fc0afe42ab4641a8d8cc087",
+      "etag": "\"0e83f7df2ef53f8e4de8ae00324c1416-2\"",
+      "last_modified": "Fri, 25 Sep 2026 07:26:09 GMT"
+    },
+    "worker_2/case_6_0/joint_provider.jsonl": {
+      "key": "worker_2/case_6_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17032,
+      "sha256": "930cc5a5e0eebec687d76b29ab97afc34cbc1008e5eb0b29c0e909dd65b296a7",
+      "etag": "\"6eeb3444dc1655121b00a2571c0f7c74\"",
+      "last_modified": "Fri, 25 Sep 2026 07:26:10 GMT"
+    },
+    "worker_2/case_6_0/language_only_provider.jsonl": {
+      "key": "worker_2/case_6_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 2367,
+      "sha256": "66de9e6e4a98293777902c990fd6a064cdefdad5dec48c2b6a45fec59ed38aa9",
+      "etag": "\"e0d7cdc792df5cf2788fa755d3a8f56c\"",
+      "last_modified": "Fri, 25 Sep 2026 07:15:16 GMT"
+    },
+    "worker_2/case_6_0/language_vision_provider.jsonl": {
+      "key": "worker_2/case_6_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 11962,
+      "sha256": "020e0a7a7c7f26be12b819540f01cb6c4c6d4ddb5c4155571ca873fbaf2f5812",
+      "etag": "\"c253d5b4250aea17a1084e10759f1bb5\"",
+      "last_modified": "Fri, 25 Sep 2026 07:23:26 GMT"
+    },
+    "worker_2/case_6_0/noise_language_provider.jsonl": {
+      "key": "worker_2/case_6_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 2492,
+      "sha256": "9a2dc23a3d1091de7789739353920b9ac8e27db359f110e99e57d251cf7043fc",
+      "etag": "\"d63580fadb820c7cf6115fdb52def4fb\"",
+      "last_modified": "Fri, 25 Sep 2026 07:18:23 GMT"
+    },
+    "worker_2/case_6_0/noise_only_provider.jsonl": {
+      "key": "worker_2/case_6_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 9894,
+      "sha256": "703ac52d76aa602f5e4cbddf6a5e872ca0c9657b93fb6202c7ae4d91ab45629a",
+      "etag": "\"3d8d61d8695d5a4e812ff3861652c9cc\"",
+      "last_modified": "Fri, 25 Sep 2026 07:14:56 GMT"
+    },
+    "worker_2/case_6_0/noise_vision_provider.jsonl": {
+      "key": "worker_2/case_6_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 13986,
+      "sha256": "4ff8638e76ac7e77bbd0b1ce9efd79ca60291b4008690b4811598d95e668818d",
+      "etag": "\"217609ff8b1fe70a8eede414c5091bd2\"",
+      "last_modified": "Fri, 25 Sep 2026 07:21:48 GMT"
+    },
+    "worker_2/case_6_0/random_noise_provider.jsonl": {
+      "key": "worker_2/case_6_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_2/case_6_0/vision_only_provider.jsonl": {
+      "key": "worker_2/case_6_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 13591,
+      "sha256": "6344995317854c15556f838f969455da5ec8e28ad55397165185859472da2b5b",
+      "etag": "\"fab80f28ee14ede3edb7fa16960e02ca\"",
+      "last_modified": "Fri, 25 Sep 2026 07:17:53 GMT"
+    },
+    "worker_6/case_6_0/summary.json": {
+      "key": "worker_6/case_6_0/summary.json",
+      "status": "downloaded",
+      "bytes": 199655,
+      "sha256": "14eb388968d515408dd0c62a64e03ff941ab0a6065220c930ff26dc04918c54b",
+      "etag": "\"4eec8d9afe1752ea28dd62addc4bdee2\"",
+      "last_modified": "Fri, 25 Sep 2026 07:30:51 GMT"
+    },
+    "worker_6/case_6_0/events.jsonl": {
+      "key": "worker_6/case_6_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 20273281,
+      "sha256": "1332f710dac73873c6fd3bf6f0a840f946d44877c369f831b05c7da3f6487d29",
+      "etag": "\"064e7b94d9b2e67cdcccbb3d1e1aaa05-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:30:49 GMT"
+    },
+    "worker_6/case_6_0/joint_provider.jsonl": {
+      "key": "worker_6/case_6_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 18077,
+      "sha256": "9b158de096c2cb7b22bda67bc2b9e9a77dacc0bcb9bb7d62c015b30a521f27b4",
+      "etag": "\"da41c125f373ade21b48354e5fe8e1a2\"",
+      "last_modified": "Fri, 25 Sep 2026 07:30:48 GMT"
+    },
+    "worker_6/case_6_0/language_only_provider.jsonl": {
+      "key": "worker_6/case_6_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17126,
+      "sha256": "0113b26f065ae539a09776500f7a835d6be7f1e9b08708e49846b3044aa9b517",
+      "etag": "\"9514d402313c4e47f39be2d56885e0ac\"",
+      "last_modified": "Fri, 25 Sep 2026 07:14:45 GMT"
+    },
+    "worker_6/case_6_0/language_vision_provider.jsonl": {
+      "key": "worker_6/case_6_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16988,
+      "sha256": "37a9bdf8fdf702d252b39c20198f492db10f115d1bc7e801f00776f07a459999",
+      "etag": "\"76d43a0ceb1bf97b752f17639aa1f8b3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:27:41 GMT"
+    },
+    "worker_6/case_6_0/noise_language_provider.jsonl": {
+      "key": "worker_6/case_6_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17713,
+      "sha256": "d9b2188ba8ab613770d1bf89937a6df07cdad4da084c05dbdb620e65e94ab18b",
+      "etag": "\"61b56e6dd1ecbef6ffa0b98793321b0b\"",
+      "last_modified": "Fri, 25 Sep 2026 07:21:10 GMT"
+    },
+    "worker_6/case_6_0/noise_only_provider.jsonl": {
+      "key": "worker_6/case_6_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 9993,
+      "sha256": "6a48924e3d9330c3fcbecff3491da54f3ba82ec467245cf028e70e0029c6d1e8",
+      "etag": "\"fdfbdb832f64e0edcccfc1b2541e753b\"",
+      "last_modified": "Fri, 25 Sep 2026 07:12:03 GMT"
+    },
+    "worker_6/case_6_0/noise_vision_provider.jsonl": {
+      "key": "worker_6/case_6_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17191,
+      "sha256": "63462e08923d6f79f115ef40bcd1d9a5b2da0f07da8df4d8b4d5b5c3f81c203d",
+      "etag": "\"df253d7a16b2211669789f9a64ae1653\"",
+      "last_modified": "Fri, 25 Sep 2026 07:23:52 GMT"
+    },
+    "worker_6/case_6_0/random_noise_provider.jsonl": {
+      "key": "worker_6/case_6_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_6/case_6_0/vision_only_provider.jsonl": {
+      "key": "worker_6/case_6_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17844,
+      "sha256": "3ea6e8b760f6f5083998a7131e223a0538405d4f40f840b826c5c63d9c8c11ac",
+      "etag": "\"4224536535b42df06ed4a45c8db60b04\"",
+      "last_modified": "Fri, 25 Sep 2026 07:18:23 GMT"
+    },
+    "worker_4/case_8_0/summary.json": {
+      "key": "worker_4/case_8_0/summary.json",
+      "status": "downloaded",
+      "bytes": 180815,
+      "sha256": "6b5d95f2c5ee82fe8579c71fcf13fbc0b38d6c052bd5f9f40c0d51359f07ad44",
+      "etag": "\"0b93e0ebf9c4adb0557c9e67c95e7959\"",
+      "last_modified": "Fri, 25 Sep 2026 07:31:58 GMT"
+    },
+    "worker_4/case_8_0/events.jsonl": {
+      "key": "worker_4/case_8_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 17398689,
+      "sha256": "66326c601773e5212ea1576507b9f7581572b6b427b8c99bcc8c2db1e89d4611",
+      "etag": "\"6bad1b6b6c36f54a6e0b1307edb27c0c-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:31:57 GMT"
+    },
+    "worker_4/case_8_0/joint_provider.jsonl": {
+      "key": "worker_4/case_8_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16636,
+      "sha256": "e5036116d2cc2bd005b46a20c092f87ff58df266d6cc61eb496b8b92accdb9ff",
+      "etag": "\"dfb74bd3c10451b8ac19cb551db0b1cf\"",
+      "last_modified": "Fri, 25 Sep 2026 07:31:57 GMT"
+    },
+    "worker_4/case_8_0/language_only_provider.jsonl": {
+      "key": "worker_4/case_8_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 15593,
+      "sha256": "2e51a5b60c8f31aca5dbb72de5beb936dee56ac80c4b4af0dfdb6a4dd72ba184",
+      "etag": "\"dcefa45d5c8ac178f32db4cd52712ab7\"",
+      "last_modified": "Fri, 25 Sep 2026 07:18:21 GMT"
+    },
+    "worker_4/case_8_0/language_vision_provider.jsonl": {
+      "key": "worker_4/case_8_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16370,
+      "sha256": "45914e96603abfbb3987606a9f5e645fc96f2c192555c5e2b86821c563a9341b",
+      "etag": "\"47d32aef7127635d0ba579a2dafe8534\"",
+      "last_modified": "Fri, 25 Sep 2026 07:28:05 GMT"
+    },
+    "worker_4/case_8_0/noise_language_provider.jsonl": {
+      "key": "worker_4/case_8_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 14251,
+      "sha256": "1c76ec760ac481ce6cad5657519a75c792ac9722d68d3ed714ce17eceddd6b7d",
+      "etag": "\"c3fbb15312f05cdc2cbfad283cc1324f\"",
+      "last_modified": "Fri, 25 Sep 2026 07:22:25 GMT"
+    },
+    "worker_4/case_8_0/noise_only_provider.jsonl": {
+      "key": "worker_4/case_8_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 4907,
+      "sha256": "66cc55af921907843f929dda605c0d605c4669be231505acd755840e9a169a41",
+      "etag": "\"d90a99d61638ef3d75c7671733116975\"",
+      "last_modified": "Fri, 25 Sep 2026 07:15:35 GMT"
+    },
+    "worker_4/case_8_0/noise_vision_provider.jsonl": {
+      "key": "worker_4/case_8_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 15446,
+      "sha256": "f3ec4e4d425300a5e17e5aa00218e3ce6f027cca26a0c25a2aa2b7e229f52fad",
+      "etag": "\"31afcbf06bbcb0f48fb05586eba6de4c\"",
+      "last_modified": "Fri, 25 Sep 2026 07:25:07 GMT"
+    },
+    "worker_4/case_8_0/random_noise_provider.jsonl": {
+      "key": "worker_4/case_8_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/case_8_0/vision_only_provider.jsonl": {
+      "key": "worker_4/case_8_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 2326,
+      "sha256": "0f952c999908fbcc08a0a1b9e3c3a0b747ac91e969a31b91c04ce0b7d25263f0",
+      "etag": "\"03505f8f6fc3767af0147290dc5bce8c\"",
+      "last_modified": "Fri, 25 Sep 2026 07:18:42 GMT"
+    },
+    "worker_5/case_9_0/summary.json": {
+      "key": "worker_5/case_9_0/summary.json",
+      "status": "downloaded",
+      "bytes": 197855,
+      "sha256": "9873153b07176ad9e1623e9ad375e98402d249fecc2f3fed6b319336ae71557f",
+      "etag": "\"cf703b5666e90423613330703a3bb0c8\"",
+      "last_modified": "Fri, 25 Sep 2026 07:35:58 GMT"
+    },
+    "worker_5/case_9_0/events.jsonl": {
+      "key": "worker_5/case_9_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 21527334,
+      "sha256": "9d6b84316043aea35f7faa3e0c055f2bcf8aa1236407bf2f361b1d4b0dd1a339",
+      "etag": "\"30d1e875908ed0d222cbf88273302afc-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:35:56 GMT"
+    },
+    "worker_5/case_9_0/joint_provider.jsonl": {
+      "key": "worker_5/case_9_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17733,
+      "sha256": "caa985b0a714d12191ce05e3b2f942581af1b5ad83d1aa14f69705b9d9355ccc",
+      "etag": "\"1ba85641b57c8bc728758e5d5176dbdd\"",
+      "last_modified": "Fri, 25 Sep 2026 07:35:56 GMT"
+    },
+    "worker_5/case_9_0/language_only_provider.jsonl": {
+      "key": "worker_5/case_9_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 13677,
+      "sha256": "006a2644625eefd79e6fe8719441ef09f6b787cf37c5c199561cf4b2d24532f3",
+      "etag": "\"85f954771cf0eef471ffe4fe2f9eba8c\"",
+      "last_modified": "Fri, 25 Sep 2026 07:20:43 GMT"
+    },
+    "worker_5/case_9_0/language_vision_provider.jsonl": {
+      "key": "worker_5/case_9_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17125,
+      "sha256": "0fd725ebef5f9816653ab1bb1d298ad6c15de894a1d4c223a3c39c73c5116503",
+      "etag": "\"06d1cd28f576db969cfe16621cc7ec0a\"",
+      "last_modified": "Fri, 25 Sep 2026 07:32:58 GMT"
+    },
+    "worker_5/case_9_0/noise_language_provider.jsonl": {
+      "key": "worker_5/case_9_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 13895,
+      "sha256": "da4c2a5a89c7a418ee05eb5d624145f61ada6bdefb3445b62b3ef8136c55df96",
+      "etag": "\"60c7333b9a4f7a0bdbbf2d474dae642f\"",
+      "last_modified": "Fri, 25 Sep 2026 07:26:58 GMT"
+    },
+    "worker_5/case_9_0/noise_only_provider.jsonl": {
+      "key": "worker_5/case_9_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 10057,
+      "sha256": "e52e93e35de733f3040ba8380877d64a79683282e7317c6a8a94aea1825b9073",
+      "etag": "\"d1bdf6ecb90e8f7392341e0940a56440\"",
+      "last_modified": "Fri, 25 Sep 2026 07:18:01 GMT"
+    },
+    "worker_5/case_9_0/noise_vision_provider.jsonl": {
+      "key": "worker_5/case_9_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 15243,
+      "sha256": "9fc5664801c8f6dc57dd192ca652c93e8c2c910d4922c026744470ed76860115",
+      "etag": "\"88eb24356ced52275966ee866f4e1239\"",
+      "last_modified": "Fri, 25 Sep 2026 07:29:09 GMT"
+    },
+    "worker_5/case_9_0/random_noise_provider.jsonl": {
+      "key": "worker_5/case_9_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/case_9_0/vision_only_provider.jsonl": {
+      "key": "worker_5/case_9_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 13190,
+      "sha256": "8d39d5dea47d55a4a672024e1bfdfcc4b3d50add13c361b731d79eade26795b8",
+      "etag": "\"1d2f1317e6784c1ba406371e10bee2ed\"",
+      "last_modified": "Fri, 25 Sep 2026 07:24:19 GMT"
+    },
+    "worker_3/case_7_0/summary.json": {
+      "key": "worker_3/case_7_0/summary.json",
+      "status": "downloaded",
+      "bytes": 198381,
+      "sha256": "a295224f57d5322fe635dc6c93befa6bd6ba2b3ba7510697291f1c010052a6ea",
+      "etag": "\"4f2213de5e2bf958d09e0445b01213a2\"",
+      "last_modified": "Fri, 25 Sep 2026 07:40:32 GMT"
+    },
+    "worker_3/case_7_0/events.jsonl": {
+      "key": "worker_3/case_7_0/events.jsonl",
+      "status": "downloaded",
+      "bytes": 20466550,
+      "sha256": "1729e6a64f0db83e7a498e69217c94af91aa4e26cf6e7de1ed3bbe0e1d8a86a7",
+      "etag": "\"c6b982bf8bf60eed763e199d6015407b-3\"",
+      "last_modified": "Fri, 25 Sep 2026 07:40:30 GMT"
+    },
+    "worker_3/case_7_0/joint_provider.jsonl": {
+      "key": "worker_3/case_7_0/joint_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 19572,
+      "sha256": "4ac0351e55b8e6a704dede6572fa7fff234bb442e48d4fc2c129b6891203ce2c",
+      "etag": "\"02bea9f0def9878163ed86c0a76d888b\"",
+      "last_modified": "Fri, 25 Sep 2026 07:40:31 GMT"
+    },
+    "worker_3/case_7_0/language_only_provider.jsonl": {
+      "key": "worker_3/case_7_0/language_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 16359,
+      "sha256": "e19dddf11c8c41819352c546c8096b484e1f7092c1216d4bd33b533086a98393",
+      "etag": "\"dd164d5894298c1f021bf78ed6d5515a\"",
+      "last_modified": "Fri, 25 Sep 2026 07:25:09 GMT"
+    },
+    "worker_3/case_7_0/language_vision_provider.jsonl": {
+      "key": "worker_3/case_7_0/language_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 17733,
+      "sha256": "12eef836bbc3f8dd541cb3609c9308e22f3ddfee4f31ed2f81ea1c5ffaf36f7a",
+      "etag": "\"b3889622f3a6df02b05e499168a4436b\"",
+      "last_modified": "Fri, 25 Sep 2026 07:37:43 GMT"
+    },
+    "worker_3/case_7_0/noise_language_provider.jsonl": {
+      "key": "worker_3/case_7_0/noise_language_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 18307,
+      "sha256": "0a66b470f28ed35a3487ca50cab68c8e4d0ab2ddf12275a36be4107c06cccb1f",
+      "etag": "\"4f44d8b5bc4bed4a4848a2bb3fe7cb7f\"",
+      "last_modified": "Fri, 25 Sep 2026 07:31:22 GMT"
+    },
+    "worker_3/case_7_0/noise_only_provider.jsonl": {
+      "key": "worker_3/case_7_0/noise_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 11549,
+      "sha256": "6e553d3466ebd9f485aad0a7f10359efb168a01623acde0f9fbf1f21e495259a",
+      "etag": "\"ccb068d7d4206f81a0aef2d35c45b676\"",
+      "last_modified": "Fri, 25 Sep 2026 07:22:12 GMT"
+    },
+    "worker_3/case_7_0/noise_vision_provider.jsonl": {
+      "key": "worker_3/case_7_0/noise_vision_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 12163,
+      "sha256": "64f7a1780207ecaadcd3f6cbf1c810f1c6b7ad1dcfe446616f999b4be7823652",
+      "etag": "\"64737c47347a638f7259d9dd05322662\"",
+      "last_modified": "Fri, 25 Sep 2026 07:33:42 GMT"
+    },
+    "worker_3/case_7_0/random_noise_provider.jsonl": {
+      "key": "worker_3/case_7_0/random_noise_provider.jsonl",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_3/case_7_0/vision_only_provider.jsonl": {
+      "key": "worker_3/case_7_0/vision_only_provider.jsonl",
+      "status": "downloaded",
+      "bytes": 13397,
+      "sha256": "1f97ac983395a93175230505d2239a3a7b08ca9b4adcbd9c64d46bb9c96d18af",
+      "etag": "\"194f28802063bf55f1e12319491be31d\"",
+      "last_modified": "Fri, 25 Sep 2026 07:28:41 GMT"
+    },
+    "worker_0/aggregate.json": {
+      "key": "worker_0/aggregate.json",
+      "status": "downloaded",
+      "bytes": 35698,
+      "sha256": "40fc0d018742621ca7c5a852d8ad777d5748acfd08bd5161ed6ccb5b9414ae4d",
+      "etag": "\"6b536d4720104404fe7a2fac4f7a9c4a\"",
+      "last_modified": "Fri, 25 Sep 2026 07:10:59 GMT"
+    },
+    "worker_0/failure.json": {
+      "key": "worker_0/failure.json",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_0/progress.json": {
+      "key": "worker_0/progress.json",
+      "status": "downloaded",
+      "bytes": 142,
+      "sha256": "b01f977e99b3d8548e3fa114fac0e8847fba9916c75b6889cf655cb59e77fde7",
+      "etag": "\"bd22ec681e404a7c8b29d40a5bbf4273\"",
+      "last_modified": "Fri, 25 Sep 2026 07:10:59 GMT"
+    },
+    "worker_1/aggregate.json": {
+      "key": "worker_1/aggregate.json",
+      "status": "downloaded",
+      "bytes": 34883,
+      "sha256": "d1276b12f924c30cddabe5180f267de20f7f9ac354bd98ef774acde94abf2ab7",
+      "etag": "\"786869836721ce6dd6c2459cc3b0131e\"",
+      "last_modified": "Fri, 25 Sep 2026 06:49:03 GMT"
+    },
+    "worker_1/failure.json": {
+      "key": "worker_1/failure.json",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_1/progress.json": {
+      "key": "worker_1/progress.json",
+      "status": "downloaded",
+      "bytes": 142,
+      "sha256": "788013e0f774b7a478816b73475fe65a07543caad362cd70230ea60172807f88",
+      "etag": "\"cba3757fa05c46961379bd993404932a\"",
+      "last_modified": "Fri, 25 Sep 2026 06:49:03 GMT"
+    },
+    "worker_2/aggregate.json": {
+      "key": "worker_2/aggregate.json",
+      "status": "downloaded",
+      "bytes": 26242,
+      "sha256": "dace7d1cba1cddc950fe2853d333c9fa93e5695d98aa219a8be395d85ec85b48",
+      "etag": "\"3fef883bd9c03f7c6e735a06a1b3437c\"",
+      "last_modified": "Fri, 25 Sep 2026 07:26:12 GMT"
+    },
+    "worker_2/failure.json": {
+      "key": "worker_2/failure.json",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_2/progress.json": {
+      "key": "worker_2/progress.json",
+      "status": "downloaded",
+      "bytes": 142,
+      "sha256": "c892c3303e93dd6ee715f2d7d38c10bd9fba873cc6c7e2424834272ced3b37ff",
+      "etag": "\"44ac6db5165b41380c87624c3d06a223\"",
+      "last_modified": "Fri, 25 Sep 2026 07:26:12 GMT"
+    },
+    "worker_3/aggregate.json": {
+      "key": "worker_3/aggregate.json",
+      "status": "downloaded",
+      "bytes": 26207,
+      "sha256": "a97ba43afb285883d299f143592b23bf67eadc31d19ff5feabdcae0a686bffb5",
+      "etag": "\"67b50f3c18a81730fe4196b6e0d518b9\"",
+      "last_modified": "Fri, 25 Sep 2026 07:40:33 GMT"
+    },
+    "worker_3/failure.json": {
+      "key": "worker_3/failure.json",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_3/progress.json": {
+      "key": "worker_3/progress.json",
+      "status": "downloaded",
+      "bytes": 142,
+      "sha256": "7c3e4dc0f6427f98806fe98f8aa98124e87ee7fef803efb07843fb7cac17beb7",
+      "etag": "\"3199c59e55bf7d837cd4417f8e29e266\"",
+      "last_modified": "Fri, 25 Sep 2026 07:40:33 GMT"
+    },
+    "worker_4/aggregate.json": {
+      "key": "worker_4/aggregate.json",
+      "status": "downloaded",
+      "bytes": 36530,
+      "sha256": "3aacafdd2d8c2ef78e65a228ab8a30d11d366d238ba07e6b4065f4bd5be5507b",
+      "etag": "\"272bc84831377972bb83308c0ca0e00b\"",
+      "last_modified": "Fri, 25 Sep 2026 07:31:59 GMT"
+    },
+    "worker_4/failure.json": {
+      "key": "worker_4/failure.json",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_4/progress.json": {
+      "key": "worker_4/progress.json",
+      "status": "downloaded",
+      "bytes": 145,
+      "sha256": "467d07c107a7d91e35de4880136482185a41106a9a164ddbf884d1e8c7f020cf",
+      "etag": "\"dcd227bbc08e9cf8585868b588ff74b9\"",
+      "last_modified": "Fri, 25 Sep 2026 07:32:00 GMT"
+    },
+    "worker_5/aggregate.json": {
+      "key": "worker_5/aggregate.json",
+      "status": "downloaded",
+      "bytes": 36598,
+      "sha256": "43962e097e8b37e7368c64577e84126270929bf64363bf46948d64f6353352ab",
+      "etag": "\"873698a069ad7f6d93b72d8fcd5168d9\"",
+      "last_modified": "Fri, 25 Sep 2026 07:35:58 GMT"
+    },
+    "worker_5/failure.json": {
+      "key": "worker_5/failure.json",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_5/progress.json": {
+      "key": "worker_5/progress.json",
+      "status": "downloaded",
+      "bytes": 145,
+      "sha256": "cbc0a4bf4bdbcfdb984e0a12b6ed6672c5749015a60c442057c900e5f6fbb541",
+      "etag": "\"17de555c4f8ef3e98b166c3f1e3934a5\"",
+      "last_modified": "Fri, 25 Sep 2026 07:35:59 GMT"
+    },
+    "worker_6/aggregate.json": {
+      "key": "worker_6/aggregate.json",
+      "status": "downloaded",
+      "bytes": 26181,
+      "sha256": "7d3cefa070085183a5e43e4fc7099a85b0c4944d825857f254469c0dc790fffd",
+      "etag": "\"d24ee742d9df8697d5fc91f564d8f9ac\"",
+      "last_modified": "Fri, 25 Sep 2026 07:30:52 GMT"
+    },
+    "worker_6/failure.json": {
+      "key": "worker_6/failure.json",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_6/progress.json": {
+      "key": "worker_6/progress.json",
+      "status": "downloaded",
+      "bytes": 145,
+      "sha256": "dab02b26c2f0e4d632fa9605ef02b52b4dc8b9bfaf3d5092d35174f059729be7",
+      "etag": "\"4ca560bd693b2556ed92dba478e038ec\"",
+      "last_modified": "Fri, 25 Sep 2026 07:30:52 GMT"
+    },
+    "worker_7/aggregate.json": {
+      "key": "worker_7/aggregate.json",
+      "status": "downloaded",
+      "bytes": 25573,
+      "sha256": "45ed53bee87a0226e507e595149484d7bc38c3c32529b3d802394d28eac3f893",
+      "etag": "\"f3fe78eabfbfe6034732e1a2db96dbd7\"",
+      "last_modified": "Fri, 25 Sep 2026 07:07:41 GMT"
+    },
+    "worker_7/failure.json": {
+      "key": "worker_7/failure.json",
+      "status": "unavailable",
+      "exception": "HTTPError",
+      "http_status": 404
+    },
+    "worker_7/progress.json": {
+      "key": "worker_7/progress.json",
+      "status": "downloaded",
+      "bytes": 145,
+      "sha256": "f17d5589e878240b3fa875653099297532c896c26c62eca21008023ddf9b361c",
+      "etag": "\"8a5e52aef1a8f8ac30abc26a63bee65e\"",
+      "last_modified": "Fri, 25 Sep 2026 07:07:42 GMT"
+    }
+  }
+}

@@ -1,0 +1,152 @@
+"""Freeze a safe provider/execution review after all assigned cases reconcile."""
+import collections
+import json
+from pathlib import Path
+
+from astra_reversal.intervention_agent import summarize_calls
+from astra_reversal.records import file_sha256
+
+
+directory = Path(__file__).resolve().parent
+health_path = directory / "evaluation-health.json"
+health = json.loads(health_path.read_text())
+assert health["observed_cases"] == health["complete_cases"] == health["reconciled_complete_cases"] == 20
+assert not health["issues"]
+assert len(health["workers"]) == 8
+assert all(row["runtime_verified"] and not row["failure"] and row["progress"]["status"] == "complete" for row in health["workers"].values())
+summaries = {}
+for path in (directory / "live").glob("worker_*/case_*/summary.json"):
+    summary = json.loads(path.read_text())
+    assert summary["episode_id"] not in summaries
+    summaries[summary["episode_id"]] = (path, summary)
+assert set(summaries) == set(health["cases"])
+sources, all_calls, rejections, rescues = {}, [], [], []
+execution = collections.Counter()
+per_case = []
+for episode, case in health["cases"].items():
+    path, summary = summaries[episode]
+    assert summary["status"] == "complete" and case["provider_settings_verified"]
+    sources[str(path.relative_to(directory / "live"))] = file_sha256(path)
+    calls = []
+    for ledger in sorted(path.parent.glob("*_provider.jsonl")):
+        sources[str(ledger.relative_to(directory / "live"))] = file_sha256(ledger)
+        calls.extend(json.loads(line) for line in ledger.read_text().splitlines() if line)
+    accounting = summarize_calls(calls)
+    assert accounting == summary["physical_cost"]["token_usage"] == case["provider_accounting"]
+    all_calls.extend(calls)
+    lookup = {(row["arm"], row["iteration"]): row for row in calls}
+    assert len(lookup) == len(calls)
+    for row in calls:
+        assert row["requested_model"] == "azure/openai/gpt-6-astra"
+        assert row["cache"] == {"no-cache": True}
+        assert row["sampling_settings"] == {"max_completion_tokens": 4096, "reasoning_effort": "low"}
+        assert row["response_format"] == {"type": "json_object"}
+        assert row["prompt_template_version"] == "astra-intervention-http-2"
+        if row["accepted"]:
+            assert row["response"]["model"] == "azure/openai/gpt-6-astra"
+        else:
+            rejections.append({"episode_id": episode, "arm": row["arm"], "iteration": row["iteration"], "error_kind": row.get("error_kind"), "error": row.get("error"), "http_status": row.get("http_status"), "token_usage": row["token_usage"], "request_fingerprint": row["request_fingerprint"]})
+    for arm, result in summary["arms"].items():
+        assert result["status"] == "complete"
+        for attempt in result["attempts"][1:]:
+            if arm == "random_noise":
+                execution["random_candidate_rollouts"] += int(attempt["rollout_executed"])
+                continue
+            provider = lookup[(arm, attempt["iteration"])]
+            if attempt["rollout_executed"]:
+                assert provider["accepted"]
+                execution["astra_candidate_rollouts"] += 1
+                execution["astra_candidate_actions"] += attempt["actions_executed"]
+                proposal = attempt["proposal"]
+                selected = []
+                if proposal.get("noise") and proposal["noise"]["perturbation_scale"] and any(proposal["noise"]["coefficients"]):
+                    selected.append("noise")
+                if proposal.get("language") and proposal["language"]["scale"]:
+                    selected.append("language")
+                if any(row["gain"] for row in proposal.get("vision", [])):
+                    selected.append("vision")
+                execution["astra_candidates_selecting_nonzero_parameters"] += bool(selected)
+                execution["astra_candidates_selecting_only_neutral_parameters"] += not selected
+                for channel in selected:
+                    execution["astra_candidates_selecting_" + channel] += 1
+            else:
+                execution["consumed_attempts_without_rollout"] += 1
+                execution["provider_accepted_but_runner_rejected"] += bool(provider["accepted"])
+                assert attempt["actions_executed"] == 0
+        first = result["summary"]["first_success_attempt"]
+        if not summary["baseline"]["success"] and first is not None:
+            winning = next(row for row in result["attempts"] if row["iteration"] == first)
+            proposal = winning["proposal"]
+            selected = []
+            if proposal.get("noise") and proposal["noise"]["perturbation_scale"] and any(proposal["noise"]["coefficients"]):
+                selected.append("noise")
+            if proposal.get("language") and proposal["language"]["scale"]:
+                selected.append("language")
+            if any(row["gain"] for row in proposal.get("vision", [])):
+                selected.append("vision")
+            rescues.append({"episode_id": episode, "arm": arm, "first_success_attempt": first, "intervention_iterations_to_success": first - 1, "winning_candidate_id": winning["candidate_id"], "winning_rollout_actions": winning["actions_executed"], "winning_selected_nonzero_channels": selected, "tokens_to_first_success": result["tokens_to_first_success"]})
+    per_case.append({"episode_id": episode, "worker": case["worker"], "baseline_success": summary["baseline"]["success"], "provider_calls": accounting["provider_calls"], "provider_rejections": accounting["failed_calls"], "total_tokens": accounting["tokens"]["total_tokens"], "physical_cost": summary["physical_cost"]})
+
+accounting = summarize_calls(all_calls)
+assert accounting == health["provider_accounting"]
+canonical_path = directory.parents[1] / "artifacts/interventions-eval-v1-report/report.json"
+canonical_hash = file_sha256(canonical_path)
+assert canonical_hash == "81bd679d49d23130c2c63547043d42cd68c603fa78d676c2c433cfe26129d1bb"
+canonical = json.loads(canonical_path.read_text())
+assert canonical["status"] == "complete_verified_recording"
+assert canonical["expected_cases"] == 20 and canonical["expected_workers"] == 8
+assert canonical["summary"]["physical_cost"]["token_usage"] == accounting
+assert canonical["integration"]["executed_astra_intervention_rollouts"] == execution["astra_candidate_rollouts"]
+physical = {
+    "rollouts": sum(row["physical_cost"]["rollouts"] for row in per_case),
+    "simulated_actions": sum(row["physical_cost"]["simulated_actions"] for row in per_case),
+    "total_velocity_evaluations": sum(row["physical_cost"]["velocity_evaluations"] for row in per_case),
+}
+assert all(canonical["summary"]["physical_cost"][name] == value for name, value in physical.items())
+canonical_sources = {
+    row["path"].split("/artifacts/interventions-eval-v1/", 1)[1]: row["sha256"]
+    for row in canonical["source_files"]
+    if "/artifacts/interventions-eval-v1/" in row["path"]
+}
+joined = 0
+for name, sha256 in sources.items():
+    if "/case_" in name:
+        assert canonical_sources[name] == sha256, name
+        joined += 1
+for path in (directory / "live").glob("worker_*/*.json"):
+    if path.name in ("runtime.json", "frozen_plan.json", "progress.json"):
+        sources[str(path.relative_to(directory / "live"))] = file_sha256(path)
+supplementary = {}
+for name in ("worker0-feedback-prefix-review.json", "first-rescue-array-review.json", "random-coefficient-array-review.json"):
+    path = directory / name
+    supplementary[name] = file_sha256(path)
+result = {
+    "status": "complete",
+    "scope": "All20 assigned case summaries and provider ledgers independently reconciled; supplementary array checks have their own narrower scopes",
+    "workflow": "astra-pi05-interventions-eval-20260924-1",
+    "frozen_payload_sha256": "fde89be9786f85f6ed5e889d7f736784a500dd6fc2f81e9db65480cadb606fb4",
+    "frozen_source_commit": "e0283747",
+    "coverage": {"workers": 8, "cases": 20, "baseline_successes": sum(row["baseline_success"] for row in per_case)},
+    "provider_accounting": accounting,
+    "physical_execution_totals": physical,
+    "canonical_report": {"path": "artifacts/interventions-eval-v1-report/report.json", "sha256": canonical_hash, "case_source_hashes_joined": joined, "provider_and_execution_totals_match": True},
+    "rejected_call_accounting": summarize_calls([row for row in all_calls if not row["accepted"]]),
+    "execution_counts": dict(execution),
+    "provider_rejections": rejections,
+    "rescues": rescues,
+    "cases": per_case,
+    "source_sha256": sources,
+    "final_health_sha256": file_sha256(health_path),
+    "supplementary_review_sha256": supplementary,
+    "auditor_sha256": file_sha256(Path(__file__)),
+    "limitations": [
+        "Nonzero parameter selections are not equated with independently reconstructed tensor effects; only the supplementary winning-candidate array check establishes that narrower result.",
+        "No verified provider price was supplied; monetary costs are unavailable.",
+        "Separate development/diagnostic calls are excluded from evaluation totals.",
+        "Canonical final event/reset/report audit is a separate artifact and must be consulted for full outcome provenance.",
+    ],
+}
+output = directory / "final-provider-review.json"
+output.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
+output.chmod(0o600)
+print(json.dumps({"path": str(output), "sha256": file_sha256(output), "calls": accounting["provider_calls"], "accepted": accounting["accepted_proposals"], "execution": execution, "rescues": len(rescues)}))

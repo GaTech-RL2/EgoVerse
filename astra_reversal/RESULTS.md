@@ -143,6 +143,25 @@ The [provider review](reports/ood_provider_review.json) distinguishes **3,565 re
 
 The [archive provenance](reports/ood_archive_provenance.json) retains whole-object SHA-256/ETag/length receipts, per-unit audit hashes, frozen reset/config/runtime identities, and offline validator results. One local postprocessor dependency omission was corrected by copying the unchanged `ActionSpec` dependency and rerunning the read-only checks; it was not an experiment, integrity, or numerical error. Per-execution API usage and latency summaries are retained without inferring a monetary invoice or pooled latency p95. The native baseline's solver/TF32 difference and repair timing caveat still apply.
 
+## Iterative noise, language-embedding, and vision interventions
+
+The later [iterative-intervention study](reports/iterative_interventions/README.md)
+completed all 20 seed-19 OOD cases on eight OSMO L40S workers. The shared
+recovered-noise baseline succeeded on 8/20; random-noise search and Astra's
+noise + vision arm each reached 10/20 within four revisions, on different rescued
+cases. Other single/pair Astra arms reached 9/20, and the all-three arm remained
+8/20. No Astra arm exceeded random search at the cap. Some semantic edits rescued
+individual cases in one revision; the report retains exact iterations, failed
+searches, and all token costs.
+
+Evaluation used 323 calls and 1,406,726 provider-reported tokens, including seven
+rejected proposals, plus 424 physical rollouts and 267,580 velocity evaluations.
+All eight raw archives and 151,076 saved arrays passed read-only checks. This
+follow-up uses a policy-generated reference and iterative edits with simulator
+reset access. It is separate from Stage 1's numeric-action inversion results
+above and does not establish unseen training compositions or a recipe for 100%
+success.
+
 ## Validation
 
 Fresh-main validation passed 468 repository unit tests, with five existing optional OpenPI tests skipped. All seven native LeRobot integration tests passed separately in the pinned runtime. Astra contributes 161 unit tests plus those seven integration tests; the extracted standalone payload also passed both suites. Each GPU run verifies its hardware family and exact checkpoint hashes. Numerical gates also match the controller specification, checkpoint/input provenance, solver, resolution, and time grid. The [read-only runtime inversion audit](audit_astra_inversions.py) checks recorded Stage 1 array hashes, reconstruction under the same condition and latent, and subsequent latent reuse with advancing observations; it performs no additional GPU solves. Snapshot hashes and exact copy/compaction rules are recorded in [snapshot_sources.json](reports/snapshot_sources.json).

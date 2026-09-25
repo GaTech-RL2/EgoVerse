@@ -1,0 +1,112 @@
+"""Read existing worker arrays through OSMO; never invoke a model or environment."""
+import errno
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import pty
+import select
+import shlex
+import struct
+import subprocess
+import termios
+import time
+
+REMOTE = r'''
+import collections, hashlib, json
+from pathlib import Path
+import numpy as np
+from astra_reversal.interventions import apply_vision, perturb_noise
+from astra_reversal.records import digest, file_sha256
+root = Path('/workspace/astra-reversal')
+directory = root/'astra_reversal/artifacts/osmo/case_2_0'
+raw = (directory/'events.jsonl').read_bytes()
+events = [json.loads(line) for line in raw.splitlines()]
+checked = {}
+def hydrate(value):
+    if isinstance(value,dict) and 'array' in value:
+        p = directory/value['array']
+        array = np.load(p, allow_pickle=False)
+        assert list(array.shape)==value['shape'] and str(array.dtype)==value['dtype']
+        assert digest(array)==value['sha256'] and np.isfinite(array).all()
+        checked[value['array']]={'file_sha256':file_sha256(p),'array_sha256':digest(array)}
+        return array
+    if isinstance(value,dict): return {k:hydrate(v) for k,v in value.items()}
+    if isinstance(value,list): return [hydrate(v) for v in value]
+    return value
+case = hydrate(next(e for e in events if e['kind']=='case'))
+initial = hydrate(next(e for e in events if e['kind']=='inversion_initialization'))
+proposal = next(e['proposal'] for e in events if e['kind']=='intervention_proposal' and e['arm']=='noise_vision' and e['iteration']==4)
+attempt = next(e['attempt'] for e in events if e['kind']=='attempt' and e['attempt']['candidate_id']==proposal['candidate_id'] and e['attempt']['iteration']==4)
+assert attempt['success'] and attempt['rollout_executed']
+assert case['entry']['episode_id']=='libero_spatial_ood:seed19:task2:state0'
+assert proposal['candidate_id']=='milk_plate_opposite_noise_probe'
+assert proposal['language'] is None
+expected = perturb_noise(initial['recovered_noise'],case['basis'],proposal['noise'])
+delta = expected.astype(np.float64)-initial['recovered_noise'].astype(np.float64)
+assert np.max(np.abs(delta))>0
+generations = [hydrate(e) for e in events if e['kind']=='candidate_generation' and e['mode']=='noise_vision' and e['iteration']==4]
+assert len(generations)==attempt['policy_replans']
+changed = collections.Counter()
+for e in generations:
+    assert np.array_equal(expected,e['latent'])
+    modified=apply_vision(e['observation'],proposal['vision'])
+    assert digest(modified)==e['modified_observation_sha256']
+    assert digest({**modified,'prompt':case['entry']['instruction']})==e['condition_id']
+    for camera in ('observation/image','observation/wrist_image'):
+        count=int(np.count_nonzero(modified[camera]!=e['observation'][camera]))
+        changed[camera]+=count
+    assert e['conditioning'] is None
+    assert np.asarray(e['controller_actions']).shape==(10,7)
+assert changed['observation/image']>0 and changed['observation/wrist_image']==0
+result={
+ 'status':'passed','scope':'Read-only CPU verification of saved winning candidate arrays; no model, API, or environment execution',
+ 'workflow':'astra-pi05-interventions-eval-20260924-1','worker':6,
+ 'episode_id':case['entry']['episode_id'],'arm':'noise_vision','iteration':4,
+ 'candidate_id':proposal['candidate_id'],'source_events_prefix_sha256':hashlib.sha256(raw).hexdigest(),
+ 'source_events_prefix_bytes':len(raw),'array_files_verified':len(checked),'array_manifest_sha256':digest(checked),
+ 'proposal_sha256':digest(proposal),'basis_sha256':digest(case['basis']),
+ 'generation_count':len(generations),'actions_executed':attempt['actions_executed'],
+ 'success_recorded':attempt['success'],'noise_delta_rms':float(np.sqrt(np.mean(delta**2))),
+ 'noise_delta_max_abs':float(np.max(np.abs(delta))),
+ 'vision_changed_scalar_values_by_camera':dict(changed),
+ 'frozen_source_sha256':{str(p.relative_to(root)):file_sha256(p) for p in (root/'astra_reversal/records.py',root/'astra_reversal/interventions.py')},
+ 'limitations':['Success is the recorded simulator result; no independent environment replay.','Controller actions are checked for integrity/shape; no additional policy decoding or inference.','The full case and provider-accounting audit is separate.'],
+}
+print('ASTRA_ARRAY_CHECK:'+json.dumps(result,separators=(',',':')),flush=True)
+'''
+
+directory = Path(__file__).resolve().parent
+command = 'cd /workspace/astra-reversal\nsource /workspace/astra-reversal/emimic/bin/activate\n' + shlex.join(['python','-c',REMOTE])
+master, slave = pty.openpty()
+fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',40,240,0,0))
+process = subprocess.Popen(['osmo','workflow','exec','astra-pi05-interventions-eval-20260924-1','worker6','--connect-timeout','20','--entry',shlex.join(['/bin/bash','-lc',command])],stdin=slave,stdout=slave,stderr=slave,start_new_session=True)
+os.close(slave)
+received=bytearray()
+deadline=time.monotonic()+80
+try:
+    while time.monotonic()<deadline:
+        ready,_,_=select.select([master],[],[],1)
+        if ready:
+            try: block=os.read(master,65536)
+            except OSError as exc:
+                if exc.errno==errno.EIO: break
+                raise
+            if not block: break
+            received.extend(block)
+        elif process.poll() is not None: break
+    if process.poll() is None: process.terminate()
+    process.wait(timeout=10)
+finally:
+    os.close(master)
+    if process.poll() is None: process.kill()
+log=directory/'winning-array-check-console.log'
+log.write_bytes(received);log.chmod(0o600)
+records=[json.loads(line.split('ASTRA_ARRAY_CHECK:',1)[1]) for line in received.decode(errors='replace').splitlines() if line.startswith('ASTRA_ARRAY_CHECK:')]
+assert process.returncode==0 and len(records)==1, f'Read-only check not completed; local exit={process.returncode}; inspect private console'
+result=records[0]
+result['auditor_sha256']=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+output=directory/'first-rescue-array-review.json'
+output.write_text(json.dumps(result,indent=2,allow_nan=False)+'\n');output.chmod(0o600)
+print(json.dumps({'path':str(output),'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),'status':result['status'],'array_files':result['array_files_verified'],'generations':result['generation_count']}))

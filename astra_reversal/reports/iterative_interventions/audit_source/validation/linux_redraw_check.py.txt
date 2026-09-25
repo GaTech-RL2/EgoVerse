@@ -1,0 +1,36 @@
+import errno,fcntl,hashlib,json,os,pty,select,shlex,struct,subprocess,termios,time
+from pathlib import Path
+REMOTE="import io,json,os,platform,tarfile\nfrom pathlib import Path\nimport numpy as np\nimport PIL,boto3\nfrom PIL import Image\nfrom astra_reversal.interventions import apply_vision\nfrom astra_reversal.records import digest,file_sha256\nclient=boto3.client('s3',endpoint_url=os.environ['R2_ENDPOINT_URL'],aws_access_key_id=os.environ['R2_ACCESS_KEY_ID'],aws_secret_access_key=os.environ['R2_SECRET_ACCESS_KEY'])\nbucket='rldb'\nprefix='experiments/astra-reversal-20260924/astra-pi05-interventions-eval-20260924-1/worker_7/'\nraw_events=client.get_object(Bucket=bucket,Key=prefix+'case_7_0/events.jsonl')['Body'].read()\nimport hashlib\nassert hashlib.sha256(raw_events).hexdigest()=='46c7600bb15d94881d8f4611fc6ddba8791c0e9b4f08dc2efcd7a132da310f5b'\nrows=[json.loads(line) for line in raw_events.splitlines()]\nrow=next(r for r in rows if r['sequence']==1128)\nproposal=next(r['proposal'] for r in rows if r['kind']=='intervention_proposal' and r['arm']==row['mode'] and r['proposal']['candidate_id']==row['candidate_id'])\nrefs={'results/case_7_0/'+ref['array']:(name,ref) for name,ref in row['observation'].items()}\nobj=client.get_object(Bucket=bucket,Key=prefix+'artifacts.tar.gz')\nraw={}\nwith tarfile.open(fileobj=obj['Body'],mode='r|gz') as archive:\n for member in archive:\n  if member.name in refs:\n   name,ref=refs[member.name];value=np.load(io.BytesIO(archive.extractfile(member).read()),allow_pickle=False)\n   assert digest(value)==ref['sha256'] and list(value.shape)==ref['shape'] and str(value.dtype)==ref['dtype']\n   raw[name]=value\n   if len(raw)==len(refs):break\nobj['Body'].close()\nassert len(raw)==len(refs)\nmodified=apply_vision(raw,proposal['vision'])\nassert digest(modified)==row['modified_observation_sha256']=='0009c379641e12acc49e134aaed2fed4b3a61c4e0c0be665bb876a238f7dce03', 'Linux redraw mismatch'\nkernel=[]\nfor gain in [0,.1,.15,.2,.25,.3,.4,.5,.55,.6,.7,.75,.8,.85,.9,1]:\n for target in (0,255):\n  a=np.arange(256,dtype=np.uint8).reshape(16,16);b=np.full_like(a,target)\n  actual=np.array(Image.blend(Image.fromarray(a),Image.fromarray(b),gain))\n  af=a.astype(np.float32);bf=b.astype(np.float32)\n  separate=np.clip(af+np.float32(gain)*(bf-af),0,255).astype(np.uint8)\n  assert np.array_equal(actual,separate), ('Linux scalar kernel mismatch',gain,target)\n  kernel.append({'gain':gain,'target':target,'inputs':256,'exact':True,'output_sha256':digest(actual)})\nroot=Path('/workspace/astra-reversal')\nresult={'status':'passed','workflow':'astra-pi05-interventions-eval-20260924-1','cpu_carrier_worker':6,'source_case_worker':7,'episode_id':proposal['episode_id'],'event_sha256':hashlib.sha256(raw_events).hexdigest(),'sequence':1128,'arm':row['mode'],'candidate_id':row['candidate_id'],'step':row['observation_step'],'expected_modified_observation_sha256':row['modified_observation_sha256'],'linux_modified_observation_sha256':digest(modified),'raw_arrays_verified':len(raw),'Pillow':PIL.__version__,'numpy':np.__version__,'machine':platform.machine(),'archive_etag':obj['ETag'],'archive_bytes':obj['ContentLength'],'separate_float32_kernel_exhaustive_inputs':kernel,'source_sha256':{str(p.relative_to(root)):file_sha256(p) for p in (root/'astra_reversal/records.py',root/'astra_reversal/interventions.py')},'no_model_api_simulator_or_disk_write':True}\nprint('ASTRA_REDRAW_CHECK:'+json.dumps(result,separators=(',',':')),flush=True)\n"
+directory = Path(__file__).resolve().parent
+command = 'cd /workspace/astra-reversal\nsource /workspace/astra-reversal/emimic/bin/activate\n' + shlex.join(['python','-c',REMOTE])
+master, slave = pty.openpty()
+fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',40,240,0,0))
+process = subprocess.Popen(['osmo','workflow','exec','astra-pi05-interventions-eval-20260924-1','worker6','--connect-timeout','20','--entry',shlex.join(['/bin/bash','-lc',command])],stdin=slave,stdout=slave,stderr=slave,start_new_session=True)
+os.close(slave)
+received=bytearray()
+deadline=time.monotonic()+80
+try:
+    while time.monotonic()<deadline:
+        ready,_,_=select.select([master],[],[],1)
+        if ready:
+            try: block=os.read(master,65536)
+            except OSError as exc:
+                if exc.errno==errno.EIO: break
+                raise
+            if not block: break
+            received.extend(block)
+        elif process.poll() is not None: break
+    if process.poll() is None: process.terminate()
+    process.wait(timeout=10)
+finally:
+    os.close(master)
+    if process.poll() is None: process.kill()
+log=directory/'linux-redraw-console.log'
+log.write_bytes(received);log.chmod(0o600)
+records=[json.loads(line.split('ASTRA_REDRAW_CHECK:',1)[1]) for line in received.decode(errors='replace').splitlines() if line.startswith('ASTRA_REDRAW_CHECK:')]
+assert process.returncode==0 and len(records)==1, f'Read-only check not completed; local exit={process.returncode}; inspect private console'
+result=records[0]
+result['auditor_sha256']=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+output=directory/'linux-redraw-review.json'
+output.write_text(json.dumps(result,indent=2,allow_nan=False)+'\n');output.chmod(0o600)
+print(json.dumps({'path':str(output),'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),'status':result['status']}))

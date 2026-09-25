@@ -1,0 +1,42 @@
+{
+  "final-provider-review.json": {
+    "sha256": "566e9257d8e44059406b13a22baec37a1baae60ace78e631611beb9b1a7a47f6",
+    "bytes": 73491
+  },
+  "first-rescue-array-review.json": {
+    "sha256": "caa5897d6980d254072905fe091bba61100c682638032591724c273ee6c0e920",
+    "bytes": 1696
+  },
+  "manifest.json": {
+    "sha256": "d62d9547d4cc7980e45bc9b19512179102fbe3e5691c3a8b5dae062bb1362121",
+    "bytes": 1988
+  },
+  "random-coefficient-array-review.json": {
+    "sha256": "cc4209cea7e6190c47b2281637629fc59d6d3844bb0d3c873252373f9442f5e6",
+    "bytes": 2532
+  },
+  "source/audit_feedback_prefix.py": {
+    "sha256": "f4ecdbf74f2e23f98f93778a10168ae586d22f5bd95c2c740a5e06200db6b51c",
+    "bytes": 5675
+  },
+  "source/check_random_arrays.py": {
+    "sha256": "8c5656e911cbbbaafed532fefd24551bb69e34a83cfb5e4fa9208073bf3e83e8",
+    "bytes": 6881
+  },
+  "source/check_winning_arrays.py": {
+    "sha256": "b9cdebc900b6ac88b55a91f00473e8f5bf3f428a189ce6731856a1341c4c6cc0",
+    "bytes": 6337
+  },
+  "source/finalize_provider_review.py": {
+    "sha256": "f42c222914b399268a22bbacbd33945b2797d18b62b9212f82b6cce04fa16f69",
+    "bytes": 9562
+  },
+  "source/watch_evaluation.py": {
+    "sha256": "f95d9947a801c4c2590c65d04340e7c777329ac4b7f4a470fcf8b1d6b2e29cfe",
+    "bytes": 9893
+  },
+  "worker0-feedback-prefix-review.json": {
+    "sha256": "86f207b21804e4e2404a663f3d7c697c9f4e693e0d9003c112c202c4b753d5f5",
+    "bytes": 2099
+  }
+}

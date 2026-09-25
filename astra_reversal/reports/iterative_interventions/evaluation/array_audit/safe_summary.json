@@ -1,0 +1,1087 @@
+{
+  "all_recording_array_condition_latent_reset_provider_checks_passed": true,
+  "archive_receipts": [
+    {
+      "audit_sha256": "f2d254177292a8a0db512a9b7e0b1b3e111ec48be9e1643c50dca44fedff3b1c",
+      "bytes": 373050635,
+      "gzip_verified": true,
+      "receipt_after": {
+        "content_range": "bytes 0-0/373050635",
+        "etag": "\"f3d82b282551a4219caf777e67944986-45\"",
+        "status": 206
+      },
+      "receipt_before": {
+        "content_range": "bytes 0-0/373050635",
+        "etag": "\"f3d82b282551a4219caf777e67944986-45\"",
+        "status": 206
+      },
+      "sha256": "536cd84fbceee6be0df6dad49a984581bdf5176b5bfec16e46dca4ad9a18b3ed",
+      "worker": 0
+    },
+    {
+      "audit_sha256": "e1f9b9e2dc8b84de5c59dd52f1c25ea7a6af525a2bf749f514910f1f7b6dee51",
+      "bytes": 35162240,
+      "gzip_verified": true,
+      "receipt_after": {
+        "content_range": "bytes 0-0/35162240",
+        "etag": "\"dec7ed3bbb0cb05adf30eab5af1a62eb-5\"",
+        "status": 206
+      },
+      "receipt_before": {
+        "content_range": "bytes 0-0/35162240",
+        "etag": "\"dec7ed3bbb0cb05adf30eab5af1a62eb-5\"",
+        "status": 206
+      },
+      "sha256": "a926fe8b5bc3268dfa6db8212d533b6de97270d81c8fae5fb1e4d99b4d6f7254",
+      "worker": 1
+    },
+    {
+      "audit_sha256": "96b1a2603432c833cb0f1abcb7e3746ee224cea73e2fabe9a94b31350e5871ce",
+      "bytes": 558225240,
+      "gzip_verified": true,
+      "receipt_after": {
+        "content_range": "bytes 0-0/558225240",
+        "etag": "\"914686bb36b4d2acf710d1252646ab46-67\"",
+        "status": 206
+      },
+      "receipt_before": {
+        "content_range": "bytes 0-0/558225240",
+        "etag": "\"914686bb36b4d2acf710d1252646ab46-67\"",
+        "status": 206
+      },
+      "sha256": "53f569cb6f6b2e40a969d6e4a31d00fd0c439a3fa3dca8fe1fccfbd549e041cc",
+      "worker": 2
+    },
+    {
+      "audit_sha256": "8ae1fc0de8c82a288d4eaf85a9700bec34f9421574065c4e266384ba101bf396",
+      "bytes": 617753156,
+      "gzip_verified": true,
+      "receipt_after": {
+        "content_range": "bytes 0-0/617753156",
+        "etag": "\"ddf2680ff0a0e16c43b192feb44dde38-74\"",
+        "status": 206
+      },
+      "receipt_before": {
+        "content_range": "bytes 0-0/617753156",
+        "etag": "\"ddf2680ff0a0e16c43b192feb44dde38-74\"",
+        "status": 206
+      },
+      "sha256": "fb4b0aab9449c2b895b19ebd52283192a0a99442aa0bb41a284d7568d6d177ee",
+      "worker": 3
+    },
+    {
+      "audit_sha256": "4a0b005142ff5f2768018e0d14631406d5b78fb54b3ef812cf35508834d3f0e1",
+      "bytes": 581641889,
+      "gzip_verified": true,
+      "receipt_after": {
+        "content_range": "bytes 0-0/581641889",
+        "etag": "\"fe426c119d7625f15c4b35d5da3abe72-70\"",
+        "status": 206
+      },
+      "receipt_before": {
+        "content_range": "bytes 0-0/581641889",
+        "etag": "\"fe426c119d7625f15c4b35d5da3abe72-70\"",
+        "status": 206
+      },
+      "sha256": "012a1f50533790e3d8e0c4f920210f0c4537ef46f76cabf4f507035b16579ed0",
+      "worker": 4
+    },
+    {
+      "audit_sha256": "ca71bad22cebada589255a49f5d3812ccc3ad1b2142640cfc30df5fd6574fce3",
+      "bytes": 648767438,
+      "gzip_verified": true,
+      "receipt_after": {
+        "content_range": "bytes 0-0/648767438",
+        "etag": "\"5c69c53f7285af7142a2599ae5b01918-78\"",
+        "status": 206
+      },
+      "receipt_before": {
+        "content_range": "bytes 0-0/648767438",
+        "etag": "\"5c69c53f7285af7142a2599ae5b01918-78\"",
+        "status": 206
+      },
+      "sha256": "1408d3812a9d3f915f5b2c81173d901258fc6f9a3003653452374c8f7646de54",
+      "worker": 5
+    },
+    {
+      "audit_sha256": "056a97fdecc223ba941e85051f671f366c1b482bfeb602103bdd6723e8443ea9",
+      "bytes": 620180655,
+      "gzip_verified": true,
+      "receipt_after": {
+        "content_range": "bytes 0-0/620180655",
+        "etag": "\"52197367d0148e6a5c5d25c9f8517ee6-74\"",
+        "status": 206
+      },
+      "receipt_before": {
+        "content_range": "bytes 0-0/620180655",
+        "etag": "\"52197367d0148e6a5c5d25c9f8517ee6-74\"",
+        "status": 206
+      },
+      "sha256": "2b48ad37d6b4b1e9552a3e5b8734cd2d3833cf5862cecf6e484324c54917a29c",
+      "worker": 6
+    },
+    {
+      "audit_sha256": "2a954a89e424238bf956538c06ba74e0e8756fd30872b1a491645b0342a0cf66",
+      "bytes": 315941954,
+      "gzip_verified": true,
+      "receipt_after": {
+        "content_range": "bytes 0-0/315941954",
+        "etag": "\"ec930fe6d31049a28f2054abf05c6960-38\"",
+        "status": 206
+      },
+      "receipt_before": {
+        "content_range": "bytes 0-0/315941954",
+        "etag": "\"ec930fe6d31049a28f2054abf05c6960-38\"",
+        "status": 206
+      },
+      "sha256": "21e72796c9261efaea14f5303fe969977c11b7a64e57d4b3b7d5c247af3f4c2c",
+      "worker": 7
+    }
+  ],
+  "cases": [
+    {
+      "array_inventory_sha256": "8e136dd2da7e6916d09525edb08b8e7be92d2ebcff6f69f11d874665d10419be",
+      "arrays_verified": 12628,
+      "candidate_text": {
+        "effect": 960,
+        "enabled": 960,
+        "maximum_relative_rms": 0.16193324948398705,
+        "recorded": 960
+      },
+      "episode_id": "libero_goal_ood:seed19:task0:state0",
+      "event_sha256": "91833a39af79993435fc88ca990eba1245034dad7a8ea1bd100d488fb289b3e5",
+      "generations_verified": 2035,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 6.332993507385254e-08,
+          "rmse": 8.161267227484383e-09
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.0002260059118270874,
+          "rmse": 1.581407428316762e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000007374038,
+      "provider": {
+        "accepted": 27,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "recorded_actions": 10174,
+      "rollouts_verified": 34,
+      "vision_changed_generations": 780,
+      "worker": 0,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "10f2e88ad833476ceea1d1bf5aad2a3d598824f030822435f5f1f9349a3edc99",
+      "arrays_verified": 322,
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "episode_id": "libero_goal_ood:seed19:task1:state0",
+      "event_sha256": "a3ed2549d58c67ed9a28b017e11ea2a627e241db57300e961eb817126387e8e6",
+      "generations_verified": 46,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.1920928955078125e-07,
+          "rmse": 1.6679914377428147e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.0001525580883026123,
+          "rmse": 1.150618068155881e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "recorded_actions": 220,
+      "rollouts_verified": 3,
+      "vision_changed_generations": 0,
+      "worker": 1,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "a1779712366d9e9af60a6c6148dd88d171d1fe8f9914e0c14c71ae46a78f927e",
+      "arrays_verified": 12658,
+      "candidate_text": {
+        "effect": 900,
+        "enabled": 900,
+        "maximum_relative_rms": 0.18501929071646459,
+        "recorded": 900
+      },
+      "episode_id": "libero_goal_ood:seed19:task2:state0",
+      "event_sha256": "34593daf56139980abbf026562680a871c16f8c2559e83f52bcabec83bf743f6",
+      "generations_verified": 2040,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 5.960464477539063e-08,
+          "rmse": 7.052445487193936e-09
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00032383203506469727,
+          "rmse": 2.4267399931877132e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.4999999994527598,
+      "provider": {
+        "accepted": 27,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "recorded_actions": 10200,
+      "rollouts_verified": 34,
+      "vision_changed_generations": 840,
+      "worker": 2,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "0d316ffbe0611300cbb13bc7443bcd38889006d5fa9998fba9ebfff94c922ddd",
+      "arrays_verified": 13030,
+      "candidate_text": {
+        "effect": 960,
+        "enabled": 960,
+        "maximum_relative_rms": 0.16516343886779536,
+        "recorded": 960
+      },
+      "episode_id": "libero_goal_ood:seed19:task3:state0",
+      "event_sha256": "5d904cfc42280d6e4ed2be3a490d50216f43c40da5101641288d474a3cc84ef9",
+      "generations_verified": 2100,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.1920928955078125e-07,
+          "rmse": 1.1465080534403108e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.0001074075698852539,
+          "rmse": 1.0802233643722761e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000021618113,
+      "provider": {
+        "accepted": 28,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "recorded_actions": 10500,
+      "rollouts_verified": 35,
+      "vision_changed_generations": 780,
+      "worker": 3,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "1a2b681fedcf6372f7d3bc321d39ddfd0aed15f27d719dc965978c3e5c11d930",
+      "arrays_verified": 352,
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "episode_id": "libero_goal_ood:seed19:task4:state0",
+      "event_sha256": "69775564095cbeae9e8dc1052ef8663643df39d5791f24da84d6ba9275182e6b",
+      "generations_verified": 51,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.1920928955078125e-07,
+          "rmse": 1.4554628749907677e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.0002148151397705078,
+          "rmse": 1.7034072992502704e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "recorded_actions": 250,
+      "rollouts_verified": 3,
+      "vision_changed_generations": 0,
+      "worker": 0,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "a1a9e119de5dbd2939a2005789e0413370e49207ee949c8c132919fc1e679130",
+      "arrays_verified": 664,
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "episode_id": "libero_goal_ood:seed19:task5:state0",
+      "event_sha256": "641382cd9b86d73ab92626e638c66eac5fb0ee77e2aabc546f5c2ddfbc067482",
+      "generations_verified": 103,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.1920928955078125e-07,
+          "rmse": 1.3636398105740599e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 4.205852746963501e-05,
+          "rmse": 4.5259317365356375e-06
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "recorded_actions": 511,
+      "rollouts_verified": 3,
+      "vision_changed_generations": 0,
+      "worker": 1,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "ffc02896be305efd7e0ca13644df39376aaec3b860b6e3e9050a7a34186ecca7",
+      "arrays_verified": 9664,
+      "candidate_text": {
+        "effect": 419,
+        "enabled": 419,
+        "maximum_relative_rms": 0.16146876027923154,
+        "recorded": 419
+      },
+      "episode_id": "libero_goal_ood:seed19:task6:state0",
+      "event_sha256": "204c4d478ab1eeb35c1dd2a46b52c024232e31022fc0afe42ab4641a8d8cc087",
+      "generations_verified": 1553,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 2.086162567138672e-07,
+          "rmse": 2.4315341932224493e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 5.2034854888916016e-05,
+          "rmse": 6.663657418702277e-06
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000013025955,
+      "provider": {
+        "accepted": 21,
+        "calls": 21,
+        "http_status": {
+          "200": 21
+        },
+        "usage_available_calls": 21
+      },
+      "recorded_actions": 7757,
+      "rollouts_verified": 28,
+      "vision_changed_generations": 840,
+      "worker": 2,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "b7f44b20d66285a9ca3446b592d353fbbae080a50463220112e9cc00e86c53f3",
+      "arrays_verified": 12658,
+      "candidate_text": {
+        "effect": 960,
+        "enabled": 960,
+        "maximum_relative_rms": 0.17266104748931613,
+        "recorded": 960
+      },
+      "episode_id": "libero_goal_ood:seed19:task7:state0",
+      "event_sha256": "1729e6a64f0db83e7a498e69217c94af91aa4e26cf6e7de1ed3bbe0e1d8a86a7",
+      "generations_verified": 2040,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 7.450580596923828e-08,
+          "rmse": 9.995786220195785e-09
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 4.655122756958008e-05,
+          "rmse": 5.918120054230919e-06
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.4999999945771273,
+      "provider": {
+        "accepted": 27,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "recorded_actions": 10200,
+      "rollouts_verified": 34,
+      "vision_changed_generations": 720,
+      "worker": 3,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "ab4c391653cbf323d1a5b144c11e1312b4e6cc01dd4f7e2777d28bccdc4fef6e",
+      "arrays_verified": 1078,
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "episode_id": "libero_goal_ood:seed19:task8:state0",
+      "event_sha256": "b2bd675c33e38f2c19282dc2c6d9116d45206a95f6cc7b02d582f34c2c0b470e",
+      "generations_verified": 172,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 5.960464477539063e-08,
+          "rmse": 7.591316447481436e-09
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00011947751045227051,
+          "rmse": 1.073838154828365e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "recorded_actions": 860,
+      "rollouts_verified": 3,
+      "vision_changed_generations": 0,
+      "worker": 0,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "d0dc2d849dd4efbcb877c963a2ce4b8a46baa29c70173090f6043bad28eefa6a",
+      "arrays_verified": 454,
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "episode_id": "libero_goal_ood:seed19:task9:state0",
+      "event_sha256": "901ee1dfd0aadccf26a07e4960541acf039ac977a0c9f2f73d7ae61bf8d6550a",
+      "generations_verified": 68,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 7.450580596923828e-08,
+          "rmse": 1.0759810233249852e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00013566017150878906,
+          "rmse": 1.2142656793352152e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "recorded_actions": 336,
+      "rollouts_verified": 3,
+      "vision_changed_generations": 0,
+      "worker": 1,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "e8c17ae94c50253c950ad82bd640693b4ce37e3c965352612cfbaa8bad67de96",
+      "arrays_verified": 514,
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "episode_id": "libero_spatial_ood:seed19:task0:state0",
+      "event_sha256": "49902f9cb3d1212666af7e1efb825beb370a7a188ad9f7f0bf2c1698bc042bf5",
+      "generations_verified": 78,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.1920928955078125e-07,
+          "rmse": 9.571571596504487e-09
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 8.362531661987305e-05,
+          "rmse": 8.802788798465495e-06
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "recorded_actions": 382,
+      "rollouts_verified": 3,
+      "vision_changed_generations": 0,
+      "worker": 4,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "6b2d70ec29ce275b48db70cf3cfb05b94b1d75cb366563d4db535b250101f1a3",
+      "arrays_verified": 388,
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "episode_id": "libero_spatial_ood:seed19:task1:state0",
+      "event_sha256": "fa29fd2ee9815264b3d1b79ddc8006535153050156f7731e9d72d42629ca77be",
+      "generations_verified": 57,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 8.940696716308594e-08,
+          "rmse": 1.1025717202166353e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.0002630949020385742,
+          "rmse": 2.742321597326605e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "recorded_actions": 280,
+      "rollouts_verified": 3,
+      "vision_changed_generations": 0,
+      "worker": 5,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "5e627a3752a1e2cbe2e6c5513f588058b234c278e2cb6fd03f3bffda461fa5a3",
+      "arrays_verified": 12412,
+      "candidate_text": {
+        "effect": 960,
+        "enabled": 960,
+        "maximum_relative_rms": 0.20461476976961976,
+        "recorded": 960
+      },
+      "episode_id": "libero_spatial_ood:seed19:task2:state0",
+      "event_sha256": "62dc3502431ecf2c61f06d3faa6462e73dbf9147b3d94c3658110bd71c1ccbca",
+      "generations_verified": 1999,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.043081283569336e-07,
+          "rmse": 1.3422553220322212e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00014409422874450684,
+          "rmse": 1.2886012374139412e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000004022659,
+      "provider": {
+        "accepted": 27,
+        "calls": 27,
+        "http_status": {
+          "200": 27
+        },
+        "usage_available_calls": 27
+      },
+      "recorded_actions": 9993,
+      "rollouts_verified": 34,
+      "vision_changed_generations": 739,
+      "worker": 6,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "f1eb607afee03985496a63027ac87196a782ae0f9359b649cdb0bd71e91d0c77",
+      "arrays_verified": 376,
+      "candidate_text": {
+        "maximum_relative_rms": 0.0
+      },
+      "episode_id": "libero_spatial_ood:seed19:task3:state0",
+      "event_sha256": "afeb32534553da552d946f4b1e878fa5a8c82f7757cd8fb206aa60e6be776d28",
+      "generations_verified": 55,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.043081283569336e-07,
+          "rmse": 1.395272145634264e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00014168024063110352,
+          "rmse": 1.1321304429180988e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.0,
+      "provider": {
+        "accepted": 0,
+        "calls": 0,
+        "http_status": {},
+        "usage_available_calls": 0
+      },
+      "recorded_actions": 273,
+      "rollouts_verified": 3,
+      "vision_changed_generations": 0,
+      "worker": 7,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "d53a6a1c1b0f0c3450436d49cf8d4a06286205f3c82078de4e95734721b81805",
+      "arrays_verified": 12658,
+      "candidate_text": {
+        "effect": 900,
+        "enabled": 900,
+        "maximum_relative_rms": 0.15963979776841722,
+        "recorded": 900
+      },
+      "episode_id": "libero_spatial_ood:seed19:task4:state0",
+      "event_sha256": "90160bb825bb86c2319875229a08438e4a1ebbf729edcf0bf09ab86218def10b",
+      "generations_verified": 2040,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 5.960464477539063e-08,
+          "rmse": 8.729325207694129e-09
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00010668416507542133,
+          "rmse": 9.725383300256702e-06
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000049411873,
+      "provider": {
+        "accepted": 27,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "recorded_actions": 10200,
+      "rollouts_verified": 34,
+      "vision_changed_generations": 900,
+      "worker": 4,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "fdb88b5b28be0da28753810c393185b49ed01d53eeadd97355205b2f912195cc",
+      "arrays_verified": 12658,
+      "candidate_text": {
+        "effect": 900,
+        "enabled": 900,
+        "maximum_relative_rms": 0.16883235636049668,
+        "recorded": 900
+      },
+      "episode_id": "libero_spatial_ood:seed19:task5:state0",
+      "event_sha256": "68847ecbf4fd12b94a3df8a05da45fbbddf3516cadaf227b414a6942f0eda3a3",
+      "generations_verified": 2040,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 8.940696716308594e-08,
+          "rmse": 1.2075595352511743e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00012505054473876953,
+          "rmse": 1.0484167872062957e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000038968819,
+      "provider": {
+        "accepted": 27,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "recorded_actions": 10200,
+      "rollouts_verified": 34,
+      "vision_changed_generations": 840,
+      "worker": 5,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "6ddbdd230d5038cae9d8dd73b09796749026f57f25fc0f3b8e5d08297ecffa47",
+      "arrays_verified": 13030,
+      "candidate_text": {
+        "effect": 960,
+        "enabled": 960,
+        "maximum_relative_rms": 0.1278248201727046,
+        "recorded": 960
+      },
+      "episode_id": "libero_spatial_ood:seed19:task6:state0",
+      "event_sha256": "1332f710dac73873c6fd3bf6f0a840f946d44877c369f831b05c7da3f6487d29",
+      "generations_verified": 2100,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 5.960464477539063e-08,
+          "rmse": 8.38845278514653e-09
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 5.7190656661987305e-05,
+          "rmse": 5.775663532050529e-06
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000004674962,
+      "provider": {
+        "accepted": 28,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "recorded_actions": 10500,
+      "rollouts_verified": 35,
+      "vision_changed_generations": 660,
+      "worker": 6,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "9f55773112443275995885408b3a79f2ba81f0025e9b4cc580c8b54b5ba85d65",
+      "arrays_verified": 12658,
+      "candidate_text": {
+        "effect": 840,
+        "enabled": 840,
+        "maximum_relative_rms": 0.15021230114460063,
+        "recorded": 900
+      },
+      "episode_id": "libero_spatial_ood:seed19:task7:state0",
+      "event_sha256": "46c7600bb15d94881d8f4611fc6ddba8791c0e9b4f08dc2efcd7a132da310f5b",
+      "generations_verified": 2040,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.2293457984924316e-07,
+          "rmse": 1.4714085065961696e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.0002282857894897461,
+          "rmse": 1.795220973810499e-05
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000030444043,
+      "provider": {
+        "accepted": 27,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "recorded_actions": 10200,
+      "rollouts_verified": 34,
+      "vision_changed_generations": 720,
+      "worker": 7,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "1a0cf396c40695e285cd7f0611e6ee7b6a1bd600914df8e4a956b238960aa153",
+      "arrays_verified": 10216,
+      "candidate_text": {
+        "effect": 960,
+        "enabled": 960,
+        "maximum_relative_rms": 0.1442123133761032,
+        "recorded": 960
+      },
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "event_sha256": "66326c601773e5212ea1576507b9f7581572b6b427b8c99bcc8c2db1e89d4611",
+      "generations_verified": 1641,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 9.685754776000977e-08,
+          "rmse": 9.347149156553239e-09
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 2.9802322387695312e-05,
+          "rmse": 4.364300447389913e-06
+        }
+      },
+      "maximum_noise_expression_error": 0.0,
+      "maximum_observed_noise_delta_rms": 0.5000000034655188,
+      "provider": {
+        "accepted": 23,
+        "calls": 23,
+        "http_status": {
+          "200": 23
+        },
+        "usage_available_calls": 23
+      },
+      "recorded_actions": 8197,
+      "rollouts_verified": 30,
+      "vision_changed_generations": 580,
+      "worker": 4,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    },
+    {
+      "array_inventory_sha256": "427afa2e7a2fec8206a4a6e2a53a686ed592f514fb86abe3e44a5fa3fcd719f8",
+      "arrays_verified": 12658,
+      "candidate_text": {
+        "effect": 960,
+        "enabled": 960,
+        "maximum_relative_rms": 0.13740345614414737,
+        "recorded": 960
+      },
+      "episode_id": "libero_spatial_ood:seed19:task9:state0",
+      "event_sha256": "9d6b84316043aea35f7faa3e0c055f2bcf8aa1236407bf2f361b1d4b0dd1a339",
+      "generations_verified": 2040,
+      "initial_errors_recomputed": {
+        "actions": {
+          "max_abs": 1.1920928955078125e-07,
+          "rmse": 1.171448216070216e-08
+        },
+        "native_parity": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "noise": {
+          "max_abs": 0.00024297833442687988,
+          "rmse": 2.120959343441029e-05
+        }
+      },
+      "maximum_noise_expression_error": 5.960464477539063e-08,
+      "maximum_observed_noise_delta_rms": 0.3000000142807188,
+      "provider": {
+        "accepted": 27,
+        "calls": 28,
+        "http_status": {
+          "200": 28
+        },
+        "usage_available_calls": 28
+      },
+      "recorded_actions": 10200,
+      "rollouts_verified": 34,
+      "vision_changed_generations": 720,
+      "worker": 5,
+      "zero_hook_parity_worker": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      }
+    }
+  ],
+  "counts": {
+    "archives": 8,
+    "arrays_verified": 151076,
+    "cases": 20,
+    "generations_verified": 24298,
+    "provider_accepted": 316,
+    "provider_calls": 323,
+    "rollouts_verified": 424,
+    "text_effect_generations": 10679,
+    "vision_changed_generations": 9119
+  },
+  "exact_episode_coverage": true,
+  "initialization": {
+    "maximum_recomputed_errors": {
+      "actions": {
+        "max_abs": 2.086162567138672e-07,
+        "rmse": 2.4315341932224493e-08
+      },
+      "native_parity": {
+        "max_abs": 0.0,
+        "rmse": 0.0
+      },
+      "noise": {
+        "max_abs": 0.00032383203506469727,
+        "rmse": 2.742321597326605e-05
+      }
+    },
+    "passed_conditions": 20,
+    "reference_solver": {
+      "name": "rk4",
+      "steps": 100,
+      "time_power": 3
+    },
+    "rollout_solver": {
+      "name": "euler",
+      "steps": 10
+    },
+    "scope": "Prior-generated full32 action endpoint with known original noise; not arbitrary Astra action endpoint inversion.",
+    "tf32": false,
+    "tolerances": {
+      "actions_max_abs": 0.02,
+      "native_parity_max_abs": 1e-05,
+      "noise_max_abs": 0.1,
+      "zero_hook_parity_max_abs": 0.0
+    },
+    "zero_hook_parity_worker_max_abs": 0.0
+  },
+  "interventions": {
+    "maximum_noise_expression_error": 5.960464477539063e-08,
+    "maximum_observed_noise_delta_rms": 0.5000000049411873,
+    "maximum_recorded_text_relative_rms": 0.20461476976961976,
+    "noise_expression_max_abs_tolerance": 1e-07,
+    "noise_reconstruction": "Recorded float64 coefficients, full saved basis and recovered latent; tensordot then float32 delta before scale/add.",
+    "noise_rms_note": "The proposal scale is bounded at0.5; the measured float32 stored-latent delta reaches0.5000000049411873 RMS through finite-precision arithmetic. No threshold was changed during this audit.",
+    "strict_image_hashes": true,
+    "vision_redraw_backend": "Pillow-12.3.0-Linux-x86_64-separate-float32-blend"
+  },
+  "limitations": [
+    "Saved initialization endpoint errors, full flow-state latent expressions, vision redraws, controller decoding and reset bindings were recomputed without a policy solve.",
+    "Prefix embedding tensors were not saved: token identities, prefix hashes, boundary flags, norm metadata and condition IDs were verified without independently re-embedding.",
+    "Exact zero-alpha preflight parity is a worker-computed metric because its endpoint was not separately saved.",
+    "Task successes are recorded simulator outcomes; this recording audit does not replay environments or establish generalization benefit.",
+    "One local Pillow blend portability failure was diagnosed using a single Linux CPU redraw. The declared Linux reconstruction retains exact hashes; the frozen runtime and recorded arrays were unchanged."
+  ],
+  "payload_sha256": "fde89be9786f85f6ed5e889d7f736784a500dd6fc2f81e9db65480cadb606fb4",
+  "physical_velocity_evaluations": 267580,
+  "provenance": {
+    "checkpoint_record_sha256": "62663c53c38900b8bfbbe1ed6d01584b76341b20bdd372eaf459d3621d8cca09",
+    "final_validation_sha256": "409c79ec7f12582e73b302b915e075e6bc1ffb044b953632861b54cf6bc38f1a",
+    "frozen_dependency_inventory_sha256": "da00a4b26fd5527557c61b2e93d11f827beda2486d181277121bfc916edf9d92",
+    "linux_cpu_proof_sha256": "6e5ea4928029f6755d04e45c8a738298f16967b38a0a530808cb4b856440696b",
+    "linux_vision_source_sha256": "33921998fd5887efafac1d4e325503c88c8b9fd08a2ac7588de18b8b864cabd4",
+    "original_audit_source_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+    "provider_review_sha256": "566e9257d8e44059406b13a22baec37a1baae60ace78e631611beb9b1a7a47f6",
+    "renderer_portability_receipt_sha256": "2614a07efd32ec99c28e33c6580631093f59cabf5a8744663ed9086f0d03d73c",
+    "snapshot_manifest_sha256": "2203983e50768d7aa063fe33750d340d5ef2614876e4d7063957ec581248d74f",
+    "summary_sha256": "177080e2a3d9ab259024484932bdfa5897978ec1539defe66d75f51750d07365",
+    "wrapper_source_sha256": "7607f95dce3137c06bd441afedd6c06dc18308bf0af158be7f8df928c0dbcc0e"
+  },
+  "recorded_actions": 121433,
+  "runtime_source_commit": "e0283747",
+  "scope": "Read-only audit of all20 evaluation cases; no new policy solves, inference API calls or simulator execution.",
+  "status": "complete_verified",
+  "workflow": "astra-pi05-interventions-eval-20260924-1"
+}

@@ -1,0 +1,460 @@
+"""Read-only canonical inputs; write separate, immutable interpretation artifacts."""
+
+import csv
+import json
+import shutil
+from pathlib import Path
+
+from astra_reversal import intervention_report
+from astra_reversal.intervention_report import ARMS, _requested_nonzero, require
+from astra_reversal.records import digest, file_sha256
+
+ROOT = Path(__file__).resolve().parents[2]
+PRIVATE = Path(__file__).resolve().parent
+OUTPUT = ROOT / "artifacts/interventions-eval-v1-report"
+TOKEN_FIELDS = ("input_tokens", "output_tokens", "reasoning_tokens", "total_tokens")
+
+
+def read(path):
+    return json.loads(path.read_text())
+
+
+def write_new(path, value):
+    with path.open("x") as stream:
+        json.dump(value, stream, indent=2, allow_nan=False)
+        stream.write("\n")
+
+
+def paired_at_cap(report, report_hash):
+    summaries = read(OUTPUT / "suite_tables.json")["scope_summaries"]
+    rows = []
+    names = {
+        "both": "both_succeed",
+        "arm_only": "astra_only_succeeds",
+        "random_only": "random_only_succeeds",
+        "neither": "both_fail_within_budget",
+    }
+    for scope, summary in summaries.items():
+        cases = [
+            case
+            for case in report["cases"]
+            if scope == "pooled" or case["suite"] == scope
+        ]
+        require(len(cases) == summary["cases"], "Paired scope lost prescribed cases")
+        for population in ("all_prespecified_cases", "baseline_failed_cases_only"):
+            selected = (
+                cases
+                if population == "all_prespecified_cases"
+                else [case for case in cases if not case["baseline"]["success"]]
+            )
+            for arm in ARMS:
+                if arm == "random_noise":
+                    continue
+                ids = {key: [] for key in names}
+                for case in selected:
+                    a = case["arms"][arm]["first_success_attempt"] is not None
+                    b = (
+                        case["arms"]["random_noise"]["first_success_attempt"]
+                        is not None
+                    )
+                    key = (
+                        "both"
+                        if a and b
+                        else "arm_only"
+                        if a
+                        else "random_only"
+                        if b
+                        else "neither"
+                    )
+                    ids[key].append(case["episode_id"])
+                if population == "baseline_failed_cases_only":
+                    expected = summary["arms"][arm][
+                        "paired_rescue_vs_random_noise_by_attempt"
+                    ][-1]
+                    require(
+                        expected["attempt"] == 5
+                        and expected["denominator"] == len(selected)
+                        and all(
+                            set(ids[key]) == set(expected["episode_ids"][key])
+                            for key in names
+                        ),
+                        "Paired reconstruction disagrees with canonical rescue comparison",
+                    )
+                rows.append(
+                    {
+                        "scope": scope,
+                        "population": population,
+                        "arm": arm,
+                        "attempt_cap": 5,
+                        "cases": len(selected),
+                        "comparison": summary["arms"][arm][
+                            "comparison_to_random_noise"
+                        ],
+                        **{names[key]: len(value) for key, value in ids.items()},
+                        "astra_only_episode_ids": ids["arm_only"],
+                        "random_only_episode_ids": ids["random_only"],
+                        "all_outcome_episode_ids": {
+                            names[key]: value for key, value in ids.items()
+                        },
+                    }
+                )
+    result = {
+        "schema_version": "intervention_paired_at_cap_v1",
+        "canonical_report_file_sha256": report_hash,
+        "canonical_report_content_digest": report["sha256"],
+        "derivative_source_sha256": file_sha256(__file__),
+        "rows": rows,
+        "notes": [
+            "Each frozen arm is compared separately with random_noise at the full five-attempt cap; no best-arm oracle selection is evaluated.",
+            "Both all prespecified cases and the baseline-failed subset are retained, pooled and by suite.",
+            "Equal aggregate success counts can involve different cases; exact discordant episode IDs are preserved.",
+            "Only noise_only versus random_noise holds the intervention operator and basis fixed; other arms also change the operator.",
+            "Failure means no success within five attempts; unsuccessful searches remain censored.",
+        ],
+    }
+    result["sha256"] = digest(result)
+    return result
+
+
+def main():
+    report_path = OUTPUT / "report.json"
+    report_hash = file_sha256(report_path)
+    report = read(report_path)
+    validation = read(OUTPUT / "final_validation.json")
+    require(validation["status"] == "complete", "Canonical audit is not complete")
+    require(
+        validation["canonical_report_file_sha256"] == report_hash,
+        "Canonical report changed after validation",
+    )
+    require(
+        digest({key: value for key, value in report.items() if key != "sha256"})
+        == report["sha256"],
+        "Canonical content digest mismatch",
+    )
+    require(
+        report["phase"] == "evaluation" and len(report["cases"]) == 20,
+        "Derivative requires all twenty evaluation cases",
+    )
+    require(
+        file_sha256(intervention_report.__file__) == report["report_source_sha256"],
+        "Loaded report implementation differs from the canonical audit",
+    )
+    require(
+        file_sha256(OUTPUT / "suite_tables.json")
+        == validation["suite_tables_file_sha256"],
+        "Suite tables changed after validation",
+    )
+    sources = {row["path"]: row["sha256"] for row in report["source_files"]}
+    cases = {case["episode_id"]: case for case in report["cases"]}
+    require(len(cases) == 20, "Duplicate evaluation cases")
+    rows = []
+    for case in report["cases"]:
+        for arm in ARMS:
+            value = case["arms"][arm]
+            first = value["first_success_attempt"]
+            winning = next(
+                (
+                    attempt
+                    for attempt in value["attempts"]
+                    if attempt["iteration"] == first
+                ),
+                None,
+            )
+            proposal = winning["proposal"] if winning else None
+            channels = (
+                [
+                    channel
+                    for channel, enabled in _requested_nonzero(proposal).items()
+                    if enabled
+                ]
+                if proposal
+                else []
+            )
+            if winning:
+                require(
+                    winning["success"] and winning["rollout_executed"],
+                    "A winner must be a successful executed rollout",
+                )
+            row = {
+                "episode_id": case["episode_id"],
+                "suite": case["suite"],
+                "task_id": case["task_id"],
+                "arm": arm,
+                "baseline_success": case["baseline"]["success"],
+                "first_success_attempt": first,
+                "intervention_iterations_to_success": value[
+                    "intervention_iterations_to_success"
+                ],
+                "censored_after_attempt": value["censored_after_attempt"],
+                "rescued": not case["baseline"]["success"] and first is not None,
+                "winning_candidate_id": winning["candidate_id"] if winning else None,
+                "winning_requested_nonzero_channels": channels,
+                "winning_proposal_sha256": digest(proposal) if proposal else None,
+                "winning_rollout_actions": winning["actions_executed"]
+                if winning
+                else None,
+                "proposal_failures": value["proposal_failures"],
+            }
+            usage = value["token_usage_through_success_or_cap"]
+            row.update(
+                provider_calls_through_success_or_cap=usage["provider_calls"],
+                failed_calls_through_success_or_cap=usage["failed_calls"],
+            )
+            for field in TOKEN_FIELDS:
+                item = usage["tokens"][field]
+                row[f"observed_{field}_through_success_or_cap"] = item["sum"]
+                row[f"{field}_complete"] = item["complete"]
+                row[f"{field}_missing_calls"] = item["missing_calls"]
+            rows.append(row)
+    require(len(rows) == 160, "All twenty cases and eight arms must remain present")
+
+    bindings = []
+    review_names = (
+        "first-rescue-array-review.json",
+        "random-coefficient-array-review.json",
+    )
+    review_sources = {
+        "first-rescue-array-review.json": "check_winning_arrays.py",
+        "random-coefficient-array-review.json": "check_random_arrays.py",
+    }
+    for name in review_names:
+        review_path = PRIVATE / name
+        review = read(review_path)
+        auditor = PRIVATE / review_sources[name]
+        require(
+            file_sha256(auditor) == review["auditor_sha256"],
+            "Supplementary auditor source differs from its recorded hash",
+        )
+        case = cases[review["episode_id"]]
+        events = Path(case["source"]["path"]).with_name("events.jsonl")
+        events_hash = file_sha256(events)
+        require(
+            events_hash == sources[str(events.resolve())], "Canonical events changed"
+        )
+        with events.open("rb") as stream:
+            prefix = stream.read(review["source_events_prefix_bytes"])
+        import hashlib
+
+        prefix_hash = hashlib.sha256(prefix).hexdigest()
+        require(
+            len(prefix) == review["source_events_prefix_bytes"]
+            and prefix_hash == review["source_events_prefix_sha256"],
+            "Supplementary review does not bind the final events",
+        )
+        bindings.append(
+            {
+                "review": name,
+                "review_sha256": file_sha256(review_path),
+                "auditor_source": review_sources[name],
+                "auditor_source_sha256": review["auditor_sha256"],
+                "episode_id": review["episode_id"],
+                "arm": review["arm"],
+                "iteration": review["iteration"],
+                "event_prefix_bytes": len(prefix),
+                "event_prefix_sha256": prefix_hash,
+                "final_events_sha256": events_hash,
+            }
+        )
+
+    result = {
+        "schema_version": "intervention_winning_channels_v1",
+        "canonical_report_file_sha256": report_hash,
+        "canonical_report_content_digest": report["sha256"],
+        "derivative_source_sha256": file_sha256(__file__),
+        "derivative_invocation": "PYTHONPATH=. python astra_reversal/.deps/interventions-eval-v1/finalize_intervention_derivatives.py",
+        "cases": 20,
+        "case_arm_rows": len(rows),
+        "channel_definition": "Nonzero requested parameters in the recorded winning proposal. "
+        "Arm labels specify allowed channels; these indicators alone do not establish a causal contribution or measured tensor effect.",
+        "token_definition": "Calls and observed tokens include rejected proposals through first success or attempt5. "
+        "Missing usage remains explicit; reasoning tokens are a subset of output tokens.",
+        "rows": rows,
+        "supplementary_review_event_bindings": bindings,
+    }
+    result["sha256"] = digest(result)
+    paired = paired_at_cap(report, report_hash)
+    write_new(OUTPUT / "winning_channels.json", result)
+    write_new(OUTPUT / "paired_vs_random.json", paired)
+    pair_rows = [
+        {
+            key: (";".join(value) if isinstance(value, list) else value)
+            for key, value in row.items()
+            if key != "all_outcome_episode_ids"
+        }
+        for row in paired["rows"]
+    ]
+    with (OUTPUT / "paired_vs_random.csv").open("x", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(pair_rows[0]))
+        writer.writeheader()
+        writer.writerows(pair_rows)
+    pair_lines = [
+        "Paired outcomes versus random noise at the five-attempt cap.",
+        "",
+        "The table retains all prescribed cases, including common baseline successes. The CSV and JSON also report the baseline-failed subset.",
+        "",
+        "| Scope | Arm | Cases | Both succeed | Astra only | Random only | Both fail within budget |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for row in paired["rows"]:
+        if row["population"] == "all_prespecified_cases":
+            pair_lines.append(
+                "| "
+                + " | ".join(
+                    str(row[key])
+                    for key in (
+                        "scope",
+                        "arm",
+                        "cases",
+                        "both_succeed",
+                        "astra_only_succeeds",
+                        "random_only_succeeds",
+                        "both_fail_within_budget",
+                    )
+                )
+                + " |"
+            )
+    pair_lines += ["", "Pooled discordant episode IDs:", ""]
+    for row in paired["rows"]:
+        if row["scope"] == "pooled" and row["population"] == "all_prespecified_cases":
+            pair_lines.append(
+                f"- {row['arm']}: Astra only = {', '.join(row['astra_only_episode_ids']) or 'none'}; random only = {', '.join(row['random_only_episode_ids']) or 'none'}."
+            )
+    pair_lines += ["", *paired["notes"]]
+    with (OUTPUT / "paired_vs_random.md").open("x") as stream:
+        stream.write("\n".join(pair_lines) + "\n")
+    with (OUTPUT / "winning_channels.csv").open("x", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(
+            {
+                **row,
+                "winning_requested_nonzero_channels": "+".join(
+                    row["winning_requested_nonzero_channels"]
+                ),
+            }
+            for row in rows
+        )
+    lines = [
+        "Winning requested channels among rescued cases.",
+        "",
+        result["channel_definition"],
+        "",
+        "All 160 case×arm outcomes, including baseline successes and censored searches, remain in the JSON and CSV.",
+        "",
+        "| Case | Arm | First success | Revisions | Winning requested channels | Tokens through success |",
+        "| --- | --- | ---: | ---: | --- | ---: |",
+    ]
+    for row in rows:
+        if row["rescued"]:
+            total = row["observed_total_tokens_through_success_or_cap"]
+            label = (
+                str(total)
+                if row["total_tokens_complete"]
+                else f"{total} observed; incomplete"
+            )
+            lines.append(
+                "| "
+                + " | ".join(
+                    map(
+                        str,
+                        [
+                            row["episode_id"],
+                            row["arm"],
+                            row["first_success_attempt"],
+                            row["intervention_iterations_to_success"],
+                            "+".join(row["winning_requested_nonzero_channels"])
+                            or "none",
+                            label,
+                        ],
+                    )
+                )
+                + " |"
+            )
+    if not any(row["rescued"] for row in rows):
+        lines += ["", "No baseline-failed cases were rescued."]
+    lines += ["", result["token_definition"]]
+    with (OUTPUT / "winning_channels.md").open("x") as stream:
+        stream.write("\n".join(lines) + "\n")
+
+    scope = read(PRIVATE / "protocol_scope.json")
+    write_new(OUTPUT / "protocol_scope.json", scope)
+    paragraphs = [
+        scope[key]
+        for key in ("current_operator", "paper_method", "interpretation", "arm_labels")
+    ]
+    paragraphs[1] += (
+        " "
+        + ", ".join(
+            f"[{source['title']}]({source['url']})"
+            for source in scope["primary_sources"]
+        )
+        + "."
+    )
+    with (OUTPUT / "protocol_scope.md").open("x") as stream:
+        stream.write("\n\n".join(paragraphs) + "\n")
+    reviews = OUTPUT / "supplementary_reviews"
+    reviews.mkdir(exist_ok=False)
+    for name in (
+        *review_names,
+        "random-proposal-normalization-diagnostic.json",
+        "reporter-roundoff-fix.json",
+        "reporter-numeric-schema-guard.json",
+    ):
+        shutil.copyfile(PRIVATE / name, reviews / name)
+    (reviews / "source").mkdir()
+    for name in review_sources.values():
+        shutil.copyfile(PRIVATE / name, reviews / "source" / name)
+    write_new(
+        reviews / "invocations.json",
+        {
+            "activation": "source /Users/rpunamiya/Desktop/GEAR/EgoVerse-dataset-weighting-20260919/emimic/bin/activate",
+            "working_directory": str(ROOT.parent),
+            "commands": [
+                f"PYTHONPATH=. python astra_reversal/.deps/interventions-eval-v1/{name}"
+                for name in review_sources.values()
+            ],
+            "execution_scope": "Read-only CPU exec on the original evaluation worker6; no model inference, provider request, environment step or runtime mutation.",
+            "replay_limit": "The exact carrier scripts require the original live worker. Their embedded REMOTE kernels can be replayed against an extracted final archive with paths supplied in the frozen Linux environment.",
+        },
+    )
+    shutil.copyfile(__file__, OUTPUT / "source" / Path(__file__).name)
+    require(
+        file_sha256(report_path) == report_hash,
+        "Canonical report changed during derivatives",
+    )
+    receipt = {
+        "status": "complete",
+        "canonical_report_unchanged": True,
+        "canonical_report_file_sha256": report_hash,
+        "winning_channels_content_digest": result["sha256"],
+        "paired_vs_random_content_digest": paired["sha256"],
+        "files": {
+            str(path.relative_to(OUTPUT)): file_sha256(path)
+            for path in sorted(OUTPUT.rglob("*"))
+            if path.is_file()
+        },
+    }
+    write_new(OUTPUT / "completion_receipt.json", receipt)
+    print(
+        json.dumps(
+            {
+                "status": "complete",
+                "case_arm_rows": len(rows),
+                "rescued_case_arm_rows": sum(row["rescued"] for row in rows),
+                "report_sha256": report_hash,
+                "winning_channels_sha256": file_sha256(
+                    OUTPUT / "winning_channels.json"
+                ),
+                "paired_vs_random_sha256": file_sha256(
+                    OUTPUT / "paired_vs_random.json"
+                ),
+                "completion_receipt_sha256": file_sha256(
+                    OUTPUT / "completion_receipt.json"
+                ),
+            }
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

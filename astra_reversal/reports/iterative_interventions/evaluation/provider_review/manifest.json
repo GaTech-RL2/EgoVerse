@@ -1,0 +1,20 @@
+{
+  "workflow": "astra-pi05-interventions-eval-20260924-1",
+  "status": "complete",
+  "canonical_report_sha256": "81bd679d49d23130c2c63547043d42cd68c603fa78d676c2c433cfe26129d1bb",
+  "invocations": {
+    "environment": "source /Users/rpunamiya/Desktop/GEAR/EgoVerse-dataset-weighting-20260919/emimic/bin/activate",
+    "provider_review": "PYTHONPATH=. python astra_reversal/.deps/interventions-eval-v1/finalize_provider_review.py",
+    "winning_array_check": "PYTHONPATH=. python astra_reversal/.deps/interventions-eval-v1/check_winning_arrays.py",
+    "random_array_check": "PYTHONPATH=. python astra_reversal/.deps/interventions-eval-v1/check_random_arrays.py",
+    "feedback_prefix_check": "PYTHONPATH=. python astra_reversal/.deps/interventions-eval-v1/audit_feedback_prefix.py"
+  },
+  "scope_notes": [
+    "Exact source bytes are preserved, including original operational paths. No rerun was made while packaging.",
+    "The two array-check carriers originally used read-only OSMO exec on live worker6 and cannot attach after task completion. Their REMOTE constants contain the complete CPU kernels; replay them against the extracted case2 archive and frozen Linux source/environment.",
+    "For an identical prefix check, restrict the events file to the source_events_prefix_bytes retained in its review and verify its source_events_prefix_sha256 first. The canonical derivative verifies these prefixes against final events.",
+    "The random kernel uses the laptop coefficient vector recorded in random-coefficient-array-review.json in its __LOCAL_REGENERATED__ substitution; the coefficients remain float64 through the frozen tensordot before casting to float32.",
+    "The feedback-prefix review is partial; it is not a substitute for the canonical all20-case audit.",
+    "Provider review joins canonical case summary/ledger hashes and verifies exact final accounting. Raw provider responses, image arrays, private catalogs, signed URLs and credentials are not included."
+  ]
+}

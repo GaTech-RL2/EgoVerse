@@ -1,0 +1,8 @@
+{
+  "status": "reporter_only_roundoff_fix_validated",
+  "report_source_sha256": "110d1776490ec9a87f27f6fb10a35932c4a64e06aa2d075a63705c9a33d6c7dd",
+  "test_source_sha256": "666f3c48b166be6db9938554cbd371dce5531dcd6c9117fff0ca9b010fce109c",
+  "operational_source_sha256": "9aaadc7cb4bcea94806d3b97f3debb2bbfb4a92840ee2479f6b7c18c36118092",
+  "remote_saved_array_review_sha256": "cc4209cea7e6190c47b2281637629fc59d6d3844bb0d3c873252373f9442f5e6",
+  "validation": "23 focused tests passed; Ruff check passed; four-ULP coefficient-only audit bound; runtime/results unchanged"
+}

@@ -1,0 +1,7 @@
+Each candidate applies a bounded pooled difference between input text embeddings for the original instruction with guidance and the original instruction. The residual is broadcast over the original valid text slots. Scale and guidance stay fixed throughout that candidate rollout; fresh raw observations continue to enter the policy. Demonstrations and direct hidden-layer latent injection are not used.
+
+Sections 3.2–3.3 define text latents from demonstration-conditioned hidden states at transformer layers. TLI injects an interpolation of those latents into residual streams with a mixing ratio that changes during execution. TEI separately interpolates source-prompt embeddings over execution time. [VLAs are Confined yet Capable of Generalizing to Novel Instructions, v5, section 3.2](https://arxiv.org/html/2505.03500v5#S3.SS2), [Section 3.3: Text Latent Interpolation](https://arxiv.org/html/2505.03500v5#S3.SS3).
+
+The present bounded input-embedding intervention evaluates a different operator and policy checkpoint. Its outcomes are not a replication or a test of the complete paper TEI/TLI procedure.
+
+Arm labels specify the allowed channels, not a requirement that each channel be nonzero in every candidate. A mechanism description must use the winning candidate's active parameters. The report preserves all proposals and separate nonzero-channel counts; a success in a multi-channel arm does not by itself attribute an effect to every allowed channel.

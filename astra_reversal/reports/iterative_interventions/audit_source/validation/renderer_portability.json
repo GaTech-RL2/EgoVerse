@@ -1,0 +1,43 @@
+{
+  "annotation": [
+    {
+      "camera": "observation/image",
+      "coordinates": [
+        15,
+        91,
+        68,
+        123
+      ],
+      "gain": 0.85,
+      "kind": "box"
+    }
+  ],
+  "arm": "vision_only",
+  "candidate_id": "stove_outline_salience_v5",
+  "case": "libero_spatial_ood:seed19:task7:state0",
+  "channel_values_different": 37,
+  "event_sha256": "46c7600bb15d94881d8f4611fc6ddba8791c0e9b4f08dc2efcd7a132da310f5b",
+  "frozen_runtime_unchanged": true,
+  "initial_partial_audit_sha256": "f45db1e7643bcaea30c5ee5b9ee04de24d06300d238dcf35a1f6072901655c97",
+  "linux_Pillow": "12.3.0",
+  "linux_numpy": "1.26.4",
+  "linux_platform": "x86_64",
+  "linux_review_sha256": "6e5ea4928029f6755d04e45c8a738298f16967b38a0a530808cb4b856440696b",
+  "local_Pillow": "12.3.0",
+  "local_blend_sha256": "9e9bacf91c7e68923b5299841f02faa415d25b416f904c6c76d37e1cb86f1fd8",
+  "local_numpy": "1.26.4",
+  "local_platform": "arm64",
+  "maximum_uint8_difference": 1,
+  "original_audit_helper_sha256": "4a90b0ebc6189b496c6faf6d193d4f996e4cc054c5020f48d8bc17a2e4edb031",
+  "original_check": "Vision redraw differs from recorded condition",
+  "recorded_and_linux_blend_sha256": "0009c379641e12acc49e134aaed2fed4b3a61c4e0c0be665bb876a238f7dce03",
+  "remote_cpu_redraw_executions": 1,
+  "sequence": 1128,
+  "status": "diagnosed_audit_portability_difference",
+  "step": 0,
+  "strict_pixel_hash_check_preserved": true,
+  "transport_attempt_before_execution": {
+    "description": "An oversized inline command was rejected before remote execution; the successful command instead read the archived arrays with existing R2 credentials.",
+    "status": 414
+  }
+}

@@ -9,6 +9,7 @@ from dataclasses import asdict
 import numpy as np
 import pytest
 
+from astra_reversal import intervention_report
 from astra_reversal.astra_client import ClientError
 from astra_reversal.config import BenchmarkConfig
 from astra_reversal.intervention_agent import (
@@ -681,6 +682,74 @@ def test_corrupt_or_incomplete_recordings_fail_closed(dataset, change, match):
         write(folders[1] / "protocol.json", protocol)
     with pytest.raises(ValueError, match=match):
         build_report(folders, phase="development")
+
+
+@pytest.mark.parametrize("ulps", [1, 4, 8])
+def test_random_direction_reconstruction_allows_only_declared_float64_roundoff(
+    dataset, monkeypatch, ulps
+):
+    folders = dataset()
+    original = intervention_report.random_noise_proposal
+
+    def regenerated_with_other_blas_reduction(basis, rng):
+        proposal = original(basis, rng)
+        coefficients = np.asarray(proposal["coefficients"], dtype=np.float64)
+        for _ in range(ulps):
+            coefficients = np.nextafter(coefficients, np.inf)
+        proposal["coefficients"] = coefficients.tolist()
+        return proposal
+
+    monkeypatch.setattr(
+        intervention_report,
+        "random_noise_proposal",
+        regenerated_with_other_blas_reduction,
+    )
+    if ulps > intervention_report.RANDOM_COEFFICIENT_ULPS:
+        with pytest.raises(ValueError, match="matched seeded basis"):
+            build_report(folders, phase="development")
+        return
+    result = build_report(folders, phase="development")
+    checks = [
+        check
+        for case in result["cases"]
+        for check in case["random_noise_reconstruction"]
+    ]
+    assert checks
+    assert all(check["basis_kind_and_scale_exact"] for check in checks)
+    assert all(not check["coefficients_exact"] for check in checks)
+    assert all(check["coefficient_max_ulp_difference"] == ulps for check in checks)
+    assert all(check["coefficient_tolerance_ulps"] == 4 for check in checks)
+
+
+@pytest.mark.parametrize(
+    "coefficients",
+    [
+        ["0.0"] + [0.0] * 7,
+        [False] + [0.0] * 7,
+        [None] + [0.0] * 7,
+        [float("nan")] + [0.0] * 7,
+        [float("inf")] + [0.0] * 7,
+        (0.0,) * 8,
+    ],
+)
+def test_random_direction_reconstruction_requires_finite_numeric_list(coefficients):
+    expected = {
+        "kind": "low_rank",
+        "basis_id": digest("basis"),
+        "perturbation_scale": 0.15,
+        "coefficients": [0.0] * 8,
+    }
+    row = {
+        "iteration": 2,
+        "rollout_executed": True,
+        "proposal": {
+            "language": None,
+            "vision": [],
+            "noise": {**expected, "coefficients": coefficients},
+        },
+    }
+    with pytest.raises(ValueError, match="matched seeded basis"):
+        intervention_report._random_noise_check(row, expected)
 
 
 def test_full_unassigned_reset_geometry_must_match_between_workers(dataset):

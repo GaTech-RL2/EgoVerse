@@ -1,0 +1,147 @@
+"""Read-only live provider/cost monitoring. No inference, GPU work or signed output."""
+import concurrent.futures
+import hashlib
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+BASE = Path(__file__).parent
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT))
+from astra_reversal.intervention_agent import summarize_calls
+
+LOCAL = BASE / "live"
+LOCAL.mkdir(exist_ok=True)
+LOCAL.chmod(0o700)
+CONFIG = json.loads((ROOT / "astra_reversal/configs/iterative_interventions_v1.json").read_text())
+ARMS = [name for name in CONFIG["arms"] if name != "random_noise"]
+EXPECTED_PAYLOAD = "fde89be9786f85f6ed5e889d7f736784a500dd6fc2f81e9db65480cadb606fb4"
+ETAGS, CONTENT, RECEIPTS = {}, {}, {}
+CASES = {}
+for worker in range(8):
+    suite = ("libero_goal_ood", "libero_spatial_ood")[worker // 4]
+    for task, initial in CONFIG["evaluation_cases"][worker % 4::4]:
+        name = f"worker_{worker}/case_{task}_{initial}"
+        CASES[name] = {"worker": worker, "suite": suite, "task_id": task, "initial_state_id": initial,
+                       "episode_id": f"{suite}:seed{CONFIG['seed']}:task{task}:state{initial}"}
+
+
+def write_private(path, raw):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with os.fdopen(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") as stream:
+        stream.write(raw)
+    temporary.chmod(0o600)
+    temporary.replace(path)
+
+
+def fetch(name, catalog):
+    try:
+        headers = {"If-None-Match": ETAGS[name]} if ETAGS.get(name) else {}
+        with urllib.request.urlopen(urllib.request.Request(catalog["objects"][name]["url"], headers=headers), timeout=20) as response:
+            raw, etag = response.read(), response.headers.get("ETag")
+            modified = response.headers.get("Last-Modified")
+        write_private(LOCAL / name, raw)
+        ETAGS[name] = etag
+        RECEIPTS[name] = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw), "etag": etag, "last_modified": modified, "fetched_unix": time.time()}
+        CONTENT[name] = [json.loads(line) for line in raw.splitlines() if line.strip()] if name.endswith(".jsonl") else json.loads(raw)
+        return name, 200
+    except urllib.error.HTTPError as exc:
+        return name, exc.code
+    except Exception as exc:
+        return name, type(exc).__name__
+
+
+def collect(names, catalog):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+        return list(pool.map(lambda name: fetch(name, catalog), names))
+
+
+def snapshot(statuses):
+    model = CONFIG["astra"]["model"]
+    workers, cases, all_provider, issues = {}, {}, [], []
+    for worker in range(8):
+        prefix = f"worker_{worker}/"
+        runtime = CONTENT.get(prefix + "runtime.json", {})
+        progress = CONTENT.get(prefix + "progress.json")
+        failure = CONTENT.get(prefix + "failure.json")
+        plan = CONTENT.get(prefix + "frozen_plan.json", {})
+        expected_ids = [target["episode_id"] for target in CASES.values() if target["worker"] == worker]
+        expected_assignment = {"suite": ("libero_goal_ood", "libero_spatial_ood")[worker // 4], "case_shard": worker % 4, "case_shards": 4}
+        runtime_ok = bool(runtime) and runtime.get("gpu") == "NVIDIA L40S" and runtime.get("tf32") is False and runtime.get("payload_sha256") == EXPECTED_PAYLOAD and runtime.get("assignment") == expected_assignment and runtime.get("phase") == "evaluation" and runtime.get("worker") == worker
+        if runtime and not runtime_ok:
+            issues.append({"worker": worker, "kind": "runtime_mismatch"})
+        if plan and plan.get("assigned_episodes") != expected_ids:
+            issues.append({"worker": worker, "kind": "assigned_episode_mismatch"})
+        workers[str(worker)] = {"runtime_verified": runtime_ok, "assignment": expected_assignment, "assigned_episodes": expected_ids, "progress": progress, "failure": failure}
+    for prefix, target in CASES.items():
+        summary = CONTENT.get(prefix + "/summary.json")
+        if not summary:
+            continue
+        if summary["episode_id"] != target["episode_id"]:
+            issues.append({"case": prefix, "kind": "summary_episode_mismatch"})
+        provider = [row for arm in sorted(ARMS) for row in CONTENT.get(prefix + "/" + arm + "_provider.jsonl", [])]
+        all_provider.extend(provider)
+        accounting = summarize_calls(provider)
+        provider_settings_ok = all(row.get("requested_model") == model and (not row.get("accepted") or row.get("response", {}).get("model") == model) and row.get("cache") == {"no-cache": True} and row.get("sampling_settings") == {"max_completion_tokens": CONFIG["astra"]["max_completion_tokens"], "reasoning_effort": "low"} and row.get("response_format") == {"type": "json_object"} and row.get("prompt_template_version") == "astra-intervention-http-2" for row in provider)
+        if not provider_settings_ok:
+            issues.append({"case": prefix, "kind": "provider_model_settings_mismatch"})
+        expected_accounting = summary.get("physical_cost", {}).get("token_usage")
+        final_reconciled = summary["status"] == "complete" and expected_accounting == accounting
+        arms = {}
+        for name, arm in summary.get("arms", {}).items():
+            attempts = []
+            for attempt in arm["attempts"]:
+                proposal = attempt.get("proposal") or {}
+                noise, language, vision = proposal.get("noise"), proposal.get("language"), proposal.get("vision") or []
+                nonzero = []
+                if noise and noise["perturbation_scale"] > 0 and any(noise["coefficients"]):
+                    nonzero.append("noise")
+                if language and language["scale"] > 0:
+                    nonzero.append("language")
+                if any(annotation["gain"] > 0 for annotation in vision):
+                    nonzero.append("vision")
+                attempts.append({"iteration": attempt["iteration"], "candidate_id": attempt["candidate_id"], "status": attempt["status"], "success": attempt["success"], "rollout_executed": attempt["rollout_executed"], "actions_executed": attempt["actions_executed"], "selected_nonzero_channels": nonzero, "error": attempt.get("error")})
+            arms[name] = {"status": arm["status"], "summary": arm["summary"], "attempts": attempts, "tokens_to_first_success": arm.get("tokens_to_first_success"), "token_usage": arm.get("token_usage")}
+        cases[target["episode_id"]] = {"worker": target["worker"], "suite": target["suite"], "status": summary["status"], "baseline_success": summary.get("baseline", {}).get("success"), "initialization_passed": summary.get("initialization", {}).get("passed"), "provider_accounting": accounting, "provider_settings_verified": provider_settings_ok, "final_provider_accounting_reconciled": final_reconciled, "arms": arms, "physical_cost": summary.get("physical_cost")}
+    return {"scope": "live_completed_prefix_until_all20_cases_and_provider_ledgers_reconcile", "observed_unix": time.time(), "expected_cases": 20, "observed_cases": len(cases), "complete_cases": sum(case["status"] == "complete" for case in cases.values()), "reconciled_complete_cases": sum(case["final_provider_accounting_reconciled"] for case in cases.values()), "workers": workers, "cases": cases, "provider_accounting": summarize_calls(all_provider), "issues": issues, "fetch_status": dict(statuses)}
+
+
+def main():
+    print(json.dumps({"monitor_pid": os.getpid(), "workers": 8, "expected_cases": len(CASES)}), flush=True)
+    previous = None
+    for _ in range(1440):
+        catalog = json.loads((BASE / "catalog.json").read_text())
+        roots = [f"worker_{worker}/{name}.json" for worker in range(8) for name in ("runtime", "progress", "frozen_plan", "failure")]
+        statuses = collect(roots + [prefix + "/summary.json" for prefix in CASES], catalog)
+        names = []
+        for prefix in CASES:
+            summary = CONTENT.get(prefix + "/summary.json", {})
+            if not summary.get("arms"):
+                continue
+            if summary.get("status") == "complete" and summary.get("physical_cost", {}).get("token_usage", {}).get("provider_calls") == 0:
+                continue
+            names.extend(prefix + "/" + arm + "_provider.jsonl" for arm in ARMS)
+        statuses += collect(names, catalog)
+        result = snapshot(statuses)
+        write_private(LOCAL / "receipts.json", json.dumps(RECEIPTS, indent=2).encode())
+        write_private(BASE / "evaluation-health.json", json.dumps(result, indent=2).encode())
+        short = {"complete_cases": result["complete_cases"], "reconciled_cases": result["reconciled_complete_cases"], "calls": result["provider_accounting"]["provider_calls"], "accepted": result["provider_accounting"]["accepted_proposals"], "failed": result["provider_accounting"]["failed_calls"], "tokens": result["provider_accounting"]["tokens"]["total_tokens"], "workers": {key: (row["progress"] or {}).get("status", "awaiting_bootstrap") for key, row in result["workers"].items()}, "issues": result["issues"], "failures": {key: row["failure"] for key, row in result["workers"].items() if row["failure"]}}
+        with os.fdopen(os.open(BASE / "evaluation-health.jsonl", os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600), "a") as stream:
+            stream.write(json.dumps({"observed_unix": result["observed_unix"], **short}) + "\n")
+        if short != previous:
+            print(json.dumps(short), flush=True)
+            previous = short
+        complete = result["reconciled_complete_cases"] == 20 and all((row["progress"] or {}).get("status") == "complete" for row in result["workers"].values())
+        if complete:
+            return 1 if result["issues"] or short["failures"] else 0
+        time.sleep(30)
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
