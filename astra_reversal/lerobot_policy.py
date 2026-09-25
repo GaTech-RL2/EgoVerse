@@ -532,6 +532,385 @@ class FrozenLeRobotPI05:
         )
         return condition, provenance
 
+    def _interpolation_inputs(self, observation, prompt):
+        """Verify the supported plain profile and derive instruction-only slots."""
+        from lerobot.utils.constants import (
+            OBS_LANGUAGE_ATTENTION_MASK,
+            OBS_LANGUAGE_TOKENS,
+        )
+
+        from . import interpolation_conditioning as interpolation
+
+        if self.metadata.get("input_profile") != "openpi_libero":
+            raise ValueError(
+                "Interpolation requires openpi_libero plain instructions; the saved Task/State/Action processor has no verified instruction-span mapping"
+            )
+        if not isinstance(prompt, str) or not prompt.strip():
+            raise ValueError("Interpolation prompt must be nonempty")
+        raw = {**copy.deepcopy(observation), "prompt": prompt}
+        batch = self._preprocess(raw)
+        cleaned = prompt.strip().replace("_", " ").replace("\n", " ")
+        instruction = self.sentencepiece.encode(cleaned, add_bos=False)
+        terminal = self.sentencepiece.encode("\n")
+        mask = interpolation.plain_instruction_mask(
+            to_numpy(batch[OBS_LANGUAGE_TOKENS]),
+            to_numpy(batch[OBS_LANGUAGE_ATTENTION_MASK]),
+            instruction,
+            terminal,
+            self.sentencepiece.bos_id(),
+        )
+        language = self.model.paligemma_with_expert.paligemma.language_model
+        layers = language.layers
+        if len(layers) != 18:
+            raise ValueError(
+                "This interpolation port requires the pinned 18-layer PI05 prefix"
+            )
+        compatibility = {
+            "artifact_sha256": copy.deepcopy(self.metadata.get("artifact_sha256")),
+            "model_source_sha256": self.metadata.get("model_source_sha256"),
+            "adapter_source_sha256": self.metadata.get("adapter_source_sha256"),
+            "processor_source_sha256": copy.deepcopy(
+                self.metadata.get("processor_source_sha256")
+            ),
+            "transformers_source_sha256": copy.deepcopy(
+                self.metadata.get("transformers_source_sha256")
+            ),
+            "input_profile": self.metadata["input_profile"],
+            "input_profile_source_sha256": self.metadata.get(
+                "input_profile_source_sha256"
+            ),
+            "input_profile_assets": copy.deepcopy(
+                self.metadata.get("input_profile_assets")
+            ),
+            "operator_source_sha256": file_sha256(interpolation.__file__),
+            "layer_count": len(layers),
+            "width": language.embed_tokens.weight.shape[1],
+            "text_slots": batch[OBS_LANGUAGE_TOKENS].shape[1],
+            "native_parameter_dtypes": sorted(
+                {str(p.dtype) for p in language.parameters()}
+            ),
+        }
+        return raw, batch, mask, layers, compatibility
+
+    def capture_text_latents(self, observation, prompt, *, observation_id=None):
+        """Capture all native post-block text states with one prefix-only pass.
+
+        No denoising, environment actions, or model updates occur. The bank keeps
+        all text slots for audit; only its instruction_mask is eligible for TLI.
+        Captured instruction states can already contain image context from
+        attention. This method and prepare_interpolated must run serially on a
+        given policy because their temporary hooks share the native model.
+        """
+        import torch
+        from lerobot.utils.constants import (
+            OBS_LANGUAGE_ATTENTION_MASK,
+            OBS_LANGUAGE_TOKENS,
+        )
+
+        from . import interpolation_conditioning as interpolation
+
+        raw, batch, instruction, layers, compatibility = self._interpolation_inputs(
+            observation, prompt
+        )
+        layout, states, native_dtypes = {}, [], []
+
+        def prefix(embeddings, padding, attention):
+            start = _interpolation_prefix_layout(
+                embeddings, padding, attention, batch[OBS_LANGUAGE_ATTENTION_MASK]
+            )
+            layout.update(
+                text_start=start,
+                prefix_embedding_sha256=digest(to_numpy(embeddings)),
+                prefix_padding_sha256=digest(to_numpy(padding)),
+                prefix_attention_sha256=digest(to_numpy(attention)),
+                prefix_positions_sha256=digest(
+                    to_numpy(torch.cumsum(padding, dim=1) - 1)
+                ),
+                native_scaled_text_embedding_sha256=digest(
+                    to_numpy(embeddings[:, start:])
+                ),
+            )
+            return embeddings
+
+        def capture(index, hidden):
+            if "text_start" not in layout:
+                raise ValueError(
+                    "Decoder ran before the native prefix layout was verified"
+                )
+            text = hidden[:, layout["text_start"] :]
+            if text.shape[:2] != batch[OBS_LANGUAGE_TOKENS].shape:
+                raise ValueError("Native text layout changed inside a decoder block")
+            states.append(to_numpy(text).astype(np.float32, copy=True))
+            native_dtypes.append(str(text.dtype))
+
+        with interpolation.scoped_post_block_hooks(layers, capture):
+            prepare_velocity(self.policy, batch, prefix_transform=prefix)
+        return interpolation.TextLatentBank(
+            np.stack(states),
+            to_numpy(batch[OBS_LANGUAGE_TOKENS]).astype(np.int64, copy=False),
+            to_numpy(batch[OBS_LANGUAGE_ATTENTION_MASK]),
+            instruction,
+            {
+                "source_prompt": prompt,
+                "source_prompt_sha256": digest(prompt),
+                "observation_id": observation_id,
+                "raw_condition_id": digest(raw),
+                "capture_kind": "single_observation",
+                "capture_boundary": interpolation.CAPTURE_BOUNDARY,
+                "compatibility": compatibility,
+                "native_layer_dtypes": native_dtypes,
+                "state_storage_dtype": "float32",
+                "instruction_only_direct_writes": True,
+                **layout,
+            },
+        )
+
+    def prepare_interpolated(
+        self,
+        observation,
+        observation_id,
+        target_prompt,
+        *,
+        source_prompts,
+        alpha,
+        operator="tei",
+        text_latents=None,
+    ):
+        """Prepare a fresh native cache using tokenwise TEI and/or per-layer TLI.
+
+        TEI is (1-alpha) E(A) + alpha E(B). TLI adds
+        (1-2*alpha) (T_A - T_B) after blocks 0..16, before the next K/V build.
+        Banks are required only for nonzero TLI. All direct writes are confined
+        to the target instruction mask; other embeddings and masks stay fixed.
+        Native A/B endpoint equivalence requires matching protected tokens and
+        instruction/valid masks. Native target parity holds for TLI alpha=.5.
+        """
+        import torch
+        from lerobot.utils.constants import (
+            OBS_LANGUAGE_ATTENTION_MASK,
+            OBS_LANGUAGE_TOKENS,
+        )
+
+        from . import interpolation_conditioning as interpolation
+
+        source_prompts, alpha = interpolation.validate_request(
+            source_prompts, alpha, operator
+        )
+        started = time.perf_counter()
+        raw, batch, instruction, layers, compatibility = self._interpolation_inputs(
+            observation, target_prompt
+        )
+        raw_id = digest(raw)
+        source_inputs = [
+            self._interpolation_inputs(observation, prompt) for prompt in source_prompts
+        ]
+        tei = operator in ("tei", "tei_tli")
+        active_tli = operator in ("tli", "tei_tli") and alpha != 0.5
+        if active_tli:
+            if not isinstance(text_latents, dict) or set(text_latents) != {"a", "b"}:
+                raise ValueError(
+                    "Nonzero TLI requires text_latents={'a': bank_A, 'b': bank_B}"
+                )
+            for label, prompt, source in zip(
+                ("a", "b"), source_prompts, source_inputs, strict=True
+            ):
+                bank = text_latents[label]
+                if not isinstance(bank, interpolation.TextLatentBank):
+                    raise TypeError("TLI sources must be TextLatentBank objects")
+                bank.validate_for(
+                    prompt=prompt,
+                    compatibility=compatibility,
+                    token_ids=source[1][OBS_LANGUAGE_TOKENS],
+                    token_mask=source[1][OBS_LANGUAGE_ATTENTION_MASK],
+                    instruction_mask=source[2],
+                )
+                expected = (
+                    len(layers),
+                    1,
+                    compatibility["text_slots"],
+                    compatibility["width"],
+                )
+                if bank.states.shape != expected:
+                    raise ValueError(
+                        "Text latent bank layer/slot/width dimensions differ from the native model"
+                    )
+        target_mask = torch.tensor(instruction, dtype=torch.bool, device=self.device)
+        source_masks = [
+            torch.tensor(source[2], dtype=torch.bool, device=self.device)
+            for source in source_inputs
+        ]
+        provenance = {
+            "operator": operator,
+            "operator_version": 1,
+            "operator_source_sha256": file_sha256(interpolation.__file__),
+            "alpha": alpha,
+            "tei_orientation": "A_at_0_B_at_1",
+            "tei_formula": "(1-alpha)*E_A+alpha*E_B",
+            "tli_formula": "(1-2*alpha)*(T_A-T_B)",
+            "alignment": interpolation.ALIGNMENT,
+            "target_prompt": target_prompt,
+            "source_prompts": list(source_prompts),
+            "raw_condition_id": raw_id,
+            "observation_id": observation_id,
+            "compatibility": compatibility,
+            "target_token_sha256": digest(to_numpy(batch[OBS_LANGUAGE_TOKENS])),
+            "target_token_mask_sha256": digest(
+                to_numpy(batch[OBS_LANGUAGE_ATTENTION_MASK])
+            ),
+            "target_instruction_mask_sha256": digest(instruction),
+            "target_instruction_positions": np.flatnonzero(instruction[0]).tolist(),
+            "source_tokens": [
+                {
+                    "token_sha256": digest(to_numpy(source[1][OBS_LANGUAGE_TOKENS])),
+                    "token_mask_sha256": digest(
+                        to_numpy(source[1][OBS_LANGUAGE_ATTENTION_MASK])
+                    ),
+                    "instruction_mask_sha256": digest(source[2]),
+                }
+                for source in source_inputs
+            ],
+            "banks": {label: text_latents[label].metadata() for label in ("a", "b")}
+            if active_tli
+            else None,
+            "tli_active": active_tli,
+            "tli_layer_indices": list(range(len(layers) - 1)) if active_tli else [],
+            "tli_boundary": interpolation.CAPTURE_BOUNDARY,
+            "tli_layers": [],
+            "text_mask_fixed": True,
+            "direct_writes_instruction_only": True,
+            "later_vision_hidden_states_may_change": True,
+            "cache_rebuilt": True,
+        }
+        layout = {}
+
+        def prefix(embeddings, padding, attention):
+            start = _interpolation_prefix_layout(
+                embeddings, padding, attention, batch[OBS_LANGUAGE_ATTENTION_MASK]
+            )
+            layout["text_start"] = start
+            base = embeddings[:, start:]
+            if tei:
+                sources = [
+                    self.model.paligemma_with_expert.embed_language_tokens(
+                        source[1][OBS_LANGUAGE_TOKENS]
+                    )
+                    for source in source_inputs
+                ]
+                sources = [
+                    (value * math.sqrt(value.shape[-1])).to(base.dtype)
+                    for value in sources
+                ]
+                edited, metrics = interpolation.interpolate_text(
+                    base,
+                    target_mask,
+                    sources[0],
+                    source_masks[0],
+                    sources[1],
+                    source_masks[1],
+                    alpha=alpha,
+                    operator="tei",
+                )
+                provenance["source_scaled_embedding_sha256"] = [
+                    digest(to_numpy(value)) for value in sources
+                ]
+            else:
+                edited, metrics = (
+                    base,
+                    interpolation.text_change_metrics(base, base, target_mask),
+                )
+            result = (
+                embeddings
+                if edited is base
+                else torch.cat((embeddings[:, :start], edited), dim=1)
+            )
+            provenance.update(
+                tei=metrics,
+                text_start=start,
+                text_slots=base.shape[1],
+                prefix_before_sha256=digest(to_numpy(embeddings)),
+                prefix_after_sha256=digest(to_numpy(result)),
+                prefix_padding_sha256=digest(to_numpy(padding)),
+                prefix_attention_sha256=digest(to_numpy(attention)),
+                prefix_positions_sha256=digest(
+                    to_numpy(torch.cumsum(padding, dim=1) - 1)
+                ),
+                vision_prefix_unchanged=torch.equal(
+                    embeddings[:, :start], result[:, :start]
+                ),
+                protected_embedding_slots_unchanged=torch.equal(
+                    base[~target_mask], edited[~target_mask]
+                ),
+                embedding_dtype=str(base.dtype),
+            )
+            return result
+
+        def edit_layer(index, hidden):
+            if index == len(layers) - 1:
+                return None  # The last block's K/V already exists; output edits cannot steer it.
+            start = layout["text_start"]
+            base = hidden[:, start:]
+            sources = [
+                torch.tensor(
+                    text_latents[label].states[index],
+                    dtype=base.dtype,
+                    device=base.device,
+                )
+                for label in ("a", "b")
+            ]
+            edited, metrics = interpolation.interpolate_text(
+                base,
+                target_mask,
+                sources[0],
+                source_masks[0],
+                sources[1],
+                source_masks[1],
+                alpha=alpha,
+                operator="tli",
+            )
+            result = (
+                hidden
+                if edited is base
+                else torch.cat((hidden[:, :start], edited), dim=1)
+            )
+            metrics.update(
+                layer_index=index,
+                hidden_dtype=str(base.dtype),
+                direct_vision_write_unchanged=torch.equal(
+                    hidden[:, :start], result[:, :start]
+                ),
+            )
+            provenance["tli_layers"].append(metrics)
+            return result
+
+        if active_tli:
+            with interpolation.scoped_post_block_hooks(layers, edit_layer):
+                velocity = prepare_velocity(self.policy, batch, prefix_transform=prefix)
+        else:
+            velocity = prepare_velocity(self.policy, batch, prefix_transform=prefix)
+        has_effect = provenance["tei"]["has_effect"] or any(
+            row["has_effect"] for row in provenance["tli_layers"]
+        )
+        provenance.update(
+            has_effect=has_effect,
+            native_target_equivalent=not has_effect,
+            hooks_removed=True,
+        )
+        condition_id = (
+            digest({"raw_condition_id": raw_id, "interpolation": provenance})
+            if has_effect
+            else raw_id
+        )
+        provenance["condition_id"] = condition_id
+        return Condition(
+            condition_id,
+            observation_id,
+            target_prompt,
+            raw,
+            batch["observation.state"],
+            velocity,
+            time.perf_counter() - started,
+        ), provenance
+
     def sample(
         self,
         condition,
@@ -579,3 +958,21 @@ class FrozenLeRobotPI05:
                 batch, noise=noise, num_steps=steps
             )
             return to_numpy(self.postprocessor(actions))[0]
+
+
+def _interpolation_prefix_layout(embeddings, padding, attention, token_mask):
+    import torch
+
+    start = embeddings.shape[1] - token_mask.shape[1]
+    if (
+        embeddings.ndim != 3
+        or embeddings.shape[0] != 1
+        or start < 0
+        or padding.shape != embeddings.shape[:2]
+        or attention.shape != padding.shape
+        or not torch.equal(padding[:, start:], token_mask)
+    ):
+        raise ValueError(
+            "Native prefix is not vision followed by the verified fixed text slots"
+        )
+    return start
