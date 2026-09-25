@@ -1,0 +1,63 @@
+{
+  "files": {
+    "README.md": {
+      "bytes": 7707,
+      "sha256": "e866f585e26b0cddaf4985f3861393080ea10d08ea86f8436b8a8ef799ef9ce0"
+    },
+    "behavior.json": {
+      "bytes": 302115,
+      "sha256": "406958547ce589f85074a2f733cf34f884c8dabe163c6d124dc3517babde5819"
+    },
+    "build_behavior.py": {
+      "bytes": 14616,
+      "sha256": "932095bd3039248fe4b5747baf1c4d763dc1ef21e010830ced0e856e95b9146b"
+    },
+    "build_milk_figure.py": {
+      "bytes": 9516,
+      "sha256": "cf3ce746f89db1f6b5da15bea5b6696a6c1272ee08885e400e1d118be7004080"
+    },
+    "build_wine_figure.py": {
+      "bytes": 6147,
+      "sha256": "de870d1585babf50936b4995e2d7cb48613925cb517894206ab01b58ff723b91"
+    },
+    "milk_example.json": {
+      "bytes": 12682,
+      "sha256": "a68e888a193a77d7a98d9ebcad2bbf11846381b982459ca1c1bcf09e5c97bbe7"
+    },
+    "milk_tei_failure_tli_rescue.png": {
+      "bytes": 607056,
+      "sha256": "852e8e4f8f33c46bccde8b6faa2b5e01dbb664898bc1021c2771d1745957ba2f"
+    },
+    "wine_example.json": {
+      "bytes": 11352,
+      "sha256": "9efc92cb2a26e818d1868a0ea144a7f5679f6c4409bb94fcf3beaf0fb78a9bb2"
+    },
+    "wine_tli_revision.png": {
+      "bytes": 567961,
+      "sha256": "b19b430d310486cd66bdf765a410963d73f7b4829dbc1c85406aa798902f29bd"
+    }
+  },
+  "plot_environment": {
+    "matplotlib": "3.11.2",
+    "numpy": "2.4.6",
+    "pillow": "12.3.0",
+    "python": "3.11.14"
+  },
+  "schema_version": "phase-interpolation-behavior-publication-1",
+  "scope": "two recovery-v2 development cases; not evaluation performance",
+  "status": "verified",
+  "verification": {
+    "absolute_paths_and_urls_absent": true,
+    "accepted_and_executed_proposals": 88,
+    "current_and_previous_raw_camera_pairs_rechecked": 11,
+    "figures_visually_inspected": true,
+    "full_archive_audits": "passed and bound in each case receipt",
+    "new_provider_simulator_gpu_calls": 0,
+    "physical_provider_calls": 91,
+    "reported_total_tokens": 719926,
+    "ruff_check": "passed",
+    "ruff_format_check": "passed",
+    "ruff_version": "0.8.6",
+    "usage_missing_calls": 0
+  }
+}

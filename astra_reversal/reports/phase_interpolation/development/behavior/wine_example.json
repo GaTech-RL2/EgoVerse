@@ -1,0 +1,203 @@
+{
+  "episode_id": "libero_goal_ood:seed19:task6:state0",
+  "figure_sha256": "b19b430d310486cd66bdf765a410963d73f7b4829dbc1c85406aa798902f29bd",
+  "frames": [
+    {
+      "cameras": {
+        "observation/image": {
+          "decoded_array_sha256": "edf960561c743885ffcb0a96a7a539d656ea55781c2c02dcdcdaa8bd61bb1dbb",
+          "npy_file_sha256": "5999b66b0bbbfbc7a35a7641b84052a553cc4a72b2c6f45ac7c70320b7a421cd",
+          "png_sha256": "fcfb19d0fab3d5aa813cb0aad57beeefead6787d8c74dc8e16aecd294b821673",
+          "recorded_array": "arrays/00003126.npy"
+        },
+        "observation/wrist_image": {
+          "decoded_array_sha256": "e35bfe5b60d244bf0b1e07905eeca8178df7a6b285d6be18dffd2201ddfedd15",
+          "npy_file_sha256": "5072d0c1f9cfc2e97548907b4f21f97957c30c5a01a2532ee1d2db2840c23cb8",
+          "png_sha256": "83e50d751ba6223544b2e7b2259112c3b92a4f51d71a6a744cc684b1060b3c14",
+          "recorded_array": "arrays/00003127.npy"
+        }
+      },
+      "figure_label": "TLI revision 1 \u00b7 decision 6\nStep 125 \u00b7 \u03b1 = 1.00\nA14 / B13",
+      "frame_attempt_id": "astra_tli_2",
+      "frame_scope": "current_attempt",
+      "frame_step": 125,
+      "raw_observation_sha256": "a6ae54f65f167170a9ad5ed75bb3112a1cd9ada1f48f7f9187fc37e7ef75fa3b",
+      "recorded_event_sequence": 575,
+      "request_attempt_id": "astra_tli_2",
+      "request_decision_index": 6,
+      "request_event_sequence": 573,
+      "request_fingerprint": "6ea4e457b523dbfb84c5c5a0aa3e1e11f526d0fc840a97fb19cc89ee8c1e8438",
+      "request_observation_step": 125,
+      "state": {
+        "array_digest": "c42fdd929342bab30a8a91fdf34379fba3764880a81509cff35d63a4e550acda",
+        "npy_file_sha256": "dee388d95438123c44181eb4cfda0816f7d397ebde73e62c91849dccbd023d74",
+        "recorded_array": "arrays/00003128.npy"
+      }
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "decoded_array_sha256": "228166d2469350b074634a69dd3962aedc937ab3b72fc22e2ef1a34dedc95a7f",
+          "npy_file_sha256": "779a1a766a61dcbeb6f45fb0179f9ae568c21959195a9dc2eee9daeb8345226f",
+          "png_sha256": "6c591d655b6cffb1427dc6c00526dc33e484b78129a703d69a9ca09714a42588",
+          "recorded_array": "arrays/00003345.npy"
+        },
+        "observation/wrist_image": {
+          "decoded_array_sha256": "96a1ff348c2f33704ebf8f1d35607751e5c76b2be087d5886dd8a24bfd38bee9",
+          "npy_file_sha256": "8f2e51d426de6344cd2974ceb22d20c30f0e19de6fcf3e59a06f9acafb482108",
+          "png_sha256": "1189cdc842c93c1c4c9dd004c6c6781351b14c3e753a65ede011c1f2a84e1281",
+          "recorded_array": "arrays/00003346.npy"
+        }
+      },
+      "figure_label": "Prior TLI revision 1\nStep 300: recorded failure\nFeedback supplied to revision 2",
+      "frame_attempt_id": "astra_tli_2",
+      "frame_scope": "previous_attempt",
+      "frame_step": 300,
+      "raw_observation_sha256": "4e6cbbae422f81fbc1521c013246546ea21750ea3a9ffec1170a1656cceffa77",
+      "recorded_event_sequence": 622,
+      "request_attempt_id": "astra_tli_3",
+      "request_decision_index": 1,
+      "request_event_sequence": 623,
+      "request_fingerprint": "4de72f382b103d8b1b8968d788db4c1b7ae67b612af7ffb63ecd694d2b3dcd46",
+      "request_observation_step": 0,
+      "state": {
+        "array_digest": "7c77f80227471f276ea95759f9c6ef80c59dc35118600ddf779d5cfeea35d1a8",
+        "npy_file_sha256": "37e21c62698707e472d180152d3a1e5250256164f8a46301c154f5ddebf234c3",
+        "recorded_array": "arrays/00003347.npy"
+      }
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "decoded_array_sha256": "67c2f906d4834f884527f59a21402d0c95a3fa5ae79ee0becfbccbddd1dec5c2",
+          "npy_file_sha256": "44f9ba95ceff206ab40a1cceac13c30249b4932e1707c5575d004fa40e95547c",
+          "png_sha256": "d072b8bb76131ee5fbf5f48518757997f7e7cd3376299c6200c275175a4e6fbf",
+          "recorded_array": "arrays/00003348.npy"
+        },
+        "observation/wrist_image": {
+          "decoded_array_sha256": "624f8da548c8c260a54ebb8108d2d578c76de558670686233a26ab524fde2f33",
+          "npy_file_sha256": "8acf6d4ae4d83ef143006733291b7603b8154fb04018f23e690a701684fd085c",
+          "png_sha256": "69c083d911ee79716aa3eba43ce7208e015f6dec4d198768f39fb7096c6508b5",
+          "recorded_array": "arrays/00003349.npy"
+        }
+      },
+      "figure_label": "TLI revision 2 \u00b7 decision 1\nStep 0 \u00b7 \u03b1 = 0.15\nA14 / B18",
+      "frame_attempt_id": "astra_tli_3",
+      "frame_scope": "current_attempt",
+      "frame_step": 0,
+      "raw_observation_sha256": "852fdb2b365f68a9924021f92e861f82818fcc300ecfb0684ebd243d44eef30d",
+      "recorded_event_sequence": 625,
+      "request_attempt_id": "astra_tli_3",
+      "request_decision_index": 1,
+      "request_event_sequence": 623,
+      "request_fingerprint": "4de72f382b103d8b1b8968d788db4c1b7ae67b612af7ffb63ecd694d2b3dcd46",
+      "request_observation_step": 0,
+      "state": {
+        "array_digest": "92911a6a4c8cf15f4f276686ee18904b51134eb5ce3a31ffa76f6963d25c94a3",
+        "npy_file_sha256": "b4cf4cfa017d7e4bcaa965bec761238d74409cf4eb9f1e20d9d877765fe481fa",
+        "recorded_array": "arrays/00003350.npy"
+      }
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "decoded_array_sha256": "abfba35d5de69b2f0a81338b1fe63577d07c5407930bfa78c44ac2b74d16c59e",
+          "npy_file_sha256": "dbb5fa41b89d2825d33376291aaf1f228230c36aad4242ce14a2fa5a30187d3b",
+          "png_sha256": "57f55ad519efb080270c64ad063e01391f9defcb991d402eac001285999f40f6",
+          "recorded_array": "arrays/00003438.npy"
+        },
+        "observation/wrist_image": {
+          "decoded_array_sha256": "55cc7f9272cf3d0740d915b5a97324573094fd0f23458df5a6206d5f55981ce2",
+          "npy_file_sha256": "cc981193190f45f1492a7e5407319adf2128be2e65f0a5b21ec8dfb8f81e48cb",
+          "png_sha256": "d929ce22f39a49e3f7cfe9d7ee7b61af8b9d0bc826bec06ad53ed2de0bf6ad28",
+          "recorded_array": "arrays/00003439.npy"
+        }
+      },
+      "figure_label": "TLI revision 2 \u00b7 decision 4\nStep 75 \u00b7 \u03b1 = 0.85\nA18 / B13",
+      "frame_attempt_id": "astra_tli_3",
+      "frame_scope": "current_attempt",
+      "frame_step": 75,
+      "raw_observation_sha256": "5c23d07ad292979aa94b9d26847e58cec4060b88402ddd7446e63f2c9216993e",
+      "recorded_event_sequence": 646,
+      "request_attempt_id": "astra_tli_3",
+      "request_decision_index": 4,
+      "request_event_sequence": 644,
+      "request_fingerprint": "4dea6821ee43f740d01ac1d77fe470af44cd3f4149e6bd30b4fb2284864e53b3",
+      "request_observation_step": 75,
+      "state": {
+        "array_digest": "6a0cab5a4a26b85bd17fc0dca46a54dff698d3acfe62d3d6aba9672e811ca326",
+        "npy_file_sha256": "bfdefeb6fa07d14aa666a3261f64ad92e6712ee749e96ab655f118a2ed3469d0",
+        "recorded_array": "arrays/00003440.npy"
+      }
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "decoded_array_sha256": "94a7cc1b2e48b5771e588827b92512d759c7e860ef85cde51c1cb533c4ffb864",
+          "npy_file_sha256": "1a5ad678c0706352a4406ba15e4ae68c0ebd06ce76bcb0a286cc14ed5f319a29",
+          "png_sha256": "ee14d9fa832c47df1b5ba7d9f054a154b5e3d479656e25ed30539ebb8fed811f",
+          "recorded_array": "arrays/00003468.npy"
+        },
+        "observation/wrist_image": {
+          "decoded_array_sha256": "20c8657a75f22864e255bb243e29c2bcc43ed42c0f0236b9f15a4937803ebec7",
+          "npy_file_sha256": "dba8d3eb9c124b01781e21b3937245c25bb57263bbf070809ceb8e3dd133ba7e",
+          "png_sha256": "19e444182b6867a0aeb466cb8d65a7603062936473000721263c5699311c9b38",
+          "recorded_array": "arrays/00003469.npy"
+        }
+      },
+      "figure_label": "TLI revision 2 \u00b7 decision 5\nStep 100 \u00b7 \u03b1 = 0.85\nA18 / B13",
+      "frame_attempt_id": "astra_tli_3",
+      "frame_scope": "current_attempt",
+      "frame_step": 100,
+      "raw_observation_sha256": "90a26ebcc40b1dd846c39aab5bbdba21ce76e003346b3a38f059bfc402c91a71",
+      "recorded_event_sequence": 653,
+      "request_attempt_id": "astra_tli_3",
+      "request_decision_index": 5,
+      "request_event_sequence": 651,
+      "request_fingerprint": "988cc541a0880f124218c5cd9afec7bdd8bafeae8c8cfebef97ee2b45b7b8cca",
+      "request_observation_step": 100,
+      "state": {
+        "array_digest": "4a4d020b2c1aaa4fcfed30df00d32ac2b7d67941f29914048a70277bbefd3e96",
+        "npy_file_sha256": "0ecea9c4832ca558f9e82505d7acb50e7dafc48a34a9c9d8543350757489ebef",
+        "recorded_array": "arrays/00003470.npy"
+      }
+    }
+  ],
+  "interpretation": [
+    "All images are the raw paired feedback actually supplied in the identified requests; image pixels are unchanged.",
+    "The previous revision's final snapshot is explicitly distinguished from the reset state of the next revision.",
+    "The model changed its own TLI donor pairs after TLI feedback. No TEI-arm or oracle-arm history was supplied.",
+    "The last image is step100; recorded success occurs at action104. The audit verifies recording, not a new simulator replay.",
+    "The successful revision supports further testing of this recipe but does not establish semantic cancellation or generalization."
+  ],
+  "schema_version": "phase-interpolation-wine-figure-1",
+  "scope": "one development case",
+  "source_file_sha256": {
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+    "reports/phase_interpolation/development/behavior/build_behavior.py": "932095bd3039248fe4b5747baf1c4d763dc1ef21e010830ced0e856e95b9146b",
+    "reports/phase_interpolation/development/behavior/build_milk_figure.py": "cf3ce746f89db1f6b5da15bea5b6696a6c1272ee08885e400e1d118be7004080",
+    "reports/phase_interpolation/development/behavior/build_wine_figure.py": "de870d1585babf50936b4995e2d7cb48613925cb517894206ab01b58ff723b91"
+  },
+  "sources": {
+    "archive_sha256": "aa1e2f33ca3e0991543223b9fca68e680a3927d875ffbdd25916b2019c1bc1cf",
+    "audit_file_sha256": {
+      "../audits/worker_0_arrays.json": "a7ba706d3eac4999e026b5152b52a39d30b7111e4b79b594204106cc6f5d628c",
+      "../audits/worker_0_case_6_0_feedback.json.gz": "e9ea97441b9f952a1e03a9965b36ecf1571d9c6edc7171c47ceb19cd2ebb5ffc",
+      "../audits/worker_0_receipt.json": "e6b79788a8f9eba0c011203a8139d112795223d5c13cb80ded612b263a130b06"
+    },
+    "case_file_sha256": {
+      "astra_tei_2_provider.jsonl": "68c4fc3bf04e26fc96da65022ff24ec4518bd13f9dacc59dc423c34794fd4047",
+      "astra_tei_3_provider.jsonl": "373871eadeac8c08aa15e967e17f56051393dc8ef3e19c06ad5b339aa3a3e8eb",
+      "astra_tli_2_provider.jsonl": "8f3f5104b82623b0b6f68f35441a9b9abe1d329871cf46e91cff9d12af7f9311",
+      "astra_tli_3_provider.jsonl": "aab31f8fc9c3900bf86c491497526a7d55c1dbf2ed092744b3c27ed6b1e8609a",
+      "astra_tli_vision_2_provider.jsonl": "50a5ab817976200261799e6856840cd52646b1bf05e7bb3c9fceaa8306754b0c",
+      "astra_tli_vision_3_provider.jsonl": "3ff8dea597656b1646ead2e546b45045c000b5d1a63662ed7dbb37f2e51fc50c",
+      "events.jsonl": "8d48b2e336a87cf619a7b202ca3933574038a43bc4d9f7b0fce6f5315db7cb42",
+      "summary.json": "df72dad40e46f50deae332339293b4024c0c1e0bfe61aa1485d9891b535b8a10"
+    },
+    "payload_sha256": "5b51adf8a604ec68461a8b8933d11f9b9f2b7cd9295eb463b715272f3cc7c842",
+    "workflow": "astra-pi05-interpolation-development-recovery-20260925-2"
+  },
+  "status": "verified",
+  "target_task": "put the wine bottle in the bowl"
+}
