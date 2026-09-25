@@ -1,0 +1,30 @@
+Image perturbation report: complete
+
+Completed 3/3 cases; independent audits passed for 3. Efficacy released: True.
+
+Recorded completed-case physical work: 36 rollouts, 9,998 actions, 23,880 velocity evaluations; 105 provider calls (0 rejected), 2,647,564 tokens. Preflight failures: 0.
+
+| Arm | Successes | Baseline wins | Rescues | Censored | Rescue revisions median [min,max] | Rescue tokens median [min,max] |
+|---|---:|---:|---:|---:|---|---|
+| random_noise | 0/3 | 0 | 0 | 3 | None [None,None] | None [None,None] |
+| random_occlusion | 1/3 | 0 | 1 | 2 | 2 [2,2] | 0 [0,0] |
+| random_demo_blend | 1/3 | 0 | 1 | 2 | 1 [1,1] | 0 [0,0] |
+| astra_occlusion | 1/3 | 0 | 1 | 2 | 1 [1,1] | 87225 [87225,87225] |
+| astra_demo_blend | 1/3 | 0 | 1 | 2 | 1 [1,1] | 112114 [112114,112114] |
+
+Matched comparisons use every failed-baseline pair, including capped failures:
+
+- astra_occlusion vs random_occlusion: both rescue 0, Astra only 1, random only 1, neither 1.
+- astra_demo_blend vs random_demo_blend: both rescue 1, Astra only 0, random only 0, neither 2.
+
+- Exploratory adaptation on known task compositions with recorded resets; this is not a held-out-task or zero-shot claim.
+- All arms share one recovered-noise baseline. A baseline success is not an intervention rescue. A failed capped search remains in the outcome denominator.
+- The RGB operators keep task language and recovered noise fixed. A successful trajectory can include native fallback actions or accepted no-op decisions; acceptance is not proof of a nonzero effect or causation.
+- The fixed training-donor catalog is not selected from evaluation outcomes. Training overlap with the policy checkpoint is not established as absent.
+- Rescue-only timing/iteration/token statistics condition on a failed baseline and later success. Censored cases are listed separately and receive no invented time-to-success.
+- Physical costs count the shared baseline, initialization and image gate once. Standalone arm costs repeat common setup and must not be added across arms.
+- Physical totals cover the reconciled completed cases only. Donor preparation, transport diagnostics and any interrupted or incomplete execution require separate overhead receipts.
+- Every physical provider call, including rejection, contributes available usage. Missing usage stays unknown; reasoning tokens are a subset of output, and no dollar price is assumed.
+- Summed rollout/case wall time is measured work across cases, not elapsed workflow time; rollout time includes inference, recording and baseline setup.
+- This reporter reconciles summaries and audit receipts. The bound independent audits verify recorded arrays, feedback and provider provenance without replaying simulator physics or hidden model states.
+- Development may force one extra rollout after baseline success. These physical costs do not change zero intervention tokens to that baseline success.

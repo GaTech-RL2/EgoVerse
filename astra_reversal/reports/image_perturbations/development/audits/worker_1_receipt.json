@@ -1,0 +1,58 @@
+{
+  "status": "passed",
+  "workflow": "astra-pi05-image-development-20260925-2",
+  "worker": 1,
+  "phase": "development",
+  "payload_sha256": "d29de49589955c7f22d2fea97674c7b8881ad45886cb8430ba70fce713e0a167",
+  "protocol_sha256": "2540228adfa1e68a844125438f27b35e9c6694cbbceb490c4521f5fdeefe1f43",
+  "library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+  "archive": {
+    "workflow": "astra-pi05-image-development-20260925-2",
+    "worker": 1,
+    "key": "experiments/astra-reversal-20260924/astra-pi05-image-development-20260925-2/worker_1/artifacts.tar.gz",
+    "sha256": "d2dada0ca1e2b22e371663779ffa35201601ac24f2342e8719ced683d8aa1504",
+    "bytes": 242470100,
+    "download_seconds": 16.427284499979578,
+    "archive_sha256": "d2dada0ca1e2b22e371663779ffa35201601ac24f2342e8719ced683d8aa1504",
+    "extracted_bytes": 502322961,
+    "gzip_crc_verified": true
+  },
+  "counts": {
+    "requests": 28,
+    "physical_provider_calls": 28,
+    "preflight_failures": 0,
+    "accepted_provider_proposals": 28,
+    "raw_snapshot_bindings": 215,
+    "decoded_camera_bindings": 430,
+    "initialization_velocity_evaluations": 1230,
+    "image_gate_velocity_evaluations": 60,
+    "physical_rollouts": 12,
+    "physical_actions": 3398,
+    "generations": 680,
+    "rollout_velocity_evaluations": 6800,
+    "accepted_decisions_executed": 76,
+    "image_active_policy_calls": 325,
+    "image_changed_policy_calls": 325,
+    "actions_with_accepted_decision": 1898,
+    "actions_with_changed_image": 1623,
+    "native_condition_fallback_actions": 0,
+    "velocity_evaluations": 8090,
+    "array_files": 6320,
+    "array_references": 6320,
+    "array_bytes": 430313920,
+    "actions": 3398,
+    "provider_calls": 28,
+    "accepted_proposals": 28,
+    "executed_decisions": 76
+  },
+  "cases": [
+    {
+      "episode_id": "libero_spatial_ood:seed19:task2:state0",
+      "summary_sha256": "7e71fb4f74da928e9ca74fed3f3c1b4407bb8ccf3c8e0761ce4348a18e9821d4",
+      "status": "passed"
+    }
+  ],
+  "audit_file": "worker_1.json.gz",
+  "audit_sha256": "300948f15219ee8fb675859cd08669cb47cb1844b18ee233e6d9d74d0d18896d",
+  "audit_uncompressed_sha256": "068d896f2f56d86aff4c317e00e09790644c1264deb822adf6cd656693c41469"
+}

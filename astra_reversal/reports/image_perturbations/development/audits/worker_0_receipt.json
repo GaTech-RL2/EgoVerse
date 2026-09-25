@@ -1,0 +1,58 @@
+{
+  "status": "passed",
+  "workflow": "astra-pi05-image-development-20260925-2",
+  "worker": 0,
+  "phase": "development",
+  "payload_sha256": "d29de49589955c7f22d2fea97674c7b8881ad45886cb8430ba70fce713e0a167",
+  "protocol_sha256": "2540228adfa1e68a844125438f27b35e9c6694cbbceb490c4521f5fdeefe1f43",
+  "library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+  "archive": {
+    "workflow": "astra-pi05-image-development-20260925-2",
+    "worker": 0,
+    "key": "experiments/astra-reversal-20260924/astra-pi05-image-development-20260925-2/worker_0/artifacts.tar.gz",
+    "sha256": "852821b7198722c7726002c40ebfc741523df05380315630880bcd2032bdb712",
+    "bytes": 307506510,
+    "download_seconds": 8.0584435830242,
+    "archive_sha256": "852821b7198722c7726002c40ebfc741523df05380315630880bcd2032bdb712",
+    "extracted_bytes": 612820407,
+    "gzip_crc_verified": true
+  },
+  "counts": {
+    "requests": 48,
+    "physical_provider_calls": 48,
+    "preflight_failures": 0,
+    "accepted_provider_proposals": 48,
+    "raw_snapshot_bindings": 372,
+    "decoded_camera_bindings": 744,
+    "initialization_velocity_evaluations": 1230,
+    "image_gate_velocity_evaluations": 60,
+    "physical_rollouts": 13,
+    "physical_actions": 3900,
+    "generations": 780,
+    "rollout_velocity_evaluations": 7800,
+    "accepted_decisions_executed": 96,
+    "image_active_policy_calls": 325,
+    "image_changed_policy_calls": 325,
+    "actions_with_accepted_decision": 2400,
+    "actions_with_changed_image": 1625,
+    "native_condition_fallback_actions": 0,
+    "velocity_evaluations": 9090,
+    "array_files": 7232,
+    "array_references": 7232,
+    "array_bytes": 492136608,
+    "actions": 3900,
+    "provider_calls": 48,
+    "accepted_proposals": 48,
+    "executed_decisions": 96
+  },
+  "cases": [
+    {
+      "episode_id": "libero_goal_ood:seed19:task6:state0",
+      "summary_sha256": "fa2a334ce58613c9c88e4c3657dcbe8ce05a0f6b2141326bc20bd89b587ac930",
+      "status": "passed"
+    }
+  ],
+  "audit_file": "worker_0.json.gz",
+  "audit_sha256": "2cc1745656101a2202a27a785ac4eaa3bf1ac76d79353bd3ef4639e56346a1ac",
+  "audit_uncompressed_sha256": "8da83c3ca109c0bf11abd073e027eb7336c351cedff1ec4767452b1c350111f1"
+}

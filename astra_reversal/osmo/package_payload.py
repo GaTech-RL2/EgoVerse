@@ -22,6 +22,7 @@ def main():
     parser.add_argument("--include-ood-manifests", action="store_true")
     parser.add_argument("--include-astra-proposal-replay", action="store_true")
     parser.add_argument("--include-interpolation-banks", action="store_true")
+    parser.add_argument("--include-image-donors", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = Path("astra_reversal")
@@ -66,6 +67,16 @@ def main():
         if args.include_interpolation_banks:
             path = root / ".deps/interpolation-inputs/bank_inventory.json"
             archive.add(path, arcname=str(path))
+        if args.include_image_donors:
+            from astra_reversal.image_donor_bank import load_library
+
+            path = root / ".deps/image-perturbations/donors"
+            library = load_library(path)
+            if len(library.catalog()) != 45:
+                raise ValueError("Image payload requires all45 paired donor frames")
+            # Snapshot builders may link this immutable library from a cache.
+            # Package its verified bytes, never a machine-local root symlink.
+            archive.add(path.resolve(), arcname=str(path))
         if args.include_astra_proposal_replay:
             from astra_reversal.osmo.astra_proposal_replay import load_inputs
 
