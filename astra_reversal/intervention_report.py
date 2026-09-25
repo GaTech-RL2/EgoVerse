@@ -1389,6 +1389,16 @@ def _markdown(report):
         ]
         lines.append("| " + " | ".join(map(str, cells)) + " |")
     physical = summary["physical_cost"]
+    physical_tokens = []
+    for name in ("input", "output", "total", "reasoning"):
+        value = physical["token_usage"]["tokens"][name + "_tokens"]
+        if not value["available_calls"] and value["missing_calls"]:
+            description = f"unknown ({value['missing_calls']} calls missing usage)"
+        elif value["missing_calls"]:
+            description = f"{value['sum']:,} observed (partial; {value['missing_calls']} calls missing usage)"
+        else:
+            description = f"{value['sum']:,}"
+        physical_tokens.append(f"{name} {description}")
     lines += [
         "",
         "¹ Among successful cases only. ² Reasoning is included in output tokens. "
@@ -1399,6 +1409,9 @@ def _markdown(report):
         f"({physical['initialization_velocity_evaluations']} for initialization), "
         f"{physical['token_usage']['provider_calls']} provider calls. "
         "Per-arm standalone costs and paired rescue counts against random search are in report.json and arms.csv.",
+        "Physical provider tokens: "
+        + "; ".join(physical_tokens)
+        + ". Reasoning is included in output tokens.",
         f"Physical provider usage is unavailable for {physical['token_usage']['usage_unavailable_calls']} "
         f"of {physical['token_usage']['provider_calls']} calls; missing usage is not zero cost. "
         "budgets.csv separates cumulative search-to-success tokens from actual development-hook tokens.",

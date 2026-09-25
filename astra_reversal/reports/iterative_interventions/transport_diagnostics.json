@@ -1,0 +1,103 @@
+{
+  "scope": "Transport diagnostics only, outside the development and evaluation rollout costs",
+  "before_fix": {
+    "scope": "separate_authorized_local_diagnostic_not_experiment",
+    "diagnostic_provider_calls": 1,
+    "previous_remote_attempt_status": "unobserved_osmo_exec_exit2_no_result_control_plane503",
+    "source_events_sha256": "9352bc58578294076725da1877c11f47722acd4ff8cedb052ca322885ed74350",
+    "request_fingerprint": "5bd5b89ec72b039c0457d0fa8cbda94c1c78dcb9e4a48c7d724299ae7725653c",
+    "episode_id": "libero_10:seed19:task1:state1",
+    "arm": "noise_only",
+    "iteration": 2,
+    "requested_model": "azure/openai/gpt-6-astra",
+    "payload_sha256": "dd80880680a176de4906a639467c3671076a08adf39a767d9435e3dca44f3a65",
+    "sampling_settings": {
+      "max_completion_tokens": 4096,
+      "reasoning_effort": "low"
+    },
+    "images": 8,
+    "token_usage": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "reasoning_tokens": null,
+      "total_tokens": null
+    },
+    "request_time": 1790317332.3268118,
+    "http_status": 400,
+    "latency_seconds": 1.9811748329957481,
+    "response_time": 1790317334.307982
+  },
+  "after_fix": {
+    "scope": "separate_authorized_postfix_diagnostic_no_rollout",
+    "prompt_template_version": "astra-intervention-http-2",
+    "source_events_sha256": "9352bc58578294076725da1877c11f47722acd4ff8cedb052ca322885ed74350",
+    "request_fingerprint": "5bd5b89ec72b039c0457d0fa8cbda94c1c78dcb9e4a48c7d724299ae7725653c",
+    "previous_remote_attempt_status": "unobserved_osmo_exec_exit2_no_result_control_plane503",
+    "candidate_id": "neutral_repeat_2",
+    "noise_scale": 0,
+    "noise_coefficient_l2": 0.0,
+    "http_status": 200,
+    "actual_model": "azure/openai/gpt-6-astra",
+    "sampling_settings": {
+      "reasoning_effort": "low",
+      "max_completion_tokens": 4096
+    },
+    "accounting": {
+      "provider_calls": 1,
+      "accepted_proposals": 1,
+      "failed_calls": 0,
+      "usage_available_calls": 1,
+      "usage_unavailable_calls": 0,
+      "tokens": {
+        "input_tokens": {
+          "sum": 3487,
+          "available_calls": 1,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "output_tokens": {
+          "sum": 227,
+          "available_calls": 1,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "reasoning_tokens": {
+          "sum": 0,
+          "available_calls": 1,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "total_tokens": {
+          "sum": 3714,
+          "available_calls": 1,
+          "missing_calls": 0,
+          "complete": true
+        }
+      },
+      "reasoning_tokens_are_subset_of_output_tokens": true,
+      "latency_seconds": 24.2213961249945,
+      "actual_models": {
+        "azure/openai/gpt-6-astra": 1
+      },
+      "http_status": {
+        "200": 1
+      },
+      "errors": {},
+      "monetary_cost": null,
+      "monetary_cost_unavailable_reason": "No verified provider price was supplied."
+    },
+    "ledger_sha256": "489b374021843240e0ada7454447878f53dfb4a8f8801e9b492b8048dde27469",
+    "images": 8
+  },
+  "source_files": [
+    {
+      "file": "http400-local-diagnostic.json",
+      "sha256": "5852b25cce2d75970e3786eabc54b274ff7d5c120a9bfa052044b733ce1429d7"
+    },
+    {
+      "file": "postfix-smoke-result.json",
+      "sha256": "59105a5272d84a21afc85823805719b26dcaf7899dae506b6602e0cc4f09b64e"
+    }
+  ],
+  "omitted": "Raw provider error and response text; diagnostic proposals were not reused in experiments."
+}
