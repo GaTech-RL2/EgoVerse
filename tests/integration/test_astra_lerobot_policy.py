@@ -7,6 +7,7 @@ regressions fast; the separate weighted smoke report tests the actual checkpoint
 # Imports below importorskip intentionally require the optional native runtime.
 # ruff: noqa: E402
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -28,7 +29,7 @@ from astra_reversal.lerobot_policy import (
     load_native_model,
     load_processors,
 )
-from astra_reversal.records import to_numpy
+from astra_reversal.records import digest, to_numpy
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests/fixtures/astra/lerobot_pi05"
@@ -43,13 +44,26 @@ class Prefix(torch.nn.Module):
         )
 
     def forward(self, *, inputs_embeds, **kwargs):
+        self.last_inputs = inputs_embeds[0].clone()
+        self.last_mask = kwargs["attention_mask"].clone()
+        self.last_positions = kwargs["position_ids"].clone()
         return None, {"value": inputs_embeds[0].mean(dim=(1, 2))}
+
+    def embed_image(self, image):
+        return image.mean((1, 2, 3))[:, None, None].expand(-1, 2, 4)
+
+    def embed_language_tokens(self, tokens):
+        values = tokens.float() / 10000
+        return torch.stack(
+            (values, values * 0.5, values * 0.25, values * 0.125), dim=-1
+        )
 
 
 class TinyFlow(torch.nn.Module):
     sample_actions = native.PI05Pytorch.sample_actions
     _rtc_enabled = native.PI05Pytorch._rtc_enabled
     _prepare_attention_masks_4d = native.PI05Pytorch._prepare_attention_masks_4d
+    embed_prefix = native.PI05Pytorch.embed_prefix
 
     def __init__(self, config):
         super().__init__()
@@ -58,13 +72,8 @@ class TinyFlow(torch.nn.Module):
         self.paligemma_with_expert = Prefix()
         self.calls = []
 
-    def embed_prefix(self, images, masks, tokens, token_masks):
-        value = tokens.float().mean(1) / 100 + images[0].mean((1, 2, 3))
-        return (
-            value[:, None, None],
-            token_masks[:, :1],
-            torch.zeros_like(token_masks[:, :1]),
-        )
+    def _apply_checkpoint(self, function, *args):
+        return function(*args)
 
     def denoise_step(self, prefix_pad_masks, past_key_values, x_t, timestep):
         self.calls.append((past_key_values, timestep.clone(), torch.is_grad_enabled()))
@@ -290,3 +299,125 @@ def test_openpi_profile_uses_native_sampler_without_state_tokens(
     assert openpi_inputs.prompt_length(
         "move cup", observation
     ) == openpi_inputs.prompt_length("move cup", changed)
+
+
+def test_disabled_embedding_intervention_has_exact_native_euler_parity(
+    openpi_inputs, observation
+):
+    from astra_reversal.intervention_conditioning import TextEmbeddingIntervention
+
+    policy = openpi_inputs
+    original = policy.prepare(observation, "obs", "move cup")
+    # Disabled guidance is deliberately over budget: it must not be tokenized.
+    disabled, report = policy.prepare_intervened(
+        observation,
+        "obs",
+        "move cup",
+        text=TextEmbeddingIntervention("unused " * 1000, 0),
+    )
+    noise = policy.noise(np.random.default_rng(3))
+    a = policy.sample(original, noise, steps=10).value
+    b = policy.sample(disabled, noise, steps=10).value
+    assert torch.equal(a, b)
+    assert disabled.condition_id == original.condition_id
+    assert report["prefix_before_sha256"] == report["prefix_after_sha256"]
+    assert report["delta_frobenius"] == 0 and not report["guidance_evaluated"]
+    decoded = policy.output_transform({"actions": to_numpy(b)[0]})["actions"]
+    np.testing.assert_array_equal(
+        decoded, policy.reference_actions(disabled, noise, steps=10)
+    )
+
+
+def test_native_embedding_edit_changes_velocity_without_touching_boundaries_or_cache(
+    openpi_inputs, observation
+):
+    from astra_reversal.intervention_conditioning import TextEmbeddingIntervention
+
+    policy = openpi_inputs
+    prefix = policy.model.paligemma_with_expert
+    weights = {
+        name: value.clone() for name, value in policy.policy.state_dict().items()
+    }
+    observation_digest = digest(observation)
+    original, base_report = policy.prepare_intervened(observation, "obs", "move cup")
+    original_prefix = prefix.last_inputs.clone()
+    original_mask = prefix.last_mask.clone()
+    original_positions = prefix.last_positions.clone()
+    noise = policy.noise(np.random.default_rng(4))
+    before = original.velocity(noise, 0.5).clone()
+    edited, report = policy.prepare_intervened(
+        observation,
+        "obs",
+        "move cup",
+        text=TextEmbeddingIntervention(
+            "move cup\nGuidance: approach handle from above", 0.5
+        ),
+    )
+    assert edited.prompt == original.prompt == "move cup"
+    assert edited.condition_id != original.condition_id
+    assert report["prefix_before_sha256"] == base_report["prefix_before_sha256"]
+    assert report["prefix_before_sha256"] != report["prefix_after_sha256"]
+    assert report["has_effect"] and not report["native_reference_equivalent"]
+    assert report["vision_prefix_before_sha256"] == report["vision_prefix_after_sha256"]
+    identity = {key: value for key, value in report.items() if key != "condition_id"}
+    assert edited.condition_id == digest(
+        {"raw_condition_id": report["raw_condition_id"], "text_intervention": identity}
+    )
+    json.dumps(report, allow_nan=False)
+    assert 0 < report["relative_rms"] <= 0.25
+    start = report["text_start"]
+    assert torch.equal(original_prefix[:, :start], prefix.last_inputs[:, :start])
+    assert torch.equal(original_mask, prefix.last_mask)
+    assert torch.equal(original_positions, prefix.last_positions)
+    assert all(
+        report[key]
+        for key in [
+            "text_mask_fixed",
+            "vision_prefix_unchanged",
+            "padding_unchanged",
+            "attention_unchanged",
+            "positions_unchanged",
+        ]
+    )
+    assert not torch.equal(before, edited.velocity(noise, 0.5))
+    assert torch.equal(before, original.velocity(noise, 0.5))
+    assert not any(parameter.requires_grad for parameter in policy.policy.parameters())
+    assert digest(observation) == observation_digest
+    for name, value in policy.policy.state_dict().items():
+        assert torch.equal(value, weights[name])
+    # A fresh intervention cannot overwrite either earlier prefix cache.
+    edited_velocity = edited.velocity(noise, 0.5).clone()
+    policy.prepare_intervened(
+        {**observation, "observation/image": observation["observation/wrist_image"]},
+        "new-observation",
+        "move cup",
+        text=TextEmbeddingIntervention("move cup\nGuidance: stop above the cup", 1),
+    )
+    assert torch.equal(before, original.velocity(noise, 0.5))
+    assert torch.equal(edited_velocity, edited.velocity(noise, 0.5))
+
+
+def test_nonzero_edit_rejects_state_in_language_profile(adapter, observation):
+    from astra_reversal.intervention_conditioning import TextEmbeddingIntervention
+
+    with pytest.raises(ValueError, match="robot state"):
+        adapter.prepare_intervened(
+            observation,
+            "obs",
+            "move cup",
+            text=TextEmbeddingIntervention("reach cup", 0.1),
+        )
+
+
+def test_nonzero_guidance_budget_is_checked_without_truncation(
+    openpi_inputs, observation
+):
+    from astra_reversal.intervention_conditioning import TextEmbeddingIntervention
+
+    with pytest.raises(ValueError, match="truncated"):
+        openpi_inputs.prepare_intervened(
+            observation,
+            "obs",
+            "move cup",
+            text=TextEmbeddingIntervention("guidance " * 1000, 0.1),
+        )

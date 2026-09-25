@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "name": "astra_iterative_interventions_v1",
+  "purpose": "Compare bounded iterative interventions in a frozen pi05 prior with simulator reset access",
+  "seed": 19,
+  "development_cases": [[0, 1], [1, 1]],
+  "evaluation_cases": [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0], [9, 0]],
+  "evaluation_suites": ["libero_goal_ood", "libero_spatial_ood"],
+  "arms": ["random_noise", "noise_only", "language_only", "vision_only", "noise_language", "noise_vision", "language_vision", "joint"],
+  "attempt_budget": 5,
+  "execute_steps": 5,
+  "inversion_solver": {"solver": "rk4", "steps": 100, "time_power": 3.0},
+  "execution_solver": {"solver": "euler", "steps": 10, "time_power": 1.0},
+  "development_force_one_intervention": true,
+  "numerical_gate": {"noise_max_abs": 0.1, "action_max_abs": 0.02},
+  "noise": {"rank": 8, "maximum_rms_delta": 0.5, "reference": "same-condition inverse of policy-generated full internal trajectory", "reuse": "fixed recovered latent plus candidate delta, under fresh observations throughout the rollout"},
+  "language": {"operator": "pooled_text_residual", "maximum_relative_norm": 0.25},
+  "vision": {"operator": "static_magenta_annotations", "feedback": "unmodified raw frames", "tracking": false},
+  "astra": {"model": "azure/openai/gpt-6-astra", "reasoning_effort": "low", "max_completion_tokens": 4096, "timeout_seconds": 170},
+  "feedback": {"success": "simulator binary task success after an attempted rollout", "frames": "four evenly spaced raw observations from the latest rollout", "privileged_dense_reward": false, "object_poses": false},
+  "stopping": "first success or five attempts including the common identity baseline; a rejected provider proposal consumes its attempt and token budget without a rollout",
+  "claim_scope": "Follow-up adaptation evaluation on new seed19 resets; tasks and prior seed7 outcomes have already been observed, and checkpoint training overlap is unknown"
+}
