@@ -1,0 +1,58 @@
+{
+  "compatibility": {
+    "adapter_source_sha256": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+    "artifact_sha256": {
+      "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+      "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+      "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+      "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+    },
+    "input_profile": "openpi_libero",
+    "input_profile_assets": {
+      "norm_stats": {
+        "bytes": 1914,
+        "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug==",
+        "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+      },
+      "tokenizer": {
+        "bytes": 4264023,
+        "generation": "1711547605575873",
+        "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g==",
+        "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+      }
+    },
+    "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+    "layer_count": 18,
+    "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+    "native_parameter_dtypes": [
+      "torch.float32"
+    ],
+    "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+    "processor_source_sha256": {
+      "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+      "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+      "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+      "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+      "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+      "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+      "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+    },
+    "text_slots": 200,
+    "transformers_source_sha256": {
+      "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+      "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+      "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+    },
+    "width": 2048
+  },
+  "donors": 9,
+  "episodes": 180,
+  "frames": 18947,
+  "inventory_sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+  "passed": true,
+  "source": {
+    "payload_bytes": 11528740,
+    "payload_sha256": "387bee184ac41398a176142513ca4f9704300b4ac38a9d69bd0c472515c58b74",
+    "source_revision": "926d12dafea7efbfab42e39a734484002e5fc7c3"
+  }
+}

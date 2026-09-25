@@ -1,0 +1,78 @@
+{
+  "backend": "ovx-l40s-03",
+  "duration": 1778.497542,
+  "end_time": "2026-09-25T17:26:08.586453",
+  "name": "astra-pi05-interpolation-bank-20260925-1",
+  "pool": "groot-l40s-03",
+  "priority": "LOW",
+  "queued_time": 8.84254,
+  "start_time": "2026-09-25T16:56:30.088911",
+  "status": "COMPLETED",
+  "submit_time": "2026-09-25T16:56:21.246371",
+  "tasks": [
+    {
+      "end_time": "2026-09-25T17:26:08.586453",
+      "exit_code": 0,
+      "name": "worker0",
+      "retry_id": 0,
+      "start_time": "2026-09-25T16:56:30.662565",
+      "status": "COMPLETED"
+    },
+    {
+      "end_time": "2026-09-25T17:15:53.691875",
+      "exit_code": 0,
+      "name": "worker1",
+      "retry_id": 0,
+      "start_time": "2026-09-25T16:56:31.650660",
+      "status": "COMPLETED"
+    },
+    {
+      "end_time": "2026-09-25T17:14:51.042794",
+      "exit_code": 0,
+      "name": "worker2",
+      "retry_id": 0,
+      "start_time": "2026-09-25T16:56:30.088911",
+      "status": "COMPLETED"
+    },
+    {
+      "end_time": "2026-09-25T17:15:31.306706",
+      "exit_code": 0,
+      "name": "worker3",
+      "retry_id": 0,
+      "start_time": "2026-09-25T16:56:33.106573",
+      "status": "COMPLETED"
+    },
+    {
+      "end_time": "2026-09-25T17:22:04.618474",
+      "exit_code": 0,
+      "name": "worker4",
+      "retry_id": 0,
+      "start_time": "2026-09-25T17:00:20.582668",
+      "status": "COMPLETED"
+    },
+    {
+      "end_time": "2026-09-25T17:23:41.346619",
+      "exit_code": 0,
+      "name": "worker5",
+      "retry_id": 0,
+      "start_time": "2026-09-25T17:00:20.578623",
+      "status": "COMPLETED"
+    },
+    {
+      "end_time": "2026-09-25T17:15:16.678631",
+      "exit_code": 0,
+      "name": "worker6",
+      "retry_id": 0,
+      "start_time": "2026-09-25T16:56:37.534634",
+      "status": "COMPLETED"
+    },
+    {
+      "end_time": "2026-09-25T17:16:34.942358",
+      "exit_code": 0,
+      "name": "worker7",
+      "retry_id": 0,
+      "start_time": "2026-09-25T16:56:39.550518",
+      "status": "COMPLETED"
+    }
+  ]
+}
