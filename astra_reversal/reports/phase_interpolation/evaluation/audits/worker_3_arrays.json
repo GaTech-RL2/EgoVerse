@@ -1,0 +1,207 @@
+{
+  "schema_version": "phase-interpolation-array-audit-1",
+  "status": "passed",
+  "complete": true,
+  "workflow": "astra-pi05-interpolation-evaluation-20260925-1",
+  "worker": 3,
+  "phase": "evaluation",
+  "payload_sha256": "5b51adf8a604ec68461a8b8933d11f9b9f2b7cd9295eb463b715272f3cc7c842",
+  "reset_manifest_sha256": "6c0c115dfc0a3c42dc7b7515d20bf93c150b709b0ddc6c930207464c49dd7b43",
+  "protocol_sha256": "866334fb705aa6f0993a4c453e8f651c223cc900f44ea9de907d7c2e8ed0c5c0",
+  "bank_inventory_sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+  "source_metadata_sha256": {
+    "runtime.json": "0884a201c2672ab2db5786313ef91db2bd26aaf38549872f5b33bdb1ddb40654",
+    "protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+    "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "frozen_plan.json": "8608facb8b8f492c033634308065809235ace82bbf730c117affc537c196c697",
+    "reset_manifest.json": "1fbdcd1dbd413242ce67400f36f81a1e33e58b3c51e68f71a0f6a51bd57e8016",
+    "progress.json": "de189f90209a1ae49d6684d1a38465fdc097e8517ad937c469f6163eb933bbb7"
+  },
+  "asset_sha256": {
+    "norm_stats": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+    "tokenizer": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+  },
+  "counts": {
+    "initialization_velocity_evaluations": 2460,
+    "interpolation_gate_velocity_evaluations": 100,
+    "generations": 1346,
+    "physical_attempts": 26,
+    "physical_actions": 6713,
+    "rollout_velocity_evaluations": 13460,
+    "interpolated_generations": 777,
+    "tli_layer_records": 6868,
+    "array_files": 8436,
+    "array_references": 8436,
+    "array_bytes": 442738320,
+    "velocity_evaluations": 16020
+  },
+  "cases": [
+    {
+      "status": "passed",
+      "episode_id": "libero_goal_ood:seed29:task3:state0",
+      "protocol_sha256": "866334fb705aa6f0993a4c453e8f651c223cc900f44ea9de907d7c2e8ed0c5c0",
+      "reset_entry_sha256": "e05599afa66b143cd90f9cb72589da3cd89dc8459a34553f6f26fd3c0ae9a23f",
+      "summary_sha256": "9a08827f9da5d3200885769b2eff7b4f94abec59306598b054bfba619586f7bb",
+      "events_sha256": "bace5dd236f27882a159be887f6db5c2a0434f3523e11db06b854123a0069ee6",
+      "counts": {
+        "initialization_velocity_evaluations": 1230,
+        "interpolation_gate_velocity_evaluations": 50,
+        "generations": 840,
+        "physical_attempts": 14,
+        "physical_actions": 4200,
+        "rollout_velocity_evaluations": 8400,
+        "interpolated_generations": 540,
+        "tli_layer_records": 5406,
+        "array_files": 5232,
+        "array_references": 5232,
+        "array_bytes": 273459280,
+        "velocity_evaluations": 9680
+      },
+      "maximum_errors": {
+        "noise_reconstruction_max_abs": 0.0,
+        "controller_decode_max_abs": 0.0
+      },
+      "array_inventory_sha256": "8d80519c0a38c05ed350bac9b054807525ee62aab04ec271571cb5f738b3dfd7",
+      "initialization_errors_recomputed": {
+        "noise": {
+          "rmse": 1.407952315454747e-05,
+          "max_abs": 0.00015461444854736328
+        },
+        "actions": {
+          "rmse": 9.716707283663592e-08,
+          "max_abs": 1.1846423149108887e-06
+        },
+        "native_parity": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        }
+      },
+      "gates": {
+        "all_arrays_verified": true,
+        "paired_resets_verified": true,
+        "noise_construction_verified": true,
+        "vision_hashes_verified": true,
+        "weighted_endpoint_gates_verified": true,
+        "recorded_text_boundaries_and_banks_verified": true
+      },
+      "physical_attempt_ids": [
+        "recovered_noise_1",
+        "known_noise_1",
+        "policy_fresh_1",
+        "random_noise_2",
+        "random_noise_3",
+        "oracle_tei_2",
+        "oracle_tli_2",
+        "oracle_tei_tli_2",
+        "astra_tei_2",
+        "astra_tei_3",
+        "astra_tli_2",
+        "astra_tli_3",
+        "astra_tli_vision_2",
+        "astra_tli_vision_3"
+      ]
+    },
+    {
+      "status": "passed",
+      "episode_id": "libero_goal_ood:seed29:task7:state0",
+      "protocol_sha256": "866334fb705aa6f0993a4c453e8f651c223cc900f44ea9de907d7c2e8ed0c5c0",
+      "reset_entry_sha256": "cf035a4e0a917faa76d24d9024e4f92e57d350093c976e6fc7700dcf3b3e854a",
+      "summary_sha256": "72c7b95df7b5d8b472766691947e52e6d5753f4edba37e010fbc034301065201",
+      "events_sha256": "419a5ff60c8de4761dee6a37d7df471ef0344fdb209eed587f11b324a6c31ff1",
+      "counts": {
+        "initialization_velocity_evaluations": 1230,
+        "interpolation_gate_velocity_evaluations": 50,
+        "generations": 506,
+        "physical_attempts": 12,
+        "physical_actions": 2513,
+        "rollout_velocity_evaluations": 5060,
+        "interpolated_generations": 237,
+        "tli_layer_records": 1462,
+        "array_files": 3204,
+        "array_references": 3204,
+        "array_bytes": 169279040,
+        "velocity_evaluations": 6340
+      },
+      "maximum_errors": {
+        "noise_reconstruction_max_abs": 0.0,
+        "controller_decode_max_abs": 0.0
+      },
+      "array_inventory_sha256": "c8f135efcf26c4ca012d06f98560b361fc273973f8bbe9d859ab5837cb3913f3",
+      "initialization_errors_recomputed": {
+        "noise": {
+          "rmse": 8.219939767385854e-06,
+          "max_abs": 9.906291961669922e-05
+        },
+        "actions": {
+          "rmse": 5.7346164008810084e-09,
+          "max_abs": 4.470348358154297e-08
+        },
+        "native_parity": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        }
+      },
+      "gates": {
+        "all_arrays_verified": true,
+        "paired_resets_verified": true,
+        "noise_construction_verified": true,
+        "vision_hashes_verified": true,
+        "weighted_endpoint_gates_verified": true,
+        "recorded_text_boundaries_and_banks_verified": true
+      },
+      "physical_attempt_ids": [
+        "recovered_noise_1",
+        "known_noise_1",
+        "policy_fresh_1",
+        "random_noise_2",
+        "random_noise_3",
+        "oracle_tei_2",
+        "oracle_tli_2",
+        "oracle_tei_tli_2",
+        "astra_tei_2",
+        "astra_tei_3",
+        "astra_tli_2",
+        "astra_tli_vision_2"
+      ]
+    }
+  ],
+  "renderer": "Pillow-Linux-x86_64-separate-float32-blend",
+  "random_coefficient_tolerance_ulps": 4,
+  "noise_delta_and_decoding_cpu_tolerance": 1e-07,
+  "held_and_known_noise_tolerance": 0,
+  "postprocessor_source_sha256": {
+    "interpolation_audit.py": "4cb6ba2286d75ed937bc2bf9761704c019110ace1cd5cc8da240c8f78116e7bf",
+    "configs/phase_interpolation_v1.json": "7bdcbdb2b2422749a1474690f522b4376e631621d36577d9c8ab0bd5b30829db",
+    "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+    "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+    "interpolation_search.py": "d78fac428c88e0444fddce2a09a343764a7b7e5f074d8675a8d93de8cc999bf5",
+    "intervention_rollout.py": "be662dc5f4e13b74e14558e6bc663a86d99bc37aff6f30f723b17915c2656040",
+    "interventions.py": "9269b5c246ff9d3d82288aad37f6e89ca64801c1878ec3a0e17f72a6e6cd397c",
+    "config.py": "2afe7c901e0fd0b339cec2f37c62efb46ce5b0621199acd454c41c31327f4e21",
+    "libero_runner.py": "4f96aca61c2d8534377ba6ad92e946b9aba2432f5643fb3c5444177045cad61b",
+    "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+    "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+    "checkpoints/lerobot_pi05_libero_base.json": "0ef9771414297ac9110798824363c7a8ef2de5c8e96b64a69f6214f062b65382",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+    "flow.py": "98f54818bc99ca10c53d723f27a8763023403a70a5bf839dd038a4a1742f1784"
+  },
+  "limitations": [
+    "No GPU solve, hidden-state extraction, model inference, provider call or simulator replay is performed.",
+    "Text mask/token IDs, bank identities, condition hashes and recorded boundary/norm flags are checked. Unstored prefix embeddings and per-layer residuals are not independently recomputed.",
+    "Initial zero pooled-embedding parity is worker-reported: that separate endpoint is not stored. The four new interpolation probe endpoints are stored and independently compared.",
+    "Bank metadata is bound to the frozen bank inventory. Bank NPZ bytes and demonstration extraction correctness require the separate donor-bank audit.",
+    "Provider request/response binding, visual feedback scope and online hold/expiry replay require the separate feedback audit.",
+    "Recorded task outcomes are not independently re-executed. Numerical consistency does not imply intervention efficacy or generalization."
+  ],
+  "archive": {
+    "workflow": "astra-pi05-interpolation-evaluation-20260925-1",
+    "worker": 3,
+    "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-evaluation-20260925-1/worker_3/artifacts.tar.gz",
+    "sha256": "07a8d139fbcc252bedc1300b4e6b51153ccf0cec32c034bbe8118deebf13b9d8",
+    "bytes": 287088035,
+    "download_seconds": 10.090807000000495,
+    "extracted_bytes": 574758129,
+    "gzip_crc_verified": true
+  }
+}

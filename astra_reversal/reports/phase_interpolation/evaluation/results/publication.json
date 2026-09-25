@@ -1,0 +1,169 @@
+{
+  "byte_identical_original_files": 8,
+  "files": {
+    "cases.csv": {
+      "byte_identical": true,
+      "original": {
+        "bytes": 24837,
+        "sha256": "9dcf73004ad6a4cf5e3d2f65c7fd4fb8800553d81223c3016de8e3a80b22e788"
+      },
+      "path_values_changed": 0,
+      "public": {
+        "bytes": 24837,
+        "sha256": "9dcf73004ad6a4cf5e3d2f65c7fd4fb8800553d81223c3016de8e3a80b22e788"
+      },
+      "transform": "verbatim_copy"
+    },
+    "conditional_rescue_by_budget.png": {
+      "byte_identical": true,
+      "original": {
+        "bytes": 156226,
+        "sha256": "8c90c7558d092517fc40a34a49a35c2e0725eb24dc4883788c98a7e0ae11cfa5"
+      },
+      "path_values_changed": 0,
+      "public": {
+        "bytes": 156226,
+        "sha256": "8c90c7558d092517fc40a34a49a35c2e0725eb24dc4883788c98a7e0ae11cfa5"
+      },
+      "transform": "verbatim_copy"
+    },
+    "controls.csv": {
+      "byte_identical": true,
+      "original": {
+        "bytes": 558,
+        "sha256": "263be57b602cd977dbe93675e7b22ef7547d9d6daf7d7aaf13f0a723f7441a88"
+      },
+      "path_values_changed": 0,
+      "public": {
+        "bytes": 558,
+        "sha256": "263be57b602cd977dbe93675e7b22ef7547d9d6daf7d7aaf13f0a723f7441a88"
+      },
+      "transform": "verbatim_copy"
+    },
+    "curves.csv": {
+      "byte_identical": true,
+      "original": {
+        "bytes": 5857,
+        "sha256": "c5d59f1bf4322ad2e3788c4e5957b58553c4e19fc8694600ac0dce6e25a43fd4"
+      },
+      "path_values_changed": 0,
+      "public": {
+        "bytes": 5857,
+        "sha256": "c5d59f1bf4322ad2e3788c4e5957b58553c4e19fc8694600ac0dce6e25a43fd4"
+      },
+      "transform": "verbatim_copy"
+    },
+    "decisions.csv": {
+      "byte_identical": true,
+      "original": {
+        "bytes": 102442,
+        "sha256": "7962bb65f61db64377b8d6b61db63a589a10003a9dd802d2c12190f406da6d2c"
+      },
+      "path_values_changed": 0,
+      "public": {
+        "bytes": 102442,
+        "sha256": "7962bb65f61db64377b8d6b61db63a589a10003a9dd802d2c12190f406da6d2c"
+      },
+      "transform": "verbatim_copy"
+    },
+    "manifest.json": {
+      "byte_identical": false,
+      "original": {
+        "bytes": 2285,
+        "sha256": "1bc9d32bcf62ad98d96872c09f7fa418abe3d659cc1946e111bb4b28a0107f11"
+      },
+      "path_values_changed": 1,
+      "public": {
+        "bytes": 2222,
+        "sha256": "707355371774b0a4255ebefebfa4cd0893500adc2587c2205b769d06ff6a9177"
+      },
+      "transform": "rebuild_file_checksums_after_path_normalization"
+    },
+    "report.json": {
+      "byte_identical": false,
+      "original": {
+        "bytes": 5694494,
+        "sha256": "f9b07179e0ac904ca22388ae2c571af97105f62e24c0f30a135d1633d0459358"
+      },
+      "path_values_changed": 343,
+      "public": {
+        "bytes": 5672885,
+        "sha256": "4409d1113f1ac304ad2ebec767ec35448aa34ada02bb6bf5e130c4815222ca0c"
+      },
+      "transform": "declared_path_prefix_normalization"
+    },
+    "report.md": {
+      "byte_identical": true,
+      "original": {
+        "bytes": 4835,
+        "sha256": "2689d12bb3b68841fb701d2239df330cd40169f0fb659c605a1935473c1fb708"
+      },
+      "path_values_changed": 0,
+      "public": {
+        "bytes": 4835,
+        "sha256": "2689d12bb3b68841fb701d2239df330cd40169f0fb659c605a1935473c1fb708"
+      },
+      "transform": "verbatim_copy"
+    },
+    "reported_tokens_by_budget.png": {
+      "byte_identical": true,
+      "original": {
+        "bytes": 194739,
+        "sha256": "923a24f87541af5239fe3f18860f9d260cd50e54768cd0bf18fea226aa6e9218"
+      },
+      "path_values_changed": 0,
+      "public": {
+        "bytes": 194739,
+        "sha256": "923a24f87541af5239fe3f18860f9d260cd50e54768cd0bf18fea226aa6e9218"
+      },
+      "transform": "verbatim_copy"
+    },
+    "success_by_budget.png": {
+      "byte_identical": true,
+      "original": {
+        "bytes": 139415,
+        "sha256": "9651a6564968e757cfd8fa16f4daa9e62d2ff23eb8c315ca59dc3369943b21b3"
+      },
+      "path_values_changed": 0,
+      "public": {
+        "bytes": 139415,
+        "sha256": "9651a6564968e757cfd8fa16f4daa9e62d2ff23eb8c315ca59dc3369943b21b3"
+      },
+      "transform": "verbatim_copy"
+    }
+  },
+  "limitations": [
+    "Publication changes provenance paths, not measurements or the prior audit's scope.",
+    "The exact local prefix map and original full path values remain in the private receipt; its SHA-256 binds the public prefix digests and changed counts.",
+    "manifest.json is rebuilt from public report-file bytes; original manifest bytes are identified by their original receipt."
+  ],
+  "path_prefix_map": [
+    {
+      "meaning": "absolute local repository root plus slash becomes a repository-relative path",
+      "path_values_changed": 344,
+      "prefix_index": 0,
+      "replacement": "",
+      "source_prefix_sha256": "d23548a1da7101a80446bd151c24bec489c20d9c37ec912797968ea26d34f777",
+      "source_prefix_utf8_bytes": 63
+    }
+  ],
+  "path_values_changed": 344,
+  "phase": "evaluation",
+  "private_mapping_receipt_bytes": 142852,
+  "private_mapping_receipt_sha256": "c66c8bf4c1b95523461ca6271e78e2f6b1c95abd07803c3ee7ee996d48d572a0",
+  "rebuilt_manifest_entries": 1,
+  "report_path_values_changed": 343,
+  "schema_version": "phase-report-publication-1.0",
+  "source_snapshot": {
+    "bytes": 13046,
+    "name": "source/publish_report.py.txt",
+    "sha256": "572580eb2ceb341fa84580e156baeb4a311e345aedcad82fb71dd7c758a0013d"
+  },
+  "validation": {
+    "json_diff_is_only_declared_path_values": true,
+    "metrics_and_source_artifact_hashes_unchanged": true,
+    "original_file_manifest_verified": true,
+    "private_inputs_unchanged": true,
+    "untouched_files_copied_verbatim": true
+  }
+}

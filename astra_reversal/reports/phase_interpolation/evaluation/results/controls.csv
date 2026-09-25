@@ -1,0 +1,10 @@
+phase,group,control,successes,cases,actions,velocity_evaluations
+evaluation,pooled,recovered_noise,7,20,4674,9380
+evaluation,pooled,known_noise,7,20,4674,9370
+evaluation,pooled,policy_fresh,8,20,4368,8770
+evaluation,libero_goal_ood,recovered_noise,3,10,2423,4860
+evaluation,libero_goal_ood,known_noise,3,10,2421,4850
+evaluation,libero_goal_ood,policy_fresh,4,10,2198,4420
+evaluation,libero_spatial_ood,recovered_noise,4,10,2251,4520
+evaluation,libero_spatial_ood,known_noise,4,10,2253,4520
+evaluation,libero_spatial_ood,policy_fresh,4,10,2170,4350

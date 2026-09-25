@@ -1,0 +1,71 @@
+{
+  "cases": 20,
+  "files": {
+    "completion.json": {
+      "byte_identical_to_original": true,
+      "bytes": 6095,
+      "original_path": "astra_reversal/.deps/interpolation-evaluation-v1/final-control-completion.json",
+      "sha256": "7671b99cb31323aeff04867503b17ed0012bac8540cbf9da7978c297c7935231"
+    },
+    "receipt.json": {
+      "byte_identical_to_original": true,
+      "bytes": 593332,
+      "original_path": "astra_reversal/.deps/interpolation-evaluation-v1/final-independent-reconciliation.json",
+      "sha256": "1b96a34cc04f0a67a0d954eb05a8aa3429d43330ccf96c1edaef0234a388fc30"
+    },
+    "source/reconcile_complete_report.py.txt": {
+      "byte_identical_to_original": true,
+      "bytes": 49772,
+      "original_path": "astra_reversal/.deps/interpolation-evaluation-v1/reconcile_complete_report.py",
+      "sha256": "50e99fddaeb6442d13dc70643cb6c84952fdb7352a4e2dc5f05648d37b3bdb48"
+    }
+  },
+  "invocations": [
+    [
+      "python",
+      "astra_reversal/.deps/interpolation-evaluation-v1/reconcile_complete_report.py",
+      "--root",
+      "astra_reversal/.deps/interpolation-evaluation-v1",
+      "--audits",
+      "astra_reversal/reports/phase_interpolation/evaluation/audits",
+      "--report",
+      "astra_reversal/.deps/interpolation-evaluation-v1/complete-report/report.json",
+      "--expected-report-sha256",
+      "f9b07179e0ac904ca22388ae2c571af97105f62e24c0f30a135d1633d0459358",
+      "--output",
+      "astra_reversal/.deps/interpolation-evaluation-v1/final-independent-reconciliation.json"
+    ],
+    [
+      "python",
+      "astra_reversal/.deps/interpolation-evaluation-v1/reconcile_complete_report.py",
+      "--root",
+      "astra_reversal/.deps/interpolation-evaluation-v1",
+      "--audits",
+      "astra_reversal/reports/phase_interpolation/evaluation/audits",
+      "--completion-only",
+      "--status",
+      "astra_reversal/.deps/interpolation-evaluation-v1/status.json",
+      "--output",
+      "astra_reversal/.deps/interpolation-evaluation-v1/final-control-completion.json"
+    ]
+  ],
+  "notes": [
+    "Run from repository root after activating the project emimic environment. The source snapshot is valid Python with a .py.txt extension; use a new --output when replaying.",
+    "No report generation, array/model replay, simulation, provider call, or additional rollout occurs in this arithmetic checker.",
+    "Existing full array and feedback audit receipts bind raw archives; all eight passed worker receipts and their totals are retained in receipt.json.",
+    "Control-plane completion is a separate receipt; raw status query fields beyond the explicit safe allowlist are not published.",
+    "The private original report is bound through results/publication.json hashes to the path-normalized public report. Measurement values are unchanged."
+  ],
+  "phase": "evaluation",
+  "public_report_sha256": "4409d1113f1ac304ad2ebec767ec35448aa34ada02bb6bf5e130c4815222ca0c",
+  "report_publication_sha256": "85a76f1c52a77d76db244ddc76ffbf3d2f3532a6dfa956301c2938f2126e9531",
+  "schema_version": "phase-interpolation-independent-reconciliation-publication-1.0",
+  "seed": 29,
+  "source_mapping": {
+    "bytes_unchanged": true,
+    "original": "astra_reversal/.deps/interpolation-evaluation-v1/reconcile_complete_report.py",
+    "snapshot": "source/reconcile_complete_report.py.txt"
+  },
+  "status": "passed",
+  "strict_original_report_sha256": "f9b07179e0ac904ca22388ae2c571af97105f62e24c0f30a135d1633d0459358"
+}

@@ -1,0 +1,55 @@
+{
+  "files": {
+    "cases.csv": {
+      "bytes": 24837,
+      "sha256": "9dcf73004ad6a4cf5e3d2f65c7fd4fb8800553d81223c3016de8e3a80b22e788"
+    },
+    "conditional_rescue_by_budget.png": {
+      "bytes": 156226,
+      "sha256": "8c90c7558d092517fc40a34a49a35c2e0725eb24dc4883788c98a7e0ae11cfa5"
+    },
+    "controls.csv": {
+      "bytes": 558,
+      "sha256": "263be57b602cd977dbe93675e7b22ef7547d9d6daf7d7aaf13f0a723f7441a88"
+    },
+    "curves.csv": {
+      "bytes": 5857,
+      "sha256": "c5d59f1bf4322ad2e3788c4e5957b58553c4e19fc8694600ac0dce6e25a43fd4"
+    },
+    "decisions.csv": {
+      "bytes": 102442,
+      "sha256": "7962bb65f61db64377b8d6b61db63a589a10003a9dd802d2c12190f406da6d2c"
+    },
+    "report.json": {
+      "bytes": 5672885,
+      "sha256": "4409d1113f1ac304ad2ebec767ec35448aa34ada02bb6bf5e130c4815222ca0c"
+    },
+    "report.md": {
+      "bytes": 4835,
+      "sha256": "2689d12bb3b68841fb701d2239df330cd40169f0fb659c605a1935473c1fb708"
+    },
+    "reported_tokens_by_budget.png": {
+      "bytes": 194739,
+      "sha256": "923a24f87541af5239fe3f18860f9d260cd50e54768cd0bf18fea226aa6e9218"
+    },
+    "success_by_budget.png": {
+      "bytes": 139415,
+      "sha256": "9651a6564968e757cfd8fa16f4daa9e62d2ff23eb8c315ca59dc3369943b21b3"
+    }
+  },
+  "phase": "evaluation",
+  "postprocessor": {
+    "dependencies": {
+      "interpolation_agent.py": "59a00fd0e3f5145c0adf0c87136c534f0e1c26c9d07ebf6df54d72ed49908e29",
+      "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+      "interpolation_search.py": "d78fac428c88e0444fddce2a09a343764a7b7e5f074d8675a8d93de8cc999bf5",
+      "intervention_report.py": "e956ad36d68ae752f9414550ec18973b91cc5c507a940eacdcd7b01170c51be8",
+      "intervention_rollout.py": "be662dc5f4e13b74e14558e6bc663a86d99bc37aff6f30f723b17915c2656040",
+      "interventions.py": "9269b5c246ff9d3d82288aad37f6e89ca64801c1878ec3a0e17f72a6e6cd397c",
+      "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+    },
+    "path": "astra_reversal/interpolation_report.py",
+    "sha256": "221b01936aca5e83f6758ddc2c1b6780092e65293e7a4a0a2e3b89f10645dc45"
+  },
+  "schema": "astra-phase-interpolation-report-files-1"
+}

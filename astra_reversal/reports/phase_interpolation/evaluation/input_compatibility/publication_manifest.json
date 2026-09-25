@@ -1,0 +1,20 @@
+{
+  "checker_copied_without_changes": true,
+  "files": {
+    "README.md": {
+      "bytes": 2373,
+      "sha256": "b67a6177b89df1658ea4d4ee845578af4364f021ad45d090a97b0e5451b47b34"
+    },
+    "receipt.json": {
+      "bytes": 28860,
+      "sha256": "8a7c74e2f4dcd49e29379eab888dff20e225561102abf7f1a7c44d68f7d0b129"
+    },
+    "source/check_input_compatibility.py.txt": {
+      "bytes": 19294,
+      "sha256": "127a311aabe0ccb004443e039c2b998fbd3673be36560accb035d7d426ff0018"
+    }
+  },
+  "receipt_copied_without_changes": true,
+  "schema_version": "phase-evaluation-input-compatibility-publication-1.0",
+  "scope": "Read-only input comparison only; no completed-evaluation or outcome claim"
+}

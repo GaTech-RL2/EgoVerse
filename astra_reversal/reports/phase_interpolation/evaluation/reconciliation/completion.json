@@ -1,0 +1,168 @@
+{
+  "completion": {
+    "end_time": "2026-09-25T19:27:15.786588",
+    "groups": [
+      {
+        "end_time": "2026-09-25T18:58:59.285019",
+        "name": "worker0-group",
+        "start_time": "2026-09-25T18:22:51.434419",
+        "status": "COMPLETED",
+        "task": {
+          "end_time": "2026-09-25T18:58:59.285019",
+          "exit_code": 0,
+          "name": "worker0",
+          "retry_id": 0,
+          "start_time": "2026-09-25T18:22:51.434419",
+          "status": "COMPLETED"
+        }
+      },
+      {
+        "end_time": "2026-09-25T19:04:20.947848",
+        "name": "worker1-group",
+        "start_time": "2026-09-25T18:22:52.378796",
+        "status": "COMPLETED",
+        "task": {
+          "end_time": "2026-09-25T19:04:20.947848",
+          "exit_code": 0,
+          "name": "worker1",
+          "retry_id": 0,
+          "start_time": "2026-09-25T18:22:52.378796",
+          "status": "COMPLETED"
+        }
+      },
+      {
+        "end_time": "2026-09-25T18:58:39.082650",
+        "name": "worker2-group",
+        "start_time": "2026-09-25T18:22:53.191592",
+        "status": "COMPLETED",
+        "task": {
+          "end_time": "2026-09-25T18:58:39.082650",
+          "exit_code": 0,
+          "name": "worker2",
+          "retry_id": 0,
+          "start_time": "2026-09-25T18:22:53.191592",
+          "status": "COMPLETED"
+        }
+      },
+      {
+        "end_time": "2026-09-25T19:11:28.494574",
+        "name": "worker3-group",
+        "start_time": "2026-09-25T18:27:02.566422",
+        "status": "COMPLETED",
+        "task": {
+          "end_time": "2026-09-25T19:11:28.494574",
+          "exit_code": 0,
+          "name": "worker3",
+          "retry_id": 0,
+          "start_time": "2026-09-25T18:27:02.566422",
+          "status": "COMPLETED"
+        }
+      },
+      {
+        "end_time": "2026-09-25T19:12:09.262877",
+        "name": "worker4-group",
+        "start_time": "2026-09-25T18:27:29.657475",
+        "status": "COMPLETED",
+        "task": {
+          "end_time": "2026-09-25T19:12:09.262877",
+          "exit_code": 0,
+          "name": "worker4",
+          "retry_id": 0,
+          "start_time": "2026-09-25T18:27:29.657475",
+          "status": "COMPLETED"
+        }
+      },
+      {
+        "end_time": "2026-09-25T19:11:03.938311",
+        "name": "worker5-group",
+        "start_time": "2026-09-25T18:31:32.774384",
+        "status": "COMPLETED",
+        "task": {
+          "end_time": "2026-09-25T19:11:03.938311",
+          "exit_code": 0,
+          "name": "worker5",
+          "retry_id": 0,
+          "start_time": "2026-09-25T18:31:32.774384",
+          "status": "COMPLETED"
+        }
+      },
+      {
+        "end_time": "2026-09-25T19:22:28.662624",
+        "name": "worker6-group",
+        "start_time": "2026-09-25T18:51:46.510673",
+        "status": "COMPLETED",
+        "task": {
+          "end_time": "2026-09-25T19:22:28.662624",
+          "exit_code": 0,
+          "name": "worker6",
+          "retry_id": 0,
+          "start_time": "2026-09-25T18:51:46.510673",
+          "status": "COMPLETED"
+        }
+      },
+      {
+        "end_time": "2026-09-25T19:27:15.786588",
+        "name": "worker7-group",
+        "start_time": "2026-09-25T18:58:39.246492",
+        "status": "COMPLETED",
+        "task": {
+          "end_time": "2026-09-25T19:27:15.786588",
+          "exit_code": 0,
+          "name": "worker7",
+          "retry_id": 0,
+          "start_time": "2026-09-25T18:58:39.246492",
+          "status": "COMPLETED"
+        }
+      }
+    ],
+    "name": "astra-pi05-interpolation-evaluation-20260925-1",
+    "scope": "Filtered control-plane completion evidence; raw query, user, host, dashboard and log URLs are not published.",
+    "source_sha256": "231809a6ebd838e9e84081f80ca71d26088140acd780260ad42006ee140b5be2",
+    "start_time": "2026-09-25T18:22:51.434419",
+    "status": "COMPLETED",
+    "submit_time": "2026-09-25T18:22:39.954344"
+  },
+  "input_files": {
+    "astra_reversal/.deps/interpolation-evaluation-v1/status.json": {
+      "bytes": 17098,
+      "sha256": "231809a6ebd838e9e84081f80ca71d26088140acd780260ad42006ee140b5be2"
+    },
+    "astra_reversal/reports/phase_interpolation/evaluation/audits/worker_0_receipt.json": {
+      "bytes": 7456,
+      "sha256": "b2d6d3cad929190b2cb4a39446130200aab50e41c4024f8d3713c319fc0317bb"
+    },
+    "astra_reversal/reports/phase_interpolation/evaluation/audits/worker_1_receipt.json": {
+      "bytes": 7679,
+      "sha256": "86bcb061c7bf182f5a7a96db4b666850d1ce2aa36b8bf8009b981a5ae8cc53ad"
+    },
+    "astra_reversal/reports/phase_interpolation/evaluation/audits/worker_2_receipt.json": {
+      "bytes": 5580,
+      "sha256": "6e363120b627d5af824387ed370c11131f636b5caa60ff6b88d47dbd23fd660d"
+    },
+    "astra_reversal/reports/phase_interpolation/evaluation/audits/worker_3_receipt.json": {
+      "bytes": 5502,
+      "sha256": "4711e53fba525025ef3f7d53932c01330c7bf88becdd8e5efbbd6d49844e59f3"
+    },
+    "astra_reversal/reports/phase_interpolation/evaluation/audits/worker_4_receipt.json": {
+      "bytes": 7599,
+      "sha256": "0818220e4ff2d9b3592a12b78444f4fbc7f4342a19c37b93d2498a6df77a97d8"
+    },
+    "astra_reversal/reports/phase_interpolation/evaluation/audits/worker_5_receipt.json": {
+      "bytes": 7512,
+      "sha256": "4215cf9de3b7f82728fcbcfb2aa48f270c49d62954cf35c2706b32903970141f"
+    },
+    "astra_reversal/reports/phase_interpolation/evaluation/audits/worker_6_receipt.json": {
+      "bytes": 5367,
+      "sha256": "af81e8fcd0101fb95fde2270b33212ba02af2689ec6b60d249cc71ed7620a4db"
+    },
+    "astra_reversal/reports/phase_interpolation/evaluation/audits/worker_7_receipt.json": {
+      "bytes": 5367,
+      "sha256": "1b2130b939cc82aec1ba949dc6dc614cde5c8a4b6015999a2b7a95f56173c023"
+    }
+  },
+  "phase": "evaluation",
+  "postprocessor_source_sha256": "50e99fddaeb6442d13dc70643cb6c84952fdb7352a4e2dc5f05648d37b3bdb48",
+  "schema_version": "phase-interpolation-control-plane-completion-1.0",
+  "scope": "Control-plane completion only. Scientific outcomes and costs are independently reconciled in receipt.json.",
+  "status": "passed"
+}

@@ -1,0 +1,259 @@
+{
+  "schema_version": "phase-interpolation-array-audit-1",
+  "status": "passed",
+  "complete": true,
+  "workflow": "astra-pi05-interpolation-evaluation-20260925-1",
+  "worker": 4,
+  "phase": "evaluation",
+  "payload_sha256": "5b51adf8a604ec68461a8b8933d11f9b9f2b7cd9295eb463b715272f3cc7c842",
+  "reset_manifest_sha256": "23e19a267d6d2118e11b7e12de5fa815089b8486cdf3be13532fe723858bf244",
+  "protocol_sha256": "866334fb705aa6f0993a4c453e8f651c223cc900f44ea9de907d7c2e8ed0c5c0",
+  "bank_inventory_sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+  "source_metadata_sha256": {
+    "runtime.json": "cc2a9bee80202479c1816dfa275df96e03a400e88bd75f38718965fc675a4155",
+    "protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+    "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "frozen_plan.json": "acda82c1b2ccb2513218c4147c0dfe77e2afd5618cada77f3c48ae6fae00ae98",
+    "reset_manifest.json": "87029150b36ee07fc7e9422d22a533a60de2441f105d80d559adcb229fa47f53",
+    "progress.json": "b7833e959fb7b429e2d769b50ab16b594f7610956b2ce764eacf48f8961eadd9"
+  },
+  "asset_sha256": {
+    "norm_stats": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+    "tokenizer": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+  },
+  "counts": {
+    "initialization_velocity_evaluations": 3690,
+    "interpolation_gate_velocity_evaluations": 150,
+    "generations": 1455,
+    "physical_attempts": 29,
+    "physical_actions": 7253,
+    "rollout_velocity_evaluations": 14550,
+    "array_files": 9150,
+    "array_references": 9150,
+    "array_bytes": 480200056,
+    "velocity_evaluations": 18390,
+    "interpolated_generations": 777,
+    "tli_layer_records": 7276
+  },
+  "cases": [
+    {
+      "status": "passed",
+      "episode_id": "libero_spatial_ood:seed29:task0:state0",
+      "protocol_sha256": "866334fb705aa6f0993a4c453e8f651c223cc900f44ea9de907d7c2e8ed0c5c0",
+      "reset_entry_sha256": "7afe702c26e0f4f19cab603b4681bed1821b4e0b2609afc7a53cd29dd1fae5c0",
+      "summary_sha256": "88748231f21000c8b760b304be25d9bf277ae01e0952487859a30e18245149bf",
+      "events_sha256": "e0ed1ef3cab386c1f072b8e1a9f7086c79b8c97077587ea35ad06205f1af3bce",
+      "counts": {
+        "initialization_velocity_evaluations": 1230,
+        "interpolation_gate_velocity_evaluations": 50,
+        "generations": 78,
+        "physical_attempts": 3,
+        "physical_actions": 385,
+        "rollout_velocity_evaluations": 780,
+        "array_files": 528,
+        "array_references": 528,
+        "array_bytes": 28016160,
+        "velocity_evaluations": 2060
+      },
+      "maximum_errors": {
+        "noise_reconstruction_max_abs": 0.0,
+        "controller_decode_max_abs": 0.0
+      },
+      "array_inventory_sha256": "2432b7d030ebdb232793447fd07bd4f08a80bb6c0596a912ad2193e64df1af4e",
+      "initialization_errors_recomputed": {
+        "noise": {
+          "rmse": 1.4771914252421156e-05,
+          "max_abs": 0.00017821788787841797
+        },
+        "actions": {
+          "rmse": 6.61172753749973e-09,
+          "max_abs": 5.960464477539063e-08
+        },
+        "native_parity": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        }
+      },
+      "gates": {
+        "all_arrays_verified": true,
+        "paired_resets_verified": true,
+        "noise_construction_verified": true,
+        "vision_hashes_verified": true,
+        "weighted_endpoint_gates_verified": true,
+        "recorded_text_boundaries_and_banks_verified": true
+      },
+      "physical_attempt_ids": [
+        "recovered_noise_1",
+        "known_noise_1",
+        "policy_fresh_1"
+      ]
+    },
+    {
+      "status": "passed",
+      "episode_id": "libero_spatial_ood:seed29:task4:state0",
+      "protocol_sha256": "866334fb705aa6f0993a4c453e8f651c223cc900f44ea9de907d7c2e8ed0c5c0",
+      "reset_entry_sha256": "afcb89a1938491ab6e1daea5b5695bfcd5a75b7eaa1bf7c36ecfc8c30691adb0",
+      "summary_sha256": "12d95c5214c410c5ce63300467e8cbf4be0e012284a66ab5c9b7c1275e759340",
+      "events_sha256": "aa7b43eaefd30a4d687b8318fc0fec27112a84cf8eb01f3ee238fb6e6f339e00",
+      "counts": {
+        "initialization_velocity_evaluations": 1230,
+        "interpolation_gate_velocity_evaluations": 50,
+        "generations": 840,
+        "physical_attempts": 14,
+        "physical_actions": 4200,
+        "rollout_velocity_evaluations": 8400,
+        "interpolated_generations": 540,
+        "tli_layer_records": 5661,
+        "array_files": 5232,
+        "array_references": 5232,
+        "array_bytes": 273459280,
+        "velocity_evaluations": 9680
+      },
+      "maximum_errors": {
+        "noise_reconstruction_max_abs": 0.0,
+        "controller_decode_max_abs": 0.0
+      },
+      "array_inventory_sha256": "d5e8db415289bd75f171956761718ff93a592b5fc5eec5788d83b9407c4af161",
+      "initialization_errors_recomputed": {
+        "noise": {
+          "rmse": 4.699126867833551e-06,
+          "max_abs": 4.26173210144043e-05
+        },
+        "actions": {
+          "rmse": 1.0980750318436899e-08,
+          "max_abs": 5.960464477539063e-08
+        },
+        "native_parity": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        }
+      },
+      "gates": {
+        "all_arrays_verified": true,
+        "paired_resets_verified": true,
+        "noise_construction_verified": true,
+        "vision_hashes_verified": true,
+        "weighted_endpoint_gates_verified": true,
+        "recorded_text_boundaries_and_banks_verified": true
+      },
+      "physical_attempt_ids": [
+        "recovered_noise_1",
+        "known_noise_1",
+        "policy_fresh_1",
+        "random_noise_2",
+        "random_noise_3",
+        "oracle_tei_2",
+        "oracle_tli_2",
+        "oracle_tei_tli_2",
+        "astra_tei_2",
+        "astra_tei_3",
+        "astra_tli_2",
+        "astra_tli_3",
+        "astra_tli_vision_2",
+        "astra_tli_vision_3"
+      ]
+    },
+    {
+      "status": "passed",
+      "episode_id": "libero_spatial_ood:seed29:task8:state0",
+      "protocol_sha256": "866334fb705aa6f0993a4c453e8f651c223cc900f44ea9de907d7c2e8ed0c5c0",
+      "reset_entry_sha256": "b9dece9057bb0f7c4a78058d1abd384f126272f540b6b8d85d9d9e3124ddf4ec",
+      "summary_sha256": "c737485097ebc3526a795b40cc6d71de10cf8aae4611654c165015cad0a295d0",
+      "events_sha256": "9397ffa7fb6973b8bed719e5e358f82153723c023f33761f5d9defac0dd30795",
+      "counts": {
+        "initialization_velocity_evaluations": 1230,
+        "interpolation_gate_velocity_evaluations": 50,
+        "generations": 537,
+        "physical_attempts": 12,
+        "physical_actions": 2668,
+        "rollout_velocity_evaluations": 5370,
+        "interpolated_generations": 237,
+        "tli_layer_records": 1615,
+        "array_files": 3390,
+        "array_references": 3390,
+        "array_bytes": 178724616,
+        "velocity_evaluations": 6650
+      },
+      "maximum_errors": {
+        "noise_reconstruction_max_abs": 0.0,
+        "controller_decode_max_abs": 0.0
+      },
+      "array_inventory_sha256": "b2e45611dfdefbe81632bfb766bc73aac3afe65fcb3110fc0b90a5d7910290c1",
+      "initialization_errors_recomputed": {
+        "noise": {
+          "rmse": 1.290229686634314e-05,
+          "max_abs": 0.00018514692783355713
+        },
+        "actions": {
+          "rmse": 1.1479925347753202e-08,
+          "max_abs": 1.1920928955078125e-07
+        },
+        "native_parity": {
+          "rmse": 0.0,
+          "max_abs": 0.0
+        }
+      },
+      "gates": {
+        "all_arrays_verified": true,
+        "paired_resets_verified": true,
+        "noise_construction_verified": true,
+        "vision_hashes_verified": true,
+        "weighted_endpoint_gates_verified": true,
+        "recorded_text_boundaries_and_banks_verified": true
+      },
+      "physical_attempt_ids": [
+        "recovered_noise_1",
+        "known_noise_1",
+        "policy_fresh_1",
+        "random_noise_2",
+        "random_noise_3",
+        "oracle_tei_2",
+        "oracle_tli_2",
+        "oracle_tei_tli_2",
+        "astra_tei_2",
+        "astra_tei_3",
+        "astra_tli_2",
+        "astra_tli_vision_2"
+      ]
+    }
+  ],
+  "renderer": "Pillow-Linux-x86_64-separate-float32-blend",
+  "random_coefficient_tolerance_ulps": 4,
+  "noise_delta_and_decoding_cpu_tolerance": 1e-07,
+  "held_and_known_noise_tolerance": 0,
+  "postprocessor_source_sha256": {
+    "interpolation_audit.py": "4cb6ba2286d75ed937bc2bf9761704c019110ace1cd5cc8da240c8f78116e7bf",
+    "configs/phase_interpolation_v1.json": "7bdcbdb2b2422749a1474690f522b4376e631621d36577d9c8ab0bd5b30829db",
+    "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+    "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+    "interpolation_search.py": "d78fac428c88e0444fddce2a09a343764a7b7e5f074d8675a8d93de8cc999bf5",
+    "intervention_rollout.py": "be662dc5f4e13b74e14558e6bc663a86d99bc37aff6f30f723b17915c2656040",
+    "interventions.py": "9269b5c246ff9d3d82288aad37f6e89ca64801c1878ec3a0e17f72a6e6cd397c",
+    "config.py": "2afe7c901e0fd0b339cec2f37c62efb46ce5b0621199acd454c41c31327f4e21",
+    "libero_runner.py": "4f96aca61c2d8534377ba6ad92e946b9aba2432f5643fb3c5444177045cad61b",
+    "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+    "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+    "checkpoints/lerobot_pi05_libero_base.json": "0ef9771414297ac9110798824363c7a8ef2de5c8e96b64a69f6214f062b65382",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+    "flow.py": "98f54818bc99ca10c53d723f27a8763023403a70a5bf839dd038a4a1742f1784"
+  },
+  "limitations": [
+    "No GPU solve, hidden-state extraction, model inference, provider call or simulator replay is performed.",
+    "Text mask/token IDs, bank identities, condition hashes and recorded boundary/norm flags are checked. Unstored prefix embeddings and per-layer residuals are not independently recomputed.",
+    "Initial zero pooled-embedding parity is worker-reported: that separate endpoint is not stored. The four new interpolation probe endpoints are stored and independently compared.",
+    "Bank metadata is bound to the frozen bank inventory. Bank NPZ bytes and demonstration extraction correctness require the separate donor-bank audit.",
+    "Provider request/response binding, visual feedback scope and online hold/expiry replay require the separate feedback audit.",
+    "Recorded task outcomes are not independently re-executed. Numerical consistency does not imply intervention efficacy or generalization."
+  ],
+  "archive": {
+    "workflow": "astra-pi05-interpolation-evaluation-20260925-1",
+    "worker": 4,
+    "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-evaluation-20260925-1/worker_4/artifacts.tar.gz",
+    "sha256": "010f938e9dac37dad3d2d4b2b10c458688753bf9d4729d17a7b9ff6f08a04015",
+    "bytes": 310338424,
+    "download_seconds": 14.049130083003547,
+    "extracted_bytes": 614185430,
+    "gzip_crc_verified": true
+  }
+}

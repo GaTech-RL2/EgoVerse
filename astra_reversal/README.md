@@ -4,11 +4,18 @@ Implementation of the supplied [research brief](SPEC.md), using a frozen pi0.5
 policy and genuine Astra proposals. Experiment code, isolated dependencies, and
 records live in this directory; existing training code is unchanged.
 
-The separate [iterative intervention protocol](INTERVENTIONS.md) adds explicit
-rollout feedback and revision of noise, actual language embeddings, and visual
-annotations. It records attempts to first success and provider token usage for
-each intervention and combination. The completed Stage 1 results below did not
-use that iterative search and must not be presented as its evaluation.
+The [observed phase-interpolation study](reports/phase_interpolation/README.md)
+tests fresh two-camera Astra decisions every 25 actions, tokenwise embedding
+interpolation, per-layer text residuals and temporary vision marks. Its report
+separates reset/retry success, within-rollout decisions, capped failures and
+provider tokens, with oracle and random-noise controls. See the
+[implementation and frozen protocol](PHASE_INTERPOLATION.md).
+
+The earlier [iterative intervention protocol](INTERVENTIONS.md) and
+[static intervention results](reports/iterative_interventions/README.md) cover
+rollout-level revision of noise, language embeddings and visual annotations.
+Those experiments and the historical Stage 1 measurements below use separate
+protocols and reset seeds; their success rates are not pooled.
 
 **Status on 2026-09-24:** the paired OOD evaluation is complete. Genuine Stage 1
 Astra reversal scored **5/200**, compared with **91/200** for matched fresh noise
@@ -16,7 +23,7 @@ and **90/200** for matched reused noise. The complete runtime audit found
 **39/3,108** same-condition roundtrips above the unchanged 0.02 limit, despite
 verified provider bindings and recovered-latent reuse. The initial development
 gates passed but did not establish runtime coverage or useful control. This is
-a negative result for the tested configuration; no Stage 2 result is reported.
+a negative result for that tested Stage 1 configuration.
 One of the five successful reversal episodes included 20 policy-fallback
 actions; the other four had none. The score measures the configured controller
 with its logged fallback behavior.

@@ -4,6 +4,8 @@ This follow-up tests whether Astra can select standard-task donors and change
 their interpolation from fresh camera observations during a rollout. It keeps
 the static intervention experiment and its results unchanged. The configuration
 is [phase_interpolation_v1.json](configs/phase_interpolation_v1.json).
+The [experiment record](reports/phase_interpolation/README.md) links measured
+outcomes, iteration/token costs, observation examples and archive audits.
 
 ## What is being ported
 
