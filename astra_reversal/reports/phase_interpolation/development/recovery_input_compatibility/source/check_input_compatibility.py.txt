@@ -1,0 +1,135 @@
+"""Read-only comparison of immutable original/recovery worker metadata."""
+
+import argparse
+import hashlib
+import json
+from pathlib import Path
+
+from astra_reversal.config import BenchmarkConfig
+from astra_reversal.interpolation_report import _validate_inventory
+from astra_reversal.intervention_rollout import load_reset_manifest
+from astra_reversal.records import digest
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--original", type=Path, required=True)
+    parser.add_argument("--recovery", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    assert not args.output.exists(), "Compatibility receipt already exists"
+    sources = {}
+
+    def read(directory, name):
+        path = directory / name
+        data = path.read_bytes()
+        sources[str(path)] = hashlib.sha256(data).hexdigest()
+        return json.loads(data)
+
+    original_source = read(args.original, "source_identity.json")
+    assert original_source == read(args.recovery, "source_identity.json")
+    rows = []
+    retained = args.original / "downloaded/worker_2"
+    retained_checkpoint = read(retained, "checkpoint.json")
+    retained_runtime = read(retained, "runtime.json")
+    retained_inventory = read(retained, "bank_inventory.json")
+    for worker in (0, 1):
+        old = args.original / "downloaded" / f"worker_{worker}"
+        new = args.recovery / "downloaded" / f"worker_{worker}"
+        checks = {}
+        for name in (
+            "protocol.json",
+            "checkpoint.json",
+            "reset_manifest.json",
+            "bank_inventory.json",
+        ):
+            a, b = read(old, name), read(new, name)
+            assert a == b, f"Recovery changes {name}, worker {worker}"
+            assert sources[str(old / name)] == sources[str(new / name)], (
+                f"Metadata bytes differ: {name}"
+            )
+            checks[name] = sources[str(new / name)]
+        runtime = read(new, "runtime.json")
+        old_runtime = read(old, "runtime.json")
+        assert runtime["phase"] == old_runtime["phase"] == "development"
+        assert runtime["worker"] == old_runtime["worker"] == worker
+        assert runtime["assignment"] == old_runtime["assignment"]
+        assert (
+            runtime["packages"]
+            == old_runtime["packages"]
+            == retained_runtime["packages"]
+        )
+        assert (
+            runtime["payload_sha256"]
+            == old_runtime["payload_sha256"]
+            == original_source["payload_sha256"]
+        )
+        assert runtime["workflow"] != old_runtime["workflow"]
+        checkpoint = read(new, "checkpoint.json")
+        assert checkpoint == retained_checkpoint
+        inventory = read(new, "bank_inventory.json")
+        _validate_inventory(inventory)
+        assert inventory == retained_inventory
+        plan, old_plan = read(new, "frozen_plan.json"), read(old, "frozen_plan.json")
+        assert plan["runtime"] == runtime and old_plan["runtime"] == old_runtime
+        paired_plan = {key: value for key, value in plan.items() if key != "runtime"}
+        assert paired_plan == {
+            key: value for key, value in old_plan.items() if key != "runtime"
+        }
+        protocol = read(new, "protocol.json")
+        manifest = load_reset_manifest(
+            new / "reset_manifest.json",
+            BenchmarkConfig.preset(runtime["assignment"]["suite"]),
+        )
+        assert plan["manifest_sha256"] == manifest["sha256"]
+        assert plan["protocol_sha256"] == digest(protocol)
+        assert plan["bank_inventory_sha256"] == checks["bank_inventory.json"]
+        if worker == 1:
+            assert manifest["sha256"] == read(retained, "reset_manifest.json")["sha256"]
+        rows.append(
+            {
+                "worker": worker,
+                "original_workflow": old_runtime["workflow"],
+                "recovery_workflow": runtime["workflow"],
+                "metadata_file_sha256": checks,
+                "same_entire_frozen_plan_except_runtime": True,
+                "same_checkpoint_as_retained_worker_2": True,
+                "same_packages_as_retained_worker_2": True,
+                "same_bank_inventory_as_retained_worker_2": True,
+                "runtime_changed_keys": sorted(
+                    key
+                    for key in set(runtime) | set(old_runtime)
+                    if runtime.get(key) != old_runtime.get(key)
+                ),
+                "reset_manifest_sha256": manifest["sha256"],
+                "assigned_episodes": plan["assigned_episodes"],
+            }
+        )
+    for path, expected in sources.items():
+        assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == expected, (
+            "Metadata changed during comparison"
+        )
+    report = {
+        "schema_version": "phase-interpolation-recovery-input-compatibility-1.0",
+        "status": "passed",
+        "scope": "Immutable input identity only, before recovery case completion; this receipt does not audit recovery outcomes or array execution.",
+        "source_identity": original_source,
+        "workers": rows,
+        "input_file_sha256": sources,
+        "source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+    }
+    args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    print(
+        json.dumps(
+            {
+                "status": report["status"],
+                "workers": rows,
+                "receipt_sha256": hashlib.sha256(args.output.read_bytes()).hexdigest(),
+                "source_sha256": report["source_sha256"],
+            }
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

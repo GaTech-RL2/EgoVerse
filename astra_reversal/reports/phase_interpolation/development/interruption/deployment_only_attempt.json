@@ -1,0 +1,331 @@
+{
+  "cancellation_request_recorded": true,
+  "classification": "deployment_only_cancellation_before_study_payload_execution",
+  "event_evidence": [
+    {
+      "event": "2026-09-25 17:50:57+00:00 [worker0] Scheduled: Successfully assigned pod [pod identifier omitted] to node w-2132 at node-pool default",
+      "source_file": "worker0-events.log",
+      "source_line": 2
+    },
+    {
+      "event": "2026-09-25 17:50:57+00:00 [worker0] PodScheduled: True",
+      "source_file": "worker0-events.log",
+      "source_line": 3
+    },
+    {
+      "event": "2026-09-25 17:50:58+00:00 [worker0] PodReadyToStartContainers: False",
+      "source_file": "worker0-events.log",
+      "source_line": 4
+    },
+    {
+      "event": "2026-09-25 17:50:58+00:00 [worker0] FailedMount: MountVolume.MountDevice failed for volume \"[volume identifier omitted]\" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name azurelustre.csi.azure.com not found in the list of registered CSI drivers",
+      "source_file": "worker0-events.log",
+      "source_line": 5
+    },
+    {
+      "event": "2026-09-25 17:50:59+00:00 [worker0] FailedMount: MountVolume.MountDevice failed for volume \"[volume identifier omitted]\" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name azurelustre.csi.azure.com not found in the list of registered CSI drivers",
+      "source_file": "worker0-events.log",
+      "source_line": 6
+    },
+    {
+      "event": "2026-09-25 17:51:01+00:00 [worker0] FailedMount: MountVolume.MountDevice failed for volume \"[volume identifier omitted]\" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name azurelustre.csi.azure.com not found in the list of registered CSI drivers",
+      "source_file": "worker0-events.log",
+      "source_line": 7
+    },
+    {
+      "event": "2026-09-25 17:51:05+00:00 [worker0] FailedMount: MountVolume.MountDevice failed for volume \"[volume identifier omitted]\" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name azurelustre.csi.azure.com not found in the list of registered CSI drivers",
+      "source_file": "worker0-events.log",
+      "source_line": 8
+    },
+    {
+      "event": "2026-09-25 17:51:13+00:00 [worker0] FailedMount: MountVolume.MountDevice failed for volume \"[volume identifier omitted]\" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name azurelustre.csi.azure.com not found in the list of registered CSI drivers",
+      "source_file": "worker0-events.log",
+      "source_line": 9
+    },
+    {
+      "event": "2026-09-25 17:51:30+00:00 [worker0] FailedMount: MountVolume.MountDevice failed for volume \"[volume identifier omitted]\" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name azurelustre.csi.azure.com not found in the list of registered CSI drivers",
+      "source_file": "worker0-events.log",
+      "source_line": 10
+    },
+    {
+      "event": "2026-09-25 17:52:02+00:00 [worker0] FailedMount: MountVolume.MountDevice failed for volume \"[volume identifier omitted]\" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name azurelustre.csi.azure.com not found in the list of registered CSI drivers",
+      "source_file": "worker0-events.log",
+      "source_line": 11
+    },
+    {
+      "event": "2026-09-25 17:53:06+00:00 [worker0] FailedMount: MountVolume.MountDevice failed for volume \"[volume identifier omitted]\" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name azurelustre.csi.azure.com not found in the list of registered CSI drivers",
+      "source_file": "worker0-events.log",
+      "source_line": 12
+    },
+    {
+      "event": "2026-09-25 17:55:08+00:00 [worker0] FailedMount: MountVolume.MountDevice failed for volume \"[volume identifier omitted]\" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name azurelustre.csi.azure.com not found in the list of registered CSI drivers",
+      "source_file": "worker0-events.log",
+      "source_line": 13
+    },
+    {
+      "event": "2026-09-25 17:57:10+00:00 [worker0] FailedMount: MountVolume.MountDevice failed for volume \"[volume identifier omitted]\" : kubernetes.io/csi: attacher.MountDevice failed to create newCsiDriverClient: driver name azurelustre.csi.azure.com not found in the list of registered CSI drivers",
+      "source_file": "worker0-events.log",
+      "source_line": 14
+    },
+    {
+      "event": "2026-09-25 17:51:00+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 2
+    },
+    {
+      "event": "2026-09-25 17:51:00+00:00 [worker1] PodScheduled: False, Reason: Unschedulable, Message: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 3
+    },
+    {
+      "event": "2026-09-25 17:51:01+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 4
+    },
+    {
+      "event": "2026-09-25 17:51:02+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 5
+    },
+    {
+      "event": "2026-09-25 17:51:03+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 6
+    },
+    {
+      "event": "2026-09-25 17:51:04+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 7
+    },
+    {
+      "event": "2026-09-25 17:51:05+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 8
+    },
+    {
+      "event": "2026-09-25 17:51:06+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 9
+    },
+    {
+      "event": "2026-09-25 17:51:08+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 10
+    },
+    {
+      "event": "2026-09-25 17:51:09+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 11
+    },
+    {
+      "event": "2026-09-25 17:51:10+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 12
+    },
+    {
+      "event": "2026-09-25 17:51:11+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 13
+    },
+    {
+      "event": "2026-09-25 17:51:12+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 14
+    },
+    {
+      "event": "2026-09-25 17:51:13+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 15
+    },
+    {
+      "event": "2026-09-25 17:51:15+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 16
+    },
+    {
+      "event": "2026-09-25 17:51:16+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 17
+    },
+    {
+      "event": "2026-09-25 17:51:17+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 18
+    },
+    {
+      "event": "2026-09-25 17:51:18+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 19
+    },
+    {
+      "event": "2026-09-25 17:51:19+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 20
+    },
+    {
+      "event": "2026-09-25 17:51:20+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 21
+    },
+    {
+      "event": "2026-09-25 17:51:21+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 22
+    },
+    {
+      "event": "2026-09-25 17:51:23+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 23
+    },
+    {
+      "event": "2026-09-25 17:51:24+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 24
+    },
+    {
+      "event": "2026-09-25 17:51:25+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 25
+    },
+    {
+      "event": "2026-09-25 17:51:26+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 26
+    },
+    {
+      "event": "2026-09-25 17:51:27+00:00 [worker1] Unschedulable: no nodes with enough resources were found: 1 node(s) didn't have enough resources: ephemeral-storage. ",
+      "source_file": "worker1-events.log",
+      "source_line": 27
+    },
+    {
+      "event": "2026-09-25 17:52:11+00:00 [worker1] Scheduled: Successfully assigned pod [pod identifier omitted] to node w-9276 at node-pool default",
+      "source_file": "worker1-events.log",
+      "source_line": 28
+    },
+    {
+      "event": "2026-09-25 17:52:11+00:00 [worker1] PodScheduled: True",
+      "source_file": "worker1-events.log",
+      "source_line": 29
+    },
+    {
+      "event": "2026-09-25 17:52:12+00:00 [worker1] Pulling: Pulling image \"nvcr.io/nvidia/osmo/init-container:6.3.1\"",
+      "source_file": "worker1-events.log",
+      "source_line": 30
+    },
+    {
+      "event": "2026-09-25 17:52:13+00:00 [worker1] Started: Started container osmo-init",
+      "source_file": "worker1-events.log",
+      "source_line": 31
+    },
+    {
+      "event": "2026-09-25 17:52:13+00:00 [worker1] PodReadyToStartContainers: True",
+      "source_file": "worker1-events.log",
+      "source_line": 32
+    },
+    {
+      "event": "2026-09-25 17:52:15+00:00 [worker1] Pulling: Pulling image \"nvcr.io/nvidia/pytorch:25.06-py3\"",
+      "source_file": "worker1-events.log",
+      "source_line": 33
+    },
+    {
+      "event": "2026-09-25 17:52:15+00:00 [worker1] Initialized: True",
+      "source_file": "worker1-events.log",
+      "source_line": 34
+    },
+    {
+      "event": "2026-09-25 17:55:46+00:00 [worker1] Pulled: Successfully pulled image \"nvcr.io/nvidia/pytorch:25.06-py3\" in 3m30.888s (3m30.888s including waiting). Image size: 13723167306 bytes.",
+      "source_file": "worker1-events.log",
+      "source_line": 35
+    }
+  ],
+  "payload_upload_receipts": [
+    {
+      "exit": 2,
+      "worker": 0
+    },
+    {
+      "exit": 2,
+      "worker": 1
+    }
+  ],
+  "priority": "NORMAL",
+  "scope": "Worker 0 never started because its assigned node lacked the required CSI driver. Worker 1 started its container after the image pull and ended during bootstrap/uv installation while awaiting the payload. Both payload uploads exited 2; the operator confirms no study module executed. Cluster allocation/image-pull/bootstrap cost is not estimated.",
+  "source_receipts": [
+    {
+      "bytes": 6337,
+      "name": "deployment-only/final-status.json",
+      "sha256": "f920089ef815bc18e52ada64bca2180ad233fa3fbfb5b62ec2cc82e83aac63f0"
+    },
+    {
+      "bytes": 75,
+      "name": "deployment-only/cancel.json",
+      "sha256": "baf285d77a2ac014bbfbaf153a3428f2e3867c3bafdfd907c67d6c681a04d1bd"
+    },
+    {
+      "bytes": 83,
+      "name": "deployment-only/upload_receipt.json",
+      "sha256": "7184cc9bba7f95cd2b1f7b79f279dee000ededa3981095ac75db69f8d840e4b9"
+    },
+    {
+      "bytes": 185,
+      "name": "deployment-only/source_identity.json",
+      "sha256": "27d3dcbaa1d0e78e695e9460379d40a0bb35c983b4026f04fc34bc78720cce2b"
+    },
+    {
+      "bytes": 3380,
+      "name": "deployment-only/worker0-events.log",
+      "sha256": "f2f00c555a0e36e5ac26e1a9d2dcbbc8b9476be203cbfdb16bba663e81cdce27"
+    },
+    {
+      "bytes": 4934,
+      "name": "deployment-only/worker1-events.log",
+      "sha256": "e1b5371b0a7b0c5b0fa568f1000d3a09fd6ae5ec32ba790aa9507335c4334e3a"
+    },
+    {
+      "bytes": 2213,
+      "name": "deployment-only/worker1-final.log",
+      "sha256": "99dba441e42bf566dd2cdf5df81d95152c0f3d40a2904262c6c52087977e123f"
+    }
+  ],
+  "status_snapshot": "FAILED_CANCELED",
+  "study_model_evaluations": 0,
+  "study_provider_calls": 0,
+  "submit_time": "2026-09-25T17:50:55.808913",
+  "tasks": [
+    {
+      "end_time": "2026-09-25T17:57:26.315390",
+      "failure_message": "Task was canceled by user: [operator identity omitted]. Required storage CSI driver absent on assigned node2132; redeploying same payload on other hosts before experiment execution",
+      "initializing_start_time": "2026-09-25T17:50:58.478552",
+      "name": "worker0",
+      "node_name": "w-2132",
+      "start_time": null,
+      "status": "FAILED_CANCELED"
+    },
+    {
+      "end_time": "2026-09-25T17:57:26.320410",
+      "failure_message": "Task was canceled by user: [operator identity omitted]. Required storage CSI driver absent on assigned node2132; redeploying same payload on other hosts before experiment execution",
+      "initializing_start_time": "2026-09-25T17:52:12.606807",
+      "name": "worker1",
+      "node_name": "w-9276",
+      "start_time": "2026-09-25T17:55:49.563210",
+      "status": "FAILED_CANCELED"
+    }
+  ],
+  "worker1_bootstrap_log_tail": [
+    "2026/09/25 17:57:01 [worker1] Processing triggers for ca-certificates (20260601~24.04.1) ...",
+    "2026/09/25 17:57:01 [worker1] Updating certificates in /etc/ssl/certs...",
+    "2026/09/25 17:57:07 [worker1] 0 added, 0 removed; done.",
+    "2026/09/25 17:57:07 [worker1] Running hooks in /etc/ca-certificates/update.d...",
+    "2026/09/25 17:57:07 [worker1] done.",
+    "2026/09/25 17:57:08 [worker1] downloading uv 0.10.4 x86_64-unknown-linux-gnu",
+    "2026/09/25 17:57:08 [worker1] no checksums to verify",
+    "2026/09/25 17:57:09 [worker1] installing to /root/.local/bin",
+    "2026/09/25 17:57:09 [worker1]   uv",
+    "2026/09/25 17:57:09 [worker1]   uvx",
+    "2026/09/25 17:57:09 [worker1] everything's installed!",
+    "2026/09/25 17:57:09 [worker1] ",
+    "2026/09/25 17:57:09 [worker1] To add $HOME/.local/bin to your PATH, either restart your shell or run:",
+    "2026/09/25 17:57:09 [worker1] "
+  ],
+  "workflow": "astra-pi05-interpolation-development-recovery-20260925-1"
+}

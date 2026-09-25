@@ -1,0 +1,89 @@
+{
+  "input_file_sha256": {
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_0/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_0/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_0/frozen_plan.json": "0164d5a40983bb62ca5a2788df44400440aba0eeaea5870216b59a04a03c25fa",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_0/protocol.json": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_0/reset_manifest.json": "910074eccda4ca1869140d02a710e68307daa0cb408cf2bd56d20d31ac697398",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_0/runtime.json": "b1c0f1558bc9f40701ad830ac446015d61b9b0a46e005ee3fcf976c0683f44ba",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_1/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_1/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_1/frozen_plan.json": "ded74f81f40cbdaeee2921271989d47a22e34625355f8a5203ec37e2acc05226",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_1/protocol.json": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_1/reset_manifest.json": "7c72a56781d86b639a9db99bb37158a093f6a7d4c26908fde5c59bd04707e595",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/downloaded/worker_1/runtime.json": "eb1e17ae64aab6f4adf2848d0165933b45aab026be29d2d965b5a546a4cf14d0",
+    "astra_reversal/.deps/interpolation-development-recovery-v2/source_identity.json": "27d3dcbaa1d0e78e695e9460379d40a0bb35c983b4026f04fc34bc78720cce2b",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_0/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_0/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_0/frozen_plan.json": "065302e36b6b99b68298b3ee7e20c67eb1aca2ab5591461fa86f09d4a9730805",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_0/protocol.json": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_0/reset_manifest.json": "910074eccda4ca1869140d02a710e68307daa0cb408cf2bd56d20d31ac697398",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_0/runtime.json": "3d92931c2df956b49e0b0934c409576919bf6653b7de12d5bc3611b0e3baa8d2",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_1/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_1/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_1/frozen_plan.json": "24dea96ad87e6f6672cc403b6d2f2263a77b5d02478a5959b38313f27ff29340",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_1/protocol.json": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_1/reset_manifest.json": "7c72a56781d86b639a9db99bb37158a093f6a7d4c26908fde5c59bd04707e595",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_1/runtime.json": "8ad54c5f3ad6181291a26eb4e78d0bf3f7443f6cf72d83d809cc1daef7bf8ea3",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_2/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_2/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_2/reset_manifest.json": "7c72a56781d86b639a9db99bb37158a093f6a7d4c26908fde5c59bd04707e595",
+    "astra_reversal/.deps/interpolation-development-v1/downloaded/worker_2/runtime.json": "85ced8f0e09b72b23a9c08bc924c55b1cfb6427514a1337d13584c77f5a97928",
+    "astra_reversal/.deps/interpolation-development-v1/source_identity.json": "27d3dcbaa1d0e78e695e9460379d40a0bb35c983b4026f04fc34bc78720cce2b"
+  },
+  "schema_version": "phase-interpolation-recovery-input-compatibility-1.0",
+  "scope": "Immutable input identity only, before recovery case completion; this receipt does not audit recovery outcomes or array execution.",
+  "source_identity": {
+    "payload_bytes": 11600664,
+    "payload_sha256": "5b51adf8a604ec68461a8b8933d11f9b9f2b7cd9295eb463b715272f3cc7c842",
+    "source_revision": "4e54e9ae8f55cc4e663e599e4bd19bb94add2baa"
+  },
+  "source_sha256": "7c874423ca4b32741b0b5015fbbe151ac1e6bc7ed26027f47415004b1df12b04",
+  "status": "passed",
+  "workers": [
+    {
+      "assigned_episodes": [
+        "libero_goal_ood:seed19:task6:state0"
+      ],
+      "metadata_file_sha256": {
+        "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+        "protocol.json": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651",
+        "reset_manifest.json": "910074eccda4ca1869140d02a710e68307daa0cb408cf2bd56d20d31ac697398"
+      },
+      "original_workflow": "astra-pi05-interpolation-development-20260925-1",
+      "recovery_workflow": "astra-pi05-interpolation-development-recovery-20260925-2",
+      "reset_manifest_sha256": "c09dbe09d3e93695a3f82e356a960d709bc38254beee83f008c9599e19c0c939",
+      "runtime_changed_keys": [
+        "workflow"
+      ],
+      "same_bank_inventory_as_retained_worker_2": true,
+      "same_checkpoint_as_retained_worker_2": true,
+      "same_entire_frozen_plan_except_runtime": true,
+      "same_packages_as_retained_worker_2": true,
+      "worker": 0
+    },
+    {
+      "assigned_episodes": [
+        "libero_spatial_ood:seed19:task2:state0"
+      ],
+      "metadata_file_sha256": {
+        "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+        "protocol.json": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651",
+        "reset_manifest.json": "7c72a56781d86b639a9db99bb37158a093f6a7d4c26908fde5c59bd04707e595"
+      },
+      "original_workflow": "astra-pi05-interpolation-development-20260925-1",
+      "recovery_workflow": "astra-pi05-interpolation-development-recovery-20260925-2",
+      "reset_manifest_sha256": "31af5ee35b3cbe6eabf84e9a96fc31707daf17c751535736e89be19e34559ace",
+      "runtime_changed_keys": [
+        "workflow"
+      ],
+      "same_bank_inventory_as_retained_worker_2": true,
+      "same_checkpoint_as_retained_worker_2": true,
+      "same_entire_frozen_plan_except_runtime": true,
+      "same_packages_as_retained_worker_2": true,
+      "worker": 1
+    }
+  ]
+}

@@ -51,13 +51,19 @@ while assigned to the same host. Scheduler events record repipelining before
 termination; the underlying infrastructure cause is not established.
 
 Only the interrupted workers are being restarted in
-`astra-pi05-interpolation-development-recovery-20260925-1`, using the identical
+`astra-pi05-interpolation-development-recovery-20260925-2`, using the identical
 payload, bank inventory and reset protocol. The completed cabinet result is
 retained. The rerun uses normal scheduling priority and excludes the interrupted
-host. Recorded additional overhead from the interrupted workers is **at least
-63 provider calls and 519,361 tokens**. Unuploaded work and in-flight calls remain
-unknown. These costs are separate from completed-case comparisons and are not
-silently discarded.
+host. The first recovery deployment was canceled after a missing storage driver
+prevented one container from mounting its filesystem; neither worker ran the
+study. The second recovery's real worker metadata matches the original inputs.
+
+The [interruption record](development/interruption/README.md) preserves **63
+provider usage records and 519,361 tokens** of additional overhead. Published
+events also prove one further accepted decision whose usage record was not
+preserved. Its tokens, other unuploaded work and in-flight calls remain unknown.
+These costs are separate from completed-case comparisons and are not silently
+discarded. The retained cabinet worker's cost is counted once.
 
 No monetary provider rate is available. Reported reasoning tokens are a subset
 of output tokens. The separate transport-only smoke used 2,550 tokens and is

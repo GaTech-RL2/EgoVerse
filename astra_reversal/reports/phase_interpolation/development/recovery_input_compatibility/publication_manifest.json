@@ -1,0 +1,29 @@
+{
+  "absolute_local_paths_present": false,
+  "dependencies": {
+    "config.py": "2afe7c901e0fd0b339cec2f37c62efb46ce5b0621199acd454c41c31327f4e21",
+    "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+    "interpolation_report.py": "221b01936aca5e83f6758ddc2c1b6780092e65293e7a4a0a2e3b89f10645dc45",
+    "intervention_rollout.py": "be662dc5f4e13b74e14558e6bc663a86d99bc37aff6f30f723b17915c2656040",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "exact_receipt_bytes_retained": true,
+  "files": {
+    "README.md": {
+      "bytes": 1476,
+      "sha256": "5cd029bc8512a9e22ea524cf33c534c27c621992b7f40335d29056976e53e223"
+    },
+    "receipt.json": {
+      "bytes": 7690,
+      "sha256": "3453b14fb81d4a7176d885fa24e12f4009d531499c7039981188da5c43fe7bae"
+    },
+    "source/check_input_compatibility.py.txt": {
+      "bytes": 5702,
+      "sha256": "7c874423ca4b32741b0b5015fbbe151ac1e6bc7ed26027f47415004b1df12b04"
+    }
+  },
+  "schema_version": "phase-interpolation-recovery-compatibility-publication-1.0",
+  "source_filename_mapping": {
+    "check_input_compatibility.py": "source/check_input_compatibility.py.txt"
+  }
+}

@@ -1,0 +1,1021 @@
+{
+  "additional_accepted_decisions_without_published_usage": 1,
+  "additional_interruption_overhead_known": {
+    "accepted_records": 63,
+    "dollar_cost": null,
+    "failed_provider_calls": 0,
+    "known_provider_latency_seconds": 648.4844982241339,
+    "preflight_records": 0,
+    "published_client_records": 63,
+    "published_provider_calls": 63,
+    "published_provider_records_cover_entire_worker_execution": false,
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "tokens": {
+      "input_tokens": {
+        "available_calls": 63,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 500617
+      },
+      "output_tokens": {
+        "available_calls": 63,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 18744
+      },
+      "reasoning_tokens": {
+        "available_calls": 63,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 2155
+      },
+      "total_tokens": {
+        "available_calls": 63,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 519361
+      }
+    },
+    "unpublished_or_inflight_calls": null
+  },
+  "all_original_published_records": {
+    "accepted_records": 77,
+    "dollar_cost": null,
+    "failed_provider_calls": 0,
+    "known_provider_latency_seconds": 779.6236251270457,
+    "preflight_records": 0,
+    "published_client_records": 77,
+    "published_provider_calls": 77,
+    "published_provider_records_cover_entire_worker_execution": false,
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "tokens": {
+      "input_tokens": {
+        "available_calls": 77,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 575989
+      },
+      "output_tokens": {
+        "available_calls": 77,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 22539
+      },
+      "reasoning_tokens": {
+        "available_calls": 77,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 2355
+      },
+      "total_tokens": {
+        "available_calls": 77,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 598528
+      }
+    },
+    "unpublished_or_inflight_calls": null
+  },
+  "event_download_receipts": [
+    {
+      "bytes": 41090475,
+      "declared_content_length": "41090475",
+      "etag": "\"edbd8e284648170e9d8b26271502cad4-5\"",
+      "http_status": 200,
+      "last_modified": "Fri, 25 Sep 2026 17:45:23 GMT",
+      "logical_key": "worker_0/case_6_0/events.jsonl",
+      "sha256": "43bdd2a5a2b659300427e41dbaddd13d066aba4b0adfa0b766d49e74fc93b4d9"
+    },
+    {
+      "bytes": 34703105,
+      "declared_content_length": "34703105",
+      "etag": "\"0f491e232c270f0cb3beb7191d61a9ea-5\"",
+      "http_status": 200,
+      "last_modified": "Fri, 25 Sep 2026 17:45:19 GMT",
+      "logical_key": "worker_1/case_2_0/events.jsonl",
+      "sha256": "bb8fd6027f865802d901fe717d9e85d99ce1b896f89456da85bebcba6428fab2"
+    }
+  ],
+  "limitations": [
+    "Interrupted workers 0/1 are incomplete recordings, not audited case outcomes or efficacy evidence.",
+    "63 provider calls and 519361 tokens are known published additional overhead; the total overhead is not known exactly because unsynced tails and in-flight calls may be absent.",
+    "One additional accepted worker-1 decision appears in the event prefix without its provider sidecar row; a later remote GET still returns only the prior two rows for that attempt. Its usage is unknown.",
+    "The retained completed worker 2 contributes 14 calls and 79167 tokens to final complete-case cost and must not also be counted as interruption overhead.",
+    "Recovery restarts entire workers/cases from the same frozen inputs independently of partial outcomes; original logs are retained.",
+    "Only provider token arithmetic and recorded prefixes are checked here; no simulation, model, numerical, feedback-array, or complete-case outcome audit is claimed for workers 0/1.",
+    "Generated chunks prove recorded flow evaluations, not execution of all proposed actions. Only completed rollout records establish action counts in this prefix.",
+    "Provider-reported reasoning tokens are a subset of output tokens; dollar cost is unknown.",
+    "Public provider JSONL preserves records except the endpoint URL, replaced by a digest. Exact original bytes remain privately stored and are bound by file/line SHA-256 receipts."
+  ],
+  "original_workflow": "astra-pi05-interpolation-development-20260925-1",
+  "provider_files": [
+    {
+      "public_file": "providers/worker_0/case_6_0/astra_tei_2_provider.jsonl.gz",
+      "public_uncompressed": {
+        "records": 12,
+        "uncompressed_bytes": 38828,
+        "uncompressed_sha256": "344c95e013be6b74f2e688eb1d9219d8c656635ba0ff5637c026e8077cde19b6"
+      },
+      "source": {
+        "bytes": 38492,
+        "name": "worker_0/case_6_0/astra_tei_2_provider.jsonl",
+        "sha256": "1634d6a6b40b020e92fa30fdc6159314df3552935000e7935e093175c6f3aa9c"
+      },
+      "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+      "worker": 0
+    },
+    {
+      "public_file": "providers/worker_0/case_6_0/astra_tei_3_provider.jsonl.gz",
+      "public_uncompressed": {
+        "records": 12,
+        "uncompressed_bytes": 42772,
+        "uncompressed_sha256": "ebbb98ce1345c05b48951564abc69c3e3c5c3e6d2ef28771af2cb0f6bbaeb954"
+      },
+      "source": {
+        "bytes": 42436,
+        "name": "worker_0/case_6_0/astra_tei_3_provider.jsonl",
+        "sha256": "8b23b2f5e2830fd767f8f61142c41df43875a99806ed2e65981c4c75ab6d0fb0"
+      },
+      "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+      "worker": 0
+    },
+    {
+      "public_file": "providers/worker_0/case_6_0/astra_tli_2_provider.jsonl.gz",
+      "public_uncompressed": {
+        "records": 12,
+        "uncompressed_bytes": 40562,
+        "uncompressed_sha256": "7a3cf3b3652216cc0c2cad8574723925a78a3ac393eb798986befd825828303f"
+      },
+      "source": {
+        "bytes": 40226,
+        "name": "worker_0/case_6_0/astra_tli_2_provider.jsonl",
+        "sha256": "dd155c79f119b7134740f5522eca8defb92423388dbce10741313f8b3c6d8886"
+      },
+      "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+      "worker": 0
+    },
+    {
+      "public_file": "providers/worker_0/case_6_0/astra_tli_3_provider.jsonl.gz",
+      "public_uncompressed": {
+        "records": 1,
+        "uncompressed_bytes": 4322,
+        "uncompressed_sha256": "fb8d4fe94b7460f29e0d8abbe84f83bdd6bce45bd38abcfa3088a51e04ef3c48"
+      },
+      "source": {
+        "bytes": 4294,
+        "name": "worker_0/case_6_0/astra_tli_3_provider.jsonl",
+        "sha256": "bda997d0904556e66ee26ece73d66ca605bb623171584228ad4001ae2b70eabd"
+      },
+      "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+      "worker": 0
+    },
+    {
+      "public_file": "providers/worker_1/case_2_0/astra_tei_2_provider.jsonl.gz",
+      "public_uncompressed": {
+        "records": 12,
+        "uncompressed_bytes": 48546,
+        "uncompressed_sha256": "0443acfded4fa08ce10dbb06a8192edca8c67e4eaeebb3224cfa8e0cae423edc"
+      },
+      "source": {
+        "bytes": 48210,
+        "name": "worker_1/case_2_0/astra_tei_2_provider.jsonl",
+        "sha256": "89613a78b5dbd53736705d941983738b27acbfe21f3c37682700c75cc52835fe"
+      },
+      "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+      "worker": 1
+    },
+    {
+      "public_file": "providers/worker_1/case_2_0/astra_tei_3_provider.jsonl.gz",
+      "public_uncompressed": {
+        "records": 12,
+        "uncompressed_bytes": 52556,
+        "uncompressed_sha256": "b5f08fe672b1d3e2c176f256da62b10ec4f71342ca86d659201df40e25a20f34"
+      },
+      "source": {
+        "bytes": 52220,
+        "name": "worker_1/case_2_0/astra_tei_3_provider.jsonl",
+        "sha256": "b6c590789f96ab10d8e06d2594c6ad519248a85973db537974036fe0578da5ce"
+      },
+      "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+      "worker": 1
+    },
+    {
+      "public_file": "providers/worker_1/case_2_0/astra_tli_2_provider.jsonl.gz",
+      "public_uncompressed": {
+        "records": 2,
+        "uncompressed_bytes": 6429,
+        "uncompressed_sha256": "f3fa498f85f726e417ad8ebf647ed0baf34d188f534ee129b5c874b2b8210dd0"
+      },
+      "source": {
+        "bytes": 6373,
+        "name": "worker_1/case_2_0/astra_tli_2_provider.jsonl",
+        "sha256": "3a47ea6a1f2e70734e52293de208806fb4312fac04e6efff805df51ededa87ae"
+      },
+      "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+      "worker": 1
+    },
+    {
+      "public_file": "providers/worker_2/case_8_0/astra_tei_2_provider.jsonl.gz",
+      "public_uncompressed": {
+        "records": 4,
+        "uncompressed_bytes": 11249,
+        "uncompressed_sha256": "85a8631a1ad810597dfc18a119af4a84a7f84992556714ae6dec515d216d3e24"
+      },
+      "source": {
+        "bytes": 11137,
+        "name": "worker_2/case_8_0/astra_tei_2_provider.jsonl",
+        "sha256": "637d100d20c94542528a4a9c5758d552ca50f6a375f109807e939679d433bfaf"
+      },
+      "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+      "worker": 2
+    },
+    {
+      "public_file": "providers/worker_2/case_8_0/astra_tli_2_provider.jsonl.gz",
+      "public_uncompressed": {
+        "records": 5,
+        "uncompressed_bytes": 14168,
+        "uncompressed_sha256": "c8c2aa0f43721119520f5ba1e5f919c31046f5c778415bec7ce42caa6434bd62"
+      },
+      "source": {
+        "bytes": 14028,
+        "name": "worker_2/case_8_0/astra_tli_2_provider.jsonl",
+        "sha256": "460a01b1615f1ad20311096d722d9c543ebf1fe5540b924a26b40fd5dbe8d6fa"
+      },
+      "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+      "worker": 2
+    },
+    {
+      "public_file": "providers/worker_2/case_8_0/astra_tli_vision_2_provider.jsonl.gz",
+      "public_uncompressed": {
+        "records": 5,
+        "uncompressed_bytes": 16362,
+        "uncompressed_sha256": "b484a0f3f0b742b81afc4e6fbd7d90d04d8c1cd84bb89cf6a6ac5b88614414e0"
+      },
+      "source": {
+        "bytes": 16222,
+        "name": "worker_2/case_8_0/astra_tli_vision_2_provider.jsonl",
+        "sha256": "a997248368e19f42fe1694ea8ee4f522f9d1dcfae2fc3fafd32ed5efddb71448"
+      },
+      "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+      "worker": 2
+    }
+  ],
+  "recovery_workflow": "astra-pi05-interpolation-development-recovery-20260925-2",
+  "retained_completed_worker_cost_included_in_final_case_cost": {
+    "accepted_records": 14,
+    "dollar_cost": null,
+    "failed_provider_calls": 0,
+    "known_provider_latency_seconds": 131.1391269029118,
+    "preflight_records": 0,
+    "published_client_records": 14,
+    "published_provider_calls": 14,
+    "published_provider_records_cover_entire_worker_execution": true,
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "tokens": {
+      "input_tokens": {
+        "available_calls": 14,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 75372
+      },
+      "output_tokens": {
+        "available_calls": 14,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 3795
+      },
+      "reasoning_tokens": {
+        "available_calls": 14,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 200
+      },
+      "total_tokens": {
+        "available_calls": 14,
+        "complete_for_published_calls": true,
+        "missing_calls": 0,
+        "sum": 79167
+      }
+    },
+    "unpublished_or_inflight_calls": 0
+  },
+  "schema_version": "phase-interpolation-interruption-1.0",
+  "source_identity": {
+    "payload_bytes": 11600664,
+    "payload_sha256": "5b51adf8a604ec68461a8b8933d11f9b9f2b7cd9295eb463b715272f3cc7c842",
+    "source_revision": "4e54e9ae8f55cc4e663e599e4bd19bb94add2baa"
+  },
+  "source_receipts": [
+    {
+      "bytes": 8198,
+      "name": "original/final-status.json",
+      "sha256": "aa219389770ea42fc90983cdb0f2442cfc3378df243a6c239072a4b027f779ae"
+    },
+    {
+      "bytes": 1505,
+      "name": "original/events-worker0.log",
+      "sha256": "7e7af12ad60b80555c0cc00b2dab7604e08efbd1ffc59b5dbb6d9ecc6b99f188"
+    },
+    {
+      "bytes": 975,
+      "name": "original/logs-worker0.log",
+      "sha256": "de90ed2b3dd8e4f43774bf48e1c735848db95efecbe12c2a9adf2c19b8c6bdc9"
+    },
+    {
+      "bytes": 1499,
+      "name": "original/events-worker1.log",
+      "sha256": "aea95194b422fdf1ad9dffda9eabb20695d2ca4f7dbfe6a9b9573a30dae1e0b7"
+    },
+    {
+      "bytes": 975,
+      "name": "original/logs-worker1.log",
+      "sha256": "7ae4a184b1158e0f7f915c40fd689d388360a763f30bcb828a68244c82e6d6a8"
+    },
+    {
+      "bytes": 495,
+      "name": "recovery/recovery.json",
+      "sha256": "a5f9bf2d0e00c0a141791abd1c73b5173e96cf26798c83aba97b214931ff5fab"
+    },
+    {
+      "bytes": 453,
+      "name": "recovery/submission.json",
+      "sha256": "9d0a79bae44e4af46c0fd6eab36880782f4e1cba064d507a8725a54d57c54664"
+    },
+    {
+      "bytes": 185,
+      "name": "original/source_identity.json",
+      "sha256": "27d3dcbaa1d0e78e695e9460379d40a0bb35c983b4026f04fc34bc78720cce2b"
+    },
+    {
+      "bytes": 1462,
+      "name": "original/interruption_cost_snapshot.json",
+      "sha256": "34a4a0871f35e600df81aa7e27042b4b9e5b8d09d99bf4d1f97684314114a27d"
+    },
+    {
+      "bytes": 185,
+      "name": "recovery/source_identity.json",
+      "sha256": "27d3dcbaa1d0e78e695e9460379d40a0bb35c983b4026f04fc34bc78720cce2b"
+    }
+  ],
+  "status": "published_partial_evidence_preserved",
+  "workers": [
+    {
+      "assignment": {
+        "suite": "libero_goal_ood",
+        "task_id": 6
+      },
+      "case_summary_source": {
+        "bytes": 423635,
+        "name": "worker_0/case_6_0/summary.json",
+        "sha256": "fa9210d728cbf51e4a4566c9d6d695ace942146e039980c2c821b1e2a05649c5"
+      },
+      "cost_role": "additional_interruption_overhead",
+      "episode_id": "libero_goal_ood:seed19:task6:state0",
+      "frozen_plan": {
+        "assigned_episodes": [
+          "libero_goal_ood:seed19:task6:state0"
+        ],
+        "bank_inventory_sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "manifest_sha256": "c09dbe09d3e93695a3f82e356a960d709bc38254beee83f008c9599e19c0c939",
+        "protocol_sha256": "23486febce3b16a2ce39372be698d1d7b88d1f68875ec13d9d68dd3c7580e591"
+      },
+      "partial_event_evidence": {
+        "actual_total_compute_known": false,
+        "complete_case": false,
+        "completed_rollouts_in_prefix": [
+          {
+            "actions_executed": 300,
+            "attempt_id": "recovered_noise_1",
+            "iteration": 1,
+            "mode": "recovered_noise",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 47.65745174299809
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "known_noise_1",
+            "iteration": 1,
+            "mode": "known_noise",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 24.05645702200127
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "policy_fresh_1",
+            "iteration": 1,
+            "mode": "policy_fresh",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 24.31302513802075
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "random_noise_2",
+            "iteration": 2,
+            "mode": "random_noise",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 24.610601680993568
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "random_noise_3",
+            "iteration": 3,
+            "mode": "random_noise",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 24.109847915009595
+          },
+          {
+            "actions_executed": 80,
+            "attempt_id": "oracle_tei_2",
+            "iteration": 2,
+            "mode": "oracle_tei",
+            "policy_replans": 16,
+            "success": true,
+            "velocity_evaluations": 160,
+            "wall_seconds": 8.259179716988001
+          },
+          {
+            "actions_executed": 86,
+            "attempt_id": "oracle_tli_2",
+            "iteration": 2,
+            "mode": "oracle_tli",
+            "policy_replans": 18,
+            "success": true,
+            "velocity_evaluations": 180,
+            "wall_seconds": 9.971047901985003
+          },
+          {
+            "actions_executed": 86,
+            "attempt_id": "oracle_tei_tli_2",
+            "iteration": 2,
+            "mode": "oracle_tei_tli",
+            "policy_replans": 18,
+            "success": true,
+            "velocity_evaluations": 180,
+            "wall_seconds": 10.081224941008259
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "astra_tei_2",
+            "iteration": 2,
+            "mode": "astra_tei",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 150.79505635300302
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "astra_tei_3",
+            "iteration": 3,
+            "mode": "astra_tei",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 165.00338851698325
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "astra_tli_2",
+            "iteration": 2,
+            "mode": "astra_tli",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 183.28129160398385
+          }
+        ],
+        "event_counts": {
+          "case": 1,
+          "interpolation_decision": 37,
+          "interpolation_gate": 1,
+          "interpolation_gate_check": 4,
+          "interpolation_gate_reference": 1,
+          "interpolation_request": 37,
+          "inversion_initialization": 1,
+          "phase_attempt": 11,
+          "phase_generation": 532
+        },
+        "generated_action_chunks_are_not_proof_of_executed_actions": true,
+        "known_completed_rollout_actions": 2652,
+        "last_sequence": 624,
+        "public_file": "event_prefixes/worker_0.jsonl.gz",
+        "public_uncompressed": {
+          "records": 625,
+          "uncompressed_bytes": 203444,
+          "uncompressed_sha256": "34d99ba1689919a1a6188b3cdb5187eca8448365756f1a6a7864d150b4b8218a"
+        },
+        "recorded_generation_velocity_evaluations": 5320,
+        "recorded_initialization_velocity_evaluations": 1230,
+        "recorded_interpolation_gate_velocity_evaluations": 50,
+        "recorded_total_velocity_evaluations": 6600,
+        "recording_scope": "Published contiguous prefix only; simulator arrays and task outcomes are not audited here.",
+        "source": {
+          "bytes": 41090475,
+          "name": "original/worker_0/events.jsonl",
+          "sha256": "43bdd2a5a2b659300427e41dbaddd13d066aba4b0adfa0b766d49e74fc93b4d9"
+        }
+      },
+      "protocol_sha256": "23486febce3b16a2ce39372be698d1d7b88d1f68875ec13d9d68dd3c7580e591",
+      "provider": {
+        "accepted_records": 37,
+        "dollar_cost": null,
+        "failed_provider_calls": 0,
+        "known_provider_latency_seconds": 357.8328077751212,
+        "preflight_records": 0,
+        "published_client_records": 37,
+        "published_provider_calls": 37,
+        "published_provider_records_cover_entire_worker_execution": false,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 37,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 286269
+          },
+          "output_tokens": {
+            "available_calls": 37,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 10462
+          },
+          "reasoning_tokens": {
+            "available_calls": 37,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 852
+          },
+          "total_tokens": {
+            "available_calls": 37,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 296731
+          }
+        },
+        "unpublished_or_inflight_calls": null
+      },
+      "published_case_status": "running",
+      "published_progress_status": "running",
+      "published_provider_event_crosscheck": {
+        "accepted_decision_events_without_published_provider_row": [],
+        "accepted_decisions_found_in_prefix": 37,
+        "atomic_snapshot_assumed": false,
+        "decision_events_in_prefix": 37,
+        "provider_records": 37,
+        "provider_request_fingerprints_found_in_prefix": 37,
+        "request_events_in_prefix": 37,
+        "request_events_without_published_provider_row": []
+      },
+      "reset_entry_sha256": "6d04f3d7eb09134f19d74917fe82fd1465471cdc6ca1f3ab3cd71c8c81df7495",
+      "reset_manifest_sha256": "c09dbe09d3e93695a3f82e356a960d709bc38254beee83f008c9599e19c0c939",
+      "source_metadata": {
+        "bank_inventory.json": {
+          "bytes": 128686,
+          "name": "original/worker_0/bank_inventory.json",
+          "sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0"
+        },
+        "checkpoint.json": {
+          "bytes": 3858,
+          "name": "original/worker_0/checkpoint.json",
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+        },
+        "frozen_plan.json": {
+          "bytes": 936,
+          "name": "original/worker_0/frozen_plan.json",
+          "sha256": "065302e36b6b99b68298b3ee7e20c67eb1aca2ab5591461fa86f09d4a9730805"
+        },
+        "progress.json": {
+          "bytes": 167,
+          "name": "original/worker_0/progress.json",
+          "sha256": "dde9a933cfb9bcd11a8edadf85a5b69ec8c13ce08f1912e937a9980322475e23"
+        },
+        "protocol.json": {
+          "bytes": 4049,
+          "name": "original/worker_0/protocol.json",
+          "sha256": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651"
+        },
+        "reset_manifest.json": {
+          "bytes": 9684,
+          "name": "original/worker_0/reset_manifest.json",
+          "sha256": "910074eccda4ca1869140d02a710e68307daa0cb408cf2bd56d20d31ac697398"
+        },
+        "runtime.json": {
+          "bytes": 532,
+          "name": "original/worker_0/runtime.json",
+          "sha256": "3d92931c2df956b49e0b0934c409576919bf6653b7de12d5bc3611b0e3baa8d2"
+        }
+      },
+      "worker": 0,
+      "workflow": "astra-pi05-interpolation-development-20260925-1"
+    },
+    {
+      "assignment": {
+        "suite": "libero_spatial_ood",
+        "task_id": 2
+      },
+      "case_summary_source": {
+        "bytes": 360643,
+        "name": "worker_1/case_2_0/summary.json",
+        "sha256": "d4ac64c0e9f247c15038591d38428b60e7b14a1de493ff4466c1624fd184ad78"
+      },
+      "cost_role": "additional_interruption_overhead",
+      "episode_id": "libero_spatial_ood:seed19:task2:state0",
+      "frozen_plan": {
+        "assigned_episodes": [
+          "libero_spatial_ood:seed19:task2:state0"
+        ],
+        "bank_inventory_sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "manifest_sha256": "31af5ee35b3cbe6eabf84e9a96fc31707daf17c751535736e89be19e34559ace",
+        "protocol_sha256": "23486febce3b16a2ce39372be698d1d7b88d1f68875ec13d9d68dd3c7580e591"
+      },
+      "partial_event_evidence": {
+        "actual_total_compute_known": false,
+        "complete_case": false,
+        "completed_rollouts_in_prefix": [
+          {
+            "actions_executed": 300,
+            "attempt_id": "recovered_noise_1",
+            "iteration": 1,
+            "mode": "recovered_noise",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 49.29571025300538
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "known_noise_1",
+            "iteration": 1,
+            "mode": "known_noise",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 25.390961643017363
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "policy_fresh_1",
+            "iteration": 1,
+            "mode": "policy_fresh",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 25.127686182007892
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "random_noise_2",
+            "iteration": 2,
+            "mode": "random_noise",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 25.06725985999219
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "random_noise_3",
+            "iteration": 3,
+            "mode": "random_noise",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 25.080775706010172
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "oracle_tei_2",
+            "iteration": 2,
+            "mode": "oracle_tei",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 26.341215344000375
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "oracle_tli_2",
+            "iteration": 2,
+            "mode": "oracle_tli",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 29.583459268003935
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "oracle_tei_tli_2",
+            "iteration": 2,
+            "mode": "oracle_tei_tli",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 29.83764786698157
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "astra_tei_2",
+            "iteration": 2,
+            "mode": "astra_tei",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 198.04471830101102
+          },
+          {
+            "actions_executed": 300,
+            "attempt_id": "astra_tei_3",
+            "iteration": 3,
+            "mode": "astra_tei",
+            "policy_replans": 60,
+            "success": false,
+            "velocity_evaluations": 600,
+            "wall_seconds": 176.95805436599767
+          }
+        ],
+        "event_counts": {
+          "case": 1,
+          "interpolation_decision": 27,
+          "interpolation_gate": 1,
+          "interpolation_gate_check": 4,
+          "interpolation_gate_reference": 1,
+          "interpolation_request": 27,
+          "inversion_initialization": 1,
+          "phase_attempt": 10,
+          "phase_generation": 610
+        },
+        "generated_action_chunks_are_not_proof_of_executed_actions": true,
+        "known_completed_rollout_actions": 3000,
+        "last_sequence": 681,
+        "public_file": "event_prefixes/worker_1.jsonl.gz",
+        "public_uncompressed": {
+          "records": 682,
+          "uncompressed_bytes": 223985,
+          "uncompressed_sha256": "c74623bc2a52120a95f75d0495dc86fab817414f801e682e0f7a282dd435913b"
+        },
+        "recorded_generation_velocity_evaluations": 6100,
+        "recorded_initialization_velocity_evaluations": 1230,
+        "recorded_interpolation_gate_velocity_evaluations": 50,
+        "recorded_total_velocity_evaluations": 7380,
+        "recording_scope": "Published contiguous prefix only; simulator arrays and task outcomes are not audited here.",
+        "source": {
+          "bytes": 34703105,
+          "name": "original/worker_1/events.jsonl",
+          "sha256": "bb8fd6027f865802d901fe717d9e85d99ce1b896f89456da85bebcba6428fab2"
+        }
+      },
+      "protocol_sha256": "23486febce3b16a2ce39372be698d1d7b88d1f68875ec13d9d68dd3c7580e591",
+      "provider": {
+        "accepted_records": 26,
+        "dollar_cost": null,
+        "failed_provider_calls": 0,
+        "known_provider_latency_seconds": 290.6516904490127,
+        "preflight_records": 0,
+        "published_client_records": 26,
+        "published_provider_calls": 26,
+        "published_provider_records_cover_entire_worker_execution": false,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 26,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 214348
+          },
+          "output_tokens": {
+            "available_calls": 26,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 8282
+          },
+          "reasoning_tokens": {
+            "available_calls": 26,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 1303
+          },
+          "total_tokens": {
+            "available_calls": 26,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 222630
+          }
+        },
+        "unpublished_or_inflight_calls": null
+      },
+      "published_case_status": "running",
+      "published_progress_status": "running",
+      "published_provider_event_crosscheck": {
+        "accepted_decision_events_without_published_provider_row": [
+          {
+            "accepted": true,
+            "attempt_id": "astra_tli_2",
+            "decision_id": "astra_tli_2_d3",
+            "decision_index": 3,
+            "error": null,
+            "kind": "interpolation_decision",
+            "observation_step": 50,
+            "sequence": 681
+          }
+        ],
+        "accepted_decisions_found_in_prefix": 26,
+        "atomic_snapshot_assumed": false,
+        "decision_events_in_prefix": 27,
+        "latest_remote_sidecar_recheck": {
+          "bytes": 6373,
+          "etag": "\"ac73ddce466a227a00a72fde51c77f1c\"",
+          "http_status": 200,
+          "last_modified": "Fri, 25 Sep 2026 17:45:08 GMT",
+          "logical_key": "worker_1/case_2_0/astra_tli_2_provider.jsonl",
+          "sha256": "3a47ea6a1f2e70734e52293de208806fb4312fac04e6efff805df51ededa87ae"
+        },
+        "provider_records": 26,
+        "provider_request_fingerprints_found_in_prefix": 26,
+        "request_events_in_prefix": 27,
+        "request_events_without_published_provider_row": [
+          {
+            "attempt_id": "astra_tli_2",
+            "decision_index": 3,
+            "episode_id": "libero_spatial_ood:seed19:task2:state0",
+            "interpolation_mode": "tli",
+            "kind": "interpolation_request",
+            "observation_step": 50,
+            "request_fingerprint": "c39835f45ee7b6e27603edc9f772deac35ea6a906080a262da92d4e9f86f8a46",
+            "sequence": 680
+          }
+        ]
+      },
+      "reset_entry_sha256": "530b4cf1950a812359ee8b0a166aa6c9a9764fe812443928ce114c88f26b8e75",
+      "reset_manifest_sha256": "31af5ee35b3cbe6eabf84e9a96fc31707daf17c751535736e89be19e34559ace",
+      "source_metadata": {
+        "bank_inventory.json": {
+          "bytes": 128686,
+          "name": "original/worker_1/bank_inventory.json",
+          "sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0"
+        },
+        "checkpoint.json": {
+          "bytes": 3858,
+          "name": "original/worker_1/checkpoint.json",
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+        },
+        "frozen_plan.json": {
+          "bytes": 942,
+          "name": "original/worker_1/frozen_plan.json",
+          "sha256": "24dea96ad87e6f6672cc403b6d2f2263a77b5d02478a5959b38313f27ff29340"
+        },
+        "progress.json": {
+          "bytes": 173,
+          "name": "original/worker_1/progress.json",
+          "sha256": "d5be3f17f0c92343b0eea4d0f1797a961134b3966dccd0ac88c98e976471ad02"
+        },
+        "protocol.json": {
+          "bytes": 4049,
+          "name": "original/worker_1/protocol.json",
+          "sha256": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651"
+        },
+        "reset_manifest.json": {
+          "bytes": 19326,
+          "name": "original/worker_1/reset_manifest.json",
+          "sha256": "7c72a56781d86b639a9db99bb37158a093f6a7d4c26908fde5c59bd04707e595"
+        },
+        "runtime.json": {
+          "bytes": 535,
+          "name": "original/worker_1/runtime.json",
+          "sha256": "8ad54c5f3ad6181291a26eb4e78d0bf3f7443f6cf72d83d809cc1daef7bf8ea3"
+        }
+      },
+      "worker": 1,
+      "workflow": "astra-pi05-interpolation-development-20260925-1"
+    },
+    {
+      "assignment": {
+        "suite": "libero_spatial_ood",
+        "task_id": 8
+      },
+      "case_summary_source": {
+        "bytes": 306257,
+        "name": "worker_2/case_8_0/summary.json",
+        "sha256": "e2148a93009c07e3e76f455382aa1f6b9a94ac480f9a382bb1d8ad58ac75bb86"
+      },
+      "cost_role": "retained_completed_case",
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "frozen_plan": {
+        "assigned_episodes": [
+          "libero_spatial_ood:seed19:task8:state0"
+        ],
+        "bank_inventory_sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "manifest_sha256": "31af5ee35b3cbe6eabf84e9a96fc31707daf17c751535736e89be19e34559ace",
+        "protocol_sha256": "23486febce3b16a2ce39372be698d1d7b88d1f68875ec13d9d68dd3c7580e591"
+      },
+      "protocol_sha256": "23486febce3b16a2ce39372be698d1d7b88d1f68875ec13d9d68dd3c7580e591",
+      "provider": {
+        "accepted_records": 14,
+        "dollar_cost": null,
+        "failed_provider_calls": 0,
+        "known_provider_latency_seconds": 131.1391269029118,
+        "preflight_records": 0,
+        "published_client_records": 14,
+        "published_provider_calls": 14,
+        "published_provider_records_cover_entire_worker_execution": true,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 14,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 75372
+          },
+          "output_tokens": {
+            "available_calls": 14,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 3795
+          },
+          "reasoning_tokens": {
+            "available_calls": 14,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 200
+          },
+          "total_tokens": {
+            "available_calls": 14,
+            "complete_for_published_calls": true,
+            "missing_calls": 0,
+            "sum": 79167
+          }
+        },
+        "unpublished_or_inflight_calls": 0
+      },
+      "published_case_status": "complete",
+      "published_progress_status": "complete",
+      "reset_entry_sha256": "094367699aac920d5d82588227436e19a6f67f888429b0f67ce9cb8a269041c4",
+      "reset_manifest_sha256": "31af5ee35b3cbe6eabf84e9a96fc31707daf17c751535736e89be19e34559ace",
+      "retained_audit_receipts": [
+        {
+          "bytes": 7023,
+          "name": "../audits/worker_2_arrays.json",
+          "sha256": "c9cd0b3b8f432382cad3cc46c3332581b9e02abec71cb77d9461564b42bbc7f0"
+        },
+        {
+          "bytes": 144449,
+          "name": "../audits/worker_2_case_8_0_feedback.json.gz",
+          "sha256": "24965476496719b922a83ab1fc8a41f2c9d8ac970fa9a47ffea02f10031474e2"
+        },
+        {
+          "bytes": 3265,
+          "name": "../audits/worker_2_receipt.json",
+          "sha256": "9bfd4a0e262fe76f32706dc7e1d2f5ba7b8a1b4072637241e52ab632029257ab"
+        }
+      ],
+      "source_metadata": {
+        "bank_inventory.json": {
+          "bytes": 128686,
+          "name": "original/worker_2/bank_inventory.json",
+          "sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0"
+        },
+        "checkpoint.json": {
+          "bytes": 3858,
+          "name": "original/worker_2/checkpoint.json",
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+        },
+        "frozen_plan.json": {
+          "bytes": 942,
+          "name": "original/worker_2/frozen_plan.json",
+          "sha256": "43045b9b863ec39d96bb069f4ca39b86d246768509e056e03ec26f497d2a3b6d"
+        },
+        "progress.json": {
+          "bytes": 76,
+          "name": "original/worker_2/progress.json",
+          "sha256": "efa35555061cc3d2fb9b2bf73fd7a6505ff56924c50966d6a1a93b3715f34c0a"
+        },
+        "protocol.json": {
+          "bytes": 4049,
+          "name": "original/worker_2/protocol.json",
+          "sha256": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651"
+        },
+        "reset_manifest.json": {
+          "bytes": 19326,
+          "name": "original/worker_2/reset_manifest.json",
+          "sha256": "7c72a56781d86b639a9db99bb37158a093f6a7d4c26908fde5c59bd04707e595"
+        },
+        "runtime.json": {
+          "bytes": 535,
+          "name": "original/worker_2/runtime.json",
+          "sha256": "85ced8f0e09b72b23a9c08bc924c55b1cfb6427514a1337d13584c77f5a97928"
+        }
+      },
+      "worker": 2,
+      "workflow": "astra-pi05-interpolation-development-20260925-1"
+    }
+  ]
+}
