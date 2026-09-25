@@ -214,6 +214,23 @@ def test_input_encoding_preserves_pixels_and_does_not_alias_arrays(spec):
         assert list(np.array(image)[2, 3]) == [42, 92, 17]
 
 
+def test_json_mode_instruction_is_in_user_input_for_azure_gateway(spec):
+    payload = build_payload(request_for(spec), MODEL)
+    user_text = "\n".join(
+        part["text"]
+        for message in payload["messages"]
+        if message["role"] == "user"
+        for part in message["content"]
+        if part["type"] == "text"
+    )
+    # Azure's converted Responses input does not include the system prompt.
+    # A system-only JSON instruction caused real HTTP400 before inference.
+    assert "json" in user_text.lower()
+    context = json.loads(payload["messages"][1]["content"][0]["text"])
+    assert "json" in context["response_instructions"]
+    assert payload["response_format"] == {"type": "json_object"}
+
+
 @pytest.mark.parametrize("arm", ARM_CHANNELS)
 def test_all_seven_arms_accept_exact_declared_channels(spec, arm):
     request = request_for(spec, arm)

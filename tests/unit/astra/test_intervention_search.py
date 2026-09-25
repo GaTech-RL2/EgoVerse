@@ -220,6 +220,20 @@ def test_failed_provider_attempt_then_revision_success_counts_history_and_cost(
     assert report["physical_cost"]["velocity_evaluations"] == 1410
 
 
+def test_development_rejection_consumes_budget_before_required_hook_rollout(
+    search_factory,
+):
+    search, requests, rollouts = search_factory(baseline_success=True, development=True)
+    report = search.run()
+    assert [request["iteration"] for request in requests] == [2, 3]
+    assert [(mode, iteration) for mode, iteration, _ in rollouts][-1] == ("joint", 3)
+    arm = report["arms"]["joint"]
+    assert arm["summary"]["first_success_attempt"] == 1
+    assert arm["summary"]["proposal_failures"] == 1
+    assert arm["token_usage"]["tokens"]["total_tokens"]["sum"] == 26
+    assert arm["tokens_to_first_success"]["tokens"]["total_tokens"]["sum"] == 0
+
+
 @pytest.mark.parametrize("development", [False, True])
 def test_successful_baseline_has_zero_tokens_to_success_even_if_dev_exercises_hook(
     search_factory, development

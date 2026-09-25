@@ -163,6 +163,34 @@ class InterventionSearch:
         zero_solve = policy.sample(
             zero_condition, known, **self.protocol["execution_solver"]
         )
+        probe = None
+        probe_evaluations = 0
+        if self.development:
+            probe_config = self.protocol["development_embedding_probe"]
+            probe_condition, probe_provenance = policy.prepare_intervened(
+                observation,
+                digest(observation),
+                self.entry["instruction"],
+                text=TextEmbeddingIntervention(
+                    self.entry["instruction"] + probe_config["guidance_suffix"],
+                    probe_config["alpha"],
+                ),
+            )
+            probe_solve = policy.sample(
+                probe_condition, known, **self.protocol["execution_solver"]
+            )
+            probe_evaluations = probe_solve.velocity_evaluations
+            probe = {
+                "kind": "fixed_numerical_probe_not_an_astra_proposal_or_rollout",
+                "conditioning": probe_provenance,
+                "output_difference": error_metrics(
+                    native_solve.value, probe_solve.value
+                ),
+                "velocity_evaluations": probe_evaluations,
+            }
+            self.recorder.event(
+                "development_embedding_probe", probe=probe, actions=probe_solve.value
+            )
         errors = {
             "noise": error_metrics(known, inverse.value),
             "actions": error_metrics(reference.value, roundtrip.value),
@@ -178,6 +206,13 @@ class InterventionSearch:
             and errors["native_parity"]["max_abs"] <= 1e-5
             and errors["zero_embedding_hook_parity"]["max_abs"] == 0.0
             and zero_condition.condition_id == condition.condition_id
+            and (
+                probe is None
+                or (
+                    probe["conditioning"]["has_effect"]
+                    and probe["output_difference"]["max_abs"] > 0
+                )
+            )
         )
         self.known, self.recovered = (
             to_numpy(known).copy(),
@@ -193,7 +228,9 @@ class InterventionSearch:
                 solve.velocity_evaluations
                 for solve in (reference, inverse, roundtrip, native_solve, zero_solve)
             )
-            + 10,
+            + 10
+            + probe_evaluations,
+            "development_embedding_probe": probe,
             "wall_seconds_before_recording": time.perf_counter() - started,
             "note": "Native parity includes ten additional upstream velocity calls. Initialization velocity evaluations are separate; baseline policy and wall times include initialization, logging, and its archive synchronization.",
         }
@@ -379,8 +416,12 @@ class InterventionSearch:
                 )
             )
             for iteration in range(2, self.budget + 1):
-                if any(row["success"] for row in attempts) and not (
-                    self.development and iteration == 2
+                needs_development_rollout = self.development and not any(
+                    row["iteration"] > 1 and row["rollout_executed"] for row in attempts
+                )
+                if (
+                    any(row["success"] for row in attempts)
+                    and not needs_development_rollout
                 ):
                     break
                 began = time.perf_counter()

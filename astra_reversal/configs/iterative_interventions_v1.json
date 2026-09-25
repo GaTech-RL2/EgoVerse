@@ -12,6 +12,8 @@
   "inversion_solver": {"solver": "rk4", "steps": 100, "time_power": 3.0},
   "execution_solver": {"solver": "euler", "steps": 10, "time_power": 1.0},
   "development_force_one_intervention": true,
+  "development_stopping": "After a successful baseline, continue within the same five-attempt cap until one candidate rollout executes for each arm; record rejected proposals and their costs",
+  "development_embedding_probe": {"alpha": 0.5, "guidance_suffix": "\nGuidance: Focus on the target object and its destination.", "executes_actions": false},
   "numerical_gate": {"noise_max_abs": 0.1, "action_max_abs": 0.02},
   "noise": {"rank": 8, "maximum_rms_delta": 0.5, "reference": "same-condition inverse of policy-generated full internal trajectory", "reuse": "fixed recovered latent plus candidate delta, under fresh observations throughout the rollout"},
   "language": {"operator": "pooled_text_residual", "maximum_relative_norm": 0.25},

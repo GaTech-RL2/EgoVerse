@@ -183,6 +183,24 @@ def main():
             reports.append(report)
             write_json(RESULTS / "aggregate.json", aggregate_reports(reports, protocol))
             archive.sync()
+        if phase == "development":
+            validation = {
+                row["episode_id"]: {
+                    arm: any(
+                        attempt["iteration"] > 1 and attempt["rollout_executed"]
+                        for attempt in row["arms"][arm]["attempts"]
+                    )
+                    for arm in protocol["arms"]
+                }
+                for row in reports
+            }
+            write_json(RESULTS / "development_validation.json", validation)
+            if not all(
+                passed for arms in validation.values() for passed in arms.values()
+            ):
+                raise RuntimeError(
+                    "Development failed to execute every intervention channel"
+                )
         write_json(
             RESULTS / "progress.json",
             {

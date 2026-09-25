@@ -39,7 +39,7 @@ from .astra_client import (
 from .records import digest
 
 SCHEMA_VERSION = "intervention-1.0"
-PROMPT_TEMPLATE_VERSION = "astra-intervention-http-1"
+PROMPT_TEMPLATE_VERSION = "astra-intervention-http-2"
 ARM_CHANNELS = {
     "noise_only": ("noise",),
     "language_only": ("language",),
@@ -536,6 +536,9 @@ def build_payload(request, model, *, sampling=None):
             "text": json.dumps(
                 {
                     "prompt_template_version": PROMPT_TEMPLATE_VERSION,
+                    # The gateway validates converted user input separately
+                    # from system instructions before accepting json_object.
+                    "response_instructions": "Return exactly one valid json object matching response_schema.",
                     "request": context,
                     "response_schema": response_schema(request),
                 },

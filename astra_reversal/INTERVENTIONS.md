@@ -78,8 +78,11 @@ Baseline rollout wall time includes reference initialization and recording;
 initialization velocity evaluations are counted separately and added once to
 each standalone arm cost. Physical worker time also includes artifact uploads.
 
-Development forces at least one intervention attempt per arm even if the first
-attempt succeeded, solely to exercise each hook. Evaluation stops on success.
+Development seeks at least one executed intervention per arm even if the first
+attempt succeeded, solely to exercise each hook. Rejected proposals still
+consume the five-attempt budget. Development also runs a fixed nonzero embedding
+probe without executing its actions, because Astra may correctly choose a zero
+edit after a successful baseline. Evaluation stops on success.
 
 The common baseline is physically run once per case and attributed to every arm
 as its first attempt. Report both physical experiment totals and standalone arm
