@@ -89,3 +89,23 @@ as its first attempt. Report both physical experiment totals and standalone arm
 costs so this sharing does not hide cost. Same attempt limits do not imply equal
 GPU or Astra cost; both are measured. A method needs to outperform matched search,
 not just its own first attempt, before attributing an improvement to Astra's prior.
+
+## Auditing completed runs
+
+Download each worker's small reports, events, provider ledgers, and reset manifest
+into separate folders. Run the recording audit with an explicit phase:
+
+```sh
+python -m astra_reversal.intervention_report --phase development \
+  --inputs artifacts/interventions-dev-v2/worker_0 \
+           artifacts/interventions-dev-v2/worker_1 \
+  --output artifacts/interventions-dev-v2-report
+```
+
+For evaluation, use `--phase evaluation` and all eight evaluation worker folders.
+The output directory must be new. The audit requires every frozen case and checks
+reset pairing, event/provider bindings, attempt budgets, and physical costs. Its
+JSON, CSV, and Markdown outputs retain success curves, censored failures, and
+tokens by attempt budget. Rescue-only iteration and token statistics exclude
+cases that already succeeded at the common baseline. Raw-array numerical audits
+remain separate from this recording audit.
