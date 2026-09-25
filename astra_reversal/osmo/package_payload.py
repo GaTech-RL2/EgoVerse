@@ -74,7 +74,9 @@ def main():
             library = load_library(path)
             if len(library.catalog()) != 45:
                 raise ValueError("Image payload requires all45 paired donor frames")
-            archive.add(path, arcname=str(path))
+            # Snapshot builders may link this immutable library from a cache.
+            # Package its verified bytes, never a machine-local root symlink.
+            archive.add(path.resolve(), arcname=str(path))
         if args.include_astra_proposal_replay:
             from astra_reversal.osmo.astra_proposal_replay import load_inputs
 

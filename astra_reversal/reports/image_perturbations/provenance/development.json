@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "source_revision": "79005b284217f10ddc71b63dd105ccb26bb9c4b8",
+  "payload_sha256": "d29de49589955c7f22d2fea97674c7b8881ad45886cb8430ba70fce713e0a167",
+  "library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+  "development_workflow": "astra-pi05-image-development-20260925-2",
+  "completed_development_cases": 3,
+  "development_report_sha256": "e3215704e57b9ec00f3f454dbb4bbeaf5e16920dbaecb9f152b3b56cc52d6581",
+  "runtime_and_protocol_changed_after_development": false,
+  "native_controls": {
+    "recovered_noise": 0,
+    "known_noise": 0,
+    "policy_fresh": 0
+  },
+  "worker_preflight": {
+    "unit_tests_passed_per_worker": 596,
+    "native_tests_passed_per_worker": 19
+  },
+  "canceled_deployment": {
+    "workflow": "astra-pi05-image-development-20260925-1",
+    "reason": "Pre-upload inspection found a machine-local donor directory symlink. Replacement bundle contains94 verified regular image library files.",
+    "payload_delivered": false,
+    "policy_or_provider_calls": 0
+  },
+  "inference_price": null
+}
