@@ -1,0 +1,3209 @@
+{
+  "builder_source_sha256": {
+    "image_donor_bank.py": "ad4b7af6539cd5c8a1e4f0806a3c66259f47e9fbad466dd6743e9c00a258ea8f",
+    "interpolation_bank.py": "48776d1e2a5f4bdbe9b296d3f57788fe368b2a1ca48502d64ef4d918c0188451",
+    "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "contact_sheets": [
+    {
+      "camera": "observation/image",
+      "dtype": "uint8",
+      "file": "contact_sheets/external.png",
+      "file_sha256": "d1d3b71c1eb663dca94f7de3f8ed58fa1372b56aa3bbf020168a1644a90a0bfd",
+      "layout": {
+        "canvas_shape": [
+          1324,
+          600,
+          3
+        ],
+        "columns": 5,
+        "header_height": 44,
+        "left": 20,
+        "row_height": 140,
+        "rows": 9,
+        "tile_shape": [
+          112,
+          112,
+          3
+        ],
+        "top_in_row": 16
+      },
+      "pixels_sha256": "3f7b72409fe1695fc75a118c7fc051da17454d16969e3776bc2e60d2ff378baf",
+      "shape": [
+        1324,
+        600,
+        3
+      ]
+    },
+    {
+      "camera": "observation/wrist_image",
+      "dtype": "uint8",
+      "file": "contact_sheets/wrist.png",
+      "file_sha256": "e76ccc90ea3b3c66178e5038701d7526dacb360e22b5aac442529cdea195683a",
+      "layout": {
+        "canvas_shape": [
+          1324,
+          600,
+          3
+        ],
+        "columns": 5,
+        "header_height": 44,
+        "left": 20,
+        "row_height": 140,
+        "rows": 9,
+        "tile_shape": [
+          112,
+          112,
+          3
+        ],
+        "top_in_row": 16
+      },
+      "pixels_sha256": "d27c736880ffd1790fce51b926f330fdb0a7f449fcc4a932f65d1fa1cfc1e566",
+      "shape": [
+        1324,
+        600,
+        3
+      ]
+    }
+  ],
+  "image_files": [
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std10-e379-f0/external.png",
+          "file_sha256": "9d20fc370edba8ddee190803fba281692fdb768424fac429e94cef9181871953",
+          "pixels_sha256": "330f60bc5667d58b85958090d274a7de4ccae821e9a6d25d42f5f8e561266bc4",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "42c0101131d56190a36c51fd63cd5940e44cf237ec1eb4930f311a533a423edc"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std10-e379-f0/wrist.png",
+          "file_sha256": "ec0b7f9f3abe5331e6e5fd43817aff304fdf95dc51a6bb52d7be9900007a3755",
+          "pixels_sha256": "99627902a15e61dfd70ae72554824cbbcb6490d4c8a146eb5c86e9f85b8648d9",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "b1e320c9a8b9b6e160611e4de4488b81912bc0ca13c2e0e1cf81c25fdc6fe518"
+        }
+      },
+      "donor_id": "std10-e379-f0"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std10-e379-f28/external.png",
+          "file_sha256": "b06a9acf3c99a6a9b8f84346ed81c0ba9f91dda1b6388a442991a534e73d72d8",
+          "pixels_sha256": "f1e2db41bcaa8c40fbbca9f0e46eb44241192407b053cff6a214feeb995adf6a",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "7c82dbb06980d45b5c24a3387c18c208feda18c5fba74d1ea6196b6790cd6d62"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std10-e379-f28/wrist.png",
+          "file_sha256": "05c7d6c63032a51546eefa5d831dc6786ad74e9177f3552f6a3fddd5da59af07",
+          "pixels_sha256": "c075e05aff9403ccfa655b6a6995c2b2f39e726668d6e1fe0c694bc597e47f73",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "15ae3980bc954d372e1d80a2d247c2123e0f03581e1fd2761b44c9a8b02f5567"
+        }
+      },
+      "donor_id": "std10-e379-f28"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std10-e379-f56/external.png",
+          "file_sha256": "72a06b815282dc8018b3164d2eac4b27e064d13ef4c7c244650b2857b8e62dde",
+          "pixels_sha256": "eb3af61a8b1cbe339e371be5e2a783907ce72b891de0f471542e69ee1b58213e",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "e29aa9c0c2463c7c66cfc5b2d0376213d4b50b1e6346bca567d818c87e6bc5ca"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std10-e379-f56/wrist.png",
+          "file_sha256": "d3d0e75e12c2017297e41ceff2895b1b39ee954e0f7ab723637851762ec98751",
+          "pixels_sha256": "f30f8c761fa8c7c19b5000793b0c8779fd1ca232962ecf58e9e87db3e938571e",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "57762fd99a3ef8362c63e62aec9543150dd7ec253b8359b7f83608353e90b73f"
+        }
+      },
+      "donor_id": "std10-e379-f56"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std10-e379-f83/external.png",
+          "file_sha256": "52430f5d45783db47b36b23f258467b55f751ccd6cd43f931aef3325827e141c",
+          "pixels_sha256": "c9cd6af5ac404f922cab1968671105a125b1a2fa6cf4585731534ad817af4bde",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "3eb95acc209711ed30ea87966b95dcda39a9eaca9af849ef9cd3efcc961356e8"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std10-e379-f83/wrist.png",
+          "file_sha256": "9c303e4a1e2081caef36c2ccc2f2c9526ee1bcd2e9e23f49a374da72cfdcb007",
+          "pixels_sha256": "fa3a44d44567b0a068c8a7febd557615adb42d293bce9fcad74d6bc470ea1add",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "ee5238f3b63fc8e5b69a210c30665c338707faae4ec5bc97c4b716e31dd3b3c7"
+        }
+      },
+      "donor_id": "std10-e379-f83"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std10-e379-f111/external.png",
+          "file_sha256": "14b78c5255c4098514b60d282f394c6d5ac21ef1f6c78d69290993748cd86545",
+          "pixels_sha256": "15cf659c60359ec30c8233a338dc9927515c4f11fe76e132d94ffe056c8277b6",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "bfe3df69ee8eda51058f58e3bed44b0a9106fa9739540d440a5b72a6f5c17611"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std10-e379-f111/wrist.png",
+          "file_sha256": "e37e9ecbf69eec124386bde0a7013e55ce47676c8fdbea66a132f50a170a7bec",
+          "pixels_sha256": "1e7a8b8b70f58f4b6045909ef9c1fdc9c679fd25da25e0a71809411653366816",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "74ccdcca5bfaac37b2897a1285ed79b24f244081bcb56518730c01a929c63bf3"
+        }
+      },
+      "donor_id": "std10-e379-f111"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std13-e384-f0/external.png",
+          "file_sha256": "8390b01482c146982989e05898257cae552dd5bb324b95f154c4baa14c98f0e8",
+          "pixels_sha256": "9fcb693b2f1b231ba78235913faddfea37db068655240352e977ac0b98907817",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "e90d0df324ae1d1423b9bf81b4450c9a7f4a0ee19496c0af39dc7011e3546c4f"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std13-e384-f0/wrist.png",
+          "file_sha256": "0e4888a224507c3fe56bc519eb36a2a07ffff0d49480b0b384465f36ecc3f377",
+          "pixels_sha256": "8a9eab1220204738a793527c22f6d6f7c1f3a8f35640032bd405551a7ff4d275",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "a225f36bce8ececb5e9bdb06047c90dbaf5383096330f7a08361e2fb6ced3c69"
+        }
+      },
+      "donor_id": "std13-e384-f0"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std13-e384-f28/external.png",
+          "file_sha256": "b5a91c52b72da39d8cbc0161cd41a86fd708826e6551301e912cd6fcade243cc",
+          "pixels_sha256": "21eb09160ff437fff5c7f28667ce740efc4e10a8e19a477a30e5ceeb54f71bb2",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "21d93fd46b2b5da85e11ee52c0a1b5f44f767d2e2e1a7046b4f59820e75ac5d8"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std13-e384-f28/wrist.png",
+          "file_sha256": "ee1e187a2340bb085ec2c523c2ec76335f3116d14334bf83132d4e1f2984b548",
+          "pixels_sha256": "42b64475a07a2525efb8b2a721f535f245ce90e2a5d7a59f188828b55ee02f86",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "5ee26395b586f9ce343a748c09e539340245e8123b5aad6f77c72ac94bc66701"
+        }
+      },
+      "donor_id": "std13-e384-f28"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std13-e384-f56/external.png",
+          "file_sha256": "142bf30a7fb121d88e69aa904148f09e6cee610c08af25e35611b08c0cd9db47",
+          "pixels_sha256": "3ed4c9b6dffcb30df41167fb894286a23428f616ab79fafde8c9b0bcfcdc21fd",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "d455035d00b618bd1bf91ebb55eb6629c224a0075a4464750b3504d2a75010a0"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std13-e384-f56/wrist.png",
+          "file_sha256": "1f042064724c403373689305a38cbd0896af9ec85675378f64e2df706d1959d8",
+          "pixels_sha256": "4d597fc8e1e8e2141e540a5a55488731a70d8c868dd2c22ade07509d6fab3106",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "dec46d2f5d42885dba9a0f755088c5634a89618ef4733e47c16507bd38064fb2"
+        }
+      },
+      "donor_id": "std13-e384-f56"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std13-e384-f83/external.png",
+          "file_sha256": "eadc8905195aa9f629cf1f08169849030ece76f524db5a49bf57758ec35da900",
+          "pixels_sha256": "1b477e5c67daae97178c310d86b51f9b3af4a788a8a75c0be245a01595179476",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "d6437c60ae201eba8685f6af2f3c6f55325062e8bd9476d726bb129ec142c067"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std13-e384-f83/wrist.png",
+          "file_sha256": "23b0dce8cf60080a624186b29143c7383786fcb1d7b327adef71ab83547772a9",
+          "pixels_sha256": "1c91e93803881595651c31b8f031e919b2040dd963b05edf86173d4c5c3c12cd",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "0b8562926172e61f2d775760752ef85ca721370d3a815239e9923df394aae01a"
+        }
+      },
+      "donor_id": "std13-e384-f83"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std13-e384-f111/external.png",
+          "file_sha256": "5e6f47abe654627c2964cd9b8df48e995344403a3962e9fa39b88272078dfaca",
+          "pixels_sha256": "a5208e5bd745e025d7dc8a25e2e9d4c7c60e8ef40d6d08f0c5824bf9e6288e42",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "710ddcf62faa9d254fda628328433a26c7565017e299e3b64a59cbd6668d00c1"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std13-e384-f111/wrist.png",
+          "file_sha256": "9747de1e3ae959b68170afffed126d7ca8f791e21047deda1f8ae6b982daa403",
+          "pixels_sha256": "af9fabc4813be39b88350026dc62853f488bd7311849d2a3fd8b2a54e0bcaa32",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "266057b3a315810f227fb36e4a4805ae801952ad1c21a816518b69fc544cd553"
+        }
+      },
+      "donor_id": "std13-e384-f111"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std14-e385-f0/external.png",
+          "file_sha256": "5bee648025df13de4c8fb3e9091841ba6f7ef1060d0568ae9a3da27e3d849c54",
+          "pixels_sha256": "56a303b6ddd8014f2a70c9506450539492d1095f1d1f831ce13c4ebbe355fde1",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "3fdce61cfde4b7e8c28eb9f3efb57341b1b686e387bc8a01dff7b95f35c1dcbc"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std14-e385-f0/wrist.png",
+          "file_sha256": "d0dfe574d15809d0db4f2c8c8f62a612ca1cb39e69a192a7805e900179cbf244",
+          "pixels_sha256": "ba6a6e6813f423127b18e01b708e52211aeeec4e6ddaf3dbf4d96ba75faa8f20",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "7a619c8da1612d885284cd13740dfce97c845adde3e7110ee1c74cf7cff8c659"
+        }
+      },
+      "donor_id": "std14-e385-f0"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std14-e385-f22/external.png",
+          "file_sha256": "3ad4d139ad0d15a72b114232361e1ef4e850bb586dc0fc594dba206175f51278",
+          "pixels_sha256": "1bf75e107c766e22fc94ca00b887ce56f299038810e7954b4384119b3aeddfbf",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "a442fecacadbeca6b29221e24c4d2391b57e440bac42ef415cede33ba5edfb7c"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std14-e385-f22/wrist.png",
+          "file_sha256": "f3a23d5fb9bece57cd3d954e4977d4fd8f2a208191288e6527ec7d78058a3496",
+          "pixels_sha256": "c67559970fd570110b9d3236193f403cbfa02617a49faa7fee49d87ba3a0b4ac",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "da0131fca9e6e06c0b3abf63516661316d35587d2fd250738dd7d41c1f6634d9"
+        }
+      },
+      "donor_id": "std14-e385-f22"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std14-e385-f45/external.png",
+          "file_sha256": "592fbfeb99368f5b1b0edc6bd2ef07a0d62eaeb4746e42e5b97bb747be3fb539",
+          "pixels_sha256": "48a684bbba53e14c28f18959858e4d956ae16a37db0cbb33f99830766b7d2574",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "a7165eb931de60806212bdedfe220f64afa093581468bc60962236f9b591a5b5"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std14-e385-f45/wrist.png",
+          "file_sha256": "a70e7a1b99991f092fc4b733b5e77b49f73de2b75f958691a3bda7598e98bc25",
+          "pixels_sha256": "bbfafa440c3c0d257c8bb399afbcdf60895aff34b53cab6682bbe9c2235b23bc",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "396441e9b48f2ddbe03ba0477ab6b4a4b7b262eefa0e04ecfa30ce2296ece974"
+        }
+      },
+      "donor_id": "std14-e385-f45"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std14-e385-f67/external.png",
+          "file_sha256": "686aca8844736255b2b717dd35b29d4e363b87fa533d3e65cba3378707829412",
+          "pixels_sha256": "a38c8712771daa599e1a23cdce881c74783b7c913c0091f6689ae309c2724614",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "6aeae3606a197e2698ace02794193cb5243da41bc626ae40f83d85fcfe4df88c"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std14-e385-f67/wrist.png",
+          "file_sha256": "68f77600ab7d6dc7a02f5f089c59b1974a902d0b7b7d6638f627d1c7fd3bca88",
+          "pixels_sha256": "c4a3319d099f64d10b5969fc809dd35a8bcb57c418a4af948e8adc514544ecd4",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "d77b49be2be032c00a625009b46223159cb7586aeae74132f12eafc08ef19323"
+        }
+      },
+      "donor_id": "std14-e385-f67"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std14-e385-f89/external.png",
+          "file_sha256": "2ed16f28c0fd0adcc1f6adc880946299b2b5cb63fa627ea215cb4b9f371de993",
+          "pixels_sha256": "f646ce689cfa3568a822fa81e71f63a5c8e8e6700a5f70cb62feee21470315ee",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "1ea4b3bd9cfbcdc4194abae0b4d072c1ad12fc990a22b5ed2642f653d265bae5"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std14-e385-f89/wrist.png",
+          "file_sha256": "63df74c72bd74a4c895286fd827f28bff7d2ea2532d8ee2a4dc6ef4586adf49a",
+          "pixels_sha256": "18c2413e5729367f643d02547785f50a6e1a0b109c864512aa1ce94a8f70515b",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "df8c699d059957f4774361ab74b7641bc444dfd79832de9bde9b71e4cf643024"
+        }
+      },
+      "donor_id": "std14-e385-f89"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std17-e392-f0/external.png",
+          "file_sha256": "79d56533268941908ed7c3cb4f2a27c79fc08ba46d2e481620a5ee4ae1d9f4d5",
+          "pixels_sha256": "cd3782434067c36f753d9171a80fad375ae3ecbdd0e38a1dff2161590c500090",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "4b11df58bad3d2a27b92d33136da0bb46515cad0a757c57585dd237fbedeebfa"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std17-e392-f0/wrist.png",
+          "file_sha256": "1cbfa8daafcc2f30827bce263fac88819835bd4e06e07e6803fa7e64be1ee04b",
+          "pixels_sha256": "7625d38882ede7f639e779c8b3d17c5ce2876d4e0d61485bdac15f0b0f00f1e5",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "1d517a1bfc89cd9fc4ebe6823d8fb0f2951d3f201015acd29c48ae6f96542484"
+        }
+      },
+      "donor_id": "std17-e392-f0"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std17-e392-f26/external.png",
+          "file_sha256": "a5cdd7b2b74d0f7ff2fd47ccc71c8b202d8684cabb3f8915197881bd906eec1b",
+          "pixels_sha256": "f133e084ca6eeee66cef511055883356b55eba6d64638a9755faba72ba7ea9d9",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "d9281cf77b6b49319d2ce92630614e620fff06fdac9d92be7d21eaeda59232b4"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std17-e392-f26/wrist.png",
+          "file_sha256": "a9513863f24f0eca5947ff81a5cf7b5eea6909866f35366681541b6ed9220dd4",
+          "pixels_sha256": "4c06cb22790727cbc3fbfb5dbf548b11eb17a85d7565ec938aa331bc626448dc",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "d6ec9f31e0b06cf8de95c3d64e2b7a6860b8e422aa6da41f6ec504c855ff2dfa"
+        }
+      },
+      "donor_id": "std17-e392-f26"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std17-e392-f51/external.png",
+          "file_sha256": "04d2e7c9823e77b3e2753eecce77187f48170b42237d9dbce8c5740af8009fec",
+          "pixels_sha256": "e4fca782b205ada0d2d6c5a762359a2f3037ecd51aed08ad06b68b24039ed510",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "ff21717e5b488464c3cf33f6ad39508dd5703908be9aa69d24cfd4daab1b0ba3"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std17-e392-f51/wrist.png",
+          "file_sha256": "18d5f44a10a5b596e2b4ac17ad4787ad5d1a88090f884dca48e1544ce72f9c82",
+          "pixels_sha256": "f83c5ca52ac2822ef93338929801a5158509cd8d3999ab2c7c07b2a8d3bfcfbb",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "d7aa4062fd8dcf17061583d6230d805e1d70146cbb9d54b87c7ee366652a3584"
+        }
+      },
+      "donor_id": "std17-e392-f51"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std17-e392-f77/external.png",
+          "file_sha256": "5cb0a76f48bb203361b3d56ff8a580dfff7c8f07ccc9d9d9acb4506705d0b702",
+          "pixels_sha256": "bdbd96a0396c0690b3b7e8c153f8528c3b9ebff25969bd7ebb8d06cd21ac5e04",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "dfd5683c199fda40f1d7faf007aa2a9174fb57b6f83a712bcdbf599756060ce0"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std17-e392-f77/wrist.png",
+          "file_sha256": "782684d0a012bcac3119c01e0de460d251a801b6d089420a1a88322ed1039a94",
+          "pixels_sha256": "a5e3f7fac569caa4ea9aaf60f3610fe71abfbe15f75b937a9340336fb86b6215",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "7b7504cf50b715cb84bcafd08c985b5ce784384a3dde712cc63b320d4cebceaa"
+        }
+      },
+      "donor_id": "std17-e392-f77"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std17-e392-f102/external.png",
+          "file_sha256": "c53a86cd19fdc770b181f8d9c6340ceddc11526bc303da01f52869fda07e01d4",
+          "pixels_sha256": "b5f5284fe2c323dc3b8d1a693153808b5948b26bcf730dafc0a781ee6253784f",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "380eda9a13c4620e4ab152b894fe81e14da6d25bd1eda065402151d6db591a50"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std17-e392-f102/wrist.png",
+          "file_sha256": "51fb195ee4da0f82441927411fea0a37fb88bcd2e843484dd1de334b6e1ccd7b",
+          "pixels_sha256": "3f5fe9b81eadd90a5dfa1caf4c42fb700d06714f2abd393a37c23d942b46fe20",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "1af191adf0e1eef11b6a2b150bf852389ea2c9357503ae43c6cb33adab1a83d1"
+        }
+      },
+      "donor_id": "std17-e392-f102"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std18-e398-f0/external.png",
+          "file_sha256": "327c93e66b1851aee4694ff67f66a10495ab94fa53eb259946c9056758a42a80",
+          "pixels_sha256": "c389cb088b1c68ed8c3b7f7d2943ef831d865b2b37e71c377a248e4ee29d05e3",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "49073bc643f2508ce7b5f9541255a8dfff4544d2a7584b70a8729755d6a3f72c"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std18-e398-f0/wrist.png",
+          "file_sha256": "d20aa5f4583d9360c42b33f550bc7441fedf20b4a23318aad1fe917ebd07c592",
+          "pixels_sha256": "f93075aabd9b9d14cc3be649e985c67995242daf657348b9994eb45cf3047e64",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "31cff6519d30c87600a6b4da9f569eb4e3b20f3bacd988a5192f11d119eeb374"
+        }
+      },
+      "donor_id": "std18-e398-f0"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std18-e398-f25/external.png",
+          "file_sha256": "a40da7e0e8ce5d0be0fa69a7ae8cd9b20fc9d50b7fc7aac64ffd87481083b489",
+          "pixels_sha256": "bfc1f315be4918620f30831067a8a3f0e4edc2f6de87960fbc08484d0f316441",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "da08d72d1f4924437a11042616e966a331edf695e347cf256b4c50cef8d29f29"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std18-e398-f25/wrist.png",
+          "file_sha256": "83e7a7fb3fab019a17fc690e04d3a2d9a0904088fde680d97bab397cd16e4faa",
+          "pixels_sha256": "074b2bc7fa0895cdcedebc25982a7d1a8736657fd932f4f161521703be138334",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "df08cba46ef8c81f7ee7d0ed8c7cffa4e933669f9e73a20d745dfd6b32b6914e"
+        }
+      },
+      "donor_id": "std18-e398-f25"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std18-e398-f50/external.png",
+          "file_sha256": "df9392281e5592a909ed82124ebd539bcda44ec3f6daa9d867d66beaf960467b",
+          "pixels_sha256": "af1c5b988433629b4523902e430fe992681997e79a919fe0dfa7d91156ac1602",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "44134a938419ea29a8a190923fdeabcca5f2e8d1e9a893c4093dcc2fce324d32"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std18-e398-f50/wrist.png",
+          "file_sha256": "e05967f5bb71548e9cfba8574f90a22442fc1adf1d90bc287a874e41ac7e6c33",
+          "pixels_sha256": "ff77b7ed242d463f2d38b3537abfd4b6b46c5e566d5c26f07198cb359c235b59",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "1afcdb3b850e7b536da9c4832e7b1001229c0827d757910e68217a2fe5a6ba04"
+        }
+      },
+      "donor_id": "std18-e398-f50"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std18-e398-f74/external.png",
+          "file_sha256": "f109da6a25dcd1d4a8477fd1931acd2ee0396746fff073073e816fb08300db86",
+          "pixels_sha256": "31daa8928ae27f4ae6553d7c8fc3acc55f9a7184bc6b028aa8ecaa72082105e6",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "dd7d7db4f01eaf35bf63f32f55551bdd7a60dcd374c5e77b21b569adf00d8802"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std18-e398-f74/wrist.png",
+          "file_sha256": "114419a0994c7baeaaff3af2d71c1dca8b2ebb42b9e002b593dddae343958c60",
+          "pixels_sha256": "3e5763495bbc71e7e3c64f51c5700c24221ed2c218ffd990d57f5cfce5b3d96a",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "efcc9b0e7670f3549cd28098a294bb1b86390e63764fbf33f3c2b31efeb9790c"
+        }
+      },
+      "donor_id": "std18-e398-f74"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std18-e398-f99/external.png",
+          "file_sha256": "267d1a2d237f2ffc762738f62a8e1a1543b813a4935546f494785eb4332d6768",
+          "pixels_sha256": "81a0d7a1e4f62ba451881077b77102c6eedec8ac50a2ef8a9ffdc032f7d5b7dc",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "c68c198c00a1711f2f893b0d44f76abe6985fc88399ca9838385872b661ca6d1"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std18-e398-f99/wrist.png",
+          "file_sha256": "614be20058ff653a307ac5431e9e98b51d67520df9b6923a3f9bb2953fd07bba",
+          "pixels_sha256": "2e3b6c4eb4ed62d959cbedee825156d1414246769e660d09cadf232bcbd8da5c",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "c60b50e4f3ea1eaff508b4cd4f63500e68152f2757270eec482d769c707af491"
+        }
+      },
+      "donor_id": "std18-e398-f99"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std32-e1264-f0/external.png",
+          "file_sha256": "f49fb8a0e7dbc84c583003043d027642328e74082faa0ce6b3c3f13cbe8f5458",
+          "pixels_sha256": "beaadc8bc3fe8952d789432532508bb326e03690e44e36e9ec9623ecae989cd3",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "04dede91171550cf5371cf137a0bc63dd418c7fa774bb8ec7b23235761c5381f"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std32-e1264-f0/wrist.png",
+          "file_sha256": "107a4c8f9f1ef58cf0b0d04f6c6164c505955adab9d1783104af08c9555ad7fb",
+          "pixels_sha256": "975512b7608f37eb5fdb35baf7c13e262d9d597ef01b811ada0c13123bc81c43",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "6477181a3de37bab3d708effb4fd9de8e527c64ecb0ce6522b424af89ef84d6f"
+        }
+      },
+      "donor_id": "std32-e1264-f0"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std32-e1264-f25/external.png",
+          "file_sha256": "04382edb1c3dbf822caf71bc71e241e29f6c6005bc5ec01c64857d56c8901575",
+          "pixels_sha256": "4fc567533b3c8adbc474a6d76234dd359c0d85db3a20ff1e0bdd8ffd22ee3f6c",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "f2896d9662ccaa39856489b6172965c8e0a14cef9569c3530640f0588e29e0a5"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std32-e1264-f25/wrist.png",
+          "file_sha256": "77b9883d9cfe0c19e7fda14904e1d5076167391d1bc87d3b9b24dd603d301c81",
+          "pixels_sha256": "88b167ab3055161ed3642781061ccf039385276e01a7ea2bdb210989797f30ef",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "46ea7174d17f46089148f4f82b7c6a15794f9e13af50b92e8db2901aa111b8bc"
+        }
+      },
+      "donor_id": "std32-e1264-f25"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std32-e1264-f50/external.png",
+          "file_sha256": "53ff2cdda97cffdf6e1acc1ef775fed99b2f830bd39341ae6c9448b85a6bcc4a",
+          "pixels_sha256": "f1aa864f1a5c2680c2f05e8f91ff3e1133b3815c15c7747c7d540ebeda3c0c17",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "3d9a6d5962cdff1521f31e3133baaf7a2e591b1d18adf03980def7c60c7d2e45"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std32-e1264-f50/wrist.png",
+          "file_sha256": "cc1d85c1691e0e4816685665245e3df68d3821e6d40ded9cd9513b63ef633711",
+          "pixels_sha256": "2eff5b86896a334968fac134b2e6b933f84e477b779bdccdd4f2007de0e3ed65",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "4b0e5e6d78c3fa1f11eea2b169548d6c4e9794420caa72d1b9e5eb3dc3aad580"
+        }
+      },
+      "donor_id": "std32-e1264-f50"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std32-e1264-f74/external.png",
+          "file_sha256": "45b4dafa5024c20eb000c4b097d115fbe30677e00727968f8ce4c76a887ae071",
+          "pixels_sha256": "298d9a67e6e880d9db8d389ee8a8acf91ab4c306c53b0ccf5d511365b04588f8",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "f35cf2d08fa1a98838359a03d711ab1e6ff6e6347c697c1e057e7a09cab9ae2a"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std32-e1264-f74/wrist.png",
+          "file_sha256": "467b6a3b8575d85ad9365c0f644df24ddfa4b802a6b58bad91806c45a62c303b",
+          "pixels_sha256": "655bc610bc236e965070106de4067c4d3567f0eca9e759380186d6514cd301f4",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "f2eff4177564105bc82dd97f37b4bfcf0559a34e6197f6f2ef3ab2a5720b080d"
+        }
+      },
+      "donor_id": "std32-e1264-f74"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std32-e1264-f99/external.png",
+          "file_sha256": "5e6f3990d125340a98e5b8a53b8ad5caa59e92cdfbad62b0fae805b14f0dd3b4",
+          "pixels_sha256": "e5af9b86109ae1ee85eb4f4501e69674b50e40caa0863a77f76ec0589256745f",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "1a183e0af3c172cfa4a4d61e1fc3df8ddf3628cafaf358c4d77362b46fb24bb1"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std32-e1264-f99/wrist.png",
+          "file_sha256": "aa53d306e54ec76d984f6ab92a9599128c7c068f5bc814458c9484b3c6799852",
+          "pixels_sha256": "068d40562e8e6a2e91bdaa33ac2823ae9378128dce1bfc368e941d4f4c2d0c21",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "c97b17fae14d3746af0868921f431a877aad8dbef883621a04d82bf3631e120a"
+        }
+      },
+      "donor_id": "std32-e1264-f99"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std35-e1278-f0/external.png",
+          "file_sha256": "13be396672276dbb3fb14fccf744d3f053957fea62d2583e19afd3f0bd8f07fc",
+          "pixels_sha256": "ad68989ca540e336c194a8763cc5f758b62199545df3d1b7d1bcdac509fb406f",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "84455302c6613379aec94e735fd51f5a350d74a083f26e5785d63b326e9e73d9"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std35-e1278-f0/wrist.png",
+          "file_sha256": "b8d1f3bfb65788b91e597cfad472a3bea162cd55997c51e5d994668fe4ebc5a5",
+          "pixels_sha256": "a4f13a9e1e329c09168b0f6d01f48d9aa3333a79fa8ed0575c7dea2a1e900249",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "563a0463e4b509d7ef095d2ed587c4eb7eb8d7ba39c98e3250cc84d3f9a8dd10"
+        }
+      },
+      "donor_id": "std35-e1278-f0"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std35-e1278-f25/external.png",
+          "file_sha256": "552b0c9ed9bdc7ac5e337bc0a8fbee2e25932d6989550f7938d091fad641fce6",
+          "pixels_sha256": "88db5eca47f8bff5e0d63211455ab6f68da3adb4d8f5b8c385491c50fc0029a2",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "e7b8966f7fb522575f27da8816c622a90896fe5917eb4a7fa99dd3fe32c3d889"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std35-e1278-f25/wrist.png",
+          "file_sha256": "4c0c0e88a81aae473fd54e9e582beb6558cc4dd53e0aa98e851148c1515b4385",
+          "pixels_sha256": "dd21ed63098de77b37af368556c1616df4d6a7fb2756d24df3d6130beb26ba3c",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "e133f377d6dc25547c5e5d4f16667f19d1e3057e8840357d2dada78f7e2cab28"
+        }
+      },
+      "donor_id": "std35-e1278-f25"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std35-e1278-f50/external.png",
+          "file_sha256": "2128c9f7540a2eaa25a9672285c8b9c49f18cfeca315c232ccc61f9cc9dd632d",
+          "pixels_sha256": "085e46a68defc6bc1d6544d4a774acd4f9b790cd50e512a6d9d53ea1ee6a8af8",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "5eb09e11d50557734590541b20cebf535e50416b09d396a3b924b32ccd96fb07"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std35-e1278-f50/wrist.png",
+          "file_sha256": "6f7e784683e6596a511ee1317d12f1e024e13623c5db9406f0b5196a5e28bd3f",
+          "pixels_sha256": "7ecf02155eecbb7875ccde364aeb0dd1ddd9183e590bb8b1ca9f3b350b2d58c3",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "1086c6b4fb04e5f8f8b1b818321c92bf4c2c2139e7328f728f77e3d336e3fe72"
+        }
+      },
+      "donor_id": "std35-e1278-f50"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std35-e1278-f75/external.png",
+          "file_sha256": "7ab890bf7f127ee55fbb910acfdc0c377f29706dbe5f718575f90e2a8d2c92f1",
+          "pixels_sha256": "6ef3be69e4640b48dfb058025d9697695794eb20ae0d4be9435c0ee87afccf58",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "4996d9d8de5a30e5e28126c037175140640f08f2cb8024394217d153536631c0"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std35-e1278-f75/wrist.png",
+          "file_sha256": "e3b8e2bcb181023d64ea4ee5bba5a65897a4cdc619a014af69ea17acc3158f38",
+          "pixels_sha256": "c43469f71303c415e50a63be9f95f14e8b7659e2859766e9de52a9a180e0b565",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "5fcbf2aed796e22096272af47eca2334986d272a71f4e184ac5649f42b840bdf"
+        }
+      },
+      "donor_id": "std35-e1278-f75"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std35-e1278-f100/external.png",
+          "file_sha256": "5b87301e1a926b38b49195e259e1fc66400b126d2accaf15db99a9580dc01093",
+          "pixels_sha256": "22d64f010b81830b0dd5e28d659bae1efab2c774c540d1b4d24eac92143e2258",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "ddd7633fbe08979f1a2dec67ba4783d185b2a2fd62ab995974c4dd2d971e10f1"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std35-e1278-f100/wrist.png",
+          "file_sha256": "5f2e009efcc6f764c356c568891aef457efd0f0d47aecca1f89fff33b19ff971",
+          "pixels_sha256": "77c43c84576cb05ced6bc2d473e4b84a8eb6e477d163a8b09ccf2211dd973ce6",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "c1b66152cb1df26e5f409d97c4e602c3d2696a7128d5c4a9cabdfc568dd4d282"
+        }
+      },
+      "donor_id": "std35-e1278-f100"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std36-e1280-f0/external.png",
+          "file_sha256": "8c7c18588319d9664fda33334b7f38477191a208e780ed40b1c8046bc6691160",
+          "pixels_sha256": "4998ecc5d58f24a05ea1a260d1c0e116766ddc0cc29b06292d623afd230063a7",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "87558951a435ec5c95a94c4cc831f6d31491edca1c970a85788b2eefa8717fb6"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std36-e1280-f0/wrist.png",
+          "file_sha256": "212cd8aab91985d983022fe2d87f022ba5231729c3249a1360e3cfc7b5783506",
+          "pixels_sha256": "539bc2c13c189c69e97763e9d5364b21372192ed16f8a12a492a8ca6ac9734e7",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "ca66347c3ef8acb101033bf3ca110036be94007e7d4c08c47a795aadee90f470"
+        }
+      },
+      "donor_id": "std36-e1280-f0"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std36-e1280-f27/external.png",
+          "file_sha256": "ef1dbbe90c069457ea74fa6f3482a01f61d19a76c00f1c9c58a4e1f2c1c823fc",
+          "pixels_sha256": "c4096cdadd375b0cb5f81eade069fe87c1b24aedc9c214e491e3e882250cdbc3",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "65c04e747276cc9bad5af61ee618acbb47e2f29a523118055c51eea9e8b64058"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std36-e1280-f27/wrist.png",
+          "file_sha256": "d9644084a83db7cbf9722994da4ac6c596ca748cead397f5b8843635efe471c4",
+          "pixels_sha256": "29208b3f9dbfea11f1cd5b27dd6833056bac75e2704493743fb53f28f5067ccb",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "8a58e8b6993ab052ac589ca08c144669fcea8f3bc7eb6f8f3b1f7378aa70e29f"
+        }
+      },
+      "donor_id": "std36-e1280-f27"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std36-e1280-f53/external.png",
+          "file_sha256": "eacdc6346ee04f24477f55d5b0abdacbb2a85ca68504ba13f03c5ba316c0414b",
+          "pixels_sha256": "e0a3d1f69237c3126ca9e7dce591368c4e3f2f269cca864907135bd600548827",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "f8b945f014921ec8a058e0d96e3bcdf1baf44d52266e025426a19b8e2d677b94"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std36-e1280-f53/wrist.png",
+          "file_sha256": "fbb2ca9404894948e7cb08d6e89509e4ecc1df57f3031147b265e52c0f05479a",
+          "pixels_sha256": "e82564d1967418ce9b46e2479bea37a9c8e2912fc92d3986eedb8ed57074456c",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "477f7a44ebdea2ac6b21890cb878cadd276b7d8c22265113d30ad05864bfc37a"
+        }
+      },
+      "donor_id": "std36-e1280-f53"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std36-e1280-f80/external.png",
+          "file_sha256": "90ad76826ede8ba1a335ea619c1ea91d8286ddd0bd26e4777bb3c6157ffd78a6",
+          "pixels_sha256": "162c76fd71d0648166f684eebb99e4eb332158ebd825fcdb6e2ad0cf6c208cb2",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "097c3c07fd2b4f3b2a92898bf84cf31d25eabe2b0f4b2fea3fea6dd97a1bf941"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std36-e1280-f80/wrist.png",
+          "file_sha256": "34c65d5756788bfa779a9551ab88f85affbfc8cf2e55d67c1cfdb74db0f7f133",
+          "pixels_sha256": "fb5a8433c44aeb04c787f97e687d196d7e61f1d950976c1738a7ae229e65baec",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "ba9f57efc67af9b2e8f3bc54df0344c2057acbe191ba18782fb91b6eddd6ea05"
+        }
+      },
+      "donor_id": "std36-e1280-f80"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std36-e1280-f106/external.png",
+          "file_sha256": "e1be59f0a37e4601f20af5ca6527192941b9d56f4dc040dacf053f9107268586",
+          "pixels_sha256": "5eee9933af35d488938b31180f31a531963b0f65288d6dbeeec43d245306fa63",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "ead7a7f04fe5d9b2f9184a8836b23b89aa42384a8db677a049affdb85f2131a3"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std36-e1280-f106/wrist.png",
+          "file_sha256": "c6c4eb4c7240851be02a57481f4447bec95a122f7111cf201c7129143bfb4823",
+          "pixels_sha256": "7d73526e524aa23f9348aea2e7b620b4f846fe54c3827d6ba9703e6512863a7c",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "50151e963b364755a71b4c2f3a8cfcbe882f8385eec14b9bc0ad4de6709def2e"
+        }
+      },
+      "donor_id": "std36-e1280-f106"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std38-e1283-f0/external.png",
+          "file_sha256": "2d3248ff40d888369f8db1e29d13694638c46836568fb7520afaa972e698776b",
+          "pixels_sha256": "0144b313961e62d1f5f4b484fa02df98b765b9007315246d6123ea9bc1defc31",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "ea3cbb4300ffd372fa14888f828fa46770809a815b77c8e56e189774996cdf6e"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std38-e1283-f0/wrist.png",
+          "file_sha256": "95033c1747f8f2afe8a2cf001fb4a76906ab96c21d0dc95fe06a93d0def3dd43",
+          "pixels_sha256": "cc82d8fb02a4fbd4665c1cd8790977baa1f5d2d125f8da38f9017e594d94da8d",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "9d469b73ba9a47813aa4368cdc23884396ad27598f7582f1b68a0dae0e9a1271"
+        }
+      },
+      "donor_id": "std38-e1283-f0"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std38-e1283-f34/external.png",
+          "file_sha256": "7da1e3a39a293d6fd804f87e4b3a9e7459c62fd7a49ba2b278bf8ca0369c25aa",
+          "pixels_sha256": "65c1b8958930746426947038fd4703c35433f5289a395e766a1a6b8071f8d3ad",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "4b6acea904abff2609ee30fba6a1a69f8800d27350b308a4b1e36e485997c34d"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std38-e1283-f34/wrist.png",
+          "file_sha256": "2e70a0dc15773c0b55754cca6d80f3485f00c99df198a429e146b45d7ddf725f",
+          "pixels_sha256": "038611f8f992a25ea00dd1cc2152b1fcf025d153c474a30096d4ad0dbe8e5845",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "87ac656c164db1393dc4aafb158b5bfe8b670523a0d6398fb3a4328c03d911e7"
+        }
+      },
+      "donor_id": "std38-e1283-f34"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std38-e1283-f67/external.png",
+          "file_sha256": "d8604303ae702e59d12995420384ab82817087e3439483b4c76f61ebeaf938b5",
+          "pixels_sha256": "c4288fbd9f62f020a4a722a04cdd1907043f0c1ae743be0052efe167c5fe9022",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "9e414cdcb10a81f3609ead44fe35309853f812a94891702ada8e9d6b8d48b3db"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std38-e1283-f67/wrist.png",
+          "file_sha256": "c487e35c13314e9c8251dc05078a8aed0c1a54e832970fb88737dd74b58d77ca",
+          "pixels_sha256": "f354ff1f8def1923fb48900997766892bbd571367550c1e17454916bcdbcf3a9",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "5cae7249cfeed6e7321be147a0cceee26355a1fe4567ce72671ec365f52e4661"
+        }
+      },
+      "donor_id": "std38-e1283-f67"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std38-e1283-f101/external.png",
+          "file_sha256": "10ace0fa2d79212fc535d85c107d5d0f55a1816d2cf7b968cf1e08ae6084b87a",
+          "pixels_sha256": "6f340ea09c6e9f48f25f347f5a955c52973d0deca98e992a5c1e2ffc3d6ae070",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "d5677c1c059261423d6ac06f8b3f90ed28d9a53d6a4ca255e1c40f3ef908cdc5"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std38-e1283-f101/wrist.png",
+          "file_sha256": "99bf5ddd682d77ccb9e6ec5d21efe286b3dbca07e5debfc7033bdcd092af62bc",
+          "pixels_sha256": "74d95f61af14511c6a418e60d2e7c1ec639eabfadf357f16b7157adf9b21665b",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "75a2e71bf0a9d84236c62c7cfadf5b3e9372887f15369962f2e808528f00f1ac"
+        }
+      },
+      "donor_id": "std38-e1283-f101"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "file": "images/std38-e1283-f134/external.png",
+          "file_sha256": "887d8550e862fc4114a81a885448ecee090cc1ee1e423817d2329d2ce29df2bb",
+          "pixels_sha256": "3acdefef3a440148f7e68dfe69284b2e58550cd69d03130ccc4a97fc05a1ab2b",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "ce7075a86c538ce8de6bbc56693ebb1d1aefcbd45e84d165aa9fb7235d1cb273"
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "file": "images/std38-e1283-f134/wrist.png",
+          "file_sha256": "fb5d5d10ab9ff9af8779dd63f429062db81a262f25b7919f182f7d3eb9e5bc4b",
+          "pixels_sha256": "0d95e0d28b3c9c12d1d01432be60a483929f8b3f52cc618c165e02b6c923820b",
+          "shape": [
+            224,
+            224,
+            3
+          ],
+          "source_pixels_sha256": "53273fc6d4d3220f2258b4ff52d44ae8e420c0d7a0df7f4dfb8eca285b6234f2"
+        }
+      },
+      "donor_id": "std38-e1283-f134"
+    }
+  ],
+  "library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+  "plan": {
+    "dataset_repo": "physical-intelligence/libero",
+    "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+    "file_index_sha256": "4ac173b2f2b1c9cd0b64ae54939fa63fe4ed5289f6f06bb6b691d9703a5073e2",
+    "metadata_sha256": {
+      "episodes.jsonl": "0479a2ced6117700e4638a1da54dccd9f60ae5f47485ea6d91390c869befcf08",
+      "info.json": "77c0da93c67960bac803a8ea25dabf380d752c26c1d91c54151121dd10e7d82f",
+      "tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99"
+    },
+    "ood_demonstrations": 0,
+    "paired_samples": 45,
+    "plan_id": "01305a29e97c1ffca398fb1879cf6d09430c962cff2b0f620e1ff86994a0c30e",
+    "schema_version": "standard-libero-image-donors-1-plan",
+    "selection": "first prescribed metadata episode per donor; phases 0,1/4,1/2,3/4,1; round nearest ties up",
+    "sources": [
+      {
+        "dataset_task_index": 10,
+        "episode": {
+          "bytes": 14176725,
+          "episode_index": 379,
+          "frame_count": 112,
+          "relative_path": "data/chunk-000/episode_000379.parquet",
+          "sha256": "41a503640339546b691d94fc699f4bb481a0e0c7176ac6cd563287e6a8927a4c"
+        },
+        "frame_indices": [
+          0,
+          28,
+          56,
+          83,
+          111
+        ],
+        "prompt": "put the bowl on the plate",
+        "source_id": "10"
+      },
+      {
+        "dataset_task_index": 13,
+        "episode": {
+          "bytes": 13015598,
+          "episode_index": 384,
+          "frame_count": 112,
+          "relative_path": "data/chunk-000/episode_000384.parquet",
+          "sha256": "fd8e3517e34c6a70dc71e9de5a33305ea9e80afc8e9635e27f4b5d3201f2697b"
+        },
+        "frame_indices": [
+          0,
+          28,
+          56,
+          83,
+          111
+        ],
+        "prompt": "put the cream cheese in the bowl",
+        "source_id": "13"
+      },
+      {
+        "dataset_task_index": 14,
+        "episode": {
+          "bytes": 10904494,
+          "episode_index": 385,
+          "frame_count": 90,
+          "relative_path": "data/chunk-000/episode_000385.parquet",
+          "sha256": "406e8c46b04520ef804ef983437fd3fd98ac619f4680b4bae5161203758e5a90"
+        },
+        "frame_indices": [
+          0,
+          22,
+          45,
+          67,
+          89
+        ],
+        "prompt": "put the wine bottle on top of the cabinet",
+        "source_id": "14"
+      },
+      {
+        "dataset_task_index": 17,
+        "episode": {
+          "bytes": 13185754,
+          "episode_index": 392,
+          "frame_count": 103,
+          "relative_path": "data/chunk-000/episode_000392.parquet",
+          "sha256": "537adeaaa52f4ea2bba9c26a9053a5a738bead0967919222877577b027130116"
+        },
+        "frame_indices": [
+          0,
+          26,
+          51,
+          77,
+          102
+        ],
+        "prompt": "put the bowl on the stove",
+        "source_id": "17"
+      },
+      {
+        "dataset_task_index": 18,
+        "episode": {
+          "bytes": 12810914,
+          "episode_index": 398,
+          "frame_count": 100,
+          "relative_path": "data/chunk-000/episode_000398.parquet",
+          "sha256": "1bacdf1fac0d1112c0388bc662dbd4b1b0cea6c6b218bb9dc2addedff643ea34"
+        },
+        "frame_indices": [
+          0,
+          25,
+          50,
+          74,
+          99
+        ],
+        "prompt": "put the bowl on top of the cabinet",
+        "source_id": "18"
+      },
+      {
+        "dataset_task_index": 32,
+        "episode": {
+          "bytes": 12447365,
+          "episode_index": 1264,
+          "frame_count": 100,
+          "relative_path": "data/chunk-001/episode_001264.parquet",
+          "sha256": "22117e85dc291ffa02657921b6dd30fa6ae788aa1cf9e12d7dad68d0e4a04bc9"
+        },
+        "frame_indices": [
+          0,
+          25,
+          50,
+          74,
+          99
+        ],
+        "prompt": "pick up the black bowl on the ramekin and place it on the plate",
+        "source_id": "32"
+      },
+      {
+        "dataset_task_index": 35,
+        "episode": {
+          "bytes": 12318539,
+          "episode_index": 1278,
+          "frame_count": 101,
+          "relative_path": "data/chunk-001/episode_001278.parquet",
+          "sha256": "4eda1c7e6acb8eb39ac746b9e17b4ea56d6eb0d94b4fc92ad45c2fb2763a6fa7"
+        },
+        "frame_indices": [
+          0,
+          25,
+          50,
+          75,
+          100
+        ],
+        "prompt": "pick up the black bowl on the cookie box and place it on the plate",
+        "source_id": "35"
+      },
+      {
+        "dataset_task_index": 36,
+        "episode": {
+          "bytes": 13168544,
+          "episode_index": 1280,
+          "frame_count": 107,
+          "relative_path": "data/chunk-001/episode_001280.parquet",
+          "sha256": "2a32de3c43ea575cfbf5b4a660dd54467fb3752b3258f23df6fb87e1dc32f6f6"
+        },
+        "frame_indices": [
+          0,
+          27,
+          53,
+          80,
+          106
+        ],
+        "prompt": "pick up the black bowl next to the plate and place it on the plate",
+        "source_id": "36"
+      },
+      {
+        "dataset_task_index": 38,
+        "episode": {
+          "bytes": 17459415,
+          "episode_index": 1283,
+          "frame_count": 135,
+          "relative_path": "data/chunk-001/episode_001283.parquet",
+          "sha256": "52714a3eda0fa037543bba9276f8035fc91c9d4762d1482f7a405539885d8f7b"
+        },
+        "frame_indices": [
+          0,
+          34,
+          67,
+          101,
+          134
+        ],
+        "prompt": "pick up the black bowl from table center and place it on the plate",
+        "source_id": "38"
+      }
+    ],
+    "total_source_bytes": 119487348
+  },
+  "preprocessing": {
+    "image_tools_sha256": "d48b4bd7f44e79fe6db8a8e07c9161144fa250be686e1245014a8b47e6171977",
+    "output_dtype": "uint8",
+    "output_shape": [
+      224,
+      224,
+      3
+    ],
+    "policy_pixels_contain_labels_or_annotations": false,
+    "resize": "pinned openpi_client.image_tools.resize_with_pad(224,224), default PIL bilinear",
+    "rotation": "none; upstream RLDS conversion already rotated both cameras 180 degrees",
+    "source": "embedded 256x256 uint8 RGB PNG from the pinned standard training dataset",
+    "stored_demo_actions_state_or_object_poses": false
+  },
+  "samples": [
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "330f60bc5667d58b85958090d274a7de4ccae821e9a6d25d42f5f8e561266bc4",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "99627902a15e61dfd70ae72554824cbbcb6490d4c8a146eb5c86e9f85b8648d9",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std10-e379-f0",
+      "episode_index": 379,
+      "frame_index": 0,
+      "phase": {
+        "denominator": 4,
+        "numerator": 0
+      },
+      "preview_position": {
+        "column": 0,
+        "row": 0
+      },
+      "prompt": "put the bowl on the plate",
+      "sample_sha256": "f555e8f8a55696663621ed23f34eff515751d1939e8a4efbc66835f1b25d9460",
+      "source_id": "10"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "f1e2db41bcaa8c40fbbca9f0e46eb44241192407b053cff6a214feeb995adf6a",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "c075e05aff9403ccfa655b6a6995c2b2f39e726668d6e1fe0c694bc597e47f73",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std10-e379-f28",
+      "episode_index": 379,
+      "frame_index": 28,
+      "phase": {
+        "denominator": 4,
+        "numerator": 1
+      },
+      "preview_position": {
+        "column": 1,
+        "row": 0
+      },
+      "prompt": "put the bowl on the plate",
+      "sample_sha256": "346a7683339e3f8be40880516533494da17c6dffb38848f2d9b5b3d833f714bc",
+      "source_id": "10"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "eb3af61a8b1cbe339e371be5e2a783907ce72b891de0f471542e69ee1b58213e",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "f30f8c761fa8c7c19b5000793b0c8779fd1ca232962ecf58e9e87db3e938571e",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std10-e379-f56",
+      "episode_index": 379,
+      "frame_index": 56,
+      "phase": {
+        "denominator": 4,
+        "numerator": 2
+      },
+      "preview_position": {
+        "column": 2,
+        "row": 0
+      },
+      "prompt": "put the bowl on the plate",
+      "sample_sha256": "8af7524db739e367827662332914ddf06632f6dc8c9a08d0f2bc1d1a2bb4970f",
+      "source_id": "10"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "c9cd6af5ac404f922cab1968671105a125b1a2fa6cf4585731534ad817af4bde",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "fa3a44d44567b0a068c8a7febd557615adb42d293bce9fcad74d6bc470ea1add",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std10-e379-f83",
+      "episode_index": 379,
+      "frame_index": 83,
+      "phase": {
+        "denominator": 4,
+        "numerator": 3
+      },
+      "preview_position": {
+        "column": 3,
+        "row": 0
+      },
+      "prompt": "put the bowl on the plate",
+      "sample_sha256": "dc792c7dfa5fbb1804987217edf63a1e89f574f897f4edd8a43b9ba3834dd2e5",
+      "source_id": "10"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "15cf659c60359ec30c8233a338dc9927515c4f11fe76e132d94ffe056c8277b6",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "1e7a8b8b70f58f4b6045909ef9c1fdc9c679fd25da25e0a71809411653366816",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std10-e379-f111",
+      "episode_index": 379,
+      "frame_index": 111,
+      "phase": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "preview_position": {
+        "column": 4,
+        "row": 0
+      },
+      "prompt": "put the bowl on the plate",
+      "sample_sha256": "d2f3f54519904dca279e2decab3a06f1ff742c0e3ab77726a9e7db9180e5695a",
+      "source_id": "10"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "9fcb693b2f1b231ba78235913faddfea37db068655240352e977ac0b98907817",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "8a9eab1220204738a793527c22f6d6f7c1f3a8f35640032bd405551a7ff4d275",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std13-e384-f0",
+      "episode_index": 384,
+      "frame_index": 0,
+      "phase": {
+        "denominator": 4,
+        "numerator": 0
+      },
+      "preview_position": {
+        "column": 0,
+        "row": 1
+      },
+      "prompt": "put the cream cheese in the bowl",
+      "sample_sha256": "25687db733401aae83dd63b1fd1a45f9941e8939f83874199e7c867a00426708",
+      "source_id": "13"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "21eb09160ff437fff5c7f28667ce740efc4e10a8e19a477a30e5ceeb54f71bb2",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "42b64475a07a2525efb8b2a721f535f245ce90e2a5d7a59f188828b55ee02f86",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std13-e384-f28",
+      "episode_index": 384,
+      "frame_index": 28,
+      "phase": {
+        "denominator": 4,
+        "numerator": 1
+      },
+      "preview_position": {
+        "column": 1,
+        "row": 1
+      },
+      "prompt": "put the cream cheese in the bowl",
+      "sample_sha256": "f1ec864b2d456705ad20ae08921b64e63a836fba1410a35f0019b8c83e74a095",
+      "source_id": "13"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "3ed4c9b6dffcb30df41167fb894286a23428f616ab79fafde8c9b0bcfcdc21fd",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "4d597fc8e1e8e2141e540a5a55488731a70d8c868dd2c22ade07509d6fab3106",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std13-e384-f56",
+      "episode_index": 384,
+      "frame_index": 56,
+      "phase": {
+        "denominator": 4,
+        "numerator": 2
+      },
+      "preview_position": {
+        "column": 2,
+        "row": 1
+      },
+      "prompt": "put the cream cheese in the bowl",
+      "sample_sha256": "156cccc7eb257e6393a1299e67baff49a6c5c1bbdb8ccf4e5a2b7c118f5f2adb",
+      "source_id": "13"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "1b477e5c67daae97178c310d86b51f9b3af4a788a8a75c0be245a01595179476",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "1c91e93803881595651c31b8f031e919b2040dd963b05edf86173d4c5c3c12cd",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std13-e384-f83",
+      "episode_index": 384,
+      "frame_index": 83,
+      "phase": {
+        "denominator": 4,
+        "numerator": 3
+      },
+      "preview_position": {
+        "column": 3,
+        "row": 1
+      },
+      "prompt": "put the cream cheese in the bowl",
+      "sample_sha256": "c2d07923028d3f9e32765d52506ddd6c7ef2348e341cb828304c6392855f92cd",
+      "source_id": "13"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "a5208e5bd745e025d7dc8a25e2e9d4c7c60e8ef40d6d08f0c5824bf9e6288e42",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "af9fabc4813be39b88350026dc62853f488bd7311849d2a3fd8b2a54e0bcaa32",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std13-e384-f111",
+      "episode_index": 384,
+      "frame_index": 111,
+      "phase": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "preview_position": {
+        "column": 4,
+        "row": 1
+      },
+      "prompt": "put the cream cheese in the bowl",
+      "sample_sha256": "639bfb55c608efd7bb4eb757af659f43e8fa14873f2e8dfe46a60c66260ea12c",
+      "source_id": "13"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "56a303b6ddd8014f2a70c9506450539492d1095f1d1f831ce13c4ebbe355fde1",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "ba6a6e6813f423127b18e01b708e52211aeeec4e6ddaf3dbf4d96ba75faa8f20",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std14-e385-f0",
+      "episode_index": 385,
+      "frame_index": 0,
+      "phase": {
+        "denominator": 4,
+        "numerator": 0
+      },
+      "preview_position": {
+        "column": 0,
+        "row": 2
+      },
+      "prompt": "put the wine bottle on top of the cabinet",
+      "sample_sha256": "bd302b5ea66aa339662c397d4dd517fdff60673de6863508e625461166f14405",
+      "source_id": "14"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "1bf75e107c766e22fc94ca00b887ce56f299038810e7954b4384119b3aeddfbf",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "c67559970fd570110b9d3236193f403cbfa02617a49faa7fee49d87ba3a0b4ac",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std14-e385-f22",
+      "episode_index": 385,
+      "frame_index": 22,
+      "phase": {
+        "denominator": 4,
+        "numerator": 1
+      },
+      "preview_position": {
+        "column": 1,
+        "row": 2
+      },
+      "prompt": "put the wine bottle on top of the cabinet",
+      "sample_sha256": "22fae8ffea510ba2086d478ea3c05ed6c14c8dfc8a0a01654f24cbb71cfaf91b",
+      "source_id": "14"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "48a684bbba53e14c28f18959858e4d956ae16a37db0cbb33f99830766b7d2574",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "bbfafa440c3c0d257c8bb399afbcdf60895aff34b53cab6682bbe9c2235b23bc",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std14-e385-f45",
+      "episode_index": 385,
+      "frame_index": 45,
+      "phase": {
+        "denominator": 4,
+        "numerator": 2
+      },
+      "preview_position": {
+        "column": 2,
+        "row": 2
+      },
+      "prompt": "put the wine bottle on top of the cabinet",
+      "sample_sha256": "78bfa4f8fcdaf8dab898d74a2ebe90852b77858a37799f7e1c6e83b973858301",
+      "source_id": "14"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "a38c8712771daa599e1a23cdce881c74783b7c913c0091f6689ae309c2724614",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "c4a3319d099f64d10b5969fc809dd35a8bcb57c418a4af948e8adc514544ecd4",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std14-e385-f67",
+      "episode_index": 385,
+      "frame_index": 67,
+      "phase": {
+        "denominator": 4,
+        "numerator": 3
+      },
+      "preview_position": {
+        "column": 3,
+        "row": 2
+      },
+      "prompt": "put the wine bottle on top of the cabinet",
+      "sample_sha256": "884f82658fa1aa48a493a2b4d384983a8745e39a3f11f7fc306712e52e8ed248",
+      "source_id": "14"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "f646ce689cfa3568a822fa81e71f63a5c8e8e6700a5f70cb62feee21470315ee",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "18c2413e5729367f643d02547785f50a6e1a0b109c864512aa1ce94a8f70515b",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std14-e385-f89",
+      "episode_index": 385,
+      "frame_index": 89,
+      "phase": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "preview_position": {
+        "column": 4,
+        "row": 2
+      },
+      "prompt": "put the wine bottle on top of the cabinet",
+      "sample_sha256": "6e646122a80881a84ed95bd4471ffba63cfad341b85d3fecf80c84cf9f92884c",
+      "source_id": "14"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "cd3782434067c36f753d9171a80fad375ae3ecbdd0e38a1dff2161590c500090",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "7625d38882ede7f639e779c8b3d17c5ce2876d4e0d61485bdac15f0b0f00f1e5",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std17-e392-f0",
+      "episode_index": 392,
+      "frame_index": 0,
+      "phase": {
+        "denominator": 4,
+        "numerator": 0
+      },
+      "preview_position": {
+        "column": 0,
+        "row": 3
+      },
+      "prompt": "put the bowl on the stove",
+      "sample_sha256": "d349e532ef417c69dcf5bae3f11d8d4cea7d947b5722af5be5984e9808331eec",
+      "source_id": "17"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "f133e084ca6eeee66cef511055883356b55eba6d64638a9755faba72ba7ea9d9",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "4c06cb22790727cbc3fbfb5dbf548b11eb17a85d7565ec938aa331bc626448dc",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std17-e392-f26",
+      "episode_index": 392,
+      "frame_index": 26,
+      "phase": {
+        "denominator": 4,
+        "numerator": 1
+      },
+      "preview_position": {
+        "column": 1,
+        "row": 3
+      },
+      "prompt": "put the bowl on the stove",
+      "sample_sha256": "f6d0570b98ec5fa7a714c7a010ba6a642768060351286e3ec580206bf222e47e",
+      "source_id": "17"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "e4fca782b205ada0d2d6c5a762359a2f3037ecd51aed08ad06b68b24039ed510",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "f83c5ca52ac2822ef93338929801a5158509cd8d3999ab2c7c07b2a8d3bfcfbb",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std17-e392-f51",
+      "episode_index": 392,
+      "frame_index": 51,
+      "phase": {
+        "denominator": 4,
+        "numerator": 2
+      },
+      "preview_position": {
+        "column": 2,
+        "row": 3
+      },
+      "prompt": "put the bowl on the stove",
+      "sample_sha256": "d62ca618a34ecd17c7c42adf48a883e109a2c5a0c3ee8b0326b22ad07192a7f5",
+      "source_id": "17"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "bdbd96a0396c0690b3b7e8c153f8528c3b9ebff25969bd7ebb8d06cd21ac5e04",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "a5e3f7fac569caa4ea9aaf60f3610fe71abfbe15f75b937a9340336fb86b6215",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std17-e392-f77",
+      "episode_index": 392,
+      "frame_index": 77,
+      "phase": {
+        "denominator": 4,
+        "numerator": 3
+      },
+      "preview_position": {
+        "column": 3,
+        "row": 3
+      },
+      "prompt": "put the bowl on the stove",
+      "sample_sha256": "67d9a7658ed9fc5b3e5024199afb9a6c9ba565463f1c3f232b18a932b54ea48a",
+      "source_id": "17"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "b5f5284fe2c323dc3b8d1a693153808b5948b26bcf730dafc0a781ee6253784f",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "3f5fe9b81eadd90a5dfa1caf4c42fb700d06714f2abd393a37c23d942b46fe20",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std17-e392-f102",
+      "episode_index": 392,
+      "frame_index": 102,
+      "phase": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "preview_position": {
+        "column": 4,
+        "row": 3
+      },
+      "prompt": "put the bowl on the stove",
+      "sample_sha256": "3276cfa26e912f2004954a7b659836da0b4d1a9797c3b4e24a580344a080932a",
+      "source_id": "17"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "c389cb088b1c68ed8c3b7f7d2943ef831d865b2b37e71c377a248e4ee29d05e3",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "f93075aabd9b9d14cc3be649e985c67995242daf657348b9994eb45cf3047e64",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std18-e398-f0",
+      "episode_index": 398,
+      "frame_index": 0,
+      "phase": {
+        "denominator": 4,
+        "numerator": 0
+      },
+      "preview_position": {
+        "column": 0,
+        "row": 4
+      },
+      "prompt": "put the bowl on top of the cabinet",
+      "sample_sha256": "f17deaf436016d5e4942b2c86b3f9a2e82e398bdf30f572af1b5e96d5d2928b2",
+      "source_id": "18"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "bfc1f315be4918620f30831067a8a3f0e4edc2f6de87960fbc08484d0f316441",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "074b2bc7fa0895cdcedebc25982a7d1a8736657fd932f4f161521703be138334",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std18-e398-f25",
+      "episode_index": 398,
+      "frame_index": 25,
+      "phase": {
+        "denominator": 4,
+        "numerator": 1
+      },
+      "preview_position": {
+        "column": 1,
+        "row": 4
+      },
+      "prompt": "put the bowl on top of the cabinet",
+      "sample_sha256": "f2da3c3420f66e2049ad12d9a4cc5955d72cc0e4e0640b6e0e8891b43d7c9506",
+      "source_id": "18"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "af1c5b988433629b4523902e430fe992681997e79a919fe0dfa7d91156ac1602",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "ff77b7ed242d463f2d38b3537abfd4b6b46c5e566d5c26f07198cb359c235b59",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std18-e398-f50",
+      "episode_index": 398,
+      "frame_index": 50,
+      "phase": {
+        "denominator": 4,
+        "numerator": 2
+      },
+      "preview_position": {
+        "column": 2,
+        "row": 4
+      },
+      "prompt": "put the bowl on top of the cabinet",
+      "sample_sha256": "ee39412d4a28e4bffde0133c2371e4fe1161252847d269d4b12173a5beda6bc6",
+      "source_id": "18"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "31daa8928ae27f4ae6553d7c8fc3acc55f9a7184bc6b028aa8ecaa72082105e6",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "3e5763495bbc71e7e3c64f51c5700c24221ed2c218ffd990d57f5cfce5b3d96a",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std18-e398-f74",
+      "episode_index": 398,
+      "frame_index": 74,
+      "phase": {
+        "denominator": 4,
+        "numerator": 3
+      },
+      "preview_position": {
+        "column": 3,
+        "row": 4
+      },
+      "prompt": "put the bowl on top of the cabinet",
+      "sample_sha256": "c4e6e1941f57a946d6b167b14acdc68c016744682e8a3e43c27828e10feab82e",
+      "source_id": "18"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "81a0d7a1e4f62ba451881077b77102c6eedec8ac50a2ef8a9ffdc032f7d5b7dc",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "2e3b6c4eb4ed62d959cbedee825156d1414246769e660d09cadf232bcbd8da5c",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std18-e398-f99",
+      "episode_index": 398,
+      "frame_index": 99,
+      "phase": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "preview_position": {
+        "column": 4,
+        "row": 4
+      },
+      "prompt": "put the bowl on top of the cabinet",
+      "sample_sha256": "3c123a1619e8c413f36aefd30049b914dedf75f8807e4d7763c75361d418df2f",
+      "source_id": "18"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "beaadc8bc3fe8952d789432532508bb326e03690e44e36e9ec9623ecae989cd3",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "975512b7608f37eb5fdb35baf7c13e262d9d597ef01b811ada0c13123bc81c43",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std32-e1264-f0",
+      "episode_index": 1264,
+      "frame_index": 0,
+      "phase": {
+        "denominator": 4,
+        "numerator": 0
+      },
+      "preview_position": {
+        "column": 0,
+        "row": 5
+      },
+      "prompt": "pick up the black bowl on the ramekin and place it on the plate",
+      "sample_sha256": "c7c5ab5164b66524811c61e3bd4cfe75290b248873ac915b6fba7c565afb2579",
+      "source_id": "32"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "4fc567533b3c8adbc474a6d76234dd359c0d85db3a20ff1e0bdd8ffd22ee3f6c",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "88b167ab3055161ed3642781061ccf039385276e01a7ea2bdb210989797f30ef",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std32-e1264-f25",
+      "episode_index": 1264,
+      "frame_index": 25,
+      "phase": {
+        "denominator": 4,
+        "numerator": 1
+      },
+      "preview_position": {
+        "column": 1,
+        "row": 5
+      },
+      "prompt": "pick up the black bowl on the ramekin and place it on the plate",
+      "sample_sha256": "eb8756f7a3fde3a9497129fd11c5a0d44136488dba9edd1a2ce2054a5d78a0e7",
+      "source_id": "32"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "f1aa864f1a5c2680c2f05e8f91ff3e1133b3815c15c7747c7d540ebeda3c0c17",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "2eff5b86896a334968fac134b2e6b933f84e477b779bdccdd4f2007de0e3ed65",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std32-e1264-f50",
+      "episode_index": 1264,
+      "frame_index": 50,
+      "phase": {
+        "denominator": 4,
+        "numerator": 2
+      },
+      "preview_position": {
+        "column": 2,
+        "row": 5
+      },
+      "prompt": "pick up the black bowl on the ramekin and place it on the plate",
+      "sample_sha256": "4be3ff93e35082431567ad49f65f0aecba9bb19edfb82a69e6ca9055bb927efc",
+      "source_id": "32"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "298d9a67e6e880d9db8d389ee8a8acf91ab4c306c53b0ccf5d511365b04588f8",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "655bc610bc236e965070106de4067c4d3567f0eca9e759380186d6514cd301f4",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std32-e1264-f74",
+      "episode_index": 1264,
+      "frame_index": 74,
+      "phase": {
+        "denominator": 4,
+        "numerator": 3
+      },
+      "preview_position": {
+        "column": 3,
+        "row": 5
+      },
+      "prompt": "pick up the black bowl on the ramekin and place it on the plate",
+      "sample_sha256": "7bdc8f876d65e52bc5b433835111418c763f0cc1db6b0a513ed185635ef455ca",
+      "source_id": "32"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "e5af9b86109ae1ee85eb4f4501e69674b50e40caa0863a77f76ec0589256745f",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "068d40562e8e6a2e91bdaa33ac2823ae9378128dce1bfc368e941d4f4c2d0c21",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std32-e1264-f99",
+      "episode_index": 1264,
+      "frame_index": 99,
+      "phase": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "preview_position": {
+        "column": 4,
+        "row": 5
+      },
+      "prompt": "pick up the black bowl on the ramekin and place it on the plate",
+      "sample_sha256": "9b85f722124a35f663ecec418944f7ade9e80fa4913e7e25003d7053c8ec628c",
+      "source_id": "32"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "ad68989ca540e336c194a8763cc5f758b62199545df3d1b7d1bcdac509fb406f",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "a4f13a9e1e329c09168b0f6d01f48d9aa3333a79fa8ed0575c7dea2a1e900249",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std35-e1278-f0",
+      "episode_index": 1278,
+      "frame_index": 0,
+      "phase": {
+        "denominator": 4,
+        "numerator": 0
+      },
+      "preview_position": {
+        "column": 0,
+        "row": 6
+      },
+      "prompt": "pick up the black bowl on the cookie box and place it on the plate",
+      "sample_sha256": "aac9aa6ec763ba4acf1e07c1081129a992a703e2144808ad9c0e2586b5b289a6",
+      "source_id": "35"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "88db5eca47f8bff5e0d63211455ab6f68da3adb4d8f5b8c385491c50fc0029a2",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "dd21ed63098de77b37af368556c1616df4d6a7fb2756d24df3d6130beb26ba3c",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std35-e1278-f25",
+      "episode_index": 1278,
+      "frame_index": 25,
+      "phase": {
+        "denominator": 4,
+        "numerator": 1
+      },
+      "preview_position": {
+        "column": 1,
+        "row": 6
+      },
+      "prompt": "pick up the black bowl on the cookie box and place it on the plate",
+      "sample_sha256": "161742b430c29cbeca15702d39fd044a506e73f3bf5eec946f75f79698b0f158",
+      "source_id": "35"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "085e46a68defc6bc1d6544d4a774acd4f9b790cd50e512a6d9d53ea1ee6a8af8",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "7ecf02155eecbb7875ccde364aeb0dd1ddd9183e590bb8b1ca9f3b350b2d58c3",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std35-e1278-f50",
+      "episode_index": 1278,
+      "frame_index": 50,
+      "phase": {
+        "denominator": 4,
+        "numerator": 2
+      },
+      "preview_position": {
+        "column": 2,
+        "row": 6
+      },
+      "prompt": "pick up the black bowl on the cookie box and place it on the plate",
+      "sample_sha256": "7e5188f9da06e8ad5ab8e8bcf56a427ca9eae6f679e41a59f4f6af6309d90058",
+      "source_id": "35"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "6ef3be69e4640b48dfb058025d9697695794eb20ae0d4be9435c0ee87afccf58",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "c43469f71303c415e50a63be9f95f14e8b7659e2859766e9de52a9a180e0b565",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std35-e1278-f75",
+      "episode_index": 1278,
+      "frame_index": 75,
+      "phase": {
+        "denominator": 4,
+        "numerator": 3
+      },
+      "preview_position": {
+        "column": 3,
+        "row": 6
+      },
+      "prompt": "pick up the black bowl on the cookie box and place it on the plate",
+      "sample_sha256": "1fba0a9edb43ee29dad9d90fa406437f54b9cfaa69c4a71f3125f6913d94f8c5",
+      "source_id": "35"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "22d64f010b81830b0dd5e28d659bae1efab2c774c540d1b4d24eac92143e2258",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "77c43c84576cb05ced6bc2d473e4b84a8eb6e477d163a8b09ccf2211dd973ce6",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std35-e1278-f100",
+      "episode_index": 1278,
+      "frame_index": 100,
+      "phase": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "preview_position": {
+        "column": 4,
+        "row": 6
+      },
+      "prompt": "pick up the black bowl on the cookie box and place it on the plate",
+      "sample_sha256": "c8eaa8ff16aa8a804c9dbfa2988892643c71bbe9b01d8c5a2ae318d52bd22a5f",
+      "source_id": "35"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "4998ecc5d58f24a05ea1a260d1c0e116766ddc0cc29b06292d623afd230063a7",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "539bc2c13c189c69e97763e9d5364b21372192ed16f8a12a492a8ca6ac9734e7",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std36-e1280-f0",
+      "episode_index": 1280,
+      "frame_index": 0,
+      "phase": {
+        "denominator": 4,
+        "numerator": 0
+      },
+      "preview_position": {
+        "column": 0,
+        "row": 7
+      },
+      "prompt": "pick up the black bowl next to the plate and place it on the plate",
+      "sample_sha256": "3d73921eee520f0bcb15e824b73dc18ed5e949ac8d4495e0f306327c042ada09",
+      "source_id": "36"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "c4096cdadd375b0cb5f81eade069fe87c1b24aedc9c214e491e3e882250cdbc3",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "29208b3f9dbfea11f1cd5b27dd6833056bac75e2704493743fb53f28f5067ccb",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std36-e1280-f27",
+      "episode_index": 1280,
+      "frame_index": 27,
+      "phase": {
+        "denominator": 4,
+        "numerator": 1
+      },
+      "preview_position": {
+        "column": 1,
+        "row": 7
+      },
+      "prompt": "pick up the black bowl next to the plate and place it on the plate",
+      "sample_sha256": "d1db175210ed7d9e39971448e4cb19856ea73ca080eb8a43a15ae6f12ca22b75",
+      "source_id": "36"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "e0a3d1f69237c3126ca9e7dce591368c4e3f2f269cca864907135bd600548827",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "e82564d1967418ce9b46e2479bea37a9c8e2912fc92d3986eedb8ed57074456c",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std36-e1280-f53",
+      "episode_index": 1280,
+      "frame_index": 53,
+      "phase": {
+        "denominator": 4,
+        "numerator": 2
+      },
+      "preview_position": {
+        "column": 2,
+        "row": 7
+      },
+      "prompt": "pick up the black bowl next to the plate and place it on the plate",
+      "sample_sha256": "abf867a02fdaab475de55a5a39515436dd11b59d90e88e68db0804ad9948831f",
+      "source_id": "36"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "162c76fd71d0648166f684eebb99e4eb332158ebd825fcdb6e2ad0cf6c208cb2",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "fb5a8433c44aeb04c787f97e687d196d7e61f1d950976c1738a7ae229e65baec",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std36-e1280-f80",
+      "episode_index": 1280,
+      "frame_index": 80,
+      "phase": {
+        "denominator": 4,
+        "numerator": 3
+      },
+      "preview_position": {
+        "column": 3,
+        "row": 7
+      },
+      "prompt": "pick up the black bowl next to the plate and place it on the plate",
+      "sample_sha256": "7b24047161f218f62a890835bf7ee6d1ff2c257134cb2894ea645b77f1a6340b",
+      "source_id": "36"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "5eee9933af35d488938b31180f31a531963b0f65288d6dbeeec43d245306fa63",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "7d73526e524aa23f9348aea2e7b620b4f846fe54c3827d6ba9703e6512863a7c",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std36-e1280-f106",
+      "episode_index": 1280,
+      "frame_index": 106,
+      "phase": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "preview_position": {
+        "column": 4,
+        "row": 7
+      },
+      "prompt": "pick up the black bowl next to the plate and place it on the plate",
+      "sample_sha256": "261750c975bc26e4ff0973663efee444ca61a99ffc1668d04deae9c9ea51b3ee",
+      "source_id": "36"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "0144b313961e62d1f5f4b484fa02df98b765b9007315246d6123ea9bc1defc31",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "cc82d8fb02a4fbd4665c1cd8790977baa1f5d2d125f8da38f9017e594d94da8d",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std38-e1283-f0",
+      "episode_index": 1283,
+      "frame_index": 0,
+      "phase": {
+        "denominator": 4,
+        "numerator": 0
+      },
+      "preview_position": {
+        "column": 0,
+        "row": 8
+      },
+      "prompt": "pick up the black bowl from table center and place it on the plate",
+      "sample_sha256": "92210be038304e1ab7b784ab4ca3bd03039c9954098b16527ec0af68372ab0dc",
+      "source_id": "38"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "65c1b8958930746426947038fd4703c35433f5289a395e766a1a6b8071f8d3ad",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "038611f8f992a25ea00dd1cc2152b1fcf025d153c474a30096d4ad0dbe8e5845",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std38-e1283-f34",
+      "episode_index": 1283,
+      "frame_index": 34,
+      "phase": {
+        "denominator": 4,
+        "numerator": 1
+      },
+      "preview_position": {
+        "column": 1,
+        "row": 8
+      },
+      "prompt": "pick up the black bowl from table center and place it on the plate",
+      "sample_sha256": "49d9a1dd8d3cb2b63ad7266597fba717d52305235bb259bf55b86c57a26715c1",
+      "source_id": "38"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "c4288fbd9f62f020a4a722a04cdd1907043f0c1ae743be0052efe167c5fe9022",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "f354ff1f8def1923fb48900997766892bbd571367550c1e17454916bcdbcf3a9",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std38-e1283-f67",
+      "episode_index": 1283,
+      "frame_index": 67,
+      "phase": {
+        "denominator": 4,
+        "numerator": 2
+      },
+      "preview_position": {
+        "column": 2,
+        "row": 8
+      },
+      "prompt": "pick up the black bowl from table center and place it on the plate",
+      "sample_sha256": "f7bdf7e4498ad9787361cdfc020ae32e2a3bcff1a431ad002c43777299ee09bf",
+      "source_id": "38"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "6f340ea09c6e9f48f25f347f5a955c52973d0deca98e992a5c1e2ffc3d6ae070",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "74d95f61af14511c6a418e60d2e7c1ec639eabfadf357f16b7157adf9b21665b",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std38-e1283-f101",
+      "episode_index": 1283,
+      "frame_index": 101,
+      "phase": {
+        "denominator": 4,
+        "numerator": 3
+      },
+      "preview_position": {
+        "column": 3,
+        "row": 8
+      },
+      "prompt": "pick up the black bowl from table center and place it on the plate",
+      "sample_sha256": "ee1152495c514496a7f72f6a18c3fb872281660e33d204ac2fc149eeb6bbd116",
+      "source_id": "38"
+    },
+    {
+      "cameras": {
+        "observation/image": {
+          "dtype": "uint8",
+          "pixels_sha256": "3acdefef3a440148f7e68dfe69284b2e58550cd69d03130ccc4a97fc05a1ab2b",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        },
+        "observation/wrist_image": {
+          "dtype": "uint8",
+          "pixels_sha256": "0d95e0d28b3c9c12d1d01432be60a483929f8b3f52cc618c165e02b6c923820b",
+          "shape": [
+            224,
+            224,
+            3
+          ]
+        }
+      },
+      "donor_id": "std38-e1283-f134",
+      "episode_index": 1283,
+      "frame_index": 134,
+      "phase": {
+        "denominator": 4,
+        "numerator": 4
+      },
+      "preview_position": {
+        "column": 4,
+        "row": 8
+      },
+      "prompt": "pick up the black bowl from table center and place it on the plate",
+      "sample_sha256": "33475a4fc3394206990f7a93977a2c859b07dc29cd8709f0132c9b28483026b4",
+      "source_id": "38"
+    }
+  ],
+  "schema_version": "standard-libero-image-donors-1",
+  "software": {
+    "Pillow": "12.3.0",
+    "numpy": "2.4.6",
+    "pyarrow": "25.0.1"
+  }
+}

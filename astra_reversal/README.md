@@ -4,6 +4,13 @@ Implementation of the supplied [research brief](SPEC.md), using a frozen pi0.5
 policy and genuine Astra proposals. Experiment code, isolated dependencies, and
 records live in this directory; existing training code is unchanged.
 
+The [image perturbation study](IMAGE_PERTURBATIONS.md) tests actual demonstration
+frame blending and filled occlusion, with fixed language and recovered noise,
+raw-camera rollout feedback, matched random image controls and a pinned library
+of 45 paired training frames. Its development and evaluation use a separate
+frozen protocol; no results from temporary visual annotations are relabeled as
+image perturbation outcomes.
+
 The [observed phase-interpolation study](reports/phase_interpolation/README.md)
 tests fresh two-camera Astra decisions every 25 actions, tokenwise embedding
 interpolation, per-layer text residuals and temporary vision marks. Its report
