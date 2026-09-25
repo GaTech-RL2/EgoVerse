@@ -138,6 +138,7 @@ class InterventionSearch:
         """Recover a policy-supported reference; arbitrary action inversion is separate."""
         from .intervention_conditioning import TextEmbeddingIntervention
 
+        started = time.perf_counter()
         policy, solver = self.policy, self.protocol["inversion_solver"]
         condition = policy.prepare(
             observation, digest(observation), self.entry["instruction"]
@@ -193,7 +194,8 @@ class InterventionSearch:
                 for solve in (reference, inverse, roundtrip, native_solve, zero_solve)
             )
             + 10,
-            "note": "Native parity includes ten additional upstream velocity calls; initialization cost is separate from rollout costs",
+            "wall_seconds_before_recording": time.perf_counter() - started,
+            "note": "Native parity includes ten additional upstream velocity calls. Initialization velocity evaluations are separate; baseline policy and wall times include initialization, logging, and its archive synchronization.",
         }
         self.recorder.event(
             "inversion_initialization",
@@ -464,7 +466,7 @@ class InterventionSearch:
                     "summary": arm_summary(attempts, self.budget),
                     "token_usage": summarize_calls(response_log)
                     if response_log.exists()
-                    else None,
+                    else summarize_calls([]),
                     "status": "running",
                 }
                 self.save()
@@ -473,7 +475,7 @@ class InterventionSearch:
                 "summary": arm_summary(attempts, self.budget),
                 "token_usage": summarize_calls(response_log)
                 if response_log.exists()
-                else None,
+                else summarize_calls([]),
                 "status": "complete",
             }
             arm_report = self.report["arms"][arm]

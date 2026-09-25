@@ -36,6 +36,9 @@ No object poses, dense simulator rewards, demonstration trajectories, or oracle
 phase schedules are supplied. A separate random-noise search uses the same
 eight-dimensional space and five-attempt cap. A fresh-noise native policy and a
 direct-known-noise reused policy provide single-attempt controls.
+Both controls start from the same known latent as the reference; the fresh-noise
+control then resamples on subsequent action chunks. The zero-scale embedding
+hook must match native Euler output exactly on the allocated GPU.
 
 Every candidate is a complete closed-loop rollout from exactly the same captured
 reset. This experiment measures adaptation with simulator reset access. It does
@@ -70,6 +73,10 @@ tokens are a subset of output and must not be added again. Missing usage remains
 explicitly unknown. Record cumulative tokens to first success, simulated actions,
 flow velocity evaluations (including inversion and diagnostics), and wall time.
 There is no assumed dollar price for the NVIDIA endpoint.
+
+Baseline rollout wall time includes reference initialization and recording;
+initialization velocity evaluations are counted separately and added once to
+each standalone arm cost. Physical worker time also includes artifact uploads.
 
 Development forces at least one intervention attempt per arm even if the first
 attempt succeeded, solely to exercise each hook. Evaluation stops on success.
