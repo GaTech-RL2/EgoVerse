@@ -18,7 +18,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.012897779806566381
+    "dryrun_mae32": 0.13441628290611973,
+    "handoff_offline_mae32": 0.1405
   },
   "A1": {
     "cam_keys": [
@@ -39,7 +40,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.013209133025211171
+    "dryrun_mae32": 0.13504134448320804,
+    "handoff_offline_mae32": 0.1438
   },
   "A2": {
     "cam_keys": [
@@ -60,7 +62,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.0197411418904842
+    "dryrun_mae32": 0.12920111469693976,
+    "handoff_offline_mae32": 0.1499
   },
   "A3": {
     "cam_keys": [
@@ -81,7 +84,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.01869628897068849
+    "dryrun_mae32": 0.12356008891718183,
+    "handoff_offline_mae32": 0.1421
   },
   "A4": {
     "cam_keys": [
@@ -102,7 +106,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.009984750308681048
+    "dryrun_mae32": 0.1290413562528912,
+    "handoff_offline_mae32": 0.1442
   },
   "A5": {
     "cam_keys": [
@@ -123,7 +128,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.012839280907279108
+    "dryrun_mae32": 0.13466721856883163,
+    "handoff_offline_mae32": 0.1388
   },
   "B2": {
     "cam_keys": [
@@ -144,7 +150,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.019810166473312393
+    "dryrun_mae32": 0.13135968345839946,
+    "handoff_offline_mae32": 0.1501
   },
   "C3": {
     "cam_keys": [
@@ -165,7 +172,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.0653545833082797
+    "dryrun_mae32": 0.12027294770562497,
+    "handoff_offline_mae32": 0.1425
   },
   "C4": {
     "cam_keys": [
@@ -186,7 +194,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.010973001323645601
+    "dryrun_mae32": 0.11919611973813077,
+    "handoff_offline_mae32": 0.1474
   },
   "D1": {
     "cam_keys": [
@@ -207,7 +216,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.013702485291314155
+    "dryrun_mae32": 0.12607459253207842,
+    "handoff_offline_mae32": 0.1408
   },
   "D3": {
     "cam_keys": [
@@ -228,7 +238,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.01679153035432497
+    "dryrun_mae32": 0.13458531750240743,
+    "handoff_offline_mae32": 0.1356
   },
   "E4": {
     "cam_keys": [
@@ -249,7 +260,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.009708380084054747
+    "dryrun_mae32": 0.13328571756247024,
+    "handoff_offline_mae32": 0.1435
   },
   "G1": {
     "cam_keys": [
@@ -270,7 +282,52 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.010569758577103067
+    "dryrun_mae32": 0.131502690336504,
+    "handoff_offline_mae32": 0.1303
+  },
+  "G2": {
+    "cam_keys": [
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_pcd_1",
+      "front_pcd_2"
+    ],
+    "proprio_keys": [
+      "hand_left_qpos",
+      "hand_right_qpos",
+      "robot0_joint_pos",
+      "task_id",
+      "eef_pose_glass"
+    ],
+    "action_horizon": 64,
+    "action_dim": 49,
+    "num_inference_steps": 16,
+    "dryrun_mae32": 0.09120759216810453,
+    "handoff_offline_mae32": 0.1138
+  },
+  "G3": {
+    "cam_keys": [
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_pcd_1",
+      "front_pcd_2"
+    ],
+    "proprio_keys": [
+      "hand_left_qpos",
+      "hand_right_qpos",
+      "robot0_joint_pos",
+      "task_id",
+      "eef_pose_glass"
+    ],
+    "action_horizon": 64,
+    "action_dim": 49,
+    "num_inference_steps": 16,
+    "dryrun_mae32": 0.10336352095841701,
+    "handoff_offline_mae32": 0.1372
   },
   "G4": {
     "cam_keys": [
@@ -288,7 +345,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.013058711905538844
+    "dryrun_mae32": 0.13399609680499333,
+    "handoff_offline_mae32": 0.1389
   },
   "G6": {
     "cam_keys": [
@@ -307,7 +365,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.01013022441017856
+    "dryrun_mae32": 0.11185067040280534,
+    "handoff_offline_mae32": 0.136
   },
   "G7": {
     "cam_keys": [
@@ -324,7 +383,30 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.010744427909403685
+    "dryrun_mae32": 0.12997302790629586,
+    "handoff_offline_mae32": 0.1359
+  },
+  "G8": {
+    "cam_keys": [
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_pcd_1",
+      "front_pcd_2"
+    ],
+    "proprio_keys": [
+      "hand_left_qpos",
+      "hand_right_qpos",
+      "robot0_joint_pos",
+      "task_id",
+      "eef_pose_glass"
+    ],
+    "action_horizon": 64,
+    "action_dim": 49,
+    "num_inference_steps": 16,
+    "dryrun_mae32": 0.11314156607467159,
+    "handoff_offline_mae32": 0.1182
   },
   "H3": {
     "cam_keys": [
@@ -345,7 +427,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.01693433749582345
+    "dryrun_mae32": 0.11553370371819754,
+    "handoff_offline_mae32": 0.1456
   },
   "H4": {
     "cam_keys": [
@@ -366,7 +449,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.009649756503498383
+    "dryrun_mae32": 0.11958038204706428,
+    "handoff_offline_mae32": 0.14
   },
   "H5": {
     "cam_keys": [
@@ -387,7 +471,52 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.009750725663236837
+    "dryrun_mae32": 0.1266146870076625,
+    "handoff_offline_mae32": 0.1311
+  },
+  "I2": {
+    "cam_keys": [
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_pcd_1",
+      "front_pcd_2"
+    ],
+    "proprio_keys": [
+      "hand_left_qpos",
+      "hand_right_qpos",
+      "robot0_joint_pos",
+      "task_id",
+      "eef_pose_glass"
+    ],
+    "action_horizon": 64,
+    "action_dim": 49,
+    "num_inference_steps": 16,
+    "dryrun_mae32": 0.1075867144465416,
+    "handoff_offline_mae32": 0.1399
+  },
+  "I3": {
+    "cam_keys": [
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_pcd_1",
+      "front_pcd_2"
+    ],
+    "proprio_keys": [
+      "hand_left_qpos",
+      "hand_right_qpos",
+      "robot0_joint_pos",
+      "task_id",
+      "eef_pose_glass"
+    ],
+    "action_horizon": 64,
+    "action_dim": 49,
+    "num_inference_steps": 16,
+    "dryrun_mae32": 0.10430744295968114,
+    "handoff_offline_mae32": 0.1373
   },
   "J1": {
     "cam_keys": [
@@ -408,7 +537,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.016975572956488338
+    "dryrun_mae32": 0.1143025709015863,
+    "handoff_offline_mae32": 0.14
   },
   "J2": {
     "cam_keys": [
@@ -429,7 +559,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.018117603426397084
+    "dryrun_mae32": 0.14448197045202857,
+    "handoff_offline_mae32": 0.1423
   },
   "J3": {
     "cam_keys": [
@@ -450,7 +581,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.00798586082136945
+    "dryrun_mae32": 0.1182622875335857,
+    "handoff_offline_mae32": 0.1434
   },
   "J3b": {
     "cam_keys": [
@@ -471,7 +603,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.01911844967894059
+    "dryrun_mae32": 0.12766414302910883,
+    "handoff_offline_mae32": 0.1424
   },
   "J4": {
     "cam_keys": [
@@ -492,7 +625,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.009187309342541214
+    "dryrun_mae32": 0.1388110647939239,
+    "handoff_offline_mae32": 0.153
   },
   "J4b": {
     "cam_keys": [
@@ -513,7 +647,8 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.026368726134432283
+    "dryrun_mae32": 0.11055065057385455,
+    "handoff_offline_mae32": 0.1393
   },
   "J5": {
     "cam_keys": [
@@ -534,6 +669,91 @@
     "action_horizon": 64,
     "action_dim": 49,
     "num_inference_steps": 16,
-    "dryrun_mae32": 0.013452271686716484
+    "dryrun_mae32": 0.1426016961657913,
+    "handoff_offline_mae32": 0.1437
+  },
+  "S1": {
+    "cam_keys": [
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_pcd_1",
+      "front_pcd_2"
+    ],
+    "proprio_keys": [
+      "robot0_joint_pos",
+      "task_id",
+      "eef_pose_glass"
+    ],
+    "action_horizon": 64,
+    "action_dim": 49,
+    "num_inference_steps": 16,
+    "dryrun_mae32": 0.11597700501898012,
+    "handoff_offline_mae32": 0.1292
+  },
+  "S2": {
+    "cam_keys": [
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_pcd_1",
+      "front_pcd_2"
+    ],
+    "proprio_keys": [
+      "hand_left_qpos",
+      "hand_right_qpos",
+      "robot0_joint_pos",
+      "task_id",
+      "eef_pose_glass"
+    ],
+    "action_horizon": 64,
+    "action_dim": 49,
+    "num_inference_steps": 16,
+    "dryrun_mae32": 0.10912833666285324,
+    "handoff_offline_mae32": 0.1336
+  },
+  "S3": {
+    "cam_keys": [
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_pcd_1",
+      "front_pcd_2"
+    ],
+    "proprio_keys": [
+      "hand_left_qpos",
+      "hand_right_qpos",
+      "robot0_joint_pos",
+      "task_id",
+      "eef_pose_glass"
+    ],
+    "action_horizon": 64,
+    "action_dim": 49,
+    "num_inference_steps": 16,
+    "dryrun_mae32": 0.11881392778377406,
+    "handoff_offline_mae32": 0.1339
+  },
+  "S4": {
+    "cam_keys": [
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_img_1",
+      "front_pcd_1",
+      "front_pcd_2"
+    ],
+    "proprio_keys": [
+      "robot0_joint_pos",
+      "task_id",
+      "eef_pose_glass"
+    ],
+    "action_horizon": 64,
+    "action_dim": 49,
+    "num_inference_steps": 16,
+    "dryrun_mae32": 0.1358877330275692,
+    "handoff_offline_mae32": 0.1322
   }
 }

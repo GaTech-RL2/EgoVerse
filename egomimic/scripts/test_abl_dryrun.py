@@ -374,7 +374,7 @@ def main():
                 flags.append("SHAPE MISMATCH")
             if m > 2 * med:
                 flags.append("SUSPECT (>2x median — check the §3 config)")
-            if v in EXACTNESS and "APPROX" in EXACTNESS[v]:
+            if args.source != "handoff" and v in EXACTNESS and "APPROX" in EXACTNESS[v]:
                 flags.append("approx-input")
             ref = HANDOFF_OFFLINE_MAE.get(v)
             reftxt = f"  offline {ref:.4f}" if (args.source == "handoff" and ref) else ""
