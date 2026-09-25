@@ -1,0 +1,113 @@
+{
+  "files": {
+    "README.md": {
+      "bytes": 2745,
+      "name": "README.md",
+      "sha256": "fa7fa85911066ed4a7765cc2598c9daa4402f9f12e9c685337097097e58cc802"
+    },
+    "deployment_only_attempt.json": {
+      "bytes": 16514,
+      "name": "deployment_only_attempt.json",
+      "sha256": "aac79f0a7eed67e7bd0e0ddbbd46138db6256dd45c631b965869e18617182bce"
+    },
+    "event_prefixes/worker_0.jsonl.gz": {
+      "bytes": 7578,
+      "name": "event_prefixes/worker_0.jsonl.gz",
+      "sha256": "3b274a372b0e534c4107cb0db4ee9276e047d40286195e8cfdc033a306ce38b9"
+    },
+    "event_prefixes/worker_1.jsonl.gz": {
+      "bytes": 7213,
+      "name": "event_prefixes/worker_1.jsonl.gz",
+      "sha256": "b429d5772f764d5fd3e65381d2a804f6c393b515c095ddfcbe1d97f22bf004ff"
+    },
+    "known_costs.json": {
+      "bytes": 38591,
+      "name": "known_costs.json",
+      "sha256": "80303da8f9bc26062304ee27b6f7473200161c133119e8c12cfe594f062d1cf0"
+    },
+    "providers/worker_0/case_6_0/astra_tei_2_provider.jsonl.gz": {
+      "bytes": 12023,
+      "name": "providers/worker_0/case_6_0/astra_tei_2_provider.jsonl.gz",
+      "sha256": "3d33fa37abd7fefdfa03f3c4f1c1ddd21af685929fa8b57a745a540d1230215b"
+    },
+    "providers/worker_0/case_6_0/astra_tei_3_provider.jsonl.gz": {
+      "bytes": 14270,
+      "name": "providers/worker_0/case_6_0/astra_tei_3_provider.jsonl.gz",
+      "sha256": "5ccdf0c363fd01d1bf661450bf3ba80ef7f509762d94baf085fd1177f345aa9f"
+    },
+    "providers/worker_0/case_6_0/astra_tli_2_provider.jsonl.gz": {
+      "bytes": 12831,
+      "name": "providers/worker_0/case_6_0/astra_tli_2_provider.jsonl.gz",
+      "sha256": "4d8b5c3ed1bb99112a7a4a2c9a04d4b2330e7574e4c4515b1ea0686a73f31279"
+    },
+    "providers/worker_0/case_6_0/astra_tli_3_provider.jsonl.gz": {
+      "bytes": 2546,
+      "name": "providers/worker_0/case_6_0/astra_tli_3_provider.jsonl.gz",
+      "sha256": "d3ce678468740934dbceb82a35bb917c58accd99459fad9aa9f4d99fea276c23"
+    },
+    "providers/worker_1/case_2_0/astra_tei_2_provider.jsonl.gz": {
+      "bytes": 18425,
+      "name": "providers/worker_1/case_2_0/astra_tei_2_provider.jsonl.gz",
+      "sha256": "5c3363640f85ed4a46e24a81d0724c6b3dbb61b2a6cf13f4f6d675851acbac30"
+    },
+    "providers/worker_1/case_2_0/astra_tei_3_provider.jsonl.gz": {
+      "bytes": 20734,
+      "name": "providers/worker_1/case_2_0/astra_tei_3_provider.jsonl.gz",
+      "sha256": "825611b08319fbb66e7024a00f01c0df630353a5f5d9aaabad23209d6760e560"
+    },
+    "providers/worker_1/case_2_0/astra_tli_2_provider.jsonl.gz": {
+      "bytes": 2808,
+      "name": "providers/worker_1/case_2_0/astra_tli_2_provider.jsonl.gz",
+      "sha256": "009bc2acc93e6477e1e6e83ea9519dc3dc417998f3f5f0195ca30fc68a0ca660"
+    },
+    "providers/worker_2/case_8_0/astra_tei_2_provider.jsonl.gz": {
+      "bytes": 3550,
+      "name": "providers/worker_2/case_8_0/astra_tei_2_provider.jsonl.gz",
+      "sha256": "1a8c48d165d901a4a2394876c3c0e7060d9920ab0033e3250bcb370daeb80632"
+    },
+    "providers/worker_2/case_8_0/astra_tli_2_provider.jsonl.gz": {
+      "bytes": 4198,
+      "name": "providers/worker_2/case_8_0/astra_tli_2_provider.jsonl.gz",
+      "sha256": "9812b3f6faa3d51bfbc260390a9e1c56b89594c18f210d806556b066a81e76ae"
+    },
+    "providers/worker_2/case_8_0/astra_tli_vision_2_provider.jsonl.gz": {
+      "bytes": 5374,
+      "name": "providers/worker_2/case_8_0/astra_tli_vision_2_provider.jsonl.gz",
+      "sha256": "2355e085a228b8e5bab549b48e12c862bda963dd18bd2792f49db770c724d40f"
+    },
+    "published_calls.csv": {
+      "bytes": 24446,
+      "name": "published_calls.csv",
+      "sha256": "1b6459420e1229868df058027cf79f546b485a746de489abcc6f2ee79691021f"
+    },
+    "source/build_interruption.py.txt": {
+      "bytes": 39187,
+      "name": "source/build_interruption.py.txt",
+      "sha256": "96431a1688cb97cff2c2fe9a1677a61da560a88347b1a841c7f6c2f768146485"
+    },
+    "source_identity.json": {
+      "bytes": 185,
+      "name": "source_identity.json",
+      "sha256": "0e5aff2d557edbb36f563d2cbb0add0892c39c49243a4fb5a1298029e5b80149"
+    },
+    "workflow.json": {
+      "bytes": 8342,
+      "name": "workflow.json",
+      "sha256": "3809c5ed6fd547cdd67b3f254e6f2f547aecc28903ccee3175b2d6c76d6908d3"
+    }
+  },
+  "schema_version": "phase-interpolation-interruption-files-1.0",
+  "source_snapshot": {
+    "original_name": "build_interruption.py",
+    "published_name": "source/build_interruption.py.txt",
+    "sha256": "96431a1688cb97cff2c2fe9a1677a61da560a88347b1a841c7f6c2f768146485"
+  },
+  "validation": {
+    "complete_case_efficacy_claimed_for_interrupted_workers": false,
+    "endpoint_urls_omitted": true,
+    "provider_usage_matches_raw_responses": true,
+    "published_calls_unique": 77,
+    "source_payload_identity_equal": true,
+    "unknown_tail_retained": true
+  }
+}

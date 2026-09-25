@@ -1,0 +1,4785 @@
+{
+  "case": {
+    "arm_outcomes": {
+      "astra_tei": {
+        "rollouts": [
+          {
+            "actions": 300,
+            "attempt_id": "recovered_noise_1",
+            "success": false
+          },
+          {
+            "actions": 300,
+            "attempt_id": "astra_tei_2",
+            "success": false
+          },
+          {
+            "actions": 300,
+            "attempt_id": "astra_tei_3",
+            "success": false
+          }
+        ],
+        "summary": {
+          "actions_through_success_or_cap": 900,
+          "attempt_budget": 3,
+          "censored_without_success": true,
+          "decisions_through_success_or_cap": 24,
+          "development_extra_rollouts_after_success": 0,
+          "first_success_attempt": null,
+          "full_rollout_revisions_to_success": null,
+          "physical_actions": 900,
+          "physical_decisions": 24,
+          "physical_velocity_evaluations": 1800,
+          "provider": {
+            "accepted_proposals": 24,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 24
+            },
+            "client_attempts": 24,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {
+              "200": 24
+            },
+            "latency_seconds": 242.17494977405295,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 24,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 203332
+              },
+              "output_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 7546
+              },
+              "reasoning_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 1117
+              },
+              "total_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 210878
+              }
+            },
+            "usage_available_calls": 24,
+            "usage_unavailable_calls": 0
+          },
+          "provider_through_success_or_cap": {
+            "accepted_proposals": 24,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 24
+            },
+            "client_attempts": 24,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {
+              "200": 24
+            },
+            "latency_seconds": 242.17494977405295,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 24,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 203332
+              },
+              "output_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 7546
+              },
+              "reasoning_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 1117
+              },
+              "total_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 210878
+              }
+            },
+            "usage_available_calls": 24,
+            "usage_unavailable_calls": 0
+          },
+          "rollout_seconds_through_success_or_cap": 407.5013901460916,
+          "rollouts_executed": 3,
+          "standalone_velocity_evaluations_through_success_or_cap": 3080,
+          "success": false,
+          "success_by_attempt": [
+            false,
+            false,
+            false
+          ],
+          "tokens_to_first_success": null,
+          "velocity_evaluations_through_success_or_cap": 1800,
+          "within_successful_rollout_decisions": null
+        }
+      },
+      "astra_tli": {
+        "rollouts": [
+          {
+            "actions": 300,
+            "attempt_id": "recovered_noise_1",
+            "success": false
+          },
+          {
+            "actions": 300,
+            "attempt_id": "astra_tli_2",
+            "success": false
+          },
+          {
+            "actions": 96,
+            "attempt_id": "astra_tli_3",
+            "success": true
+          }
+        ],
+        "summary": {
+          "actions_through_success_or_cap": 696,
+          "attempt_budget": 3,
+          "censored_without_success": false,
+          "decisions_through_success_or_cap": 16,
+          "development_extra_rollouts_after_success": 0,
+          "first_success_attempt": 3,
+          "full_rollout_revisions_to_success": 2,
+          "physical_actions": 696,
+          "physical_decisions": 16,
+          "physical_velocity_evaluations": 1400,
+          "provider": {
+            "accepted_proposals": 14,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 16
+            },
+            "client_attempts": 16,
+            "errors": {
+              "proposal_rejected: request_fingerprint must be a SHA256 digest": 2
+            },
+            "failed_calls": 2,
+            "http_status": {
+              "200": 16
+            },
+            "latency_seconds": 198.81326076493133,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 16,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 111745
+              },
+              "output_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 4859
+              },
+              "reasoning_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 362
+              },
+              "total_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 116604
+              }
+            },
+            "usage_available_calls": 16,
+            "usage_unavailable_calls": 0
+          },
+          "provider_through_success_or_cap": {
+            "accepted_proposals": 14,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 16
+            },
+            "client_attempts": 16,
+            "errors": {
+              "proposal_rejected: request_fingerprint must be a SHA256 digest": 2
+            },
+            "failed_calls": 2,
+            "http_status": {
+              "200": 16
+            },
+            "latency_seconds": 198.81326076493133,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 16,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 111745
+              },
+              "output_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 4859
+              },
+              "reasoning_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 362
+              },
+              "total_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 116604
+              }
+            },
+            "usage_available_calls": 16,
+            "usage_unavailable_calls": 0
+          },
+          "rollout_seconds_through_success_or_cap": 343.37586283206474,
+          "rollouts_executed": 3,
+          "standalone_velocity_evaluations_through_success_or_cap": 2680,
+          "success": true,
+          "success_by_attempt": [
+            false,
+            false,
+            true
+          ],
+          "tokens_to_first_success": {
+            "accepted_proposals": 14,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 16
+            },
+            "client_attempts": 16,
+            "errors": {
+              "proposal_rejected: request_fingerprint must be a SHA256 digest": 2
+            },
+            "failed_calls": 2,
+            "http_status": {
+              "200": 16
+            },
+            "latency_seconds": 198.81326076493133,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 16,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 111745
+              },
+              "output_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 4859
+              },
+              "reasoning_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 362
+              },
+              "total_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 116604
+              }
+            },
+            "usage_available_calls": 16,
+            "usage_unavailable_calls": 0
+          },
+          "velocity_evaluations_through_success_or_cap": 1400,
+          "within_successful_rollout_decisions": 4
+        }
+      },
+      "astra_tli_vision": {
+        "rollouts": [
+          {
+            "actions": 300,
+            "attempt_id": "recovered_noise_1",
+            "success": false
+          },
+          {
+            "actions": 135,
+            "attempt_id": "astra_tli_vision_2",
+            "success": true
+          }
+        ],
+        "summary": {
+          "actions_through_success_or_cap": 435,
+          "attempt_budget": 3,
+          "censored_without_success": false,
+          "decisions_through_success_or_cap": 6,
+          "development_extra_rollouts_after_success": 0,
+          "first_success_attempt": 2,
+          "full_rollout_revisions_to_success": 1,
+          "physical_actions": 435,
+          "physical_decisions": 6,
+          "physical_velocity_evaluations": 870,
+          "provider": {
+            "accepted_proposals": 5,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 6
+            },
+            "client_attempts": 6,
+            "errors": {
+              "proposal_rejected: Proposal does not echo request_fingerprint": 1
+            },
+            "failed_calls": 1,
+            "http_status": {
+              "200": 6
+            },
+            "latency_seconds": 55.07122088014148,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 6,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 32958
+              },
+              "output_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 1939
+              },
+              "reasoning_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 305
+              },
+              "total_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 34897
+              }
+            },
+            "usage_available_calls": 6,
+            "usage_unavailable_calls": 0
+          },
+          "provider_through_success_or_cap": {
+            "accepted_proposals": 5,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 6
+            },
+            "client_attempts": 6,
+            "errors": {
+              "proposal_rejected: Proposal does not echo request_fingerprint": 1
+            },
+            "failed_calls": 1,
+            "http_status": {
+              "200": 6
+            },
+            "latency_seconds": 55.07122088014148,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 6,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 32958
+              },
+              "output_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 1939
+              },
+              "reasoning_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 305
+              },
+              "total_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 34897
+              }
+            },
+            "usage_available_calls": 6,
+            "usage_unavailable_calls": 0
+          },
+          "rollout_seconds_through_success_or_cap": 138.72558029193897,
+          "rollouts_executed": 2,
+          "standalone_velocity_evaluations_through_success_or_cap": 2150,
+          "success": true,
+          "success_by_attempt": [
+            false,
+            true,
+            true
+          ],
+          "tokens_to_first_success": {
+            "accepted_proposals": 5,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 6
+            },
+            "client_attempts": 6,
+            "errors": {
+              "proposal_rejected: Proposal does not echo request_fingerprint": 1
+            },
+            "failed_calls": 1,
+            "http_status": {
+              "200": 6
+            },
+            "latency_seconds": 55.07122088014148,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 6,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 32958
+              },
+              "output_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 1939
+              },
+              "reasoning_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 305
+              },
+              "total_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 34897
+              }
+            },
+            "usage_available_calls": 6,
+            "usage_unavailable_calls": 0
+          },
+          "velocity_evaluations_through_success_or_cap": 870,
+          "within_successful_rollout_decisions": 6
+        }
+      },
+      "oracle_tei": {
+        "rollouts": [
+          {
+            "actions": 300,
+            "attempt_id": "recovered_noise_1",
+            "success": false
+          },
+          {
+            "actions": 93,
+            "attempt_id": "oracle_tei_2",
+            "success": true
+          }
+        ],
+        "summary": {
+          "actions_through_success_or_cap": 393,
+          "attempt_budget": 2,
+          "censored_without_success": false,
+          "decisions_through_success_or_cap": 0,
+          "development_extra_rollouts_after_success": 0,
+          "first_success_attempt": 2,
+          "full_rollout_revisions_to_success": 1,
+          "physical_actions": 393,
+          "physical_decisions": 0,
+          "physical_velocity_evaluations": 790,
+          "provider": {
+            "accepted_proposals": 0,
+            "actual_models": {},
+            "client_attempts": 0,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {},
+            "latency_seconds": 0,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 0,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "output_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "reasoning_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "total_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              }
+            },
+            "usage_available_calls": 0,
+            "usage_unavailable_calls": 0
+          },
+          "provider_through_success_or_cap": {
+            "accepted_proposals": 0,
+            "actual_models": {},
+            "client_attempts": 0,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {},
+            "latency_seconds": 0,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 0,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "output_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "reasoning_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "total_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              }
+            },
+            "usage_available_calls": 0,
+            "usage_unavailable_calls": 0
+          },
+          "rollout_seconds_through_success_or_cap": 57.245924334041774,
+          "rollouts_executed": 2,
+          "standalone_velocity_evaluations_through_success_or_cap": 2070,
+          "success": true,
+          "success_by_attempt": [
+            false,
+            true
+          ],
+          "tokens_to_first_success": {
+            "accepted_proposals": 0,
+            "actual_models": {},
+            "client_attempts": 0,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {},
+            "latency_seconds": 0,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 0,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "output_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "reasoning_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "total_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              }
+            },
+            "usage_available_calls": 0,
+            "usage_unavailable_calls": 0
+          },
+          "velocity_evaluations_through_success_or_cap": 790,
+          "within_successful_rollout_decisions": 0
+        }
+      },
+      "oracle_tei_tli": {
+        "rollouts": [
+          {
+            "actions": 300,
+            "attempt_id": "recovered_noise_1",
+            "success": false
+          },
+          {
+            "actions": 300,
+            "attempt_id": "oracle_tei_tli_2",
+            "success": false
+          }
+        ],
+        "summary": {
+          "actions_through_success_or_cap": 600,
+          "attempt_budget": 2,
+          "censored_without_success": true,
+          "decisions_through_success_or_cap": 0,
+          "development_extra_rollouts_after_success": 0,
+          "first_success_attempt": null,
+          "full_rollout_revisions_to_success": null,
+          "physical_actions": 600,
+          "physical_decisions": 0,
+          "physical_velocity_evaluations": 1200,
+          "provider": {
+            "accepted_proposals": 0,
+            "actual_models": {},
+            "client_attempts": 0,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {},
+            "latency_seconds": 0,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 0,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "output_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "reasoning_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "total_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              }
+            },
+            "usage_available_calls": 0,
+            "usage_unavailable_calls": 0
+          },
+          "provider_through_success_or_cap": {
+            "accepted_proposals": 0,
+            "actual_models": {},
+            "client_attempts": 0,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {},
+            "latency_seconds": 0,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 0,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "output_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "reasoning_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "total_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              }
+            },
+            "usage_available_calls": 0,
+            "usage_unavailable_calls": 0
+          },
+          "rollout_seconds_through_success_or_cap": 76.19674102589488,
+          "rollouts_executed": 2,
+          "standalone_velocity_evaluations_through_success_or_cap": 2480,
+          "success": false,
+          "success_by_attempt": [
+            false,
+            false
+          ],
+          "tokens_to_first_success": null,
+          "velocity_evaluations_through_success_or_cap": 1200,
+          "within_successful_rollout_decisions": null
+        }
+      },
+      "oracle_tli": {
+        "rollouts": [
+          {
+            "actions": 300,
+            "attempt_id": "recovered_noise_1",
+            "success": false
+          },
+          {
+            "actions": 300,
+            "attempt_id": "oracle_tli_2",
+            "success": false
+          }
+        ],
+        "summary": {
+          "actions_through_success_or_cap": 600,
+          "attempt_budget": 2,
+          "censored_without_success": true,
+          "decisions_through_success_or_cap": 0,
+          "development_extra_rollouts_after_success": 0,
+          "first_success_attempt": null,
+          "full_rollout_revisions_to_success": null,
+          "physical_actions": 600,
+          "physical_decisions": 0,
+          "physical_velocity_evaluations": 1200,
+          "provider": {
+            "accepted_proposals": 0,
+            "actual_models": {},
+            "client_attempts": 0,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {},
+            "latency_seconds": 0,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 0,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "output_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "reasoning_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "total_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              }
+            },
+            "usage_available_calls": 0,
+            "usage_unavailable_calls": 0
+          },
+          "provider_through_success_or_cap": {
+            "accepted_proposals": 0,
+            "actual_models": {},
+            "client_attempts": 0,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {},
+            "latency_seconds": 0,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 0,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "output_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "reasoning_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "total_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              }
+            },
+            "usage_available_calls": 0,
+            "usage_unavailable_calls": 0
+          },
+          "rollout_seconds_through_success_or_cap": 75.9906579470262,
+          "rollouts_executed": 2,
+          "standalone_velocity_evaluations_through_success_or_cap": 2480,
+          "success": false,
+          "success_by_attempt": [
+            false,
+            false
+          ],
+          "tokens_to_first_success": null,
+          "velocity_evaluations_through_success_or_cap": 1200,
+          "within_successful_rollout_decisions": null
+        }
+      },
+      "random_noise": {
+        "rollouts": [
+          {
+            "actions": 300,
+            "attempt_id": "recovered_noise_1",
+            "success": false
+          },
+          {
+            "actions": 300,
+            "attempt_id": "random_noise_2",
+            "success": false
+          },
+          {
+            "actions": 300,
+            "attempt_id": "random_noise_3",
+            "success": false
+          }
+        ],
+        "summary": {
+          "actions_through_success_or_cap": 900,
+          "attempt_budget": 3,
+          "censored_without_success": true,
+          "decisions_through_success_or_cap": 0,
+          "development_extra_rollouts_after_success": 0,
+          "first_success_attempt": null,
+          "full_rollout_revisions_to_success": null,
+          "physical_actions": 900,
+          "physical_decisions": 0,
+          "physical_velocity_evaluations": 1800,
+          "provider": {
+            "accepted_proposals": 0,
+            "actual_models": {},
+            "client_attempts": 0,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {},
+            "latency_seconds": 0,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 0,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "output_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "reasoning_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "total_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              }
+            },
+            "usage_available_calls": 0,
+            "usage_unavailable_calls": 0
+          },
+          "provider_through_success_or_cap": {
+            "accepted_proposals": 0,
+            "actual_models": {},
+            "client_attempts": 0,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {},
+            "latency_seconds": 0,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 0,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "output_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "reasoning_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              },
+              "total_tokens": {
+                "available_calls": 0,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 0
+              }
+            },
+            "usage_available_calls": 0,
+            "usage_unavailable_calls": 0
+          },
+          "rollout_seconds_through_success_or_cap": 95.66713928885292,
+          "rollouts_executed": 3,
+          "standalone_velocity_evaluations_through_success_or_cap": 3080,
+          "success": false,
+          "success_by_attempt": [
+            false,
+            false,
+            false
+          ],
+          "tokens_to_first_success": null,
+          "velocity_evaluations_through_success_or_cap": 1800,
+          "within_successful_rollout_decisions": null
+        }
+      }
+    },
+    "astra_arms": {
+      "astra_tei": {
+        "intervention_attempts": [
+          {
+            "accepted_decisions_executed": 12,
+            "actions_executed": 300,
+            "actions_with_accepted_decision": 300,
+            "actions_with_changed_vision": 0,
+            "actions_with_held_text_after_failed_call": 0,
+            "actions_with_nonzero_text": 300,
+            "applied_accepted_decision_ids": [
+              "astra_tei_2_d1",
+              "astra_tei_2_d2",
+              "astra_tei_2_d3",
+              "astra_tei_2_d4",
+              "astra_tei_2_d5",
+              "astra_tei_2_d6",
+              "astra_tei_2_d7",
+              "astra_tei_2_d8",
+              "astra_tei_2_d9",
+              "astra_tei_2_d10",
+              "astra_tei_2_d11",
+              "astra_tei_2_d12"
+            ],
+            "attempt_id": "astra_tei_2",
+            "iteration": 2,
+            "native_condition_fallback_actions": 0,
+            "success": false
+          },
+          {
+            "accepted_decisions_executed": 12,
+            "actions_executed": 300,
+            "actions_with_accepted_decision": 300,
+            "actions_with_changed_vision": 0,
+            "actions_with_held_text_after_failed_call": 0,
+            "actions_with_nonzero_text": 300,
+            "applied_accepted_decision_ids": [
+              "astra_tei_3_d1",
+              "astra_tei_3_d2",
+              "astra_tei_3_d3",
+              "astra_tei_3_d4",
+              "astra_tei_3_d5",
+              "astra_tei_3_d6",
+              "astra_tei_3_d7",
+              "astra_tei_3_d8",
+              "astra_tei_3_d9",
+              "astra_tei_3_d10",
+              "astra_tei_3_d11",
+              "astra_tei_3_d12"
+            ],
+            "attempt_id": "astra_tei_3",
+            "iteration": 3,
+            "native_condition_fallback_actions": 0,
+            "success": false
+          }
+        ],
+        "summary": {
+          "actions_through_success_or_cap": 900,
+          "attempt_budget": 3,
+          "censored_without_success": true,
+          "decisions_through_success_or_cap": 24,
+          "development_extra_rollouts_after_success": 0,
+          "first_success_attempt": null,
+          "full_rollout_revisions_to_success": null,
+          "physical_actions": 900,
+          "physical_decisions": 24,
+          "physical_velocity_evaluations": 1800,
+          "provider": {
+            "accepted_proposals": 24,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 24
+            },
+            "client_attempts": 24,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {
+              "200": 24
+            },
+            "latency_seconds": 242.17494977405295,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 24,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 203332
+              },
+              "output_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 7546
+              },
+              "reasoning_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 1117
+              },
+              "total_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 210878
+              }
+            },
+            "usage_available_calls": 24,
+            "usage_unavailable_calls": 0
+          },
+          "provider_through_success_or_cap": {
+            "accepted_proposals": 24,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 24
+            },
+            "client_attempts": 24,
+            "errors": {},
+            "failed_calls": 0,
+            "http_status": {
+              "200": 24
+            },
+            "latency_seconds": 242.17494977405295,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 24,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 203332
+              },
+              "output_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 7546
+              },
+              "reasoning_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 1117
+              },
+              "total_tokens": {
+                "available_calls": 24,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 210878
+              }
+            },
+            "usage_available_calls": 24,
+            "usage_unavailable_calls": 0
+          },
+          "rollout_seconds_through_success_or_cap": 407.5013901460916,
+          "rollouts_executed": 3,
+          "standalone_velocity_evaluations_through_success_or_cap": 3080,
+          "success": false,
+          "success_by_attempt": [
+            false,
+            false,
+            false
+          ],
+          "tokens_to_first_success": null,
+          "velocity_evaluations_through_success_or_cap": 1800,
+          "within_successful_rollout_decisions": null
+        }
+      },
+      "astra_tli": {
+        "intervention_attempts": [
+          {
+            "accepted_decisions_executed": 10,
+            "actions_executed": 300,
+            "actions_with_accepted_decision": 300,
+            "actions_with_changed_vision": 0,
+            "actions_with_held_text_after_failed_call": 50,
+            "actions_with_nonzero_text": 300,
+            "applied_accepted_decision_ids": [
+              "astra_tli_2_d1",
+              "astra_tli_2_d2",
+              "astra_tli_2_d3",
+              "astra_tli_2_d4",
+              "astra_tli_2_d6",
+              "astra_tli_2_d8",
+              "astra_tli_2_d9",
+              "astra_tli_2_d10",
+              "astra_tli_2_d11",
+              "astra_tli_2_d12"
+            ],
+            "attempt_id": "astra_tli_2",
+            "iteration": 2,
+            "native_condition_fallback_actions": 0,
+            "success": false
+          },
+          {
+            "accepted_decisions_executed": 4,
+            "actions_executed": 96,
+            "actions_with_accepted_decision": 96,
+            "actions_with_changed_vision": 0,
+            "actions_with_held_text_after_failed_call": 0,
+            "actions_with_nonzero_text": 96,
+            "applied_accepted_decision_ids": [
+              "astra_tli_3_d1",
+              "astra_tli_3_d2",
+              "astra_tli_3_d3",
+              "astra_tli_3_d4"
+            ],
+            "attempt_id": "astra_tli_3",
+            "iteration": 3,
+            "native_condition_fallback_actions": 0,
+            "success": true
+          }
+        ],
+        "summary": {
+          "actions_through_success_or_cap": 696,
+          "attempt_budget": 3,
+          "censored_without_success": false,
+          "decisions_through_success_or_cap": 16,
+          "development_extra_rollouts_after_success": 0,
+          "first_success_attempt": 3,
+          "full_rollout_revisions_to_success": 2,
+          "physical_actions": 696,
+          "physical_decisions": 16,
+          "physical_velocity_evaluations": 1400,
+          "provider": {
+            "accepted_proposals": 14,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 16
+            },
+            "client_attempts": 16,
+            "errors": {
+              "proposal_rejected: request_fingerprint must be a SHA256 digest": 2
+            },
+            "failed_calls": 2,
+            "http_status": {
+              "200": 16
+            },
+            "latency_seconds": 198.81326076493133,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 16,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 111745
+              },
+              "output_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 4859
+              },
+              "reasoning_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 362
+              },
+              "total_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 116604
+              }
+            },
+            "usage_available_calls": 16,
+            "usage_unavailable_calls": 0
+          },
+          "provider_through_success_or_cap": {
+            "accepted_proposals": 14,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 16
+            },
+            "client_attempts": 16,
+            "errors": {
+              "proposal_rejected: request_fingerprint must be a SHA256 digest": 2
+            },
+            "failed_calls": 2,
+            "http_status": {
+              "200": 16
+            },
+            "latency_seconds": 198.81326076493133,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 16,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 111745
+              },
+              "output_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 4859
+              },
+              "reasoning_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 362
+              },
+              "total_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 116604
+              }
+            },
+            "usage_available_calls": 16,
+            "usage_unavailable_calls": 0
+          },
+          "rollout_seconds_through_success_or_cap": 343.37586283206474,
+          "rollouts_executed": 3,
+          "standalone_velocity_evaluations_through_success_or_cap": 2680,
+          "success": true,
+          "success_by_attempt": [
+            false,
+            false,
+            true
+          ],
+          "tokens_to_first_success": {
+            "accepted_proposals": 14,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 16
+            },
+            "client_attempts": 16,
+            "errors": {
+              "proposal_rejected: request_fingerprint must be a SHA256 digest": 2
+            },
+            "failed_calls": 2,
+            "http_status": {
+              "200": 16
+            },
+            "latency_seconds": 198.81326076493133,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 16,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 111745
+              },
+              "output_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 4859
+              },
+              "reasoning_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 362
+              },
+              "total_tokens": {
+                "available_calls": 16,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 116604
+              }
+            },
+            "usage_available_calls": 16,
+            "usage_unavailable_calls": 0
+          },
+          "velocity_evaluations_through_success_or_cap": 1400,
+          "within_successful_rollout_decisions": 4
+        }
+      },
+      "astra_tli_vision": {
+        "intervention_attempts": [
+          {
+            "accepted_decisions_executed": 5,
+            "actions_executed": 135,
+            "actions_with_accepted_decision": 135,
+            "actions_with_changed_vision": 25,
+            "actions_with_held_text_after_failed_call": 25,
+            "actions_with_nonzero_text": 135,
+            "applied_accepted_decision_ids": [
+              "astra_tli_vision_2_d1",
+              "astra_tli_vision_2_d3",
+              "astra_tli_vision_2_d4",
+              "astra_tli_vision_2_d5",
+              "astra_tli_vision_2_d6"
+            ],
+            "attempt_id": "astra_tli_vision_2",
+            "iteration": 2,
+            "native_condition_fallback_actions": 0,
+            "success": true
+          }
+        ],
+        "summary": {
+          "actions_through_success_or_cap": 435,
+          "attempt_budget": 3,
+          "censored_without_success": false,
+          "decisions_through_success_or_cap": 6,
+          "development_extra_rollouts_after_success": 0,
+          "first_success_attempt": 2,
+          "full_rollout_revisions_to_success": 1,
+          "physical_actions": 435,
+          "physical_decisions": 6,
+          "physical_velocity_evaluations": 870,
+          "provider": {
+            "accepted_proposals": 5,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 6
+            },
+            "client_attempts": 6,
+            "errors": {
+              "proposal_rejected: Proposal does not echo request_fingerprint": 1
+            },
+            "failed_calls": 1,
+            "http_status": {
+              "200": 6
+            },
+            "latency_seconds": 55.07122088014148,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 6,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 32958
+              },
+              "output_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 1939
+              },
+              "reasoning_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 305
+              },
+              "total_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 34897
+              }
+            },
+            "usage_available_calls": 6,
+            "usage_unavailable_calls": 0
+          },
+          "provider_through_success_or_cap": {
+            "accepted_proposals": 5,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 6
+            },
+            "client_attempts": 6,
+            "errors": {
+              "proposal_rejected: Proposal does not echo request_fingerprint": 1
+            },
+            "failed_calls": 1,
+            "http_status": {
+              "200": 6
+            },
+            "latency_seconds": 55.07122088014148,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 6,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 32958
+              },
+              "output_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 1939
+              },
+              "reasoning_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 305
+              },
+              "total_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 34897
+              }
+            },
+            "usage_available_calls": 6,
+            "usage_unavailable_calls": 0
+          },
+          "rollout_seconds_through_success_or_cap": 138.72558029193897,
+          "rollouts_executed": 2,
+          "standalone_velocity_evaluations_through_success_or_cap": 2150,
+          "success": true,
+          "success_by_attempt": [
+            false,
+            true,
+            true
+          ],
+          "tokens_to_first_success": {
+            "accepted_proposals": 5,
+            "actual_models": {
+              "azure/openai/gpt-6-astra": 6
+            },
+            "client_attempts": 6,
+            "errors": {
+              "proposal_rejected: Proposal does not echo request_fingerprint": 1
+            },
+            "failed_calls": 1,
+            "http_status": {
+              "200": 6
+            },
+            "latency_seconds": 55.07122088014148,
+            "monetary_cost": null,
+            "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+            "preflight_errors": {},
+            "preflight_failures": 0,
+            "preflight_latency_seconds": 0,
+            "provider_calls": 6,
+            "reasoning_tokens_are_subset_of_output_tokens": true,
+            "tokens": {
+              "input_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 32958
+              },
+              "output_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 1939
+              },
+              "reasoning_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 305
+              },
+              "total_tokens": {
+                "available_calls": 6,
+                "complete": true,
+                "missing_calls": 0,
+                "sum": 34897
+              }
+            },
+            "usage_available_calls": 6,
+            "usage_unavailable_calls": 0
+          },
+          "velocity_evaluations_through_success_or_cap": 870,
+          "within_successful_rollout_decisions": 6
+        }
+      }
+    },
+    "baseline": {
+      "actions": 300,
+      "success": false
+    },
+    "calls": [
+      {
+        "accepted": true,
+        "active_text_before_call": null,
+        "applied_accepted_decision_id": "astra_tei_2_d1",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 1,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.25,
+          "observed_phase": "Initial approach; gripper open above the table, orange juice carton still behind the bowl.",
+          "rationale": "Favor the cream-cheese donor for approaching and grasping a packaged rectangular object, while retaining some stove-destination conditioning. The completed failed rollout visibly moved the bowl onto the stove instead of the orange juice, so strong bowl-source conditioning at acquisition risks repeating that object-selection error. The current reset shows no object grasped.",
+          "source_a_id": "13",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 455,
+        "request_fingerprint": "fef89ca3a72ab5dc8fc4de15702f09eee8b1ae27e12b6ddcacae5cf47ccb8bba",
+        "response_text_sha256": "0eda9c17cb4d30389219c5fd57d5d0b031fc89f42b99f3128d661603510fc9c5",
+        "revision": 1,
+        "same_attempt_history_count": 0,
+        "step": 0,
+        "token_usage": {
+          "input_tokens": 4016,
+          "output_tokens": 254,
+          "reasoning_tokens": 25,
+          "total_tokens": 4270
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.25,
+          "source_a_id": "13",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d2",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 2,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.25,
+          "observed_phase": "Descending toward the carton behind the bowl; fingers remain open, with no confirmed grasp or lift.",
+          "rationale": "The current image sequence shows the gripper lowering near the orange juice carton while the bowl remains on the table. Continue the package-oriented acquisition blend rather than increasing bowl/stove conditioning before a grasp is visible. Retain a smaller stove contribution for the eventual transfer; the previous completed rollout's bowl placement was unsuccessful.",
+          "source_a_id": "13",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 462,
+        "request_fingerprint": "adc3706b640c53c50f4744a4de7c815084a3957cfa2e9efbe58f0f4fc41001f1",
+        "response_text_sha256": "bc91257bce7466bdb1cc949785c26a878dd1d409cce3e15d478c269c7feca22d",
+        "revision": 1,
+        "same_attempt_history_count": 1,
+        "step": 25,
+        "token_usage": {
+          "input_tokens": 5298,
+          "output_tokens": 259,
+          "reasoning_tokens": 31,
+          "total_tokens": 5557
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.25,
+          "source_a_id": "13",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d3",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 3,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.15,
+          "observed_phase": "Acquisition needs recovery: fingers have nearly closed near the bowl, but the orange juice carton is not visibly lifted.",
+          "rationale": "The current wrist views show the bowl beside the closing fingers rather than a secured carton. The earlier assessment of a carton-directed approach is not supported by these newer views. Switch to predominantly wine-bottle conditioning to favor acquisition of an upright beverage container, reducing the bowl-associated conditioning present in both previous donors. Keep only a small stove contribution until a carton grasp is visually supported; no successful placement is observed.",
+          "source_a_id": "14",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 469,
+        "request_fingerprint": "a9d0f9a498e3ff60b9dab4618c069725c68445c22c237cc1edfc8db760f02b3c",
+        "response_text_sha256": "6e648df173dffc7bf929ef941780270836d67c5e1d9d4fedbf78b1c259c4e375",
+        "revision": 1,
+        "same_attempt_history_count": 2,
+        "step": 50,
+        "token_usage": {
+          "input_tokens": 5570,
+          "output_tokens": 281,
+          "reasoning_tokens": 31,
+          "total_tokens": 5851
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.15,
+          "source_a_id": "14",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d4",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 4,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.0,
+          "observed_phase": "Wrong-object lift: the bowl appears held beneath the rising gripper, while the orange juice carton remains on the table. Recovery is needed.",
+          "rationale": "Across the current frames, the bowl rises with the gripper and stays prominent in the wrist view; the carton remains stationary below. This contradicts the earlier interpretation of an unsecured grasp. Temporarily use the bowl-on-plate donor to favor setting down the mistakenly acquired bowl at the visible plate, rather than carrying it toward the cabinet or repeating the previous unsuccessful bowl-on-stove rollout. Carton acquisition must be reassessed after release; no target success is observed.",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 476,
+        "request_fingerprint": "cfaf71bd19f47b3c58768c8f214ae39513db527197e7612735c8bd53f2c79026",
+        "response_text_sha256": "489218129e1ee0da8c16e15e48a866f51cfadc4188cb647f7571b788acfa76a5",
+        "revision": 1,
+        "same_attempt_history_count": 3,
+        "step": 75,
+        "token_usage": {
+          "input_tokens": 5864,
+          "output_tokens": 357,
+          "reasoning_tokens": 93,
+          "total_tokens": 6221
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.0,
+          "source_a_id": "10",
+          "source_b_id": "13"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d5",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 5,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.0,
+          "observed_phase": "Recovery placement underway: the mistakenly grasped bowl is descending toward the plate; release is not yet visible.",
+          "rationale": "The current frames show the bowl moving downward with the gripper toward the plate, while the fingers remain nearly closed. Retain the bowl-on-plate conditioning to finish setting down the wrong object before attempting carton acquisition. Switching to beverage or stove conditioning while the bowl is still held risks carrying it elsewhere again. The orange juice has not visibly been placed on the stove.",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 483,
+        "request_fingerprint": "1ef081cebd3680d2ea71b998485609743f2af47c6d1f2228dd6428c0d86a5ffd",
+        "response_text_sha256": "dab5dc8e19a2bdc634aaf905aa04ed426ffc2076b51899e9b94ced72da46736b",
+        "revision": 1,
+        "same_attempt_history_count": 4,
+        "step": 100,
+        "token_usage": {
+          "input_tokens": 6177,
+          "output_tokens": 237,
+          "reasoning_tokens": 0,
+          "total_tokens": 6414
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.0,
+          "source_a_id": "10",
+          "source_b_id": "13"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d6",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 6,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.0,
+          "observed_phase": "The bowl appears seated on the plate and the fingers are opening. Recovery release is underway; orange juice acquisition remains unconfirmed.",
+          "rationale": "The latest views show the bowl overlapping the plate, while finger separation has increased after descent. Shift from bowl placement to the packaged-object donor to encourage approaching the orange juice carton. Use no bowl/stove contribution during renewed acquisition because the earlier mixed conditioning selected the bowl. The wine-bottle donor also risks selecting the visible wine bottle. Reassess the grasp before introducing stove-destination conditioning; this recovery placement is not target success.",
+          "source_a_id": "13",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 490,
+        "request_fingerprint": "474cdc74e7aa6a01619de4e6ee43bbbc8bfb048e2fcf1599271ce38d18e93b4d",
+        "response_text_sha256": "3abb816581eef41b949fc283a3fa740bf100fdc19fe2a25d3deaa64302b7ca4d",
+        "revision": 1,
+        "same_attempt_history_count": 5,
+        "step": 125,
+        "token_usage": {
+          "input_tokens": 6465,
+          "output_tokens": 345,
+          "reasoning_tokens": 88,
+          "total_tokens": 6810
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.0,
+          "source_a_id": "13",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d7",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 7,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.4,
+          "observed_phase": "Bowl released on the plate; open gripper hovers nearby with little lateral movement. No orange juice grasp is visible.",
+          "rationale": "The bowl remains on the plate as the open gripper rises slightly across the current frames. Pure cream-cheese conditioning has not visibly initiated a new acquisition. Blend the packaged-object donor with the wine-bottle donor to test beverage-container acquisition while retaining package-related conditioning. This may select the wine bottle instead, so the next grasp needs visual reassessment. Omit the stove/bowl donor for now because earlier acquisition selected the bowl; introduce stove conditioning only after a carton grasp is supported.",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 497,
+        "request_fingerprint": "bfa3436afd978566deefc90219d8cae760540c2cc8ef2a4642dca8fc99223889",
+        "response_text_sha256": "76536701bcea9b5529a494e359b394d690a55189076369bebf3d790cc9404292",
+        "revision": 1,
+        "same_attempt_history_count": 6,
+        "step": 150,
+        "token_usage": {
+          "input_tokens": 6756,
+          "output_tokens": 288,
+          "reasoning_tokens": 24,
+          "total_tokens": 7044
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.4,
+          "source_a_id": "13",
+          "source_b_id": "14"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d8",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 8,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.65,
+          "observed_phase": "Acquisition remains stalled: the open gripper hovers near the bowl and plate, with no visible carton grasp or lift.",
+          "rationale": "The current frames show only small gripper movements while the bowl stays on the plate; the fingers remain open. Increase the beverage-container donor weight to encourage leaving this region for renewed acquisition, retaining some packaged-object conditioning from the cream-cheese donor. This is an exploratory recovery adjustment, not evidence of progress: the visible wine bottle is a competing object, so any subsequent grasp needs reassessment. Continue withholding the bowl/stove donor until the orange juice is visibly secured, since earlier acquisition selected the bowl.",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 504,
+        "request_fingerprint": "95d3c38f151ea891f051c3127a6895cdb0537a9aca1a0dce49ec78133a82f284",
+        "response_text_sha256": "47fdcf3a3088da9439abdf6de71666efa1ab83581710d6c98f40ff72a9bc0273",
+        "revision": 1,
+        "same_attempt_history_count": 7,
+        "step": 175,
+        "token_usage": {
+          "input_tokens": 7071,
+          "output_tokens": 302,
+          "reasoning_tokens": 32,
+          "total_tokens": 7373
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.65,
+          "source_a_id": "13",
+          "source_b_id": "14"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d9",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 9,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 1.0,
+          "observed_phase": "Recovery acquisition remains stalled near the plate. Fingers are open, the bowl remains on the plate, and no carton lift is visible.",
+          "rationale": "The current frames show small movements near the released bowl without a visible approach to or grasp of the orange juice. Test pure beverage-container conditioning because the cream-cheese/wine blend has not produced renewed acquisition. This removes the bowl destination present in the cream-cheese donor, though it risks selecting the visible wine bottle or moving toward the cabinet. Reassess object identity before introducing stove-placement conditioning; there is no visual evidence of target completion.",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 511,
+        "request_fingerprint": "043525a9194bbe9c702dceca11fc8810cd43cf185ed2e9369bfd8b96d179f11f",
+        "response_text_sha256": "d5e862f71ff2f2085301b7a8123b032f38dbfc66e54948c20b1e579f1ee40aea",
+        "revision": 1,
+        "same_attempt_history_count": 8,
+        "step": 200,
+        "token_usage": {
+          "input_tokens": 7382,
+          "output_tokens": 285,
+          "reasoning_tokens": 29,
+          "total_tokens": 7667
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 1.0,
+          "source_a_id": "13",
+          "source_b_id": "14"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d10",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 10,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.5,
+          "observed_phase": "Recovery near the plate: fingers are closing beside the bowl, but neither a secured carton nor an object lift is visible.",
+          "rationale": "Pure wine-bottle conditioning has produced little movement away from the plate, and the latest finger positions indicate renewed closure rather than a carton-directed approach. Test an equal package/stove blend to replace this stalled conditioning and restore the target destination. This is an exploratory recovery change, not a confirmed transport phase; the bowl remains a competing object, particularly given the earlier wrong-object grasp under a weaker stove blend. Any subsequent lift requires visual reassessment before assuming the orange juice is held.",
+          "source_a_id": "13",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 518,
+        "request_fingerprint": "62a7a6e13abda12bcbe06a9ad3936d31a0082ccee95bca6c20d21e3854279b80",
+        "response_text_sha256": "1e5dae2354567583b52db23bb4b4f20245019a7613b79359092667c015e0fd06",
+        "revision": 1,
+        "same_attempt_history_count": 9,
+        "step": 225,
+        "token_usage": {
+          "input_tokens": 7691,
+          "output_tokens": 320,
+          "reasoning_tokens": 54,
+          "total_tokens": 8011
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.5,
+          "source_a_id": "13",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d11",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 11,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.5,
+          "observed_phase": "Acquisition remains stalled: the open gripper has risen slightly beside the plate, while the bowl remains seated. No orange juice grasp is visible.",
+          "rationale": "The current frames and finger positions indicate an open, apparently empty gripper rather than transport. The package/stove blend has not visibly initiated carton acquisition. Test an equal beverage-container/stove blend to retain the target destination while replacing the cream-cheese donor, whose bowl destination may reinforce attention to the plate region. This is exploratory recovery conditioning; both the wine bottle and bowl remain competing objects, so any subsequent grasp requires visual identity reassessment. No target placement is established.",
+          "source_a_id": "14",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 525,
+        "request_fingerprint": "f11a0ca18c8ed9915e8d74472ac5fa8d093a9c631d95da139473594d2a892b50",
+        "response_text_sha256": "6d68843ac7d73d2860959313d491cd340634660941e6fef0d7a48d349aa53df0",
+        "revision": 1,
+        "same_attempt_history_count": 10,
+        "step": 250,
+        "token_usage": {
+          "input_tokens": 8004,
+          "output_tokens": 294,
+          "reasoning_tokens": 25,
+          "total_tokens": 8298
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.5,
+          "source_a_id": "14",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_2_d12",
+        "attempt_id": "astra_tei_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 12,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.7,
+          "observed_phase": "Acquisition remains stalled near the plate: the open gripper has lowered slightly, the bowl remains on the plate, and no orange juice lift is visible.",
+          "rationale": "The current views show no secured object or transfer toward the stove under the beverage/stove blend. Test stronger stove-destination conditioning with a smaller packaged-object contribution, replacing the wine-bottle donor because it has not visibly redirected acquisition toward the carton. This is an exploratory recovery adjustment, not a confirmed placement phase. Stronger bowl-associated conditioning risks selecting the bowl again, but the preceding acquisition blends have remained stalled. No orange juice placement or target success is established.",
+          "source_a_id": "13",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 532,
+        "request_fingerprint": "38ceaf183182cdfed1cdefac85d8a8fd5f4d1cdc663ec772ce5f219ceb66a8fe",
+        "response_text_sha256": "6f80e6a012d00544e8296ebd8506c82f4a421bef52da0c4fca48945803dda761",
+        "revision": 1,
+        "same_attempt_history_count": 11,
+        "step": 275,
+        "token_usage": {
+          "input_tokens": 8313,
+          "output_tokens": 305,
+          "reasoning_tokens": 39,
+          "total_tokens": 8618
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": null,
+        "applied_accepted_decision_id": "astra_tei_3_d1",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 1,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.35,
+          "observed_phase": "Initial acquisition: open gripper above the table; orange juice carton stands behind the bowl, with no object held.",
+          "rationale": "Start with packaged-object conditioning blended with beverage-container conditioning, rather than the package/stove blend that acquired the bowl in the completed failed attempt. Favor cream cheese for carton-like geometry while adding wine-bottle semantics for beverage acquisition. This blend was previously tested only after wrong-object placement and stalling, not from the reset state. Both the bowl and wine bottle remain competing objects, so reassess the actual approach and grasp before switching toward the stove donor. The current images show no transfer or placement.",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 540,
+        "request_fingerprint": "061fd0cc10607431ce67f85782d3afbf6e1e2b0034e81b581a3d998734b438bc",
+        "response_text_sha256": "6cfa09f0b7cd5fd5372a7ce81202a143e165f121d1f3126a6b5bb49e3010b9bc",
+        "revision": 2,
+        "same_attempt_history_count": 0,
+        "step": 0,
+        "token_usage": {
+          "input_tokens": 7674,
+          "output_tokens": 297,
+          "reasoning_tokens": 31,
+          "total_tokens": 7971
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.35,
+          "source_a_id": "13",
+          "source_b_id": "14"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d2",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 2,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.1,
+          "observed_phase": "Open-gripper approach appears directed toward the wine-bottle side of the table rather than the orange juice carton. No grasp or lift is visible.",
+          "rationale": "The current wrist sequence brings the wine bottle toward the central lower region while the bowl shifts left and the carton leaves view. The external view also shows the gripper descending left of the carton. Reduce the wine-bottle weight before closure to favor packaged-object acquisition and limit selection of the competing bottle. Retain a small beverage contribution, but withhold the bowl/stove donor because the completed failed attempt acquired the bowl. This is an acquisition correction, not evidence of target placement.",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 547,
+        "request_fingerprint": "81620e4293c09f50bd13538944d71dec603113722d5c5301af3e7175e3b8de38",
+        "response_text_sha256": "03e5ceafae30777188a732e0610a7ffbaab3cf0c0313b803f0e57da45d351c59",
+        "revision": 2,
+        "same_attempt_history_count": 1,
+        "step": 25,
+        "token_usage": {
+          "input_tokens": 8992,
+          "output_tokens": 326,
+          "reasoning_tokens": 59,
+          "total_tokens": 9318
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.1,
+          "source_a_id": "13",
+          "source_b_id": "14"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d3",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 3,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.0,
+          "observed_phase": "Acquisition correction: gripper remains open near the wine bottle, with only small movements. The orange juice carton remains upright on the table; no lift is visible.",
+          "rationale": "The latest external views still place the gripper left of the carton, while the wrist views show the wine bottle near the lower edge rather than a secured package. Remove the remaining wine-bottle contribution to test pure packaged-object conditioning before any closure. Pure cream-cheese conditioning previously stalled after bowl placement, but that completed rollout does not establish its effect in this current approach state. Avoid adding the bowl/stove donor during acquisition because the earlier attempt selected the bowl. Reassess object identity and grasp before switching toward stove placement.",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 554,
+        "request_fingerprint": "887a4931bb2f38e1ed440deec12d3c699aa77f2df62bec5dd613a1f8a9025c92",
+        "response_text_sha256": "456fb111ed44ad703d436bf6cdbe5916061f3ed3cde560410536c3522f7ee0f4",
+        "revision": 2,
+        "same_attempt_history_count": 2,
+        "step": 50,
+        "token_usage": {
+          "input_tokens": 9305,
+          "output_tokens": 338,
+          "reasoning_tokens": 54,
+          "total_tokens": 9643
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.0,
+          "source_a_id": "13",
+          "source_b_id": "14"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d4",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 4,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.15,
+          "observed_phase": "Acquisition recovery: the open gripper is moving farther left of the orange juice carton, near the wine bottle. The carton remains upright on the table; no secured grasp is visible.",
+          "rationale": "Pure cream-cheese conditioning has not redirected the gripper toward the carton: the current external sequence shows continued leftward motion, while the wrist view contains mostly bare tabletop. Replace the unused wine-bottle endpoint with the stove donor and introduce a small stove weight to test a different approach while retaining predominantly packaged-object conditioning. The completed attempt acquired the bowl with a 0.25 package/stove blend, so use a smaller 0.15 contribution and reassess object selection before strengthening it. This is an exploratory acquisition correction, not a transport or success assessment.",
+          "source_a_id": "13",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 561,
+        "request_fingerprint": "53c3a22793a4be0202c8c5831cabfbcb37b49393a52ac0fa2ccbb00a0d8fbcf2",
+        "response_text_sha256": "ea6930db3681652078f8c469b9de1838a46c8715ac54627088cb39fdd676922f",
+        "revision": 2,
+        "same_attempt_history_count": 3,
+        "step": 75,
+        "token_usage": {
+          "input_tokens": 9645,
+          "output_tokens": 326,
+          "reasoning_tokens": 29,
+          "total_tokens": 9971
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.15,
+          "source_a_id": "13",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d5",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 5,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.4,
+          "observed_phase": "Wrong-object contact: the wine bottle is now horizontal beside the closing fingers. No secured lift is visible, and the orange juice carton remains upright on the table.",
+          "rationale": "The current sequence shows the bottle tipping near the gripper rather than a carton-directed acquisition. The low stove-weight blend has not corrected object selection. Increase the stove contribution while retaining a majority packaged-object contribution to test redirection away from this bottle-side contact. This is an exploratory recovery adjustment, not transport conditioning based on a confirmed grasp. Stronger bowl-associated conditioning risks acquiring the bowl, as happened in the completed failed attempt, so reassess object identity and lift at the next observation. The images do not establish orange juice placement.",
+          "source_a_id": "13",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 568,
+        "request_fingerprint": "8f2915fcaabf56e11c4b45ce1da8433a86c234527bcbca42aeaed24392faa62e",
+        "response_text_sha256": "7e1334c88b24cdc771b3beb631e1a03c505cecafc1f39fdcb58cc8f969c45db7",
+        "revision": 2,
+        "same_attempt_history_count": 4,
+        "step": 100,
+        "token_usage": {
+          "input_tokens": 9977,
+          "output_tokens": 334,
+          "reasoning_tokens": 52,
+          "total_tokens": 10311
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.4,
+          "source_a_id": "13",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d6",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 6,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.2,
+          "observed_phase": "Failed acquisition recovery: the gripper has risen empty and is beginning to open. The wine bottle lies on the table, and the orange juice carton remains upright beside the bowl.",
+          "rationale": "The bottle stays on the tabletop as the gripper rises, so the latest motion does not support a secured grasp or target transport. Reduce the stove weight from 0.4 to 0.2 to return toward packaged-object acquisition rather than emphasize placement with an empty gripper. Retain a small stove contribution because pure cream-cheese conditioning previously drifted near the bottle, and avoid reinstating the wine-bottle donor that initially directed the approach toward that competing object. This remains an exploratory recovery blend: the earlier completed attempt selected the bowl under similar conditioning, so any renewed grasp must be checked visually before increasing stove weight.",
+          "source_a_id": "13",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 575,
+        "request_fingerprint": "fec64d692cfe921448fc25b6b619090a9aa880634a5e3a990e7224373ac3a201",
+        "response_text_sha256": "8843c33142e16755a6787344ae71bb9bfabfbee3310e82031040c7dab2115fb8",
+        "revision": 2,
+        "same_attempt_history_count": 5,
+        "step": 125,
+        "token_usage": {
+          "input_tokens": 10311,
+          "output_tokens": 437,
+          "reasoning_tokens": 135,
+          "total_tokens": 10748
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.2,
+          "source_a_id": "13",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d7",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 7,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.35,
+          "observed_phase": "Repeated failed acquisition near the fallen wine bottle: fingers have closed and risen slightly, but the bottle remains on the table. The orange juice carton remains upright beside the bowl.",
+          "rationale": "The current sequence shows another closure near the horizontal bottle without a visible secured lift. Reducing the stove weight did not redirect acquisition. Test the table-center pickup donor with predominantly packaged-object conditioning to encourage leaving the bottle-side region for a new approach. This is an exploratory recovery blend, not a confirmed transport phase. The explicit bowl donor risks selecting the competing bowl, so reassess object identity before introducing stove placement conditioning. Neither the current images nor the completed failed rollouts establish orange juice placement.",
+          "source_a_id": "13",
+          "source_b_id": "38",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 582,
+        "request_fingerprint": "1ff26dd2b7b655c1a8478f00c720ca705b292e99a76a7322afd3196bb35f51d7",
+        "response_text_sha256": "b0ca5a028b3c167e6d3bb1b1d66bc40bd4f75fb4e6c5400f3288a9f5a58db90f",
+        "revision": 2,
+        "same_attempt_history_count": 6,
+        "step": 150,
+        "token_usage": {
+          "input_tokens": 10661,
+          "output_tokens": 354,
+          "reasoning_tokens": 76,
+          "total_tokens": 11015
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.35,
+          "source_a_id": "13",
+          "source_b_id": "38"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d8",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 8,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.65,
+          "observed_phase": "Acquisition recovery remains near the fallen wine bottle. The empty gripper has opened and lowered with little lateral movement; the orange juice carton remains upright beside the bowl.",
+          "rationale": "The current wrist views keep the horizontal bottle directly ahead of the fingers, and the external sequence shows no carton approach or lift. Increase the table-center pickup contribution to test a stronger redirection away from this repeated bottle-side approach, retaining some packaged-object conditioning. The previous 0.35 blend changed finger opening and height but did not visibly leave this region. This exploratory adjustment risks selecting the bowl; reassess any grasp before switching to stove transport conditioning. No target placement is established.",
+          "source_a_id": "13",
+          "source_b_id": "38",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 589,
+        "request_fingerprint": "a15fa75f60b64965087e48f8071cb639ed0ec58d295fe21ad0509d74dd7eb827",
+        "response_text_sha256": "8ce8962f7c58a7b3ae63c5b95a9d8b6b07aa97916160bb30ab5f35c4214dbd6d",
+        "revision": 2,
+        "same_attempt_history_count": 7,
+        "step": 175,
+        "token_usage": {
+          "input_tokens": 10973,
+          "output_tokens": 292,
+          "reasoning_tokens": 21,
+          "total_tokens": 11265
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.65,
+          "source_a_id": "13",
+          "source_b_id": "38"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d9",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 9,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.75,
+          "observed_phase": "Repeated empty closure near the fallen wine bottle: the fingers have closed and risen slightly, while the bottle remains on the table. The orange juice carton is still upright beside the bowl.",
+          "rationale": "Increasing the table-center pickup weight did not visibly redirect the gripper toward the carton; the latest sequence shows another closure without a secured lift. Replace that donor with strong stove conditioning while retaining a smaller packaged-object contribution to test escape from the repeated bottle-side approach. This is an exploratory recovery change, not transport based on a confirmed grasp. Strong stove conditioning risks selecting the bowl, but the package-dominant and table-center blends have not resolved the current acquisition failure. Reassess object identity and grasp before treating subsequent motion as target transfer; no orange juice placement is visible.",
+          "source_a_id": "13",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 596,
+        "request_fingerprint": "06a048673899e1f556dd0d6a89825b3bb4d0cc53be22020fb61260e51ebc021d",
+        "response_text_sha256": "58d00f097e8ce97aa6c6e527e6d0f6da94f8ced12cd0bc1aa603789fa78e3b61",
+        "revision": 2,
+        "same_attempt_history_count": 8,
+        "step": 200,
+        "token_usage": {
+          "input_tokens": 11295,
+          "output_tokens": 327,
+          "reasoning_tokens": 32,
+          "total_tokens": 11622
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.75,
+          "source_a_id": "13",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d10",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 10,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 1.0,
+          "observed_phase": "Acquisition remains stalled near the fallen wine bottle. The empty fingers have opened and lowered again; the orange juice carton remains upright beside the bowl.",
+          "rationale": "The current sequence shows another descent toward the horizontal bottle with little lateral redirection, not a secured grasp or transfer. Test pure stove-donor conditioning to remove the cream-cheese donor's bowl destination and strengthen a different task context after the mixed acquisition and recovery settings failed to leave this region. This is an exploratory recovery adjustment, not evidence that placement is underway. Pure stove conditioning risks selecting the bowl, as bowl selection occurred in completed failed rollouts; any subsequent lift must be checked for object identity. No orange juice placement is visible.",
+          "source_a_id": "13",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 603,
+        "request_fingerprint": "0392bf791990115e6c7cdfcbecd0caa1198523120634c1a5e3ad6b6b842dee43",
+        "response_text_sha256": "5b60064e3e8f0750ac7ebab07a8ace64b5481e7ad30ffa845de2cd268e2fdf76",
+        "revision": 2,
+        "same_attempt_history_count": 9,
+        "step": 225,
+        "token_usage": {
+          "input_tokens": 11635,
+          "output_tokens": 304,
+          "reasoning_tokens": 25,
+          "total_tokens": 11939
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 1.0,
+          "source_a_id": "13",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d11",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 11,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 1.0,
+          "observed_phase": "Acquisition remains stalled beside the fallen wine bottle. The gripper has risen slightly and opened without lifting an object; the orange juice carton remains upright on the table.",
+          "rationale": "Pure stove conditioning produced another empty opening near the bottle rather than a carton approach. Test pure table-center pickup conditioning to encourage a fresh acquisition away from this repeated contact region. Earlier partial weights of this donor did not redirect the approach, so this is an exploratory endpoint test, not an established recovery strategy. It risks selecting the bowl and lacks the stove destination; reassess any acquired object's identity before switching to placement conditioning. The current images show no orange juice transfer or placement.",
+          "source_a_id": "13",
+          "source_b_id": "38",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 610,
+        "request_fingerprint": "ff2055dd566475fe3b1ee97197a0489a1dbb2117dfb3699c0fa2da3f4bac9855",
+        "response_text_sha256": "a0b89e6ade846731162c838de2ea576a1ae840c8c21a178041f8251449d90e36",
+        "revision": 2,
+        "same_attempt_history_count": 10,
+        "step": 250,
+        "token_usage": {
+          "input_tokens": 11961,
+          "output_tokens": 362,
+          "reasoning_tokens": 90,
+          "total_tokens": 12323
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 1.0,
+          "source_a_id": "13",
+          "source_b_id": "38"
+        },
+        "applied_accepted_decision_id": "astra_tei_3_d12",
+        "attempt_id": "astra_tei_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tei_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 12,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tei",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tei_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.65,
+          "observed_phase": "Failed acquisition recovery: the fingers have closed and risen slightly without a visible object lift. The wine bottle remains horizontal on the table, and the orange juice carton remains upright beside the bowl.",
+          "rationale": "Pure table-center pickup conditioning produced another empty closure near the fallen bottle rather than a carton approach. Test a beverage-container/stove blend, emphasizing the target destination while replacing the table-center donor. This is an exploratory attempt to leave the repeated contact cycle, not transport conditioning based on a secured grasp. Both donors risk selecting competing objects, and related blends have not established successful recovery in completed rollouts. The current images do not show orange juice transfer or placement.",
+          "source_a_id": "14",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 617,
+        "request_fingerprint": "ec2f439d3c1b044aa3f471d26b0a77d1916f9fe6ca63e9c54c3a3678a02ec0a1",
+        "response_text_sha256": "15a22dbb2be78df36d3952c1f40d6df05e27a80346d80e1e1f4c519c22fbcf9f",
+        "revision": 2,
+        "same_attempt_history_count": 11,
+        "step": 275,
+        "token_usage": {
+          "input_tokens": 12296,
+          "output_tokens": 322,
+          "reasoning_tokens": 42,
+          "total_tokens": 12618
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": null,
+        "applied_accepted_decision_id": "astra_tli_2_d1",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 1,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.15,
+          "observed_phase": "Initial approach; gripper open above the table, orange juice carton still behind the bowl.",
+          "rationale": "The completed failed rollout visibly moved the bowl onto the stove rather than the orange juice. The current reset again shows the carton behind the bowl, with neither grasped. Use the wine-bottle versus bowl contrast with their shared cabinet destination to favor approaching an upright beverage container over the bowl. At alpha 0.15, TLI applies a positive 0.7*(T_A-T_B) residual; this is an object-selection bias, not a claim that the carton has been acquired. Reassess destination conditioning after observing the approach.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 625,
+        "request_fingerprint": "e80fea81cef173b80b2c1a2655039116c0bc7d6d7fc98ee8b944889b9192ff18",
+        "response_text_sha256": "adc39a2c2775f2f465b14f4173364d172fed3346eb057930220ede4781cf71a3",
+        "revision": 1,
+        "same_attempt_history_count": 0,
+        "step": 0,
+        "token_usage": {
+          "input_tokens": 4014,
+          "output_tokens": 339,
+          "reasoning_tokens": 67,
+          "total_tokens": 4353
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.15,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d2",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 2,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.15,
+          "observed_phase": "Open-gripper approach above the carton area; the orange juice and bowl remain on the table, with no grasp visible.",
+          "rationale": "The current external views show the gripper descending toward the orange juice area, while the finger positions remain open. There is not yet evidence of object acquisition or a need for transport conditioning. Retain the positive 0.7*(T_14-T_18) residual to favor an upright beverage container over the bowl using donors with a shared destination. Switching to a bowl/stove contrast now could reinforce the wrong-object behavior seen in the completed failed rollout. Reassess once contact or lifting is visible.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 632,
+        "request_fingerprint": "ee0a045330dafd89ce7f0d49e90294c8dc5c6b5c7045d9ea7e72b595c7f65472",
+        "response_text_sha256": "1af613a1f1eed968fc1d1143e7716ea3bba6fc8f150be3c83b39b3663b9806e3",
+        "revision": 1,
+        "same_attempt_history_count": 1,
+        "step": 25,
+        "token_usage": {
+          "input_tokens": 5343,
+          "output_tokens": 300,
+          "reasoning_tokens": 25,
+          "total_tokens": 5643
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.15,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d3",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 3,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.15,
+          "observed_phase": "Descending toward the orange juice carton with the gripper open; neither the carton nor the bowl is visibly lifted.",
+          "rationale": "Across the current frames, the end effector lowers over the carton area while the finger positions remain near their open configuration. The wrist view shows the carton nearer the gripper than the bowl, although a secure grasp is not yet visible. Retain the positive 0.7*(T_14-T_18) residual, contrasting an upright beverage container against a bowl with a shared destination. This remains an object-selection phase; destination conditioning is premature until acquisition is observed.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 639,
+        "request_fingerprint": "4d240a7061d2d4f18eb0b1c5bd88f7e40991af8303def89b7a9d2945dc4b2c46",
+        "response_text_sha256": "c42b640a7b466c29dcdc8b8c18f19fc86ded2033df3843d914ad958f272334a9",
+        "revision": 1,
+        "same_attempt_history_count": 2,
+        "step": 50,
+        "token_usage": {
+          "input_tokens": 5670,
+          "output_tokens": 293,
+          "reasoning_tokens": 25,
+          "total_tokens": 5963
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.15,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d4",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 4,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.15,
+          "observed_phase": "Low approach and possible grasp initiation near the orange juice carton; fingers have begun closing, but no lift or secure grasp is visible.",
+          "rationale": "The end effector has descended and nearly stopped vertically, while finger positions narrow from approximately +/-0.040 to +0.036/-0.034. The carton remains visible near the bottom of the wrist view, with the bowl ahead of it; the external view does not establish acquisition of either object. Retain the positive 0.7*(T_14-T_18) residual to continue favoring an upright beverage container over the bowl during closure. There is not yet sufficient evidence to switch to stove-directed transport conditioning.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 646,
+        "request_fingerprint": "ff15d628df1184d058b0eed2d9fc5c262fa8c2c1003efa1c2198c38280d2e8a6",
+        "response_text_sha256": "a809e956c207a3731cb7e4fd596cd38d0d9ee27fe3512f67be8d58e80a035043",
+        "revision": 1,
+        "same_attempt_history_count": 3,
+        "step": 75,
+        "token_usage": {
+          "input_tokens": 5978,
+          "output_tokens": 279,
+          "reasoning_tokens": 0,
+          "total_tokens": 6257
+        }
+      },
+      {
+        "accepted": false,
+        "active_text_before_call": {
+          "alpha": 0.15,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d4",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 5,
+        "error": "proposal_rejected: request_fingerprint must be a SHA256 digest",
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.3,
+          "observed_phase": "Apparent missed grasp and retreat: the gripper rises while the carton and bowl remain on the table; secure acquisition is not visible.",
+          "rationale": "The end effector rises from z=0.969 to 1.061 across the current observations. Both objects recede in the wrist view rather than remaining held near the fingers, which closed almost completely before beginning to reopen. This suggests an empty grasp rather than transport. Reduce the beverage-versus-bowl residual from 0.7 to 0.4*(T_14-T_18), retaining a weaker object-selection bias while allowing recovery. Do not introduce stove-directed transport conditioning without visible acquisition.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": false,
+        "provider_call": true,
+        "request_event_sequence": 653,
+        "request_fingerprint": "7a7f866a27adaa256ab038d448da01655605ad6654dafc6ede4b235b96bfeda6",
+        "response_text_sha256": "9ae869f3602fe4831805b3e69fa47ad32e7fde48f576f28a7589f201557bca82",
+        "revision": 1,
+        "same_attempt_history_count": 4,
+        "step": 100,
+        "token_usage": {
+          "input_tokens": 6294,
+          "output_tokens": 288,
+          "reasoning_tokens": 44,
+          "total_tokens": 6582
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.15,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d6",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 6,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.25,
+          "observed_phase": "Open-gripper realignment at the orange juice carton; the carton remains on the table and no secure grasp or transport is visible.",
+          "rationale": "The current wrist frames show the carton centered near the open fingers, with the bowl farther ahead. Finger positions are approximately +/-0.039, so the earlier partial closure did not establish a visibly retained grasp. The latest frames show renewed descent rather than transport. Reduce the beverage-versus-bowl residual from 0.7 to 0.5 by setting alpha to 0.25, retaining the object-selection contrast while easing its influence during grasp recovery. Stove-directed transport conditioning remains premature without visible acquisition.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 660,
+        "request_fingerprint": "833ba62fd73090f95eadc638e9890479698b6f9041b4ac4a910523acd74f86f2",
+        "response_text_sha256": "b19058ea75d26f898d5bbbcbe7274310a4c3266c2d2a1c7f8524e8512b7233c1",
+        "revision": 1,
+        "same_attempt_history_count": 5,
+        "step": 125,
+        "token_usage": {
+          "input_tokens": 6341,
+          "output_tokens": 332,
+          "reasoning_tokens": 62,
+          "total_tokens": 6673
+        }
+      },
+      {
+        "accepted": false,
+        "active_text_before_call": {
+          "alpha": 0.25,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d6",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 7,
+        "error": "proposal_rejected: request_fingerprint must be a SHA256 digest",
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.25,
+          "observed_phase": "Continued open-gripper descent near the orange juice carton; the bowl increasingly occludes the wrist view, and no secure grasp or lift is visible.",
+          "rationale": "The end effector descends from z approximately 1.031 to 0.972 across the current frames while both fingers remain near their open positions. The carton is still visible below the bowl in the wrist view, but neither view establishes acquisition. Retain the positive 0.5*(T_14-T_18) residual to favor the beverage-container donor over the bowl donor with their shared destination. Changing to stove-directed conditioning before a visible grasp risks repeating the wrong-object behavior in the completed failed rollout.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": false,
+        "provider_call": true,
+        "request_event_sequence": 667,
+        "request_fingerprint": "58d00b532f00bfd69e188e667bd3698a248562be65206b0930485614b73e8b5c",
+        "response_text_sha256": "6e38e55ae3703b04267825242b64d10e0210239a732e9b003a306083116400da",
+        "revision": 1,
+        "same_attempt_history_count": 6,
+        "step": 150,
+        "token_usage": {
+          "input_tokens": 6650,
+          "output_tokens": 305,
+          "reasoning_tokens": 31,
+          "total_tokens": 6955
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.25,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d8",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 8,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.35,
+          "observed_phase": "Apparent unsuccessful grasp and withdrawal; fingers nearly closed and then began reopening, with no clearly retained carton.",
+          "rationale": "The end effector rises from approximately 0.969 to 1.025 while the fingers close nearly completely before reopening. In the wrist sequence, both the bowl and orange juice carton recede rather than showing an unambiguous retained grasp. Treat this as grasp recovery, not stove-directed transport. Reduce the beverage-versus-bowl residual to 0.3*(T_14-T_18), preserving a mild container-selection bias while easing the conditioning that has accompanied repeated unsuccessful closure. The external view is occluded, so carton acquisition remains uncertain.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 674,
+        "request_fingerprint": "2d7ade2dff6ffb63a6ae7df0146a9640c851544b00cd0dfadd18fc3940c13876",
+        "response_text_sha256": "48598598b6c135424af0599f9d3ebb318575c322235809462d6bead04171c856",
+        "revision": 1,
+        "same_attempt_history_count": 7,
+        "step": 175,
+        "token_usage": {
+          "input_tokens": 6701,
+          "output_tokens": 342,
+          "reasoning_tokens": 63,
+          "total_tokens": 7043
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.35,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d9",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 9,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.35,
+          "observed_phase": "Renewed open-gripper descent toward the orange juice carton; no secure grasp or transport is visible.",
+          "rationale": "The current wrist sequence shows the carton between the visible fingers, with the bowl beyond it. Both enlarge as the end effector descends from about 1.054 to 0.997, while finger positions remain open at approximately +/-0.039. This supports continued approach rather than acquisition. Retain the mild 0.3*(T_14-T_18) beverage-versus-bowl residual during this realignment instead of introducing destination conditioning before a retained grasp is visible. The external camera remains substantially occluded by the arm.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 681,
+        "request_fingerprint": "ee6dee58531ef010be41a4fb03909108197601b529eec4a0d20a986cdc316c6a",
+        "response_text_sha256": "c8d76c8d4251799f2e59a83c2ac9eb32dea828637916c455e9d45892fcf3adbf",
+        "revision": 1,
+        "same_attempt_history_count": 8,
+        "step": 200,
+        "token_usage": {
+          "input_tokens": 7022,
+          "output_tokens": 268,
+          "reasoning_tokens": 0,
+          "total_tokens": 7290
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.35,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d10",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 10,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.8,
+          "observed_phase": "Apparent retained grasp and lift of the orange juice carton; ready for stove-directed transport, with no placement yet visible.",
+          "rationale": "The carton stays nearly fixed between the fingers in successive wrist frames while the bowl and tabletop recede. The end effector rises from about 1.011 to 1.156, with finger positions stable near +/-0.027, supporting apparent acquisition rather than another empty withdrawal. Switch from object-selection conditioning to a destination contrast using donors with the same bowl object: alpha 0.8 applies 0.6*(T_17-T_18), favoring the stove over the cabinet. This is a transport-phase assessment, not evidence of task success.",
+          "source_a_id": "18",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 688,
+        "request_fingerprint": "fc7985e0443c9652dc1c928e62d467d5f1462f0a4f4d8fbe7f080448d91fd3f0",
+        "response_text_sha256": "3a25df321d9d823158cf3f62a760a8687f3d978835b995afe5d7976e5c500b5b",
+        "revision": 1,
+        "same_attempt_history_count": 9,
+        "step": 225,
+        "token_usage": {
+          "input_tokens": 7352,
+          "output_tokens": 317,
+          "reasoning_tokens": 29,
+          "total_tokens": 7669
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.8,
+          "source_a_id": "18",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d11",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 11,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.8,
+          "observed_phase": "Orange juice carton appears retained during transport toward the stove; the gripper is beginning to descend, with no release or completed placement visible.",
+          "rationale": "The carton remains fixed between the fingers throughout the current wrist sequence, and finger positions stay near +/-0.027. The external view shows the arm moving toward the stove while the bowl remains on the table. End-effector height decreases from approximately 1.199 to 1.160 in the latest frames, consistent with beginning a placement approach rather than losing the grasp. Retain alpha 0.8 with the cabinet-to-stove pair, applying 0.6*(T_17-T_18) to favor the stove destination without changing the shared donor object. There is no visible release or observed success yet.",
+          "source_a_id": "18",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 695,
+        "request_fingerprint": "5d4413e76d3df59272a967ea0540ccd9d8b7e6fb20fbb04ba30309b41ed06a43",
+        "response_text_sha256": "47fb63de98b41223194d8ba350dc01a09d89a3cf321462716cc59148d17ea857",
+        "revision": 1,
+        "same_attempt_history_count": 10,
+        "step": 250,
+        "token_usage": {
+          "input_tokens": 7674,
+          "output_tokens": 296,
+          "reasoning_tokens": 0,
+          "total_tokens": 7970
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.8,
+          "source_a_id": "18",
+          "source_b_id": "17"
+        },
+        "applied_accepted_decision_id": "astra_tli_2_d12",
+        "attempt_id": "astra_tli_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 12,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.8,
+          "observed_phase": "Apparent retained carton grasp during a descending approach near the stove; no release or completed placement is visible.",
+          "rationale": "The orange juice carton remains nearly fixed between the fingers in all current wrist frames, with finger positions stable near +/-0.027. End-effector height decreases from approximately 1.121 to 1.086 while the external view shows the gripper near the stove and the bowl still on the table. Continue the existing destination contrast rather than disrupt this apparent placement approach: alpha 0.8 applies 0.6*(T_17-T_18), favoring the stove over the cabinet with the donor object held constant. Contact with the stove and release are not established by these views, and no current success outcome is supplied.",
+          "source_a_id": "18",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 702,
+        "request_fingerprint": "65183da79385d502fcb3a4181a898fe93e3f256cbd8d4a485024b6bf92d3323c",
+        "response_text_sha256": "3ac90390ea187d18fb63f5a08db81d686718911acc310d84eaa52aa73c7eae1f",
+        "revision": 1,
+        "same_attempt_history_count": 11,
+        "step": 275,
+        "token_usage": {
+          "input_tokens": 8016,
+          "output_tokens": 293,
+          "reasoning_tokens": 0,
+          "total_tokens": 8309
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": null,
+        "applied_accepted_decision_id": "astra_tli_3_d1",
+        "attempt_id": "astra_tli_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tli_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 1,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tli_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.35,
+          "observed_phase": "Initial open-gripper approach; the orange juice carton and bowl are on the table, with neither grasped.",
+          "rationale": "The current reset shows the orange juice carton behind the bowl and the open gripper above the workspace. Start with a mild beverage-versus-bowl contrast: alpha 0.35 applies 0.3*(T_14-T_18), using donors with a shared cabinet destination. The completed previous attempt exhausted its budget after repeated grasp attempts and a late apparent carton lift; acquisition appeared under this weaker residual, though that does not establish causation or success. Testing the weaker contrast from the start may avoid the prolonged grasp cycling seen with stronger conditioning. Reassess the current grasp before introducing stove-directed destination conditioning.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 710,
+        "request_fingerprint": "0b4fd311891c8cc7005e230decb67111d942df98b163d74703e7ce9a1e71b791",
+        "response_text_sha256": "607ee9edae9a38e02272af7b464a8ef13b9817d9853fcb8c76790f121851eeb4",
+        "revision": 2,
+        "same_attempt_history_count": 0,
+        "step": 0,
+        "token_usage": {
+          "input_tokens": 7406,
+          "output_tokens": 306,
+          "reasoning_tokens": 16,
+          "total_tokens": 7712
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.35,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_3_d2",
+        "attempt_id": "astra_tli_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tli_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 2,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tli_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.35,
+          "observed_phase": "Open-gripper descent toward the orange juice carton; both carton and bowl remain on the table, with no grasp visible.",
+          "rationale": "The current frames show the gripper lowering over the carton area. End-effector height decreases from approximately 1.162 to 1.106 while finger positions remain open near +/-0.040. The wrist view shows the carton below the bowl, approaching the finger region, but does not establish contact or acquisition. Retain the mild 0.3*(T_14-T_18) beverage-versus-bowl residual during approach. The shared cabinet destination isolates a useful object contrast; stove-directed conditioning remains premature without a retained grasp. The completed previous attempt failed, so its late apparent lift is not evidence of current acquisition or success.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 717,
+        "request_fingerprint": "87e41134c8cc7b8c5f10c750d9d0620e3b0730330ba78addc1f099e4fd4436c1",
+        "response_text_sha256": "0ebbd435d76ba321af843fe9ee78cf956502f08514f0427d8800bf432ff1e4d0",
+        "revision": 2,
+        "same_attempt_history_count": 1,
+        "step": 25,
+        "token_usage": {
+          "input_tokens": 8760,
+          "output_tokens": 300,
+          "reasoning_tokens": 0,
+          "total_tokens": 9060
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.35,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_3_d3",
+        "attempt_id": "astra_tli_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tli_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 3,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tli_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.35,
+          "observed_phase": "Gripper closure around the orange juice carton area with a slight upward motion; a retained grasp is not yet established.",
+          "rationale": "The current wrist frames show the carton at the finger region and the bowl beyond it. Finger positions narrow from approximately +/-0.040 to +0.022/-0.032, while end-effector height rises slightly from 0.995 to 1.007 in the latest frames. This is consistent with grasp initiation, but the small movement and occluded external view do not establish a retained lift. Keep the mild 0.3*(T_14-T_18) beverage-versus-bowl residual through closure rather than switch prematurely to destination conditioning. Reassess stove-directed transport once the carton visibly moves with the gripper away from the table.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 724,
+        "request_fingerprint": "6111b1bf9ddf16a6e70766bc914068b410baa5efdcbc39fcf496befed7afc06f",
+        "response_text_sha256": "d7e9b72d0c9d36b1544338155ee15b5c91f3fe0fdaf9fe56ca189af5665537fc",
+        "revision": 2,
+        "same_attempt_history_count": 2,
+        "step": 50,
+        "token_usage": {
+          "input_tokens": 9092,
+          "output_tokens": 296,
+          "reasoning_tokens": 0,
+          "total_tokens": 9388
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.35,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_3_d4",
+        "attempt_id": "astra_tli_3",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          },
+          {
+            "attempt_id": "astra_tli_2",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 4,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 12,
+        "previous_attempt_feedback": {
+          "attempt_id": "astra_tli_2",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.8,
+          "observed_phase": "Apparent retained grasp of the orange juice carton during elevated transport toward the stove; no release or completed placement is visible.",
+          "rationale": "The current external sequence shows the carton lifted and moving with the gripper toward the stove while the bowl remains on the table. The carton stays nearly fixed between the fingers in the wrist frames as the background shifts, and finger positions remain stable near +0.022/-0.031. This supports switching from acquisition to destination conditioning. Set the cabinet-to-stove donor pair at alpha 0.8, applying 0.6*(T_17-T_18) with the donor object held constant. The previous attempt failed despite an apparent late lift, so it does not establish that this contrast will succeed; the present switch is based on the current retained transport. Placement and observed success are not established.",
+          "source_a_id": "18",
+          "source_b_id": "17",
+          "vision": []
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 731,
+        "request_fingerprint": "a094b40aa3dcd68be46ac893e92d4514d533ef713803edf7286ae76793ddebb0",
+        "response_text_sha256": "00461eaea2691602a7ed25d53f0aad07e2c9b7ceaa4835dd105076d54651639c",
+        "revision": 2,
+        "same_attempt_history_count": 3,
+        "step": 75,
+        "token_usage": {
+          "input_tokens": 9432,
+          "output_tokens": 305,
+          "reasoning_tokens": 0,
+          "total_tokens": 9737
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": null,
+        "applied_accepted_decision_id": "astra_tli_vision_2_d1",
+        "attempt_id": "astra_tli_vision_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 1,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli_vision",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.2,
+          "observed_phase": "Initial approach; orange juice carton remains upright behind the bowl, with gripper open above the table.",
+          "rationale": "The completed attempt moved the bowl rather than the orange juice. For this reset, use the matched cabinet-destination pair to emphasize grasping an upright beverage container over a bowl without introducing a destination difference in the residual. Mark the visible orange juice carton to distinguish it from the adjacent bowl. This is an initial object-selection adjustment, not evidence of a successful grasp.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": [
+            {
+              "camera": "observation/image",
+              "coordinates": [
+                105,
+                89,
+                119,
+                115
+              ],
+              "gain": 0.8,
+              "kind": "box"
+            }
+          ]
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 739,
+        "request_fingerprint": "b51afe1d30c4442f054024302d4efb88dc36cc509e08a61ec6ced7759eea3b4e",
+        "response_text_sha256": "fc48569ef42c7caa2a40e08a03d923c0f479b40ac92b4f1398c0391edbe3ac3c",
+        "revision": 1,
+        "same_attempt_history_count": 0,
+        "step": 0,
+        "token_usage": {
+          "input_tokens": 4022,
+          "output_tokens": 422,
+          "reasoning_tokens": 153,
+          "total_tokens": 4444
+        }
+      },
+      {
+        "accepted": false,
+        "active_text_before_call": {
+          "alpha": 0.2,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_vision_2_d1",
+        "attempt_id": "astra_tli_vision_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 2,
+        "error": "proposal_rejected: Proposal does not echo request_fingerprint",
+        "http_status": 200,
+        "mode": "astra_tli_vision",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.2,
+          "observed_phase": "Open-gripper approach toward the upright orange juice carton; neither lifting nor a secure grasp is visible.",
+          "rationale": "The gripper has descended toward the carton while the carton and adjacent bowl remain on the table. Retain the beverage-versus-bowl residual with the shared cabinet destination canceled, rather than switching prematurely to placement conditioning. Refresh the carton annotation in the current main-camera frame to support object selection; the current observations do not establish a successful grasp.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": [
+            {
+              "camera": "observation/image",
+              "coordinates": [
+                105,
+                89,
+                119,
+                115
+              ],
+              "gain": 0.8,
+              "kind": "box"
+            }
+          ]
+        },
+        "proposal_fields_applied": false,
+        "provider_call": true,
+        "request_event_sequence": 746,
+        "request_fingerprint": "71eb26de9276b700e178497e9946fc3f317a58ed8a07fa9f0d002193a714405a",
+        "response_text_sha256": "128971bd54272bb8852cad29bd0b963992e9acc5d2cc031a1ede028d0ad7c103",
+        "revision": 1,
+        "same_attempt_history_count": 1,
+        "step": 25,
+        "token_usage": {
+          "input_tokens": 5359,
+          "output_tokens": 261,
+          "reasoning_tokens": 0,
+          "total_tokens": 5620
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.2,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_vision_2_d3",
+        "attempt_id": "astra_tli_vision_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 3,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli_vision",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.1,
+          "observed_phase": "Descending near the orange juice carton and adjacent bowl with fingers still open; no secure grasp or lift is visible.",
+          "rationale": "Keep the beverage-versus-bowl residual with a shared cabinet destination, increasing its A-side strength to discourage selecting the adjacent bowl. Current wrist imagery clearly shows the orange juice below the bowl; highlight that visible carton region for this chunk. Do not transition to stove placement until a carton grasp is visually supported. The rejected previous call left the earlier text choice active.",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "vision": [
+            {
+              "camera": "observation/wrist_image",
+              "coordinates": [
+                73,
+                126,
+                153,
+                185
+              ],
+              "gain": 0.8,
+              "kind": "box"
+            }
+          ]
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 753,
+        "request_fingerprint": "2e94cddaccf7e8740135a292bf02f09e4392f46278de2128886a4e07931504c1",
+        "response_text_sha256": "1789cbd94f7051e4017dc34326efa9e730006bc0342f4bf670b9ef3fedab1561",
+        "revision": 1,
+        "same_attempt_history_count": 2,
+        "step": 50,
+        "token_usage": {
+          "input_tokens": 5404,
+          "output_tokens": 359,
+          "reasoning_tokens": 87,
+          "total_tokens": 5763
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.1,
+          "source_a_id": "14",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_vision_2_d4",
+        "attempt_id": "astra_tli_vision_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 4,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli_vision",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.15,
+          "observed_phase": "Orange juice carton appears grasped and lifted: it remains aligned with the fingers as the gripper rises, while the bowl stays on the table. Transition to transport toward the stove.",
+          "rationale": "Current frames support a carton lift rather than the bowl selection seen in the completed failed attempt. Switch to the matched bowl-object pair contrasting stove with cabinet placement; the A-side TLI residual emphasizes the stove destination while reducing the object-word difference. Mark the visible stove burner in the stable external view for this chunk. Placement and task success remain unconfirmed.",
+          "source_a_id": "17",
+          "source_b_id": "18",
+          "vision": [
+            {
+              "camera": "observation/image",
+              "coordinates": [
+                61,
+                103
+              ],
+              "gain": 0.7,
+              "kind": "point"
+            }
+          ]
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 760,
+        "request_fingerprint": "729aba8d8a14ad8b5d5a158ef09a55722a3982de9998294ce42b837d0c901097",
+        "response_text_sha256": "9e18654e25ef947347680683ee245d5c4234c6e5171d5b81eab20d4eea3ecef0",
+        "revision": 1,
+        "same_attempt_history_count": 3,
+        "step": 75,
+        "token_usage": {
+          "input_tokens": 5728,
+          "output_tokens": 343,
+          "reasoning_tokens": 65,
+          "total_tokens": 6071
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.15,
+          "source_a_id": "17",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_vision_2_d5",
+        "attempt_id": "astra_tli_vision_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 5,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli_vision",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.15,
+          "observed_phase": "Carton remains held as the gripper moves toward the stove and begins lowering. It appears above the stove's rear edge; release and stable placement are not yet visible.",
+          "rationale": "Recent current frames show the orange juice moving with the gripper while the bowl remains on the table. Retain the stove-versus-cabinet TLI residual, since transport is proceeding toward the intended receptacle without visible grasp loss. Refresh the burner-center cue in the external camera to support alignment during lowering. No observed success has been reported.",
+          "source_a_id": "17",
+          "source_b_id": "18",
+          "vision": [
+            {
+              "camera": "observation/image",
+              "coordinates": [
+                61,
+                103
+              ],
+              "gain": 0.7,
+              "kind": "point"
+            }
+          ]
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 767,
+        "request_fingerprint": "f7ad37fb2957b0c3576a732ccee57c3d082369aefe6da4ae96230787a4ddabc7",
+        "response_text_sha256": "03e7072586b367dcc21d3d0125d9521b51d07404edd9bab5ae79f2c0234d77ee",
+        "revision": 1,
+        "same_attempt_history_count": 4,
+        "step": 100,
+        "token_usage": {
+          "input_tokens": 6059,
+          "output_tokens": 273,
+          "reasoning_tokens": 0,
+          "total_tokens": 6332
+        }
+      },
+      {
+        "accepted": true,
+        "active_text_before_call": {
+          "alpha": 0.15,
+          "source_a_id": "17",
+          "source_b_id": "18"
+        },
+        "applied_accepted_decision_id": "astra_tli_vision_2_d6",
+        "attempt_id": "astra_tli_vision_2",
+        "completed_rollout_feedback": [
+          {
+            "attempt_id": "recovered_noise_1",
+            "error": null,
+            "executed_actions": 300,
+            "success": false,
+            "termination": "budget_exhausted"
+          }
+        ],
+        "decision_index": 6,
+        "error": null,
+        "http_status": 200,
+        "mode": "astra_tli_vision",
+        "native_condition_fallback_at_call": false,
+        "previous_attempt_decision_count": 0,
+        "previous_attempt_feedback": {
+          "attempt_id": "recovered_noise_1",
+          "error": null,
+          "executed_actions": 300,
+          "success": false,
+          "termination": "budget_exhausted"
+        },
+        "previous_attempt_snapshot_steps": [
+          0,
+          100,
+          200,
+          300
+        ],
+        "proposal_fields": {
+          "alpha": 0.15,
+          "observed_phase": "Final lowering over the stove burner. The orange juice carton still appears held between the fingers, with its lower end near the burner; release and stable placement are not confirmed.",
+          "rationale": "Current external and wrist images show the carton aligned over the stove while the bowl remains on the table. The decreasing end-effector height and nearly unchanged finger positions support continued lowering without a visible release. Retain the A-side stove-versus-cabinet residual rather than changing conditioning during placement. Refresh the stable external burner cue for this chunk; no binary success outcome has been supplied for this attempt.",
+          "source_a_id": "17",
+          "source_b_id": "18",
+          "vision": [
+            {
+              "camera": "observation/image",
+              "coordinates": [
+                61,
+                103
+              ],
+              "gain": 0.7,
+              "kind": "point"
+            }
+          ]
+        },
+        "proposal_fields_applied": true,
+        "provider_call": true,
+        "request_event_sequence": 774,
+        "request_fingerprint": "bd516b253a9687171dce390237d3ea63ee32361e55c3441de94d32733c6523c5",
+        "response_text_sha256": "5d3a651f0c60a0b81e276641a5f12664203316aad6d1ec75d8f3d0b655c477de",
+        "revision": 1,
+        "same_attempt_history_count": 5,
+        "step": 125,
+        "token_usage": {
+          "input_tokens": 6386,
+          "output_tokens": 281,
+          "reasoning_tokens": 0,
+          "total_tokens": 6667
+        }
+      }
+    ],
+    "episode_id": "libero_goal_ood:seed29:task1:state0",
+    "physical_cost": {
+      "initialization_velocity_evaluations": 1230,
+      "interpolation_gate_velocity_evaluations": 50,
+      "rollout_velocity_evaluations": 6660,
+      "rollout_wall_seconds": 956.1053824299015,
+      "rollouts": 13,
+      "simulated_actions": 3324,
+      "token_usage": {
+        "accepted_proposals": 43,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 46
+        },
+        "client_attempts": 46,
+        "errors": {
+          "proposal_rejected: Proposal does not echo request_fingerprint": 1,
+          "proposal_rejected: request_fingerprint must be a SHA256 digest": 2
+        },
+        "failed_calls": 3,
+        "http_status": {
+          "200": 46
+        },
+        "latency_seconds": 496.05943141912576,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 46,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 46,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 348035
+          },
+          "output_tokens": {
+            "available_calls": 46,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 14344
+          },
+          "reasoning_tokens": {
+            "available_calls": 46,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 1784
+          },
+          "total_tokens": {
+            "available_calls": 46,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 362379
+          }
+        },
+        "usage_available_calls": 46,
+        "usage_unavailable_calls": 0
+      },
+      "velocity_evaluations": 7940,
+      "wall_time_note": "Baseline rollout wall time includes initialization, interpolation checks and recording; do not add those times again."
+    },
+    "protocol_sha256": "866334fb705aa6f0993a4c453e8f651c223cc900f44ea9de907d7c2e8ed0c5c0",
+    "provider": {
+      "accepted_proposals": 43,
+      "actual_models": {
+        "azure/openai/gpt-6-astra": 46
+      },
+      "client_attempts": 46,
+      "errors": {
+        "proposal_rejected: Proposal does not echo request_fingerprint": 1,
+        "proposal_rejected: request_fingerprint must be a SHA256 digest": 2
+      },
+      "failed_calls": 3,
+      "http_status": {
+        "200": 46
+      },
+      "latency_seconds": 496.05943141912576,
+      "monetary_cost": null,
+      "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+      "preflight_errors": {},
+      "preflight_failures": 0,
+      "preflight_latency_seconds": 0,
+      "provider_calls": 46,
+      "reasoning_tokens_are_subset_of_output_tokens": true,
+      "tokens": {
+        "input_tokens": {
+          "available_calls": 46,
+          "complete": true,
+          "missing_calls": 0,
+          "sum": 348035
+        },
+        "output_tokens": {
+          "available_calls": 46,
+          "complete": true,
+          "missing_calls": 0,
+          "sum": 14344
+        },
+        "reasoning_tokens": {
+          "available_calls": 46,
+          "complete": true,
+          "missing_calls": 0,
+          "sum": 1784
+        },
+        "total_tokens": {
+          "available_calls": 46,
+          "complete": true,
+          "missing_calls": 0,
+          "sum": 362379
+        }
+      },
+      "usage_available_calls": 46,
+      "usage_unavailable_calls": 0
+    },
+    "rejection_reasons": {
+      "proposal_rejected: Proposal does not echo request_fingerprint": 1,
+      "proposal_rejected: request_fingerprint must be a SHA256 digest": 2
+    },
+    "reset_entry_sha256": "3cd7cb0a8ca966cff818defddb630533bc60ac851f3c100570668c6895cb133d",
+    "source_catalog": [
+      {
+        "prompt": "put the bowl on the plate",
+        "source_id": "10"
+      },
+      {
+        "prompt": "put the cream cheese in the bowl",
+        "source_id": "13"
+      },
+      {
+        "prompt": "put the wine bottle on top of the cabinet",
+        "source_id": "14"
+      },
+      {
+        "prompt": "put the bowl on the stove",
+        "source_id": "17"
+      },
+      {
+        "prompt": "put the bowl on top of the cabinet",
+        "source_id": "18"
+      },
+      {
+        "prompt": "pick up the black bowl on the ramekin and place it on the plate",
+        "source_id": "32"
+      },
+      {
+        "prompt": "pick up the black bowl on the cookie box and place it on the plate",
+        "source_id": "35"
+      },
+      {
+        "prompt": "pick up the black bowl next to the plate and place it on the plate",
+        "source_id": "36"
+      },
+      {
+        "prompt": "pick up the black bowl from table center and place it on the plate",
+        "source_id": "38"
+      }
+    ],
+    "sources": {
+      "archive_sha256": "e6b182a01f8b94351650a3cf97553f5f9ff1cf5dc93f42d60d11336892974c67",
+      "audit_file_sha256": {
+        "../audits/worker_1_arrays.json": "da4999a34aa89d3b31de0ab4fd1bf45f4c8296821749301365220056be8abc30",
+        "../audits/worker_1_case_1_0_feedback.json.gz": "81f1b2146e196a7796121e5620d26753a340dbeb9a7c156f43df0451852bb987",
+        "../audits/worker_1_receipt.json": "86bcb061c7bf182f5a7a96db4b666850d1ce2aa36b8bf8009b981a5ae8cc53ad"
+      },
+      "case_file_sha256": {
+        "astra_tei_2_provider.jsonl": "220bbcb1aa0a5335d4b81b4c320bb8460668982f274ee1ad161b2ac55c2a13ab",
+        "astra_tei_3_provider.jsonl": "345b52ff159a6f97e5bfbc3d3ac05fdc0a50ef712d58ec87468d194cc039b51d",
+        "astra_tli_2_provider.jsonl": "02a26e438c80946b84c207eb54bed0cfec48e57e25fec824151d47f643632a17",
+        "astra_tli_3_provider.jsonl": "3b372e2ace6aba20d3813c1290c3d294c34fc6941c1389a67d529619b86a45e7",
+        "astra_tli_vision_2_provider.jsonl": "78703234492039a735ba262182070ef796118f95a2b47c5814e81c0b56f9adb3",
+        "events.jsonl": "9663d584aa6b5570b9655cfbfd079576a43e1f0d5b2942a51db2547dde5dba29",
+        "summary.json": "245e9354a0cb9a124aa824722c1f98fbe570bd1e03b191bb031a56052e3be877"
+      },
+      "payload_sha256": "5b51adf8a604ec68461a8b8933d11f9b9f2b7cd9295eb463b715272f3cc7c842",
+      "workflow": "astra-pi05-interpolation-evaluation-20260925-1"
+    },
+    "status": "verified",
+    "target_task": "put the orange juice on the stove"
+  },
+  "limitations": [
+    "This case is separate from the first-completed-worker two-case totals and has no additional rendered figure.",
+    "Random-noise failure is bounded by two attempts; oracle TEI also succeeds, so success is not unique to Astra.",
+    "The explicit response hypotheses about donor cancellation are not proof of semantic cancellation or causal attribution.",
+    "Both full array and feedback audits passed; no new provider, model, GPU or simulator calls were made."
+  ],
+  "schema_version": "phase-interpolation-orange-evaluation-example-1",
+  "selection": "Additional case selected after inspection to illustrate Astra TLI rescues absent from this matched two-revision random-noise search; not representative selection.",
+  "source_file_sha256": {
+    "interpolation_agent.py": "59a00fd0e3f5145c0adf0c87136c534f0e1c26c9d07ebf6df54d72ed49908e29",
+    "interpolation_audit.py": "4cb6ba2286d75ed937bc2bf9761704c019110ace1cd5cc8da240c8f78116e7bf",
+    "intervention_agent.py": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+    "reports/phase_interpolation/development/behavior/build_milk_figure.py": "cf3ce746f89db1f6b5da15bea5b6696a6c1272ee08885e400e1d118be7004080",
+    "reports/phase_interpolation/evaluation/behavior/build_examples.py": "97163e6584fcfdb8165006d7385fe0e800744173a78c8e73ba05ba5f02b8c7e6"
+  },
+  "status": "verified"
+}

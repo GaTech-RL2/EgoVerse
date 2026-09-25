@@ -1,0 +1,928 @@
+"""Publish bounded interruption evidence; never treat partial cases as outcomes.
+
+Run from the repository root after activating emimic:
+  python astra_reversal/.deps/interpolation-development-v1/build_interruption.py \
+    --original astra_reversal/.deps/interpolation-development-v1 \
+    --recovery astra_reversal/.deps/interpolation-development-recovery-v2 \
+    --deployment-attempt astra_reversal/.deps/interpolation-development-recovery-v1 \
+    --output astra_reversal/reports/phase_interpolation/development/interruption
+
+Only the optional fetch step reads the private signed catalog. Its URLs never
+enter the published output, source snapshot, or exception text. Public provider
+copies preserve recorded fields except endpoint; exact raw file hashes remain.
+"""
+
+import argparse
+import csv
+import gzip
+import hashlib
+import json
+import re
+import shutil
+import urllib.error
+import urllib.request
+from collections import Counter
+from pathlib import Path
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def raw(path):
+    return Path(path).read_bytes()
+
+
+def json_bytes(value):
+    return (
+        json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode()
+
+
+def read(path):
+    return json.loads(raw(path))
+
+
+def receipt(path, label):
+    data = raw(path)
+    return {"name": label, "sha256": sha(data), "bytes": len(data)}
+
+
+def safe_string(value):
+    value = re.sub(r"https?://\S+", "[URL omitted]", value)
+    value = re.sub(r"osmogroot-[\w-]*-w-(\d+)", r"w-\1", value)
+    value = re.sub(r"containerd://[a-f0-9]+", "[container identifier omitted]", value)
+    value = re.sub(r"osmo-prod/[a-f0-9-]+", "[pod identifier omitted]", value)
+    value = re.sub(r"pvc-[a-f0-9-]+", "[volume identifier omitted]", value)
+    value = re.sub(r"[\w.+-]+@[\w.-]+\.[A-Za-z]+", "[operator identity omitted]", value)
+    return value
+
+
+def safe_value(value):
+    if isinstance(value, str):
+        return safe_string(value)
+    if isinstance(value, list):
+        return [safe_value(row) for row in value]
+    if isinstance(value, dict):
+        return {key: safe_value(row) for key, row in value.items()}
+    return value
+
+
+def public_json(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = json_bytes(value)
+    require(not re.search(rb"https?://", data), "URL found in public JSON")
+    path.write_bytes(data)
+
+
+def compressed_jsonl(path, records):
+    data = b"".join(
+        (json.dumps(row, sort_keys=True, allow_nan=False) + "\n").encode()
+        for row in records
+    )
+    require(not re.search(rb"https?://", data), "URL found in public records")
+    require(
+        not re.search(
+            rb"(?i)(bearer\s+[a-z0-9]|x-amz-signature|api[_-]?key\s*[=:])", data
+        ),
+        "Credential marker found in public records",
+    )
+    require(
+        not re.search(
+            rb'(?i)"(?:authorization|api[_-]?key|password|secret|credential)"\s*:', data
+        ),
+        "Credential field found in public records",
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(gzip.compress(data, mtime=0))
+    return {
+        "uncompressed_sha256": sha(data),
+        "uncompressed_bytes": len(data),
+        "records": len(records),
+    }
+
+
+def fetch_events(original):
+    catalog = read(original / "catalog.json")["objects"]
+    target = original / "interruption_snapshot"
+    target.mkdir(exist_ok=True)
+    receipts = []
+    for worker, task in ((0, 6), (1, 2)):
+        key = f"worker_{worker}/case_{task}_0/events.jsonl"
+        output = target / f"worker_{worker}_events.jsonl"
+        saved_receipt = output.with_suffix(".receipt.json")
+        if output.exists():
+            row = read(saved_receipt)
+            require(row["sha256"] == sha(raw(output)), "Cached event download changed")
+            receipts.append(row)
+            continue
+        temporary = output.with_suffix(".tmp")
+        try:
+            with (
+                urllib.request.urlopen(catalog[key]["url"], timeout=120) as response,
+                temporary.open("wb") as stream,
+            ):
+                count = 0
+                while block := response.read(1024 * 1024):
+                    count += len(block)
+                    require(
+                        count <= 300 * 1024 * 1024,
+                        "Event prefix exceeds download bound",
+                    )
+                    stream.write(block)
+                row = {
+                    "logical_key": key,
+                    "http_status": response.status,
+                    "etag": response.headers.get("ETag"),
+                    "last_modified": response.headers.get("Last-Modified"),
+                    "declared_content_length": response.headers.get("Content-Length"),
+                    "bytes": count,
+                    "sha256": sha(raw(temporary)),
+                }
+                if row["declared_content_length"] is not None:
+                    require(
+                        int(row["declared_content_length"]) == count,
+                        "Truncated event download",
+                    )
+            temporary.replace(output)
+            saved_receipt.write_bytes(json_bytes(row))
+            receipts.append(row)
+        except urllib.error.HTTPError as error:
+            raise RuntimeError(
+                f"Event download failed: worker {worker}, HTTP {error.code}"
+            ) from None
+        except Exception as error:
+            raise RuntimeError(
+                f"Event download failed: worker {worker}, {type(error).__name__}"
+            ) from None
+    return receipts
+
+
+def usage(records, *, complete=False):
+    physical = [row for row in records if row["provider_call"]]
+    fields = ("input_tokens", "output_tokens", "total_tokens", "reasoning_tokens")
+    totals = {}
+    for field in fields:
+        values = [row["token_usage"][field] for row in physical]
+        require(
+            all(value is None or type(value) is int and value >= 0 for value in values),
+            "Invalid token count",
+        )
+        totals[field] = {
+            "sum": sum(value for value in values if value is not None),
+            "available_calls": sum(value is not None for value in values),
+            "missing_calls": sum(value is None for value in values),
+            "complete_for_published_calls": all(value is not None for value in values),
+        }
+    return {
+        "published_client_records": len(records),
+        "published_provider_calls": len(physical),
+        "preflight_records": len(records) - len(physical),
+        "accepted_records": sum(row["accepted"] for row in records),
+        "failed_provider_calls": sum(not row["accepted"] for row in physical),
+        "tokens": totals,
+        "reasoning_tokens_are_subset_of_output_tokens": True,
+        "known_provider_latency_seconds": sum(
+            row["latency_seconds"] for row in physical
+        ),
+        "published_provider_records_cover_entire_worker_execution": complete,
+        "unpublished_or_inflight_calls": 0 if complete else None,
+        "dollar_cost": None,
+    }
+
+
+def validate_provider(row):
+    require(
+        row["client_schema_version"] == row["schema_version"] == "interpolation-1.0",
+        "Wrong client schema",
+    )
+    require(
+        row["prompt_template_version"] == "astra-interpolation-http-1",
+        "Wrong prompt version",
+    )
+    require(
+        row["provider_call"] is row["accepted"] is True and row["http_status"] == 200,
+        "Original interruption snapshot changed outcome class",
+    )
+    require(
+        row["requested_model"]
+        == row["response"]["model"]
+        == "azure/openai/gpt-6-astra",
+        "Wrong provider model",
+    )
+    require(row["cache"] == {"no-cache": True}, "Wrong cache request")
+    source = row["response"]["usage"]
+    expected = {
+        "input_tokens": source["prompt_tokens"],
+        "output_tokens": source["completion_tokens"],
+        "total_tokens": source["total_tokens"],
+        "reasoning_tokens": source["completion_tokens_details"]["reasoning_tokens"],
+    }
+    require(
+        row["token_usage"] == expected,
+        "Normalized token ledger differs from reported provider usage",
+    )
+    require(
+        expected["total_tokens"]
+        == expected["input_tokens"] + expected["output_tokens"],
+        "Reported token arithmetic differs",
+    )
+    require(
+        expected["reasoning_tokens"] <= expected["output_tokens"],
+        "Reasoning is not a subset",
+    )
+
+
+def normalized_workflow(original, recovery):
+    status_path = original / "final-status.json"
+    status = read(status_path)
+    workflow = {
+        key: status[key]
+        for key in (
+            "name",
+            "status",
+            "priority",
+            "submit_time",
+            "start_time",
+            "end_time",
+            "duration",
+        )
+    }
+    workflow["tasks"] = []
+    for group in status["groups"]:
+        for task in group["tasks"]:
+            workflow["tasks"].append(
+                safe_value(
+                    {
+                        key: task[key]
+                        for key in (
+                            "name",
+                            "status",
+                            "node_name",
+                            "failure_message",
+                            "exit_code",
+                            "start_time",
+                            "end_time",
+                        )
+                    }
+                )
+            )
+    require(
+        workflow["status"] == "FAILED",
+        "Original workflow no longer has expected interrupted status",
+    )
+    for index in (0, 1):
+        task = next(row for row in workflow["tasks"] if row["name"] == f"worker{index}")
+        require(
+            task["status"] == "FAILED"
+            and task["exit_code"] == 2001
+            and task["node_name"] == "w-7183",
+            "Unexpected original interruption provenance",
+        )
+    events = []
+    inputs = [receipt(status_path, "original/final-status.json")]
+    for worker in (0, 1):
+        path = original / f"events-worker{worker}.log"
+        inputs.append(receipt(path, f"original/{path.name}"))
+        for line_number, line in enumerate(path.read_text().splitlines(), 1):
+            match = re.match(
+                r"(\d{4}-\d\d-\d\d [0-9:+-]+) \[([^]]+)\] ([^:]+): (.*)", line
+            )
+            if match:
+                timestamp, task, kind, message = match.groups()
+                events.append(
+                    {
+                        "source_file": path.name,
+                        "source_line": line_number,
+                        "timestamp": timestamp,
+                        "task": task,
+                        "kind": kind,
+                        "message": safe_string(message),
+                    }
+                )
+        error_path = original / f"logs-worker{worker}.log"
+        inputs.append(receipt(error_path, f"original/{error_path.name}"))
+        unavailable = sum(
+            "unable to retrieve container logs" in line
+            for line in error_path.read_text().splitlines()
+        )
+        events.append(
+            {
+                "source_file": error_path.name,
+                "task": f"worker{worker}",
+                "kind": "error_log_retrieval_unavailable",
+                "container_log_streams_unavailable": unavailable,
+            }
+        )
+    workflow["event_evidence"] = events
+    workflow["recovery_plan"] = safe_value(read(recovery / "recovery.json"))
+    workflow["recovery_workflow"] = read(recovery / "submission.json")["name"]
+    workflow["root_cause_scope"] = (
+        "OSMO reports control failure and repipelining; a deeper infrastructure root cause is not established by these records."
+    )
+    inputs.extend(
+        receipt(recovery / name, f"recovery/{name}")
+        for name in ("recovery.json", "submission.json")
+    )
+    return workflow, inputs
+
+
+def event_prefix(original, worker, output):
+    path = original / "interruption_snapshot" / f"worker_{worker}_events.jsonl"
+    counts, attempts, calls, decisions = Counter(), {}, {}, {}
+    normalized = []
+    generation_vf = init_vf = gate_vf = 0
+    for sequence, line in enumerate(path.open()):
+        event = json.loads(line)
+        require(
+            event["sequence"] == sequence, "Published event prefix is not contiguous"
+        )
+        kind = event["kind"]
+        counts[kind] += 1
+        result = {"sequence": sequence, "kind": kind}
+        if "time" in event:
+            result["time"] = event["time"]
+        if kind == "case":
+            result["episode_id"] = event["entry"]["episode_id"]
+        elif kind == "interpolation_request":
+            request = event["request"]
+            result.update(
+                {
+                    key: request[key]
+                    for key in (
+                        "episode_id",
+                        "attempt_id",
+                        "decision_index",
+                        "observation_step",
+                        "interpolation_mode",
+                        "request_fingerprint",
+                    )
+                }
+            )
+            calls[request["request_fingerprint"]] = result
+        elif kind == "interpolation_decision":
+            decision = event["decision"]
+            result.update(
+                {
+                    key: decision[key]
+                    for key in (
+                        "decision_index",
+                        "observation_step",
+                        "accepted",
+                        "error",
+                    )
+                }
+            )
+            result["attempt_id"] = event["attempt_id"]
+            if decision["proposal"] is not None:
+                result["decision_id"] = decision["proposal"]["decision_id"]
+                decisions[result["decision_id"]] = result
+        elif kind == "phase_generation":
+            result.update(
+                {
+                    key: event[key]
+                    for key in (
+                        "mode",
+                        "iteration",
+                        "attempt_id",
+                        "observation_step",
+                        "velocity_evaluations",
+                        "applied_accepted_decision_id",
+                        "text_has_effect",
+                        "vision_has_effect",
+                        "held_text_after_failed_call",
+                        "native_condition_fallback",
+                    )
+                }
+            )
+            generation_vf += event["velocity_evaluations"]
+        elif kind == "phase_attempt":
+            attempt = event["attempt"]
+            result["attempt"] = {
+                key: attempt[key]
+                for key in (
+                    "attempt_id",
+                    "mode",
+                    "iteration",
+                    "success",
+                    "actions_executed",
+                    "policy_replans",
+                    "velocity_evaluations",
+                    "wall_seconds",
+                )
+            }
+            result["evidence_scope"] = (
+                "Completed rollout in an incomplete case; not an audited case outcome."
+            )
+            require(
+                attempt["attempt_id"] not in attempts,
+                "Duplicate physical attempt in event prefix",
+            )
+            attempts[attempt["attempt_id"]] = result["attempt"]
+        elif kind == "inversion_initialization":
+            require(counts[kind] == 1, "Duplicate initialization")
+            init_vf = event["velocity_evaluations"]
+            result.update(
+                {
+                    key: event[key]
+                    for key in ("passed", "errors", "velocity_evaluations")
+                }
+            )
+        elif kind == "interpolation_gate":
+            require(counts[kind] == 1, "Duplicate interpolation gate")
+            gate_vf = event["velocity_evaluations"]
+            result.update(
+                {
+                    key: event[key]
+                    for key in (
+                        "passed",
+                        "status",
+                        "complete",
+                        "velocity_evaluations",
+                        "velocity_evaluations_complete",
+                    )
+                }
+            )
+        else:
+            result["original_event_canonical_sha256"] = sha(json_bytes(event))
+        normalized.append(result)
+    target = output / "event_prefixes" / f"worker_{worker}.jsonl.gz"
+    published = compressed_jsonl(target, normalized)
+    return (
+        {
+            "source": receipt(path, f"original/worker_{worker}/events.jsonl"),
+            "public_file": str(target.relative_to(output)),
+            "public_uncompressed": published,
+            "complete_case": False,
+            "recording_scope": "Published contiguous prefix only; simulator arrays and task outcomes are not audited here.",
+            "event_counts": dict(counts),
+            "last_sequence": len(normalized) - 1,
+            "completed_rollouts_in_prefix": list(attempts.values()),
+            "known_completed_rollout_actions": sum(
+                row["actions_executed"] for row in attempts.values()
+            ),
+            "recorded_generation_velocity_evaluations": generation_vf,
+            "recorded_initialization_velocity_evaluations": init_vf,
+            "recorded_interpolation_gate_velocity_evaluations": gate_vf,
+            "recorded_total_velocity_evaluations": generation_vf + init_vf + gate_vf,
+            "actual_total_compute_known": False,
+            "generated_action_chunks_are_not_proof_of_executed_actions": True,
+        },
+        calls,
+        decisions,
+    )
+
+
+def deployment_only(path):
+    status = read(path / "final-status.json")
+    cancellation = read(path / "cancel.json")
+    uploads = read(path / "upload_receipt.json")
+    require(cancellation["name"] == status["name"], "Cancellation workflow mismatch")
+    require(
+        uploads == [{"worker": 0, "exit": 2}, {"worker": 1, "exit": 2}],
+        "Deployment upload outcome differs",
+    )
+    tasks = [
+        safe_value(
+            {
+                key: task[key]
+                for key in (
+                    "name",
+                    "status",
+                    "node_name",
+                    "failure_message",
+                    "start_time",
+                    "initializing_start_time",
+                    "end_time",
+                )
+            }
+        )
+        for group in status["groups"]
+        for task in group["tasks"]
+    ]
+    require(
+        status["status"] == "FAILED_CANCELED" and tasks[0]["start_time"] is None,
+        "Deployment cancellation evidence differs",
+    )
+    events = []
+    for worker in (0, 1):
+        event_path = path / f"worker{worker}-events.log"
+        for number, line in enumerate(event_path.read_text().splitlines(), 1):
+            if re.match(r"\d{4}-\d\d-\d\d ", line):
+                events.append(
+                    {
+                        "source_file": event_path.name,
+                        "source_line": number,
+                        "event": safe_string(line),
+                    }
+                )
+    require(
+        any("azurelustre.csi.azure.com not found" in row["event"] for row in events),
+        "Missing CSI driver evidence was not preserved",
+    )
+    tail = (path / "worker1-final.log").read_text().splitlines()[-14:]
+    return {
+        "workflow": status["name"],
+        "classification": "deployment_only_cancellation_before_study_payload_execution",
+        "status_snapshot": status["status"],
+        "priority": status["priority"],
+        "submit_time": status["submit_time"],
+        "tasks": tasks,
+        "cancellation_request_recorded": True,
+        "payload_upload_receipts": uploads,
+        "study_provider_calls": 0,
+        "study_model_evaluations": 0,
+        "scope": "Worker 0 never started because its assigned node lacked the required CSI driver. Worker 1 started its container after the image pull and ended during bootstrap/uv installation while awaiting the payload. Both payload uploads exited 2; the operator confirms no study module executed. Cluster allocation/image-pull/bootstrap cost is not estimated.",
+        "event_evidence": events,
+        "worker1_bootstrap_log_tail": [safe_string(line) for line in tail],
+        "source_receipts": [
+            receipt(path / name, f"deployment-only/{name}")
+            for name in (
+                "final-status.json",
+                "cancel.json",
+                "upload_receipt.json",
+                "source_identity.json",
+                "worker0-events.log",
+                "worker1-events.log",
+                "worker1-final.log",
+            )
+        ],
+    }
+
+
+def build(original, recovery, deployment_attempt, output, fetch):
+    require(
+        not output.exists(), "Output already exists; interruption receipt is immutable"
+    )
+    download_receipts = (
+        fetch_events(original)
+        if fetch
+        else [
+            read(
+                original
+                / "interruption_snapshot"
+                / f"worker_{index}_events.receipt.json"
+            )
+            for index in (0, 1)
+        ]
+    )
+    original_source, recovery_source = (
+        read(original / "source_identity.json"),
+        read(recovery / "source_identity.json"),
+    )
+    require(
+        original_source == recovery_source,
+        "Recovery changed the submitted source/payload identity",
+    )
+    workflow, inputs = normalized_workflow(original, recovery)
+    output.mkdir(parents=True)
+    public_json(output / "workflow.json", workflow)
+    public_json(output / "source_identity.json", original_source)
+    if deployment_attempt is not None:
+        require(
+            read(deployment_attempt / "source_identity.json") == original_source,
+            "Deployment-only attempt changed the payload",
+        )
+        public_json(
+            output / "deployment_only_attempt.json", deployment_only(deployment_attempt)
+        )
+    inputs.extend(
+        receipt(original / name, f"original/{name}")
+        for name in ("source_identity.json", "interruption_cost_snapshot.json")
+    )
+    inputs.append(
+        receipt(recovery / "source_identity.json", "recovery/source_identity.json")
+    )
+    workers, all_records, provider_files, csv_rows = [], [], [], []
+    seen = set()
+    for worker in range(3):
+        root = original / "downloaded" / f"worker_{worker}"
+        runtime, progress = read(root / "runtime.json"), read(root / "progress.json")
+        records = []
+        for path in sorted(root.glob("case_*/*_provider.jsonl")):
+            lines = raw(path).splitlines()
+            rows = [json.loads(line) for line in lines]
+            published = []
+            for line_number, (line, record) in enumerate(
+                zip(lines, rows, strict=True), 1
+            ):
+                validate_provider(record)
+                identity = (
+                    record["episode_id"],
+                    record["attempt_id"],
+                    record["decision_index"],
+                )
+                require(identity not in seen, "Duplicate original provider call")
+                seen.add(identity)
+                normalized = dict(record)
+                endpoint = normalized.pop("endpoint")
+                normalized["original_endpoint_sha256"] = sha(endpoint.encode())
+                published.append(normalized)
+                csv_rows.append(
+                    {
+                        "worker": worker,
+                        "cost_role": "additional_interruption_overhead"
+                        if worker < 2
+                        else "retained_completed_case",
+                        "episode_id": record["episode_id"],
+                        "attempt_id": record["attempt_id"],
+                        "decision_index": record["decision_index"],
+                        "observation_step": record["observation_step"],
+                        "request_fingerprint": record["request_fingerprint"],
+                        "decision_id": record["decision_id"],
+                        "provider_call": record["provider_call"],
+                        "accepted": record["accepted"],
+                        "http_status": record["http_status"],
+                        **record["token_usage"],
+                        "original_line_sha256": sha(line),
+                        "source_file": str(path.relative_to(original / "downloaded")),
+                        "source_line": line_number,
+                    }
+                )
+            target = (
+                output
+                / "providers"
+                / f"worker_{worker}"
+                / path.parent.name
+                / (path.name + ".gz")
+            )
+            uncompressed = compressed_jsonl(target, published)
+            provider_files.append(
+                {
+                    "worker": worker,
+                    "source": receipt(
+                        path, str(path.relative_to(original / "downloaded"))
+                    ),
+                    "public_file": str(target.relative_to(output)),
+                    "public_uncompressed": uncompressed,
+                    "transformation": "Omit endpoint URL; retain its SHA-256. All other recorded provider fields are unchanged.",
+                }
+            )
+            records.extend(rows)
+        summary_path = next(root.glob("case_*/summary.json"))
+        summary = read(summary_path)
+        metadata = {
+            name: receipt(root / name, f"original/worker_{worker}/{name}")
+            for name in (
+                "runtime.json",
+                "progress.json",
+                "protocol.json",
+                "checkpoint.json",
+                "reset_manifest.json",
+                "frozen_plan.json",
+                "bank_inventory.json",
+            )
+        }
+        row = {
+            "worker": worker,
+            "workflow": runtime["workflow"],
+            "assignment": runtime["assignment"],
+            "published_progress_status": progress["status"],
+            "published_case_status": summary["status"],
+            "episode_id": summary["episode_id"],
+            "cost_role": "additional_interruption_overhead"
+            if worker < 2
+            else "retained_completed_case",
+            "provider": usage(records, complete=worker == 2),
+            "source_metadata": metadata,
+            "case_summary_source": receipt(
+                summary_path, str(summary_path.relative_to(original / "downloaded"))
+            ),
+            "protocol_sha256": summary["protocol_sha256"],
+            "reset_entry_sha256": summary["reset_entry_sha256"],
+            "reset_manifest_sha256": read(root / "reset_manifest.json")["sha256"],
+            "frozen_plan": {
+                key: read(root / "frozen_plan.json")[key]
+                for key in (
+                    "protocol_sha256",
+                    "manifest_sha256",
+                    "bank_inventory_sha256",
+                    "assigned_episodes",
+                )
+            },
+        }
+        if worker < 2:
+            evidence, calls, decisions = event_prefix(original, worker, output)
+            row["partial_event_evidence"] = evidence
+            row["published_provider_event_crosscheck"] = {
+                "provider_records": len(records),
+                "provider_request_fingerprints_found_in_prefix": sum(
+                    record["request_fingerprint"] in calls for record in records
+                ),
+                "accepted_decisions_found_in_prefix": sum(
+                    record["decision_id"] in decisions for record in records
+                ),
+                "request_events_in_prefix": len(calls),
+                "decision_events_in_prefix": len(decisions),
+                "request_events_without_published_provider_row": [
+                    calls[key]
+                    for key in sorted(
+                        set(calls)
+                        - {record["request_fingerprint"] for record in records}
+                    )
+                ],
+                "accepted_decision_events_without_published_provider_row": [
+                    decisions[key]
+                    for key in sorted(
+                        set(decisions) - {record["decision_id"] for record in records}
+                    )
+                ],
+                "atomic_snapshot_assumed": False,
+            }
+            probe_path = (
+                original
+                / "interruption_snapshot"
+                / f"worker_{worker}_astra_tli_2_provider.remote.receipt.json"
+            )
+            if probe_path.exists():
+                probe = read(probe_path)
+                matched = next(
+                    path for path in root.glob("case_*/astra_tli_2_provider.jsonl")
+                )
+                require(
+                    probe["sha256"] == sha(raw(matched)),
+                    "Remote provider probe changed the original prefix",
+                )
+                row["published_provider_event_crosscheck"][
+                    "latest_remote_sidecar_recheck"
+                ] = probe
+        else:
+            require(
+                progress["status"] == summary["status"] == "complete",
+                "Retained worker is incomplete",
+            )
+            audits = output.parent / "audits"
+            row["retained_audit_receipts"] = [
+                receipt(path, f"../audits/{path.name}")
+                for path in sorted(audits.glob("worker_2*"))
+            ]
+        workers.append(row)
+        all_records.extend(records)
+    combined, overhead, retained = (
+        usage(all_records),
+        usage(
+            [
+                row
+                for row in all_records
+                if row["episode_id"] != workers[2]["episode_id"]
+            ]
+        ),
+        usage(
+            [
+                row
+                for row in all_records
+                if row["episode_id"] == workers[2]["episode_id"]
+            ],
+            complete=True,
+        ),
+    )
+    require(
+        (
+            combined["published_provider_calls"],
+            combined["tokens"]["total_tokens"]["sum"],
+        )
+        == (77, 598528),
+        "Original published snapshot no longer matches 77 calls/598528 tokens",
+    )
+    require(
+        (
+            overhead["published_provider_calls"],
+            overhead["tokens"]["total_tokens"]["sum"],
+        )
+        == (63, 519361),
+        "Interrupted-worker cost differs",
+    )
+    require(
+        (
+            retained["published_provider_calls"],
+            retained["tokens"]["total_tokens"]["sum"],
+        )
+        == (14, 79167),
+        "Retained-worker cost differs",
+    )
+    snapshot = read(original / "interruption_cost_snapshot.json")["recorded_provider"]
+    require(
+        all(
+            combined["tokens"][key]["sum"] == snapshot["tokens"][key]["sum"]
+            for key in combined["tokens"]
+        ),
+        "Original cost snapshot token totals differ",
+    )
+    ledger = {
+        "schema_version": "phase-interpolation-interruption-1.0",
+        "status": "published_partial_evidence_preserved",
+        "original_workflow": workflow["name"],
+        "recovery_workflow": workflow["recovery_workflow"],
+        "source_identity": original_source,
+        "all_original_published_records": combined,
+        "additional_interruption_overhead_known": overhead,
+        "additional_accepted_decisions_without_published_usage": sum(
+            len(
+                row.get("published_provider_event_crosscheck", {}).get(
+                    "accepted_decision_events_without_published_provider_row", []
+                )
+            )
+            for row in workers
+        ),
+        "retained_completed_worker_cost_included_in_final_case_cost": retained,
+        "workers": workers,
+        "provider_files": provider_files,
+        "event_download_receipts": download_receipts,
+        "source_receipts": inputs,
+        "limitations": [
+            "Interrupted workers 0/1 are incomplete recordings, not audited case outcomes or efficacy evidence.",
+            "63 provider calls and 519361 tokens are known published additional overhead; the total overhead is not known exactly because unsynced tails and in-flight calls may be absent.",
+            "One additional accepted worker-1 decision appears in the event prefix without its provider sidecar row; a later remote GET still returns only the prior two rows for that attempt. Its usage is unknown.",
+            "The retained completed worker 2 contributes 14 calls and 79167 tokens to final complete-case cost and must not also be counted as interruption overhead.",
+            "Recovery restarts entire workers/cases from the same frozen inputs independently of partial outcomes; original logs are retained.",
+            "Only provider token arithmetic and recorded prefixes are checked here; no simulation, model, numerical, feedback-array, or complete-case outcome audit is claimed for workers 0/1.",
+            "Generated chunks prove recorded flow evaluations, not execution of all proposed actions. Only completed rollout records establish action counts in this prefix.",
+            "Provider-reported reasoning tokens are a subset of output tokens; dollar cost is unknown.",
+            "Public provider JSONL preserves records except the endpoint URL, replaced by a digest. Exact original bytes remain privately stored and are bound by file/line SHA-256 receipts.",
+        ],
+    }
+    require(
+        ledger["additional_accepted_decisions_without_published_usage"] == 1,
+        "Event-only usage gap differs from the preserved evidence",
+    )
+    public_json(output / "known_costs.json", ledger)
+    with (output / "published_calls.csv").open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(csv_rows[0]))
+        writer.writeheader()
+        writer.writerows(csv_rows)
+    (output / "README.md").write_text(
+        "# Interrupted development workers\n\nThe original development workflow ended with OSMO control failures on workers 0/1. Both were on `w-7183`; scheduler events record repipelining to `w-2132` around 17:45 UTC on 2026-09-25. The deeper infrastructure cause is unverified. Worker 2 completed and its separate audits are retained.\n\nPublished provider records contain **63 calls and 519,361 tokens of known additional interruption overhead** for workers 0/1. This is **not an exact total overhead**: unpublished tails and in-flight calls are unknown. The original 77-call/598,528-token snapshot also includes worker 2's 14 calls/79,167 tokens, which belong to final complete-case cost and must not be added again as overhead.\n\nWorkers 0/1 are rerun in full with the same source payload, protocol and prescribed resets, independently of partial outcomes. Partial attempts here are incomplete recordings, not audited success evidence. Recovery metadata compatibility is checked separately once available.\n\n`known_costs.json` and `published_calls.csv` preserve counts, provider-reported input/output/total/reasoning costs, source hashes, metadata identities and prefix coverage. Reasoning tokens are included within output tokens. No dollar price is assumed. `workflow.json` preserves normalized status/failure/scheduler evidence. `event_prefixes/` omits image payloads and hashes unexpanded event kinds. `providers/` contains deterministic compressed copies of the original provider records with only the endpoint URL replaced by its digest; exact original-file and original-line hashes remain available. No signed catalog URLs or credentials are published.\n\n`source/build_interruption.py.txt` is the exact operational source. Its docstring records the argument-based invocation. It performs no simulator, GPU, model or provider call; optional network reads download already-published event artifacts. These receipts do not replace the complete-case, numerical-array or feedback audits.\n"
+    )
+    with (output / "README.md").open("a") as stream:
+        stream.write(
+            "\nWorker 1's event prefix contains one additional accepted decision whose provider sidecar row was not published. A later remote sidecar read still contains only the two earlier calls in that attempt. Its tokens are unknown, giving concrete evidence that the preserved usage ledger is incomplete.\n"
+        )
+        if deployment_attempt is not None:
+            stream.write(
+                "\n`deployment_only_attempt.json` separately records the canceled first recovery attempt: worker 0 could not mount the missing Lustre CSI driver on `w-2132`; worker 1 started only container bootstrap after its image pull. Both payload uploads failed, and no study module ran. No study API/model cost is assigned to that deployment attempt; infrastructure allocation and bootstrap cost is unpriced. The second recovery workflow is the replacement named in `workflow.json`.\n"
+            )
+    source = output / "source" / "build_interruption.py.txt"
+    source.parent.mkdir()
+    shutil.copyfile(__file__, source)
+    files = {
+        str(path.relative_to(output)): receipt(path, str(path.relative_to(output)))
+        for path in sorted(output.rglob("*"))
+        if path.is_file()
+    }
+    manifest = {
+        "schema_version": "phase-interpolation-interruption-files-1.0",
+        "files": files,
+        "source_snapshot": {
+            "original_name": "build_interruption.py",
+            "published_name": "source/build_interruption.py.txt",
+            "sha256": sha(raw(source)),
+        },
+        "validation": {
+            "published_calls_unique": len(seen),
+            "provider_usage_matches_raw_responses": True,
+            "source_payload_identity_equal": True,
+            "endpoint_urls_omitted": True,
+            "complete_case_efficacy_claimed_for_interrupted_workers": False,
+            "unknown_tail_retained": True,
+        },
+    }
+    public_json(output / "publication_manifest.json", manifest)
+    print(
+        json.dumps(
+            {
+                "status": "preserved",
+                "published_calls": len(seen),
+                "overhead_known_calls": 63,
+                "overhead_known_tokens": 519361,
+                "ledger_sha256": sha(raw(output / "known_costs.json")),
+                "manifest_sha256": sha(raw(output / "publication_manifest.json")),
+                "source_sha256": sha(raw(source)),
+            }
+        )
+    )
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--original", type=Path, required=True)
+    parser.add_argument("--recovery", type=Path, required=True)
+    parser.add_argument("--deployment-attempt", type=Path)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--no-fetch", action="store_true")
+    args = parser.parse_args()
+    build(
+        args.original,
+        args.recovery,
+        args.deployment_attempt,
+        args.output,
+        not args.no_fetch,
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -9,7 +9,9 @@ from pathlib import Path
 TEST_PATHS = (
     Path("tests/unit/astra"),
     Path("tests/integration/test_astra_lerobot_policy.py"),
+    Path("tests/integration/test_astra_interpolation_policy.py"),
     Path("tests/fixtures/astra/lerobot_pi05"),
+    Path("tests/fixtures/astra/intervention_audit"),
 )
 
 
@@ -19,6 +21,7 @@ def main():
     parser.add_argument("--include-ood-inputs", action="store_true")
     parser.add_argument("--include-ood-manifests", action="store_true")
     parser.add_argument("--include-astra-proposal-replay", action="store_true")
+    parser.add_argument("--include-interpolation-banks", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = Path("astra_reversal")
@@ -59,6 +62,9 @@ def main():
                 raise FileNotFoundError(
                     "Prepare the verified development probe input first"
                 )
+            archive.add(path, arcname=str(path))
+        if args.include_interpolation_banks:
+            path = root / ".deps/interpolation-inputs/bank_inventory.json"
             archive.add(path, arcname=str(path))
         if args.include_astra_proposal_replay:
             from astra_reversal.osmo.astra_proposal_replay import load_inputs

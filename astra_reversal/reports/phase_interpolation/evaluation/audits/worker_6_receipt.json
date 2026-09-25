@@ -1,0 +1,170 @@
+{
+  "status": "passed",
+  "workflow": "astra-pi05-interpolation-evaluation-20260925-1",
+  "phase": "evaluation",
+  "worker": 6,
+  "archive": {
+    "workflow": "astra-pi05-interpolation-evaluation-20260925-1",
+    "worker": 6,
+    "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-evaluation-20260925-1/worker_6/artifacts.tar.gz",
+    "sha256": "d970949f19b173d5690de332f4b39198529ef00d562f1d79c37191f8b00098d8",
+    "bytes": 194672248,
+    "download_seconds": 4.563699916994665
+  },
+  "array_audit": {
+    "file": "worker_6_arrays.json",
+    "sha256": "de619e42a500748ca40560f3e8b4f51e46d6c42bb76b9c841afa9ecc1ed213cd",
+    "counts": {
+      "initialization_velocity_evaluations": 2460,
+      "interpolation_gate_velocity_evaluations": 100,
+      "generations": 893,
+      "physical_attempts": 17,
+      "physical_actions": 4460,
+      "rollout_velocity_evaluations": 8930,
+      "array_files": 5610,
+      "array_references": 5610,
+      "array_bytes": 293858040,
+      "velocity_evaluations": 11490,
+      "interpolated_generations": 540,
+      "tli_layer_records": 5831
+    }
+  },
+  "feedback": [
+    {
+      "case": "case_2_0",
+      "status": "passed",
+      "file": "worker_6_case_2_0_feedback.json.gz",
+      "sha256": "c53f3d4bf3bf7bc3e4743c1cae97011f53e650e76994bf954a7aa8d20bf248bd",
+      "uncompressed_sha256": "69c0f8f3aa5782eb9218e4a66145d9d0016163631f8cb7a84249e27aa7bf1998",
+      "bytes": 15992,
+      "counts": {
+        "physical_rollouts": 3,
+        "requests": 0,
+        "client_attempts": 0,
+        "physical_provider_calls": 0,
+        "preflight_failures": 0,
+        "accepted_provider_proposals": 0,
+        "accepted_decisions_executed": 0,
+        "raw_snapshot_bindings": 0,
+        "decoded_camera_bindings": 0,
+        "verified_raw_arrays": 159,
+        "policy_generations": 53
+      },
+      "provider": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "case": "case_6_0",
+      "status": "passed",
+      "file": "worker_6_case_6_0_feedback.json.gz",
+      "sha256": "a26e9e94cda888866eb20757d9938c19f94f54377d1b322c6b509edbcb989f6b",
+      "uncompressed_sha256": "4652f175a67932bf51f4372e673a8fab7fba083d2bbe90db7c741c77f713654d",
+      "bytes": 318832,
+      "counts": {
+        "physical_rollouts": 14,
+        "requests": 72,
+        "client_attempts": 72,
+        "physical_provider_calls": 72,
+        "preflight_failures": 0,
+        "accepted_provider_proposals": 69,
+        "accepted_decisions_executed": 69,
+        "raw_snapshot_bindings": 558,
+        "decoded_camera_bindings": 1116,
+        "verified_raw_arrays": 2568,
+        "policy_generations": 840
+      },
+      "provider": {
+        "provider_calls": 72,
+        "accepted_proposals": 69,
+        "failed_calls": 3,
+        "usage_available_calls": 72,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 610280,
+            "available_calls": 72,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 22230,
+            "available_calls": 72,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 2062,
+            "available_calls": 72,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 632510,
+            "available_calls": 72,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 767.6603368362412,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 72
+        },
+        "http_status": {
+          "200": 72
+        },
+        "errors": {
+          "proposal_rejected: request_fingerprint must be a SHA256 digest": 3
+        },
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 72,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    }
+  ]
+}

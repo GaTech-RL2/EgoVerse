@@ -1,0 +1,399 @@
+{
+  "files": {
+    "README.md": {
+      "bytes": 2188,
+      "sha256": "cc8cf6190c9da15e2d0c8034378c7e441cce6b4611f236bf31fa87c113fb5ca6"
+    },
+    "bank_inventory.public.json": {
+      "bytes": 123133,
+      "sha256": "4c8823d182b588b6abbdb258290e3043c7195563113f1d55fade65079997a6fc"
+    },
+    "bank_validation.public.json": {
+      "bytes": 3004,
+      "sha256": "bb9d4644db117621d5a9c27def929695a8365db8bdf18e53dbb5aae603f0562e"
+    },
+    "checkpoint.public.json": {
+      "bytes": 3284,
+      "sha256": "f08dd5032fcdade47fc681ec5e9688565842a584cb85ca63322eb37ea4995c70"
+    },
+    "extraction.json": {
+      "bytes": 84487,
+      "sha256": "850953681ecc3581ddb730bd0fc4fae668c3148e1a81b9bfd72efe20aad7a566"
+    },
+    "source_identity.json": {
+      "bytes": 185,
+      "sha256": "53426f2b80b1022ae776c4a45f9d7c3e0fbf4132a3ac3f085e559a9cc4284425"
+    },
+    "workflow_status.json": {
+      "bytes": 2021,
+      "sha256": "bd5ce41bc12a6ee23e4e08b74e512cfee68553c7159a9b35db31dce2782b2e05"
+    }
+  },
+  "redaction": {
+    "description": "URLs, private/local absolute paths and irrelevant personal/network identifiers are omitted. Public inventory/validation/checkpoint files are projections, not byte-identical run inputs. Original file SHA-256 and original bank IDs remain recorded; bank IDs bind the complete original metadata, including omitted public asset URLs.",
+    "removed_field_paths": [
+      "checkpoint/artifact",
+      "checkpoint/requested_artifact",
+      "checkpoint/tokenizer_path",
+      "checkpoint/input_profile_assets/tokenizer/url",
+      "checkpoint/input_profile_assets/norm_stats/url",
+      "inventory/donors/10/bank/provenance/compatibility/input_profile_assets/norm_stats/url",
+      "inventory/donors/10/bank/provenance/compatibility/input_profile_assets/tokenizer/url",
+      "inventory/donors/10/bank/provenance/preprocessing/lerobot_conversion_source",
+      "inventory/donors/10/bank/provenance/preprocessing/rlds_source",
+      "inventory/donors/13/bank/provenance/compatibility/input_profile_assets/norm_stats/url",
+      "inventory/donors/13/bank/provenance/compatibility/input_profile_assets/tokenizer/url",
+      "inventory/donors/13/bank/provenance/preprocessing/lerobot_conversion_source",
+      "inventory/donors/13/bank/provenance/preprocessing/rlds_source",
+      "inventory/donors/14/bank/provenance/compatibility/input_profile_assets/norm_stats/url",
+      "inventory/donors/14/bank/provenance/compatibility/input_profile_assets/tokenizer/url",
+      "inventory/donors/14/bank/provenance/preprocessing/lerobot_conversion_source",
+      "inventory/donors/14/bank/provenance/preprocessing/rlds_source",
+      "inventory/donors/17/bank/provenance/compatibility/input_profile_assets/norm_stats/url",
+      "inventory/donors/17/bank/provenance/compatibility/input_profile_assets/tokenizer/url",
+      "inventory/donors/17/bank/provenance/preprocessing/lerobot_conversion_source",
+      "inventory/donors/17/bank/provenance/preprocessing/rlds_source",
+      "inventory/donors/18/bank/provenance/compatibility/input_profile_assets/norm_stats/url",
+      "inventory/donors/18/bank/provenance/compatibility/input_profile_assets/tokenizer/url",
+      "inventory/donors/18/bank/provenance/preprocessing/lerobot_conversion_source",
+      "inventory/donors/18/bank/provenance/preprocessing/rlds_source",
+      "inventory/donors/32/bank/provenance/compatibility/input_profile_assets/norm_stats/url",
+      "inventory/donors/32/bank/provenance/compatibility/input_profile_assets/tokenizer/url",
+      "inventory/donors/32/bank/provenance/preprocessing/lerobot_conversion_source",
+      "inventory/donors/32/bank/provenance/preprocessing/rlds_source",
+      "inventory/donors/35/bank/provenance/compatibility/input_profile_assets/norm_stats/url",
+      "inventory/donors/35/bank/provenance/compatibility/input_profile_assets/tokenizer/url",
+      "inventory/donors/35/bank/provenance/preprocessing/lerobot_conversion_source",
+      "inventory/donors/35/bank/provenance/preprocessing/rlds_source",
+      "inventory/donors/36/bank/provenance/compatibility/input_profile_assets/norm_stats/url",
+      "inventory/donors/36/bank/provenance/compatibility/input_profile_assets/tokenizer/url",
+      "inventory/donors/36/bank/provenance/preprocessing/lerobot_conversion_source",
+      "inventory/donors/36/bank/provenance/preprocessing/rlds_source",
+      "inventory/donors/38/bank/provenance/compatibility/input_profile_assets/norm_stats/url",
+      "inventory/donors/38/bank/provenance/compatibility/input_profile_assets/tokenizer/url",
+      "inventory/donors/38/bank/provenance/preprocessing/lerobot_conversion_source",
+      "inventory/donors/38/bank/provenance/preprocessing/rlds_source",
+      "validation/compatibility/input_profile_assets/norm_stats/url",
+      "validation/compatibility/input_profile_assets/tokenizer/url"
+    ]
+  },
+  "schema_version": "phase-bank-publication-1.0",
+  "source_input_sha256": {
+    "interpolation-bank-v1/bank_validation.json": {
+      "bytes": 3285,
+      "sha256": "34bbe7056fdc8e8618ae2e7063f3fb5863a52e0c3e62004038bbc48d55c04120"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/banks.json": {
+      "bytes": 39369,
+      "sha256": "3dd048c8f578c3aa87ff56a25fe003fbd57e8c27051698808b4602f668d304e7"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/banks/10/bank.npz": {
+      "bytes": 878827,
+      "sha256": "47c46def8efe2593698a34332babc76042e04cc027e99bdc9986fc962b9a2987"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/banks/10/frames.jsonl": {
+      "bytes": 417929,
+      "sha256": "838f34357e6511c5faf14034893c297f9e3e89cbcb8e31facfb33b8918853284"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/banks/10/manifest.json": {
+      "bytes": 18654,
+      "sha256": "d29d6afc671c211d5c2e7333480c83f54aa853237bc13b223f87fa662822efe3"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/banks/38/bank.npz": {
+      "bytes": 1975828,
+      "sha256": "9649a96148af26e527fdc4d567bdd4e06b915905f52fa3972d0a998de46efa7f"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/banks/38/frames.jsonl": {
+      "bytes": 509415,
+      "sha256": "aeb53e5d624dd19802e24db4df0ce43c4cbc379e9f67baf591d3083cce0f63f5"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/banks/38/manifest.json": {
+      "bytes": 18802,
+      "sha256": "9d99d2bb1d4a2a84fd5e858944fbbe7595f6af8d50174f39abaee33077a94b4c"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/checkpoint.json": {
+      "bytes": 3858,
+      "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/native_tests.log": {
+      "bytes": 100,
+      "sha256": "511f215586ca7a7767e6fcc6de5d9c6ab8ee57728e0246024e5ef7f5743be4db"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/progress.json": {
+      "bytes": 69,
+      "sha256": "26da5dd05ab127b02b3c7d36fc26a9a18375a3b6be87b04253dd56e1eaa54230"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/runtime.json": {
+      "bytes": 518,
+      "sha256": "03467c2b2ddc68f891667fed9bfd28c28a63fbebbc806383d7d63655324d5a39"
+    },
+    "interpolation-bank-v1/downloaded/worker_0/unit_tests.log": {
+      "bytes": 501,
+      "sha256": "3338837e7c83d59f661c7c930f673b9d173245838be70694795df04d029372a9"
+    },
+    "interpolation-bank-v1/downloaded/worker_1/banks.json": {
+      "bytes": 19635,
+      "sha256": "35c77afa70adfbdaddde99c23bd3b340d648339de0ca0128734fe9afc0abd2a9"
+    },
+    "interpolation-bank-v1/downloaded/worker_1/banks/13/bank.npz": {
+      "bytes": 1014467,
+      "sha256": "c73206a767ea84d08d1012548075bbf33638b08f48e05a7c98a458916a712b5b"
+    },
+    "interpolation-bank-v1/downloaded/worker_1/banks/13/frames.jsonl": {
+      "bytes": 453266,
+      "sha256": "81c4cccf2f688869ef109a1cfaa70f04f0e0e33a8dfee2a752d127c3d0f4d183"
+    },
+    "interpolation-bank-v1/downloaded/worker_1/banks/13/manifest.json": {
+      "bytes": 18677,
+      "sha256": "4d0d9f2b4f177ef73ac1c516c69b8ece28acc7e9be1513d31fa88ce71bd300de"
+    },
+    "interpolation-bank-v1/downloaded/worker_1/checkpoint.json": {
+      "bytes": 3858,
+      "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+    },
+    "interpolation-bank-v1/downloaded/worker_1/native_tests.log": {
+      "bytes": 100,
+      "sha256": "f699f030bb187de9d71ec8c9929db72c2e5ab78235bf889288457a8d3a9f3177"
+    },
+    "interpolation-bank-v1/downloaded/worker_1/progress.json": {
+      "bytes": 59,
+      "sha256": "323e24b4255dc7edfbb99a3af1834ddea561f87c78f9265c000afbc063301410"
+    },
+    "interpolation-bank-v1/downloaded/worker_1/runtime.json": {
+      "bytes": 506,
+      "sha256": "44b9190088bb2e8845f0943a17187a6133dff5f457d0f015213a048299672a82"
+    },
+    "interpolation-bank-v1/downloaded/worker_1/unit_tests.log": {
+      "bytes": 501,
+      "sha256": "cfda8ee8326fad87e4f500936090297d5a18ad48c9656a5e24d811ce6bcdcae5"
+    },
+    "interpolation-bank-v1/downloaded/worker_2/banks.json": {
+      "bytes": 19653,
+      "sha256": "75a054feb88d8bab2b5612f1d46e0b0dfc5c12ccf9ca5e97aafe0e7b72698128"
+    },
+    "interpolation-bank-v1/downloaded/worker_2/banks/14/bank.npz": {
+      "bytes": 1289855,
+      "sha256": "89372a202b44d9ebeb691cf5496db82481e0ed8af83a9337750b09f911a8404c"
+    },
+    "interpolation-bank-v1/downloaded/worker_2/banks/14/frames.jsonl": {
+      "bytes": 443799,
+      "sha256": "b8e0303bd8729380273522279cbe929a9ebe00cd1ff764d6167141d48ade4303"
+    },
+    "interpolation-bank-v1/downloaded/worker_2/banks/14/manifest.json": {
+      "bytes": 18695,
+      "sha256": "b7283cf10e44c0447ce0086fca67b868365cef8f889051ac92c6c49439fdb40c"
+    },
+    "interpolation-bank-v1/downloaded/worker_2/checkpoint.json": {
+      "bytes": 3858,
+      "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+    },
+    "interpolation-bank-v1/downloaded/worker_2/native_tests.log": {
+      "bytes": 99,
+      "sha256": "7d42250bdd0856518bb3cf1b4d7d14d546d5f4799a13b54133b0e56f41f3449a"
+    },
+    "interpolation-bank-v1/downloaded/worker_2/progress.json": {
+      "bytes": 59,
+      "sha256": "3330259030c96b183c498ec7a1b5d2c1ebcc47f14eca50a498c0368c14cd84bd"
+    },
+    "interpolation-bank-v1/downloaded/worker_2/runtime.json": {
+      "bytes": 506,
+      "sha256": "ad614ca188ecc4eece082fb35b68aac820a1a526cae6d31641dc91488f298306"
+    },
+    "interpolation-bank-v1/downloaded/worker_2/unit_tests.log": {
+      "bytes": 501,
+      "sha256": "d1302aa3af84f2787ff2cca588005924e39002ab129849425579220eead45fc2"
+    },
+    "interpolation-bank-v1/downloaded/worker_3/banks.json": {
+      "bytes": 19614,
+      "sha256": "a33a80e377ac67dd6a65fdcc276a21c3f0913869f0742f1f86549aad795cf47d"
+    },
+    "interpolation-bank-v1/downloaded/worker_3/banks/17/bank.npz": {
+      "bytes": 878504,
+      "sha256": "e3c780295dd487e4c33229e8656216486d60042cfdb5b9103f03c5668595aef8"
+    },
+    "interpolation-bank-v1/downloaded/worker_3/banks/17/frames.jsonl": {
+      "bytes": 432807,
+      "sha256": "8a863ba87a51ae683c2ee2ee987d9fff2d5db499f48d590b171393b606cd2b45"
+    },
+    "interpolation-bank-v1/downloaded/worker_3/banks/17/manifest.json": {
+      "bytes": 18656,
+      "sha256": "f1fb669874ede8a12fc36ca4317a8228cbdb59b5bed48cee12db73fc293eb12b"
+    },
+    "interpolation-bank-v1/downloaded/worker_3/checkpoint.json": {
+      "bytes": 3858,
+      "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+    },
+    "interpolation-bank-v1/downloaded/worker_3/native_tests.log": {
+      "bytes": 100,
+      "sha256": "c4efc50a20092d9cade777d3bc866fb764f6b901b66857367786722b075f2b8d"
+    },
+    "interpolation-bank-v1/downloaded/worker_3/progress.json": {
+      "bytes": 59,
+      "sha256": "a0a2062cc74730cdf10d692378fb4280dc1f036191ac38bc6bb7016af4aabddd"
+    },
+    "interpolation-bank-v1/downloaded/worker_3/runtime.json": {
+      "bytes": 506,
+      "sha256": "c577dfa749ec6fcf89d0f0a5c8870c7ddeea78c3e756bd6f0da59a53cd0f8251"
+    },
+    "interpolation-bank-v1/downloaded/worker_3/unit_tests.log": {
+      "bytes": 501,
+      "sha256": "f276fe584475c7245a5f61303621ab19ed9fe8baff605bcbc8ee88b2ed030f49"
+    },
+    "interpolation-bank-v1/downloaded/worker_4/banks.json": {
+      "bytes": 19632,
+      "sha256": "3c75281b8f30cc2b1a297d331fb31079cef143933b68a7305cdfd15a0285e530"
+    },
+    "interpolation-bank-v1/downloaded/worker_4/banks/18/bank.npz": {
+      "bytes": 1153009,
+      "sha256": "66117eaceb68c86bd35410250106df2167c4971453de85df5a06df5789e5c2fc"
+    },
+    "interpolation-bank-v1/downloaded/worker_4/banks/18/frames.jsonl": {
+      "bytes": 430615,
+      "sha256": "b37a57889a71108d516f2229d2bdab234b4afc557aa3397ea4f45a875b497006"
+    },
+    "interpolation-bank-v1/downloaded/worker_4/banks/18/manifest.json": {
+      "bytes": 18674,
+      "sha256": "c0a64ab85f1979012fb07cff7c9d843529dc58d2172d04cb4d37086e8ac71407"
+    },
+    "interpolation-bank-v1/downloaded/worker_4/checkpoint.json": {
+      "bytes": 3858,
+      "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+    },
+    "interpolation-bank-v1/downloaded/worker_4/native_tests.log": {
+      "bytes": 100,
+      "sha256": "32dac45e4fd3618782e89f058a13e35999e38be7ff7abcbad14e4bb9a2556fec"
+    },
+    "interpolation-bank-v1/downloaded/worker_4/progress.json": {
+      "bytes": 59,
+      "sha256": "bc030f5896d6925e072413178fcf15436e72dc8bf744b601b836645bd975b4fa"
+    },
+    "interpolation-bank-v1/downloaded/worker_4/runtime.json": {
+      "bytes": 506,
+      "sha256": "97f599834ff7aa46cdd6125f00c643675f0ff74735069e0b929c8dd389b545d1"
+    },
+    "interpolation-bank-v1/downloaded/worker_4/unit_tests.log": {
+      "bytes": 501,
+      "sha256": "93f31dcdb1d7925af062b483c5b7e012d5e66d0e49acaa76f80198ffb1706c7d"
+    },
+    "interpolation-bank-v1/downloaded/worker_5/banks.json": {
+      "bytes": 19748,
+      "sha256": "ae9ab93be6efd30d241a61e4fd5d657d14d62b29a293f3bb72761d41c217ee35"
+    },
+    "interpolation-bank-v1/downloaded/worker_5/banks/32/bank.npz": {
+      "bytes": 2113334,
+      "sha256": "0a9c23a695be78571f3e15848b495238454df3fdec476fded17f5c71b9f0d47e"
+    },
+    "interpolation-bank-v1/downloaded/worker_5/banks/32/frames.jsonl": {
+      "bytes": 503031,
+      "sha256": "71bc3df327e6f30968dd8f3220957aae0bdf7042bc02e2e1feade4dc54fcb994"
+    },
+    "interpolation-bank-v1/downloaded/worker_5/banks/32/manifest.json": {
+      "bytes": 18790,
+      "sha256": "7f1189b6bc6ab20ccfed395615126be2315594281b36753829cb378bd1943f06"
+    },
+    "interpolation-bank-v1/downloaded/worker_5/checkpoint.json": {
+      "bytes": 3858,
+      "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+    },
+    "interpolation-bank-v1/downloaded/worker_5/native_tests.log": {
+      "bytes": 100,
+      "sha256": "18eae2279ac339a985cfd2c2f864b930d40ba1b09aa880dd0a1e3489bab514e6"
+    },
+    "interpolation-bank-v1/downloaded/worker_5/progress.json": {
+      "bytes": 59,
+      "sha256": "1a4f5c7ad6850e5301776259d27dcdaa848436c56e38cdc13080887644e9a39a"
+    },
+    "interpolation-bank-v1/downloaded/worker_5/runtime.json": {
+      "bytes": 506,
+      "sha256": "afd6c220884332e6fda359d4658ca159448f8499ff97a67254d14694875c8f8d"
+    },
+    "interpolation-bank-v1/downloaded/worker_5/unit_tests.log": {
+      "bytes": 501,
+      "sha256": "6eb37c941ac098dc772d6c1dc0dc049cff4a5c26e7aacbf3e6682e5dc14bad6b"
+    },
+    "interpolation-bank-v1/downloaded/worker_6/banks.json": {
+      "bytes": 19736,
+      "sha256": "accfaefd2c3cac999b1ff17ea68ccd56e8b567795984d92e81e9b9343968db5a"
+    },
+    "interpolation-bank-v1/downloaded/worker_6/banks/35/bank.npz": {
+      "bytes": 2113097,
+      "sha256": "49606e31b74d6b34781863753e05eea1c855fa711589d8bcb839e5116b2368de"
+    },
+    "interpolation-bank-v1/downloaded/worker_6/banks/35/frames.jsonl": {
+      "bytes": 442510,
+      "sha256": "32291a0f2922c9256e474c342470a8dc67552703be25c3dbbb80e352282e8782"
+    },
+    "interpolation-bank-v1/downloaded/worker_6/banks/35/manifest.json": {
+      "bytes": 18778,
+      "sha256": "dfcf7e4591e7e4cc92e3f7b7334b28a86efcc57d4c8c9b569d8f06a1d3c32870"
+    },
+    "interpolation-bank-v1/downloaded/worker_6/checkpoint.json": {
+      "bytes": 3858,
+      "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+    },
+    "interpolation-bank-v1/downloaded/worker_6/native_tests.log": {
+      "bytes": 99,
+      "sha256": "4fcb0fb3919c420ab8d2b23027b59a107d2fed963c423d8e3307e75e1a030171"
+    },
+    "interpolation-bank-v1/downloaded/worker_6/progress.json": {
+      "bytes": 59,
+      "sha256": "40e353fc0406a945a30e416719650ffb70dcf37b2ada3452ec6e90183c5a2b98"
+    },
+    "interpolation-bank-v1/downloaded/worker_6/runtime.json": {
+      "bytes": 506,
+      "sha256": "c7d10d97de1b2a36a4cde17fe319bbe3704a922fed79f0698b5f446602d92694"
+    },
+    "interpolation-bank-v1/downloaded/worker_6/unit_tests.log": {
+      "bytes": 501,
+      "sha256": "a01caf039c1cee5c19c55c5d30e3ca2fe53e37a49c6dbdf9db6de2baec157788"
+    },
+    "interpolation-bank-v1/downloaded/worker_7/banks.json": {
+      "bytes": 19756,
+      "sha256": "14ff387c6dabc50efc676c88dd5b5bbd0918e486733dd977a017ce924ca24779"
+    },
+    "interpolation-bank-v1/downloaded/worker_7/banks/36/bank.npz": {
+      "bytes": 2112978,
+      "sha256": "8052953291dd86ed38550f7bbbf508d2e2f5bf2c344de19ace633f8d98ddb54f"
+    },
+    "interpolation-bank-v1/downloaded/worker_7/banks/36/frames.jsonl": {
+      "bytes": 524671,
+      "sha256": "f2f0713e56fdd33cfc8919d3101c665a64f47b7a29fd0e524d87cd9ed80ee73e"
+    },
+    "interpolation-bank-v1/downloaded/worker_7/banks/36/manifest.json": {
+      "bytes": 18798,
+      "sha256": "2ea76fd07b2f1e4c50a950ad8d4fb5968070803f39f06904ff0f7620d32b75ca"
+    },
+    "interpolation-bank-v1/downloaded/worker_7/checkpoint.json": {
+      "bytes": 3858,
+      "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478"
+    },
+    "interpolation-bank-v1/downloaded/worker_7/native_tests.log": {
+      "bytes": 99,
+      "sha256": "21e83ee8b828b30f38ef5604547008e88ecbbce5f83603bcec69590724591fb5"
+    },
+    "interpolation-bank-v1/downloaded/worker_7/progress.json": {
+      "bytes": 59,
+      "sha256": "337a1b42e76c4c80b6daa3fa6ca55e157a6be5acb04abc6cb0920bf7710ead8b"
+    },
+    "interpolation-bank-v1/downloaded/worker_7/runtime.json": {
+      "bytes": 506,
+      "sha256": "e1062505643279602760511a912eadd55e7630780fe26e074362daea9556a461"
+    },
+    "interpolation-bank-v1/downloaded/worker_7/unit_tests.log": {
+      "bytes": 501,
+      "sha256": "8ac8ff0b720dfcf9cc8fe791f7d606f5181e035eb9cfc47be962e630d470a912"
+    },
+    "interpolation-bank-v1/final-status.json": {
+      "bytes": 16947,
+      "sha256": "7fa69f9e79568f34cadd32467d167d9273eb60c9f8960a11fe2c4df62a07999b"
+    },
+    "interpolation-bank-v1/source_identity.json": {
+      "bytes": 185,
+      "sha256": "a5116763748183bae37506d6ed51085cee261e4f0850c5e1893f62792097b6ed"
+    },
+    "interpolation-inputs/bank_inventory.json": {
+      "bytes": 128686,
+      "sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0"
+    }
+  }
+}

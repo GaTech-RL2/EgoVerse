@@ -1,0 +1,1258 @@
+"""Independent arithmetic and archive-receipt reconciliation of phase evaluation.
+
+Uses only the standard library. It never calls the policy, simulator, provider,
+reporter's aggregators, or numerical auditors. --readiness-only validates only
+workers that already have complete archive audit receipts and publishes nothing.
+Final mode requires all eight workers, all twenty cases, and the frozen report.
+"""
+
+import argparse
+import csv
+import gzip
+import hashlib
+import io
+import json
+import math
+import statistics
+from collections import Counter
+from pathlib import Path
+
+ARMS = (
+    "random_noise",
+    "oracle_tei",
+    "oracle_tli",
+    "oracle_tei_tli",
+    "astra_tei",
+    "astra_tli",
+    "astra_tli_vision",
+)
+SUITES = ("libero_goal_ood", "libero_spatial_ood")
+FIELDS = ("input_tokens", "output_tokens", "total_tokens", "reasoning_tokens")
+CHECKS = Counter()
+
+
+def require(value, message):
+    CHECKS[message.split(":", 1)[0]] += 1
+    if not value:
+        raise ValueError(message)
+
+
+def same(actual, expected, name):
+    if isinstance(actual, float) or isinstance(expected, float):
+        require(
+            type(actual) in (int, float)
+            and type(expected) in (int, float)
+            and math.isclose(actual, expected, rel_tol=1e-12, abs_tol=1e-10),
+            name,
+        )
+    else:
+        require(actual == expected, name)
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def encoded(value):
+    return (
+        json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode()
+
+
+class Inputs:
+    def __init__(self):
+        self.files = {}
+
+    def blob(self, path):
+        path = Path(path)
+        data = path.read_bytes()
+        self.files[str(path)] = {"sha256": sha(data), "bytes": len(data)}
+        return data
+
+    def hash(self, path):
+        path = Path(path)
+        digest = hashlib.sha256()
+        size = 0
+        with path.open("rb") as stream:
+            while block := stream.read(1024 * 1024):
+                size += len(block)
+                digest.update(block)
+        self.files[str(path)] = {"sha256": digest.hexdigest(), "bytes": size}
+        return digest.hexdigest()
+
+    def read(self, path):
+        return json.loads(self.blob(path))
+
+    def finish(self):
+        for path, value in list(self.files.items()):
+            require(self.hash(path) == value["sha256"], "Inputs remained immutable")
+
+
+def reported_usage(record):
+    """Accept reported integer aliases only when all present aliases agree."""
+    usage = record.get("response", {}).get("usage") or {}
+
+    def agreed(values):
+        values = [value for value in values if value is not None]
+        return (
+            values[0]
+            if values
+            and all(
+                type(value) is int and value >= 0 and value == values[0]
+                for value in values
+            )
+            else None
+        )
+
+    result = {
+        "input_tokens": agreed([usage.get("prompt_tokens"), usage.get("input_tokens")]),
+        "output_tokens": agreed(
+            [usage.get("completion_tokens"), usage.get("output_tokens")]
+        ),
+        "total_tokens": agreed([usage.get("total_tokens")]),
+        "reasoning_tokens": agreed(
+            [
+                value.get("reasoning_tokens")
+                for key in ("completion_tokens_details", "output_tokens_details")
+                if isinstance(value := usage.get(key), dict)
+            ]
+        ),
+    }
+    if (
+        result["reasoning_tokens"] is not None
+        and result["output_tokens"] is not None
+        and result["reasoning_tokens"] > result["output_tokens"]
+    ):
+        result["reasoning_tokens"] = None
+    require(result == record["token_usage"], "Provider usage matches original response")
+    if not record["provider_call"]:
+        require(
+            record["accepted"] is False
+            and all(value is None for value in result.values())
+            and not record.get("response"),
+            "Preflight has no physical response",
+        )
+    return result
+
+
+def usage(records):
+    physical = [row for row in records if row["provider_call"]]
+    for row in records:
+        reported_usage(row)
+    return {
+        "client_attempts": len(records),
+        "provider_calls": len(physical),
+        "preflight_failures": len(records) - len(physical),
+        "accepted_proposals": sum(row["accepted"] for row in physical),
+        "failed_calls": sum(not row["accepted"] for row in physical),
+        "tokens": {
+            field: {
+                "sum": sum(
+                    row["token_usage"][field]
+                    for row in physical
+                    if row["token_usage"][field] is not None
+                ),
+                "available_calls": sum(
+                    row["token_usage"][field] is not None for row in physical
+                ),
+                "missing_calls": sum(
+                    row["token_usage"][field] is None for row in physical
+                ),
+                "complete": all(
+                    row["token_usage"][field] is not None for row in physical
+                ),
+            }
+            for field in FIELDS
+        },
+    }
+
+
+def check_usage(records, summary):
+    value = usage(records)
+    for key, expected in value.items():
+        require(
+            summary[key] == expected,
+            "Provider totals match independent ledger arithmetic",
+        )
+    return value
+
+
+def physical_rows(raw):
+    return [
+        raw["baseline"],
+        *raw["controls"].values(),
+        *(row for arm in ARMS for row in raw["arms"][arm]["attempts"][1:]),
+    ]
+
+
+def calls(rows):
+    return [record for row in rows for record in row["provider_records"]]
+
+
+def budget_rows(raw, arm, budget):
+    rows = raw["arms"][arm]["attempts"]
+    stop = next((row["iteration"] for row in rows if row["success"]), budget)
+    return [row for row in rows if row["iteration"] <= min(stop, budget)]
+
+
+def cost(raws):
+    rows = [row for raw in raws for row in physical_rows(raw)]
+    result = {
+        "rollouts": len(rows),
+        "simulated_actions": sum(row["actions_executed"] for row in rows),
+        "rollout_velocity_evaluations": sum(
+            row["velocity_evaluations"] for row in rows
+        ),
+        "initialization_velocity_evaluations": sum(
+            raw["initialization"]["velocity_evaluations"] for raw in raws
+        ),
+        "interpolation_gate_velocity_evaluations": sum(
+            raw["interpolation_gate"]["velocity_evaluations"] for raw in raws
+        ),
+        "rollout_wall_seconds": sum(row["wall_seconds"] for row in rows),
+    }
+    result["velocity_evaluations"] = sum(
+        result[key]
+        for key in (
+            "rollout_velocity_evaluations",
+            "initialization_velocity_evaluations",
+            "interpolation_gate_velocity_evaluations",
+        )
+    )
+    return result
+
+
+def case_math(raw):
+    require(
+        raw["status"] == "complete"
+        and raw["development"] is False
+        and raw["seed"] == 29,
+        "Complete evaluation case",
+    )
+    require(
+        set(raw["arms"]) == set(ARMS)
+        and set(raw["controls"]) == {"known_noise", "policy_fresh"},
+        "Complete method coverage",
+    )
+    physical = physical_rows(raw)
+    require(
+        len({row["attempt_id"] for row in physical}) == len(physical),
+        "Unique physical rollout identities",
+    )
+    require(
+        all(row["reset_audit"] == raw["baseline"]["reset_audit"] for row in physical),
+        "All physical rollouts use the same complete reset audit",
+    )
+    require(
+        all(not row["initial_success"] for row in physical),
+        "No initially successful reset",
+    )
+    require(
+        all(not row["success"] or row["actions_executed"] > 0 for row in physical),
+        "No zero-action success",
+    )
+    for name, value in cost([raw]).items():
+        same(value, raw["physical_cost"][name], "Case physical compute arithmetic")
+    check_usage(calls(physical), raw["physical_cost"]["token_usage"])
+    result = {}
+    for arm in ARMS:
+        rows, summary = raw["arms"][arm]["attempts"], raw["arms"][arm]["summary"]
+        cap = 2 if arm.startswith("oracle_") else 3
+        require(
+            rows[0] == raw["baseline"]
+            and [row["iteration"] for row in rows] == list(range(1, len(rows) + 1)),
+            "Shared baseline and ordered attempts",
+        )
+        first = next((row for row in rows if row["success"]), None)
+        require(
+            len(rows) == (first["iteration"] if first else cap),
+            "Evaluation stops at first success or cap",
+        )
+        if raw["baseline"]["success"]:
+            require(
+                len(rows) == 1 and not calls(rows),
+                "Baseline successes use no intervention",
+            )
+        total = usage(calls(rows))
+        expected = {
+            "success": first is not None,
+            "first_success_attempt": first["iteration"] if first else None,
+            "full_rollout_revisions_to_success": first["iteration"] - 1
+            if first
+            else None,
+            "within_successful_rollout_decisions": len(first["decisions"])
+            if first
+            else None,
+            "decisions_through_success_or_cap": sum(
+                len(row["decisions"]) for row in rows
+            ),
+            "physical_decisions": sum(len(row["decisions"]) for row in rows),
+            "rollouts_executed": len(rows),
+            "attempt_budget": cap,
+            "censored_without_success": first is None,
+            "success_by_attempt": [
+                bool(first and first["iteration"] <= budget)
+                for budget in range(1, cap + 1)
+            ],
+            "actions_through_success_or_cap": sum(
+                row["actions_executed"] for row in rows
+            ),
+            "velocity_evaluations_through_success_or_cap": sum(
+                row["velocity_evaluations"] for row in rows
+            ),
+            "standalone_velocity_evaluations_through_success_or_cap": sum(
+                row["velocity_evaluations"] for row in rows
+            )
+            + raw["initialization"]["velocity_evaluations"]
+            + raw["interpolation_gate"]["velocity_evaluations"],
+            "rollout_seconds_through_success_or_cap": sum(
+                row["wall_seconds"] for row in rows
+            ),
+            "physical_actions": sum(row["actions_executed"] for row in rows),
+            "physical_velocity_evaluations": sum(
+                row["velocity_evaluations"] for row in rows
+            ),
+            "development_extra_rollouts_after_success": 0,
+        }
+        for key, value in expected.items():
+            same(value, summary[key], "Arm stopping/censor/compute arithmetic")
+        for key in ("provider", "provider_through_success_or_cap"):
+            check_usage(calls(rows), summary[key])
+        if first:
+            check_usage(calls(rows), summary["tokens_to_first_success"])
+        else:
+            require(
+                summary["tokens_to_first_success"] is None,
+                "Censored cases have no tokens-to-success estimate",
+            )
+        result[arm] = {
+            **expected,
+            "baseline_success": raw["baseline"]["success"],
+            "rescued": not raw["baseline"]["success"] and first is not None,
+            "provider": total,
+        }
+    return result
+
+
+def sum_counts(rows):
+    result = Counter()
+    for row in rows:
+        require(
+            all(type(value) is int and value >= 0 for value in row.values()),
+            "Audit counts are nonnegative integers",
+        )
+        result.update(row)
+    return dict(result)
+
+
+def worker_inputs(root, audits, worker, tracker):
+    directory = root / "downloaded" / f"worker_{worker}"
+    receipt = tracker.read(audits / f"worker_{worker}_receipt.json")
+    require(
+        receipt["status"] == "passed"
+        and receipt["phase"] == "evaluation"
+        and receipt["worker"] == worker,
+        "Passed archive-backed worker receipt",
+    )
+    arrays_path = audits / receipt["array_audit"]["file"]
+    require(
+        tracker.hash(arrays_path) == receipt["array_audit"]["sha256"],
+        "Array receipt identity",
+    )
+    arrays = tracker.read(arrays_path)
+    require(
+        arrays["status"] == "passed"
+        and arrays["complete"] is True
+        and arrays["archive"]["sha256"] == receipt["archive"]["sha256"],
+        "Array audit binds the completed archive",
+    )
+    require(
+        arrays["counts"]
+        == receipt["array_audit"]["counts"]
+        == sum_counts([case["counts"] for case in arrays["cases"]]),
+        "Worker array totals exactly sum the case audits",
+    )
+    same(
+        tracker.read(root / "archives" / f"worker_{worker}.json")["sha256"],
+        receipt["archive"]["sha256"],
+        "Archive download and audit receipt identity",
+    )
+    for name, checksum in arrays["source_metadata_sha256"].items():
+        require(
+            tracker.hash(directory / name) == checksum,
+            "Current worker metadata matches archived audited bytes",
+        )
+    require(
+        tracker.read(directory / "progress.json")["status"] == "complete",
+        "Worker progress complete",
+    )
+    suite = SUITES[worker // 4]
+    tasks = list(range(worker % 4, 10, 4))
+    require(
+        {case["episode_id"] for case in arrays["cases"]}
+        == {f"{suite}:seed29:task{task}:state0" for task in tasks}
+        and len(arrays["cases"]) == len(tasks)
+        and len(receipt["feedback"]) == len(tasks),
+        "Array and feedback audits cover exactly the prescribed worker cases",
+    )
+    require(
+        {path.name for path in directory.glob("case_*")}
+        == {f"case_{task}_0" for task in tasks},
+        "Prescribed worker case partition",
+    )
+    raws, feedback_receipts = [], []
+    for task in tasks:
+        case = directory / f"case_{task}_0"
+        raw = tracker.read(case / "summary.json")
+        episode_id = f"{suite}:seed29:task{task}:state0"
+        require(raw["episode_id"] == episode_id, "Prescribed episode identity")
+        array_case = next(
+            row for row in arrays["cases"] if row["episode_id"] == episode_id
+        )
+        require(
+            array_case["status"] == "passed"
+            and array_case["summary_sha256"] == tracker.hash(case / "summary.json")
+            and array_case["events_sha256"] == tracker.hash(case / "events.jsonl"),
+            "Archive array receipt binds current case bytes",
+        )
+        feedback_entry = next(
+            row for row in receipt["feedback"] if row["case"] == case.name
+        )
+        feedback_path = audits / feedback_entry["file"]
+        data = tracker.blob(feedback_path)
+        require(
+            sha(data) == feedback_entry["sha256"],
+            "Feedback compressed receipt identity",
+        )
+        data = gzip.decompress(data)
+        require(
+            sha(data) == feedback_entry["uncompressed_sha256"],
+            "Feedback uncompressed receipt identity",
+        )
+        feedback = json.loads(data)
+        require(
+            feedback["status"] == "passed" and feedback["episode_id"] == episode_id,
+            "Passed full feedback audit",
+        )
+        require(
+            feedback["counts"] == feedback_entry["counts"]
+            and feedback["provider"] == feedback_entry["provider"],
+            "Worker feedback totals match the full receipt",
+        )
+        for name, checksum in feedback["input_file_sha256"].items():
+            if not name.endswith(".npy"):
+                require(
+                    tracker.hash(case / name) == checksum,
+                    "Case nonarray inputs match archived feedback bytes",
+                )
+        expected_ledgers = set()
+        for row in physical_rows(raw):
+            name = row["attempt_id"] + "_provider.jsonl"
+            path = case / name
+            if row["provider_records"]:
+                expected_ledgers.add(name)
+                ledger = [
+                    json.loads(line) for line in tracker.blob(path).splitlines() if line
+                ]
+                require(
+                    ledger == row["provider_records"],
+                    "Physical summary matches exact provider sidecar rows",
+                )
+            else:
+                require(not path.exists(), "No omitted physical provider sidecar")
+        require(
+            {path.name for path in case.glob("*_provider.jsonl")} == expected_ledgers,
+            "Exact provider file coverage",
+        )
+        case_math(raw)
+        physical = physical_rows(raw)
+        counts = array_case["counts"]
+        require(
+            counts["physical_attempts"] == len(physical)
+            and counts["physical_actions"]
+            == sum(row["actions_executed"] for row in physical),
+            "Array audit physical counts match summaries",
+        )
+        same(
+            counts["velocity_evaluations"],
+            cost([raw])["velocity_evaluations"],
+            "Array audit total VF matches summaries",
+        )
+        generations = sum(row["policy_replans"] for row in physical)
+        require(
+            counts["generations"]
+            == generations
+            == feedback["counts"]["policy_generations"],
+            "Array and feedback generation totals match physical replans",
+        )
+        provider = check_usage(calls(physical), feedback["provider"])
+        for field, expected in {
+            "physical_rollouts": len(physical),
+            "requests": sum(len(row["decisions"]) for row in physical),
+            "client_attempts": provider["client_attempts"],
+            "physical_provider_calls": provider["provider_calls"],
+            "preflight_failures": provider["preflight_failures"],
+            "accepted_provider_proposals": provider["accepted_proposals"],
+            "accepted_decisions_executed": sum(
+                row["accepted_decisions_executed"] for row in physical
+            ),
+        }.items():
+            same(feedback["counts"][field], expected, "Feedback counts match summaries")
+        feedback_receipts.append(
+            {
+                "episode_id": episode_id,
+                "file": feedback_entry["file"],
+                "sha256": feedback_entry["sha256"],
+                "uncompressed_sha256": feedback_entry["uncompressed_sha256"],
+                "counts": feedback["counts"],
+            }
+        )
+        raws.append(raw)
+    return raws, {
+        "worker": worker,
+        "workflow": receipt["workflow"],
+        "archive_sha256": receipt["archive"]["sha256"],
+        "archive_bytes": receipt["archive"]["bytes"],
+        "worker_receipt_sha256": tracker.hash(audits / f"worker_{worker}_receipt.json"),
+        "array_receipt_sha256": receipt["array_audit"]["sha256"],
+        "array_counts": arrays["counts"],
+        "feedback_counts": sum_counts([row["counts"] for row in feedback_receipts]),
+        "feedback_receipts": feedback_receipts,
+        "episode_ids": [row["episode_id"] for row in raws],
+    }
+
+
+def filtered_completion_status(path, workers, tracker):
+    """Retain only completed workflow/task states, dates and numeric exit codes."""
+    value = tracker.read(path)
+    require(
+        value["status"] == "COMPLETED"
+        and {row["workflow"] for row in workers} == {value["name"]},
+        "Completed OSMO workflow identity",
+    )
+    require(
+        {group["name"] for group in value["groups"]}
+        == {f"worker{i}-group" for i in range(8)}
+        and len(value["groups"]) == 8,
+        "Completed OSMO eight-group coverage",
+    )
+    groups = []
+    for group in value["groups"]:
+        (task,) = group["tasks"]
+        require(
+            group["status"] == task["status"] == "COMPLETED"
+            and task["exit_code"] == 0
+            and group["name"] == task["name"] + "-group",
+            "Completed OSMO task has zero exit status",
+        )
+        groups.append(
+            {
+                **{
+                    key: group[key]
+                    for key in ("name", "status", "start_time", "end_time")
+                },
+                "task": {
+                    key: task[key]
+                    for key in (
+                        "name",
+                        "status",
+                        "start_time",
+                        "end_time",
+                        "exit_code",
+                        "retry_id",
+                    )
+                },
+            }
+        )
+    return {
+        "source_sha256": tracker.hash(path),
+        **{
+            key: value[key]
+            for key in ("name", "status", "submit_time", "start_time", "end_time")
+        },
+        "groups": groups,
+        "scope": "Filtered control-plane completion evidence; raw query, user, host, dashboard and log URLs are not published.",
+    }
+
+
+def input_compatibility(root, audits, ids, tracker):
+    path = audits.parent / "input_compatibility" / "receipt.json"
+    receipt = tracker.read(path)
+    require(
+        receipt["complete"] is True
+        and receipt["available_metadata_checks_passed"] is True
+        and receipt["available_workers"] == receipt["expected_workers"] == 8
+        and receipt["assigned_episode_count"] == receipt["expected_episode_count"] == 20
+        and set(receipt["assigned_episode_ids"]) == ids,
+        "Complete independent immutable-input compatibility receipt",
+    )
+    verified = 0
+    for name, digest in receipt["input_file_sha256"].items():
+        if name.startswith("evaluation/worker_"):
+            suffix = name.removeprefix("evaluation/")
+            require(
+                tracker.hash(root / "downloaded" / suffix) == digest,
+                "Final archive metadata equals immutable-input review bytes",
+            )
+            verified += 1
+    require(verified == 8 * 6, "All immutable worker metadata files reconciled")
+    return {
+        "receipt_sha256": tracker.hash(path),
+        "verified_worker_metadata_files": verified,
+        "bank_inventory_sha256": receipt["bank_inventory_sha256"],
+        "checkpoint_sha256": receipt["checkpoint_sha256"],
+        "scope": "Binds the pre-existing immutable-input review to final archived metadata; no new training or task novelty claim.",
+    }
+
+
+def median(values):
+    return statistics.median(values) if values else None
+
+
+def paired(ids, a, b):
+    groups = {
+        key: []
+        for key in (
+            "both_succeed",
+            "arm_only_succeeds",
+            "random_only_succeeds",
+            "both_fail",
+        )
+    }
+    for episode_id, first, second in zip(ids, a, b, strict=True):
+        key = (
+            "both_succeed"
+            if first and second
+            else "arm_only_succeeds"
+            if first
+            else "random_only_succeeds"
+            if second
+            else "both_fail"
+        )
+        groups[key].append(episode_id)
+    return {
+        "counts": {key: len(value) for key, value in groups.items()},
+        "episode_ids": groups,
+    }
+
+
+def group_math(raws, canonical):
+    ids = [raw["episode_id"] for raw in raws]
+    baseline = [raw["baseline"]["success"] for raw in raws]
+    failures = len(raws) - sum(baseline)
+    require(
+        canonical["cases"] == len(raws)
+        and canonical["baseline_successes"] == sum(baseline)
+        and canonical["baseline_failed_cases"] == failures,
+        "Group baseline denominator",
+    )
+    stats = [case_math(raw) for raw in raws]
+    result = {
+        "cases": len(raws),
+        "baseline_successes": sum(baseline),
+        "baseline_failed_cases": failures,
+        "baseline_success_episode_ids": [
+            key for key, value in zip(ids, baseline, strict=True) if value
+        ],
+        "arms": {},
+    }
+    for arm in ARMS:
+        cap = 2 if arm.startswith("oracle_") else 3
+        target = canonical["arms"][arm]
+        successful = [index for index, row in enumerate(stats) if row[arm]["success"]]
+        rescued = [index for index in successful if not baseline[index]]
+        rescue_usage = [
+            stats[index][arm]["provider"]["tokens"]["total_tokens"] for index in rescued
+        ]
+        values = {
+            "successes": len(successful),
+            "rescues": len(rescued),
+            "censored_without_success": len(raws) - len(successful),
+            "median_first_success_attempt_among_all_successes": median(
+                [stats[index][arm]["first_success_attempt"] for index in successful]
+            ),
+            "median_rollout_revisions_among_rescues": median(
+                [
+                    stats[index][arm]["full_rollout_revisions_to_success"]
+                    for index in rescued
+                ]
+            ),
+            "median_decisions_through_success_among_rescues": median(
+                [
+                    stats[index][arm]["decisions_through_success_or_cap"]
+                    for index in rescued
+                ]
+            ),
+            "median_decisions_in_winning_rollout_among_rescues": median(
+                [
+                    stats[index][arm]["within_successful_rollout_decisions"]
+                    for index in rescued
+                ]
+            ),
+            "median_total_tokens_among_rescues_with_complete_usage": median(
+                [row["sum"] for row in rescue_usage if row["complete"]]
+            ),
+            "rescues_with_missing_total_token_usage": sum(
+                not row["complete"] for row in rescue_usage
+            ),
+            "rescue_episode_ids": [ids[index] for index in rescued],
+        }
+        for name, value in values.items():
+            same(value, target[name], "Group success/rescue/censor/median arithmetic")
+        curves = []
+        for budget in range(1, cap + 1):
+            rows = [row for raw in raws for row in budget_rows(raw, arm, budget)]
+            outcomes = [
+                any(row["success"] for row in budget_rows(raw, arm, budget))
+                for raw in raws
+            ]
+            source = target["success_by_budget"][budget - 1]
+            point = {
+                "up_to_attempts": budget,
+                "revisions": budget - 1,
+                "successes": sum(outcomes),
+                "success_rate": sum(outcomes) / len(raws),
+                "rescues": sum(outcomes) - sum(baseline),
+                "conditional_rescue_rate": (sum(outcomes) - sum(baseline)) / failures
+                if failures
+                else None,
+                "attributed_rollouts": len(rows),
+                "attributed_actions": sum(row["actions_executed"] for row in rows),
+                "attributed_velocity_evaluations": sum(
+                    row["velocity_evaluations"] for row in rows
+                )
+                + sum(
+                    raw["initialization"]["velocity_evaluations"]
+                    + raw["interpolation_gate"]["velocity_evaluations"]
+                    for raw in raws
+                ),
+            }
+            for name, value in point.items():
+                if name != "revisions":
+                    same(value, source[name], "Budget row arithmetic")
+            point["provider"] = check_usage(calls(rows), source["provider"])
+            reference = [
+                any(row["success"] for row in budget_rows(raw, "random_noise", budget))
+                for raw in raws
+            ]
+            point["paired_random_same_revision_budget"] = paired(
+                ids, outcomes, reference
+            )
+            failed_indices = [
+                index for index, success in enumerate(baseline) if not success
+            ]
+            point["paired_random_among_baseline_failures"] = paired(
+                [ids[index] for index in failed_indices],
+                [outcomes[index] for index in failed_indices],
+                [reference[index] for index in failed_indices],
+            )
+            point["paired_single_rollout_native_controls"] = {}
+            for name in ("known_noise", "policy_fresh"):
+                comparison = paired(
+                    ids, outcomes, [raw["controls"][name]["success"] for raw in raws]
+                )
+                point["paired_single_rollout_native_controls"][name] = {
+                    "control_rollout_budget": 1,
+                    "arm_rollout_budget": budget,
+                    "counts": {
+                        key.replace("random_only", "control_only"): value
+                        for key, value in comparison["counts"].items()
+                    },
+                    "episode_ids": {
+                        key.replace("random_only", "control_only"): value
+                        for key, value in comparison["episode_ids"].items()
+                    },
+                    "interpretation": "Search has additional rollout opportunities at arm budget greater than one; this is not a matched single-rollout intervention effect.",
+                }
+            curves.append(point)
+        expected_pair = {
+            "up_to_attempts": cap,
+            **curves[-1]["paired_random_same_revision_budget"],
+        }
+        same(
+            expected_pair,
+            target["paired_random_at_same_cap"],
+            "Matched random paired outcomes",
+        )
+        require(
+            target["development_extra_rollouts_after_success"]
+            == target["development_extra_actions_after_success"]
+            == 0,
+            "No forced development extras in evaluation",
+        )
+        check_usage(
+            [row for raw in raws for row in calls(raw["arms"][arm]["attempts"][1:])],
+            target["physical_provider"],
+        )
+        result["arms"][arm] = {
+            **values,
+            "attempt_cap": cap,
+            "success_by_budget": curves,
+            "censored_episode_ids": [
+                ids[index]
+                for index, row in enumerate(stats)
+                if row[arm]["censored_without_success"]
+            ],
+            "rescued_case_costs": [
+                {
+                    "episode_id": ids[index],
+                    "attempts_to_success": stats[index][arm]["first_success_attempt"],
+                    "revisions_to_success": stats[index][arm][
+                        "full_rollout_revisions_to_success"
+                    ],
+                    "decisions_to_success": stats[index][arm][
+                        "decisions_through_success_or_cap"
+                    ],
+                    "provider": stats[index][arm]["provider"],
+                }
+                for index in rescued
+            ],
+        }
+    physical = cost(raws)
+    for name, value in physical.items():
+        same(
+            value,
+            canonical["physical_cost"][name],
+            "Group physical compute counts baseline once",
+        )
+    physical["provider"] = check_usage(
+        calls([row for raw in raws for row in physical_rows(raw)]),
+        canonical["physical_cost"]["token_usage"],
+    )
+    result["physical_cost"] = physical
+    physical_attempts = [row for raw in raws for row in physical_rows(raw)]
+    execution = {
+        name: sum(row[name] for row in physical_attempts)
+        for name in (
+            "accepted_decisions_executed",
+            "actions_with_accepted_decision",
+            "actions_with_nonzero_text",
+            "actions_with_changed_vision",
+            "actions_with_held_text_after_failed_call",
+            "native_condition_fallback_actions",
+        )
+    }
+    execution["zero_action_successes"] = sum(
+        row["success"] and row["actions_executed"] == 0 for row in physical_attempts
+    )
+    same(
+        execution,
+        canonical["execution"],
+        "Group execution counters match physical rollouts",
+    )
+    result["execution"] = execution
+    result["rejected_provider_costs_included"] = usage(
+        [
+            row
+            for raw in raws
+            for row in calls(physical_rows(raw))
+            if not row["accepted"]
+        ]
+    )
+    result["native_controls"] = {}
+    for name in ("recovered_noise", "known_noise", "policy_fresh"):
+        rows = [
+            raw["baseline"] if name == "recovered_noise" else raw["controls"][name]
+            for raw in raws
+        ]
+        value = {
+            "successes": sum(row["success"] for row in rows),
+            "cases": len(raws),
+            "actions": sum(row["actions_executed"] for row in rows),
+            "velocity_evaluations": sum(row["velocity_evaluations"] for row in rows),
+        }
+        same(
+            value,
+            canonical["controls"][name],
+            "Native controls remain independent one-rollout outcomes",
+        )
+        result["native_controls"][name] = value
+    return result
+
+
+def csv_value(value):
+    return "" if value is None else str(value)
+
+
+def check_csv(path, expected, keys, tracker):
+    actual = list(csv.DictReader(io.StringIO(tracker.blob(path).decode())))
+    lookup = {tuple(row[key] for key in keys): row for row in actual}
+    require(
+        len(lookup) == len(actual) == len(expected), "CSV row identities and coverage"
+    )
+    for row in expected:
+        identity = tuple(csv_value(row[key]) for key in keys)
+        require(identity in lookup, "CSV includes every expected row")
+        for key, value in row.items():
+            require(
+                lookup[identity][key] == csv_value(value),
+                "CSV values match independent raw-record arithmetic",
+            )
+
+
+def csv_checks(report_dir, raws, groups, tracker):
+    case_rows, decision_rows = [], []
+    for raw in raws:
+        stats = case_math(raw)
+        for arm, stat in stats.items():
+            case_rows.append(
+                {
+                    "episode_id": raw["episode_id"],
+                    "suite": raw["suite"],
+                    "task_id": raw["task_id"],
+                    "arm": arm,
+                    **{
+                        name: stat[name]
+                        for name in (
+                            "baseline_success",
+                            "success",
+                            "rescued",
+                            "first_success_attempt",
+                            "full_rollout_revisions_to_success",
+                            "within_successful_rollout_decisions",
+                            "decisions_through_success_or_cap",
+                            "censored_without_success",
+                            "development_extra_rollouts_after_success",
+                        )
+                    },
+                    "prefix_total_tokens_reported": stat["provider"]["tokens"][
+                        "total_tokens"
+                    ]["sum"],
+                    "prefix_total_tokens_complete": stat["provider"]["tokens"][
+                        "total_tokens"
+                    ]["complete"],
+                    "reset_sha256": raw["baseline"]["reset_audit"]["sha256"],
+                }
+            )
+            for attempt in raw["arms"][arm]["attempts"][1:]:
+                previous = None
+                for decision, record in zip(
+                    attempt["decisions"], attempt["provider_records"], strict=True
+                ):
+                    proposal = decision["proposal"]
+                    decision_rows.append(
+                        {
+                            "episode_id": raw["episode_id"],
+                            "suite": raw["suite"],
+                            "arm": arm,
+                            "iteration": attempt["iteration"],
+                            "attempt_success": attempt["success"],
+                            "decision_index": decision["decision_index"],
+                            "observation_step": decision["observation_step"],
+                            "accepted": decision["accepted"],
+                            "provider_call": record["provider_call"],
+                            "error_kind": record.get("error_kind"),
+                            "decision_id": proposal["decision_id"]
+                            if proposal
+                            else None,
+                            "source_pair_changed": previous is not None
+                            and proposal is not None
+                            and (proposal["source_a_id"], proposal["source_b_id"])
+                            != (previous["source_a_id"], previous["source_b_id"]),
+                            "alpha_changed": previous is not None
+                            and proposal is not None
+                            and proposal["alpha"] != previous["alpha"],
+                            "vision_annotations": len(proposal["vision"])
+                            if proposal
+                            else 0,
+                            **{
+                                key: proposal[key] if proposal else None
+                                for key in ("source_a_id", "source_b_id", "alpha")
+                            },
+                            **record["token_usage"],
+                        }
+                    )
+                    if proposal:
+                        previous = proposal
+    check_csv(report_dir / "cases.csv", case_rows, ("episode_id", "arm"), tracker)
+    check_csv(
+        report_dir / "decisions.csv",
+        decision_rows,
+        ("episode_id", "arm", "iteration", "decision_index"),
+        tracker,
+    )
+    controls, curves = [], []
+    for name, group in groups.items():
+        for control, value in group["native_controls"].items():
+            controls.append(
+                {"phase": "evaluation", "group": name, "control": control, **value}
+            )
+        for arm, value in group["arms"].items():
+            for point in value["success_by_budget"]:
+                curves.append(
+                    {
+                        "phase": "evaluation",
+                        "group": name,
+                        "arm": arm,
+                        "attempt_cap": value["attempt_cap"],
+                        "cases": group["cases"],
+                        "baseline_failed_cases": group["baseline_failed_cases"],
+                        **{
+                            key: point[key]
+                            for key in (
+                                "up_to_attempts",
+                                "successes",
+                                "success_rate",
+                                "rescues",
+                                "conditional_rescue_rate",
+                                "attributed_rollouts",
+                                "attributed_actions",
+                                "attributed_velocity_evaluations",
+                            )
+                        },
+                        "provider_calls": point["provider"]["provider_calls"],
+                        "preflight_failures": point["provider"]["preflight_failures"],
+                        **{
+                            field: point["provider"]["tokens"][field]["sum"]
+                            for field in FIELDS
+                        },
+                        "total_token_missing_calls": point["provider"]["tokens"][
+                            "total_tokens"
+                        ]["missing_calls"],
+                    }
+                )
+    check_csv(report_dir / "controls.csv", controls, ("group", "control"), tracker)
+    check_csv(
+        report_dir / "curves.csv", curves, ("group", "arm", "up_to_attempts"), tracker
+    )
+    return {
+        "case_arm_rows": len(case_rows),
+        "provider_decision_rows": len(decision_rows),
+        "native_control_rows": len(controls),
+        "budget_rows": len(curves),
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--audits", type=Path, required=True)
+    parser.add_argument("--report", type=Path)
+    parser.add_argument("--expected-report-sha256")
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--status", type=Path)
+    parser.add_argument("--readiness-only", action="store_true")
+    parser.add_argument("--completion-only", action="store_true")
+    args = parser.parse_args()
+    tracker = Inputs()
+    if args.completion_only:
+        require(
+            not args.readiness_only
+            and args.status is not None
+            and args.output is not None
+            and not args.output.exists(),
+            "Completion-only mode needs a status source and new output",
+        )
+        workers = []
+        for worker in range(8):
+            receipt = tracker.read(args.audits / f"worker_{worker}_receipt.json")
+            require(
+                receipt["status"] == "passed"
+                and receipt["phase"] == "evaluation"
+                and receipt["worker"] == worker,
+                "Completed control plane has eight passed archive receipts",
+            )
+            workers.append(receipt)
+        completion = filtered_completion_status(args.status, workers, tracker)
+        tracker.finish()
+        result = {
+            "schema_version": "phase-interpolation-control-plane-completion-1.0",
+            "status": "passed",
+            "phase": "evaluation",
+            "completion": completion,
+            "input_files": tracker.files,
+            "postprocessor_source_sha256": sha(Path(__file__).read_bytes()),
+            "scope": "Control-plane completion only. Scientific outcomes and costs are independently reconciled in receipt.json.",
+        }
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        with args.output.open("xb") as stream:
+            stream.write(encoded(result))
+        print(
+            json.dumps(
+                {
+                    "status": "passed",
+                    "completion_receipt_sha256": sha(args.output.read_bytes()),
+                }
+            )
+        )
+        return
+    raws, workers = [], []
+    for worker in range(8):
+        if (
+            args.readiness_only
+            and not (args.audits / f"worker_{worker}_receipt.json").exists()
+        ):
+            continue
+        cases, receipt = worker_inputs(args.root, args.audits, worker, tracker)
+        raws.extend(cases)
+        workers.append(receipt)
+    if args.readiness_only:
+        tracker.finish()
+        print(
+            json.dumps(
+                {
+                    "status": "readiness_only_not_a_final_report",
+                    "audited_workers": len(workers),
+                    "audited_cases": len(raws),
+                    "checks": sum(CHECKS.values()),
+                }
+            )
+        )
+        return
+    require(
+        args.report is not None
+        and args.output is not None
+        and args.expected_report_sha256 is not None,
+        "Final report, checksum and new output are required",
+    )
+    require(not args.output.exists(), "Reconciliation output already exists")
+    require(
+        tracker.hash(args.report) == args.expected_report_sha256,
+        "Strict report checksum matches root handoff",
+    )
+    report = tracker.read(args.report)
+    require(
+        report["status"] == "complete"
+        and report["phase"] == "evaluation"
+        and report["seed"] == 29
+        and report["expected_cases"] == 20,
+        "Strict completed evaluation report",
+    )
+    expected_ids = {
+        f"{suite}:seed29:task{task}:state0" for suite in SUITES for task in range(10)
+    }
+    require(
+        len(raws) == 20 and {raw["episode_id"] for raw in raws} == expected_ids,
+        "All twenty fixed episodes exactly once",
+    )
+    raws.sort(key=lambda raw: (raw["suite"], raw["task_id"]))
+    require(
+        {case["episode_id"] for case in report["cases"]} == expected_ids,
+        "Reporter case coverage equals raw coverage",
+    )
+    manifest = tracker.read(args.report.parent / "manifest.json")
+    for name, row in manifest["files"].items():
+        require(
+            tracker.hash(args.report.parent / name) == row["sha256"],
+            "Strict generated output manifest verifies",
+        )
+    for raw in raws:
+        case = next(
+            case for case in report["cases"] if case["episode_id"] == raw["episode_id"]
+        )
+        worker = (0 if raw["suite"] == SUITES[0] else 4) + raw["task_id"] % 4
+        case_path = (
+            args.root / "downloaded" / f"worker_{worker}" / f"case_{raw['task_id']}_0"
+        )
+        require(
+            case["worker"] == worker
+            and Path(case["summary_source"]["path"]).resolve()
+            == (case_path / "summary.json").resolve()
+            and case["summary_source"]["sha256"]
+            == tracker.hash(case_path / "summary.json")
+            and case["summary_source"]["bytes"]
+            == (case_path / "summary.json").stat().st_size,
+            "Reporter source matches the final archive-bound case summary",
+        )
+        require(
+            case["reset_audit"] == raw["baseline"]["reset_audit"],
+            "Reporter full reset audit equals physical baseline",
+        )
+        for arm in ARMS:
+            require(
+                case["arms"][arm]["summary"] == raw["arms"][arm]["summary"],
+                "Reporter arm summary equals complete raw recording",
+            )
+    groups = {"pooled": group_math(raws, report["groups"]["pooled"])}
+    for suite in SUITES:
+        groups[suite] = group_math(
+            [raw for raw in raws if raw["suite"] == suite], report["groups"][suite]
+        )
+    csv_counts = csv_checks(args.report.parent, raws, groups, tracker)
+    array_totals = sum_counts([worker["array_counts"] for worker in workers])
+    feedback_totals = sum_counts([worker["feedback_counts"] for worker in workers])
+    for field, physical_key in {
+        "physical_attempts": "rollouts",
+        "physical_actions": "simulated_actions",
+        "rollout_velocity_evaluations": "rollout_velocity_evaluations",
+        "initialization_velocity_evaluations": "initialization_velocity_evaluations",
+        "interpolation_gate_velocity_evaluations": "interpolation_gate_velocity_evaluations",
+        "velocity_evaluations": "velocity_evaluations",
+    }.items():
+        same(
+            array_totals[field],
+            groups["pooled"]["physical_cost"][physical_key],
+            "All archive array totals match complete physical cost",
+        )
+    for field, provider_key in {
+        "client_attempts": "client_attempts",
+        "physical_provider_calls": "provider_calls",
+        "preflight_failures": "preflight_failures",
+        "accepted_provider_proposals": "accepted_proposals",
+    }.items():
+        same(
+            feedback_totals[field],
+            groups["pooled"]["physical_cost"]["provider"][provider_key],
+            "All feedback provider totals match complete physical cost",
+        )
+    compatibility = input_compatibility(args.root, args.audits, expected_ids, tracker)
+    completion = (
+        filtered_completion_status(args.status, workers, tracker)
+        if args.status
+        else None
+    )
+    tracker.finish()
+    result = {
+        "schema_version": "phase-interpolation-independent-reconciliation-1.0",
+        "status": "passed",
+        "phase": "evaluation",
+        "seed": 29,
+        "cases": 20,
+        "strict_original_report_sha256": args.expected_report_sha256,
+        "workers": workers,
+        "audit_totals": {
+            "passed_worker_receipts": len(workers),
+            "passed_array_cases": len(raws),
+            "passed_feedback_cases": sum(
+                len(worker["feedback_receipts"]) for worker in workers
+            ),
+            "arrays": array_totals,
+            "feedback": feedback_totals,
+        },
+        "immutable_input_compatibility": compatibility,
+        "completion_status": completion,
+        "groups": groups,
+        "csv_coverage": csv_counts,
+        "checks": dict(CHECKS),
+        "input_files": tracker.files,
+        "postprocessor_source_sha256": sha(Path(__file__).read_bytes()),
+        "scope": [
+            "Independent standard-library arithmetic; no reporter aggregation functions are imported.",
+            "Exact summary/events/provider bytes are bound to completed full-array and feedback receipts. Those existing receipts supply numerical and feedback validity; this script does not repeat native hidden-state/model/simulator replay.",
+            "All-case success includes preserved baseline successes. Rescue medians exclude baseline successes, retain censored failures separately, and use complete reported usage only.",
+            "Matched one-revision comparisons use up to two full rollouts; matched two-revision comparisons use up to three, available only for random and Astra arms. Oracle is never extrapolated to a third rollout.",
+            "Native controls each have one physical rollout. Multi-rollout arm comparisons against them are labeled with unequal search opportunity.",
+            "Physical costs count the common baseline once. Standalone arm budgets repeat its attribution and must not be summed across arms.",
+            "Rejected physical calls retain reported tokens; preflight slots and missing usage remain distinct. Reasoning is a subset of output. No price is assumed.",
+            "Known-task exploratory evaluation, not a held-out-task or zero-shot claim. Development, interrupted attempts and transport smoke are excluded.",
+        ],
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open("xb") as stream:
+        stream.write(encoded(result))
+    print(
+        json.dumps(
+            {
+                "status": "passed",
+                "cases": 20,
+                "checks": sum(CHECKS.values()),
+                "csv_coverage": csv_counts,
+                "receipt_sha256": sha(args.output.read_bytes()),
+                "physical": groups["pooled"]["physical_cost"],
+            }
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

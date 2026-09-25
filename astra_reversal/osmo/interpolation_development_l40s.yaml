@@ -1,0 +1,48 @@
+workflow:
+  name: astra-pi05-interpolation-development-20260925
+  resources:
+    default:
+      cpu: 4
+      gpu: 1
+      memory: 48Gi
+      storage: 60Gi
+      platform: ovx-l40s
+      nodesExcluded: [osmogroot-dgxc-k8s-forge-az41-prd1-w-5728, osmogroot-dgxc-k8s-forge-az41-prd1-w-0485]
+  timeout:
+    queue_timeout: 4h
+    exec_timeout: 6h
+  tasks:
+  - &worker
+    name: worker0
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: [bash]
+    args: [/tmp/astra-bootstrap.sh]
+    environment: &environment
+      PAYLOAD_SHA256: "{{payload_sha256}}"
+      ASTRA_RUN_ID: "{{workflow_id}}"
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.interpolation
+      ASTRA_INTERPOLATION_PHASE: development
+      ASTRA_WORKER_INDEX: "0"
+      ASTRA_INCLUDE_OOD: "1"
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_TF32_OVERRIDE: "0"
+    credentials:
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+        R2_ENDPOINT_URL: r2_endpoint_url
+      astra-reversal-inference-20260924:
+        NVIDIA_INFERENCE_API_KEY: api_key
+    files:
+    - localpath: bootstrap.sh
+      path: /tmp/astra-bootstrap.sh
+  - <<: *worker
+    name: worker1
+    environment:
+      <<: *environment
+      ASTRA_WORKER_INDEX: "1"
+  - <<: *worker
+    name: worker2
+    environment:
+      <<: *environment
+      ASTRA_WORKER_INDEX: "2"

@@ -1,0 +1,2889 @@
+{
+  "donors": {
+    "10": {
+      "bank": {
+        "arrays": {
+          "instruction_mask": {
+            "dtype": "bool",
+            "sha256": "6579c7e0865052e51449e8a42c2eaed7c84b0dbd59125db1746219f729892e86",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "states": {
+            "dtype": "float32",
+            "sha256": "f7733b8e1c95f1d4e5d749152f3fa1858162494940e1a1d2d0ef1f763c1b0e3a",
+            "shape": [
+              18,
+              1,
+              200,
+              2048
+            ]
+          },
+          "token_ids": {
+            "dtype": "int64",
+            "sha256": "68319c28390a5596c78bd66f55960088e4860ffecbbc8a8680a16fecc4309843",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "token_mask": {
+            "dtype": "bool",
+            "sha256": "4e96a9102edd5ef8cb9a8c5e0c451419c890a902d7a74bc7474632d1204f462e",
+            "shape": [
+              1,
+              200
+            ]
+          }
+        },
+        "bank_id": "756868c11a2a5b921ceb5fb4065030440e4f3b0ab9dc8b174ec53fdc3f85a8d3",
+        "captured_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "effective_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "provenance": {
+          "aggregation": "float64 sum of all equally weighted frames, divided once and cast float32; noninstruction slots zero",
+          "capture_boundary": "post_decoder_block_before_final_norm",
+          "capture_kind": "demonstration_mean",
+          "compatibility": {
+            "adapter_source_sha256": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_assets": {
+              "norm_stats": {
+                "bytes": 1914,
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug==",
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+              },
+              "tokenizer": {
+                "bytes": 4264023,
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g==",
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+              }
+            },
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "layer_count": 18,
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ],
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "processor_source_sha256": {
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "text_slots": 200,
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "width": 2048
+          },
+          "dataset_repo": "physical-intelligence/libero",
+          "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+          "episodes": [
+            {
+              "bytes": 14176725,
+              "episode_index": 379,
+              "frame_count": 112,
+              "relative_path": "data/chunk-000/episode_000379.parquet",
+              "sha256": "41a503640339546b691d94fc699f4bb481a0e0c7176ac6cd563287e6a8927a4c"
+            },
+            {
+              "bytes": 11282933,
+              "episode_index": 422,
+              "frame_count": 87,
+              "relative_path": "data/chunk-000/episode_000422.parquet",
+              "sha256": "f6b64ec3caed8a3b268fc3c861ff6a8028fca1524079570db611be5bcd1ee149"
+            },
+            {
+              "bytes": 13184604,
+              "episode_index": 426,
+              "frame_count": 103,
+              "relative_path": "data/chunk-000/episode_000426.parquet",
+              "sha256": "3e1fd891e2b74f7e5d62d009f65e3a60f51861bcb0f735ea23ba04d8118a1d14"
+            },
+            {
+              "bytes": 13829045,
+              "episode_index": 431,
+              "frame_count": 106,
+              "relative_path": "data/chunk-000/episode_000431.parquet",
+              "sha256": "5711af354ee4cd000bce43473623739593b95815c5afb6b2d72b4c68965ef492"
+            },
+            {
+              "bytes": 12984843,
+              "episode_index": 433,
+              "frame_count": 105,
+              "relative_path": "data/chunk-000/episode_000433.parquet",
+              "sha256": "b0e9ac19e0661e2aaca6b1ad1488bf37b270c49838fa8dfbbf89093c227615ec"
+            },
+            {
+              "bytes": 11851201,
+              "episode_index": 447,
+              "frame_count": 90,
+              "relative_path": "data/chunk-000/episode_000447.parquet",
+              "sha256": "48185d40e3eb2aadc6f799c93b97502303369baec4146704cc16a19c40401da0"
+            },
+            {
+              "bytes": 11680139,
+              "episode_index": 448,
+              "frame_count": 92,
+              "relative_path": "data/chunk-000/episode_000448.parquet",
+              "sha256": "98cac63c3f09b6519eb89ac0f4db0c3497d970d89435549814b2ccb897be0f55"
+            },
+            {
+              "bytes": 11567494,
+              "episode_index": 451,
+              "frame_count": 90,
+              "relative_path": "data/chunk-000/episode_000451.parquet",
+              "sha256": "24448545f2affd0659bb30c61ad2f8077c71aa25aa8187e945d741b4b541f9da"
+            },
+            {
+              "bytes": 10659889,
+              "episode_index": 459,
+              "frame_count": 84,
+              "relative_path": "data/chunk-000/episode_000459.parquet",
+              "sha256": "58c587c090b14324a1954bcc0bc12728da7a1d90fb540b831b623c976b32d129"
+            },
+            {
+              "bytes": 11952324,
+              "episode_index": 466,
+              "frame_count": 93,
+              "relative_path": "data/chunk-000/episode_000466.parquet",
+              "sha256": "b8ca1b073f9e992efb0b8054f219fca2d836d09da594de76caa5e1646a567df4"
+            },
+            {
+              "bytes": 11855147,
+              "episode_index": 481,
+              "frame_count": 91,
+              "relative_path": "data/chunk-000/episode_000481.parquet",
+              "sha256": "d34536dd1a14d345f09efa798fbececadcb7b54ce794b7a42cc3186d62c18dc0"
+            },
+            {
+              "bytes": 11301694,
+              "episode_index": 483,
+              "frame_count": 89,
+              "relative_path": "data/chunk-000/episode_000483.parquet",
+              "sha256": "096c756dc65bf880771e037d41eb0a996558c19c297b85d4062c3f4572225193"
+            },
+            {
+              "bytes": 11646085,
+              "episode_index": 488,
+              "frame_count": 94,
+              "relative_path": "data/chunk-000/episode_000488.parquet",
+              "sha256": "fb3e92be598cbaa91f27b05b8494bb71d6f79684f7d2681f34bc3d7440718e73"
+            },
+            {
+              "bytes": 12928748,
+              "episode_index": 507,
+              "frame_count": 103,
+              "relative_path": "data/chunk-000/episode_000507.parquet",
+              "sha256": "97b27847714c295ea48a0fbcfe6a8f9785596199fda0c3b19c682e98159efddc"
+            },
+            {
+              "bytes": 11757738,
+              "episode_index": 511,
+              "frame_count": 90,
+              "relative_path": "data/chunk-000/episode_000511.parquet",
+              "sha256": "c53cfb556ce20353c40add2d887bfda94b6299c1a3f276a18e458d6f4b7ed68e"
+            },
+            {
+              "bytes": 10187307,
+              "episode_index": 513,
+              "frame_count": 79,
+              "relative_path": "data/chunk-000/episode_000513.parquet",
+              "sha256": "306dc18bf9f8489cf4c0cbb3d92a54a53ea1fff0c1e34b1f88a16115e68a364d"
+            },
+            {
+              "bytes": 10774031,
+              "episode_index": 522,
+              "frame_count": 84,
+              "relative_path": "data/chunk-000/episode_000522.parquet",
+              "sha256": "e4d402ab41f897b30e9753a50d63ccd46d9afcb247f4ac9960331fe0c6cad9ce"
+            },
+            {
+              "bytes": 10875611,
+              "episode_index": 532,
+              "frame_count": 88,
+              "relative_path": "data/chunk-000/episode_000532.parquet",
+              "sha256": "8c139e3e02ab71931d3762a250dad406545671fb1617373e09306ae4b66cbd77"
+            },
+            {
+              "bytes": 15961608,
+              "episode_index": 537,
+              "frame_count": 126,
+              "relative_path": "data/chunk-000/episode_000537.parquet",
+              "sha256": "58d866ac829ab166c3b3d6c0ba0322288e258cde8a985ea60a3224ffd66fb3e7"
+            },
+            {
+              "bytes": 12876231,
+              "episode_index": 549,
+              "frame_count": 103,
+              "relative_path": "data/chunk-000/episode_000549.parquet",
+              "sha256": "46a59f032b1eebbf9186c91e3b768a021870c962a9a329026d5c40d679cae4a1"
+            }
+          ],
+          "frame_count": 1909,
+          "frame_ledger_sha256": "838f34357e6511c5faf14034893c297f9e3e89cbcb8e31facfb33b8918853284",
+          "implementation_sha256": {
+            "interpolation_bank.py": "48776d1e2a5f4bdbe9b296d3f57788fe368b2a1ca48502d64ef4d918c0188451",
+            "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+            "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+          },
+          "metadata_sha256": {
+            "episodes.jsonl": "0479a2ced6117700e4638a1da54dccd9f60ae5f47485ea6d91390c869befcf08",
+            "info.json": "77c0da93c67960bac803a8ea25dabf380d752c26c1d91c54151121dd10e7d82f",
+            "tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99"
+          },
+          "preprocessing": {
+            "adapter": "native openpi_libero profile applies its own frozen preprocessing",
+            "camera_orientation": "already rotated 180 degrees in the upstream HDF5-to-RLDS conversion",
+            "images": "decode embedded RGB PNG; no extra rotation, resize or normalization",
+            "state": "raw float32 eef position(3), axis angle(3), gripper qpos(2)"
+          },
+          "source_id": "10",
+          "source_prompt": "put the bowl on the plate"
+        },
+        "schema_version": 1
+      },
+      "files": [
+        {
+          "bytes": 878827,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_0/banks/10/bank.npz",
+          "name": "bank.npz",
+          "sha256": "47c46def8efe2593698a34332babc76042e04cc027e99bdc9986fc962b9a2987"
+        },
+        {
+          "bytes": 18654,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_0/banks/10/manifest.json",
+          "name": "manifest.json",
+          "sha256": "d29d6afc671c211d5c2e7333480c83f54aa853237bc13b223f87fa662822efe3"
+        },
+        {
+          "bytes": 417929,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_0/banks/10/frames.jsonl",
+          "name": "frames.jsonl",
+          "sha256": "838f34357e6511c5faf14034893c297f9e3e89cbcb8e31facfb33b8918853284"
+        }
+      ],
+      "worker": 0
+    },
+    "13": {
+      "bank": {
+        "arrays": {
+          "instruction_mask": {
+            "dtype": "bool",
+            "sha256": "81a944bdefc8fd379cf590233d23ed6a73e9b21b171d72e2470d30e8446f8dd4",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "states": {
+            "dtype": "float32",
+            "sha256": "4542817e63f391550d1816bf3f6f9168c28a7bc4f4e96d7d9b046ee76aae377c",
+            "shape": [
+              18,
+              1,
+              200,
+              2048
+            ]
+          },
+          "token_ids": {
+            "dtype": "int64",
+            "sha256": "04dc1f722e0b6ec8b303121971442d41db974dfda493e7663f60a0c2bc8b3f7e",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "token_mask": {
+            "dtype": "bool",
+            "sha256": "79049d9fd4d1a132013198067b476dfd9104338d017d56c7b125751e88ca1c9f",
+            "shape": [
+              1,
+              200
+            ]
+          }
+        },
+        "bank_id": "4b98d01c9d6f7ae9f0d2120893c054d660393582166b92a2b71303e00183b22e",
+        "captured_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "effective_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "provenance": {
+          "aggregation": "float64 sum of all equally weighted frames, divided once and cast float32; noninstruction slots zero",
+          "capture_boundary": "post_decoder_block_before_final_norm",
+          "capture_kind": "demonstration_mean",
+          "compatibility": {
+            "adapter_source_sha256": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_assets": {
+              "norm_stats": {
+                "bytes": 1914,
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug==",
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+              },
+              "tokenizer": {
+                "bytes": 4264023,
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g==",
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+              }
+            },
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "layer_count": 18,
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ],
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "processor_source_sha256": {
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "text_slots": 200,
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "width": 2048
+          },
+          "dataset_repo": "physical-intelligence/libero",
+          "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+          "episodes": [
+            {
+              "bytes": 13015598,
+              "episode_index": 384,
+              "frame_count": 112,
+              "relative_path": "data/chunk-000/episode_000384.parquet",
+              "sha256": "fd8e3517e34c6a70dc71e9de5a33305ea9e80afc8e9635e27f4b5d3201f2697b"
+            },
+            {
+              "bytes": 16206867,
+              "episode_index": 391,
+              "frame_count": 135,
+              "relative_path": "data/chunk-000/episode_000391.parquet",
+              "sha256": "411485f8d3ea57dd5d6fd3f6fafd21fbb402f6302f260b40f2e5f27304c61843"
+            },
+            {
+              "bytes": 10879660,
+              "episode_index": 393,
+              "frame_count": 92,
+              "relative_path": "data/chunk-000/episode_000393.parquet",
+              "sha256": "7c39f2dd00bf57f9655ba8433a5b9805d0a305b7716f4048241b8b7f4b5ffbfc"
+            },
+            {
+              "bytes": 12446956,
+              "episode_index": 413,
+              "frame_count": 107,
+              "relative_path": "data/chunk-000/episode_000413.parquet",
+              "sha256": "831ae24328cf593a4674fb883b851341b1078aafb865d53f1c421aac2a590daf"
+            },
+            {
+              "bytes": 12453672,
+              "episode_index": 434,
+              "frame_count": 106,
+              "relative_path": "data/chunk-000/episode_000434.parquet",
+              "sha256": "c95f7fb977667c974f19bedc4c5d1b841dc13b1c6ca5e5e71a0652ca1b2bb123"
+            },
+            {
+              "bytes": 11048225,
+              "episode_index": 439,
+              "frame_count": 96,
+              "relative_path": "data/chunk-000/episode_000439.parquet",
+              "sha256": "d1100db214ed9df6b15603d54cb98817f3b19638e8fb5d3d6b95fc703660f0e6"
+            },
+            {
+              "bytes": 12492270,
+              "episode_index": 457,
+              "frame_count": 105,
+              "relative_path": "data/chunk-000/episode_000457.parquet",
+              "sha256": "075ac71c127b7531e324f6d3507b95ffcd644202d2f95fcf0555eee048bb024d"
+            },
+            {
+              "bytes": 10514804,
+              "episode_index": 464,
+              "frame_count": 90,
+              "relative_path": "data/chunk-000/episode_000464.parquet",
+              "sha256": "c17f74e15970c4b92961a0a6b514f0340de4ade168fe335e8f06ab70b76dc5eb"
+            },
+            {
+              "bytes": 11083579,
+              "episode_index": 491,
+              "frame_count": 96,
+              "relative_path": "data/chunk-000/episode_000491.parquet",
+              "sha256": "c1e799c72b09234dee5498baaf3fc00cb640699edae86af8d336ec2e50897540"
+            },
+            {
+              "bytes": 10285079,
+              "episode_index": 492,
+              "frame_count": 86,
+              "relative_path": "data/chunk-000/episode_000492.parquet",
+              "sha256": "4d935bd15d62d22048db54f8a0b362567e9b2a51517c0444b4b2a3ea8ae62371"
+            },
+            {
+              "bytes": 11890677,
+              "episode_index": 508,
+              "frame_count": 103,
+              "relative_path": "data/chunk-000/episode_000508.parquet",
+              "sha256": "a2f5850f662591ee564abd4c82523b96fd23b8cccd24e24895c4c66d89ae03cb"
+            },
+            {
+              "bytes": 13060228,
+              "episode_index": 510,
+              "frame_count": 113,
+              "relative_path": "data/chunk-000/episode_000510.parquet",
+              "sha256": "477caee27051a2fa147c84d3295eab963e1d4134131b64cfe56e7dbb4fafe675"
+            },
+            {
+              "bytes": 12822512,
+              "episode_index": 518,
+              "frame_count": 109,
+              "relative_path": "data/chunk-000/episode_000518.parquet",
+              "sha256": "ff5d2771d96d3fed9029627a1e4fe9c5940bb7ed7d8062f02ac4d6db8ed82135"
+            },
+            {
+              "bytes": 12462519,
+              "episode_index": 527,
+              "frame_count": 103,
+              "relative_path": "data/chunk-000/episode_000527.parquet",
+              "sha256": "a7681494b56609b880ee0dfa8b2a052c3d47a6a37abe5d369afbb69cda2aeffd"
+            },
+            {
+              "bytes": 10113052,
+              "episode_index": 536,
+              "frame_count": 85,
+              "relative_path": "data/chunk-000/episode_000536.parquet",
+              "sha256": "7e823f03feea161c6414172624841b183757003caac0d7ae20e88b3bc09c2259"
+            },
+            {
+              "bytes": 12552525,
+              "episode_index": 540,
+              "frame_count": 107,
+              "relative_path": "data/chunk-000/episode_000540.parquet",
+              "sha256": "be94df7a1039b3a723e256c1247999b115964789bbf61d7802f8da2d56e0661a"
+            },
+            {
+              "bytes": 15899169,
+              "episode_index": 562,
+              "frame_count": 136,
+              "relative_path": "data/chunk-000/episode_000562.parquet",
+              "sha256": "19eebad3595163eb884cf27a98c57ffc9626f763eafe9d4f0197f592c074a56a"
+            },
+            {
+              "bytes": 12042218,
+              "episode_index": 564,
+              "frame_count": 99,
+              "relative_path": "data/chunk-000/episode_000564.parquet",
+              "sha256": "488311a241f472810dd0465a3a4ce26f0cc39af3b65eb1b5027775abdaa15514"
+            },
+            {
+              "bytes": 11270263,
+              "episode_index": 581,
+              "frame_count": 95,
+              "relative_path": "data/chunk-000/episode_000581.parquet",
+              "sha256": "e4f9f74f89a743ebd170987a7a0d26681bc8eee1869aa221f6534f748827691a"
+            },
+            {
+              "bytes": 11208610,
+              "episode_index": 587,
+              "frame_count": 95,
+              "relative_path": "data/chunk-000/episode_000587.parquet",
+              "sha256": "928fb17905996b95dfc3c11e8b6d35c0d4d48dbd81d9a62eeb931d2166e994a9"
+            }
+          ],
+          "frame_count": 2070,
+          "frame_ledger_sha256": "81c4cccf2f688869ef109a1cfaa70f04f0e0e33a8dfee2a752d127c3d0f4d183",
+          "implementation_sha256": {
+            "interpolation_bank.py": "48776d1e2a5f4bdbe9b296d3f57788fe368b2a1ca48502d64ef4d918c0188451",
+            "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+            "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+          },
+          "metadata_sha256": {
+            "episodes.jsonl": "0479a2ced6117700e4638a1da54dccd9f60ae5f47485ea6d91390c869befcf08",
+            "info.json": "77c0da93c67960bac803a8ea25dabf380d752c26c1d91c54151121dd10e7d82f",
+            "tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99"
+          },
+          "preprocessing": {
+            "adapter": "native openpi_libero profile applies its own frozen preprocessing",
+            "camera_orientation": "already rotated 180 degrees in the upstream HDF5-to-RLDS conversion",
+            "images": "decode embedded RGB PNG; no extra rotation, resize or normalization",
+            "state": "raw float32 eef position(3), axis angle(3), gripper qpos(2)"
+          },
+          "source_id": "13",
+          "source_prompt": "put the cream cheese in the bowl"
+        },
+        "schema_version": 1
+      },
+      "files": [
+        {
+          "bytes": 1014467,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_1/banks/13/bank.npz",
+          "name": "bank.npz",
+          "sha256": "c73206a767ea84d08d1012548075bbf33638b08f48e05a7c98a458916a712b5b"
+        },
+        {
+          "bytes": 18677,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_1/banks/13/manifest.json",
+          "name": "manifest.json",
+          "sha256": "4d0d9f2b4f177ef73ac1c516c69b8ece28acc7e9be1513d31fa88ce71bd300de"
+        },
+        {
+          "bytes": 453266,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_1/banks/13/frames.jsonl",
+          "name": "frames.jsonl",
+          "sha256": "81c4cccf2f688869ef109a1cfaa70f04f0e0e33a8dfee2a752d127c3d0f4d183"
+        }
+      ],
+      "worker": 1
+    },
+    "14": {
+      "bank": {
+        "arrays": {
+          "instruction_mask": {
+            "dtype": "bool",
+            "sha256": "66134985aa393852ef7c2b26b47ab6b8f857e97d434eb22596acb41fb4549a27",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "states": {
+            "dtype": "float32",
+            "sha256": "cd37b315226b40394362c78d8cafdbf72b480f634b577bb1d0b3c75da7f0c1b0",
+            "shape": [
+              18,
+              1,
+              200,
+              2048
+            ]
+          },
+          "token_ids": {
+            "dtype": "int64",
+            "sha256": "7530194ec73e67ff6cc2e0ddbb70848c161bcdae8b3765d8bb1ef577f189cd0b",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "token_mask": {
+            "dtype": "bool",
+            "sha256": "25880d102b05b87c06dea97d7a8f8b788ad69567184c0f21319ef12d5d8a2ac8",
+            "shape": [
+              1,
+              200
+            ]
+          }
+        },
+        "bank_id": "7fa090dda7254cc830fb323594cd11c0c38f6234c672fde86177f5c9712ec8b1",
+        "captured_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "effective_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "provenance": {
+          "aggregation": "float64 sum of all equally weighted frames, divided once and cast float32; noninstruction slots zero",
+          "capture_boundary": "post_decoder_block_before_final_norm",
+          "capture_kind": "demonstration_mean",
+          "compatibility": {
+            "adapter_source_sha256": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_assets": {
+              "norm_stats": {
+                "bytes": 1914,
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug==",
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+              },
+              "tokenizer": {
+                "bytes": 4264023,
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g==",
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+              }
+            },
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "layer_count": 18,
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ],
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "processor_source_sha256": {
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "text_slots": 200,
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "width": 2048
+          },
+          "dataset_repo": "physical-intelligence/libero",
+          "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+          "episodes": [
+            {
+              "bytes": 10904494,
+              "episode_index": 385,
+              "frame_count": 90,
+              "relative_path": "data/chunk-000/episode_000385.parquet",
+              "sha256": "406e8c46b04520ef804ef983437fd3fd98ac619f4680b4bae5161203758e5a90"
+            },
+            {
+              "bytes": 14003538,
+              "episode_index": 389,
+              "frame_count": 114,
+              "relative_path": "data/chunk-000/episode_000389.parquet",
+              "sha256": "767aceb73fb9380cdd0c5dcacda541e9150e7e8848e164b97e365498605f52d1"
+            },
+            {
+              "bytes": 13625859,
+              "episode_index": 396,
+              "frame_count": 113,
+              "relative_path": "data/chunk-000/episode_000396.parquet",
+              "sha256": "1138b10d8d51f5a3cab2cad5301cf1179722e2ee5bbf816f7479801dc624db4b"
+            },
+            {
+              "bytes": 12267505,
+              "episode_index": 397,
+              "frame_count": 101,
+              "relative_path": "data/chunk-000/episode_000397.parquet",
+              "sha256": "70f909d5badd0ef9e7d7cc3bf109ec0426f3c93ac2cba9cdfa2a2d8bb79a2efe"
+            },
+            {
+              "bytes": 14315274,
+              "episode_index": 404,
+              "frame_count": 116,
+              "relative_path": "data/chunk-000/episode_000404.parquet",
+              "sha256": "e1ab8450231c14f32dc9167f951d68a6b5b89a02f505c6e1b6d9218f8760a949"
+            },
+            {
+              "bytes": 11296770,
+              "episode_index": 417,
+              "frame_count": 93,
+              "relative_path": "data/chunk-000/episode_000417.parquet",
+              "sha256": "639a3c10fe16300867b1de22f7d575b4bdc758e2f70dcab2eed4741e676991ec"
+            },
+            {
+              "bytes": 12286141,
+              "episode_index": 419,
+              "frame_count": 99,
+              "relative_path": "data/chunk-000/episode_000419.parquet",
+              "sha256": "c681e332502481208b8795375016e445e3488509043b09e205178d0012fb0b49"
+            },
+            {
+              "bytes": 12194325,
+              "episode_index": 423,
+              "frame_count": 100,
+              "relative_path": "data/chunk-000/episode_000423.parquet",
+              "sha256": "84ad3dba6fb74c0bd071252fd1cea9e9be08e1f7f8c7c15263bbf42737a0f26d"
+            },
+            {
+              "bytes": 12379168,
+              "episode_index": 427,
+              "frame_count": 101,
+              "relative_path": "data/chunk-000/episode_000427.parquet",
+              "sha256": "6296cc0c9e67c0c33740e9c885c276da8656ae485762b71c5b345f94906fe58b"
+            },
+            {
+              "bytes": 12007323,
+              "episode_index": 430,
+              "frame_count": 99,
+              "relative_path": "data/chunk-000/episode_000430.parquet",
+              "sha256": "e1030e874db5cb161bd5df6404da53181f0f8643037ad76b6218f7bc68af4a10"
+            },
+            {
+              "bytes": 12871541,
+              "episode_index": 432,
+              "frame_count": 104,
+              "relative_path": "data/chunk-000/episode_000432.parquet",
+              "sha256": "ff875a20ca086139f51728bc25582f2adb97351160ed1732dec63a68fbd30c3c"
+            },
+            {
+              "bytes": 12690843,
+              "episode_index": 436,
+              "frame_count": 105,
+              "relative_path": "data/chunk-000/episode_000436.parquet",
+              "sha256": "22f48af15af917d4f48731734426c7ce044eef2fb32c5ebd447354705b3fe7b8"
+            },
+            {
+              "bytes": 13768167,
+              "episode_index": 454,
+              "frame_count": 116,
+              "relative_path": "data/chunk-000/episode_000454.parquet",
+              "sha256": "6bea78d8ee7395b6526e4ad3a2251da71763b5e5ac2f290410dda69fa545dcd2"
+            },
+            {
+              "bytes": 11429871,
+              "episode_index": 468,
+              "frame_count": 92,
+              "relative_path": "data/chunk-000/episode_000468.parquet",
+              "sha256": "0f1b4d28e64b6037da6471da7cd459acc212e8e2a3e4248f8a0b3447e365f119"
+            },
+            {
+              "bytes": 12936236,
+              "episode_index": 470,
+              "frame_count": 107,
+              "relative_path": "data/chunk-000/episode_000470.parquet",
+              "sha256": "9b41dc1aaf098e02f44b41cf4ceb4d36a1808f66c530fe37b68daca94de1a94a"
+            },
+            {
+              "bytes": 11280616,
+              "episode_index": 475,
+              "frame_count": 92,
+              "relative_path": "data/chunk-000/episode_000475.parquet",
+              "sha256": "1ed4355c951581fb1818b61f4f3a0a32cc05a87b1508c5f1882c0e61c3e9e591"
+            },
+            {
+              "bytes": 11703273,
+              "episode_index": 476,
+              "frame_count": 97,
+              "relative_path": "data/chunk-000/episode_000476.parquet",
+              "sha256": "3a2185a1cfafef11582ba017c350eca56ef283fcae3e63489f87a5aec6d72576"
+            },
+            {
+              "bytes": 10495866,
+              "episode_index": 479,
+              "frame_count": 87,
+              "relative_path": "data/chunk-000/episode_000479.parquet",
+              "sha256": "1efe48f4479fe1f73649e6509a5ffbe67b3720ae8665ee98ea74678443316e2e"
+            },
+            {
+              "bytes": 13294124,
+              "episode_index": 480,
+              "frame_count": 109,
+              "relative_path": "data/chunk-000/episode_000480.parquet",
+              "sha256": "7ef02ae7a060c0d0ef78f7638b68d90b2fbf88a50cf5bb5f55a697a01bbda2ba"
+            },
+            {
+              "bytes": 11163299,
+              "episode_index": 482,
+              "frame_count": 92,
+              "relative_path": "data/chunk-000/episode_000482.parquet",
+              "sha256": "61a53285d1578142280aa18363862867fbd78caa4bcf1246a3a6e5fa70d20f7d"
+            }
+          ],
+          "frame_count": 2027,
+          "frame_ledger_sha256": "b8e0303bd8729380273522279cbe929a9ebe00cd1ff764d6167141d48ade4303",
+          "implementation_sha256": {
+            "interpolation_bank.py": "48776d1e2a5f4bdbe9b296d3f57788fe368b2a1ca48502d64ef4d918c0188451",
+            "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+            "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+          },
+          "metadata_sha256": {
+            "episodes.jsonl": "0479a2ced6117700e4638a1da54dccd9f60ae5f47485ea6d91390c869befcf08",
+            "info.json": "77c0da93c67960bac803a8ea25dabf380d752c26c1d91c54151121dd10e7d82f",
+            "tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99"
+          },
+          "preprocessing": {
+            "adapter": "native openpi_libero profile applies its own frozen preprocessing",
+            "camera_orientation": "already rotated 180 degrees in the upstream HDF5-to-RLDS conversion",
+            "images": "decode embedded RGB PNG; no extra rotation, resize or normalization",
+            "state": "raw float32 eef position(3), axis angle(3), gripper qpos(2)"
+          },
+          "source_id": "14",
+          "source_prompt": "put the wine bottle on top of the cabinet"
+        },
+        "schema_version": 1
+      },
+      "files": [
+        {
+          "bytes": 1289855,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_2/banks/14/bank.npz",
+          "name": "bank.npz",
+          "sha256": "89372a202b44d9ebeb691cf5496db82481e0ed8af83a9337750b09f911a8404c"
+        },
+        {
+          "bytes": 18695,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_2/banks/14/manifest.json",
+          "name": "manifest.json",
+          "sha256": "b7283cf10e44c0447ce0086fca67b868365cef8f889051ac92c6c49439fdb40c"
+        },
+        {
+          "bytes": 443799,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_2/banks/14/frames.jsonl",
+          "name": "frames.jsonl",
+          "sha256": "b8e0303bd8729380273522279cbe929a9ebe00cd1ff764d6167141d48ade4303"
+        }
+      ],
+      "worker": 2
+    },
+    "17": {
+      "bank": {
+        "arrays": {
+          "instruction_mask": {
+            "dtype": "bool",
+            "sha256": "6579c7e0865052e51449e8a42c2eaed7c84b0dbd59125db1746219f729892e86",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "states": {
+            "dtype": "float32",
+            "sha256": "4f77e92aea4f9728d988cc3589823170253daa6cd20bd90b502a48583e3bc739",
+            "shape": [
+              18,
+              1,
+              200,
+              2048
+            ]
+          },
+          "token_ids": {
+            "dtype": "int64",
+            "sha256": "95fe16b8b26f622d1fa5fd9c386480e205f65f0356b04b846a76e6530bc92fae",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "token_mask": {
+            "dtype": "bool",
+            "sha256": "4e96a9102edd5ef8cb9a8c5e0c451419c890a902d7a74bc7474632d1204f462e",
+            "shape": [
+              1,
+              200
+            ]
+          }
+        },
+        "bank_id": "35e1b915d6c440ff7b5a392ba8b965d26cd65400271bb8657d08460f9a743ebf",
+        "captured_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "effective_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "provenance": {
+          "aggregation": "float64 sum of all equally weighted frames, divided once and cast float32; noninstruction slots zero",
+          "capture_boundary": "post_decoder_block_before_final_norm",
+          "capture_kind": "demonstration_mean",
+          "compatibility": {
+            "adapter_source_sha256": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_assets": {
+              "norm_stats": {
+                "bytes": 1914,
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug==",
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+              },
+              "tokenizer": {
+                "bytes": 4264023,
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g==",
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+              }
+            },
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "layer_count": 18,
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ],
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "processor_source_sha256": {
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "text_slots": 200,
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "width": 2048
+          },
+          "dataset_repo": "physical-intelligence/libero",
+          "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+          "episodes": [
+            {
+              "bytes": 13185754,
+              "episode_index": 392,
+              "frame_count": 103,
+              "relative_path": "data/chunk-000/episode_000392.parquet",
+              "sha256": "537adeaaa52f4ea2bba9c26a9053a5a738bead0967919222877577b027130116"
+            },
+            {
+              "bytes": 14427189,
+              "episode_index": 394,
+              "frame_count": 111,
+              "relative_path": "data/chunk-000/episode_000394.parquet",
+              "sha256": "dbf9753be7e49858d74e6f94eb43e0d7260ebce18f21a9f035cce3b3eacb14eb"
+            },
+            {
+              "bytes": 12902022,
+              "episode_index": 395,
+              "frame_count": 104,
+              "relative_path": "data/chunk-000/episode_000395.parquet",
+              "sha256": "c3cfdac5c23711561497ebb7897c3343927edbc5e2541c5235d23a7ea6144936"
+            },
+            {
+              "bytes": 13158929,
+              "episode_index": 401,
+              "frame_count": 104,
+              "relative_path": "data/chunk-000/episode_000401.parquet",
+              "sha256": "84872b0036ccc34e4c957c7de4b163c7c41ae7c58f9000fb15f22c73bbadbe11"
+            },
+            {
+              "bytes": 11959801,
+              "episode_index": 415,
+              "frame_count": 94,
+              "relative_path": "data/chunk-000/episode_000415.parquet",
+              "sha256": "086d5f165e46146c209636faae9899551af5d4c4770df15ee4eae03bf1d4ee6f"
+            },
+            {
+              "bytes": 11396133,
+              "episode_index": 424,
+              "frame_count": 91,
+              "relative_path": "data/chunk-000/episode_000424.parquet",
+              "sha256": "2a0279fbb7af2635e8c48565ff25126d2668cf541e68d1c37f4450a8fe7b3fea"
+            },
+            {
+              "bytes": 12550566,
+              "episode_index": 445,
+              "frame_count": 99,
+              "relative_path": "data/chunk-000/episode_000445.parquet",
+              "sha256": "1d0e3812f1fee095b2a73ef951037df0867c597318ea33561fadbeb00a754e51"
+            },
+            {
+              "bytes": 12744643,
+              "episode_index": 455,
+              "frame_count": 95,
+              "relative_path": "data/chunk-000/episode_000455.parquet",
+              "sha256": "fa555fec2c336f8765ad2a74b166d4793babd52df436a4caeba829d69e5b1305"
+            },
+            {
+              "bytes": 11516251,
+              "episode_index": 495,
+              "frame_count": 92,
+              "relative_path": "data/chunk-000/episode_000495.parquet",
+              "sha256": "a089c1b136d2047fb32c021ecb34e51ed0255c2dd68dfbe4620960d99f1b02f2"
+            },
+            {
+              "bytes": 11975954,
+              "episode_index": 500,
+              "frame_count": 92,
+              "relative_path": "data/chunk-000/episode_000500.parquet",
+              "sha256": "503315db57108163c1d7111e2bd1d5c0cc88798fb585049bb6d7770691cc5af7"
+            },
+            {
+              "bytes": 12909414,
+              "episode_index": 524,
+              "frame_count": 102,
+              "relative_path": "data/chunk-000/episode_000524.parquet",
+              "sha256": "3d37828cd4ce356d54be808ba06f0c19e32bd2d082c6a7ec958b3f06a86977f9"
+            },
+            {
+              "bytes": 13449394,
+              "episode_index": 530,
+              "frame_count": 106,
+              "relative_path": "data/chunk-000/episode_000530.parquet",
+              "sha256": "1e06a11c4e4099e8a2e9dcc36d796da7f2f7b76c89e0e7ab41d8d8f047f94d99"
+            },
+            {
+              "bytes": 12893759,
+              "episode_index": 544,
+              "frame_count": 102,
+              "relative_path": "data/chunk-000/episode_000544.parquet",
+              "sha256": "d8b71c523a19faf99eebfb74566a68c63cfc7e61f0f9d4f0333d7cea9c7a6de3"
+            },
+            {
+              "bytes": 12991807,
+              "episode_index": 545,
+              "frame_count": 98,
+              "relative_path": "data/chunk-000/episode_000545.parquet",
+              "sha256": "19558da17c9fcb6fae9ae735abecde75ac81a0566666e23365f48503624ad456"
+            },
+            {
+              "bytes": 12478293,
+              "episode_index": 550,
+              "frame_count": 99,
+              "relative_path": "data/chunk-000/episode_000550.parquet",
+              "sha256": "7f5370fa8f555c94539f8ad44a869ed9aa479b1e245adaf04a468ddde73149d5"
+            },
+            {
+              "bytes": 14830430,
+              "episode_index": 557,
+              "frame_count": 112,
+              "relative_path": "data/chunk-000/episode_000557.parquet",
+              "sha256": "cdb9877728fa9c57e91bbb07ee2117afba544de1a71308a2d0081e54416f7d1f"
+            },
+            {
+              "bytes": 11370511,
+              "episode_index": 558,
+              "frame_count": 91,
+              "relative_path": "data/chunk-000/episode_000558.parquet",
+              "sha256": "45189bc93dbe649a8382e518cb0a3fd286989ad6280313718cbde891994306af"
+            },
+            {
+              "bytes": 12028444,
+              "episode_index": 565,
+              "frame_count": 92,
+              "relative_path": "data/chunk-000/episode_000565.parquet",
+              "sha256": "c4110c0a90cbcabd79d437e93b4624c0d11718721be35684175a5226e1f6d029"
+            },
+            {
+              "bytes": 11866267,
+              "episode_index": 580,
+              "frame_count": 91,
+              "relative_path": "data/chunk-000/episode_000580.parquet",
+              "sha256": "a4a35ee6c63b94217298258ee56eebb691a9e3059c8d8a9e97559fdcd485297a"
+            },
+            {
+              "bytes": 12501952,
+              "episode_index": 598,
+              "frame_count": 99,
+              "relative_path": "data/chunk-000/episode_000598.parquet",
+              "sha256": "f0ec83271c8f4c51747ac6239ff4de664e32c5ef8c2a3a8bc84bd2d28c26a7ee"
+            }
+          ],
+          "frame_count": 1977,
+          "frame_ledger_sha256": "8a863ba87a51ae683c2ee2ee987d9fff2d5db499f48d590b171393b606cd2b45",
+          "implementation_sha256": {
+            "interpolation_bank.py": "48776d1e2a5f4bdbe9b296d3f57788fe368b2a1ca48502d64ef4d918c0188451",
+            "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+            "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+          },
+          "metadata_sha256": {
+            "episodes.jsonl": "0479a2ced6117700e4638a1da54dccd9f60ae5f47485ea6d91390c869befcf08",
+            "info.json": "77c0da93c67960bac803a8ea25dabf380d752c26c1d91c54151121dd10e7d82f",
+            "tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99"
+          },
+          "preprocessing": {
+            "adapter": "native openpi_libero profile applies its own frozen preprocessing",
+            "camera_orientation": "already rotated 180 degrees in the upstream HDF5-to-RLDS conversion",
+            "images": "decode embedded RGB PNG; no extra rotation, resize or normalization",
+            "state": "raw float32 eef position(3), axis angle(3), gripper qpos(2)"
+          },
+          "source_id": "17",
+          "source_prompt": "put the bowl on the stove"
+        },
+        "schema_version": 1
+      },
+      "files": [
+        {
+          "bytes": 878504,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_3/banks/17/bank.npz",
+          "name": "bank.npz",
+          "sha256": "e3c780295dd487e4c33229e8656216486d60042cfdb5b9103f03c5668595aef8"
+        },
+        {
+          "bytes": 18656,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_3/banks/17/manifest.json",
+          "name": "manifest.json",
+          "sha256": "f1fb669874ede8a12fc36ca4317a8228cbdb59b5bed48cee12db73fc293eb12b"
+        },
+        {
+          "bytes": 432807,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_3/banks/17/frames.jsonl",
+          "name": "frames.jsonl",
+          "sha256": "8a863ba87a51ae683c2ee2ee987d9fff2d5db499f48d590b171393b606cd2b45"
+        }
+      ],
+      "worker": 3
+    },
+    "18": {
+      "bank": {
+        "arrays": {
+          "instruction_mask": {
+            "dtype": "bool",
+            "sha256": "ce2d43cbdfb69d0dd31b07717e35ec67ed72440bfe269922102e393f26c79963",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "states": {
+            "dtype": "float32",
+            "sha256": "bcd2e5d60523d1eb5a78ed7f5bb8802b8b586f835f2b54823a6062e4f64a2214",
+            "shape": [
+              18,
+              1,
+              200,
+              2048
+            ]
+          },
+          "token_ids": {
+            "dtype": "int64",
+            "sha256": "32bb8c90cbac201b7ca6dabf561f132cb51e270e4fa5145b284b3ee27753d83a",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "token_mask": {
+            "dtype": "bool",
+            "sha256": "52ad57d33eb632342e033d09ca7b5cf6b8f5106678a05a9dbd670a775dfa0ae3",
+            "shape": [
+              1,
+              200
+            ]
+          }
+        },
+        "bank_id": "894ab8ed9fa133853c8ff2b0d0dffb6c41d0f207b56cc1085d4f610c3184d933",
+        "captured_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "effective_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "provenance": {
+          "aggregation": "float64 sum of all equally weighted frames, divided once and cast float32; noninstruction slots zero",
+          "capture_boundary": "post_decoder_block_before_final_norm",
+          "capture_kind": "demonstration_mean",
+          "compatibility": {
+            "adapter_source_sha256": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_assets": {
+              "norm_stats": {
+                "bytes": 1914,
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug==",
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+              },
+              "tokenizer": {
+                "bytes": 4264023,
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g==",
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+              }
+            },
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "layer_count": 18,
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ],
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "processor_source_sha256": {
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "text_slots": 200,
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "width": 2048
+          },
+          "dataset_repo": "physical-intelligence/libero",
+          "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+          "episodes": [
+            {
+              "bytes": 12810914,
+              "episode_index": 398,
+              "frame_count": 100,
+              "relative_path": "data/chunk-000/episode_000398.parquet",
+              "sha256": "1bacdf1fac0d1112c0388bc662dbd4b1b0cea6c6b218bb9dc2addedff643ea34"
+            },
+            {
+              "bytes": 13797541,
+              "episode_index": 402,
+              "frame_count": 110,
+              "relative_path": "data/chunk-000/episode_000402.parquet",
+              "sha256": "4a6f6bb5ef7573943973edb93b970a5fcb9962f2d45b48aac7819fa6fa539450"
+            },
+            {
+              "bytes": 10950147,
+              "episode_index": 438,
+              "frame_count": 86,
+              "relative_path": "data/chunk-000/episode_000438.parquet",
+              "sha256": "39920043c39887b074bcbdea905a8cfd40b8d44e41a96fd4a8e5072155906199"
+            },
+            {
+              "bytes": 11790721,
+              "episode_index": 444,
+              "frame_count": 96,
+              "relative_path": "data/chunk-000/episode_000444.parquet",
+              "sha256": "0886e5ec71396ea59c88275c71e6e3aade45b9949ba809222009c0cc3631b271"
+            },
+            {
+              "bytes": 12682958,
+              "episode_index": 446,
+              "frame_count": 100,
+              "relative_path": "data/chunk-000/episode_000446.parquet",
+              "sha256": "6db3745b650a9f1b7ce4d212be02ea322226d5d23326c3f8a4865de2771c83f8"
+            },
+            {
+              "bytes": 11745097,
+              "episode_index": 452,
+              "frame_count": 93,
+              "relative_path": "data/chunk-000/episode_000452.parquet",
+              "sha256": "89cc44181754d9ac3a29a0cb492f4e5b94786915b343777fa474f86bc3608b42"
+            },
+            {
+              "bytes": 12363259,
+              "episode_index": 456,
+              "frame_count": 98,
+              "relative_path": "data/chunk-000/episode_000456.parquet",
+              "sha256": "013f3bb90a4e7a0dceac6b5430d2ac33e47d85feb5ef9adae41ab3aae1555394"
+            },
+            {
+              "bytes": 11823944,
+              "episode_index": 458,
+              "frame_count": 91,
+              "relative_path": "data/chunk-000/episode_000458.parquet",
+              "sha256": "2d50fa9f6584e8143edb3eb346b761fc7c5da6f31866157a8e4f9792bb8f34e4"
+            },
+            {
+              "bytes": 13069850,
+              "episode_index": 474,
+              "frame_count": 103,
+              "relative_path": "data/chunk-000/episode_000474.parquet",
+              "sha256": "7aad70db6bf075fa931cf5cca44751c07c4cea1989f59ce821fa79e0d65e1456"
+            },
+            {
+              "bytes": 12509569,
+              "episode_index": 493,
+              "frame_count": 97,
+              "relative_path": "data/chunk-000/episode_000493.parquet",
+              "sha256": "9f998120245e1e69b16e60d548e04fd9c7362febe6b286607a78c565a60b55d6"
+            },
+            {
+              "bytes": 12198381,
+              "episode_index": 501,
+              "frame_count": 96,
+              "relative_path": "data/chunk-000/episode_000501.parquet",
+              "sha256": "a6c73fb3c45f387fd21ca01f57886516f933b7847f0b90c4f088875fa22977a7"
+            },
+            {
+              "bytes": 12763299,
+              "episode_index": 505,
+              "frame_count": 99,
+              "relative_path": "data/chunk-000/episode_000505.parquet",
+              "sha256": "5353d968c8498b265feb52d2e718df2a40285c3307ed51d217433e3b9f4187a3"
+            },
+            {
+              "bytes": 13427628,
+              "episode_index": 514,
+              "frame_count": 103,
+              "relative_path": "data/chunk-000/episode_000514.parquet",
+              "sha256": "1e8ddac583a8a2ac272e18584a4b12f84e6e1ba3f25186d575c100e66d034dc3"
+            },
+            {
+              "bytes": 12877527,
+              "episode_index": 521,
+              "frame_count": 102,
+              "relative_path": "data/chunk-000/episode_000521.parquet",
+              "sha256": "7aacda737f7e2cce779dc024bbe57e6fa257c09ae1ff8cb3da203d137462c91f"
+            },
+            {
+              "bytes": 12366761,
+              "episode_index": 570,
+              "frame_count": 98,
+              "relative_path": "data/chunk-000/episode_000570.parquet",
+              "sha256": "79b3fca71cb9905a2e9a3e337a7ced0ef7d8d5ed751ed7ae9763c9c8db12164a"
+            },
+            {
+              "bytes": 11382961,
+              "episode_index": 573,
+              "frame_count": 91,
+              "relative_path": "data/chunk-000/episode_000573.parquet",
+              "sha256": "1ba2483b0107b4c4653f7076ab4bfcfd301835707ea64cdadbf10c86b6fb4cfa"
+            },
+            {
+              "bytes": 11437261,
+              "episode_index": 590,
+              "frame_count": 90,
+              "relative_path": "data/chunk-000/episode_000590.parquet",
+              "sha256": "4c64f17857b876ee01dc37aec63f310bd5da3db7b5cb61714cb1abb3307fda26"
+            },
+            {
+              "bytes": 11661002,
+              "episode_index": 597,
+              "frame_count": 90,
+              "relative_path": "data/chunk-000/episode_000597.parquet",
+              "sha256": "3b679e3a8ea074f7278426478347612fcdb02b74e5b39a0512ccee94af685da1"
+            },
+            {
+              "bytes": 15638555,
+              "episode_index": 601,
+              "frame_count": 120,
+              "relative_path": "data/chunk-000/episode_000601.parquet",
+              "sha256": "725b776aee877b27fa0dbd1605a751e3c87c1b7196706ffb68d172f61e2add2f"
+            },
+            {
+              "bytes": 13031150,
+              "episode_index": 608,
+              "frame_count": 104,
+              "relative_path": "data/chunk-000/episode_000608.parquet",
+              "sha256": "4db1b5b7dbff4990f94b2615fc1dba1961533ccb5842fda1f221f3d5fa5d33f2"
+            }
+          ],
+          "frame_count": 1967,
+          "frame_ledger_sha256": "b37a57889a71108d516f2229d2bdab234b4afc557aa3397ea4f45a875b497006",
+          "implementation_sha256": {
+            "interpolation_bank.py": "48776d1e2a5f4bdbe9b296d3f57788fe368b2a1ca48502d64ef4d918c0188451",
+            "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+            "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+          },
+          "metadata_sha256": {
+            "episodes.jsonl": "0479a2ced6117700e4638a1da54dccd9f60ae5f47485ea6d91390c869befcf08",
+            "info.json": "77c0da93c67960bac803a8ea25dabf380d752c26c1d91c54151121dd10e7d82f",
+            "tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99"
+          },
+          "preprocessing": {
+            "adapter": "native openpi_libero profile applies its own frozen preprocessing",
+            "camera_orientation": "already rotated 180 degrees in the upstream HDF5-to-RLDS conversion",
+            "images": "decode embedded RGB PNG; no extra rotation, resize or normalization",
+            "state": "raw float32 eef position(3), axis angle(3), gripper qpos(2)"
+          },
+          "source_id": "18",
+          "source_prompt": "put the bowl on top of the cabinet"
+        },
+        "schema_version": 1
+      },
+      "files": [
+        {
+          "bytes": 1153009,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_4/banks/18/bank.npz",
+          "name": "bank.npz",
+          "sha256": "66117eaceb68c86bd35410250106df2167c4971453de85df5a06df5789e5c2fc"
+        },
+        {
+          "bytes": 18674,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_4/banks/18/manifest.json",
+          "name": "manifest.json",
+          "sha256": "c0a64ab85f1979012fb07cff7c9d843529dc58d2172d04cb4d37086e8ac71407"
+        },
+        {
+          "bytes": 430615,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_4/banks/18/frames.jsonl",
+          "name": "frames.jsonl",
+          "sha256": "b37a57889a71108d516f2229d2bdab234b4afc557aa3397ea4f45a875b497006"
+        }
+      ],
+      "worker": 4
+    },
+    "32": {
+      "bank": {
+        "arrays": {
+          "instruction_mask": {
+            "dtype": "bool",
+            "sha256": "8f6fde7f9d0f93fa70310068ce621c54817115e3795c85ed15c4c60dd859105b",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "states": {
+            "dtype": "float32",
+            "sha256": "b3233d8bf347a4c55ccd7a4747a3d46548dad09f8aebfb44bcbca4b06892f0fc",
+            "shape": [
+              18,
+              1,
+              200,
+              2048
+            ]
+          },
+          "token_ids": {
+            "dtype": "int64",
+            "sha256": "938af90c61668e281d3464d3975017c1e29704cb109260e147aed3d4d10a7fe2",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "token_mask": {
+            "dtype": "bool",
+            "sha256": "22765a528939325772a44218573a617f7211edafe8cfeb97b5b748715535049a",
+            "shape": [
+              1,
+              200
+            ]
+          }
+        },
+        "bank_id": "2c4ad01775a403130a569d765b5dee16502ed9e39026a29c9ef46d1c21094ec7",
+        "captured_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "effective_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "provenance": {
+          "aggregation": "float64 sum of all equally weighted frames, divided once and cast float32; noninstruction slots zero",
+          "capture_boundary": "post_decoder_block_before_final_norm",
+          "capture_kind": "demonstration_mean",
+          "compatibility": {
+            "adapter_source_sha256": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_assets": {
+              "norm_stats": {
+                "bytes": 1914,
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug==",
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+              },
+              "tokenizer": {
+                "bytes": 4264023,
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g==",
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+              }
+            },
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "layer_count": 18,
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ],
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "processor_source_sha256": {
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "text_slots": 200,
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "width": 2048
+          },
+          "dataset_repo": "physical-intelligence/libero",
+          "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+          "episodes": [
+            {
+              "bytes": 12447365,
+              "episode_index": 1264,
+              "frame_count": 100,
+              "relative_path": "data/chunk-001/episode_001264.parquet",
+              "sha256": "22117e85dc291ffa02657921b6dd30fa6ae788aa1cf9e12d7dad68d0e4a04bc9"
+            },
+            {
+              "bytes": 13887689,
+              "episode_index": 1265,
+              "frame_count": 116,
+              "relative_path": "data/chunk-001/episode_001265.parquet",
+              "sha256": "7ff1e2a5ea3aabd8e36d9800015ad7db25e0d94993dfa98f1f7012d1670c61a9"
+            },
+            {
+              "bytes": 13065780,
+              "episode_index": 1266,
+              "frame_count": 107,
+              "relative_path": "data/chunk-001/episode_001266.parquet",
+              "sha256": "e867b91492e5bacac8f51975ff3c0e25a2a8b453ecc8c03d7f845a136f300375"
+            },
+            {
+              "bytes": 12615529,
+              "episode_index": 1271,
+              "frame_count": 101,
+              "relative_path": "data/chunk-001/episode_001271.parquet",
+              "sha256": "c360f3da057d2fc581d4b0fdb8e73cebea453c057ea700b9e75aa10f803c3671"
+            },
+            {
+              "bytes": 10715332,
+              "episode_index": 1288,
+              "frame_count": 86,
+              "relative_path": "data/chunk-001/episode_001288.parquet",
+              "sha256": "84a9e2cc5b662bcc119edf15716f032fd72bc4fc66eb60357ca14adde46b7d0d"
+            },
+            {
+              "bytes": 14211821,
+              "episode_index": 1313,
+              "frame_count": 113,
+              "relative_path": "data/chunk-001/episode_001313.parquet",
+              "sha256": "7aa48afd4cc0cc641100b369586aed066813b8cc21d907c40f1c9ffbecf422da"
+            },
+            {
+              "bytes": 18993148,
+              "episode_index": 1341,
+              "frame_count": 154,
+              "relative_path": "data/chunk-001/episode_001341.parquet",
+              "sha256": "1f21337bd359a002b6dde1ea0a8cf73982fdec834c9da00bdc9e456a2ef2c0ec"
+            },
+            {
+              "bytes": 13740612,
+              "episode_index": 1343,
+              "frame_count": 108,
+              "relative_path": "data/chunk-001/episode_001343.parquet",
+              "sha256": "bf65f1046c8d6cbfdc6bc73795493e1b45fea6a0af09f1b0a46cc58c20d606f4"
+            },
+            {
+              "bytes": 13148663,
+              "episode_index": 1388,
+              "frame_count": 106,
+              "relative_path": "data/chunk-001/episode_001388.parquet",
+              "sha256": "2b5670fa867bb0179b2fb730921e8c4b490b112ad4e4cf8ce7719d5ea4c3f112"
+            },
+            {
+              "bytes": 13647194,
+              "episode_index": 1396,
+              "frame_count": 110,
+              "relative_path": "data/chunk-001/episode_001396.parquet",
+              "sha256": "bc39c89a0b549e8a01103f000fbcfeb2fde838333463d539c8066e69fe502fc1"
+            },
+            {
+              "bytes": 11119970,
+              "episode_index": 1404,
+              "frame_count": 91,
+              "relative_path": "data/chunk-001/episode_001404.parquet",
+              "sha256": "64d45610e2560050e6b3b99acb13a3598e403f1d4d9020c2309764773133cbd3"
+            },
+            {
+              "bytes": 17207592,
+              "episode_index": 1433,
+              "frame_count": 142,
+              "relative_path": "data/chunk-001/episode_001433.parquet",
+              "sha256": "094b11d0f59eed2d1e9a7bc0a7547a7551421b74bb7805f026137b2f98018055"
+            },
+            {
+              "bytes": 16154299,
+              "episode_index": 1443,
+              "frame_count": 128,
+              "relative_path": "data/chunk-001/episode_001443.parquet",
+              "sha256": "a53598c59dcd90d9cd2c1a826f203fc88e8253bf35420ded20ecedadfe470d2e"
+            },
+            {
+              "bytes": 16164712,
+              "episode_index": 1462,
+              "frame_count": 129,
+              "relative_path": "data/chunk-001/episode_001462.parquet",
+              "sha256": "73084f5e2377731ca5ccb20d6c88c512812333042c3c8332481e810d759b87b2"
+            },
+            {
+              "bytes": 13984943,
+              "episode_index": 1465,
+              "frame_count": 111,
+              "relative_path": "data/chunk-001/episode_001465.parquet",
+              "sha256": "273cc650575baee9878e88fbafcd3b3fe03ae14ae8883162e6ccbdf16bdbc352"
+            },
+            {
+              "bytes": 16863358,
+              "episode_index": 1469,
+              "frame_count": 137,
+              "relative_path": "data/chunk-001/episode_001469.parquet",
+              "sha256": "40a93dd8e513672d33a62e41fb36825e3671c9a4eba06855356f717944dc121b"
+            },
+            {
+              "bytes": 14980021,
+              "episode_index": 1481,
+              "frame_count": 118,
+              "relative_path": "data/chunk-001/episode_001481.parquet",
+              "sha256": "dd655cd9c4bb10b321aef4f934e89ebd4caed6a0b54b7e140e3f476f76c63769"
+            },
+            {
+              "bytes": 12199094,
+              "episode_index": 1482,
+              "frame_count": 98,
+              "relative_path": "data/chunk-001/episode_001482.parquet",
+              "sha256": "0bd34576196ba8e61862869c04524bf6bc44f35a2b1e03bd152562bd4879c27f"
+            },
+            {
+              "bytes": 12458656,
+              "episode_index": 1496,
+              "frame_count": 100,
+              "relative_path": "data/chunk-001/episode_001496.parquet",
+              "sha256": "d84e77855301acb7b3dd5a90b580967d790b65aa5355ad4f4cec21b433fe394a"
+            },
+            {
+              "bytes": 16343239,
+              "episode_index": 1498,
+              "frame_count": 131,
+              "relative_path": "data/chunk-001/episode_001498.parquet",
+              "sha256": "54da61a9740cd8b2d84a1fb679cd4e2fbb382597ae78a74058d7d83a882a01f9"
+            }
+          ],
+          "frame_count": 2286,
+          "frame_ledger_sha256": "71bc3df327e6f30968dd8f3220957aae0bdf7042bc02e2e1feade4dc54fcb994",
+          "implementation_sha256": {
+            "interpolation_bank.py": "48776d1e2a5f4bdbe9b296d3f57788fe368b2a1ca48502d64ef4d918c0188451",
+            "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+            "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+          },
+          "metadata_sha256": {
+            "episodes.jsonl": "0479a2ced6117700e4638a1da54dccd9f60ae5f47485ea6d91390c869befcf08",
+            "info.json": "77c0da93c67960bac803a8ea25dabf380d752c26c1d91c54151121dd10e7d82f",
+            "tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99"
+          },
+          "preprocessing": {
+            "adapter": "native openpi_libero profile applies its own frozen preprocessing",
+            "camera_orientation": "already rotated 180 degrees in the upstream HDF5-to-RLDS conversion",
+            "images": "decode embedded RGB PNG; no extra rotation, resize or normalization",
+            "state": "raw float32 eef position(3), axis angle(3), gripper qpos(2)"
+          },
+          "source_id": "32",
+          "source_prompt": "pick up the black bowl on the ramekin and place it on the plate"
+        },
+        "schema_version": 1
+      },
+      "files": [
+        {
+          "bytes": 2113334,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_5/banks/32/bank.npz",
+          "name": "bank.npz",
+          "sha256": "0a9c23a695be78571f3e15848b495238454df3fdec476fded17f5c71b9f0d47e"
+        },
+        {
+          "bytes": 18790,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_5/banks/32/manifest.json",
+          "name": "manifest.json",
+          "sha256": "7f1189b6bc6ab20ccfed395615126be2315594281b36753829cb378bd1943f06"
+        },
+        {
+          "bytes": 503031,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_5/banks/32/frames.jsonl",
+          "name": "frames.jsonl",
+          "sha256": "71bc3df327e6f30968dd8f3220957aae0bdf7042bc02e2e1feade4dc54fcb994"
+        }
+      ],
+      "worker": 5
+    },
+    "35": {
+      "bank": {
+        "arrays": {
+          "instruction_mask": {
+            "dtype": "bool",
+            "sha256": "8f6fde7f9d0f93fa70310068ce621c54817115e3795c85ed15c4c60dd859105b",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "states": {
+            "dtype": "float32",
+            "sha256": "a263a3c64e43e3238bfb9efd1e05d08711eb5f494f49a754740cf51f2aef112b",
+            "shape": [
+              18,
+              1,
+              200,
+              2048
+            ]
+          },
+          "token_ids": {
+            "dtype": "int64",
+            "sha256": "370e524159595d392dc824ee02fbf8dfe2e8af794ec35008cbc1f9c892bd15ae",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "token_mask": {
+            "dtype": "bool",
+            "sha256": "22765a528939325772a44218573a617f7211edafe8cfeb97b5b748715535049a",
+            "shape": [
+              1,
+              200
+            ]
+          }
+        },
+        "bank_id": "6d5da79b9cc3deab81b59553441654daecec1ca050e33f53babcc5d603c8a428",
+        "captured_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "effective_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "provenance": {
+          "aggregation": "float64 sum of all equally weighted frames, divided once and cast float32; noninstruction slots zero",
+          "capture_boundary": "post_decoder_block_before_final_norm",
+          "capture_kind": "demonstration_mean",
+          "compatibility": {
+            "adapter_source_sha256": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_assets": {
+              "norm_stats": {
+                "bytes": 1914,
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug==",
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+              },
+              "tokenizer": {
+                "bytes": 4264023,
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g==",
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+              }
+            },
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "layer_count": 18,
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ],
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "processor_source_sha256": {
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "text_slots": 200,
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "width": 2048
+          },
+          "dataset_repo": "physical-intelligence/libero",
+          "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+          "episodes": [
+            {
+              "bytes": 12318539,
+              "episode_index": 1278,
+              "frame_count": 101,
+              "relative_path": "data/chunk-001/episode_001278.parquet",
+              "sha256": "4eda1c7e6acb8eb39ac746b9e17b4ea56d6eb0d94b4fc92ad45c2fb2763a6fa7"
+            },
+            {
+              "bytes": 11521494,
+              "episode_index": 1279,
+              "frame_count": 96,
+              "relative_path": "data/chunk-001/episode_001279.parquet",
+              "sha256": "888fafba3f3f618ff350382530d3bc20dfa5e89664d3272745c3ace137a64e36"
+            },
+            {
+              "bytes": 14224493,
+              "episode_index": 1303,
+              "frame_count": 119,
+              "relative_path": "data/chunk-001/episode_001303.parquet",
+              "sha256": "421074d71824f9029ed90548251d44ce2715355c17532b01242cd8acd4836033"
+            },
+            {
+              "bytes": 11995176,
+              "episode_index": 1319,
+              "frame_count": 102,
+              "relative_path": "data/chunk-001/episode_001319.parquet",
+              "sha256": "676c1936a78fae298714a391ae0f40d5433f388f6a92bf538cb21724d52de5ac"
+            },
+            {
+              "bytes": 13210385,
+              "episode_index": 1321,
+              "frame_count": 111,
+              "relative_path": "data/chunk-001/episode_001321.parquet",
+              "sha256": "5ddf7c9c7ab622dcae6f8f7d5b12ebe309f37cbefa465ec7d3a039e2bec583f5"
+            },
+            {
+              "bytes": 11923394,
+              "episode_index": 1324,
+              "frame_count": 99,
+              "relative_path": "data/chunk-001/episode_001324.parquet",
+              "sha256": "bd68a7260875d4d0491c067bb0dca342b47c87a182912aa5f947f8a532f1e3b0"
+            },
+            {
+              "bytes": 14249844,
+              "episode_index": 1328,
+              "frame_count": 111,
+              "relative_path": "data/chunk-001/episode_001328.parquet",
+              "sha256": "9b2805b76d1b6f5f1cabd41a206fd566d1168edd3acb9b60500004d15c6118d8"
+            },
+            {
+              "bytes": 12031600,
+              "episode_index": 1357,
+              "frame_count": 95,
+              "relative_path": "data/chunk-001/episode_001357.parquet",
+              "sha256": "047d58cff239ebdaff1ac2422cbf6290b53a5ac02027ce2814f71ea43f006c35"
+            },
+            {
+              "bytes": 11327472,
+              "episode_index": 1366,
+              "frame_count": 94,
+              "relative_path": "data/chunk-001/episode_001366.parquet",
+              "sha256": "6124d0ebdd74dc3d490eb5ec3007c608aa844e54f097e6065c168a0940e7e2ac"
+            },
+            {
+              "bytes": 11397902,
+              "episode_index": 1367,
+              "frame_count": 89,
+              "relative_path": "data/chunk-001/episode_001367.parquet",
+              "sha256": "c7cf08fb34897b1e278cdae51bfa55cb513c23dfa329f5a7492e46831487f289"
+            },
+            {
+              "bytes": 14158339,
+              "episode_index": 1378,
+              "frame_count": 115,
+              "relative_path": "data/chunk-001/episode_001378.parquet",
+              "sha256": "87f75f8c8a43319f59a8a413d088c1c34b5a4338cc144e7d738b73e4a43f639d"
+            },
+            {
+              "bytes": 12139639,
+              "episode_index": 1386,
+              "frame_count": 97,
+              "relative_path": "data/chunk-001/episode_001386.parquet",
+              "sha256": "9c9ecd9a27bce6284c03eec8d10b5d16120fb915983e44da24b62c9f28879919"
+            },
+            {
+              "bytes": 12012872,
+              "episode_index": 1391,
+              "frame_count": 96,
+              "relative_path": "data/chunk-001/episode_001391.parquet",
+              "sha256": "6337f84f5c37bb9b9e852e26c9c48e2d55f1bd44d4e54ebcd73f94d3b4cda804"
+            },
+            {
+              "bytes": 11087365,
+              "episode_index": 1405,
+              "frame_count": 92,
+              "relative_path": "data/chunk-001/episode_001405.parquet",
+              "sha256": "98a33952fabe1b6552fd9485337c847caedefe6547ad9eafa140ad8a7fc110f4"
+            },
+            {
+              "bytes": 12211514,
+              "episode_index": 1437,
+              "frame_count": 100,
+              "relative_path": "data/chunk-001/episode_001437.parquet",
+              "sha256": "1d843c28ed873421dd0ee666f691c6279134909a6b3900b3c2c43beefb5defe2"
+            },
+            {
+              "bytes": 11365374,
+              "episode_index": 1452,
+              "frame_count": 96,
+              "relative_path": "data/chunk-001/episode_001452.parquet",
+              "sha256": "a20caa8d30e55a80a409aac06c0683f4059363627c7917c64f3670d31ee9069f"
+            },
+            {
+              "bytes": 11425667,
+              "episode_index": 1457,
+              "frame_count": 96,
+              "relative_path": "data/chunk-001/episode_001457.parquet",
+              "sha256": "5019ca6076a585b4c4b40b1ef67fd0877754d9ed62e6ffb7c73dd8ec34949976"
+            },
+            {
+              "bytes": 11875877,
+              "episode_index": 1463,
+              "frame_count": 97,
+              "relative_path": "data/chunk-001/episode_001463.parquet",
+              "sha256": "184f4fb1c10e13b86c7ff7202638c5c761587a28132bbc19876edd3efc85b1af"
+            },
+            {
+              "bytes": 11536338,
+              "episode_index": 1468,
+              "frame_count": 95,
+              "relative_path": "data/chunk-001/episode_001468.parquet",
+              "sha256": "6da803c5ee8cbf5bc170f80e28da142f8d5ddb42e424012d7219680f46c34a77"
+            },
+            {
+              "bytes": 14303628,
+              "episode_index": 1475,
+              "frame_count": 111,
+              "relative_path": "data/chunk-001/episode_001475.parquet",
+              "sha256": "02305c29849130f4ee8eaaedc2dff0421f51b674e2cecd12f849eaa2ca601843"
+            }
+          ],
+          "frame_count": 2012,
+          "frame_ledger_sha256": "32291a0f2922c9256e474c342470a8dc67552703be25c3dbbb80e352282e8782",
+          "implementation_sha256": {
+            "interpolation_bank.py": "48776d1e2a5f4bdbe9b296d3f57788fe368b2a1ca48502d64ef4d918c0188451",
+            "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+            "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+          },
+          "metadata_sha256": {
+            "episodes.jsonl": "0479a2ced6117700e4638a1da54dccd9f60ae5f47485ea6d91390c869befcf08",
+            "info.json": "77c0da93c67960bac803a8ea25dabf380d752c26c1d91c54151121dd10e7d82f",
+            "tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99"
+          },
+          "preprocessing": {
+            "adapter": "native openpi_libero profile applies its own frozen preprocessing",
+            "camera_orientation": "already rotated 180 degrees in the upstream HDF5-to-RLDS conversion",
+            "images": "decode embedded RGB PNG; no extra rotation, resize or normalization",
+            "state": "raw float32 eef position(3), axis angle(3), gripper qpos(2)"
+          },
+          "source_id": "35",
+          "source_prompt": "pick up the black bowl on the cookie box and place it on the plate"
+        },
+        "schema_version": 1
+      },
+      "files": [
+        {
+          "bytes": 2113097,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_6/banks/35/bank.npz",
+          "name": "bank.npz",
+          "sha256": "49606e31b74d6b34781863753e05eea1c855fa711589d8bcb839e5116b2368de"
+        },
+        {
+          "bytes": 18778,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_6/banks/35/manifest.json",
+          "name": "manifest.json",
+          "sha256": "dfcf7e4591e7e4cc92e3f7b7334b28a86efcc57d4c8c9b569d8f06a1d3c32870"
+        },
+        {
+          "bytes": 442510,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_6/banks/35/frames.jsonl",
+          "name": "frames.jsonl",
+          "sha256": "32291a0f2922c9256e474c342470a8dc67552703be25c3dbbb80e352282e8782"
+        }
+      ],
+      "worker": 6
+    },
+    "36": {
+      "bank": {
+        "arrays": {
+          "instruction_mask": {
+            "dtype": "bool",
+            "sha256": "8f6fde7f9d0f93fa70310068ce621c54817115e3795c85ed15c4c60dd859105b",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "states": {
+            "dtype": "float32",
+            "sha256": "2e5afe14b1dadf37708674508d5592101b83d3c8a9d16a45a5311261a71e2bd2",
+            "shape": [
+              18,
+              1,
+              200,
+              2048
+            ]
+          },
+          "token_ids": {
+            "dtype": "int64",
+            "sha256": "87142b27c5f4a1cd0b658c1d2b792b81bef9c0c0f4a9ce32535900b5f85a5d57",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "token_mask": {
+            "dtype": "bool",
+            "sha256": "22765a528939325772a44218573a617f7211edafe8cfeb97b5b748715535049a",
+            "shape": [
+              1,
+              200
+            ]
+          }
+        },
+        "bank_id": "58857134156554a8a85d435384e06df703e208ffcec49e888e10ee812a9f9235",
+        "captured_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "effective_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "provenance": {
+          "aggregation": "float64 sum of all equally weighted frames, divided once and cast float32; noninstruction slots zero",
+          "capture_boundary": "post_decoder_block_before_final_norm",
+          "capture_kind": "demonstration_mean",
+          "compatibility": {
+            "adapter_source_sha256": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_assets": {
+              "norm_stats": {
+                "bytes": 1914,
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug==",
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+              },
+              "tokenizer": {
+                "bytes": 4264023,
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g==",
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+              }
+            },
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "layer_count": 18,
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ],
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "processor_source_sha256": {
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "text_slots": 200,
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "width": 2048
+          },
+          "dataset_repo": "physical-intelligence/libero",
+          "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+          "episodes": [
+            {
+              "bytes": 13168544,
+              "episode_index": 1280,
+              "frame_count": 107,
+              "relative_path": "data/chunk-001/episode_001280.parquet",
+              "sha256": "2a32de3c43ea575cfbf5b4a660dd54467fb3752b3258f23df6fb87e1dc32f6f6"
+            },
+            {
+              "bytes": 15520475,
+              "episode_index": 1285,
+              "frame_count": 125,
+              "relative_path": "data/chunk-001/episode_001285.parquet",
+              "sha256": "1bc9cf6135711b1c8f611b4491a4f3c05fe528346f47ea9e7eb9ce4458874e2d"
+            },
+            {
+              "bytes": 15674291,
+              "episode_index": 1293,
+              "frame_count": 121,
+              "relative_path": "data/chunk-001/episode_001293.parquet",
+              "sha256": "6508911b5bdf401cb917c128d5e9c75b05e7f80a1d7a22ec79f5372120817e51"
+            },
+            {
+              "bytes": 17831314,
+              "episode_index": 1307,
+              "frame_count": 138,
+              "relative_path": "data/chunk-001/episode_001307.parquet",
+              "sha256": "ae7adc4438f3e7d96f73568c253f4accc471bd21de75fb2f82d2d559af500251"
+            },
+            {
+              "bytes": 16370132,
+              "episode_index": 1332,
+              "frame_count": 125,
+              "relative_path": "data/chunk-001/episode_001332.parquet",
+              "sha256": "f4bbe7896565a3b7d2e46dd6cec96fff7df16d1ebf8c9c13dbb7f1dc60d0662f"
+            },
+            {
+              "bytes": 15744275,
+              "episode_index": 1342,
+              "frame_count": 126,
+              "relative_path": "data/chunk-001/episode_001342.parquet",
+              "sha256": "3f83929a6599823c4fe624ab2ca74b699bde36f8c67b04e3234d9121cf2d2b23"
+            },
+            {
+              "bytes": 15871701,
+              "episode_index": 1346,
+              "frame_count": 123,
+              "relative_path": "data/chunk-001/episode_001346.parquet",
+              "sha256": "cb94e72c196eef5ba560b810f8e1bc6889e17cf37ee57a9517e80105d54d86f5"
+            },
+            {
+              "bytes": 14187937,
+              "episode_index": 1348,
+              "frame_count": 114,
+              "relative_path": "data/chunk-001/episode_001348.parquet",
+              "sha256": "c1d0054ac21c7cf1161acef2ecc85a98049412eaa02b1785f668a5ecd51a96cf"
+            },
+            {
+              "bytes": 20445080,
+              "episode_index": 1363,
+              "frame_count": 164,
+              "relative_path": "data/chunk-001/episode_001363.parquet",
+              "sha256": "4f5c5d9f8698eb65a3b042918ecbae02663b884e853c8f2dd0e4713290a2bcc0"
+            },
+            {
+              "bytes": 13898121,
+              "episode_index": 1372,
+              "frame_count": 115,
+              "relative_path": "data/chunk-001/episode_001372.parquet",
+              "sha256": "504a5a75916c69eb0f086d079e3bfcbf1d33b61341f48e1f46bef0cddb900b1d"
+            },
+            {
+              "bytes": 16980959,
+              "episode_index": 1387,
+              "frame_count": 138,
+              "relative_path": "data/chunk-001/episode_001387.parquet",
+              "sha256": "757df67cf2446cbf4b3a8b91ae335bd2c81ee45e4c7e025d0b4f7181288dfa4d"
+            },
+            {
+              "bytes": 15798717,
+              "episode_index": 1392,
+              "frame_count": 122,
+              "relative_path": "data/chunk-001/episode_001392.parquet",
+              "sha256": "e75ebc96d2714042d6efa0804055d625eb069efa439544d9028e4ced0fe975c1"
+            },
+            {
+              "bytes": 13821337,
+              "episode_index": 1393,
+              "frame_count": 109,
+              "relative_path": "data/chunk-001/episode_001393.parquet",
+              "sha256": "c5c970a802cfb77fb495a923f70ae46e442f3118c29f79c2c68651289b681ff8"
+            },
+            {
+              "bytes": 18390139,
+              "episode_index": 1403,
+              "frame_count": 137,
+              "relative_path": "data/chunk-001/episode_001403.parquet",
+              "sha256": "cb19b2ee4624026a45fac28d469c839ac0eb5faf48cc9610eb9126dda8fde640"
+            },
+            {
+              "bytes": 13178223,
+              "episode_index": 1409,
+              "frame_count": 110,
+              "relative_path": "data/chunk-001/episode_001409.parquet",
+              "sha256": "088a997cd4ee2c662744df19057a3a53701b3a3b5fd2cfdb72bcc75b73e153aa"
+            },
+            {
+              "bytes": 13125192,
+              "episode_index": 1413,
+              "frame_count": 97,
+              "relative_path": "data/chunk-001/episode_001413.parquet",
+              "sha256": "f410d029136f4016e9c4f82d87d9d48fdc5e725068a150361d722d680f60ade0"
+            },
+            {
+              "bytes": 12664582,
+              "episode_index": 1417,
+              "frame_count": 96,
+              "relative_path": "data/chunk-001/episode_001417.parquet",
+              "sha256": "b74bced6f07f00725b614f2f6001e7049a0aef08a5ef2e3a1355643cd21ba183"
+            },
+            {
+              "bytes": 13530093,
+              "episode_index": 1438,
+              "frame_count": 106,
+              "relative_path": "data/chunk-001/episode_001438.parquet",
+              "sha256": "2aeccdc3649fed9506cf8fd223e2575a948953eba3002a2d0d6e2a70e256c223"
+            },
+            {
+              "bytes": 14163450,
+              "episode_index": 1451,
+              "frame_count": 111,
+              "relative_path": "data/chunk-001/episode_001451.parquet",
+              "sha256": "734eeac47f05f9267039da13b45b36896f91c622efa6a1124dc99165ab06cf71"
+            },
+            {
+              "bytes": 12422046,
+              "episode_index": 1459,
+              "frame_count": 100,
+              "relative_path": "data/chunk-001/episode_001459.parquet",
+              "sha256": "a8d30a06ff9dfa218a0d29fb8462b32a1f5fa668f93040c581840bca78eea2a8"
+            }
+          ],
+          "frame_count": 2384,
+          "frame_ledger_sha256": "f2f0713e56fdd33cfc8919d3101c665a64f47b7a29fd0e524d87cd9ed80ee73e",
+          "implementation_sha256": {
+            "interpolation_bank.py": "48776d1e2a5f4bdbe9b296d3f57788fe368b2a1ca48502d64ef4d918c0188451",
+            "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+            "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+          },
+          "metadata_sha256": {
+            "episodes.jsonl": "0479a2ced6117700e4638a1da54dccd9f60ae5f47485ea6d91390c869befcf08",
+            "info.json": "77c0da93c67960bac803a8ea25dabf380d752c26c1d91c54151121dd10e7d82f",
+            "tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99"
+          },
+          "preprocessing": {
+            "adapter": "native openpi_libero profile applies its own frozen preprocessing",
+            "camera_orientation": "already rotated 180 degrees in the upstream HDF5-to-RLDS conversion",
+            "images": "decode embedded RGB PNG; no extra rotation, resize or normalization",
+            "state": "raw float32 eef position(3), axis angle(3), gripper qpos(2)"
+          },
+          "source_id": "36",
+          "source_prompt": "pick up the black bowl next to the plate and place it on the plate"
+        },
+        "schema_version": 1
+      },
+      "files": [
+        {
+          "bytes": 2112978,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_7/banks/36/bank.npz",
+          "name": "bank.npz",
+          "sha256": "8052953291dd86ed38550f7bbbf508d2e2f5bf2c344de19ace633f8d98ddb54f"
+        },
+        {
+          "bytes": 18798,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_7/banks/36/manifest.json",
+          "name": "manifest.json",
+          "sha256": "2ea76fd07b2f1e4c50a950ad8d4fb5968070803f39f06904ff0f7620d32b75ca"
+        },
+        {
+          "bytes": 524671,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_7/banks/36/frames.jsonl",
+          "name": "frames.jsonl",
+          "sha256": "f2f0713e56fdd33cfc8919d3101c665a64f47b7a29fd0e524d87cd9ed80ee73e"
+        }
+      ],
+      "worker": 7
+    },
+    "38": {
+      "bank": {
+        "arrays": {
+          "instruction_mask": {
+            "dtype": "bool",
+            "sha256": "4225104c9dfae5eec49e0f5108ae35caf1c6d8abfbae98b7dde3d4ce83ab411d",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "states": {
+            "dtype": "float32",
+            "sha256": "b30b3619b2c301757f5b190d9e3a41d108291ef885b42d116aa56c3e3092db77",
+            "shape": [
+              18,
+              1,
+              200,
+              2048
+            ]
+          },
+          "token_ids": {
+            "dtype": "int64",
+            "sha256": "2e75f52cdb4af40a4431b7de4633d2b38a80e593120ace527651504d7f1f4038",
+            "shape": [
+              1,
+              200
+            ]
+          },
+          "token_mask": {
+            "dtype": "bool",
+            "sha256": "0b4e0130e6682ee6318dd4a70351f4f0f64296f2e52a9883ba4b75ee12856d68",
+            "shape": [
+              1,
+              200
+            ]
+          }
+        },
+        "bank_id": "236a22eea0b6692186124ad149808ec0732867fd33d8914f2b383bedf21cc4f2",
+        "captured_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "effective_layer_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "provenance": {
+          "aggregation": "float64 sum of all equally weighted frames, divided once and cast float32; noninstruction slots zero",
+          "capture_boundary": "post_decoder_block_before_final_norm",
+          "capture_kind": "demonstration_mean",
+          "compatibility": {
+            "adapter_source_sha256": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_assets": {
+              "norm_stats": {
+                "bytes": 1914,
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug==",
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+              },
+              "tokenizer": {
+                "bytes": 4264023,
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g==",
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+              }
+            },
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "layer_count": 18,
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ],
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "processor_source_sha256": {
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "text_slots": 200,
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "width": 2048
+          },
+          "dataset_repo": "physical-intelligence/libero",
+          "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+          "episodes": [
+            {
+              "bytes": 17459415,
+              "episode_index": 1283,
+              "frame_count": 135,
+              "relative_path": "data/chunk-001/episode_001283.parquet",
+              "sha256": "52714a3eda0fa037543bba9276f8035fc91c9d4762d1482f7a405539885d8f7b"
+            },
+            {
+              "bytes": 12678533,
+              "episode_index": 1287,
+              "frame_count": 100,
+              "relative_path": "data/chunk-001/episode_001287.parquet",
+              "sha256": "d1bd2fbe74308f76dfe2d7ec27989b546898241ebf6073abb2d1461e8354662b"
+            },
+            {
+              "bytes": 15293850,
+              "episode_index": 1289,
+              "frame_count": 120,
+              "relative_path": "data/chunk-001/episode_001289.parquet",
+              "sha256": "2bec9847dd3da71fc9837232013124f9388cf3c4e3f2beb54ce5aa9b50cbfbd9"
+            },
+            {
+              "bytes": 15720256,
+              "episode_index": 1299,
+              "frame_count": 121,
+              "relative_path": "data/chunk-001/episode_001299.parquet",
+              "sha256": "f1b2a81aa1b822a2b8783b45709fff56bb2cfb7261918f3fc0ccc5654e6e2e50"
+            },
+            {
+              "bytes": 14284466,
+              "episode_index": 1310,
+              "frame_count": 111,
+              "relative_path": "data/chunk-001/episode_001310.parquet",
+              "sha256": "1b7891c6c598cee84e002d2314b36026cbf4a8dedef7091a7e84539c7457e76b"
+            },
+            {
+              "bytes": 13670726,
+              "episode_index": 1315,
+              "frame_count": 106,
+              "relative_path": "data/chunk-001/episode_001315.parquet",
+              "sha256": "f4737577392bb0a4a88ff93bc7dbec868906bc494211d8b251e61de6737eebbb"
+            },
+            {
+              "bytes": 13782729,
+              "episode_index": 1316,
+              "frame_count": 103,
+              "relative_path": "data/chunk-001/episode_001316.parquet",
+              "sha256": "2209153de725aa0a59a7ce30b0f243bac44ae0c835341a9205f5c69494b4a755"
+            },
+            {
+              "bytes": 14550746,
+              "episode_index": 1317,
+              "frame_count": 114,
+              "relative_path": "data/chunk-001/episode_001317.parquet",
+              "sha256": "732d1e29fda5a874f960a4b674f379383263c19478c278e96f27748eaf516cc5"
+            },
+            {
+              "bytes": 16151432,
+              "episode_index": 1320,
+              "frame_count": 123,
+              "relative_path": "data/chunk-001/episode_001320.parquet",
+              "sha256": "ae3358bfbc8f41163d66fba5af6a3e8de659b5f3370d6b57183e1b8077aa5dfa"
+            },
+            {
+              "bytes": 13852236,
+              "episode_index": 1345,
+              "frame_count": 109,
+              "relative_path": "data/chunk-001/episode_001345.parquet",
+              "sha256": "98a6241e5854970dea463bae0c22d635e1908d98ff6a0a2c57947d569e687c2f"
+            },
+            {
+              "bytes": 13668758,
+              "episode_index": 1353,
+              "frame_count": 107,
+              "relative_path": "data/chunk-001/episode_001353.parquet",
+              "sha256": "b586cd8b437d866663321695b48c845b8ae077394004004be88408e3175f9a96"
+            },
+            {
+              "bytes": 17588265,
+              "episode_index": 1354,
+              "frame_count": 138,
+              "relative_path": "data/chunk-001/episode_001354.parquet",
+              "sha256": "b7acfee64ba25e7d120749bc48271ad55113b151685e43dbac70794145bdd039"
+            },
+            {
+              "bytes": 13248021,
+              "episode_index": 1358,
+              "frame_count": 105,
+              "relative_path": "data/chunk-001/episode_001358.parquet",
+              "sha256": "b4af55f02f61596ae27fa6e2f0c9a22984d8ec915443023465af0b3424df3693"
+            },
+            {
+              "bytes": 17207526,
+              "episode_index": 1377,
+              "frame_count": 134,
+              "relative_path": "data/chunk-001/episode_001377.parquet",
+              "sha256": "09ea6cd73f1bac33c25e41c45150dc706dba97462bd37e513d0fcfdf608a1c55"
+            },
+            {
+              "bytes": 14083457,
+              "episode_index": 1380,
+              "frame_count": 110,
+              "relative_path": "data/chunk-001/episode_001380.parquet",
+              "sha256": "ec3b948558938a2c4058e03b719c2b61823d7c772c0f32cb0ae0c30cf0f899b5"
+            },
+            {
+              "bytes": 14628979,
+              "episode_index": 1383,
+              "frame_count": 114,
+              "relative_path": "data/chunk-001/episode_001383.parquet",
+              "sha256": "ca078f0d0d8c68b698b004f6f7202281ce188473e0f926b09218c32e16a0a34e"
+            },
+            {
+              "bytes": 13898247,
+              "episode_index": 1385,
+              "frame_count": 108,
+              "relative_path": "data/chunk-001/episode_001385.parquet",
+              "sha256": "16dc578638c94dbe36d48690ea028c48b04e4f851e70b3c28e0ad7cc70e1e4bc"
+            },
+            {
+              "bytes": 14598750,
+              "episode_index": 1426,
+              "frame_count": 115,
+              "relative_path": "data/chunk-001/episode_001426.parquet",
+              "sha256": "ae69fd8fcf54f1f352064f15c6148a7a8ab03792d9adf657f54128f4eff1a82c"
+            },
+            {
+              "bytes": 14488048,
+              "episode_index": 1428,
+              "frame_count": 111,
+              "relative_path": "data/chunk-001/episode_001428.parquet",
+              "sha256": "ba90303d2654139fe4d10469e66530d83ad6e03d273db1ccf710a02bf3d2d6c7"
+            },
+            {
+              "bytes": 16970372,
+              "episode_index": 1432,
+              "frame_count": 131,
+              "relative_path": "data/chunk-001/episode_001432.parquet",
+              "sha256": "3245857299e5b2b8065d41567fc494913d799b9d9e80a621fb9ee924b4d0fd5c"
+            }
+          ],
+          "frame_count": 2315,
+          "frame_ledger_sha256": "aeb53e5d624dd19802e24db4df0ce43c4cbc379e9f67baf591d3083cce0f63f5",
+          "implementation_sha256": {
+            "interpolation_bank.py": "48776d1e2a5f4bdbe9b296d3f57788fe368b2a1ca48502d64ef4d918c0188451",
+            "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+            "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+            "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+          },
+          "metadata_sha256": {
+            "episodes.jsonl": "0479a2ced6117700e4638a1da54dccd9f60ae5f47485ea6d91390c869befcf08",
+            "info.json": "77c0da93c67960bac803a8ea25dabf380d752c26c1d91c54151121dd10e7d82f",
+            "tasks.jsonl": "e72ef3cf7ca7a3abe70b3e142a0d1acf2719d2a3f27598869092cc4f1762bb99"
+          },
+          "preprocessing": {
+            "adapter": "native openpi_libero profile applies its own frozen preprocessing",
+            "camera_orientation": "already rotated 180 degrees in the upstream HDF5-to-RLDS conversion",
+            "images": "decode embedded RGB PNG; no extra rotation, resize or normalization",
+            "state": "raw float32 eef position(3), axis angle(3), gripper qpos(2)"
+          },
+          "source_id": "38",
+          "source_prompt": "pick up the black bowl from table center and place it on the plate"
+        },
+        "schema_version": 1
+      },
+      "files": [
+        {
+          "bytes": 1975828,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_0/banks/38/bank.npz",
+          "name": "bank.npz",
+          "sha256": "9649a96148af26e527fdc4d567bdd4e06b915905f52fa3972d0a998de46efa7f"
+        },
+        {
+          "bytes": 18802,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_0/banks/38/manifest.json",
+          "name": "manifest.json",
+          "sha256": "9d99d2bb1d4a2a84fd5e858944fbbe7595f6af8d50174f39abaee33077a94b4c"
+        },
+        {
+          "bytes": 509415,
+          "key": "experiments/astra-reversal-20260924/astra-pi05-interpolation-bank-20260925-1/worker_0/banks/38/frames.jsonl",
+          "name": "frames.jsonl",
+          "sha256": "aeb53e5d624dd19802e24db4df0ce43c4cbc379e9f67baf591d3083cce0f63f5"
+        }
+      ],
+      "worker": 0
+    }
+  },
+  "payload_bytes": 11528740,
+  "payload_sha256": "387bee184ac41398a176142513ca4f9704300b4ac38a9d69bd0c472515c58b74",
+  "schema_version": "phase-bank-inventory-1.0",
+  "source_revision": "926d12dafea7efbfab42e39a734484002e5fc7c3",
+  "workflow": "astra-pi05-interpolation-bank-20260925-1"
+}

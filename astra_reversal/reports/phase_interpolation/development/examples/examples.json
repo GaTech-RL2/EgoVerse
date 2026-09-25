@@ -1,0 +1,935 @@
+{
+  "archive_sha256": "0d7883bfb76c1a8821e132e356644cb3ef45aa833864de159c6b084b9644e7ea",
+  "artifact_sha256": {
+    "README.md": "bc8944c89cb57e64ffb68f27ee5d87e08e6f204b0b64ea2da7c85b6fe78f5730",
+    "cabinet_tei.png": "021ae528a00ff38d5e1ace14e6521cfee96ba61bfa2511966b37f26db9172622",
+    "cabinet_tli_vision.png": "46d942952ac7d1642d4bc85569ae4654be5e6b03e84f64731000588ccdd4a8d7"
+  },
+  "astra": {
+    "astra_tei": {
+      "actions_including_common_baseline": 400,
+      "actions_with_changed_vision": 0,
+      "actions_with_nonzero_text": 100,
+      "attempt_id": "astra_tei_2",
+      "decisions": [
+        {
+          "alpha": 0.3,
+          "annotations": [],
+          "attempt_id": "astra_tei_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "bca21f309f4dad79e7722bc94900c157f4438e506195f0a87a0cc25bbddd5d45",
+              "npy_file_sha256": "777f5ffb4e9471471f7bf149d8e7f2f608d229b16c5f4b157a70cb07698969b6",
+              "png_sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6",
+              "recorded_array": "arrays/00002544.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "baecdb204f68f2fa2910dfbd37cfb4869f3f9ad171174cec6f488041d52a385f",
+              "npy_file_sha256": "48e1f243f9eb551aeccc3972417bace4eb381d4352c636904b008dc82eabf436",
+              "png_sha256": "1ae193833a17969ce33da6070cc14944720e85b3523f95a780b4cfd552cb93c8",
+              "recorded_array": "arrays/00002545.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tei_2_d1",
+          "generation_event_sequence": 422,
+          "modified_observation_sha256": "b25b3d1d6c64f776ae36278b867553991e5822c47718541e1012276a16c9d6a5",
+          "raw_observation_sha256": "b25b3d1d6c64f776ae36278b867553991e5822c47718541e1012276a16c9d6a5",
+          "request_event_sequence": 420,
+          "request_fingerprint": "7f49939bf7ce536f04b817c7842e18ecefb6ddfd8c38370c4dd210809eab2205",
+          "response_text_sha256": "0de87dcf5b6b74552055a2c3b645fa30326e4fe38d94339a3266622821ccdf35",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "92911a6a4c8cf15f4f276686ee18904b51134eb5ce3a31ffa76f6963d25c94a3",
+            "npy_file_sha256": "b4cf4cfa017d7e4bcaa965bec761238d74409cf4eb9f1e20d9d877765fe481fa",
+            "recorded_array": "arrays/00002546.npy"
+          },
+          "step": 0,
+          "token_usage": {
+            "input_tokens": 4012,
+            "output_tokens": 225,
+            "reasoning_tokens": 0,
+            "total_tokens": 4237
+          }
+        },
+        {
+          "alpha": 0.3,
+          "annotations": [],
+          "attempt_id": "astra_tei_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "cd0d43792148a3b86654fca138463419c9c2fc8156bb705554b58d3841203edd",
+              "npy_file_sha256": "8163df4ea9428c585d7ce6cd13f55931264e81fb09028de2e4f6bee0cfb34ab5",
+              "png_sha256": "f9eb2f8dd97e7f7ae5d206ca560457753bf30be0327acacf31b190964ed30eba",
+              "recorded_array": "arrays/00002574.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "48018e6333f0e8b1f0e008d9e1d169e2c13267cfddffb80f591af80b5834c2f1",
+              "npy_file_sha256": "57c8d9d3198463a4236677cfd258a6ff9d2cd8a88ca93f453ea4dcde0bec9275",
+              "png_sha256": "68f9bbe38126540a2d800737a776662cf44785617d8cdc05abdf25ac407a6ac6",
+              "recorded_array": "arrays/00002575.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tei_2_d2",
+          "generation_event_sequence": 429,
+          "modified_observation_sha256": "829c9ad11fed9d1f909d3744b9f85e932c81329405e60705603c5d7b442e43da",
+          "raw_observation_sha256": "829c9ad11fed9d1f909d3744b9f85e932c81329405e60705603c5d7b442e43da",
+          "request_event_sequence": 427,
+          "request_fingerprint": "16522b50a15cc7583fdf19563e3fc33ed804622a2552c3a162678048ea431559",
+          "response_text_sha256": "2fb999b95e986ffaf6bb107c93f0c1bda0a3f166e544199c5010944aa40de1e8",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "806b7c4f15e3555c74f429374910ca6b7f5296cd538527584a39168a1623885b",
+            "npy_file_sha256": "052cb4ee2ba7e8d89d76d4cfba10d0e321cdf224a6404a7d9ebb24d9e4fece23",
+            "recorded_array": "arrays/00002576.npy"
+          },
+          "step": 25,
+          "token_usage": {
+            "input_tokens": 5284,
+            "output_tokens": 231,
+            "reasoning_tokens": 0,
+            "total_tokens": 5515
+          }
+        },
+        {
+          "alpha": 0.85,
+          "annotations": [],
+          "attempt_id": "astra_tei_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "d66a505cc342297db1faad71e415f9442eb514f2b19eadb2141b6d58e24a5024",
+              "npy_file_sha256": "2c98f78e489c4942ac32d5ca97f911c4415cdf66e42cbbb6c9987e793069bbb7",
+              "png_sha256": "bff82d081acea291b17548b0707e392170edd256194eca37190a0d8facaf8fec",
+              "recorded_array": "arrays/00002604.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "6c121ecc2c7bc9aea905440b0d168b28a5af2cd3e20c11b38fb8f6343b6fc6d4",
+              "npy_file_sha256": "9c81c0a2cf7b401b0d7fd85e69fb75aca67acb9e036f9e36e6a92d18d74ad263",
+              "png_sha256": "dbc847a92d6ceb9a35db9f1cda673cb2731205b8a2ede38368bed2d4bff43b3a",
+              "recorded_array": "arrays/00002605.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tei_2_d3",
+          "generation_event_sequence": 436,
+          "modified_observation_sha256": "bc81df751e6c40c8aeaf6437d73c1c1edb486bcd876d43a3f9ae39f68031651b",
+          "raw_observation_sha256": "bc81df751e6c40c8aeaf6437d73c1c1edb486bcd876d43a3f9ae39f68031651b",
+          "request_event_sequence": 434,
+          "request_fingerprint": "1a1431a45dae1a1193146ab33eba3057511470318a12269c121935e23c924256",
+          "response_text_sha256": "e01e6ed5c62f7523782083d389b5fa8a562d97e7cbe781ab188b84cb2c9c8efa",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "aba3bc0f894c7922e6872ddc15830ad158277d620ced9e3001dfe1dd3455fcce",
+            "npy_file_sha256": "9f089bef9734bb0796033eb92842d54cc32647e95dead4768a685a89712bc872",
+            "recorded_array": "arrays/00002606.npy"
+          },
+          "step": 50,
+          "token_usage": {
+            "input_tokens": 5564,
+            "output_tokens": 263,
+            "reasoning_tokens": 30,
+            "total_tokens": 5827
+          }
+        },
+        {
+          "alpha": 1.0,
+          "annotations": [],
+          "attempt_id": "astra_tei_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "093ccff12b80de9c405691c8e74dff1b1c4dd439702408eb81fb567bb52e45d8",
+              "npy_file_sha256": "745e03b261ae87dc7ba6a3d8e03d96b8fb436eca87f55e0059abe7936977ca51",
+              "png_sha256": "706183bd604f006e7de16b87e7ef7f9026f5972052eb8993a95b573ad1573eb3",
+              "recorded_array": "arrays/00002634.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "415581d872b248c25b8edea2a714ce12b0dfc2a7986059bcfbe4e17515620ff4",
+              "npy_file_sha256": "8161ab39277fe68c52209c9559933171bfebbdd36e5acb7892d3fd779ae56c48",
+              "png_sha256": "51a45bec5753f9042701e4ea0f43939399dc75394faca83bd2776035c83ca4ce",
+              "recorded_array": "arrays/00002635.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tei_2_d4",
+          "generation_event_sequence": 443,
+          "modified_observation_sha256": "7aef3a092243ed9cbeaa6877149290be1c58ae2f88bc05a2c5f0dbf187b1a07b",
+          "raw_observation_sha256": "7aef3a092243ed9cbeaa6877149290be1c58ae2f88bc05a2c5f0dbf187b1a07b",
+          "request_event_sequence": 441,
+          "request_fingerprint": "d13b416717f58cb5d6956b08278625f548bc94f37f03c51c624a3ab0e8dfe762",
+          "response_text_sha256": "b6864c1df281f90bc5a108b03fb64805880c114fdc02e5a1a2943289ab7f992c",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "11909a354b335d6640d0df346e6965c03f41f620ac12cb5467f872a40edea094",
+            "npy_file_sha256": "521f016be397898d179b5464c96faeb734e6f49fe22644e6b9d2a3f949c7cefa",
+            "recorded_array": "arrays/00002636.npy"
+          },
+          "step": 75,
+          "token_usage": {
+            "input_tokens": 5856,
+            "output_tokens": 233,
+            "reasoning_tokens": 0,
+            "total_tokens": 6089
+          }
+        }
+      ],
+      "failed_calls": 0,
+      "first_success_attempt": 2,
+      "full_rollout_revisions_to_success": 1,
+      "intervention_rollout_actions": 100,
+      "native_condition_fallback_actions": 0,
+      "provider_calls": 4,
+      "success": true,
+      "tokens_to_first_success": {
+        "input_tokens": 20716,
+        "output_tokens": 952,
+        "reasoning_tokens": 30,
+        "total_tokens": 21668
+      },
+      "usage_complete": true
+    },
+    "astra_tli": {
+      "actions_including_common_baseline": 424,
+      "actions_with_changed_vision": 0,
+      "actions_with_nonzero_text": 124,
+      "attempt_id": "astra_tli_2",
+      "decisions": [
+        {
+          "alpha": 0.2,
+          "annotations": [],
+          "attempt_id": "astra_tli_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "bca21f309f4dad79e7722bc94900c157f4438e506195f0a87a0cc25bbddd5d45",
+              "npy_file_sha256": "777f5ffb4e9471471f7bf149d8e7f2f608d229b16c5f4b157a70cb07698969b6",
+              "png_sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6",
+              "recorded_array": "arrays/00002676.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "baecdb204f68f2fa2910dfbd37cfb4869f3f9ad171174cec6f488041d52a385f",
+              "npy_file_sha256": "48e1f243f9eb551aeccc3972417bace4eb381d4352c636904b008dc82eabf436",
+              "png_sha256": "1ae193833a17969ce33da6070cc14944720e85b3523f95a780b4cfd552cb93c8",
+              "recorded_array": "arrays/00002677.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tli_2_d1",
+          "generation_event_sequence": 451,
+          "modified_observation_sha256": "b25b3d1d6c64f776ae36278b867553991e5822c47718541e1012276a16c9d6a5",
+          "raw_observation_sha256": "b25b3d1d6c64f776ae36278b867553991e5822c47718541e1012276a16c9d6a5",
+          "request_event_sequence": 449,
+          "request_fingerprint": "3e32fb86f2c5bc51e9ad709d268e92cef89e057a0ccce173b52d7313b7867b05",
+          "response_text_sha256": "126531e58c8031629df8b89547865b4f06e9d322150d7ac79b7a4c0c9214060e",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "92911a6a4c8cf15f4f276686ee18904b51134eb5ce3a31ffa76f6963d25c94a3",
+            "npy_file_sha256": "b4cf4cfa017d7e4bcaa965bec761238d74409cf4eb9f1e20d9d877765fe481fa",
+            "recorded_array": "arrays/00002678.npy"
+          },
+          "step": 0,
+          "token_usage": {
+            "input_tokens": 4020,
+            "output_tokens": 247,
+            "reasoning_tokens": 0,
+            "total_tokens": 4267
+          }
+        },
+        {
+          "alpha": 0.2,
+          "annotations": [],
+          "attempt_id": "astra_tli_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "a483444c43618babb039dca5a71ea77c199f28d73d2ebaf70f915a77b736fd24",
+              "npy_file_sha256": "debf761349f8a72057e8acc0101e1805b66a80da1da89e99d53ee4c832c4d63b",
+              "png_sha256": "aaf89d9d08d4fec8794be3c60310866de0297181e514d041eaf1e5c1557b8314",
+              "recorded_array": "arrays/00002706.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "8ef0ded7c1989161c0c25145c0f0a84bd33dc39ef00df59c34eb8894c08efb09",
+              "npy_file_sha256": "a49ce1b1045b6132b170882fc55f5b00e15e19343dbd30036fad21fca5d22bad",
+              "png_sha256": "7ecada2f4a86ec94107cc41f7d23ffffa9c4315dbc4f79994420a54a3f45d130",
+              "recorded_array": "arrays/00002707.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tli_2_d2",
+          "generation_event_sequence": 458,
+          "modified_observation_sha256": "bc27ad9a7e2bb915dd20ccf6d3c1d1b041b2091d12a4ecd0acadd4ba3abf9391",
+          "raw_observation_sha256": "bc27ad9a7e2bb915dd20ccf6d3c1d1b041b2091d12a4ecd0acadd4ba3abf9391",
+          "request_event_sequence": 456,
+          "request_fingerprint": "1406ad305e6d3e7fc5970701fd9d2fa2db502572e45b95018b742e7d07b1b5e4",
+          "response_text_sha256": "aa8ebab91196e5f17632154b3978c16ede48d183f98af51a48ca40f35d5ecc7e",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "f53f2875dbccd07254a66c52fe4d5b6f4244d90d24042dba5cbecca79160fdb0",
+            "npy_file_sha256": "a8ab5052b1dfdb767a50bcf85b836fe462bab54e2420fb442135653315061905",
+            "recorded_array": "arrays/00002708.npy"
+          },
+          "step": 25,
+          "token_usage": {
+            "input_tokens": 5326,
+            "output_tokens": 234,
+            "reasoning_tokens": 0,
+            "total_tokens": 5560
+          }
+        },
+        {
+          "alpha": 0.35,
+          "annotations": [],
+          "attempt_id": "astra_tli_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "5aad683fce895bfc38634068dcd0a64f9d706a7065a13a7717ec3641ada11018",
+              "npy_file_sha256": "87628bd68d0f3efc152eb773281f33cd8b65a67a05a4a13cb9c32f32ab12a053",
+              "png_sha256": "afb54f7dbfef4739b1f10635e7a2e4f836d8eb9b709bde538ae705649e92a4b7",
+              "recorded_array": "arrays/00002736.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "b809fee9d8e76f3d07692153b64d840da1b46044ca485ade7ac274725c348957",
+              "npy_file_sha256": "eee32f7ab801f12bfa25f9a57848873c00f674d792bac871df524ddccb719826",
+              "png_sha256": "8ff33fb1c9a255d11ffece884a9ee07425024b11b43b741da9cc271eab74ed01",
+              "recorded_array": "arrays/00002737.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tli_2_d3",
+          "generation_event_sequence": 465,
+          "modified_observation_sha256": "14f35d46fbc8f054d7e82a719eb0bb0fc4cef682e3812a6f52ff0d261e364be2",
+          "raw_observation_sha256": "14f35d46fbc8f054d7e82a719eb0bb0fc4cef682e3812a6f52ff0d261e364be2",
+          "request_event_sequence": 463,
+          "request_fingerprint": "78499a5d10bf9d337e5cf22a1bb53efd5bc8a987bc304826d0d7e0b78d328218",
+          "response_text_sha256": "3f296c187ab864288220dc008063ca2ebf336600a03d8b584e21b8ce88769165",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "7cf53780908d2e7973ec4fffb71e5f2bc4b6061befda46d45898cc20e8698196",
+            "npy_file_sha256": "572022c46a7f87c7061bba92626d6c3fe702ea943dfeea305d77e02c94e89e7b",
+            "recorded_array": "arrays/00002738.npy"
+          },
+          "step": 50,
+          "token_usage": {
+            "input_tokens": 5601,
+            "output_tokens": 323,
+            "reasoning_tokens": 62,
+            "total_tokens": 5924
+          }
+        },
+        {
+          "alpha": 0.85,
+          "annotations": [],
+          "attempt_id": "astra_tli_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "5e3be334ee69415f70520feadbf0caea9166197e97762dc23efb9007a6aeb112",
+              "npy_file_sha256": "92b9260596423b0c27857c7975e67643830a314be656359d55896b91948d0d12",
+              "png_sha256": "854df9bdf5e93ae916fc1276222718cade20d0fce4b239893fa51034a0db2a6f",
+              "recorded_array": "arrays/00002766.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "501f90a5459058d575d04badf247fbe6c4d4b86f33eb804ad6f3ca0d6cf2380b",
+              "npy_file_sha256": "45d2357333138fcc23a7a3f0ddc1ea42b131b10650fa0228e1b6f0223aaaeba5",
+              "png_sha256": "1197b56cba69e3d44a2b6b314324b8d11a2a5ec358b4ba1befba54cf6f7a1420",
+              "recorded_array": "arrays/00002767.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tli_2_d4",
+          "generation_event_sequence": 472,
+          "modified_observation_sha256": "af555993871347536fc7f2e58ae13225254caf8f4bbf72f2375b800b1ff88d12",
+          "raw_observation_sha256": "af555993871347536fc7f2e58ae13225254caf8f4bbf72f2375b800b1ff88d12",
+          "request_event_sequence": 470,
+          "request_fingerprint": "1d87ee8638a0f090742d524a7b1bdb13039368eed59dbe3fdf0fa8e64d4ebca9",
+          "response_text_sha256": "13cd4f1abf133f309bfa7b1abf4e96a3f238a83a61114b9a382568b9933bfb66",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "015f53f4437804b00c44434c09d7534f63f9ef16383234557c099ea96169a0e9",
+            "npy_file_sha256": "205c0ed142614d80d2977d799865910d785c5dc0e9803c3fe96d2f864a158c65",
+            "recorded_array": "arrays/00002768.npy"
+          },
+          "step": 75,
+          "token_usage": {
+            "input_tokens": 5915,
+            "output_tokens": 271,
+            "reasoning_tokens": 0,
+            "total_tokens": 6186
+          }
+        },
+        {
+          "alpha": 0.85,
+          "annotations": [],
+          "attempt_id": "astra_tli_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "f72b7a3bc4a87b60dd31568893594c00e8399ca08105ea22a9939dbb283537ff",
+              "npy_file_sha256": "d17cdcfe9291d399ff731b999ac218c514b5581921bc4fea5b456fd6efc7ee94",
+              "png_sha256": "2281c6f1ebe214098a9aa6534a5f91410aaa2369383c17b088e6a92eb86faab0",
+              "recorded_array": "arrays/00002796.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "93ba700ba4a44e703836eef36d4b0fc411e1a36d0cdeb7ebf7548c15535d5d1a",
+              "npy_file_sha256": "f96b27592f1905623598ef54e78118c14f941619047409504915728ddd9d58f4",
+              "png_sha256": "3478659e95b585e2457fd108b49401d39a8906e5fe3d84ae5004a6943ea26baa",
+              "recorded_array": "arrays/00002797.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tli_2_d5",
+          "generation_event_sequence": 479,
+          "modified_observation_sha256": "93fc4a64821c2ccba31804cda0fcb83402033e91eb499f4572a820c1cdd4655b",
+          "raw_observation_sha256": "93fc4a64821c2ccba31804cda0fcb83402033e91eb499f4572a820c1cdd4655b",
+          "request_event_sequence": 477,
+          "request_fingerprint": "198f0dfda469dff4b3832254c6e93193c70a456347d797cb3a9df88602571c65",
+          "response_text_sha256": "149c358e9770e2c3791ecca45310ae92544a55caf5a0bf6a6e4377c09f3b8cd3",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "9d9fcc0176dac37d9e41bb2254fc5353f38fcf3c18151ffeaceb69f8ae43cf2e",
+            "npy_file_sha256": "5cc5cd8bf59df2433bbd0491eaa25f5bd1fd2499f734ea2ec8bacedaa24fec83",
+            "recorded_array": "arrays/00002798.npy"
+          },
+          "step": 100,
+          "token_usage": {
+            "input_tokens": 6227,
+            "output_tokens": 257,
+            "reasoning_tokens": 0,
+            "total_tokens": 6484
+          }
+        }
+      ],
+      "failed_calls": 0,
+      "first_success_attempt": 2,
+      "full_rollout_revisions_to_success": 1,
+      "intervention_rollout_actions": 124,
+      "native_condition_fallback_actions": 0,
+      "provider_calls": 5,
+      "success": true,
+      "tokens_to_first_success": {
+        "input_tokens": 27089,
+        "output_tokens": 1332,
+        "reasoning_tokens": 62,
+        "total_tokens": 28421
+      },
+      "usage_complete": true
+    },
+    "astra_tli_vision": {
+      "actions_including_common_baseline": 402,
+      "actions_with_changed_vision": 22,
+      "actions_with_nonzero_text": 102,
+      "attempt_id": "astra_tli_vision_2",
+      "decisions": [
+        {
+          "alpha": 0.2,
+          "annotations": [
+            {
+              "camera": "observation/image",
+              "coordinates": [
+                98,
+                116,
+                128,
+                142
+              ],
+              "gain": 0.5,
+              "kind": "box"
+            }
+          ],
+          "attempt_id": "astra_tli_vision_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "bca21f309f4dad79e7722bc94900c157f4438e506195f0a87a0cc25bbddd5d45",
+              "npy_file_sha256": "777f5ffb4e9471471f7bf149d8e7f2f608d229b16c5f4b157a70cb07698969b6",
+              "png_sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6",
+              "recorded_array": "arrays/00002838.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "baecdb204f68f2fa2910dfbd37cfb4869f3f9ad171174cec6f488041d52a385f",
+              "npy_file_sha256": "48e1f243f9eb551aeccc3972417bace4eb381d4352c636904b008dc82eabf436",
+              "png_sha256": "1ae193833a17969ce33da6070cc14944720e85b3523f95a780b4cfd552cb93c8",
+              "recorded_array": "arrays/00002839.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tli_vision_2_d1",
+          "generation_event_sequence": 487,
+          "mark_action_interval_half_open": [
+            0,
+            5
+          ],
+          "marked_actions_executed": 5,
+          "modified_observation_sha256": "dbae0dc5af9375d34d37d5075220eaa857552bf6ee3395c95b62eae3d55f588e",
+          "raw_observation_sha256": "b25b3d1d6c64f776ae36278b867553991e5822c47718541e1012276a16c9d6a5",
+          "request_event_sequence": 485,
+          "request_fingerprint": "ccf3eabae6ff75aa5b33cdf53b1fec80cb59e4cd188de6195d77faf68b77a7ba",
+          "response_text_sha256": "a65626986c8b6824a8f0f33785945418abf821167e92002e03afdf3ae5e81d90",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "92911a6a4c8cf15f4f276686ee18904b51134eb5ce3a31ffa76f6963d25c94a3",
+            "npy_file_sha256": "b4cf4cfa017d7e4bcaa965bec761238d74409cf4eb9f1e20d9d877765fe481fa",
+            "recorded_array": "arrays/00002840.npy"
+          },
+          "step": 0,
+          "token_usage": {
+            "input_tokens": 4026,
+            "output_tokens": 361,
+            "reasoning_tokens": 76,
+            "total_tokens": 4387
+          }
+        },
+        {
+          "alpha": 0.2,
+          "annotations": [
+            {
+              "camera": "observation/image",
+              "coordinates": [
+                98,
+                116,
+                128,
+                142
+              ],
+              "gain": 0.5,
+              "kind": "box"
+            }
+          ],
+          "attempt_id": "astra_tli_vision_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "d9ac3ae1f202876ca3d47fd525706c8e963f28347274bcffe71d495c04887560",
+              "npy_file_sha256": "317809e5f6713aa6ea1dd58f3c1719b4c437a916c46dce26b687373a1d37dc74",
+              "png_sha256": "fa8107c9131a54bd539b96500128c96963d6c8472a6a08afecb45e28ba3d1a73",
+              "recorded_array": "arrays/00002868.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "dbec58d62ccd8b9a7329d59b86a21aa5d29d1e3a840b6f78165d3e1ffa05c413",
+              "npy_file_sha256": "a1808ae4282c1912f8de9d7522c2febaa941e2427a5fa4d142fccc9ae13093b3",
+              "png_sha256": "1e7f1a5060c1196a7c33bef23de98d3599a9dbdf811abb01a1917838d53aacc7",
+              "recorded_array": "arrays/00002869.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tli_vision_2_d2",
+          "generation_event_sequence": 494,
+          "mark_action_interval_half_open": [
+            25,
+            30
+          ],
+          "marked_actions_executed": 5,
+          "modified_observation_sha256": "49ee4a93d072b5f819e764f27fc4809850d3b893132c7f509ece139788c80111",
+          "raw_observation_sha256": "ddcaa58c3b54b05b5dad3c178d0fe7edea53e4cd74fec931791e14db37d37bc2",
+          "request_event_sequence": 492,
+          "request_fingerprint": "4670c1b8a759ad8d9a9382d61f2090779457d1194757614bb30195c9989ae357",
+          "response_text_sha256": "8ede7da89f00508286d16e05f000db75b7a0b89bbf78676b1e1b3e6251faddfc",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "7eb4fd9220ede833afb2794af96d538aef8785f35a79932f69682078bb6368a1",
+            "npy_file_sha256": "b83a55998645197db9403afd65724522825e16a5c1c6be4b22249ecd9ea7f273",
+            "recorded_array": "arrays/00002870.npy"
+          },
+          "step": 25,
+          "token_usage": {
+            "input_tokens": 5380,
+            "output_tokens": 273,
+            "reasoning_tokens": 0,
+            "total_tokens": 5653
+          }
+        },
+        {
+          "alpha": 0.7,
+          "annotations": [
+            {
+              "camera": "observation/image",
+              "coordinates": [
+                187,
+                99
+              ],
+              "gain": 0.5,
+              "kind": "point"
+            }
+          ],
+          "attempt_id": "astra_tli_vision_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "b8bfddebf04ad2ae6afc71cb3a49aa50267176d5f5e7b6e3958c60ea723a6aa5",
+              "npy_file_sha256": "ee122b2d30ce2dabef542e12c7da9653619eada80837aece5ba2492c676dc23a",
+              "png_sha256": "9ae26b3f783d13421519a3dcf04b637d163ba0c8fa0e74602c0c4aa8a9dc2e72",
+              "recorded_array": "arrays/00002898.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "4269b3aa69c55f57c79c486beee4ecad6c353c20f42c35aaee1852d9fe0b9748",
+              "npy_file_sha256": "3bb497f8d4c75270bcc76359878f23796ff1ecf863bb78562c5aa89908cfce4d",
+              "png_sha256": "e9dd17fdf6715bcb461231c258c2f16e019968b27558931100a84f8f8d9edf17",
+              "recorded_array": "arrays/00002899.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tli_vision_2_d3",
+          "generation_event_sequence": 501,
+          "mark_action_interval_half_open": [
+            50,
+            55
+          ],
+          "marked_actions_executed": 5,
+          "modified_observation_sha256": "0e79fbf096c57c1ca90ba1261f711e6aa36b6ec969d983c646bc842d33731ef2",
+          "raw_observation_sha256": "ff47c36f43ce78631af5cc624aa61ada0e8d52c1e8dd7caf3c51f40c26a82006",
+          "request_event_sequence": 499,
+          "request_fingerprint": "520c61dde82998685c9cc4a8d6692376bdfbb4bb28662fc732fd9dcf26c17060",
+          "response_text_sha256": "b5d3e1ed00121b8874ca8f02ae78a0fd91bab617e8a29fad697da2422f4b78f9",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "3b36a8e994f13b9a040e5f59a50792a95e17611d5706667cd585bf06edf9feaa",
+            "npy_file_sha256": "7d99555aaaa79293a1dae1bd3dc4a5df1ef750fad07b7e43e1dabb1c09e93c51",
+            "recorded_array": "arrays/00002900.npy"
+          },
+          "step": 50,
+          "token_usage": {
+            "input_tokens": 5707,
+            "output_tokens": 313,
+            "reasoning_tokens": 32,
+            "total_tokens": 6020
+          }
+        },
+        {
+          "alpha": 0.85,
+          "annotations": [
+            {
+              "camera": "observation/image",
+              "coordinates": [
+                187,
+                99
+              ],
+              "gain": 0.5,
+              "kind": "point"
+            }
+          ],
+          "attempt_id": "astra_tli_vision_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "f6c8e49d52522da9619f033dcacd67e72e40d0517ed9934f4574d8326ce339fe",
+              "npy_file_sha256": "f7259a545ce491aab8c09e8350dafe56eabbf3c28913896a76f00762faeed11d",
+              "png_sha256": "4a0cc278f034c68c116ab1a702b970286aef28d77a61938869baec0f32fdcdf6",
+              "recorded_array": "arrays/00002928.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "a73afe366100cf09ffa36bd99ed731fb5d9c6a374adff2419a2de9ad82d0ce07",
+              "npy_file_sha256": "b3357b892576cc31239e2fc73fa07785345286374aaea18c3bc1085eaff0adeb",
+              "png_sha256": "5c8c34b635c3467620d4d80421026dcc0e4e1fa5265a47f7f39f6e9aeafbb4e2",
+              "recorded_array": "arrays/00002929.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tli_vision_2_d4",
+          "generation_event_sequence": 508,
+          "mark_action_interval_half_open": [
+            75,
+            80
+          ],
+          "marked_actions_executed": 5,
+          "modified_observation_sha256": "5f37c8af7ed7b455c46cb621131be0f2635c5c407e8f9a08bb8b93d125424a6a",
+          "raw_observation_sha256": "6a71e566ed21ee8a6d50ea0883112be7ecf8f3a3e890e334d1a81ddd59f85b2b",
+          "request_event_sequence": 506,
+          "request_fingerprint": "7d4d461e64b68c2debc2c4030afb0b28ced6fbf472667b482a2e04e1f9784539",
+          "response_text_sha256": "78503045aea532d8164920ffea50f14cbcad2c5b26dc9eba698e6c4ec461e3ee",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "ac7324e0765439ab5d4571d9d8bf8b6a8b39c5db974c5250c5a5e919255455ac",
+            "npy_file_sha256": "298dd5e71a21c446590c378c0264cbdb5cd72eb5c978fe060369f419416f2732",
+            "recorded_array": "arrays/00002930.npy"
+          },
+          "step": 75,
+          "token_usage": {
+            "input_tokens": 6059,
+            "output_tokens": 281,
+            "reasoning_tokens": 0,
+            "total_tokens": 6340
+          }
+        },
+        {
+          "alpha": 0.85,
+          "annotations": [
+            {
+              "camera": "observation/image",
+              "coordinates": [
+                187,
+                99
+              ],
+              "gain": 0.5,
+              "kind": "point"
+            }
+          ],
+          "attempt_id": "astra_tli_vision_2",
+          "cameras": {
+            "observation/image": {
+              "decoded_array_sha256": "e98e562ea65a0d1f65f28e51e3977ab026a0a3a2936a0ec062be57d50cff457f",
+              "npy_file_sha256": "5a022ec31992303680e40494a95d7bee4240204360e9f179056e0bd1e6ac7b9c",
+              "png_sha256": "52c576cbe1b9b5716e7009ff2310277ef2b1b02ea8c811dde8dcd9a393f38141",
+              "recorded_array": "arrays/00002958.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "observation/wrist_image": {
+              "decoded_array_sha256": "f7639fcbe52f69c9721313e2a1c4a7026d058a5b0120744a15557b9e1436d879",
+              "npy_file_sha256": "c140857ab7d6faed0af5c428b443cb65689cbea6aac0ce5365dd4b58d1650c1c",
+              "png_sha256": "d6405fce53c9b02eb37062618ad6968907edf433a175ea1fd6c59e2d51d98cf2",
+              "recorded_array": "arrays/00002959.npy",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "decision_id": "astra_tli_vision_2_d5",
+          "generation_event_sequence": 515,
+          "mark_action_interval_half_open": [
+            100,
+            102
+          ],
+          "marked_actions_executed": 2,
+          "modified_observation_sha256": "9eec39f8e1deb30e50147dfb9a0a23a3ec8e57f3590480017fc94aa7185d9375",
+          "raw_observation_sha256": "e67591957ecdecc103d4f7e6ce9543ebe7ec42da2bbd82d2dedcb968cfeff7e8",
+          "request_event_sequence": 513,
+          "request_fingerprint": "d0e1b9af73191ff2ffe40f5cac4592f23f6b0657eb63d99369a03c895d6c9e9e",
+          "response_text_sha256": "db6b540ba0f2768ff03277dd372090a1c017c4e007e5b90f3f60e3e780ed9258",
+          "source_a_id": "38",
+          "source_b_id": "18",
+          "state": {
+            "array_digest": "8c008379996a90046a8fb0bfd803b00d483cda467164a31739baac37748bac05",
+            "npy_file_sha256": "eb9a88ff75d414002c74825e46617909d9c2e3bbe3f7a80fcaa867a6dd4b609a",
+            "recorded_array": "arrays/00002960.npy"
+          },
+          "step": 100,
+          "token_usage": {
+            "input_tokens": 6395,
+            "output_tokens": 283,
+            "reasoning_tokens": 0,
+            "total_tokens": 6678
+          }
+        }
+      ],
+      "failed_calls": 0,
+      "first_success_attempt": 2,
+      "full_rollout_revisions_to_success": 1,
+      "intervention_rollout_actions": 102,
+      "native_condition_fallback_actions": 0,
+      "provider_calls": 5,
+      "success": true,
+      "tokens_to_first_success": {
+        "input_tokens": 27567,
+        "output_tokens": 1511,
+        "reasoning_tokens": 108,
+        "total_tokens": 29078
+      },
+      "usage_complete": true
+    }
+  },
+  "audit_files": {
+    "../audits/worker_2_arrays.json": "c9cd0b3b8f432382cad3cc46c3332581b9e02abec71cb77d9461564b42bbc7f0",
+    "../audits/worker_2_case_8_0_feedback.json.gz": "24965476496719b922a83ab1fc8a41f2c9d8ac970fa9a47ffea02f10031474e2",
+    "../audits/worker_2_receipt.json": "9bfd4a0e262fe76f32706dc7e1d2f5ba7b8a1b4072637241e52ab632029257ab"
+  },
+  "baseline": {
+    "actions": 300,
+    "success": false
+  },
+  "case_file_sha256": {
+    "astra_tei_2_provider.jsonl": "637d100d20c94542528a4a9c5758d552ca50f6a375f109807e939679d433bfaf",
+    "astra_tli_2_provider.jsonl": "460a01b1615f1ad20311096d722d9c543ebf1fe5540b924a26b40fd5dbe8d6fa",
+    "astra_tli_vision_2_provider.jsonl": "a997248368e19f42fe1694ea8ee4f522f9d1dcfae2fc3fafd32ed5efddb71448",
+    "events.jsonl": "e1b78afdf755ff01b72b643d8baf3fe7350e86602f158600308c7edeb6fa7075",
+    "summary.json": "e2148a93009c07e3e76f455382aa1f6b9a94ac480f9a382bb1d8ad58ac75bb86"
+  },
+  "chosen_sources": [
+    {
+      "prompt": "put the bowl on top of the cabinet",
+      "source_id": "18"
+    },
+    {
+      "prompt": "pick up the black bowl from table center and place it on the plate",
+      "source_id": "38"
+    }
+  ],
+  "episode_id": "libero_spatial_ood:seed19:task8:state0",
+  "hash_conventions": {
+    "array_and_observation_digest": "astra_reversal.records.digest; includes dtype, shape and values",
+    "file_and_png_sha256": "SHA256 of exact file/PNG bytes",
+    "request_fingerprint": "records.digest of the entire request excluding request_fingerprint"
+  },
+  "limitations": [
+    "Selected current raw frames are shown; additional recent and prior-rollout frames supplied to Astra are omitted from the figures.",
+    "Recorded binary success is not a new simulator replay or a claim about the full 20-case evaluation.",
+    "TLI and TLI+vision choose different alpha values and have different trajectories; this does not isolate a causal vision benefit.",
+    "Annotations are fresh for at most one five-action policy chunk; the last marked chunk ends after two actions at success.",
+    "Reasoning token counts are included within output tokens, not added to totals; hidden reasoning and response rationale are not published.",
+    "The separate transport-only smoke (2550 tokens) is excluded from these rollout-specific token totals. No verified monetary rate is available."
+  ],
+  "operator_formulas": {
+    "tei": "(1-alpha)*E_A+alpha*E_B",
+    "tli_added_residual": "(1-2*alpha)*(T_A-T_B)"
+  },
+  "oracle_mapping_provided_to_astra": false,
+  "oracle_tei": {
+    "intervention_rollout_actions": 300,
+    "success": false
+  },
+  "payload_sha256": "5b51adf8a604ec68461a8b8933d11f9b9f2b7cd9295eb463b715272f3cc7c842",
+  "plot_environment": {
+    "matplotlib": "3.11.2",
+    "numpy": "2.4.6",
+    "pillow": "12.3.0",
+    "python": "3.11.14"
+  },
+  "protocol_sha256": "23486febce3b16a2ce39372be698d1d7b88d1f68875ec13d9d68dd3c7580e591",
+  "provider_settings": {
+    "actual_model": "azure/openai/gpt-6-astra",
+    "cache": {
+      "no-cache": true
+    },
+    "max_completion_tokens": 8192,
+    "reasoning_effort": "medium"
+  },
+  "renderer": "Pillow-Linux-x86_64-separate-float32-blend",
+  "schema_version": "phase-interpolation-development-examples-1",
+  "scope": "one development case; not a full evaluation result",
+  "source_catalog_sha256": "c99f9cafe8eacfc7a167b474805dc763699ff5e8fd8afa5677505e175d81d9d9",
+  "source_catalog_size": 9,
+  "source_file_sha256": {
+    "interpolation_agent.py": "59a00fd0e3f5145c0adf0c87136c534f0e1c26c9d07ebf6df54d72ed49908e29",
+    "interpolation_audit.py": "4cb6ba2286d75ed937bc2bf9761704c019110ace1cd5cc8da240c8f78116e7bf",
+    "interventions.py": "9269b5c246ff9d3d82288aad37f6e89ca64801c1878ec3a0e17f72a6e6cd397c",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+    "reports/phase_interpolation/development/examples/build_examples.py": "e03a21ae9038f60b90cf0e5b110d566075bdb85571c3dbaa5a5dcccde64eea14"
+  },
+  "status": "verified",
+  "target_task": "put the bowl at table center on the cabinet",
+  "workflow": "astra-pi05-interpolation-development-20260925-1"
+}

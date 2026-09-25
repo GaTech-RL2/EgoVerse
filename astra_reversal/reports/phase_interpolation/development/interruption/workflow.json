@@ -1,0 +1,259 @@
+{
+  "duration": 1025.732384,
+  "end_time": "2026-09-25T17:45:31.742948",
+  "event_evidence": [
+    {
+      "kind": "Scheduled",
+      "message": "Successfully assigned pod [pod identifier omitted] to node w-7183 at node-pool default",
+      "source_file": "events-worker0.log",
+      "source_line": 2,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:28:18+00:00"
+    },
+    {
+      "kind": "PodScheduled",
+      "message": "True",
+      "source_file": "events-worker0.log",
+      "source_line": 3,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:28:18+00:00"
+    },
+    {
+      "kind": "Pulling",
+      "message": "Pulling image \"nvcr.io/nvidia/osmo/init-container:6.3.1\"",
+      "source_file": "events-worker0.log",
+      "source_line": 4,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:28:19+00:00"
+    },
+    {
+      "kind": "Pulled",
+      "message": "Successfully pulled image \"nvcr.io/nvidia/osmo/init-container:6.3.1\" in 568ms (568ms including waiting). Image size: 353982715 bytes.",
+      "source_file": "events-worker0.log",
+      "source_line": 5,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:28:20+00:00"
+    },
+    {
+      "kind": "PodReadyToStartContainers",
+      "message": "True",
+      "source_file": "events-worker0.log",
+      "source_line": 6,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:28:20+00:00"
+    },
+    {
+      "kind": "Pulling",
+      "message": "Pulling image \"nvcr.io/nvidia/pytorch:25.06-py3\"",
+      "source_file": "events-worker0.log",
+      "source_line": 7,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:28:22+00:00"
+    },
+    {
+      "kind": "Initialized",
+      "message": "True",
+      "source_file": "events-worker0.log",
+      "source_line": 8,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:28:22+00:00"
+    },
+    {
+      "kind": "Pulled",
+      "message": "Successfully pulled image \"nvcr.io/nvidia/pytorch:25.06-py3\" in 638ms (638ms including waiting). Image size: 13723166561 bytes.",
+      "source_file": "events-worker0.log",
+      "source_line": 9,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:28:23+00:00"
+    },
+    {
+      "kind": "Started",
+      "message": "Started container worker0",
+      "source_file": "events-worker0.log",
+      "source_line": 10,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:28:24+00:00"
+    },
+    {
+      "kind": "Ready",
+      "message": "True",
+      "source_file": "events-worker0.log",
+      "source_line": 11,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:28:25+00:00"
+    },
+    {
+      "kind": "Pipelined",
+      "message": "Pod [pod identifier omitted] was pipelined to node w-2132",
+      "source_file": "events-worker0.log",
+      "source_line": 12,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:45:29+00:00"
+    },
+    {
+      "kind": "PodReadyToStartContainers",
+      "message": "False",
+      "source_file": "events-worker0.log",
+      "source_line": 13,
+      "task": "worker0",
+      "timestamp": "2026-09-25 17:45:31+00:00"
+    },
+    {
+      "container_log_streams_unavailable": 3,
+      "kind": "error_log_retrieval_unavailable",
+      "source_file": "logs-worker0.log",
+      "task": "worker0"
+    },
+    {
+      "kind": "Scheduled",
+      "message": "Successfully assigned pod [pod identifier omitted] to node w-7183 at node-pool default",
+      "source_file": "events-worker1.log",
+      "source_line": 2,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:28:19+00:00"
+    },
+    {
+      "kind": "PodScheduled",
+      "message": "True",
+      "source_file": "events-worker1.log",
+      "source_line": 3,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:28:19+00:00"
+    },
+    {
+      "kind": "Pulling",
+      "message": "Pulling image \"nvcr.io/nvidia/osmo/init-container:6.3.1\"",
+      "source_file": "events-worker1.log",
+      "source_line": 4,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:28:20+00:00"
+    },
+    {
+      "kind": "Started",
+      "message": "Started container osmo-init",
+      "source_file": "events-worker1.log",
+      "source_line": 5,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:28:21+00:00"
+    },
+    {
+      "kind": "PodReadyToStartContainers",
+      "message": "True",
+      "source_file": "events-worker1.log",
+      "source_line": 6,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:28:21+00:00"
+    },
+    {
+      "kind": "Pulling",
+      "message": "Pulling image \"nvcr.io/nvidia/pytorch:25.06-py3\"",
+      "source_file": "events-worker1.log",
+      "source_line": 7,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:28:24+00:00"
+    },
+    {
+      "kind": "Initialized",
+      "message": "True",
+      "source_file": "events-worker1.log",
+      "source_line": 8,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:28:24+00:00"
+    },
+    {
+      "kind": "Pulled",
+      "message": "Successfully pulled image \"nvcr.io/nvidia/pytorch:25.06-py3\" in 480ms (521ms including waiting). Image size: 13723166561 bytes.",
+      "source_file": "events-worker1.log",
+      "source_line": 9,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:28:25+00:00"
+    },
+    {
+      "kind": "Pulled",
+      "message": "Successfully pulled image \"nvcr.io/nvidia/osmo/client:6.3.1\" in 567ms (567ms including waiting). Image size: 135760269 bytes.",
+      "source_file": "events-worker1.log",
+      "source_line": 10,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:28:26+00:00"
+    },
+    {
+      "kind": "Ready",
+      "message": "True",
+      "source_file": "events-worker1.log",
+      "source_line": 11,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:28:27+00:00"
+    },
+    {
+      "kind": "Pipelined",
+      "message": "Pod [pod identifier omitted] was pipelined to node w-2132",
+      "source_file": "events-worker1.log",
+      "source_line": 12,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:45:19+00:00"
+    },
+    {
+      "kind": "PodReadyToStartContainers",
+      "message": "False",
+      "source_file": "events-worker1.log",
+      "source_line": 13,
+      "task": "worker1",
+      "timestamp": "2026-09-25 17:45:21+00:00"
+    },
+    {
+      "container_log_streams_unavailable": 3,
+      "kind": "error_log_retrieval_unavailable",
+      "source_file": "logs-worker1.log",
+      "task": "worker1"
+    }
+  ],
+  "name": "astra-pi05-interpolation-development-20260925-1",
+  "priority": "LOW",
+  "recovery_plan": {
+    "all_worker_attempts_restart_from_frozen_reset": true,
+    "original_workflow": "astra-pi05-interpolation-development-20260925-1",
+    "partial_provider_costs_retained": true,
+    "reason": "OSMO control failure while both workers were on node7183; scheduler events record repipelining before termination. Exact root cause beyond OSMO status is unavailable.",
+    "retains_complete_worker": 2,
+    "same_payload": true,
+    "same_protocol": true,
+    "supersedes_incomplete_workers": [
+      0,
+      1
+    ]
+  },
+  "recovery_workflow": "astra-pi05-interpolation-development-recovery-20260925-2",
+  "root_cause_scope": "OSMO reports control failure and repipelining; a deeper infrastructure root cause is not established by these records.",
+  "start_time": "2026-09-25T17:28:26.010564",
+  "status": "FAILED",
+  "submit_time": "2026-09-25T17:28:15.629854",
+  "tasks": [
+    {
+      "end_time": "2026-09-25T17:45:31.742948",
+      "exit_code": 2001,
+      "failure_message": "Failure reason:\n- Exit code 2001 due to OSMO Control failure. \n- Exit code 2 due to Task worker0 failure. ",
+      "name": "worker0",
+      "node_name": "w-7183",
+      "start_time": "2026-09-25T17:28:26.010564",
+      "status": "FAILED"
+    },
+    {
+      "end_time": "2026-09-25T17:45:22.185288",
+      "exit_code": 2001,
+      "failure_message": "Failure reason:\n- Exit code 2001 due to OSMO Control failure. \n- Exit code 2 due to Task worker1 failure. ",
+      "name": "worker1",
+      "node_name": "w-7183",
+      "start_time": "2026-09-25T17:28:27.799896",
+      "status": "FAILED"
+    },
+    {
+      "end_time": "2026-09-25T17:39:06.252804",
+      "exit_code": 0,
+      "failure_message": null,
+      "name": "worker2",
+      "node_name": "w-1592",
+      "start_time": "2026-09-25T17:28:28.846398",
+      "status": "COMPLETED"
+    }
+  ]
+}

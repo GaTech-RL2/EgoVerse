@@ -1,0 +1,77 @@
+{
+  "files": {
+    "README.md": {
+      "bytes": 10012,
+      "sha256": "c9371a4abbcd3326d4a7c7e8509f8aed17af801361ddfc7a3ec7df0657f1c3cf"
+    },
+    "build_examples.py": {
+      "bytes": 25797,
+      "sha256": "97163e6584fcfdb8165006d7385fe0e800744173a78c8e73ba05ba5f02b8c7e6"
+    },
+    "examples.json": {
+      "bytes": 390961,
+      "sha256": "999811ac1c6f3087c66d1008080f84e704d62cbdfc0111e5704af1a20c171caa"
+    },
+    "goal2_capped_failure.png": {
+      "bytes": 593954,
+      "sha256": "77b34cc3cb7bc168a05359de688d6ec00ce4ac7b4b6746f392b3fb6da326edc2"
+    },
+    "orange_juice.json": {
+      "bytes": 184700,
+      "sha256": "a452046878cf0bc649674dff45657f844a7d4e16485bd366b7791f23fea748c9"
+    },
+    "wine_rescue_with_native_fallback.png": {
+      "bytes": 604520,
+      "sha256": "a80cdef9e605d72a68244b0b947506e3efa5dc26eae3fd9f41274e32cd5e9117"
+    }
+  },
+  "plot_environment": {
+    "matplotlib": "3.11.2",
+    "numpy": "2.4.6",
+    "pillow": "12.3.0",
+    "python": "3.11.14"
+  },
+  "schema_version": "phase-interpolation-evaluation-examples-publication-1",
+  "selection": {
+    "primary": "Both cases from the first completed worker2; not representative selection.",
+    "supplement": "Goal1 worker1 selected after inspection to illustrate rescue absent from the matched two-attempt random search; not representative selection."
+  },
+  "status": "verified",
+  "verification": {
+    "absolute_paths_and_urls_absent": true,
+    "exact_applied_rendering_checks": 6,
+    "figures_visually_reviewed": true,
+    "full_array_and_feedback_audits": "passed before rendering",
+    "missing_usage_calls": 0,
+    "new_provider_model_gpu_simulator_calls": 0,
+    "primary_accepted_and_executed": 78,
+    "primary_provider_calls": 83,
+    "primary_tokens": 713835,
+    "raw_camera_pairs_rechecked": 7,
+    "ruff_check": "passed",
+    "ruff_format_check": "passed",
+    "ruff_version": "0.8.6",
+    "supplement_accepted_and_executed": 43,
+    "supplement_provider_calls": 46,
+    "supplement_tokens": 362379
+  },
+  "wine_native_fallback_binding": {
+    "accepted_decision_ids": [
+      "astra_tli_vision_2_d2",
+      "astra_tli_vision_2_d3"
+    ],
+    "actions_with_accepted_text": 50,
+    "actions_with_changed_images": 10,
+    "events_sha256": "90241631e3f6258f655dd9e0fc605d42e0595785f15dc65f79b2954040a6b60e",
+    "fallback_generation_event_sequences": [
+      269,
+      270,
+      271,
+      272,
+      273
+    ],
+    "native_condition_fallback_actions": 25,
+    "rejected_request_fingerprint": "bb29d48c3b6839bd5a0644bf98f54a687dc4cb26ff57b7db8410e10e9a81a0f5",
+    "request_event_sequence": 267
+  }
+}

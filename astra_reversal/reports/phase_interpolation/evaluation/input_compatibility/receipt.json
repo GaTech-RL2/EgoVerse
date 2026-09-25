@@ -1,0 +1,554 @@
+{
+  "assigned_episode_count": 20,
+  "assigned_episode_ids": [
+    "libero_goal_ood:seed29:task0:state0",
+    "libero_goal_ood:seed29:task1:state0",
+    "libero_goal_ood:seed29:task2:state0",
+    "libero_goal_ood:seed29:task3:state0",
+    "libero_goal_ood:seed29:task4:state0",
+    "libero_goal_ood:seed29:task5:state0",
+    "libero_goal_ood:seed29:task6:state0",
+    "libero_goal_ood:seed29:task7:state0",
+    "libero_goal_ood:seed29:task8:state0",
+    "libero_goal_ood:seed29:task9:state0",
+    "libero_spatial_ood:seed29:task0:state0",
+    "libero_spatial_ood:seed29:task1:state0",
+    "libero_spatial_ood:seed29:task2:state0",
+    "libero_spatial_ood:seed29:task3:state0",
+    "libero_spatial_ood:seed29:task4:state0",
+    "libero_spatial_ood:seed29:task5:state0",
+    "libero_spatial_ood:seed29:task6:state0",
+    "libero_spatial_ood:seed29:task7:state0",
+    "libero_spatial_ood:seed29:task8:state0",
+    "libero_spatial_ood:seed29:task9:state0"
+  ],
+  "available_metadata_checks_passed": true,
+  "available_workers": 8,
+  "bank_inventory_sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+  "checker_source_sha256": "127a311aabe0ccb004443e039c2b998fbd3673be36560accb035d7d426ff0018",
+  "checkpoint_sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+  "complete": true,
+  "dependency_source_sha256": {
+    "config.py": "2afe7c901e0fd0b339cec2f37c62efb46ce5b0621199acd454c41c31327f4e21",
+    "configs/phase_interpolation_v1.json": "7bdcbdb2b2422749a1474690f522b4376e631621d36577d9c8ab0bd5b30829db",
+    "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+    "interpolation_report.py": "221b01936aca5e83f6758ddc2c1b6780092e65293e7a4a0a2e3b89f10645dc45",
+    "interpolation_search.py": "d78fac428c88e0444fddce2a09a343764a7b7e5f074d8675a8d93de8cc999bf5",
+    "intervention_rollout.py": "be662dc5f4e13b74e14558e6bc663a86d99bc37aff6f30f723b17915c2656040",
+    "libero_runner.py": "4f96aca61c2d8534377ba6ad92e946b9aba2432f5643fb3c5444177045cad61b",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "development_reference": [
+    {
+      "archive_sha256": "aa1e2f33ca3e0991543223b9fca68e680a3927d875ffbdd25916b2019c1bc1cf",
+      "array_audit_sha256": "a7ba706d3eac4999e026b5152b52a39d30b7111e4b79b594204106cc6f5d628c",
+      "episode_id": "libero_goal_ood:seed19:task6:state0",
+      "worker": 0,
+      "workflow": "astra-pi05-interpolation-development-recovery-20260925-2"
+    },
+    {
+      "archive_sha256": "9b7fec23cef52da15d70a7db0935d069e1253efab4e62aa49b41929e0a2b8834",
+      "array_audit_sha256": "cb8bd5c1a159bb809a172ed5b34efe4c95a7ae5c8866687be9e3d02ec3d1b33a",
+      "episode_id": "libero_spatial_ood:seed19:task2:state0",
+      "worker": 1,
+      "workflow": "astra-pi05-interpolation-development-recovery-20260925-2"
+    },
+    {
+      "archive_sha256": "0d7883bfb76c1a8821e132e356644cb3ef45aa833864de159c6b084b9644e7ea",
+      "array_audit_sha256": "c9cd0b3b8f432382cad3cc46c3332581b9e02abec71cb77d9461564b42bbc7f0",
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "worker": 2,
+      "workflow": "astra-pi05-interpolation-development-20260925-1"
+    }
+  ],
+  "development_seed": 19,
+  "evaluation_seed": 29,
+  "expected_episode_count": 20,
+  "expected_workers": 8,
+  "input_file_sha256": {
+    "completed_development/worker_0/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "completed_development/worker_0/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "completed_development/worker_0/frozen_plan.json": "0164d5a40983bb62ca5a2788df44400440aba0eeaea5870216b59a04a03c25fa",
+    "completed_development/worker_0/protocol.json": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651",
+    "completed_development/worker_0/reset_manifest.json": "910074eccda4ca1869140d02a710e68307daa0cb408cf2bd56d20d31ac697398",
+    "completed_development/worker_0/runtime.json": "b1c0f1558bc9f40701ad830ac446015d61b9b0a46e005ee3fcf976c0683f44ba",
+    "completed_development/worker_1/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "completed_development/worker_1/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "completed_development/worker_1/frozen_plan.json": "ded74f81f40cbdaeee2921271989d47a22e34625355f8a5203ec37e2acc05226",
+    "completed_development/worker_1/protocol.json": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651",
+    "completed_development/worker_1/reset_manifest.json": "7c72a56781d86b639a9db99bb37158a093f6a7d4c26908fde5c59bd04707e595",
+    "completed_development/worker_1/runtime.json": "eb1e17ae64aab6f4adf2848d0165933b45aab026be29d2d965b5a546a4cf14d0",
+    "completed_development/worker_2/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "completed_development/worker_2/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "completed_development/worker_2/frozen_plan.json": "43045b9b863ec39d96bb069f4ca39b86d246768509e056e03ec26f497d2a3b6d",
+    "completed_development/worker_2/protocol.json": "4cfe5c67c435e7f52d9f9696613b39d327637c6861ff832f6b35401491cdf651",
+    "completed_development/worker_2/reset_manifest.json": "7c72a56781d86b639a9db99bb37158a093f6a7d4c26908fde5c59bd04707e595",
+    "completed_development/worker_2/runtime.json": "85ced8f0e09b72b23a9c08bc924c55b1cfb6427514a1337d13584c77f5a97928",
+    "completed_development_audits/worker_0_arrays.json": "a7ba706d3eac4999e026b5152b52a39d30b7111e4b79b594204106cc6f5d628c",
+    "completed_development_audits/worker_1_arrays.json": "cb8bd5c1a159bb809a172ed5b34efe4c95a7ae5c8866687be9e3d02ec3d1b33a",
+    "completed_development_audits/worker_2_arrays.json": "c9cd0b3b8f432382cad3cc46c3332581b9e02abec71cb77d9461564b42bbc7f0",
+    "evaluation/source_identity.json": "27d3dcbaa1d0e78e695e9460379d40a0bb35c983b4026f04fc34bc78720cce2b",
+    "evaluation/worker_0/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "evaluation/worker_0/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "evaluation/worker_0/frozen_plan.json": "c4fb6db317a6c4ca67d41ff6b9c74b8f55450f74f487eac8abb7ac4ef10e96b6",
+    "evaluation/worker_0/protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+    "evaluation/worker_0/reset_manifest.json": "1fbdcd1dbd413242ce67400f36f81a1e33e58b3c51e68f71a0f6a51bd57e8016",
+    "evaluation/worker_0/runtime.json": "2709ec5f0f487ccc604fd24d6bbaeb2fdb56816b14ef65af6d69584f5dd9ca16",
+    "evaluation/worker_1/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "evaluation/worker_1/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "evaluation/worker_1/frozen_plan.json": "558d89769e40dfbc0119996d7bb813981a22225b677f212bb51781aded6401ee",
+    "evaluation/worker_1/protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+    "evaluation/worker_1/reset_manifest.json": "1fbdcd1dbd413242ce67400f36f81a1e33e58b3c51e68f71a0f6a51bd57e8016",
+    "evaluation/worker_1/runtime.json": "0d6ba6ea9f1be4b6adc09fd5839bc59f79302dcb647708131523e70e75cc6b3e",
+    "evaluation/worker_2/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "evaluation/worker_2/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "evaluation/worker_2/frozen_plan.json": "d89c2d954444d5e75b8f1df18eebcbfd0b4c2bbf3375d6e2dff88b7e9a62842b",
+    "evaluation/worker_2/protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+    "evaluation/worker_2/reset_manifest.json": "1fbdcd1dbd413242ce67400f36f81a1e33e58b3c51e68f71a0f6a51bd57e8016",
+    "evaluation/worker_2/runtime.json": "f97552f975316fd08824dde1adce97b81b3974e333e3d393295c44101be0aba6",
+    "evaluation/worker_3/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "evaluation/worker_3/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "evaluation/worker_3/frozen_plan.json": "8608facb8b8f492c033634308065809235ace82bbf730c117affc537c196c697",
+    "evaluation/worker_3/protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+    "evaluation/worker_3/reset_manifest.json": "1fbdcd1dbd413242ce67400f36f81a1e33e58b3c51e68f71a0f6a51bd57e8016",
+    "evaluation/worker_3/runtime.json": "0884a201c2672ab2db5786313ef91db2bd26aaf38549872f5b33bdb1ddb40654",
+    "evaluation/worker_4/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "evaluation/worker_4/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "evaluation/worker_4/frozen_plan.json": "acda82c1b2ccb2513218c4147c0dfe77e2afd5618cada77f3c48ae6fae00ae98",
+    "evaluation/worker_4/protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+    "evaluation/worker_4/reset_manifest.json": "87029150b36ee07fc7e9422d22a533a60de2441f105d80d559adcb229fa47f53",
+    "evaluation/worker_4/runtime.json": "cc2a9bee80202479c1816dfa275df96e03a400e88bd75f38718965fc675a4155",
+    "evaluation/worker_5/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "evaluation/worker_5/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "evaluation/worker_5/frozen_plan.json": "31246386ae89c1ee5878cbd7ad5bfe8717d1fbfb7cad63ff618c036d36a0488c",
+    "evaluation/worker_5/protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+    "evaluation/worker_5/reset_manifest.json": "87029150b36ee07fc7e9422d22a533a60de2441f105d80d559adcb229fa47f53",
+    "evaluation/worker_5/runtime.json": "fcf52efce6e19ce41ab7d0b565b8c713b2fd363ca8eba67b1916fe2bc5ddd18b",
+    "evaluation/worker_6/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "evaluation/worker_6/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "evaluation/worker_6/frozen_plan.json": "6e9560d9dcbf3498b44b16f62d3084554f771e97e367c5159d40705ea1f9f6be",
+    "evaluation/worker_6/protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+    "evaluation/worker_6/reset_manifest.json": "87029150b36ee07fc7e9422d22a533a60de2441f105d80d559adcb229fa47f53",
+    "evaluation/worker_6/runtime.json": "8880040c9db95b3b67a01c8c67d632b8f4fdbb358c3987871c8f10cccf5dbe2b",
+    "evaluation/worker_7/bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "evaluation/worker_7/checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "evaluation/worker_7/frozen_plan.json": "a8f2f3bae3a3feba1f12afb264665841984c2e505e2d15840e81cd324add5abb",
+    "evaluation/worker_7/protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+    "evaluation/worker_7/reset_manifest.json": "87029150b36ee07fc7e9422d22a533a60de2441f105d80d559adcb229fa47f53",
+    "evaluation/worker_7/runtime.json": "202c28548eeab8811f8627837d70296b024b67310353ad83c6ac3bf3d6f9c14b",
+    "interpolation-development-recovery-v2/source_identity.json": "27d3dcbaa1d0e78e695e9460379d40a0bb35c983b4026f04fc34bc78720cce2b",
+    "interpolation-development-v1/source_identity.json": "27d3dcbaa1d0e78e695e9460379d40a0bb35c983b4026f04fc34bc78720cce2b"
+  },
+  "limitations": [
+    "Saved pre-stabilization dynamic state and model-pose arrays are hash-validated and compared numerically. No independent simulator replay or post-stabilization image comparison is performed here.",
+    "Package versions are compared as recorded by workers; this receipt does not independently inspect installed binaries.",
+    "Distinct task IDs may share a reset tensor when their underlying scene is shared; uniqueness is required for episode assignments, not every cross-task state hash.",
+    "Known task compositions and the fixed donor library remain the same. A new reset seed is not evidence of unseen task compositions or zero-shot generalization."
+  ],
+  "missing_workers": [],
+  "overlapping_development_reset_comparisons": [
+    {
+      "development_episode_id": "libero_goal_ood:seed19:task6:state0",
+      "development_reset_model_sha256": "2ef50a54908e2bf0a8b6c8de00b3e9ca9a781007e2d9f6960fa192c3b52bd7b5",
+      "development_reset_state_sha256": "5b4a2d0f7110435d03b87cdc5299771616d97db76c3d0cfc52a7c6354c48d4fe",
+      "different_saved_state_and_model": true,
+      "dynamic_state_difference": {
+        "changed_values": 8,
+        "max_abs": 0.022222664695209865,
+        "rmse": 0.0034509054686626462,
+        "shape": [
+          79
+        ]
+      },
+      "evaluation_episode_id": "libero_goal_ood:seed29:task6:state0",
+      "evaluation_reset_model_sha256": "95a47e7beb2cc53adb0e37aab37a28b248f587748a4114baa11f1ae07adf6c0f",
+      "evaluation_reset_state_sha256": "fd5c18a77f0bf9249763377fa616a88dd95ab418fcf1c5028471d873a1ef2948",
+      "model_body_pose_differences": {
+        "body_pos": {
+          "changed_values": 6,
+          "max_abs": 0.010739293829795438,
+          "rmse": 0.001440395787401813,
+          "shape": [
+            38,
+            3
+          ]
+        },
+        "body_quat": {
+          "changed_values": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "shape": [
+            38,
+            4
+          ]
+        }
+      },
+      "same_task_instruction_and_bddl": true
+    },
+    {
+      "development_episode_id": "libero_spatial_ood:seed19:task2:state0",
+      "development_reset_model_sha256": "d815b533ae2791d893fd365d12eb7fa12b50d1788cbb503c1b5863491216a328",
+      "development_reset_state_sha256": "be991a032e248d48f5da78881cdec27ad9a526dc85a18e716a8f33e3ebda5a7c",
+      "different_saved_state_and_model": true,
+      "dynamic_state_difference": {
+        "changed_values": 10,
+        "max_abs": 0.0444453293904197,
+        "rmse": 0.005242653980562281,
+        "shape": [
+          105
+        ]
+      },
+      "evaluation_episode_id": "libero_spatial_ood:seed29:task2:state0",
+      "evaluation_reset_model_sha256": "1244d9941067ba518970dbebe42098d7222e1599e0d4f3c4b1eda6dccf728f76",
+      "evaluation_reset_state_sha256": "00e137febdaf9368d6fe84682b2c7d958d3160231a58d4c0074aab685a4c1de4",
+      "model_body_pose_differences": {
+        "body_pos": {
+          "changed_values": 4,
+          "max_abs": 0.005852578563946165,
+          "rmse": 0.0006694139104792045,
+          "shape": [
+            39,
+            3
+          ]
+        },
+        "body_quat": {
+          "changed_values": 2,
+          "max_abs": 0.001672061696312982,
+          "rmse": 0.00013718299150805932,
+          "shape": [
+            39,
+            4
+          ]
+        }
+      },
+      "same_task_instruction_and_bddl": true
+    },
+    {
+      "development_episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "development_reset_model_sha256": "e131c09c08fb572e07b946353f3aa6c3f818193d5eea9787fb2ad588dfc0a2bf",
+      "development_reset_state_sha256": "d690f01e8a2f5ffcf20aa1511f52b97d940dc6acfe365e9f0318bcee1525df7a",
+      "different_saved_state_and_model": true,
+      "dynamic_state_difference": {
+        "changed_values": 7,
+        "max_abs": 0.011608298180757627,
+        "rmse": 0.0017712462122975387,
+        "shape": [
+          92
+        ]
+      },
+      "evaluation_episode_id": "libero_spatial_ood:seed29:task8:state0",
+      "evaluation_reset_model_sha256": "8b0e7efe7d9afeb7de56eab50942b044f60a3cd61938409b7cdf19c2ec5e48cd",
+      "evaluation_reset_state_sha256": "b768a4f5c578591339c9e73063f6358db8cc1963d24e54a80f3d72b002a81ab4",
+      "model_body_pose_differences": {
+        "body_pos": {
+          "changed_values": 4,
+          "max_abs": 0.008680760134745176,
+          "rmse": 0.0008491906980848321,
+          "shape": [
+            38,
+            3
+          ]
+        },
+        "body_quat": {
+          "changed_values": 2,
+          "max_abs": 0.008971030169066113,
+          "rmse": 0.0007456650812709012,
+          "shape": [
+            38,
+            4
+          ]
+        }
+      },
+      "same_task_instruction_and_bddl": true
+    }
+  ],
+  "protocol_changed_keys": [
+    "seed"
+  ],
+  "runtime_invariants": {
+    "gpu": "NVIDIA L40S",
+    "packages": {
+      "lerobot": "0.4.4",
+      "mujoco": "3.2.3",
+      "numpy": "1.26.4",
+      "pyarrow": "25.0.1",
+      "robosuite": "1.4.1",
+      "torch": "2.7.1+cu126",
+      "transformers": "4.53.3"
+    },
+    "payload_sha256": "5b51adf8a604ec68461a8b8933d11f9b9f2b7cd9295eb463b715272f3cc7c842",
+    "python": "3.11.14",
+    "tf32": false
+  },
+  "schema_version": "phase-evaluation-input-compatibility-1.0",
+  "scope": "Immutable input compatibility and prescribed assignment/reset provenance only. Not a completed evaluation, model replay, simulator replay or task-outcome audit.",
+  "source_identity": {
+    "payload_bytes": 11600664,
+    "payload_sha256": "5b51adf8a604ec68461a8b8933d11f9b9f2b7cd9295eb463b715272f3cc7c842",
+    "source_revision": "4e54e9ae8f55cc4e663e599e4bd19bb94add2baa"
+  },
+  "status": "passed",
+  "suite_manifests": {
+    "libero_goal_ood": {
+      "file_sha256": "1fbdcd1dbd413242ce67400f36f81a1e33e58b3c51e68f71a0f6a51bd57e8016",
+      "manifest_sha256": "6c0c115dfc0a3c42dc7b7515d20bf93c150b709b0ddc6c930207464c49dd7b43"
+    },
+    "libero_spatial_ood": {
+      "file_sha256": "87029150b36ee07fc7e9422d22a533a60de2441f105d80d559adcb229fa47f53",
+      "manifest_sha256": "23e19a267d6d2118e11b7e12de5fa815089b8486cdf3be13532fe723858bf244"
+    }
+  },
+  "workers": [
+    {
+      "assigned_episodes": [
+        "libero_goal_ood:seed29:task0:state0",
+        "libero_goal_ood:seed29:task4:state0",
+        "libero_goal_ood:seed29:task8:state0"
+      ],
+      "assignment": {
+        "case_shard": 0,
+        "case_shards": 4,
+        "suite": "libero_goal_ood"
+      },
+      "bank_inventory_bytes_equal": true,
+      "checkpoint_bytes_equal": true,
+      "metadata_sha256": {
+        "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+        "frozen_plan.json": "c4fb6db317a6c4ca67d41ff6b9c74b8f55450f74f487eac8abb7ac4ef10e96b6",
+        "protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+        "reset_manifest.json": "1fbdcd1dbd413242ce67400f36f81a1e33e58b3c51e68f71a0f6a51bd57e8016",
+        "runtime.json": "2709ec5f0f487ccc604fd24d6bbaeb2fdb56816b14ef65af6d69584f5dd9ca16"
+      },
+      "packages_hardware_numerical_settings_and_payload_equal": true,
+      "reset_manifest_sha256": "6c0c115dfc0a3c42dc7b7515d20bf93c150b709b0ddc6c930207464c49dd7b43",
+      "runtime_changed_keys_versus_development_worker_0": [
+        "assignment",
+        "phase",
+        "workflow"
+      ],
+      "worker": 0,
+      "workflow": "astra-pi05-interpolation-evaluation-20260925-1"
+    },
+    {
+      "assigned_episodes": [
+        "libero_goal_ood:seed29:task1:state0",
+        "libero_goal_ood:seed29:task5:state0",
+        "libero_goal_ood:seed29:task9:state0"
+      ],
+      "assignment": {
+        "case_shard": 1,
+        "case_shards": 4,
+        "suite": "libero_goal_ood"
+      },
+      "bank_inventory_bytes_equal": true,
+      "checkpoint_bytes_equal": true,
+      "metadata_sha256": {
+        "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+        "frozen_plan.json": "558d89769e40dfbc0119996d7bb813981a22225b677f212bb51781aded6401ee",
+        "protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+        "reset_manifest.json": "1fbdcd1dbd413242ce67400f36f81a1e33e58b3c51e68f71a0f6a51bd57e8016",
+        "runtime.json": "0d6ba6ea9f1be4b6adc09fd5839bc59f79302dcb647708131523e70e75cc6b3e"
+      },
+      "packages_hardware_numerical_settings_and_payload_equal": true,
+      "reset_manifest_sha256": "6c0c115dfc0a3c42dc7b7515d20bf93c150b709b0ddc6c930207464c49dd7b43",
+      "runtime_changed_keys_versus_development_worker_0": [
+        "assignment",
+        "phase",
+        "worker",
+        "workflow"
+      ],
+      "worker": 1,
+      "workflow": "astra-pi05-interpolation-evaluation-20260925-1"
+    },
+    {
+      "assigned_episodes": [
+        "libero_goal_ood:seed29:task2:state0",
+        "libero_goal_ood:seed29:task6:state0"
+      ],
+      "assignment": {
+        "case_shard": 2,
+        "case_shards": 4,
+        "suite": "libero_goal_ood"
+      },
+      "bank_inventory_bytes_equal": true,
+      "checkpoint_bytes_equal": true,
+      "metadata_sha256": {
+        "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+        "frozen_plan.json": "d89c2d954444d5e75b8f1df18eebcbfd0b4c2bbf3375d6e2dff88b7e9a62842b",
+        "protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+        "reset_manifest.json": "1fbdcd1dbd413242ce67400f36f81a1e33e58b3c51e68f71a0f6a51bd57e8016",
+        "runtime.json": "f97552f975316fd08824dde1adce97b81b3974e333e3d393295c44101be0aba6"
+      },
+      "packages_hardware_numerical_settings_and_payload_equal": true,
+      "reset_manifest_sha256": "6c0c115dfc0a3c42dc7b7515d20bf93c150b709b0ddc6c930207464c49dd7b43",
+      "runtime_changed_keys_versus_development_worker_0": [
+        "assignment",
+        "phase",
+        "worker",
+        "workflow"
+      ],
+      "worker": 2,
+      "workflow": "astra-pi05-interpolation-evaluation-20260925-1"
+    },
+    {
+      "assigned_episodes": [
+        "libero_goal_ood:seed29:task3:state0",
+        "libero_goal_ood:seed29:task7:state0"
+      ],
+      "assignment": {
+        "case_shard": 3,
+        "case_shards": 4,
+        "suite": "libero_goal_ood"
+      },
+      "bank_inventory_bytes_equal": true,
+      "checkpoint_bytes_equal": true,
+      "metadata_sha256": {
+        "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+        "frozen_plan.json": "8608facb8b8f492c033634308065809235ace82bbf730c117affc537c196c697",
+        "protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+        "reset_manifest.json": "1fbdcd1dbd413242ce67400f36f81a1e33e58b3c51e68f71a0f6a51bd57e8016",
+        "runtime.json": "0884a201c2672ab2db5786313ef91db2bd26aaf38549872f5b33bdb1ddb40654"
+      },
+      "packages_hardware_numerical_settings_and_payload_equal": true,
+      "reset_manifest_sha256": "6c0c115dfc0a3c42dc7b7515d20bf93c150b709b0ddc6c930207464c49dd7b43",
+      "runtime_changed_keys_versus_development_worker_0": [
+        "assignment",
+        "phase",
+        "worker",
+        "workflow"
+      ],
+      "worker": 3,
+      "workflow": "astra-pi05-interpolation-evaluation-20260925-1"
+    },
+    {
+      "assigned_episodes": [
+        "libero_spatial_ood:seed29:task0:state0",
+        "libero_spatial_ood:seed29:task4:state0",
+        "libero_spatial_ood:seed29:task8:state0"
+      ],
+      "assignment": {
+        "case_shard": 0,
+        "case_shards": 4,
+        "suite": "libero_spatial_ood"
+      },
+      "bank_inventory_bytes_equal": true,
+      "checkpoint_bytes_equal": true,
+      "metadata_sha256": {
+        "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+        "frozen_plan.json": "acda82c1b2ccb2513218c4147c0dfe77e2afd5618cada77f3c48ae6fae00ae98",
+        "protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+        "reset_manifest.json": "87029150b36ee07fc7e9422d22a533a60de2441f105d80d559adcb229fa47f53",
+        "runtime.json": "cc2a9bee80202479c1816dfa275df96e03a400e88bd75f38718965fc675a4155"
+      },
+      "packages_hardware_numerical_settings_and_payload_equal": true,
+      "reset_manifest_sha256": "23e19a267d6d2118e11b7e12de5fa815089b8486cdf3be13532fe723858bf244",
+      "runtime_changed_keys_versus_development_worker_0": [
+        "assignment",
+        "phase",
+        "worker",
+        "workflow"
+      ],
+      "worker": 4,
+      "workflow": "astra-pi05-interpolation-evaluation-20260925-1"
+    },
+    {
+      "assigned_episodes": [
+        "libero_spatial_ood:seed29:task1:state0",
+        "libero_spatial_ood:seed29:task5:state0",
+        "libero_spatial_ood:seed29:task9:state0"
+      ],
+      "assignment": {
+        "case_shard": 1,
+        "case_shards": 4,
+        "suite": "libero_spatial_ood"
+      },
+      "bank_inventory_bytes_equal": true,
+      "checkpoint_bytes_equal": true,
+      "metadata_sha256": {
+        "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+        "frozen_plan.json": "31246386ae89c1ee5878cbd7ad5bfe8717d1fbfb7cad63ff618c036d36a0488c",
+        "protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+        "reset_manifest.json": "87029150b36ee07fc7e9422d22a533a60de2441f105d80d559adcb229fa47f53",
+        "runtime.json": "fcf52efce6e19ce41ab7d0b565b8c713b2fd363ca8eba67b1916fe2bc5ddd18b"
+      },
+      "packages_hardware_numerical_settings_and_payload_equal": true,
+      "reset_manifest_sha256": "23e19a267d6d2118e11b7e12de5fa815089b8486cdf3be13532fe723858bf244",
+      "runtime_changed_keys_versus_development_worker_0": [
+        "assignment",
+        "phase",
+        "worker",
+        "workflow"
+      ],
+      "worker": 5,
+      "workflow": "astra-pi05-interpolation-evaluation-20260925-1"
+    },
+    {
+      "assigned_episodes": [
+        "libero_spatial_ood:seed29:task2:state0",
+        "libero_spatial_ood:seed29:task6:state0"
+      ],
+      "assignment": {
+        "case_shard": 2,
+        "case_shards": 4,
+        "suite": "libero_spatial_ood"
+      },
+      "bank_inventory_bytes_equal": true,
+      "checkpoint_bytes_equal": true,
+      "metadata_sha256": {
+        "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+        "frozen_plan.json": "6e9560d9dcbf3498b44b16f62d3084554f771e97e367c5159d40705ea1f9f6be",
+        "protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+        "reset_manifest.json": "87029150b36ee07fc7e9422d22a533a60de2441f105d80d559adcb229fa47f53",
+        "runtime.json": "8880040c9db95b3b67a01c8c67d632b8f4fdbb358c3987871c8f10cccf5dbe2b"
+      },
+      "packages_hardware_numerical_settings_and_payload_equal": true,
+      "reset_manifest_sha256": "23e19a267d6d2118e11b7e12de5fa815089b8486cdf3be13532fe723858bf244",
+      "runtime_changed_keys_versus_development_worker_0": [
+        "assignment",
+        "phase",
+        "worker",
+        "workflow"
+      ],
+      "worker": 6,
+      "workflow": "astra-pi05-interpolation-evaluation-20260925-1"
+    },
+    {
+      "assigned_episodes": [
+        "libero_spatial_ood:seed29:task3:state0",
+        "libero_spatial_ood:seed29:task7:state0"
+      ],
+      "assignment": {
+        "case_shard": 3,
+        "case_shards": 4,
+        "suite": "libero_spatial_ood"
+      },
+      "bank_inventory_bytes_equal": true,
+      "checkpoint_bytes_equal": true,
+      "metadata_sha256": {
+        "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+        "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+        "frozen_plan.json": "a8f2f3bae3a3feba1f12afb264665841984c2e505e2d15840e81cd324add5abb",
+        "protocol.json": "e35bf07f7214dd3efaba03df0c0b8959ce183fddde6da85008883ba089b506f7",
+        "reset_manifest.json": "87029150b36ee07fc7e9422d22a533a60de2441f105d80d559adcb229fa47f53",
+        "runtime.json": "202c28548eeab8811f8627837d70296b024b67310353ad83c6ac3bf3d6f9c14b"
+      },
+      "packages_hardware_numerical_settings_and_payload_equal": true,
+      "reset_manifest_sha256": "23e19a267d6d2118e11b7e12de5fa815089b8486cdf3be13532fe723858bf244",
+      "runtime_changed_keys_versus_development_worker_0": [
+        "assignment",
+        "phase",
+        "worker",
+        "workflow"
+      ],
+      "worker": 7,
+      "workflow": "astra-pi05-interpolation-evaluation-20260925-1"
+    }
+  ]
+}

@@ -26,7 +26,9 @@ def upload_tree(tmp_path, monkeypatch):
         "astra_reversal/artifacts/old.json": "{}",
         "tests/unit/astra/test_smoke.py": "def test_smoke(): pass\n",
         "tests/integration/test_astra_lerobot_policy.py": "# native smoke\n",
+        "tests/integration/test_astra_interpolation_policy.py": "# interpolation native smoke\n",
         "tests/fixtures/astra/lerobot_pi05/config.json": "{}",
+        "tests/fixtures/astra/intervention_audit/minimal.json": "{}",
         "tests/conftest.py": "raise AssertionError('unrelated project hooks')\n",
         "tests/unit/test_unrelated.py": "# unrelated\n",
     }
@@ -48,7 +50,9 @@ def test_upload_includes_relocated_tests_and_only_allowed_assets(upload_tree):
     assert {
         "tests/unit/astra/test_smoke.py",
         "tests/integration/test_astra_lerobot_policy.py",
+        "tests/integration/test_astra_interpolation_policy.py",
         "tests/fixtures/astra/lerobot_pi05/config.json",
+        "tests/fixtures/astra/intervention_audit/minimal.json",
         "astra_reversal/.deps/tokenizers/paligemma-3b-pt-224/tokenizer.json",
         "astra_reversal/.deps/reference/pi05_libero/norm_stats.json",
     } <= names

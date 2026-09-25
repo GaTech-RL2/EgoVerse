@@ -1,0 +1,479 @@
+"""Compare downloaded evaluation inputs with archive-verified development inputs.
+
+Read-only CPU metadata checks. Missing evaluation workers produce an incomplete
+private receipt; no simulator, model, provider, network, or job call is made.
+"""
+
+import argparse
+import copy
+import json
+from pathlib import Path
+
+import numpy as np
+
+from astra_reversal.config import BenchmarkConfig
+from astra_reversal.interpolation_report import _validate_inventory
+from astra_reversal.interpolation_search import load_protocol
+from astra_reversal.intervention_rollout import load_reset_manifest
+from astra_reversal.libero_runner import _reset_model_arrays
+from astra_reversal.records import digest, file_sha256
+
+NAMES = (
+    "runtime.json",
+    "protocol.json",
+    "checkpoint.json",
+    "bank_inventory.json",
+    "frozen_plan.json",
+    "reset_manifest.json",
+)
+RUNTIME_VARIABLES = {"workflow", "phase", "worker", "assignment"}
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def differences(before, after):
+    before, after = np.asarray(before, np.float64), np.asarray(after, np.float64)
+    require(before.shape == after.shape, "Reset tensor topology changed")
+    delta = after - before
+    return {
+        "shape": list(before.shape),
+        "changed_values": int(np.count_nonzero(before != after)),
+        "max_abs": float(np.abs(delta).max()),
+        "rmse": float(np.sqrt(np.mean(delta**2))),
+    }
+
+
+def compare_reset(old, new):
+    for key in ("suite", "task_id", "initial_state_id", "instruction", "bddl_sha256"):
+        require(old[key] == new[key], "Overlapping task identity/asset changed")
+    require(old["seed"] == 19 and new["seed"] == 29, "Wrong reset comparison seeds")
+    state = differences(old["reset_state"], new["reset_state"])
+    models = (_reset_model_arrays(old), _reset_model_arrays(new))
+    model = {name: differences(models[0][name], models[1][name]) for name in models[0]}
+    require(
+        old["reset_state_sha256"] != new["reset_state_sha256"]
+        and state["changed_values"] > 0,
+        "New seed did not change the actual saved dynamic reset state",
+    )
+    require(
+        old["reset_model_sha256"] != new["reset_model_sha256"]
+        and any(row["changed_values"] > 0 for row in model.values()),
+        "New seed did not change the actual saved model body poses",
+    )
+    return {
+        "development_episode_id": old["episode_id"],
+        "evaluation_episode_id": new["episode_id"],
+        "same_task_instruction_and_bddl": True,
+        "development_reset_state_sha256": old["reset_state_sha256"],
+        "evaluation_reset_state_sha256": new["reset_state_sha256"],
+        "development_reset_model_sha256": old["reset_model_sha256"],
+        "evaluation_reset_model_sha256": new["reset_model_sha256"],
+        "dynamic_state_difference": state,
+        "model_body_pose_differences": model,
+        "different_saved_state_and_model": True,
+    }
+
+
+def check(deps_root, development_reports):
+    sources, physical_paths = {}, {}
+
+    def read(directory, name, label):
+        path = directory / name
+        before = file_sha256(path)
+        data = json.loads(path.read_text())
+        require(file_sha256(path) == before, "Metadata changed while being read")
+        sources[label + "/" + name] = before
+        physical_paths[label + "/" + name] = path
+        return data
+
+    evaluation = deps_root / "interpolation-evaluation-v1"
+    identity = read(evaluation, "source_identity.json", "evaluation")
+    protocol = load_protocol()
+    require(
+        protocol["seed"] == 29 and protocol["development_seed"] == 19,
+        "Protocol seed changed",
+    )
+    require(
+        protocol["evaluation_cases"] == [[task, 0] for task in range(10)],
+        "Prescribed evaluation cases changed",
+    )
+    require(
+        protocol["evaluation_suites"] == ["libero_goal_ood", "libero_spatial_ood"],
+        "Evaluation suites changed",
+    )
+    development_protocol = copy.deepcopy(protocol)
+    development_protocol["seed"] = 19
+    development = []
+    reference_runtime = reference_checkpoint_hash = reference_bank_hash = None
+    expected_dev_ids = set()
+    dev_spatial_manifest = None
+    for worker in range(3):
+        collection = (
+            "interpolation-development-recovery-v2"
+            if worker < 2
+            else "interpolation-development-v1"
+        )
+        parent = deps_root / collection
+        require(
+            read(parent, "source_identity.json", collection) == identity,
+            "Evaluation/development payload source identity differs",
+        )
+        directory = parent / "downloaded" / f"worker_{worker}"
+        label = f"completed_development/worker_{worker}"
+        data = {name: read(directory, name, label) for name in NAMES}
+        receipt = read(
+            development_reports / "audits",
+            f"worker_{worker}_arrays.json",
+            "completed_development_audits",
+        )
+        require(
+            receipt["status"] == "passed" and receipt["complete"] is True,
+            "Development archive audit is incomplete",
+        )
+        for name in NAMES:
+            require(
+                receipt["source_metadata_sha256"][name] == sources[label + "/" + name],
+                "Development metadata differs from its verified final archive",
+            )
+        runtime, plan = data["runtime.json"], data["frozen_plan.json"]
+        require(
+            runtime["workflow"] == receipt["workflow"]
+            and runtime["worker"] == worker
+            and runtime["phase"] == "development",
+            "Wrong completed development runtime",
+        )
+        require(
+            runtime["payload_sha256"] == identity["payload_sha256"],
+            "Development payload identity mismatch",
+        )
+        require(
+            data["protocol.json"] == development_protocol,
+            "Development protocol differs beyond selected seed",
+        )
+        _validate_inventory(data["bank_inventory.json"])
+        manifest = load_reset_manifest(
+            directory / "reset_manifest.json",
+            BenchmarkConfig.preset(runtime["assignment"]["suite"]),
+        )
+        require(
+            manifest["seed"] == 19 and manifest["split"] == "development",
+            "Wrong development reset manifest",
+        )
+        require(
+            plan["runtime"] == runtime
+            and plan["protocol_sha256"] == digest(development_protocol)
+            and plan["manifest_sha256"] == manifest["sha256"]
+            and plan["bank_inventory_sha256"]
+            == sources[label + "/bank_inventory.json"],
+            "Development frozen plan binding failed",
+        )
+        if reference_runtime is None:
+            reference_runtime = runtime
+            reference_checkpoint_hash = sources[label + "/checkpoint.json"]
+            reference_bank_hash = sources[label + "/bank_inventory.json"]
+        require(
+            sources[label + "/checkpoint.json"] == reference_checkpoint_hash
+            and sources[label + "/bank_inventory.json"] == reference_bank_hash,
+            "Completed development model/banks differ",
+        )
+        require(
+            {
+                key: value
+                for key, value in runtime.items()
+                if key not in RUNTIME_VARIABLES
+            }
+            == {
+                key: value
+                for key, value in reference_runtime.items()
+                if key not in RUNTIME_VARIABLES
+            },
+            "Completed development software/runtime differs",
+        )
+        if worker == 1:
+            dev_spatial_manifest = sources[label + "/reset_manifest.json"]
+        if worker == 2:
+            require(
+                sources[label + "/reset_manifest.json"] == dev_spatial_manifest,
+                "Development Spatial manifests disagree",
+            )
+        entries = {row["episode_id"]: row for row in manifest["episodes"]}
+        require(
+            len(plan["assigned_episodes"]) == 1,
+            "Development reference has unexpected assignment",
+        )
+        episode = entries[plan["assigned_episodes"][0]]
+        expected = (
+            ("libero_goal_ood", 6),
+            ("libero_spatial_ood", 2),
+            ("libero_spatial_ood", 8),
+        )[worker]
+        require(
+            (episode["suite"], episode["task_id"], episode["initial_state_id"])
+            == (*expected, 0),
+            "Wrong development reference case",
+        )
+        expected_dev_ids.add(episode["episode_id"])
+        development.append(
+            {
+                "worker": worker,
+                "runtime": runtime,
+                "entry": episode,
+                "array_audit_sha256": sources[
+                    f"completed_development_audits/worker_{worker}_arrays.json"
+                ],
+                "archive_sha256": receipt["archive"]["sha256"],
+            }
+        )
+    require(len(expected_dev_ids) == 3, "Duplicate completed development case")
+
+    workers, missing, suite_manifests, evaluation_entries, assigned_ids = (
+        [],
+        [],
+        {},
+        {},
+        [],
+    )
+    for worker in range(8):
+        directory = evaluation / "downloaded" / f"worker_{worker}"
+        absent = [name for name in NAMES if not (directory / name).is_file()]
+        if absent:
+            missing.append({"worker": worker, "missing_files": absent})
+            continue
+        label = f"evaluation/worker_{worker}"
+        data = {name: read(directory, name, label) for name in NAMES}
+        runtime, plan = data["runtime.json"], data["frozen_plan.json"]
+        suite = protocol["evaluation_suites"][worker // 4]
+        assignment = {"suite": suite, "case_shard": worker % 4, "case_shards": 4}
+        require(
+            runtime["workflow"] == "astra-pi05-interpolation-evaluation-20260925-1"
+            and runtime["phase"] == "evaluation"
+            and runtime["worker"] == worker
+            and runtime["assignment"] == assignment,
+            "Evaluation worker identity/assignment mismatch",
+        )
+        require(
+            {
+                key: value
+                for key, value in runtime.items()
+                if key not in RUNTIME_VARIABLES
+            }
+            == {
+                key: value
+                for key, value in reference_runtime.items()
+                if key not in RUNTIME_VARIABLES
+            },
+            "Evaluation packages/hardware/payload differ from completed development",
+        )
+        require(
+            runtime["gpu"] == "NVIDIA L40S" and runtime["tf32"] is False,
+            "Wrong evaluation numerical runtime",
+        )
+        require(data["protocol.json"] == protocol, "Evaluation protocol changed")
+        require(
+            sources[label + "/checkpoint.json"] == reference_checkpoint_hash,
+            "Evaluation checkpoint bytes differ from completed development",
+        )
+        require(
+            sources[label + "/bank_inventory.json"] == reference_bank_hash,
+            "Evaluation bank inventory bytes differ from completed development",
+        )
+        manifest = load_reset_manifest(
+            directory / "reset_manifest.json", BenchmarkConfig.preset(suite)
+        )
+        require(
+            manifest["seed"] == 29
+            and manifest["split"] == "followup_adaptation"
+            and manifest["reset_procedure"]
+            == "seeded_reset_stream_captured_before_stabilization"
+            and manifest["benchmark"]["reset_source"] == "seeded_reset_stream"
+            and manifest["cases"] == protocol["evaluation_cases"],
+            "Evaluation reset source/seed/cases changed",
+        )
+        require(
+            all(
+                row["initially_successful"] is False
+                and row["prescribed_state_asset_sha256"] is None
+                for row in manifest["episodes"]
+            ),
+            "Unexpected initially successful or prescribed-state evaluation reset",
+        )
+        require(
+            plan["runtime"] == runtime
+            and plan["protocol_sha256"] == digest(protocol)
+            and plan["manifest_sha256"] == manifest["sha256"]
+            and plan["bank_inventory_sha256"] == reference_bank_hash,
+            "Evaluation frozen plan binding failed",
+        )
+        prescribed = [
+            row["episode_id"] for row in manifest["episodes"][worker % 4 :: 4]
+        ]
+        require(
+            plan["assigned_episodes"] == prescribed,
+            "Worker assignment differs from prescribed full-manifest shard",
+        )
+        assigned_ids.extend(prescribed)
+        signature = {
+            "file_sha256": sources[label + "/reset_manifest.json"],
+            "manifest_sha256": manifest["sha256"],
+        }
+        require(
+            suite not in suite_manifests or suite_manifests[suite] == signature,
+            "Same-suite evaluation manifests disagree",
+        )
+        suite_manifests[suite] = signature
+        for entry in manifest["episodes"]:
+            evaluation_entries[(suite, entry["task_id"], entry["initial_state_id"])] = (
+                entry
+            )
+        changed = sorted(
+            key
+            for key in set(runtime) | set(reference_runtime)
+            if runtime.get(key) != reference_runtime.get(key)
+        )
+        require(
+            set(changed) <= RUNTIME_VARIABLES, "Unexpected evaluation runtime change"
+        )
+        workers.append(
+            {
+                "worker": worker,
+                "workflow": runtime["workflow"],
+                "assignment": assignment,
+                "assigned_episodes": prescribed,
+                "metadata_sha256": {
+                    name: sources[label + "/" + name] for name in NAMES
+                },
+                "reset_manifest_sha256": manifest["sha256"],
+                "runtime_changed_keys_versus_development_worker_0": changed,
+                "checkpoint_bytes_equal": True,
+                "bank_inventory_bytes_equal": True,
+                "packages_hardware_numerical_settings_and_payload_equal": True,
+            }
+        )
+    require(
+        len(assigned_ids) == len(set(assigned_ids)), "Duplicate evaluation assignment"
+    )
+    expected_ids = {
+        f"{suite}:seed29:task{task}:state0"
+        for suite in protocol["evaluation_suites"]
+        for task in range(10)
+    }
+    require(
+        set(assigned_ids) <= expected_ids, "Unexpected evaluation episode assignment"
+    )
+    comparisons = []
+    for dev in development:
+        old = dev["entry"]
+        key = old["suite"], old["task_id"], old["initial_state_id"]
+        if key in evaluation_entries:
+            comparisons.append(compare_reset(old, evaluation_entries[key]))
+    complete = not missing
+    if complete:
+        require(
+            set(assigned_ids) == expected_ids and len(comparisons) == 3,
+            "Incomplete final evaluation coverage/reset comparison",
+        )
+    for label, path in physical_paths.items():
+        require(
+            file_sha256(path) == sources[label], "Immutable input changed during audit"
+        )
+    source_root = Path(__file__).resolve()
+    while (
+        not (source_root / "astra_reversal").is_dir()
+        and source_root != source_root.parent
+    ):
+        source_root = source_root.parent
+    implementation = source_root / "astra_reversal"
+    return {
+        "schema_version": "phase-evaluation-input-compatibility-1.0",
+        "status": "passed" if complete else "incomplete",
+        "complete": complete,
+        "available_metadata_checks_passed": True,
+        "scope": "Immutable input compatibility and prescribed assignment/reset provenance only. Not a completed evaluation, model replay, simulator replay or task-outcome audit.",
+        "source_identity": identity,
+        "development_seed": 19,
+        "evaluation_seed": 29,
+        "protocol_changed_keys": ["seed"],
+        "checkpoint_sha256": reference_checkpoint_hash,
+        "bank_inventory_sha256": reference_bank_hash,
+        "runtime_invariants": {
+            key: value
+            for key, value in reference_runtime.items()
+            if key not in RUNTIME_VARIABLES
+        },
+        "development_reference": [
+            {
+                key: row[key]
+                for key in ("worker", "array_audit_sha256", "archive_sha256")
+            }
+            | {
+                "workflow": row["runtime"]["workflow"],
+                "episode_id": row["entry"]["episode_id"],
+            }
+            for row in development
+        ],
+        "expected_workers": 8,
+        "available_workers": len(workers),
+        "missing_workers": missing,
+        "expected_episode_count": 20,
+        "assigned_episode_count": len(assigned_ids),
+        "assigned_episode_ids": sorted(assigned_ids),
+        "suite_manifests": suite_manifests,
+        "workers": workers,
+        "overlapping_development_reset_comparisons": comparisons,
+        "input_file_sha256": sources,
+        "checker_source_sha256": file_sha256(__file__),
+        "dependency_source_sha256": {
+            name: file_sha256(implementation / name)
+            for name in (
+                "config.py",
+                "interpolation_report.py",
+                "interpolation_search.py",
+                "interpolation_catalog.py",
+                "intervention_rollout.py",
+                "libero_runner.py",
+                "records.py",
+                "configs/phase_interpolation_v1.json",
+            )
+        },
+        "limitations": [
+            "Saved pre-stabilization dynamic state and model-pose arrays are hash-validated and compared numerically. No independent simulator replay or post-stabilization image comparison is performed here.",
+            "Package versions are compared as recorded by workers; this receipt does not independently inspect installed binaries.",
+            "Distinct task IDs may share a reset tensor when their underlying scene is shared; uniqueness is required for episode assignments, not every cross-task state hash.",
+            "Known task compositions and the fixed donor library remain the same. A new reset seed is not evidence of unseen task compositions or zero-shot generalization.",
+        ],
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--deps-root", type=Path, required=True)
+    parser.add_argument("--development-reports", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    require(not args.output.exists(), "Refusing to overwrite a receipt")
+    result = check(args.deps_root, args.development_reports)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(
+        json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    )
+    print(
+        json.dumps(
+            {
+                "status": result["status"],
+                "available_workers": result["available_workers"],
+                "assigned_episode_count": result["assigned_episode_count"],
+                "reset_comparisons": len(
+                    result["overlapping_development_reset_comparisons"]
+                ),
+                "receipt_sha256": file_sha256(args.output),
+            },
+            sort_keys=True,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()
