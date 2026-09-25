@@ -34,8 +34,51 @@ sys.path.insert(0, str(_EGOVERSE))
 sys.path.insert(0, str(_SEW))
 
 VARIANTS = ["V0", "A1", "A2", "A3", "A4", "A5", "B2", "C3", "C4", "D1", "D3",
-            "E4", "G1", "G4", "G6", "G7", "H3", "H4", "H5",
-            "J1", "J2", "J3", "J3b", "J4", "J4b", "J5"]
+            "E4", "G1", "G2", "G3", "G4", "G6", "G7", "G8", "H3", "H4", "H5",
+            "I2", "I3", "J1", "J2", "J3", "J3b", "J4", "J4b", "J5",
+            "S1", "S2", "S3", "S4"]
+
+# 2026-09-25 handoff held-out VAL data: one npz per obs-variant (same episode
+# -> same GT), keys already in serving-obs names. Data variants use their own
+# file; S2/S4 trained on the 512-pt set; everything else = v2_default.
+HANDOFF_DATA_VARIANTS = {"A1", "A2", "A3", "A4", "A5", "B2", "C3", "C4", "D1", "D3", "E4"}
+def handoff_npz_for(variant: str) -> str:
+    if variant in HANDOFF_DATA_VARIANTS:
+        return f"{variant}.npz"
+    if variant in ("S2", "S4"):
+        return "D3.npz"
+    return "v2_default.npz"
+
+# offline val MAE@32 from the handoff catalog (V0 = 0.1405), for side-by-side
+HANDOFF_OFFLINE_MAE = {
+    "S1": .1292, "H5": .1311, "S4": .1322, "S2": .1336, "S3": .1339, "D3": .1356,
+    "G7": .1359, "G6": .1360, "I3": .1373, "A5": .1388, "G4": .1389,
+    "G2": .1138, "G8": .1182, "G1": .1303, "G3": .1372,
+    "V0": .1405, "I2": .1399, "J1": .1400, "H4": .1400, "D1": .1408, "A3": .1421,
+    "J2": .1423, "C3": .1425, "J3": .1434, "J3b": .1424, "E4": .1435, "J5": .1437,
+    "A1": .1438, "A4": .1442, "H3": .1456, "C4": .1474, "A2": .1499, "B2": .1501,
+    "J4": .1530, "J4b": .1393,
+}
+
+
+def load_handoff_frames(variant: str, testdata_dir: Path, frames):
+    """(obs_dict, gt(64,49)) per requested frame index from the handoff npz."""
+    z = np.load(testdata_dir / handoff_npz_for(variant), allow_pickle=True)
+    T = len(z["gt_actions"])
+    out = []
+    for r in frames:
+        r = min(int(r), T - 65)
+        obs = {
+            "front_pcd_1": np.asarray(z["front_pcd_1"][r], np.float32),
+            "front_pcd_2": np.asarray(z["front_pcd_2"][r], np.float32),
+            "robot0_joint_pos": np.asarray(z["robot0_joint_pos"][r], np.float32).ravel(),
+            "hand_left_qpos": np.asarray(z["hand_left_qpos"][r], np.float32).ravel(),
+            "hand_right_qpos": np.asarray(z["hand_right_qpos"][r], np.float32).ravel(),
+            "eef_pose_glass": np.asarray(z["eef_pose_glass"][r], np.float32).ravel(),
+            "task_id": np.zeros(64, np.float32),
+        }
+        out.append((r, obs, np.asarray(z["gt_actions"][r:r + 64], np.float64)))
+    return out, T
 
 # npz-level transform exactness (live pipeline is exact for ALL via ABL= preset)
 EXACTNESS = {
@@ -184,9 +227,13 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--ckpt-dir", default=str(_EGOVERSE / "checkpoints/abl0921"))
     ap.add_argument("--assets", default=str(_EGOVERSE / "ai_docs/assets_rect_lut"))
-    ap.add_argument("--source", default="basket:0:100",
-                    help="'basket:<ep>:<t>' (slim-set TRAIN frame, default) or "
-                         "'dp3cmix' (pp example npz — OOD for basket ckpts)")
+    ap.add_argument("--source", default="handoff",
+                    help="'handoff' (default: 2026-09-25 held-out VAL npz per variant, "
+                         "band ~0.10-0.16), 'basket:<ep>:<t>' (slim-set TRAIN frame, "
+                         "band 0.008-0.05) or 'dp3cmix' (pp example — OOD for basket)")
+    ap.add_argument("--handoff-frames", default="40,120,200",
+                    help="handoff source: frame indices r to score (avg of first-32 MAE)")
+    ap.add_argument("--testdata", default=str(_EGOVERSE / "checkpoints/abl0921/testdata"))
     ap.add_argument("--variants", nargs="*", default=VARIANTS)
     ap.add_argument("--steps", type=int, default=16, help="num_inference_steps")
     ap.add_argument("--repeats", type=int, default=3)
@@ -221,6 +268,35 @@ def main():
                         "action_horizon": int(pol._action_horizon),
                         "action_dim": int(pol._action_dim),
                         "num_inference_steps": int(args.steps)}
+
+        if args.source == "handoff":
+            frames = [int(x) for x in args.handoff_frames.split(",") if x.strip()]
+            samples, T = load_handoff_frames(v, Path(args.testdata), frames)
+            if v == args.variants[0]:
+                print(f"  data: handoff held-out VAL ({handoff_npz_for(v)}, T={T}), "
+                      f"frames {[r for r, _, _ in samples]}")
+            maes, ok_shape = [], True
+            for r, obs_full, gt in samples:
+                obs = {k: obs_full[k] for k in ("front_pcd_1", "front_pcd_2")}
+                for k in pro_keys:            # spec §2: only what the ckpt asks for
+                    obs[k] = obs_full.get(k, np.zeros(schematic_dim(pol, k) or 1, np.float32))
+                for rep in range(args.repeats):
+                    act = np.asarray(pol.infer(obs)["actions"], np.float64)
+                    act = act[0] if act.ndim == 3 else act
+                    ok_shape &= act.shape == (64, 49)
+                    maes.append(np.abs(act[:32, :49] - gt[:32]).mean())
+            m = float(np.mean(maes))
+            ref = HANDOFF_OFFLINE_MAE.get(v)
+            print(f"  chunk {'(64, 49) OK' if ok_shape else 'SHAPE MISMATCH!'}  "
+                  f"MAE32 = {m:.4f} over {len(maes)} samples"
+                  f"{f'   (handoff offline val MAE {ref:.4f})' if ref else ''}")
+            results.append((v, m, ok_shape))
+            contracts[v]["dryrun_mae32"] = m
+            contracts[v]["handoff_offline_mae32"] = ref
+            del pol, model
+            gc.collect()
+            torch.cuda.empty_cache()
+            continue
 
         g6, l6, jp, extras = build_streams(v, assets, args.source)
         if v == args.variants[0]:
@@ -285,9 +361,13 @@ def main():
     if results:
         med = float(np.median([m for _, m, _ in results]))
         print("\n===== SUMMARY =====")
-        print("  band (calibrated 2026-09-21): basket TRAIN frame ~0.008-0.05 "
-              "for a correctly-configured variant; dp3cmix pp npz ~0.3 (task "
-              "OOD). A variant >2x the median = §3 config mismatch.")
+        if args.source == "handoff":
+            print("  band (handoff, held-out VAL, first-32 MAE): ~0.10-0.16; wildly off "
+                  "= obs-pipeline mismatch. Third column = training side's offline val MAE.")
+        else:
+            print("  band (calibrated 2026-09-21): basket TRAIN frame ~0.008-0.05 "
+                  "for a correctly-configured variant; dp3cmix pp npz ~0.3 (task "
+                  "OOD). A variant >2x the median = §3 config mismatch.")
         for v, m, oks in sorted(results, key=lambda t: t[1]):
             flags = []
             if not oks:
@@ -296,7 +376,9 @@ def main():
                 flags.append("SUSPECT (>2x median — check the §3 config)")
             if v in EXACTNESS and "APPROX" in EXACTNESS[v]:
                 flags.append("approx-input")
-            print(f"  {v:4s}  MAE32 {m:.4f}  {' | '.join(flags)}")
+            ref = HANDOFF_OFFLINE_MAE.get(v)
+            reftxt = f"  offline {ref:.4f}" if (args.source == "handoff" and ref) else ""
+            print(f"  {v:4s}  MAE32 {m:.4f}{reftxt}  {' | '.join(flags)}")
         print(f"  median {med:.4f}")
 
 
