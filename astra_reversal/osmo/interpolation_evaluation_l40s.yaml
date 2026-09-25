@@ -7,7 +7,7 @@ workflow:
       memory: 48Gi
       storage: 60Gi
       platform: ovx-l40s
-      nodesExcluded: [osmogroot-dgxc-k8s-forge-az41-prd1-w-5728]
+      nodesExcluded: [osmogroot-dgxc-k8s-forge-az41-prd1-w-5728, osmogroot-dgxc-k8s-forge-az41-prd1-w-0485]
   timeout:
     queue_timeout: 4h
     exec_timeout: 6h

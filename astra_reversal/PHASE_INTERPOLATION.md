@@ -109,3 +109,12 @@ Bank extraction, native-weight gates and rollouts run on OSMO L40S. Each worker
 checks the hardware, frozen checkpoint inventory, tests, payload hash, donor
 artifact hashes, reset hashes and native sampler parity. Workers use separate
 artifact prefixes; uploaded source snapshots are committed and immutable.
+
+Three offline checks accompany the results. `interpolation_audit.py` checks every
+recorded array, noise construction, numerical gate, reset, decoded action and
+interpolation mask against the frozen inputs. `interpolation_feedback_audit.py`
+binds the actual camera arrays to Astra's image requests, decisions, text holds
+and vision expiry. `interpolation_report.py` requires complete development or
+evaluation coverage and reconciles provider records with success and cost tables.
+These checks verify saved evidence; they do not replay model inference or the
+simulator. Full arrays remain in the worker archives, with hashes in the receipts.
