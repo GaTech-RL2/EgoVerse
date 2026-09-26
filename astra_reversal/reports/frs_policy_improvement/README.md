@@ -8,6 +8,12 @@ enforcement during startup. These are infrastructure interruptions, not measured
 task failures. The [infrastructure record](infrastructure.json) preserves their
 scope and completed preflight checks.
 
+The [HTML method report](index.html) brings together all 20 task names, earlier
+measured results, the detailed approach, two flow diagrams and the exact Astra
+prompts. It is a dated snapshot of the method and queued run; it contains no new
+FRS efficacy estimate. The [publication manifest](method_report_manifest.json)
+binds its source narratives and diagrams to their exact hashes.
+
 All **20 released OOD tasks** have already been tested in earlier studies. The
 [coverage inventory](COVERAGE.md) gives every task and the historical native
 baseline: 86/200 successes across ten resets per task. The separate completed
