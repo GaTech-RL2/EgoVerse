@@ -1,0 +1,68 @@
+{
+  "status": "passed",
+  "workflow": "astra-pi05-image-evaluation-20260925-1",
+  "worker": 0,
+  "phase": "evaluation",
+  "payload_sha256": "d29de49589955c7f22d2fea97674c7b8881ad45886cb8430ba70fce713e0a167",
+  "protocol_sha256": "14d86962d95a95c87a2bd9e6cf8fee2a5fde013852266bddd64fd75ca364b929",
+  "library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+  "archive": {
+    "workflow": "astra-pi05-image-evaluation-20260925-1",
+    "worker": 0,
+    "key": "experiments/astra-reversal-20260924/astra-pi05-image-evaluation-20260925-1/worker_0/artifacts.tar.gz",
+    "sha256": "0701ba9c9ec621f8ec44d43672be1ab18335e7a47b990f29ce1df4ba86840c19",
+    "bytes": 211240298,
+    "download_seconds": 22.152601375011727,
+    "archive_sha256": "0701ba9c9ec621f8ec44d43672be1ab18335e7a47b990f29ce1df4ba86840c19",
+    "extracted_bytes": 441732251,
+    "gzip_crc_verified": true
+  },
+  "counts": {
+    "requests": 11,
+    "physical_provider_calls": 11,
+    "preflight_failures": 0,
+    "accepted_provider_proposals": 11,
+    "raw_snapshot_bindings": 82,
+    "decoded_camera_bindings": 164,
+    "initialization_velocity_evaluations": 3690,
+    "image_gate_velocity_evaluations": 180,
+    "physical_rollouts": 15,
+    "physical_actions": 3130,
+    "generations": 630,
+    "rollout_velocity_evaluations": 6300,
+    "accepted_decisions_executed": 45,
+    "image_active_policy_calls": 178,
+    "image_changed_policy_calls": 178,
+    "actions_with_accepted_decision": 1082,
+    "actions_with_changed_image": 882,
+    "native_condition_fallback_actions": 0,
+    "velocity_evaluations": 10170,
+    "array_files": 6018,
+    "array_references": 6018,
+    "array_bytes": 410921232,
+    "actions": 3130,
+    "provider_calls": 11,
+    "accepted_proposals": 11,
+    "executed_decisions": 45
+  },
+  "cases": [
+    {
+      "episode_id": "libero_goal_ood:seed37:task0:state0",
+      "summary_sha256": "c930d7ccf8f1c978f7badb845492ced2d2ea9c133222f4b2a6eb9ed7c4c44f44",
+      "status": "passed"
+    },
+    {
+      "episode_id": "libero_goal_ood:seed37:task4:state0",
+      "summary_sha256": "103f40bd0c138be3fc7ffb7e1ee64aece7cc86c11be3e88a77b4c37d842cc7a1",
+      "status": "passed"
+    },
+    {
+      "episode_id": "libero_goal_ood:seed37:task8:state0",
+      "summary_sha256": "ada28cb12f351e42e89492ea5571d2364072589babc7734583bb71e02ab13394",
+      "status": "passed"
+    }
+  ],
+  "audit_file": "worker_0.json.gz",
+  "audit_sha256": "7e6eed4ee8b29f196dc593980994a60dce3650bed03cc94e69742a6ea7de3c03",
+  "audit_uncompressed_sha256": "390f70545b21018e55991b29f627fc0df3ae5e277251a24ae51a4a09cf0b579a"
+}

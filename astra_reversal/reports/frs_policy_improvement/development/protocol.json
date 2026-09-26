@@ -1,0 +1,110 @@
+{
+  "action_budget": 300,
+  "adaptation_methods": [
+    "critique_frs_no_learning",
+    "critique_frs_learning"
+  ],
+  "adaptation_state": 0,
+  "astra": {
+    "call_interval": 10,
+    "failure_policy": "fresh_current_native_prediction",
+    "max_calls_per_rollout": 30,
+    "max_completion_tokens": 8192,
+    "max_previous_decisions": 2,
+    "max_rollout_snapshots": 4,
+    "max_rules": 5,
+    "model": "azure/openai/gpt-6-astra",
+    "reasoning_effort": "medium",
+    "retries": 0,
+    "timeout_seconds": 170
+  },
+  "development_cases": {
+    "libero_goal_ood": [
+      6
+    ],
+    "libero_spatial_ood": [
+      2,
+      8
+    ]
+  },
+  "development_seed": 19,
+  "evaluation_methods": [
+    "native_euler10",
+    "native_repeated_noise",
+    "astra_direction_direct",
+    "astra_frs",
+    "critique_frs_no_learning",
+    "learned_noise"
+  ],
+  "evaluation_states": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "execute_steps": 10,
+  "learning": {
+    "actor": "paired_84px_CNN_proprio8_MLP_128_128_128",
+    "base_policy_frozen": true,
+    "batch_size": 128,
+    "evaluate_after_each_round": true,
+    "learning_rate": 0.0001,
+    "loss": "raw_target_MSE_plus_0.001_mean_square_regularization",
+    "noise_mean_bound": 5.0,
+    "optimizer": "Adam",
+    "replay": "all_Astra_accepted_same_task_training_rollouts",
+    "steps_per_accepted_round": 1000,
+    "target": "executed_repeated_7D_control_noise",
+    "untrained_policy": "exact_repeated_noise_baseline"
+  },
+  "loop": {
+    "average_control_noise_before_execution": true,
+    "base_control_noise": "independent_7D_Gaussian_repeated_across_chunk",
+    "critique_source": "latest_completed_same_arm_rollout",
+    "edit_steps_max": 10,
+    "edit_translation_bound": 0.5,
+    "fixed_round_count_even_after_simulator_success": true,
+    "judge_incumbent": "best_previously_judged_same_arm_rollout",
+    "judge_receives_simulator_success": false,
+    "promotion": "Astra_verdict_better_only",
+    "replace_padding_noise": true,
+    "test_feedback": false
+  },
+  "paper_frs": {
+    "average_control_noise": false,
+    "less_scale": 0.5,
+    "more_scale": 1.0,
+    "policy_images": "raw_external_and_wrist",
+    "reference": "unit_normalized_direction_in_normalized_translation_space",
+    "reference_padding": 0.0,
+    "replace_padding_noise": true,
+    "unnormalized_rotation_and_gripper": 0.0,
+    "vlm_camera": "external_with_calibrated_gripper_plumb_line"
+  },
+  "rounds": 3,
+  "schema_version": "frs-policy-improvement-1.0",
+  "scope": {
+    "checkpoint_training_overlap": "unknown",
+    "paper_comparison": "method_adaptation_with_Astra_not_identical_paper_replication",
+    "reset_separation": "adaptation_index0_evaluation_indexes1_to10",
+    "rl_efficiency_claim": "not_tested_without_a_matched_RL_baseline",
+    "task_overlap": "known_20_published_compositions"
+  },
+  "seed": 19,
+  "solver": {
+    "solver": "euler",
+    "steps": 10,
+    "time_power": 1.0
+  },
+  "suites": [
+    "libero_goal_ood",
+    "libero_spatial_ood"
+  ],
+  "tasks_per_suite": 10
+}

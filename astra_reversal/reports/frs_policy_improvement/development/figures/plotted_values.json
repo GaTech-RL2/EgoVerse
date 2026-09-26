@@ -1,0 +1,427 @@
+{
+  "cohorts": {
+    "adaptation": {
+      "curve_kind": "best_of_attempts",
+      "episodes": 3,
+      "expected_episode_ids": [
+        "libero_goal_ood:seed19:task6:state0",
+        "libero_spatial_ood:seed19:task2:state0",
+        "libero_spatial_ood:seed19:task8:state0"
+      ],
+      "label": "Same-reset adaptation: cumulative simulator success",
+      "methods": {
+        "critique_frs_learning": {
+          "label": "Critique and FRS with auxiliary learning",
+          "points": [
+            {
+              "episodes": 3,
+              "label": "Shared baseline",
+              "round": 0,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            },
+            {
+              "episodes": 3,
+              "label": "Up to revision 1",
+              "round": 1,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            },
+            {
+              "episodes": 3,
+              "label": "Up to revision 2",
+              "round": 2,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            },
+            {
+              "episodes": 3,
+              "label": "Up to revision 3",
+              "round": 3,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            }
+          ],
+          "rescue": {
+            "baseline_failed": 3,
+            "censored": 3,
+            "median_first_success_among_successes": null,
+            "median_revision_among_rescues": null,
+            "median_tokens_among_rescues_with_complete_usage": null,
+            "rescued": 0,
+            "rescues_missing_usage": 0
+          }
+        },
+        "critique_frs_no_learning": {
+          "label": "Critique and FRS, no learning",
+          "points": [
+            {
+              "episodes": 3,
+              "label": "Shared baseline",
+              "round": 0,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            },
+            {
+              "episodes": 3,
+              "label": "Up to revision 1",
+              "round": 1,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            },
+            {
+              "episodes": 3,
+              "label": "Up to revision 2",
+              "round": 2,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            },
+            {
+              "episodes": 3,
+              "label": "Up to revision 3",
+              "round": 3,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            }
+          ],
+          "rescue": {
+            "baseline_failed": 3,
+            "censored": 3,
+            "median_first_success_among_successes": null,
+            "median_revision_among_rescues": null,
+            "median_tokens_among_rescues_with_complete_usage": null,
+            "rescued": 0,
+            "rescues_missing_usage": 0
+          }
+        }
+      }
+    },
+    "evaluation": {
+      "curve_kind": "checkpoint_evaluation",
+      "episodes": 3,
+      "expected_episode_ids": [
+        "libero_goal_ood:seed19:task6:state1",
+        "libero_spatial_ood:seed19:task2:state1",
+        "libero_spatial_ood:seed19:task8:state1"
+      ],
+      "label": "Separate-reset policy evaluation (development only)",
+      "methods": {
+        "astra_direction_direct": {
+          "label": "Astra direction, direct execution",
+          "points": [
+            {
+              "episodes": 3,
+              "label": "Checkpoint after round 3",
+              "round": 3,
+              "success_percent": 66.66666666666667,
+              "successes": 2,
+              "unsuccessful_episodes": 1
+            }
+          ],
+          "rescue": null
+        },
+        "astra_frs": {
+          "label": "Astra flow reversal steering",
+          "points": [
+            {
+              "episodes": 3,
+              "label": "Checkpoint after round 3",
+              "round": 3,
+              "success_percent": 66.66666666666667,
+              "successes": 2,
+              "unsuccessful_episodes": 1
+            }
+          ],
+          "rescue": null
+        },
+        "critique_frs_no_learning": {
+          "label": "Critique and FRS, no learning",
+          "points": [
+            {
+              "episodes": 3,
+              "label": "Checkpoint after round 3",
+              "round": 3,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            }
+          ],
+          "rescue": null
+        },
+        "learned_noise": {
+          "label": "Learned auxiliary noise policy",
+          "points": [
+            {
+              "episodes": 3,
+              "label": "Checkpoint after round 1",
+              "round": 1,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            },
+            {
+              "episodes": 3,
+              "label": "Checkpoint after round 2",
+              "round": 2,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            },
+            {
+              "episodes": 3,
+              "label": "Checkpoint after round 3",
+              "round": 3,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            }
+          ],
+          "rescue": null
+        },
+        "native_euler10": {
+          "label": "Native Euler 10",
+          "points": [
+            {
+              "episodes": 3,
+              "label": "Checkpoint after round 3",
+              "round": 3,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            }
+          ],
+          "rescue": null
+        },
+        "native_repeated_noise": {
+          "label": "Native repeated noise",
+          "points": [
+            {
+              "episodes": 3,
+              "label": "Checkpoint after round 3",
+              "round": 3,
+              "success_percent": 0.0,
+              "successes": 0,
+              "unsuccessful_episodes": 3
+            }
+          ],
+          "rescue": null
+        }
+      }
+    }
+  },
+  "conventions": [
+    "Adaptation is cumulative success by revision on the same reset; all three revisions still execute.",
+    "Checkpoint outcomes are independent recorded evaluations, not accumulated best-of-attempts success.",
+    "Static controls appear only at their recorded final round. No interpolated or duplicated earlier result is drawn.",
+    "Censor counts refer to adaptation searches with no credited success through the cap. Checkpoint failures are not time-to-success samples.",
+    "Provider bars partition all unique physical calls by prompt role, including rejected calls and capped failures. No shared-baseline or historical cost is added twice.",
+    "Credited success excludes initially successful and zero-action recordings without removing their prescribed resets from the denominator.",
+    "Input and output are shown separately; reasoning is a subset of output. Missing usage makes known sums lower bounds. No dollar cost is inferred.",
+    "All compositions are known tasks; separate resets are not held-out tasks. Development is not evaluation evidence."
+  ],
+  "initial_success_physical_runs": 0,
+  "phase": "development",
+  "physical_cost": {
+    "actions": 12766,
+    "provider_usage": {
+      "accepted_calls": 771,
+      "calls": 775,
+      "failed_calls": 4,
+      "preflight_failures": 0,
+      "tokens": {
+        "input_tokens": {
+          "missing_calls": 3,
+          "sum": 3060656
+        },
+        "output_tokens": {
+          "missing_calls": 3,
+          "sum": 169048
+        },
+        "reasoning_tokens": {
+          "missing_calls": 3,
+          "sum": 23128
+        },
+        "total_tokens": {
+          "missing_calls": 3,
+          "sum": 3229704
+        }
+      }
+    },
+    "summed_wall_seconds": 7311.401358700939,
+    "training_steps": 0,
+    "unique_rollouts": 45,
+    "velocity_evaluations": 14720
+  },
+  "postprocessor_sources": {
+    "frs_html_report.py": "12d40133f4cb17267cef3ed18fd35ca26e8658036d3ea63a0f876e60f30ff23b",
+    "frs_plots.py": "a414a1f15f64b69a16c5f2ab743dacaa9c1150f0bc9feb9ed7c3579be05d3cca",
+    "frs_report.py": "2feed8467f5dcc4744a6666dc264f186e8bd74cc3badc170d3aac282186ee0fb"
+  },
+  "protocol_sha256": "1c86aedc4b72242e2b8d3f999fe4bc984eb81c3164826558c1084e2c5910da44",
+  "provider_by_role": {
+    "action_edit": {
+      "accepted_calls": 627,
+      "calls": 630,
+      "failed_calls": 3,
+      "preflight_failures": 0,
+      "tokens": {
+        "input_tokens": {
+          "missing_calls": 2,
+          "sum": 2121666
+        },
+        "output_tokens": {
+          "missing_calls": 2,
+          "sum": 126149
+        },
+        "reasoning_tokens": {
+          "missing_calls": 2,
+          "sum": 11951
+        },
+        "total_tokens": {
+          "missing_calls": 2,
+          "sum": 2247815
+        }
+      }
+    },
+    "critique": {
+      "accepted_calls": 18,
+      "calls": 18,
+      "failed_calls": 0,
+      "preflight_failures": 0,
+      "tokens": {
+        "input_tokens": {
+          "missing_calls": 0,
+          "sum": 278274
+        },
+        "output_tokens": {
+          "missing_calls": 0,
+          "sum": 12333
+        },
+        "reasoning_tokens": {
+          "missing_calls": 0,
+          "sum": 1839
+        },
+        "total_tokens": {
+          "missing_calls": 0,
+          "sum": 290607
+        }
+      }
+    },
+    "judge": {
+      "accepted_calls": 18,
+      "calls": 18,
+      "failed_calls": 0,
+      "preflight_failures": 0,
+      "tokens": {
+        "input_tokens": {
+          "missing_calls": 0,
+          "sum": 530462
+        },
+        "output_tokens": {
+          "missing_calls": 0,
+          "sum": 6433
+        },
+        "reasoning_tokens": {
+          "missing_calls": 0,
+          "sum": 585
+        },
+        "total_tokens": {
+          "missing_calls": 0,
+          "sum": 536895
+        }
+      }
+    },
+    "paper_direction": {
+      "accepted_calls": 108,
+      "calls": 109,
+      "failed_calls": 1,
+      "preflight_failures": 0,
+      "tokens": {
+        "input_tokens": {
+          "missing_calls": 1,
+          "sum": 130254
+        },
+        "output_tokens": {
+          "missing_calls": 1,
+          "sum": 24133
+        },
+        "reasoning_tokens": {
+          "missing_calls": 1,
+          "sum": 8753
+        },
+        "total_tokens": {
+          "missing_calls": 1,
+          "sum": 154387
+        }
+      }
+    }
+  },
+  "report_sha256": "7b69978c4cc5653fec9fe780a731e23f88777236562a44df2c38d01ede7c0be6",
+  "schema_version": "frs-scientific-figures-1.0",
+  "seed": 19,
+  "source_tasks": {
+    "libero_goal_ood:6": {
+      "audit_receipt": {
+        "content_sha256": "04d378fa87fcfd18ac2e1f8cef15e2b01dc22f242bec5f14929a5f69222a3b87",
+        "encoding": "json",
+        "sha256": "04d378fa87fcfd18ac2e1f8cef15e2b01dc22f242bec5f14929a5f69222a3b87"
+      },
+      "input_file_sha256": {
+        "completion_receipt.json": "773635ccee9a41c947cca96f063823e68458e0635070a2942bd22a9876ae78f4",
+        "events.jsonl": "fa6bb80e32614cd268a9effb1f96789d458e8cda6492d97bcc86489a8edf320c",
+        "frozen_weights_after.json": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+        "noise_policy_initial/manifest.json": "2803bad3cd37de088129395dbf6e0ccc8cb40c19e56c607086958c3ff573e415",
+        "noise_policy_round1/manifest.json": "2803bad3cd37de088129395dbf6e0ccc8cb40c19e56c607086958c3ff573e415",
+        "noise_policy_round2/manifest.json": "2803bad3cd37de088129395dbf6e0ccc8cb40c19e56c607086958c3ff573e415",
+        "noise_policy_round3/manifest.json": "2803bad3cd37de088129395dbf6e0ccc8cb40c19e56c607086958c3ff573e415",
+        "provider.jsonl": "f13d996887c1a78b7c8bb6b1a0bcc1ac1db84a53b8aea01c716f7fa10ff43db9",
+        "summary.json": "16aac41c8f694dea831f0e64be34e85d515f679d2e9447e621e4e8c7c8bffc21"
+      }
+    },
+    "libero_spatial_ood:2": {
+      "audit_receipt": {
+        "content_sha256": "f7454d99a757587e764add7d914dbc7fa75abc8a68e267c0a8427900dc0aa028",
+        "encoding": "json",
+        "sha256": "f7454d99a757587e764add7d914dbc7fa75abc8a68e267c0a8427900dc0aa028"
+      },
+      "input_file_sha256": {
+        "completion_receipt.json": "542b8dc66c317002ae3e4bb69d53556713b8f6a71d2ee0b7e3422dbffbb043cd",
+        "events.jsonl": "5dde7c5f9342afdb1accc6d192b8e8862a1754555b65cbeb37f46c2589ea7219",
+        "frozen_weights_after.json": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+        "noise_policy_initial/manifest.json": "4a9b737673a1518962b31bc4ee23d869afd276fee3f4533f23266e84763c9e15",
+        "noise_policy_round1/manifest.json": "4a9b737673a1518962b31bc4ee23d869afd276fee3f4533f23266e84763c9e15",
+        "noise_policy_round2/manifest.json": "4a9b737673a1518962b31bc4ee23d869afd276fee3f4533f23266e84763c9e15",
+        "noise_policy_round3/manifest.json": "4a9b737673a1518962b31bc4ee23d869afd276fee3f4533f23266e84763c9e15",
+        "provider.jsonl": "c16e5005bcc09d35ff41769294d6800b6a3601c1f8ace1be26707cc49eb23f52",
+        "summary.json": "a42aa9385b1cf9e12bc61fadad3924af9cb8d160591ef07117c7a3cd9ccd7df8"
+      }
+    },
+    "libero_spatial_ood:8": {
+      "audit_receipt": {
+        "content_sha256": "b1ef42ca22de415f849cb381ac713d59aa844c814851f88ebc8592f33b1bd03b",
+        "encoding": "json",
+        "sha256": "b1ef42ca22de415f849cb381ac713d59aa844c814851f88ebc8592f33b1bd03b"
+      },
+      "input_file_sha256": {
+        "completion_receipt.json": "a28dabea9ecdcb2d543b4b4e740517d49241c42b3a8ee50e59bbd140bc845b77",
+        "events.jsonl": "5678ce1e29311f88278ab96d5511ac4284f82aebed8df035e20da9bc2ed16ad9",
+        "frozen_weights_after.json": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+        "noise_policy_initial/manifest.json": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+        "noise_policy_round1/manifest.json": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+        "noise_policy_round2/manifest.json": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+        "noise_policy_round3/manifest.json": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+        "provider.jsonl": "6fedc0367f1342ba2998eb5779ffcdfd231921c55eb040956d52f6284b409d90",
+        "summary.json": "a8c3c30b33d69b06472dff9bc427574e4309e7a46a2f9074f453a94f0d79901b"
+      }
+    }
+  },
+  "tasks": 3
+}

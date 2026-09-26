@@ -1,0 +1,11 @@
+{
+  "schema_version": "image-report-page-1.0",
+  "source_report_sha256": "bd2ae73794dcdf9c73f9033c8934ab23ce8ea2ab0b878b239d2af8c963adff87",
+  "generator_sha256": "53d56d6b2cfc4ac42366cc160bc1e3a93db4319e23a4f0bdc864c090ac7d40f6",
+  "files": {
+    "index.html": "9be416f3907a7bdbdc4cc38d0cdd964d570604d4903d9700f3ca18b25c2caf58",
+    "README.md": "233aeb31e0782ee1087dd37bd1a490bb1e0dc2bf0bf5acabee213c0e8b1de503",
+    "figures/intervention_loop.svg": "d6e577b87630f78634d2f2bb499129923d1297e958f5758922b91b1ff36b581f",
+    "examples/selected_decisions.json": "d31142608e6696a1862f9189547805e1e5e11ad5ca7daa227a10fa965a3973a1"
+  }
+}

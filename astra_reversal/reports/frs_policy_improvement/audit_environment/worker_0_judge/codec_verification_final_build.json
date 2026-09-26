@@ -1,0 +1,165 @@
+{
+  "schema_version": "frs-judge-codec-verification-1.0",
+  "status": "passed",
+  "scope": "Exact reconstruction of one existing judge request and response from recorded raw arrays; no inference, simulator, or numerical FRS replay.",
+  "request_index": 32,
+  "role": "judge",
+  "request_fingerprint": "e3ac0c0021d09d9f952dbabf34b26de2d431b2f1324c4985f4796c61c96ef3b0",
+  "http_payload_sha256": "5a2b4f77a3c2bd7f5f6e756513c0a8cd1b7a8f9d228fc15eb3dc14362cd7ed68",
+  "system_prompt_sha256": "4204ef869649f0118b9faeb80ce19d32fd7d17db9fad6f7247e394fcffaba216",
+  "strict_provider_binding_passed": true,
+  "actual_model": "azure/openai/gpt-6-astra",
+  "input_sides": {
+    "incumbent": [
+      "attempt_id",
+      "executed_actions",
+      "snapshots"
+    ],
+    "candidate": [
+      "attempt_id",
+      "executed_actions",
+      "snapshots"
+    ]
+  },
+  "simulator_outcome_fields_supplied": false,
+  "image_hashes": [
+    {
+      "side": "incumbent",
+      "step": 0,
+      "camera": "observation/image",
+      "png_sha256": "d072b8bb76131ee5fbf5f48518757997f7e7cd3376299c6200c275175a4e6fbf",
+      "png_bytes": 47958
+    },
+    {
+      "side": "incumbent",
+      "step": 0,
+      "camera": "observation/wrist_image",
+      "png_sha256": "69c083d911ee79716aa3eba43ce7208e015f6dec4d198768f39fb7096c6508b5",
+      "png_bytes": 41826
+    },
+    {
+      "side": "incumbent",
+      "step": 100,
+      "camera": "observation/image",
+      "png_sha256": "548940306a69c3cbb31629df87fc14abdd04fbda7778b687439186a916eb5f47",
+      "png_bytes": 47735
+    },
+    {
+      "side": "incumbent",
+      "step": 100,
+      "camera": "observation/wrist_image",
+      "png_sha256": "0782e363d28a74962152b1f6630f00191f07d8c39a59767ce218aa19803b4100",
+      "png_bytes": 36945
+    },
+    {
+      "side": "incumbent",
+      "step": 200,
+      "camera": "observation/image",
+      "png_sha256": "12bf780d916c750e22c79f50c9ed93c46e0c6b5735e5c4d9134578134fd6422b",
+      "png_bytes": 48756
+    },
+    {
+      "side": "incumbent",
+      "step": 200,
+      "camera": "observation/wrist_image",
+      "png_sha256": "71ca8448c3923b6d7053a4be27c67eb77681b176f3aee2c69f426fe601da9580",
+      "png_bytes": 23259
+    },
+    {
+      "side": "incumbent",
+      "step": 300,
+      "camera": "observation/image",
+      "png_sha256": "da487b8d257930d55bc206725b47d02265961e1f0dfce7ae90f570a3f7ad1ff6",
+      "png_bytes": 48382
+    },
+    {
+      "side": "incumbent",
+      "step": 300,
+      "camera": "observation/wrist_image",
+      "png_sha256": "50c3a247f6a54d811e85d7ab92e330aa884f93811d65d579eeec6b06edf2a200",
+      "png_bytes": 36458
+    },
+    {
+      "side": "candidate",
+      "step": 0,
+      "camera": "observation/image",
+      "png_sha256": "d072b8bb76131ee5fbf5f48518757997f7e7cd3376299c6200c275175a4e6fbf",
+      "png_bytes": 47958
+    },
+    {
+      "side": "candidate",
+      "step": 0,
+      "camera": "observation/wrist_image",
+      "png_sha256": "69c083d911ee79716aa3eba43ce7208e015f6dec4d198768f39fb7096c6508b5",
+      "png_bytes": 41826
+    },
+    {
+      "side": "candidate",
+      "step": 100,
+      "camera": "observation/image",
+      "png_sha256": "a00f940943e543cd411ad6e6ea1f1e6a365601f226f81bf82a9e6d4485c97d48",
+      "png_bytes": 47624
+    },
+    {
+      "side": "candidate",
+      "step": 100,
+      "camera": "observation/wrist_image",
+      "png_sha256": "1bd1d26160a781594822742882e0b70617c638a382820401a35b7d4414ac4e14",
+      "png_bytes": 36435
+    },
+    {
+      "side": "candidate",
+      "step": 200,
+      "camera": "observation/image",
+      "png_sha256": "c7087612b0907e964f452f3a57289f966223fec82c1112a91cf2b969accf8c86",
+      "png_bytes": 49510
+    },
+    {
+      "side": "candidate",
+      "step": 200,
+      "camera": "observation/wrist_image",
+      "png_sha256": "855c47c818fca5bd0dc027c67d5503ddf981f098023d3f3bda6f617acde07b48",
+      "png_bytes": 35329
+    },
+    {
+      "side": "candidate",
+      "step": 300,
+      "camera": "observation/image",
+      "png_sha256": "30f9c929246082c9e2fe26ba6cd622c3eb17414c88bb9370ab40630381e1696d",
+      "png_bytes": 50194
+    },
+    {
+      "side": "candidate",
+      "step": 300,
+      "camera": "observation/wrist_image",
+      "png_sha256": "7bc42efe552223ab79752525be2fff442790839f808f324a02921dfb81d499c1",
+      "png_bytes": 26647
+    }
+  ],
+  "arrays_verified": 26,
+  "runtime_or_auditor_modified": false,
+  "input_sha256": {
+    "retrieval_receipt.json": "aa97118b462f078e3ed7c8f398d6d4a102876be4eba1e6a6ce6c1b6e3267565a",
+    "events_prefix.jsonl": "01f34be1ac89cf3eca355ca0c33dbf19660208e8f12ebbcde503f2f032cbd8dc",
+    "provider_prefix.jsonl": "be07c0f9fc5d79a13c608441e35dbd5baee363813c333a6c478ec057363fe85a"
+  },
+  "baseline_codec_receipt_sha256": "0f37d81739f345b57d13b0e3b9b87bb28f671f02ea1c53c640ccf6e32dab2fac",
+  "source_sha256": {
+    "frs_agent.py": "c81cbe2509cd77334aee054809957d7c76aa0ff8166f804583fe7bf6619eb2b4",
+    "frs_audit.py": "30d32a1ea0b0c097341789913cb51ed62e982bd05a677549e8fbf7ede3319988",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "versions": {
+    "python": "3.11.14",
+    "numpy": "1.26.4",
+    "pillow": "12.3.0",
+    "pillow_zlib": "1.3",
+    "stdlib_zlib_build": "1.2.12",
+    "stdlib_zlib_runtime": "1.2.12"
+  },
+  "verification_helper_sha256": "6ac828dce3ebfa7a0415c1ab8308ec0d18dcc1ebfee0e572f1f79c8209ca3678",
+  "loaded_codec_artifact_sha256": {
+    "pillow_core": "6f5cdb9df13f8fb9ea34dc46db1bfe6b0a918580fb4ccdb3a5d9884e7ea89467",
+    "numpy_core": "6a88945aed63a76e3c57076d657d704eef5d0d1e8d6cb1576724b1deb2872e44"
+  }
+}

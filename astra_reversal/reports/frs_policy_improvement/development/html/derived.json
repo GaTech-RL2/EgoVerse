@@ -1,0 +1,527 @@
+{
+  "cohorts": {
+    "adaptation": {
+      "critique_frs_learning": {
+        "per_task": {
+          "libero_goal_ood:6": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:2": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:8": {
+            "episodes": 1,
+            "successes": 0
+          }
+        },
+        "points": [
+          {
+            "episodes": 3,
+            "label": "Shared baseline",
+            "round": 0,
+            "successes": 0
+          },
+          {
+            "episodes": 3,
+            "label": "Up to revision 1",
+            "round": 1,
+            "successes": 0
+          },
+          {
+            "episodes": 3,
+            "label": "Up to revision 2",
+            "round": 2,
+            "successes": 0
+          },
+          {
+            "episodes": 3,
+            "label": "Up to revision 3",
+            "round": 3,
+            "successes": 0
+          }
+        ],
+        "provider_usage": {
+          "accepted_calls": 288,
+          "calls": 288,
+          "failed_calls": 0,
+          "preflight_failures": 0,
+          "tokens": {
+            "input_tokens": {
+              "missing_calls": 0,
+              "sum": 1323848
+            },
+            "output_tokens": {
+              "missing_calls": 0,
+              "sum": 63751
+            },
+            "reasoning_tokens": {
+              "missing_calls": 0,
+              "sum": 6538
+            },
+            "total_tokens": {
+              "missing_calls": 0,
+              "sum": 1387599
+            }
+          }
+        },
+        "rescue": {
+          "baseline_failed": 3,
+          "censored": 3,
+          "median_first_success_among_successes": null,
+          "median_revision_among_rescues": null,
+          "median_tokens_among_rescues_with_complete_usage": null,
+          "rescued": 0,
+          "rescues_missing_usage": 0
+        },
+        "standalone_actions": 3600,
+        "standalone_unique_rollouts": 12
+      },
+      "critique_frs_no_learning": {
+        "per_task": {
+          "libero_goal_ood:6": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:2": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:8": {
+            "episodes": 1,
+            "successes": 0
+          }
+        },
+        "points": [
+          {
+            "episodes": 3,
+            "label": "Shared baseline",
+            "round": 0,
+            "successes": 0
+          },
+          {
+            "episodes": 3,
+            "label": "Up to revision 1",
+            "round": 1,
+            "successes": 0
+          },
+          {
+            "episodes": 3,
+            "label": "Up to revision 2",
+            "round": 2,
+            "successes": 0
+          },
+          {
+            "episodes": 3,
+            "label": "Up to revision 3",
+            "round": 3,
+            "successes": 0
+          }
+        ],
+        "provider_usage": {
+          "accepted_calls": 285,
+          "calls": 288,
+          "failed_calls": 3,
+          "preflight_failures": 0,
+          "tokens": {
+            "input_tokens": {
+              "missing_calls": 2,
+              "sum": 1316099
+            },
+            "output_tokens": {
+              "missing_calls": 2,
+              "sum": 64820
+            },
+            "reasoning_tokens": {
+              "missing_calls": 2,
+              "sum": 7812
+            },
+            "total_tokens": {
+              "missing_calls": 2,
+              "sum": 1380919
+            }
+          }
+        },
+        "rescue": {
+          "baseline_failed": 3,
+          "censored": 3,
+          "median_first_success_among_successes": null,
+          "median_revision_among_rescues": null,
+          "median_tokens_among_rescues_with_complete_usage": null,
+          "rescued": 0,
+          "rescues_missing_usage": 0
+        },
+        "standalone_actions": 3600,
+        "standalone_unique_rollouts": 12
+      }
+    },
+    "evaluation": {
+      "astra_direction_direct": {
+        "per_task": {
+          "libero_goal_ood:6": {
+            "episodes": 1,
+            "successes": 1
+          },
+          "libero_spatial_ood:2": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:8": {
+            "episodes": 1,
+            "successes": 1
+          }
+        },
+        "points": [
+          {
+            "episodes": 3,
+            "label": "Checkpoint after round 3",
+            "round": 3,
+            "successes": 2
+          }
+        ],
+        "provider_usage": {
+          "accepted_calls": 61,
+          "calls": 62,
+          "failed_calls": 1,
+          "preflight_failures": 0,
+          "tokens": {
+            "input_tokens": {
+              "missing_calls": 1,
+              "sum": 73568
+            },
+            "output_tokens": {
+              "missing_calls": 1,
+              "sum": 14112
+            },
+            "reasoning_tokens": {
+              "missing_calls": 1,
+              "sum": 5521
+            },
+            "total_tokens": {
+              "missing_calls": 1,
+              "sum": 87680
+            }
+          }
+        },
+        "rescue": null,
+        "standalone_actions": 605,
+        "standalone_unique_rollouts": 3
+      },
+      "astra_frs": {
+        "per_task": {
+          "libero_goal_ood:6": {
+            "episodes": 1,
+            "successes": 1
+          },
+          "libero_spatial_ood:2": {
+            "episodes": 1,
+            "successes": 1
+          },
+          "libero_spatial_ood:8": {
+            "episodes": 1,
+            "successes": 0
+          }
+        },
+        "points": [
+          {
+            "episodes": 3,
+            "label": "Checkpoint after round 3",
+            "round": 3,
+            "successes": 2
+          }
+        ],
+        "provider_usage": {
+          "accepted_calls": 47,
+          "calls": 47,
+          "failed_calls": 0,
+          "preflight_failures": 0,
+          "tokens": {
+            "input_tokens": {
+              "missing_calls": 0,
+              "sum": 56686
+            },
+            "output_tokens": {
+              "missing_calls": 0,
+              "sum": 10021
+            },
+            "reasoning_tokens": {
+              "missing_calls": 0,
+              "sum": 3232
+            },
+            "total_tokens": {
+              "missing_calls": 0,
+              "sum": 66707
+            }
+          }
+        },
+        "rescue": null,
+        "standalone_actions": 461,
+        "standalone_unique_rollouts": 3
+      },
+      "critique_frs_no_learning": {
+        "per_task": {
+          "libero_goal_ood:6": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:2": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:8": {
+            "episodes": 1,
+            "successes": 0
+          }
+        },
+        "points": [
+          {
+            "episodes": 3,
+            "label": "Checkpoint after round 3",
+            "round": 3,
+            "successes": 0
+          }
+        ],
+        "provider_usage": {
+          "accepted_calls": 90,
+          "calls": 90,
+          "failed_calls": 0,
+          "preflight_failures": 0,
+          "tokens": {
+            "input_tokens": {
+              "missing_calls": 0,
+              "sum": 290455
+            },
+            "output_tokens": {
+              "missing_calls": 0,
+              "sum": 16344
+            },
+            "reasoning_tokens": {
+              "missing_calls": 0,
+              "sum": 25
+            },
+            "total_tokens": {
+              "missing_calls": 0,
+              "sum": 306799
+            }
+          }
+        },
+        "rescue": null,
+        "standalone_actions": 900,
+        "standalone_unique_rollouts": 3
+      },
+      "learned_noise": {
+        "per_task": {
+          "libero_goal_ood:6": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:2": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:8": {
+            "episodes": 1,
+            "successes": 0
+          }
+        },
+        "points": [
+          {
+            "episodes": 3,
+            "label": "Checkpoint after round 1",
+            "round": 1,
+            "successes": 0
+          },
+          {
+            "episodes": 3,
+            "label": "Checkpoint after round 2",
+            "round": 2,
+            "successes": 0
+          },
+          {
+            "episodes": 3,
+            "label": "Checkpoint after round 3",
+            "round": 3,
+            "successes": 0
+          }
+        ],
+        "provider_usage": {
+          "accepted_calls": 0,
+          "calls": 0,
+          "failed_calls": 0,
+          "preflight_failures": 0,
+          "tokens": {
+            "input_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "output_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "reasoning_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "total_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            }
+          }
+        },
+        "rescue": null,
+        "standalone_actions": 2700,
+        "standalone_unique_rollouts": 9
+      },
+      "native_euler10": {
+        "per_task": {
+          "libero_goal_ood:6": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:2": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:8": {
+            "episodes": 1,
+            "successes": 0
+          }
+        },
+        "points": [
+          {
+            "episodes": 3,
+            "label": "Checkpoint after round 3",
+            "round": 3,
+            "successes": 0
+          }
+        ],
+        "provider_usage": {
+          "accepted_calls": 0,
+          "calls": 0,
+          "failed_calls": 0,
+          "preflight_failures": 0,
+          "tokens": {
+            "input_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "output_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "reasoning_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "total_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            }
+          }
+        },
+        "rescue": null,
+        "standalone_actions": 900,
+        "standalone_unique_rollouts": 3
+      },
+      "native_repeated_noise": {
+        "per_task": {
+          "libero_goal_ood:6": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:2": {
+            "episodes": 1,
+            "successes": 0
+          },
+          "libero_spatial_ood:8": {
+            "episodes": 1,
+            "successes": 0
+          }
+        },
+        "points": [
+          {
+            "episodes": 3,
+            "label": "Checkpoint after round 3",
+            "round": 3,
+            "successes": 0
+          }
+        ],
+        "provider_usage": {
+          "accepted_calls": 0,
+          "calls": 0,
+          "failed_calls": 0,
+          "preflight_failures": 0,
+          "tokens": {
+            "input_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "output_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "reasoning_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "total_tokens": {
+              "missing_calls": 0,
+              "sum": 0
+            }
+          }
+        },
+        "rescue": null,
+        "standalone_actions": 900,
+        "standalone_unique_rollouts": 3
+      }
+    }
+  },
+  "validation": {
+    "cohorts": [
+      {
+        "cohort_id": "adaptation",
+        "expected_episodes": 3,
+        "recorded_rows": 24,
+        "status": "complete"
+      },
+      {
+        "cohort_id": "evaluation",
+        "expected_episodes": 3,
+        "recorded_rows": 24,
+        "status": "complete"
+      }
+    ],
+    "physical_cost": {
+      "actions": 12766,
+      "provider_usage": {
+        "accepted_calls": 771,
+        "calls": 775,
+        "failed_calls": 4,
+        "preflight_failures": 0,
+        "tokens": {
+          "input_tokens": {
+            "missing_calls": 3,
+            "sum": 3060656
+          },
+          "output_tokens": {
+            "missing_calls": 3,
+            "sum": 169048
+          },
+          "reasoning_tokens": {
+            "missing_calls": 3,
+            "sum": 23128
+          },
+          "total_tokens": {
+            "missing_calls": 3,
+            "sum": 3229704
+          }
+        }
+      },
+      "summed_wall_seconds": 7311.401358700939,
+      "training_steps": 0,
+      "unique_rollouts": 45,
+      "velocity_evaluations": 14720
+    }
+  }
+}

@@ -1,0 +1,593 @@
+{
+  "definitions": {
+    "all_call_tokens": "available input plus output tokens across every physical call, including rejections and censored/development-extra rollouts; reasoning is already included in output",
+    "censored": "no success before the capped search ended; these cases are excluded from rescue-only medians",
+    "monetary_price_assumed": false,
+    "population_confidence_interval": null,
+    "rescue": "baseline failed and this arm subsequently succeeded",
+    "rescue_tokens": "median among rescued cases with complete usage; available subset count is explicit",
+    "revision": "one complete additional rollout after the common baseline; attempt1=baseline, attempt2=one revision, attempt3=two revisions"
+  },
+  "figure_files": {
+    "astra_token_cost.png": {
+      "bytes": 158106,
+      "sha256": "9c1555718c5914393726b6b96cd5d822d051dd7d4dca582044a35202cf0f007f"
+    },
+    "astra_token_cost.svg": {
+      "bytes": 101564,
+      "sha256": "e2c36d0f048118f6a8a4d768ab6d22d1381d2b8d35f28654768c958a987de5c5"
+    },
+    "success_by_revision.png": {
+      "bytes": 158959,
+      "sha256": "b8db9e6c3ca7963197dc4a16a9a652245a7b4b26d9ce1daa670e173aa24d5e9b"
+    },
+    "success_by_revision.svg": {
+      "bytes": 97439,
+      "sha256": "1a929147ba51a3273949ca39fbae0fff587925946ad850fc6a59c36b3411c233"
+    }
+  },
+  "matplotlib_version": "3.11.2",
+  "plotted_values": {
+    "arms": {
+      "astra_demo_blend": {
+        "censored": 8,
+        "rescues": 4,
+        "successes_by_attempt": [
+          8,
+          11,
+          12
+        ]
+      },
+      "astra_occlusion": {
+        "censored": 8,
+        "rescues": 4,
+        "successes_by_attempt": [
+          8,
+          12,
+          12
+        ]
+      },
+      "random_demo_blend": {
+        "censored": 9,
+        "rescues": 3,
+        "successes_by_attempt": [
+          8,
+          10,
+          11
+        ]
+      },
+      "random_noise": {
+        "censored": 10,
+        "rescues": 2,
+        "successes_by_attempt": [
+          8,
+          10,
+          10
+        ]
+      },
+      "random_occlusion": {
+        "censored": 10,
+        "rescues": 2,
+        "successes_by_attempt": [
+          8,
+          10,
+          10
+        ]
+      }
+    },
+    "astra_costs": {
+      "astra_demo_blend": {
+        "all_call_tokens": 5635176,
+        "baseline_successes": 8,
+        "calls": 222,
+        "cases": [
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_goal_ood:seed37:task0:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_goal_ood:seed37:task4:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "rescued",
+            "calls": 5,
+            "calls_through_success_or_cap": 5,
+            "episode_id": "libero_goal_ood:seed37:task8:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 111851,
+            "revisions_to_success": 1,
+            "tokens_to_success": 111851
+          },
+          {
+            "bucket": "rescued",
+            "calls": 4,
+            "calls_through_success_or_cap": 4,
+            "episode_id": "libero_goal_ood:seed37:task1:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 88801,
+            "revisions_to_success": 1,
+            "tokens_to_success": 88801
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_goal_ood:seed37:task5:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 616106,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_goal_ood:seed37:task9:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_goal_ood:seed37:task2:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 617645,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_goal_ood:seed37:task6:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 616796,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_goal_ood:seed37:task3:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 614346,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_goal_ood:seed37:task7:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_spatial_ood:seed37:task0:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_spatial_ood:seed37:task4:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 620101,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_spatial_ood:seed37:task8:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_spatial_ood:seed37:task1:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_spatial_ood:seed37:task5:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 617592,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "rescued",
+            "calls": 5,
+            "calls_through_success_or_cap": 5,
+            "episode_id": "libero_spatial_ood:seed37:task9:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 112295,
+            "revisions_to_success": 1,
+            "tokens_to_success": 112295
+          },
+          {
+            "bucket": "rescued",
+            "calls": 16,
+            "calls_through_success_or_cap": 16,
+            "episode_id": "libero_spatial_ood:seed37:task2:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 387762,
+            "revisions_to_success": 2,
+            "tokens_to_success": 387762
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_spatial_ood:seed37:task6:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 615484,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_spatial_ood:seed37:task3:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_spatial_ood:seed37:task7:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 616397,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          }
+        ],
+        "censored": 8,
+        "missing_usage_calls": 0,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 4,
+            "maximum": 387762,
+            "median": 112073.0,
+            "minimum": 88801
+          },
+          "full_rollout_revisions": {
+            "count": 4,
+            "maximum": 2,
+            "median": 1.0,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 4,
+            "maximum": 16,
+            "median": 5.0,
+            "minimum": 4
+          }
+        },
+        "rescues": 4,
+        "token_partitions": {
+          "baseline_success": 0,
+          "censored": 4934467,
+          "rescued": 700709
+        },
+        "usage_complete": true
+      },
+      "astra_occlusion": {
+        "all_call_tokens": 5441930,
+        "baseline_successes": 8,
+        "calls": 218,
+        "cases": [
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_goal_ood:seed37:task0:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_goal_ood:seed37:task4:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "rescued",
+            "calls": 6,
+            "calls_through_success_or_cap": 6,
+            "episode_id": "libero_goal_ood:seed37:task8:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 134071,
+            "revisions_to_success": 1,
+            "tokens_to_success": 134071
+          },
+          {
+            "bucket": "rescued",
+            "calls": 4,
+            "calls_through_success_or_cap": 4,
+            "episode_id": "libero_goal_ood:seed37:task1:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 87490,
+            "revisions_to_success": 1,
+            "tokens_to_success": 87490
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_goal_ood:seed37:task5:state0",
+            "missing_usage_calls": 1,
+            "recorded_tokens": 581542,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_goal_ood:seed37:task9:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "rescued",
+            "calls": 12,
+            "calls_through_success_or_cap": 12,
+            "episode_id": "libero_goal_ood:seed37:task2:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 283209,
+            "revisions_to_success": 1,
+            "tokens_to_success": 283209
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_goal_ood:seed37:task6:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 611404,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_goal_ood:seed37:task3:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 613900,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_goal_ood:seed37:task7:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_spatial_ood:seed37:task0:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_spatial_ood:seed37:task4:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 605762,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_spatial_ood:seed37:task8:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_spatial_ood:seed37:task1:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_spatial_ood:seed37:task5:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 607827,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_spatial_ood:seed37:task9:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 614941,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "rescued",
+            "calls": 4,
+            "calls_through_success_or_cap": 4,
+            "episode_id": "libero_spatial_ood:seed37:task2:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 87442,
+            "revisions_to_success": 1,
+            "tokens_to_success": 87442
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_spatial_ood:seed37:task6:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 608490,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          },
+          {
+            "bucket": "baseline_success",
+            "calls": 0,
+            "calls_through_success_or_cap": 0,
+            "episode_id": "libero_spatial_ood:seed37:task3:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 0,
+            "revisions_to_success": 0,
+            "tokens_to_success": 0
+          },
+          {
+            "bucket": "censored",
+            "calls": 24,
+            "calls_through_success_or_cap": 24,
+            "episode_id": "libero_spatial_ood:seed37:task7:state0",
+            "missing_usage_calls": 0,
+            "recorded_tokens": 605852,
+            "revisions_to_success": null,
+            "tokens_to_success": null
+          }
+        ],
+        "censored": 8,
+        "missing_usage_calls": 1,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 4,
+            "maximum": 283209,
+            "median": 110780.5,
+            "minimum": 87442
+          },
+          "full_rollout_revisions": {
+            "count": 4,
+            "maximum": 1,
+            "median": 1.0,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 4,
+            "maximum": 12,
+            "median": 5.0,
+            "minimum": 4
+          }
+        },
+        "rescues": 4,
+        "token_partitions": {
+          "baseline_success": 0,
+          "censored": 4849718,
+          "rescued": 592212
+        },
+        "usage_complete": false
+      }
+    },
+    "controls": {
+      "known_noise": 7,
+      "policy_fresh": 6,
+      "recovered_noise": 8
+    },
+    "development": false,
+    "episode_ids": [
+      "libero_goal_ood:seed37:task0:state0",
+      "libero_goal_ood:seed37:task4:state0",
+      "libero_goal_ood:seed37:task8:state0",
+      "libero_goal_ood:seed37:task1:state0",
+      "libero_goal_ood:seed37:task5:state0",
+      "libero_goal_ood:seed37:task9:state0",
+      "libero_goal_ood:seed37:task2:state0",
+      "libero_goal_ood:seed37:task6:state0",
+      "libero_goal_ood:seed37:task3:state0",
+      "libero_goal_ood:seed37:task7:state0",
+      "libero_spatial_ood:seed37:task0:state0",
+      "libero_spatial_ood:seed37:task4:state0",
+      "libero_spatial_ood:seed37:task8:state0",
+      "libero_spatial_ood:seed37:task1:state0",
+      "libero_spatial_ood:seed37:task5:state0",
+      "libero_spatial_ood:seed37:task9:state0",
+      "libero_spatial_ood:seed37:task2:state0",
+      "libero_spatial_ood:seed37:task6:state0",
+      "libero_spatial_ood:seed37:task3:state0",
+      "libero_spatial_ood:seed37:task7:state0"
+    ],
+    "library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+    "n": 20,
+    "protocol_sha256": "14d86962d95a95c87a2bd9e6cf8fee2a5fde013852266bddd64fd75ca364b929",
+    "seed": 37,
+    "suite_counts": {
+      "libero_goal_ood": 10,
+      "libero_spatial_ood": 10
+    }
+  },
+  "plotter_source_sha256": "61b8a2310decc66102ff3a385c21061590031f11da875a84bf004d7ed8976b27",
+  "report_schema_version": "image-perturbation-report-1.0",
+  "report_sha256": "bd2ae73794dcdf9c73f9033c8934ab23ce8ea2ab0b878b239d2af8c963adff87",
+  "schema_version": "image-perturbation-figure-source-1.0"
+}

@@ -1,0 +1,603 @@
+{
+  "arrays": {
+    "array_bytes": 162838968,
+    "array_files": 4900,
+    "array_inventory_sha256": "67834767762ae3bf57faf2f54d6b5c099ce0355366f82ed5e788bd90a6c67a46",
+    "array_references": 4900
+  },
+  "checkpoints": [
+    {
+      "accepted_updates": 0,
+      "manifest_sha256": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+      "parameter_sha256": "8063fb4930d7bdec4eaded6d6f8e9148b3c0d29c6036deba0f14ffb91766ecb0",
+      "promoted": false,
+      "replay_samples": 0,
+      "round_index": 1,
+      "state_file_sha256": "a8b0e036424be4a2eef0d87cd90dddad55cc81707cdd78fece0afbd39f21c36b",
+      "state_id": "b747eae4367bd8630d20cf7878488dbc83bd951d8abc80ed07ba96b43c7361a9"
+    },
+    {
+      "accepted_updates": 0,
+      "manifest_sha256": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+      "parameter_sha256": "8063fb4930d7bdec4eaded6d6f8e9148b3c0d29c6036deba0f14ffb91766ecb0",
+      "promoted": false,
+      "replay_samples": 0,
+      "round_index": 2,
+      "state_file_sha256": "a8b0e036424be4a2eef0d87cd90dddad55cc81707cdd78fece0afbd39f21c36b",
+      "state_id": "b747eae4367bd8630d20cf7878488dbc83bd951d8abc80ed07ba96b43c7361a9"
+    },
+    {
+      "accepted_updates": 0,
+      "manifest_sha256": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+      "parameter_sha256": "8063fb4930d7bdec4eaded6d6f8e9148b3c0d29c6036deba0f14ffb91766ecb0",
+      "promoted": false,
+      "replay_samples": 0,
+      "round_index": 3,
+      "state_file_sha256": "a8b0e036424be4a2eef0d87cd90dddad55cc81707cdd78fece0afbd39f21c36b",
+      "state_id": "b747eae4367bd8630d20cf7878488dbc83bd951d8abc80ed07ba96b43c7361a9"
+    }
+  ],
+  "counts": {
+    "accepted_provider_bindings": 272,
+    "actions": 4402,
+    "auxiliary_inferences": 0,
+    "clipped_actions": 1129,
+    "deferred": 225,
+    "generations": 441,
+    "interventions": 36,
+    "physical_rollouts": 15,
+    "provider_bindings": 273,
+    "rejected": 1,
+    "velocity_evaluations": 4920
+  },
+  "development": true,
+  "events_sha256": "5678ce1e29311f88278ab96d5511ac4284f82aebed8df035e20da9bc2ed16ad9",
+  "initial_checkpoint": {
+    "manifest_sha256": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+    "parameter_sha256": "8063fb4930d7bdec4eaded6d6f8e9148b3c0d29c6036deba0f14ffb91766ecb0",
+    "state_file_sha256": "a8b0e036424be4a2eef0d87cd90dddad55cc81707cdd78fece0afbd39f21c36b",
+    "state_id": "b747eae4367bd8630d20cf7878488dbc83bd951d8abc80ed07ba96b43c7361a9"
+  },
+  "input_file_sha256": {
+    "completion_receipt.json": "a28dabea9ecdcb2d543b4b4e740517d49241c42b3a8ee50e59bbd140bc845b77",
+    "events.jsonl": "5678ce1e29311f88278ab96d5511ac4284f82aebed8df035e20da9bc2ed16ad9",
+    "frozen_weights_after.json": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+    "noise_policy_initial/manifest.json": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+    "noise_policy_initial/state.pt": "a8b0e036424be4a2eef0d87cd90dddad55cc81707cdd78fece0afbd39f21c36b",
+    "noise_policy_round1/manifest.json": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+    "noise_policy_round1/state.pt": "a8b0e036424be4a2eef0d87cd90dddad55cc81707cdd78fece0afbd39f21c36b",
+    "noise_policy_round2/manifest.json": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+    "noise_policy_round2/state.pt": "a8b0e036424be4a2eef0d87cd90dddad55cc81707cdd78fece0afbd39f21c36b",
+    "noise_policy_round3/manifest.json": "6ce051700e3995dce671a0f3befa39c04d682643b30cf78481fe95f050294b52",
+    "noise_policy_round3/state.pt": "a8b0e036424be4a2eef0d87cd90dddad55cc81707cdd78fece0afbd39f21c36b",
+    "provider.jsonl": "6fedc0367f1342ba2998eb5779ffcdfd231921c55eb040956d52f6284b409d90",
+    "summary.json": "a8c3c30b33d69b06472dff9bc427574e4309e7a46a2f9074f453a94f0d79901b"
+  },
+  "known_generating_noise_for_Astra_reference": null,
+  "limitations": [
+    "No pi05/CNN inference, optimization, provider, simulator or GPU work is rerun.",
+    "Full recorded arrays, transforms, random streams, provider payloads, labels and checkpoints are verified. Hidden model computation and physics are not independently reproduced.",
+    "Finite Euler FRS deliberately changes inverse padding and may repeat physical noise; reported action deviation is not known-noise recovery or an exact-roundtrip gate.",
+    "Controller float32 arithmetic permits at most 1e-7 replay drift; stored hashes and seeded noise remain exact.",
+    "Camera projection is replayed from recorded calibration, not a reconstructed MuJoCo scene.",
+    "Training receipts and Adam counters are checked against accepted observed labels; gradients and recorded prediction values are not recomputed."
+  ],
+  "native_parity": {
+    "max_abs": 0.0,
+    "rmse": 0.0
+  },
+  "norm_stats_sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+  "physical_cost": {
+    "accepted_policy_updates": 0,
+    "actions": 4402,
+    "auxiliary_inferences": 0,
+    "auxiliary_request_seconds": 0.3084106994792819,
+    "client_attempts": 273,
+    "optimizer_steps": 0,
+    "provider_calls": 273,
+    "rollout_wall_seconds": 2438.260829490144,
+    "rollouts": 15,
+    "training_seconds": 0,
+    "velocity_evaluations": 4920
+  },
+  "physical_runs": [
+    {
+      "actions": 300,
+      "attempt_id": "native_repeated_noise_state0_round0",
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "evaluation": false,
+      "method": "native_repeated_noise",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state0:native_repeated_noise_state0_round0",
+      "reset_sha256": "7290c3dc46c2bfc9188c4a06d72bcc5f2d2de1d1a7d7fa7b40bae618d99701d5",
+      "round_index": 0,
+      "success": false,
+      "velocity_evaluations": 310
+    },
+    {
+      "actions": 300,
+      "attempt_id": "critique_frs_no_learning_state0_round1",
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "evaluation": false,
+      "method": "critique_frs_no_learning",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state0:critique_frs_no_learning_state0_round1",
+      "reset_sha256": "7290c3dc46c2bfc9188c4a06d72bcc5f2d2de1d1a7d7fa7b40bae618d99701d5",
+      "round_index": 1,
+      "success": false,
+      "velocity_evaluations": 400
+    },
+    {
+      "actions": 300,
+      "attempt_id": "critique_frs_no_learning_state0_round2",
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "evaluation": false,
+      "method": "critique_frs_no_learning",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state0:critique_frs_no_learning_state0_round2",
+      "reset_sha256": "7290c3dc46c2bfc9188c4a06d72bcc5f2d2de1d1a7d7fa7b40bae618d99701d5",
+      "round_index": 2,
+      "success": false,
+      "velocity_evaluations": 340
+    },
+    {
+      "actions": 300,
+      "attempt_id": "critique_frs_no_learning_state0_round3",
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "evaluation": false,
+      "method": "critique_frs_no_learning",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state0:critique_frs_no_learning_state0_round3",
+      "reset_sha256": "7290c3dc46c2bfc9188c4a06d72bcc5f2d2de1d1a7d7fa7b40bae618d99701d5",
+      "round_index": 3,
+      "success": false,
+      "velocity_evaluations": 380
+    },
+    {
+      "actions": 300,
+      "attempt_id": "critique_frs_learning_state0_round1",
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "evaluation": false,
+      "method": "critique_frs_learning",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state0:critique_frs_learning_state0_round1",
+      "reset_sha256": "7290c3dc46c2bfc9188c4a06d72bcc5f2d2de1d1a7d7fa7b40bae618d99701d5",
+      "round_index": 1,
+      "success": false,
+      "velocity_evaluations": 320
+    },
+    {
+      "actions": 300,
+      "attempt_id": "learned_noise_state1_round1",
+      "episode_id": "libero_spatial_ood:seed19:task8:state1",
+      "evaluation": true,
+      "method": "learned_noise",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state1:learned_noise_state1_round1",
+      "reset_sha256": "50643d9b0031ee3d6a707c2ee03f41e259243a45fdafb3cdeeb8cf53daf8c985",
+      "round_index": 1,
+      "success": false,
+      "velocity_evaluations": 300
+    },
+    {
+      "actions": 300,
+      "attempt_id": "critique_frs_learning_state0_round2",
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "evaluation": false,
+      "method": "critique_frs_learning",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state0:critique_frs_learning_state0_round2",
+      "reset_sha256": "7290c3dc46c2bfc9188c4a06d72bcc5f2d2de1d1a7d7fa7b40bae618d99701d5",
+      "round_index": 2,
+      "success": false,
+      "velocity_evaluations": 320
+    },
+    {
+      "actions": 300,
+      "attempt_id": "learned_noise_state1_round2",
+      "episode_id": "libero_spatial_ood:seed19:task8:state1",
+      "evaluation": true,
+      "method": "learned_noise",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state1:learned_noise_state1_round2",
+      "reset_sha256": "50643d9b0031ee3d6a707c2ee03f41e259243a45fdafb3cdeeb8cf53daf8c985",
+      "round_index": 2,
+      "success": false,
+      "velocity_evaluations": 300
+    },
+    {
+      "actions": 300,
+      "attempt_id": "critique_frs_learning_state0_round3",
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "evaluation": false,
+      "method": "critique_frs_learning",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state0:critique_frs_learning_state0_round3",
+      "reset_sha256": "7290c3dc46c2bfc9188c4a06d72bcc5f2d2de1d1a7d7fa7b40bae618d99701d5",
+      "round_index": 3,
+      "success": false,
+      "velocity_evaluations": 320
+    },
+    {
+      "actions": 300,
+      "attempt_id": "learned_noise_state1_round3",
+      "episode_id": "libero_spatial_ood:seed19:task8:state1",
+      "evaluation": true,
+      "method": "learned_noise",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state1:learned_noise_state1_round3",
+      "reset_sha256": "50643d9b0031ee3d6a707c2ee03f41e259243a45fdafb3cdeeb8cf53daf8c985",
+      "round_index": 3,
+      "success": false,
+      "velocity_evaluations": 300
+    },
+    {
+      "actions": 300,
+      "attempt_id": "native_euler10_state1_round3",
+      "episode_id": "libero_spatial_ood:seed19:task8:state1",
+      "evaluation": true,
+      "method": "native_euler10",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state1:native_euler10_state1_round3",
+      "reset_sha256": "50643d9b0031ee3d6a707c2ee03f41e259243a45fdafb3cdeeb8cf53daf8c985",
+      "round_index": 3,
+      "success": false,
+      "velocity_evaluations": 300
+    },
+    {
+      "actions": 300,
+      "attempt_id": "native_repeated_noise_state1_round3",
+      "episode_id": "libero_spatial_ood:seed19:task8:state1",
+      "evaluation": true,
+      "method": "native_repeated_noise",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state1:native_repeated_noise_state1_round3",
+      "reset_sha256": "50643d9b0031ee3d6a707c2ee03f41e259243a45fdafb3cdeeb8cf53daf8c985",
+      "round_index": 3,
+      "success": false,
+      "velocity_evaluations": 300
+    },
+    {
+      "actions": 202,
+      "attempt_id": "astra_direction_direct_state1_round3",
+      "episode_id": "libero_spatial_ood:seed19:task8:state1",
+      "evaluation": true,
+      "method": "astra_direction_direct",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state1:astra_direction_direct_state1_round3",
+      "reset_sha256": "50643d9b0031ee3d6a707c2ee03f41e259243a45fdafb3cdeeb8cf53daf8c985",
+      "round_index": 3,
+      "success": true,
+      "velocity_evaluations": 210
+    },
+    {
+      "actions": 300,
+      "attempt_id": "astra_frs_state1_round3",
+      "episode_id": "libero_spatial_ood:seed19:task8:state1",
+      "evaluation": true,
+      "method": "astra_frs",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state1:astra_frs_state1_round3",
+      "reset_sha256": "50643d9b0031ee3d6a707c2ee03f41e259243a45fdafb3cdeeb8cf53daf8c985",
+      "round_index": 3,
+      "success": false,
+      "velocity_evaluations": 520
+    },
+    {
+      "actions": 300,
+      "attempt_id": "critique_frs_no_learning_state1_round3",
+      "episode_id": "libero_spatial_ood:seed19:task8:state1",
+      "evaluation": true,
+      "method": "critique_frs_no_learning",
+      "physical_run_id": "libero_spatial_ood:seed19:task8:state1:critique_frs_no_learning_state1_round3",
+      "reset_sha256": "50643d9b0031ee3d6a707c2ee03f41e259243a45fdafb3cdeeb8cf53daf8c985",
+      "round_index": 3,
+      "success": false,
+      "velocity_evaluations": 300
+    }
+  ],
+  "post_transform_action_deviation": {
+    "interpretation": "recorded_action_deviation_after_deliberate_padding_and_optional_mean_projection_not_an_exactness_gate",
+    "max_abs": 2.0013206005096436,
+    "pairs": 25,
+    "per_generation": [
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round1",
+        "max_abs": 2.000658392906189,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.25586268630083764,
+        "step": 30
+      },
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round1",
+        "max_abs": 1.997245967388153,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.1292052757449035,
+        "step": 90
+      },
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round1",
+        "max_abs": 0.4212801977992058,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.05293198081159403,
+        "step": 210
+      },
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round1",
+        "max_abs": 0.36413654685020447,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.06251511597766386,
+        "step": 220
+      },
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round1",
+        "max_abs": 0.415843665599823,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.10844656546130364,
+        "step": 230
+      },
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round2",
+        "max_abs": 0.34826523065567017,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.050780140861138544,
+        "step": 280
+      },
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round2",
+        "max_abs": 1.9957860708236694,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.11872986286617036,
+        "step": 290
+      },
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round3",
+        "max_abs": 2.0010080337524414,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.25240530923782717,
+        "step": 30
+      },
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round3",
+        "max_abs": 0.21255286782979965,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.04158063144883849,
+        "step": 110
+      },
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round3",
+        "max_abs": 0.1740812435746193,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.033269062593467645,
+        "step": 150
+      },
+      {
+        "attempt_id": "critique_frs_no_learning_state0_round3",
+        "max_abs": 0.3060415983200073,
+        "method": "critique_frs_no_learning",
+        "rmse": 0.0769631299717835,
+        "step": 170
+      },
+      {
+        "attempt_id": "critique_frs_learning_state0_round1",
+        "max_abs": 1.9978371858596802,
+        "method": "critique_frs_learning",
+        "rmse": 0.16654104158718275,
+        "step": 290
+      },
+      {
+        "attempt_id": "critique_frs_learning_state0_round2",
+        "max_abs": 1.9962259531021118,
+        "method": "critique_frs_learning",
+        "rmse": 0.2558834373092435,
+        "step": 120
+      },
+      {
+        "attempt_id": "critique_frs_learning_state0_round3",
+        "max_abs": 2.0013206005096436,
+        "method": "critique_frs_learning",
+        "rmse": 0.2513872439159966,
+        "step": 30
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 0.993440134669072,
+        "method": "astra_frs",
+        "rmse": 0.2122518060821036,
+        "step": 0
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 0.986030204439885,
+        "method": "astra_frs",
+        "rmse": 0.18560141413213488,
+        "step": 10
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 0.9948435591213638,
+        "method": "astra_frs",
+        "rmse": 0.1861722077676264,
+        "step": 40
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 0.9669077561848098,
+        "method": "astra_frs",
+        "rmse": 0.1867452960965324,
+        "step": 50
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 0.9772976802341873,
+        "method": "astra_frs",
+        "rmse": 0.22305611206050888,
+        "step": 60
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 1.3587991297245026,
+        "method": "astra_frs",
+        "rmse": 0.28845550488615374,
+        "step": 70
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 1.3243917226791382,
+        "method": "astra_frs",
+        "rmse": 0.30747535326768294,
+        "step": 80
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 1.2469269633293152,
+        "method": "astra_frs",
+        "rmse": 0.28359302523877494,
+        "step": 90
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 1.1353410482406616,
+        "method": "astra_frs",
+        "rmse": 0.27692894665619466,
+        "step": 100
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 0.9914021922595566,
+        "method": "astra_frs",
+        "rmse": 0.19051814362989267,
+        "step": 140
+      },
+      {
+        "attempt_id": "astra_frs_state1_round3",
+        "max_abs": 0.99144242539478,
+        "method": "astra_frs",
+        "rmse": 0.18669452160195166,
+        "step": 280
+      }
+    ]
+  },
+  "postprocessor_environment": {
+    "numpy": "1.26.4",
+    "pillow": "12.3.0",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "python": "3.11.14"
+  },
+  "postprocessor_sources": {
+    "action_adapter.py": "4e3b800923761aae73933340c646db945399005eec3b7e0c9dc933db69cb84e6",
+    "astra_client.py": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f",
+    "flow.py": "98f54818bc99ca10c53d723f27a8763023403a70a5bf839dd038a4a1742f1784",
+    "frs_agent.py": "c81cbe2509cd77334aee054809957d7c76aa0ff8166f804583fe7bf6619eb2b4",
+    "frs_audit.py": "30d32a1ea0b0c097341789913cb51ed62e982bd05a677549e8fbf7ede3319988",
+    "frs_experiment.py": "b901ce68fa329044052315c87dded4fa144179dce70954d78ee704642c7631b3",
+    "frs_guide.py": "1ae7542368cd9d273dff6622541c6ebc1319f898046fcc0bfdf60fa1274ae1c8",
+    "frs_noise_policy.py": "560d985387629f07826daa5a3b6b25d8718360ad80c9bd54a6de57cb86445c1e",
+    "frs_operators.py": "46f0e8a46676d59562235c4e2be1cb8c5626f07e4d532ed6a281f098e8359cee",
+    "image_perturbation_audit.py": "767610abca1e3d12e37be34446a3b1f795240a2b8f39a45694cc54d1344749c5",
+    "image_perturbations.py": "4e862e278cc6e9bc115cf6b9ba66962162af5a66617b708904cc9c08adc7a44b",
+    "interpolation_agent.py": "59a00fd0e3f5145c0adf0c87136c534f0e1c26c9d07ebf6df54d72ed49908e29",
+    "intervention_agent.py": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804",
+    "interventions.py": "9269b5c246ff9d3d82288aad37f6e89ca64801c1878ec3a0e17f72a6e6cd397c",
+    "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+    "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "provider_sha256": "6fedc0367f1342ba2998eb5779ffcdfd231921c55eb040956d52f6284b409d90",
+  "provider_usage": {
+    "accepted_proposals": 272,
+    "actual_models": {
+      "azure/openai/gpt-6-astra": 273
+    },
+    "client_attempts": 273,
+    "errors": {
+      "proposal_rejected: Response does not echo request_id": 1
+    },
+    "failed_calls": 1,
+    "http_status": {
+      "200": 273
+    },
+    "latency_seconds": 2272.17623815313,
+    "monetary_cost": null,
+    "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+    "preflight_errors": {},
+    "preflight_failures": 0,
+    "preflight_latency_seconds": 0,
+    "provider_calls": 273,
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "tokens": {
+      "input_tokens": {
+        "available_calls": 273,
+        "complete": true,
+        "missing_calls": 0,
+        "sum": 1042371
+      },
+      "output_tokens": {
+        "available_calls": 273,
+        "complete": true,
+        "missing_calls": 0,
+        "sum": 58624
+      },
+      "reasoning_tokens": {
+        "available_calls": 273,
+        "complete": true,
+        "missing_calls": 0,
+        "sum": 7047
+      },
+      "total_tokens": {
+        "available_calls": 273,
+        "complete": true,
+        "missing_calls": 0,
+        "sum": 1100995
+      }
+    },
+    "usage_available_calls": 273,
+    "usage_unavailable_calls": 0
+  },
+  "schema_version": "frs-artifact-audit-1.0",
+  "status": "passed",
+  "suite": "libero_spatial_ood",
+  "summary_sha256": "a8c3c30b33d69b06472dff9bc427574e4309e7a46a2f9074f453a94f0d79901b",
+  "task_id": 8,
+  "validations": {
+    "all_array_hashes": true,
+    "calibrated_direction_and_action_transforms": true,
+    "checkpoint_optimizer_replay_bindings": true,
+    "complete_physical_coverage": true,
+    "exact_request_provider_bindings": true,
+    "executed_loop_noise_repeated": true,
+    "native_weight_bytes_unchanged": true,
+    "no_heldout_feedback_or_labels": true,
+    "separated_reset_streams": true,
+    "training_labels_only_Astra_better_adaptation": true
+  },
+  "worker": {
+    "checkpoint_metadata_sha256": "1035ad61a448923d1df0456b1c16953118d562acd6d9d2869392cdf740f8e419",
+    "completion_receipt_sha256": "a28dabea9ecdcb2d543b4b4e740517d49241c42b3a8ee50e59bbd140bc845b77",
+    "input_file_sha256": {
+      "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+      "frozen_plan.json": "8afe957b33b246794fc78b6f0eea442e6705db9ea4b0317ed258cca0c72abdb9",
+      "frozen_weights_before.json": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+      "prompts.json": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+      "protocol.json": "f34b2e7c3ce402cf1a72b8c65b12e1a94c6532034e68243358185b6df78d7df7",
+      "reset_manifest.json": "079a1104c4a2a08053d4cc21f40b9edad91577447e26515d7b9c56766104dd12",
+      "runtime.json": "1b276ae7f9272965ed27efaa3ea103b79a7373e71b8bbf0320221cfa2480daaa"
+    },
+    "native_tensor_sha256": "c0c8d17e2c875a7f60c919e3c8f4545c29ed97f20570ff4d75bad5b184e244d6",
+    "reset_manifest_sha256": "a094d9f317de1d9f6648a7840970686da18d548c29a90f1b076d264d7c1ad532",
+    "runtime": {
+      "assignment": {
+        "suite": "libero_spatial_ood",
+        "task_ids": [
+          8
+        ]
+      },
+      "gpu": "NVIDIA L40S",
+      "packages": {
+        "lerobot": "0.4.4",
+        "mujoco": "3.2.3",
+        "numpy": "1.26.4",
+        "pillow": "12.3.0",
+        "robosuite": "1.4.1",
+        "torch": "2.7.1+cu126",
+        "transformers": "4.53.3"
+      },
+      "payload_sha256": "0828e19a85a7474d2e6ef2bbe705406da51690cdb4ed6891687407a007fc5bae",
+      "phase": "development",
+      "python": "3.11.14",
+      "source_revision": "a50f92dfd18a7fdfe1c6198d34ddb43386d28396",
+      "tf32": false,
+      "worker": 2,
+      "workflow": "astra-pi05-frs-development-20260926-1"
+    },
+    "task_frozen_weights_after_sha256": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+    "weight_check_scope": "completed_task"
+  },
+  "zero_action_outcomes": []
+}

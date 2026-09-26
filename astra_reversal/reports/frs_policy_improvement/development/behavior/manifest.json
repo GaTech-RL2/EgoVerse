@@ -1,0 +1,42 @@
+{
+  "schema_version": "frs-development-behavior-files-1.0",
+  "scope": "Completed three-task development review; no full-study outcome claim.",
+  "files": {
+    "README.md": {
+      "sha256": "a26faf4a3101b2ef97d1876723d5d0124520c4a91ad3c1541eec0d32b316598a",
+      "bytes": 6578
+    },
+    "build_review.py": {
+      "sha256": "c5aa47dab8587db1e921ae564dbbf048d38b41300b5bc3f99da0b12d3c29b8ac",
+      "bytes": 23024
+    },
+    "direction_final_raw_frames.png": {
+      "sha256": "5a017444a429fbf0786bb6b81b1e4a137f0498dc4570ced59527c73b68baf208",
+      "bytes": 492553
+    },
+    "direction_guide.png": {
+      "sha256": "377cda30f5286d2de0e6b0f0fc249a58bd838eae5cf881c6d4e3d010af75c4b1",
+      "bytes": 103750
+    },
+    "first_action_edit_review.json": {
+      "sha256": "429de2f8aefe4b79fad8ede131931f8bf193cc34474810674816a014bd5265e2",
+      "bytes": 1905
+    },
+    "independent_reconciliation.json": {
+      "sha256": "cfa529ea587f6c1f4f0e98deab081b92ac7e24b57d8ed1012ea092c29fe15781",
+      "bytes": 16437
+    },
+    "selected_direction_verification.json": {
+      "sha256": "5d68b4556778db19fbf4c61e00fe9084f7ff4b416915a034ed56b5bf6654cefb",
+      "bytes": 6244
+    },
+    "source/verify_direction_sample.py": {
+      "sha256": "a8657167b243a2d2a6ddf002d86559333f70b8a05fce3e78328b24789c715d1e",
+      "bytes": 9519
+    },
+    "visual_review.json": {
+      "sha256": "9d4f2c33cc3af917029c38cc3e1f4af5728d21dc08727417cbfdd357194396f1",
+      "bytes": 2884
+    }
+  }
+}

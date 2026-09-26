@@ -1,0 +1,158 @@
+{
+  "schema_version": "frs-selected-direction-verification-1.0",
+  "status": "passed",
+  "scope": "One existing astra_frs generation, strict provider/raw/guide/axis/action/noise boundary replay, and two final raw pairs. No velocity solve, model, provider, or physics rerun; not a complete task audit.",
+  "episode_id": "libero_goal_ood:seed19:task6:state1",
+  "attempt_id": "astra_frs_state1_round3",
+  "request_index": 204,
+  "step": 0,
+  "request_fingerprint": "963203b45ac8b3092dfa5e501bad95e354c6a109530aa8149f895936aad182f3",
+  "http_payload_sha256": "6efa0d16d1a1ab8d3baf1a3f0b57c7286da18b473cd382b3ecf7fae55f9e481e",
+  "strict_provider_binding_passed": true,
+  "applied_decision_matches_provider": true,
+  "guide_raster_and_projection_passed": true,
+  "generation_replay_passed": true,
+  "request_images": {
+    "external_image": "d936c0ad35603591b2c0cf8e7b1a928f5e250056abbbd1a2bfb0716aef62260a",
+    "guide_image": "c34bfcceedabe0cf7ca9ae54ebfbb5ada4d570ec3fcb41c887f5dc69d1ea989e"
+  },
+  "camera_to_controller_signs": [
+    1,
+    -1,
+    1
+  ],
+  "proposal": {
+    "fine": false,
+    "coords": [
+      0,
+      1,
+      0
+    ],
+    "motion_amount": "less",
+    "justification": "The wine bottle is slightly right of the gripper's tabletop projection; shift right while staying above the objects."
+  },
+  "reference": {
+    "schema_version": "frs-reference-1.0",
+    "operator_source_sha256": "46f0e8a46676d59562235c4e2be1cb8c5626f07e4d532ed6a281f098e8359cee",
+    "action_spec_id": "7ed74da0d42db5cbe3cd6ccac845cd84b6714b6af77af0659c4358426d4b35ba",
+    "action_spec_sha256": "b128270e624a19f95ab385d34ac06cd676ceab058c75af51d23dbaaaaa8f8d0f",
+    "observation_sha256": "c16a4a7ec8135a2d06c153bf4d34e3b4813871e6434ed97d048553d7cdffb34d",
+    "source_model_sha256": "a09b34855289ab1d290ed166179d92d033a24480259bf4e699614fb684fcd17b",
+    "target_model_sha256": "145e05a4909475e65807c1c44aaed8bd6818890670c651f298699e063e287887",
+    "horizon": 10,
+    "execute_steps": 10,
+    "internal_shape": [
+      1,
+      10,
+      32
+    ],
+    "inverse_padding_zero": true,
+    "solver": "euler",
+    "inverse_steps": 10,
+    "generation_steps": 10,
+    "time_power": 1.0,
+    "time_convention": "action0_noise1",
+    "known_generating_noise": null,
+    "operator": "paper_directional_reference",
+    "reference_space": "normalized_policy_translation",
+    "coords": [
+      0,
+      -1,
+      0
+    ],
+    "motion_amount": "less",
+    "normalized_translation": [
+      0.0,
+      -0.5,
+      0.0
+    ],
+    "raw_rotation_and_gripper": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "encoded_rotation_gripper_preserved": true,
+    "source_actions_sha256": "b21cbcb34d7572e0f6a0f2d8bd22b717170b79f58ccdfee7f771dbebaecf9747",
+    "source_padding_nonzero_count": 0
+  },
+  "noise_transform": {
+    "schema_version": "frs-noise-1.0",
+    "operator_source_sha256": "46f0e8a46676d59562235c4e2be1cb8c5626f07e4d532ed6a281f098e8359cee",
+    "source_noise_sha256": "6c9ec29b3b29dc40af7984e5a88d99107756d69e237eefb64a574bdc8384a92b",
+    "generation_noise_sha256": "d7bc4b1480fcca9399a0fbb615a544138cd330dd34651a09eaa8d81616e619cd",
+    "mean_first7_sha256": "8ded500cfe9e05d8a12fd56955f7a72f73660584760bd559830b49c90b3e2ecb",
+    "repeat_mean_before_execution": false,
+    "mean_reduction": "float64_accumulator_then_float32",
+    "first7_preserved": true,
+    "first7_change_max_abs": 0.0,
+    "first7_change_rmse": 0.0,
+    "padding_distribution": "independent_standard_normal",
+    "resampled_padding_dimensions": [
+      7,
+      32
+    ],
+    "resampled_values": 250,
+    "rng_bit_generator": "PCG64",
+    "rng_state_before_sha256": "92ec637a8e1903a3201410f62c03f69371bbfd1091407a9958dd454f15c5b943",
+    "rng_state_after_sha256": "936dd6b4c632df4f05a0553aba93e0d763294b1690221ee22fe4d1a4a98f92f6",
+    "known_generating_noise": null
+  },
+  "reconstruction_metrics": {
+    "rmse": 0.19376285623984782,
+    "max_abs": 0.9978717400081223
+  },
+  "replay_counts": {
+    "velocity_evaluations": 30,
+    "interventions": 1,
+    "deferred": 0,
+    "rejected": 0,
+    "clipped_actions": 0
+  },
+  "archived_final_frames": [
+    {
+      "method": "astra_direction_direct",
+      "episode_id": "libero_goal_ood:seed19:task6:state1",
+      "final_step": 103,
+      "recorded_success": true,
+      "raw_camera_sha256": {
+        "observation/image": "6bd396e4948bde2030a1dbd09a4917c89fd872d55fbbda69d744fa316fafda89",
+        "observation/wrist_image": "2deae527c702ad365278e6b02f1a086dde079859e70813d38fe97e84db7a6a3a"
+      }
+    },
+    {
+      "method": "astra_frs",
+      "episode_id": "libero_goal_ood:seed19:task6:state1",
+      "final_step": 78,
+      "recorded_success": true,
+      "raw_camera_sha256": {
+        "observation/image": "45493349edf5d0bbaf375d7a00dc4c79328855162b920572a57ff65b71463107",
+        "observation/wrist_image": "b584d8815a375170f6e573ed059b48f47d54cf14ba75902a22e121cac370369d"
+      }
+    }
+  ],
+  "archive_sha256": "3132315233a826c87bbb395d688e80c2ec2c8bd44b134b7ac3cffee9dcf49b2a",
+  "source_sha256": {
+    "frs_agent.py": "c81cbe2509cd77334aee054809957d7c76aa0ff8166f804583fe7bf6619eb2b4",
+    "frs_audit.py": "30d32a1ea0b0c097341789913cb51ed62e982bd05a677549e8fbf7ede3319988",
+    "frs_guide.py": "1ae7542368cd9d273dff6622541c6ebc1319f898046fcc0bfdf60fa1274ae1c8",
+    "frs_operators.py": "46f0e8a46676d59562235c4e2be1cb8c5626f07e4d532ed6a281f098e8359cee"
+  },
+  "input_sha256": {
+    "retrieval_receipt.json": "600e8a4c14a03b72537b71daaf6ac041471d9be53d493de15971684f1cec3756",
+    "events_prefix.jsonl": "3f0e4997a38153a8e257729337f02503aef9b54f08d7cbbf2da4e2f8544774af",
+    "provider_prefix.jsonl": "e9f609ce87661f35d094ce76fd7022d978c3dcd31fcd98329c42509d0704c3d2",
+    "norm_stats.json": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+  },
+  "versions": {
+    "python": "3.11.14",
+    "numpy": "1.26.4",
+    "pillow": "12.3.0",
+    "pillow_zlib": "1.3"
+  },
+  "figure_sha256": {
+    "direction_final_raw_frames.png": "5a017444a429fbf0786bb6b81b1e4a137f0498dc4570ced59527c73b68baf208",
+    "direction_guide.png": "377cda30f5286d2de0e6b0f0fc249a58bd838eae5cf881c6d4e3d010af75c4b1"
+  },
+  "verification_helper_sha256": "a8657167b243a2d2a6ddf002d86559333f70b8a05fce3e78328b24789c715d1e"
+}
