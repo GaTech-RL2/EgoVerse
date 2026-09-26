@@ -4,13 +4,21 @@ import copy
 import hashlib
 import json
 import shutil
+from html.parser import HTMLParser
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 import pytest
 
 from astra_reversal.frs_agent import SCHEMA_VERSION as CLIENT_VERSION
 from astra_reversal.frs_agent import prompt_manifest, summarize_calls
 from astra_reversal.frs_experiment import load_protocol
-from astra_reversal.frs_html_report import TASKS, derived_results, validate_report
+from astra_reversal.frs_html_report import (
+    TASKS,
+    derived_results,
+    render_report,
+    validate_report,
+)
 from astra_reversal.frs_report import (
     AUDIT_VERSION,
     REQUIRED_VALIDATIONS,
@@ -800,8 +808,110 @@ def test_json_markdown_csv_and_html_bind_same_complete_data(tmp_path):
         for name, row in manifest["files"].items()
     )
     assert str(tmp_path) not in (output / "report.json").read_text()
+    published = json.loads((output / "report.json").read_text())
+    assert "publication" not in report  # Publication never mutates the aggregate.
+    assert (
+        validate_report(published)["physical_cost"]
+        == validate_report(report)["physical_cost"]
+    )
+    assert len(published["cohorts"]) == 2
+    assert not any(row.get("historical") for row in published["cohorts"])
+    assert len(published["publication"]["related_studies"]) == 2
+    repository = Path(__file__).parents[3] / "astra_reversal"
+    assert (output / "approach/APPROACH.md").read_bytes() == (
+        repository / "reports/frs_policy_improvement/APPROACH.md"
+    ).read_bytes()
+    assert (output / "related/baseline/report.json").read_bytes() == (
+        repository / "reports/ood_baseline.json"
+    ).read_bytes()
+    assert (output / "related/image_study/results/report.json").read_bytes() == (
+        repository / "reports/image_perturbations/evaluation/results/report.json"
+    ).read_bytes()
+    assert json.loads((output / "prompts.json").read_text()) == json.loads(
+        (workers[0] / "prompts.json").read_text()
+    )
+    index = json.loads((output / "audits/index.json").read_text())
+    assert len(index["tasks"]) == 3
+    for entry, receipt, source_path in zip(index["tasks"], receipts, receipt_paths):
+        assert json.loads((output / entry["path"]).read_text()) == receipt
+        assert (
+            file_sha256(output / entry["path"])
+            == entry["download_sha256"]
+            == entry["source"]["content_sha256"]
+        )
+        assert entry["source"]["sha256"] == file_sha256(source_path)
+    _check_portable_links(output)
+    standalone = tmp_path / "standalone"
+    render_report(output / "report.json", standalone)
+    _check_portable_links(standalone)
+    assert (standalone / "prompts.json").read_bytes() == (
+        output / "prompts.json"
+    ).read_bytes()
+    assert (standalone / "figures/success_and_learning.pdf").read_bytes() == (
+        output / "figures/success_and_learning.pdf"
+    ).read_bytes()
+    damaged = copy.deepcopy(published)
+    damaged["publication"]["downloads"][0]["path"] = "../outside.json"
+    with pytest.raises(ValueError, match="portable relative file paths"):
+        validate_report(damaged)
+    damaged = copy.deepcopy(published)
+    damaged["publication"]["downloads"][0]["path"] = "index.html"
+    with pytest.raises(ValueError, match="portable relative file paths"):
+        validate_report(damaged)
+    original_prompts = (output / "prompts.json").read_bytes()
+    (output / "prompts.json").write_bytes(original_prompts + b"\n")
+    with pytest.raises(ValueError, match="asset bytes differ"):
+        render_report(output / "report.json", tmp_path / "changed-asset")
+    assert not (tmp_path / "changed-asset").exists()
+    (output / "prompts.json").write_bytes(original_prompts)
     with pytest.raises(ValueError, match="overwrite"):
         write_report(report, output)
+
+
+def _check_portable_links(root):
+    class Links(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.hrefs = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "a":
+                self.hrefs.extend(value for key, value in attrs if key == "href")
+
+    for path in root.rglob("*.html"):
+        parser = Links()
+        parser.feed(path.read_text())
+        for href in parser.hrefs:
+            value = urlsplit(href)
+            if value.scheme or value.netloc or not value.path:
+                continue
+            target = (path.parent / unquote(value.path)).resolve()
+            assert target.is_relative_to(root.resolve()), (path, href)
+            assert target.is_file() or (target / "index.html").is_file(), (path, href)
+
+
+def test_publication_rejects_changed_audit_payload_before_creating_output(tmp_path):
+    workers, receipts = fixture_tree(tmp_path / "inputs")
+    report = build_report(workers, phase="development", audit_receipts=receipts)
+    report["producer_evidence"]["tasks"][0]["audit_receipt_payload"]["status"] = (
+        "pending"
+    )
+    with pytest.raises(ValueError, match="Audit download is not bound"):
+        write_report(report, tmp_path / "not-published")
+    assert not (tmp_path / "not-published").exists()
+
+
+def test_partial_publication_has_cost_and_context_but_no_scientific_exports(tmp_path):
+    workers, receipts = fixture_tree(tmp_path / "inputs")
+    report = build_report(workers, phase="development", audit_receipts=receipts[:2])
+    output = tmp_path / "partial"
+    write_report(report, output)
+    assert not (output / "figures").exists()
+    assert "Efficacy is withheld" in (output / "report.md").read_text()
+    assert "945" in (output / "report.md").read_text()
+    assert len(json.loads((output / "audits/index.json").read_text())["tasks"]) == 2
+    assert (output / "related/image_study/results/report.json").is_file()
+    _check_portable_links(output)
 
 
 def test_zero_call_preflight_is_separate_and_not_missing_physical_usage():

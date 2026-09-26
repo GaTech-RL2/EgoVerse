@@ -16,8 +16,8 @@ import math
 import re
 import statistics
 from collections import defaultdict
-from pathlib import Path
-from urllib.parse import urlsplit
+from pathlib import Path, PurePosixPath
+from urllib.parse import unquote, urlsplit
 
 from .interpolation_catalog import ORACLES
 from .records import file_sha256
@@ -234,6 +234,8 @@ def validate_report(value):
     _strings(value["notes"], "notes")
     for source in value["sources"]:
         _source(source)
+    if value.get("publication") is not None:
+        _validate_publication(value["publication"])
     protocol = value["protocol"]
     _integer(protocol["seed"], "protocol seed")
     _integer(protocol["adaptation_state"], "adaptation reset")
@@ -715,7 +717,7 @@ def _diagram():
     return "".join(parts)
 
 
-def _curve_svg(cohort, methods, labels):
+def _curve_svg(cohort, methods, labels, *, title=None):
     from matplotlib import rc_context
     from matplotlib.backends.backend_svg import FigureCanvasSVG
     from matplotlib.figure import Figure
@@ -753,6 +755,8 @@ def _curve_svg(cohort, methods, labels):
         )
         axes.grid(axis="y", alpha=0.2)
         axes.legend(fontsize=8, loc="best")
+        if title:
+            axes.set_title(title, fontsize=10)
         stream = io.StringIO()
         FigureCanvasSVG(figure).print_svg(stream, metadata={"Date": None})
         source = stream.getvalue()
@@ -776,7 +780,93 @@ svg{max-width:100%;height:auto}.diagram{font-family:system-ui,sans-serif;fill:va
 """
 
 
-def render_report(report_path, output):
+def _relative_file(value):
+    _text(value, "publication file")
+    require(
+        not urlsplit(value).scheme
+        and not urlsplit(value).netloc
+        and not urlsplit(value).query
+        and not urlsplit(value).fragment
+        and not value.startswith(("/", "\\"))
+        and "\\" not in value
+        and unquote(value) == value
+        and all(part not in (".", "..") for part in value.split("/"))
+        and PurePosixPath(value).as_posix() == value
+        and value not in ("index.html", "manifest.json")
+        and re.fullmatch(r"cohort_\d+_curves\.svg", value) is None,
+        "Publication downloads must be portable relative file paths",
+    )
+    return value
+
+
+def _validate_publication(publication):
+    require(
+        publication["schema_version"] == "frs-publication-bundle-1.0"
+        and publication["context_is_excluded_from_frs_totals"] is True,
+        "Related studies must remain separate from FRS efficacy and physical costs",
+    )
+    approach = publication["approach"]
+    _relative_file(approach["path"])
+    require(
+        hashlib.sha256(approach["text"].encode()).hexdigest() == approach["sha256"],
+        "Approach narrative differs from its exact snapshot hash",
+    )
+    for name, item in publication["files"].items():
+        _relative_file(name)
+        require(
+            name not in ("report.json", "derived.json"),
+            "Publication assets cannot replace generated report data",
+        )
+        _sha(item["sha256"], "publication file hash")
+        _integer(item["bytes"], "publication bytes")
+    for row in publication["downloads"]:
+        _text(row["label"], "download label")
+        _relative_file(row["path"])
+    for row in publication["related_studies"]:
+        for key in ("label", "summary", "comparability"):
+            _text(row[key], f"related study {key}")
+        _relative_file(row["path"])
+        _relative_file(row["data_path"])
+        _sha(row["data_sha256"], "related study data hash")
+        require(
+            publication["files"][row["data_path"]]["sha256"] == row["data_sha256"],
+            "Related-study download hash differs from declared evidence",
+        )
+    for row in (approach, publication["prompt_manifest"]):
+        require(
+            publication["files"][row["path"]]["sha256"] == row["sha256"],
+            "Narrative or prompt download hash mismatch",
+        )
+
+
+def _publication_files(value, root):
+    publication = value.get("publication")
+    if not publication:
+        return {}
+    names = set(publication["files"]) | {
+        row["path"] for row in publication["downloads"]
+    }
+    result = {}
+    for name in sorted(names):
+        path = root / name
+        require(
+            path.is_file()
+            and not path.is_symlink()
+            and path.resolve().is_relative_to(root.resolve()),
+            "Missing or unsafe portable publication asset",
+        )
+        raw = path.read_bytes()
+        if name in publication["files"]:
+            require(
+                publication["files"][name]
+                == {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)},
+                "Publication asset bytes differ from their recorded hash",
+            )
+        result[name] = raw
+    return result
+
+
+def render_report(report_path, output, *, shared_assets=False):
     """Write a new portable HTML/JSON/SVG bundle, preserving original input bytes."""
     report_path, output = Path(report_path), Path(output)
     require(not output.exists(), "Refusing to overwrite an existing report directory")
@@ -784,13 +874,19 @@ def render_report(report_path, output):
     value = _read_json(report_path)
     checked = validate_report(value)
     results = derived_results(value)
+    require(
+        not shared_assets or output.parent.resolve() == report_path.parent.resolve(),
+        "Shared downloads must be siblings of the HTML directory",
+    )
+    assets = _publication_files(value, report_path.parent)
+    prefix = "../" if shared_assets else ""
     labels = {row["id"]: row["label"] for row in value["methods"]}
     parts = [
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
         f"<title>{_escape(value['title'])}</title><style>{CSS}</style></head><body><main>",
         '<header><p class="eyebrow">Frozen generalist · Flow reversal steering · Audited evidence</p>',
         f'<h1>{_escape(value["title"])}</h1><span class="status {"pending" if value["status"] != "complete" else ""}">{_escape(value["phase"])} · {_escape(value["status"])}</span>',
-        '<p class="scope">Known published OOD compositions. New reset samples are not new tasks. Retry success and evaluation of learned checkpoints are separate quantities.</p><nav><a href="#coverage">Coverage</a><a href="#approach">Approach</a><a href="#results">Results</a><a href="#cost">Cost</a><a href="#prompts">Prompts</a><a href="#provenance">Provenance</a></nav></header>',
+        '<p class="scope">Known published OOD compositions. New reset samples are not new tasks. Retry success and evaluation of learned checkpoints are separate quantities.</p><nav><a href="#coverage">Coverage</a><a href="#approach">Approach</a><a href="#results">Results</a><a href="#cost">Cost</a><a href="#prompts">Prompts</a><a href="#related">Related studies</a><a href="#downloads">Downloads</a><a href="#provenance">Provenance</a></nav></header>',
     ]
     parts += [
         '<section id="coverage"><h2>Coverage and completion</h2>',
@@ -816,6 +912,12 @@ def render_report(report_path, output):
         parts.append(
             f"<h3>{_escape(method['label'])}</h3><p>{_escape(method['description'])}</p>"
         )
+    if value.get("publication"):
+        approach = value["publication"]["approach"]
+        parts.append(
+            f'<p><a href="{prefix}approach/index.html">Full approach narrative</a> · <a href="{prefix}{_escape(approach["path"])}" download>Unchanged Markdown snapshot</a> · SHA256 <code>{approach["sha256"]}</code>.</p>'
+            '<p class="muted">The narrative is a publication-time snapshot. The recorded protocol and exact worker prompts remain authoritative.</p>'
+        )
     parts.append(
         f'<details><summary>Exact supplied protocol</summary><pre>{_escape(json.dumps(value["protocol"], indent=2, sort_keys=True))}</pre></details></section><div id="results">'
     )
@@ -838,9 +940,17 @@ def render_report(report_path, output):
             )
             + "</p>"
         )
-        chart = _curve_svg(cohort, methods, labels)
+        chart = _curve_svg(
+            cohort,
+            methods,
+            labels,
+            title=f"{value['phase']} · seed {value['protocol']['seed']} · n={len(cohort['expected_episode_ids'])} prescribed episodes",
+        )
         curves[f"cohort_{number:02d}_curves.svg"] = chart.encode()
         parts.append(f'<div class="chart">{chart}</div>')
+        parts.append(
+            f'<p><a href="cohort_{number:02d}_curves.svg" download>Download this vector curve (SVG)</a></p>'
+        )
         method_costs = []
         for method, detail in methods.items():
             final = detail["points"][-1]
@@ -988,7 +1098,34 @@ def render_report(report_path, output):
         parts.append(
             f"<details><summary>{_escape(prompt['id'])}</summary><p>{_escape(prompt['scope'])}</p><code>SHA256 {_escape(prompt['sha256'])}</code><pre>{_escape(prompt['text'])}</pre></details>"
         )
-    parts.append('</section><section id="provenance"><h2>Scope and provenance</h2>')
+    if value.get("publication"):
+        parts.append(
+            f'<p><a href="{prefix}prompts.json" download>Download all four exact worker prompts and template metadata</a>.</p>'
+        )
+    parts.append(
+        '</section><section id="related"><h2>Related studies: separate cohorts</h2>'
+    )
+    parts.append(
+        '<p class="scope">Historical outcomes and costs are context only. They are excluded from every FRS success table, learning curve and physical total on this page.</p>'
+    )
+    for row in value.get("publication", {}).get("related_studies", []):
+        parts.append(
+            f"<h3>{_escape(row['label'])}</h3><p>{_escape(row['summary'])}</p><p>{_escape(row['comparability'])}</p>"
+            f'<p><a href="{prefix}{_escape(row["path"])}">Study and evidence</a> · <a href="{prefix}{_escape(row["data_path"])}" download>Exact result JSON</a> · SHA256 <code>{row["data_sha256"]}</code></p>'
+        )
+    parts.append(
+        '</section><section id="downloads"><h2>Downloadable report, evidence and figures</h2><ul>'
+    )
+    for row in value.get("publication", {}).get("downloads", []):
+        parts.append(
+            f'<li><a href="{prefix}{_escape(row["path"])}" download>{_escape(row["label"])}</a></li>'
+        )
+    parts.append(
+        '<li><a href="report.json" download>Exact renderer input JSON</a></li><li><a href="derived.json" download>Derived display numbers</a></li><li><a href="manifest.json" download>HTML and linked artifact hashes</a></li></ul>'
+    )
+    parts.append(
+        '<p>PNG/PDF scientific exports are available only for a complete audited FRS cohort. Their exact plotted values, source report hash, audit bindings and postprocessor hashes accompany the figures. Static controls appear at their recorded final round only; no earlier measurement is invented.</p></section><section id="provenance"><h2>Scope and provenance</h2>'
+    )
     for note in value["notes"]:
         parts.append(f"<p>{_escape(note)}</p>")
     parts.append("<ul>")
@@ -1015,15 +1152,32 @@ def render_report(report_path, output):
     )
     for name, data in curves.items():
         (output / name).write_bytes(data)
+    if not shared_assets:
+        for name, data in assets.items():
+            if name in ("report.json", "derived.json"):
+                continue
+            path = output / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "input_sha256": hashlib.sha256(raw).hexdigest(),
         "renderer_sha256": file_sha256(__file__),
         "status": value["status"],
         "files": {
-            path.name: {"sha256": file_sha256(path), "bytes": path.stat().st_size}
-            for path in sorted(output.iterdir())
+            path.relative_to(output).as_posix(): {
+                "sha256": file_sha256(path),
+                "bytes": path.stat().st_size,
+            }
+            for path in sorted(output.rglob("*"))
+            if path.is_file()
         },
+        "linked_assets": {
+            name: {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
+            for name, raw in assets.items()
+        }
+        if shared_assets
+        else {},
     }
     (output / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n"

@@ -15,6 +15,7 @@ import copy
 import csv
 import gzip
 import hashlib
+import html
 import json
 import math
 from pathlib import Path
@@ -1269,6 +1270,7 @@ class _Task:
             "worker": self.worker["runtime"]["worker"],
             "input_file_sha256": dict(self.files.hashes),
             "audit_receipt": self.receipt_source,
+            "audit_receipt_payload": copy.deepcopy(self.receipt),
             "task_completion_seal_sha256": self.files.hashes.get(
                 "completion_receipt.json"
             ),
@@ -1559,6 +1561,7 @@ def build_report(inputs, *, phase, audit_receipts=None):
         "physical_provider_usage": _compact_usage(
             row for key in task_order if key in tasks for row in tasks[key].providers
         ),
+        "prompt_manifest": copy.deepcopy(prompt_manifest),
         "initial_success_physical_runs": initial_count,
         "initial_success_convention": "Retain every prescribed reset; credited success requires recorded success, positive executed actions, and initial_success=false. Recorded flags remain available separately.",
         "cost_scope": "All recorded physical provider calls, including failures and preflights, are partitioned once. Online-call latency and auxiliary inference are already inside rollout wall time. Critique/judge latency and training time are additional. Worker bootstrap, checkpoint I/O and unrecorded/in-flight work are not inferred.",
@@ -1914,7 +1917,257 @@ def _markdown(report, checked, derived):
         "Exact system prompts, hash-bound source inventories, per-call token availability and per-round training/checkpoint details are retained in report.json. No new experiment, model, provider or simulator call was made to generate this report.",
         "",
     ]
+    publication = report.get("publication")
+    if publication:
+        lines += [
+            "## Approach and downloads",
+            "",
+            "The approach is a hash-bound narrative snapshot; the recorded protocol and exact worker prompt manifest remain authoritative. Audit downloads use canonical JSON serialization, with their original file hashes and encoding retained in the audit index.",
+            "",
+        ]
+        lines.extend(
+            f"- [{row['label']}]({row['path']})" for row in publication["downloads"]
+        )
+        lines += [
+            "- [Complete bundle file hashes](manifest.json)",
+            "",
+            "## Related studies — separate cohorts",
+            "",
+            "These earlier measurements are context only. Their outcomes, calls, tokens and interrupted-run overhead are excluded from every FRS table, curve and physical total above.",
+            "",
+        ]
+        for row in publication["related_studies"]:
+            lines += [
+                f"### {row['label']}",
+                "",
+                row["summary"],
+                "",
+                row["comparability"],
+                "",
+                f"[Study and evidence]({row['path']}) · [Exact result JSON]({row['data_path']}) · SHA256 `{row['data_sha256']}`.",
+                "",
+            ]
     return "\n".join(lines)
+
+
+def _publication_assets(report):
+    """Collect public context and canonical evidence, with no cohort mutation."""
+    module = Path(__file__).parent
+    assets, sources = {}, []
+
+    def retain(source, name):
+        require(
+            source.is_file() and not source.is_symlink(),
+            "Publication source must be a regular file",
+        )
+        raw = source.read_bytes()
+        assets[name] = raw
+        sources.append((source, hashlib.sha256(raw).hexdigest()))
+        return raw
+
+    approach_path = module / "reports/frs_policy_improvement/APPROACH.md"
+    approach = retain(approach_path, "approach/APPROACH.md")
+    # Display the exact narrative as text, not executable HTML/Markdown. The
+    # original repository-relative links remain untouched in its source download.
+    assets["approach/index.html"] = (
+        '<!doctype html><html lang="en"><meta charset="utf-8"><title>Exact FRS approach snapshot</title>'
+        "<style>body{max-width:1000px;margin:36px auto;padding:20px;font:16px/1.6 system-ui}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>"
+        '<h1>Exact approach snapshot</h1><p><a href="APPROACH.md" download>Download the unchanged Markdown</a>. '
+        "This narrative is a publication-time snapshot. Its relative Markdown references use the original repository location "
+        "<code>astra_reversal/reports/frs_policy_improvement/APPROACH.md</code>; the recorded protocol and prompt manifest are authoritative.</p>"
+        f"<p>SHA256 {hashlib.sha256(approach).hexdigest()}</p><pre>{html.escape(approach.decode())}</pre></html>"
+    ).encode()
+    manifest = report["producer_evidence"]["prompt_manifest"]
+    require(
+        {row["id"]: (row["text"], row["sha256"]) for row in report["prompts"]}
+        == {
+            role: (row["system_prompt"], row["sha256"])
+            for role, row in manifest["roles"].items()
+        },
+        "Prompt download differs from the recorded exact system prompts",
+    )
+    assets["prompts.json"] = _json_bytes(manifest)
+    assets["protocol.json"] = _json_bytes(report["protocol"])
+    audit_index = {
+        "schema_version": "frs-audit-download-index-1.0",
+        "serialization": "Canonical JSON; semantic receipt content is unchanged. Original source-file SHA256 and encoding remain separate from this download's SHA256.",
+        "tasks": [],
+    }
+    for task in report["producer_evidence"]["tasks"]:
+        receipt = task.get("audit_receipt_payload")
+        if not task["audited"]:
+            require(receipt is None, "Unaudited task unexpectedly carries a receipt")
+            continue
+        require(
+            receipt is not None,
+            "Audited publication needs the verified task receipt payload",
+        )
+        raw = _json_bytes(receipt)
+        checksum = hashlib.sha256(raw).hexdigest()
+        require(
+            checksum == task["audit_receipt"]["content_sha256"]
+            and receipt["status"] == "passed"
+            and f"{receipt['suite']}:{receipt['task_id']}" == task["task_key"]
+            and receipt["summary_sha256"] == task["input_file_sha256"]["summary.json"],
+            "Audit download is not bound to the recorded task receipt",
+        )
+        name = f"audits/{task['task_key'].replace(':', '_task_')}.json"
+        assets[name] = raw
+        audit_index["tasks"].append(
+            {
+                "task_key": task["task_key"],
+                "path": name,
+                "source": task["audit_receipt"],
+                "download_sha256": checksum,
+            }
+        )
+    assets["audits/index.json"] = _json_bytes(audit_index)
+    assets["audits/index.html"] = (
+        '<!doctype html><html lang="en"><meta charset="utf-8"><title>FRS task audits</title><h1>Passed task audit downloads</h1>'
+        '<p>Canonical JSON serialization; original file hashes and encoding are preserved in <a href="index.json">the index</a>.</p><ul>'
+        + "".join(
+            f'<li><a href="{Path(row["path"]).name}">{html.escape(row["task_key"])}</a> · SHA256 {row["download_sha256"]}</li>'
+            for row in audit_index["tasks"]
+        )
+        + "</ul></html>"
+    ).encode()
+    baseline_raw = retain(
+        module / "reports/ood_baseline.json", "related/baseline/report.json"
+    )
+    baseline = _json_line(baseline_raw.decode())
+    require(
+        baseline["status"] == "complete_repaired_baseline",
+        "Historical baseline context is not complete",
+    )
+    baseline_row = baseline["methods"]["baseline_euler10"]
+    image_root = module / "reports/image_perturbations/evaluation"
+    for path in sorted(image_root.rglob("*")):
+        require(not path.is_symlink(), "Related study contains a symlink")
+        if path.is_file():
+            retain(
+                path, f"related/image_study/{path.relative_to(image_root).as_posix()}"
+            )
+    image_raw = assets["related/image_study/results/report.json"]
+    image = _json_line(image_raw.decode())
+    require(
+        image["status"] == "complete"
+        and image["efficacy_released"]
+        and image["expected_cases"] == 20,
+        "Image context requires its completed audited study",
+    )
+    arms = image["groups"]["pooled"]["arms"]
+    # The copied historical HTML links to this directory. Supply a portable
+    # landing page rather than relying on a web server's directory listing.
+    audit_names = sorted(
+        name for name in assets if name.startswith("related/image_study/audits/")
+    )
+    landing = "related/image_study/audits/index.html"
+    if landing not in assets:
+        assets[landing] = (
+            '<!doctype html><html lang="en"><meta charset="utf-8"><title>Image study audits</title><h1>Image study audit evidence</h1><ul>'
+            + "".join(
+                f'<li><a href="{html.escape(name.removeprefix("related/image_study/audits/"))}">{html.escape(name.removeprefix("related/image_study/audits/"))}</a></li>'
+                for name in audit_names
+            )
+            + "</ul></html>"
+        ).encode()
+    related = [
+        {
+            "id": "historical_ood_baseline",
+            "label": "Historical 200-episode OOD baseline",
+            "summary": f"Native Euler 10: {baseline_row['successes']}/{baseline_row['episodes']} successes after whole-shard hardware-error repair; {baseline_row['execution_errors']} canonical execution errors.",
+            "comparability": "Seed 7, ten reset-stream trials per known task, five actions per policy call, TF32 enabled. FRS uses different resets, a ten-action execution chunk and TF32 disabled. This is historical context, not a matched FRS comparator; original hardware errors and repair overhead remain in its own report.",
+            "path": "related/baseline/report.json",
+            "data_path": "related/baseline/report.json",
+            "data_sha256": hashlib.sha256(baseline_raw).hexdigest(),
+        },
+        {
+            "id": "image_perturbations",
+            "label": "Completed image perturbation study",
+            "summary": f"Seed 37, one reset per each of 20 known tasks, up to two revisions. Common baseline {arms['astra_occlusion']['baseline_successes']}/20; Astra occlusion {arms['astra_occlusion']['successes']}/20 and donor-image blending {arms['astra_demo_blend']['successes']}/20; matched random occlusion {arms['random_occlusion']['successes']}/20 and blending {arms['random_demo_blend']['successes']}/20. These are cumulative retry outcomes.",
+            "comparability": "Actual RGB perturbations with a different decision schedule, five-action execution chunks, reset budget and feedback contract. These outcomes are not learned-policy checkpoint measurements. Its failed-call, fallback, missing-usage and interruption costs remain separate; none is added to FRS totals.",
+            "path": "related/image_study/index.html",
+            "data_path": "related/image_study/results/report.json",
+            "data_sha256": hashlib.sha256(image_raw).hexdigest(),
+        },
+    ]
+    for name in ("frs_report.py", "frs_html_report.py", "frs_plots.py"):
+        retain(module / name, f"source/{name}.txt")
+    downloads = [
+        {"label": label, "path": path}
+        for label, path in (
+            ("Complete FRS report JSON", "report.json"),
+            ("Detailed Markdown report", "report.md"),
+            ("Episode / method / round CSV", "episodes.csv"),
+            (
+                "Per-suite outcomes, conditional rescues and paired comparisons",
+                "supporting_results.json",
+            ),
+            ("Exact approach narrative", "approach/index.html"),
+            ("Unchanged APPROACH.md snapshot", "approach/APPROACH.md"),
+            ("All four exact worker prompts", "prompts.json"),
+            ("Recorded protocol", "protocol.json"),
+            ("Passed independent task audits", "audits/index.html"),
+            ("Audit source/download hash index", "audits/index.json"),
+        )
+    ]
+    if report["status"] == "complete":
+        downloads += [
+            {
+                "label": f"{label} ({extension.upper()})",
+                "path": f"figures/{stem}.{extension}",
+            }
+            for stem, label in (
+                ("success_and_learning", "Adaptation and checkpoint figure"),
+                ("provider_token_cost", "Unique physical token cost figure"),
+            )
+            for extension in ("png", "pdf", "svg")
+        ]
+        downloads += [
+            {
+                "label": "Exact plotted values and source hashes",
+                "path": "figures/plotted_values.json",
+            },
+            {
+                "label": "Figure file hashes and Matplotlib version",
+                "path": "figures/manifest.json",
+            },
+        ]
+    downloads += [
+        {"label": f"Exact postprocessor source: {name}", "path": f"source/{name}.txt"}
+        for name in ("frs_report.py", "frs_html_report.py", "frs_plots.py")
+    ]
+    for path, checksum in sources:
+        require(
+            file_sha256(path) == checksum,
+            "Publication context changed while its snapshot was read",
+        )
+    return {
+        "schema_version": "frs-publication-bundle-1.0",
+        "context_is_excluded_from_frs_totals": True,
+        "approach": {
+            "path": "approach/APPROACH.md",
+            "sha256": hashlib.sha256(approach).hexdigest(),
+            "text": approach.decode(),
+        },
+        "prompt_manifest": {
+            "path": "prompts.json",
+            "sha256": hashlib.sha256(assets["prompts.json"]).hexdigest(),
+            "serialization": "Canonical JSON of the exact recorded worker prompt manifest; prompt text bytes are unchanged.",
+            "worker_source_sha256": sorted(
+                {
+                    row["input_file_sha256"]["prompts.json"]
+                    for row in report["producer_evidence"]["workers"]
+                }
+            ),
+        },
+        "related_studies": related,
+        "downloads": downloads,
+        "files": {
+            name: {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
+            for name, raw in sorted(assets.items())
+        },
+    }, assets
 
 
 def write_report(report, output):
@@ -1922,7 +2175,14 @@ def write_report(report, output):
     output = Path(output)
     require(not output.exists(), "Refusing to overwrite a report directory")
     checked, derived = validate_report(report), derived_results(report)
+    report = copy.deepcopy(report)
+    report["publication"], assets = _publication_assets(report)
+    validate_report(report)
     output.mkdir(parents=True, exist_ok=False)
+    for name, raw in assets.items():
+        path = output / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
     (output / "report.json").write_bytes(_json_bytes(report))
     (output / "derived.json").write_bytes(
         _json_bytes({"validation": checked, "cohorts": derived})
@@ -1972,7 +2232,11 @@ def write_report(report, output):
                         }
                     )
                     writer.writerow(record)
-    render_report(output / "report.json", output / "html")
+    if report["status"] == "complete":
+        from .frs_plots import export_plots
+
+        export_plots(output / "report.json", output / "figures")
+    render_report(output / "report.json", output / "html", shared_assets=True)
     manifest = {
         "schema_version": PRODUCER_VERSION,
         "status": report["status"],

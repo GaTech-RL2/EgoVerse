@@ -12,7 +12,7 @@ Occlusion replaces a half-open integer rectangle with RGB(127,127,127), optional
 
 ![Success by revision](figures/success_by_revision.png)
 
-The canonical evaluation executed 167 physical rollouts, 43,594 actions and 113,140 velocity evaluations. Its 440 provider calls include 439 accepted responses and one HTTP 503 rejection. Known usage is 11,077,106 tokens (10,939,148 input + 137,958 output); that rejected call has unknown usage. Reasoning tokens are already included in output. No dollar price is assumed.
+The canonical evaluation executed 167 physical rollouts, 43,594 actions and 113,140 velocity evaluations. Its 440 provider calls include 439 accepted responses and one HTTP 503 rejection. Known usage is 11,077,106 tokens (10,939,148 input + 137,958 output); that rejected call has unknown usage. It caused 25 native-input fallback actions in Goal task 5’s failed occlusion rollout; no successful rescue includes those fallbacks. Reasoning tokens are already included in output. No dollar price is assumed.
 
 The original evaluation was preempted by shared-GPU quota enforcement. Its fully archived worker0 was retained; workers1–7 were restarted with byte-identical payload and protocol, independent of outcomes. Their interrupted original work adds at least 58 known provider calls and 1,388,628 tokens. Unsynced in-flight usage may be missing. The separate three-case development study used 105 calls and 2,647,564 tokens. Combined known image-study usage is therefore at least 15,113,298 tokens; development, interruption costs and canonical evaluation remain separately attributable.
 
