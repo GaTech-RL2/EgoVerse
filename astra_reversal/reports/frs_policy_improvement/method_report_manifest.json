@@ -1,0 +1,44 @@
+{
+  "schema_version": "frs-method-report-1",
+  "efficacy_status": "pending",
+  "snapshot_time_utc": "2026-09-26T16:28:01.760382+00:00",
+  "generator_sha256": "e01d202899019606386aadc538f7ffed81c04fa674a9ac4afca4c25136dc0110",
+  "files": {
+    "index.html": {
+      "sha256": "74b250edbb2cf78b937f6da91ae8d7d225f9bf01783efce233971af08b247861",
+      "bytes": 67938
+    },
+    "APPROACH.md": {
+      "sha256": "74aab12b48fc976f625cdcf27a25fbab9fcdae4e347ec1baa112d21b5703646f",
+      "bytes": 27191
+    },
+    "COVERAGE.md": {
+      "sha256": "b774bb335241aada258c7fce46ec31ab59d63bff6479b009395467724ef170c7",
+      "bytes": 6000
+    },
+    "coverage.json": {
+      "sha256": "7853ed47e97e1aff257c8d8099bfd0f5494ee2f8eeae1bf975c49cff7d59700a",
+      "bytes": 52881
+    },
+    "PROMPTS.md": {
+      "sha256": "262becba8b1cb9db7f61ce13a768425a47df418d8c8ee63924a8bdad9f745259",
+      "bytes": 8875
+    },
+    "prompts.json": {
+      "sha256": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+      "bytes": 8389
+    },
+    "infrastructure.json": {
+      "sha256": "7ddee401d3c9a99dfb32cc6b3c23e255a0aa73739b99580c16fdb8dbd02c9992",
+      "bytes": 6740
+    },
+    "figures/paper_direction.svg": {
+      "sha256": "604492167111ab0fe2e82698b6c8f9a25940f1245ff108b423789bb2c29c02ae",
+      "bytes": 4721
+    },
+    "figures/critique_learning.svg": {
+      "sha256": "287ed63d9f56c54626d91447be81e58bf88b1ea79eb325811375bc2622d63787",
+      "bytes": 5663
+    }
+  }
+}

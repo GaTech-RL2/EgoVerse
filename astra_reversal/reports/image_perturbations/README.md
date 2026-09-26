@@ -7,8 +7,19 @@ rollout observations and revises its edits every 25 environment actions.
 See the [frozen protocol](../../IMAGE_PERTURBATIONS.md) and
 [donor manifest](../../configs/image_donors_v1.json).
 
-The complete 20-case seed 37 evaluation is running on OSMO L40S using the same
-frozen payload as development. No evaluation success rate is available yet.
+The audited evaluation covers all 20 OOD tasks at reset 0 and seed 37, with at
+most two revisions after the shared baseline. The recovered-noise baseline
+succeeds on 8/20 cases; random noise and random occlusion each reach 10/20,
+random demo blending reaches 11/20, and Astra occlusion and Astra demo blending
+each reach 12/20. These are exploratory results from one reset per task.
+
+The [detailed evaluation report](evaluation/README.md) and
+[standalone HTML report](evaluation/index.html) include every task, actual pixel
+edits, diagrams, iterations and costs. The canonical evaluation records 440
+provider calls and at least 11,077,106 tokens; one HTTP 503 has unknown usage.
+Interrupted and development costs are reported separately. The
+[independent reconciliation](evaluation/independent_reconciliation.json)
+confirms the task inventory, outcomes, provider accounting and published images.
 
 ## Audited development
 
