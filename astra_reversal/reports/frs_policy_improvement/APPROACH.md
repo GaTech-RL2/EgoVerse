@@ -150,6 +150,10 @@ Physical accounting counts the shared baseline once. A native, deferred, or dire
 
 Final efficacy requires exact planned coverage, recording audits, reset pairing, provider-response binding, operator/label checks, and native-weight verification. The source review here confirms the intended code paths; it does not rerun GPU velocity fields or prove a physical outcome. Without a matched RL comparison this experiment cannot establish greater efficiency than value-based RL. Three revisions, a fixed action cap, and VLM judgments provide no guarantee of 100% success.
 
+Exact request-byte auditing also depends on the PNG encoder. The Linux workers use **Pillow 12.3.0 linked to zlib 1.3**, with NumPy 1.26.4. The default local macOS Pillow uses zlib-ng and produces different compressed PNG bytes for the same decoded pixels. An isolated local build matching the worker's Pillow/zlib versions reproduces eight recorded PNGs exactly. The unchanged auditor then verifies four complete live requests: critique, native deferral, steering edit, and a judge request containing 16 raw image attachments. The [verification receipts](audit_environment/validation.json) bind the request hashes, codec binaries and selected evidence. These are selected request checks; complete-task audits still verify every recorded request. The audit/report/HTML/plot suite passes all 105 tests in the isolated environment. No GPU runtime or audit comparison was changed.
+
+For reproducing the encoder, [Pillow documents source builds](https://pillow.readthedocs.io/en/stable/installation/building-from-source.html), and [zlib retains the 1.3 source release](https://www.zlib.net/fossils/). Matching package versions alone is insufficient: verify `PIL.features.version("zlib")` and the actual request hashes. The isolated build leaves the shared project environment untouched.
+
 The following portable source bindings identify the implementation reviewed for this section:
 
 | Source | SHA256 |

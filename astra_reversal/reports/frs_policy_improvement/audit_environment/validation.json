@@ -1,0 +1,77 @@
+{
+  "schema_version": "frs-codec-verification-final-1.0",
+  "status": "passed",
+  "environment_matches_expected": true,
+  "scope": "Exact CPU request-byte verification under the finalized isolated codec; four existing requests, not a complete development task audit.",
+  "versions": {
+    "python": "3.11.14",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "numpy": "1.26.4",
+    "pillow": "12.3.0",
+    "pillow_zlib": "1.3",
+    "stdlib_zlib_build": "1.2.12",
+    "stdlib_zlib_runtime": "1.2.12"
+  },
+  "loaded_codec_artifact_sha256": {
+    "pillow_core": "6f5cdb9df13f8fb9ea34dc46db1bfe6b0a918580fb4ccdb3a5d9884e7ea89467",
+    "numpy_core": "6a88945aed63a76e3c57076d657d704eef5d0d1e8d6cb1576724b1deb2872e44"
+  },
+  "isolated_build_receipt_sha256": "c013da0b90d856fc9943d6893254214072bbf381077984938ed665e19c39613a",
+  "verification_receipts": [
+    {
+      "file": "worker_0/codec_verification_final_build.json",
+      "sha256": "448841888e717dc72206c6312688412f40513662d360648971de9c6828449146"
+    },
+    {
+      "file": "worker_0_judge/codec_verification_final_build.json",
+      "sha256": "63d6a7a0da26da5496196c30d72739aa63e43bff68f94b7a861a612be8a25530"
+    }
+  ],
+  "verification_helper_sha256": {
+    "verify_pillow_codec.py": "c36d4486451d89e897479c59873f7bfa54c9196accdc43f6e03f8cc2db0d66ec",
+    "verify_judge_codec.py": "6ac828dce3ebfa7a0415c1ab8308ec0d18dcc1ebfee0e572f1f79c8209ca3678",
+    "finalize_codec_verification.py": "505c5e7bf0292786367266f9d9c3aa941049ceeb9929368a87e63de84fbb4b84"
+  },
+  "strict_bindings": [
+    {
+      "request_index": 1,
+      "role": "critique",
+      "request_fingerprint": "f30c271c99f3d6cfdbf81d7135284043ebb2d758465e39239bd961163b86cef2",
+      "http_payload_sha256": "8cdb94f0216dc936f2c8f456616a29e2b0499316d357ed414c1e74b285ea3c2c",
+      "passed": true
+    },
+    {
+      "request_index": 2,
+      "role": "action_edit",
+      "request_fingerprint": "e5d11e7cc3ec615c4468dbe0d73656c43fd55cb561d3bbe82305c3dabf59990c",
+      "http_payload_sha256": "6f13e892aedc42deaf977ab8278ccc365df363991eaf7b63ae0b15298312ff8b",
+      "passed": true
+    },
+    {
+      "request_index": 11,
+      "role": "action_edit",
+      "request_fingerprint": "bfdc37d1cab65b38e0c56674ef40ec36277ca6fbd9ab73ac6c8cb4e4ef444b19",
+      "http_payload_sha256": "f5bba0860ebb9aab28c8295547ee690f07f3549b2c36e6268722f99457546cd3",
+      "passed": true
+    },
+    {
+      "request_index": 32,
+      "role": "judge",
+      "request_fingerprint": "e3ac0c0021d09d9f952dbabf34b26de2d431b2f1324c4985f4796c61c96ef3b0",
+      "http_payload_sha256": "5a2b4f77a3c2bd7f5f6e756513c0a8cd1b7a8f9d228fc15eb3dc14362cd7ed68",
+      "passed": true
+    }
+  ],
+  "exact_linux_png_hashes_verified": 8,
+  "judge_image_attachments_verified": 16,
+  "runtime_or_auditor_modified": false,
+  "original_receipts_preserved": {
+    "critique_and_edits": "0f37d81739f345b57d13b0e3b9b87bb28f671f02ea1c53c640ccf6e32dab2fac",
+    "judge": "63d6a7a0da26da5496196c30d72739aa63e43bff68f94b7a861a612be8a25530"
+  },
+  "limitations": [
+    "No provider, learned-model, simulator, or GPU work is rerun.",
+    "Paper-direction records were not yet available; final complete-task audits remain required.",
+    "Selected byte equivalence does not prove codec equivalence for every possible image."
+  ]
+}

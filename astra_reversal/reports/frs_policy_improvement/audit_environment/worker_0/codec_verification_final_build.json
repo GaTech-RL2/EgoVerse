@@ -1,0 +1,150 @@
+{
+  "status": "passed",
+  "scope": "Eight exact Linux PNG hashes and three complete existing requests (critique 1, native-defer edit 2, steering edit 11); CPU-only isolated-codec verification, not a task audit.",
+  "runtime_or_auditor_modified": false,
+  "arrays_verified": 28,
+  "input_sha256": {
+    "retrieval_receipt.json": "9685b3eea8e4e8344a86f9b19f7ef934ed5212e1519a6db22c3740003435e686",
+    "linux_critique_binding.json": "3caed5852432a252f3fca7c15850d7021ca7207b3720b7f2327ce9939b865dfd",
+    "events_prefix.jsonl": "ca1232f73ee8adc0a8fa58fdff78d0b27cf2f71595037e544766ad712b8240a5",
+    "provider_prefix.jsonl": "e234f7f8cbb54e490c2b58945d03646aa3030d4f846bfd89c3d8f7c1688d46c3"
+  },
+  "source_sha256": {
+    "frs_agent.py": "c81cbe2509cd77334aee054809957d7c76aa0ff8166f804583fe7bf6619eb2b4",
+    "frs_audit.py": "30d32a1ea0b0c097341789913cb51ed62e982bd05a677549e8fbf7ede3319988",
+    "intervention_agent.py": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "baseline_images": [
+    {
+      "step": 0,
+      "camera": "observation/image",
+      "png_sha256": "d072b8bb76131ee5fbf5f48518757997f7e7cd3376299c6200c275175a4e6fbf",
+      "expected_png_sha256": "d072b8bb76131ee5fbf5f48518757997f7e7cd3376299c6200c275175a4e6fbf",
+      "png_match": true,
+      "bytes_match": true,
+      "pixels_match": true
+    },
+    {
+      "step": 0,
+      "camera": "observation/wrist_image",
+      "png_sha256": "69c083d911ee79716aa3eba43ce7208e015f6dec4d198768f39fb7096c6508b5",
+      "expected_png_sha256": "69c083d911ee79716aa3eba43ce7208e015f6dec4d198768f39fb7096c6508b5",
+      "png_match": true,
+      "bytes_match": true,
+      "pixels_match": true
+    },
+    {
+      "step": 100,
+      "camera": "observation/image",
+      "png_sha256": "548940306a69c3cbb31629df87fc14abdd04fbda7778b687439186a916eb5f47",
+      "expected_png_sha256": "548940306a69c3cbb31629df87fc14abdd04fbda7778b687439186a916eb5f47",
+      "png_match": true,
+      "bytes_match": true,
+      "pixels_match": true
+    },
+    {
+      "step": 100,
+      "camera": "observation/wrist_image",
+      "png_sha256": "0782e363d28a74962152b1f6630f00191f07d8c39a59767ce218aa19803b4100",
+      "expected_png_sha256": "0782e363d28a74962152b1f6630f00191f07d8c39a59767ce218aa19803b4100",
+      "png_match": true,
+      "bytes_match": true,
+      "pixels_match": true
+    },
+    {
+      "step": 200,
+      "camera": "observation/image",
+      "png_sha256": "12bf780d916c750e22c79f50c9ed93c46e0c6b5735e5c4d9134578134fd6422b",
+      "expected_png_sha256": "12bf780d916c750e22c79f50c9ed93c46e0c6b5735e5c4d9134578134fd6422b",
+      "png_match": true,
+      "bytes_match": true,
+      "pixels_match": true
+    },
+    {
+      "step": 200,
+      "camera": "observation/wrist_image",
+      "png_sha256": "71ca8448c3923b6d7053a4be27c67eb77681b176f3aee2c69f426fe601da9580",
+      "expected_png_sha256": "71ca8448c3923b6d7053a4be27c67eb77681b176f3aee2c69f426fe601da9580",
+      "png_match": true,
+      "bytes_match": true,
+      "pixels_match": true
+    },
+    {
+      "step": 300,
+      "camera": "observation/image",
+      "png_sha256": "da487b8d257930d55bc206725b47d02265961e1f0dfce7ae90f570a3f7ad1ff6",
+      "expected_png_sha256": "da487b8d257930d55bc206725b47d02265961e1f0dfce7ae90f570a3f7ad1ff6",
+      "png_match": true,
+      "bytes_match": true,
+      "pixels_match": true
+    },
+    {
+      "step": 300,
+      "camera": "observation/wrist_image",
+      "png_sha256": "50c3a247f6a54d811e85d7ab92e330aa884f93811d65d579eeec6b06edf2a200",
+      "expected_png_sha256": "50c3a247f6a54d811e85d7ab92e330aa884f93811d65d579eeec6b06edf2a200",
+      "png_match": true,
+      "bytes_match": true,
+      "pixels_match": true
+    }
+  ],
+  "bindings": [
+    {
+      "role": "critique",
+      "request_index": 1,
+      "step": 300,
+      "request_fingerprint": "f30c271c99f3d6cfdbf81d7135284043ebb2d758465e39239bd961163b86cef2",
+      "recorded_request_fingerprint": "f30c271c99f3d6cfdbf81d7135284043ebb2d758465e39239bd961163b86cef2",
+      "http_payload_sha256": "8cdb94f0216dc936f2c8f456616a29e2b0499316d357ed414c1e74b285ea3c2c",
+      "recorded_http_payload_sha256": "8cdb94f0216dc936f2c8f456616a29e2b0499316d357ed414c1e74b285ea3c2c",
+      "image_count": 8,
+      "strict_provider_binding_passed": true,
+      "linux_reference_fingerprint_match": true,
+      "linux_reference_http_payload_match": true
+    },
+    {
+      "role": "action_edit",
+      "request_index": 2,
+      "step": 0,
+      "request_fingerprint": "e5d11e7cc3ec615c4468dbe0d73656c43fd55cb561d3bbe82305c3dabf59990c",
+      "recorded_request_fingerprint": "e5d11e7cc3ec615c4468dbe0d73656c43fd55cb561d3bbe82305c3dabf59990c",
+      "http_payload_sha256": "6f13e892aedc42deaf977ab8278ccc365df363991eaf7b63ae0b15298312ff8b",
+      "recorded_http_payload_sha256": "6f13e892aedc42deaf977ab8278ccc365df363991eaf7b63ae0b15298312ff8b",
+      "image_count": 2,
+      "strict_provider_binding_passed": true
+    },
+    {
+      "role": "action_edit",
+      "request_index": 11,
+      "step": 90,
+      "request_fingerprint": "bfdc37d1cab65b38e0c56674ef40ec36277ca6fbd9ab73ac6c8cb4e4ef444b19",
+      "recorded_request_fingerprint": "bfdc37d1cab65b38e0c56674ef40ec36277ca6fbd9ab73ac6c8cb4e4ef444b19",
+      "http_payload_sha256": "f5bba0860ebb9aab28c8295547ee690f07f3549b2c36e6268722f99457546cd3",
+      "recorded_http_payload_sha256": "f5bba0860ebb9aab28c8295547ee690f07f3549b2c36e6268722f99457546cd3",
+      "image_count": 2,
+      "strict_provider_binding_passed": true
+    }
+  ],
+  "limitations": [
+    "The preserved prefix has no judge or paper-direction calls; those roles are not covered.",
+    "Exact matching here does not establish codec parity for every possible image."
+  ],
+  "versions": {
+    "python": "3.11.14",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "numpy": "1.26.4",
+    "pillow": "12.3.0",
+    "pillow_zlib": "1.3",
+    "stdlib_zlib_build": "1.2.12",
+    "stdlib_zlib_runtime": "1.2.12"
+  },
+  "schema_version": "frs-codec-verification-1.0",
+  "environment_matches_expected": true,
+  "loaded_codec_artifact_sha256": {
+    "pillow_core": "6f5cdb9df13f8fb9ea34dc46db1bfe6b0a918580fb4ccdb3a5d9884e7ea89467",
+    "numpy_core": "6a88945aed63a76e3c57076d657d704eef5d0d1e8d6cb1576724b1deb2872e44"
+  },
+  "isolated_build_receipt_sha256": "c013da0b90d856fc9943d6893254214072bbf381077984938ed665e19c39613a",
+  "verification_helper_sha256": "c36d4486451d89e897479c59873f7bfa54c9196accdc43f6e03f8cc2db0d66ec"
+}

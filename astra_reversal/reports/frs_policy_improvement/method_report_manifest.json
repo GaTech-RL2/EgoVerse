@@ -2,15 +2,15 @@
   "schema_version": "frs-method-report-1",
   "efficacy_status": "pending",
   "snapshot_time_utc": "2026-09-26T16:28:01.760382+00:00",
-  "generator_sha256": "e01d202899019606386aadc538f7ffed81c04fa674a9ac4afca4c25136dc0110",
+  "generator_sha256": "1ed55380f0371653d0d78f04c530cf72e32e3efc8394dd09766762cc7e392aed",
   "files": {
     "index.html": {
-      "sha256": "74b250edbb2cf78b937f6da91ae8d7d225f9bf01783efce233971af08b247861",
-      "bytes": 67938
+      "sha256": "5146ed63e343c18bc8fa13c5a65a62b25ef1c508f8299592256e2631232ab8bf",
+      "bytes": 69300
     },
     "APPROACH.md": {
-      "sha256": "74aab12b48fc976f625cdcf27a25fbab9fcdae4e347ec1baa112d21b5703646f",
-      "bytes": 27191
+      "sha256": "21f1cf1e417555e9aeff455eed39007a8489c4126857d4fea4c6c185ca3067ad",
+      "bytes": 28474
     },
     "COVERAGE.md": {
       "sha256": "b774bb335241aada258c7fce46ec31ab59d63bff6479b009395467724ef170c7",
@@ -39,6 +39,18 @@
     "figures/critique_learning.svg": {
       "sha256": "287ed63d9f56c54626d91447be81e58bf88b1ea79eb325811375bc2622d63787",
       "bytes": 5663
+    },
+    "audit_environment/validation.json": {
+      "sha256": "a2fda4de074a3dd7ad34ab954a06e8a814cf67305eeed29d62475b729d938d85",
+      "bytes": 3288
+    },
+    "audit_environment/worker_0/codec_verification_final_build.json": {
+      "sha256": "448841888e717dc72206c6312688412f40513662d360648971de9c6828449146",
+      "bytes": 6539
+    },
+    "audit_environment/worker_0_judge/codec_verification_final_build.json": {
+      "sha256": "63d6a7a0da26da5496196c30d72739aa63e43bff68f94b7a861a612be8a25530",
+      "bytes": 5574
     }
   }
 }
