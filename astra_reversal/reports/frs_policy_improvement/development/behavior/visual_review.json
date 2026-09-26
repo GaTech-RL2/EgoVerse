@@ -1,0 +1,41 @@
+{
+  "schema_version": "frs-development-direction-visual-review-1.0",
+  "status": "completed_selected_review",
+  "episode_id": "libero_goal_ood:seed19:task6:state1",
+  "selected_request_index": 204,
+  "selected_verification_sha256": "5d68b4556778db19fbf4c61e00fe9084f7ff4b416915a034ed56b5bf6654cefb",
+  "figure_sha256": {
+    "direction_final_raw_frames.png": "5a017444a429fbf0786bb6b81b1e4a137f0498dc4570ced59527c73b68baf208",
+    "direction_guide.png": "377cda30f5286d2de0e6b0f0fc249a58bd838eae5cf881c6d4e3d010af75c4b1"
+  },
+  "recorded_control_mix": [
+    {
+      "method": "astra_direction_direct",
+      "accepted_direction_chunks": 4,
+      "accepted_direction_actions": 40,
+      "accepted_native_defer_chunks": 7,
+      "accepted_native_defer_actions": 63
+    },
+    {
+      "method": "astra_frs",
+      "accepted_direction_chunks": 2,
+      "accepted_direction_actions": 20,
+      "accepted_native_defer_chunks": 6,
+      "accepted_native_defer_actions": 58
+    }
+  ],
+  "predicate_source_revision": "587a6cbf64f16c7b87fa5805dc0ed934192239a4",
+  "predicate_source_sha256": {
+    "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_in_the_bowl.bddl": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9",
+    "third_party/modified_libero/libero/libero/envs/predicates/base_predicates.py": "319137e95330dbb22a266a8dceb8110f18413c2bf17461550222228c4bc310a1",
+    "third_party/modified_libero/libero/libero/envs/object_states/base_object_states.py": "c4711c5a029e3106940da92f8bf4d13b22eeec6907b483545eeca85e550a2750"
+  },
+  "recorded_instruction": "put the wine bottle in the bowl",
+  "exact_bddl_language": "Put the wine bottle on the bowl",
+  "exact_goal": "(On wine_bottle_1 akita_black_bowl_1)",
+  "predicate_meaning": "On checks bottle center above bowl center, object contact and XY center distance below0.1. It has no release, unsupported stability or dwell condition.",
+  "visual_finding": "Both final paired raw views show the wine bottle positioned in/over the bowl with the gripper still very close around the bottle. This supports the recorded bowl-contact relation but does not establish release or stable unsupported placement.",
+  "guide_finding": "The exact projected robot end-effector marker and plumb line replay correctly with camera signs[1,-1,1]. The marker denotes the recorded end-effector/palm reference, not a visually estimated bottle contact point. The guide is a separate reasoner image; raw policy pixels are unchanged.",
+  "interpretation": "Direct steering and FRS both satisfy the benchmark predicate on this development reset. This selected example does not isolate an FRS benefit or show a learned-policy improvement.",
+  "source_scope": "Raw final images and selected generation verified against sealed worker0 archive; predicate source inspected at the pinned commit, not executed again."
+}

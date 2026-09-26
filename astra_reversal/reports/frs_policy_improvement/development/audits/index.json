@@ -1,0 +1,36 @@
+{
+  "schema_version": "frs-audit-download-index-1.0",
+  "serialization": "Canonical JSON; semantic receipt content is unchanged. Original source-file SHA256 and encoding remain separate from this download's SHA256.",
+  "tasks": [
+    {
+      "download_sha256": "04d378fa87fcfd18ac2e1f8cef15e2b01dc22f242bec5f14929a5f69222a3b87",
+      "path": "audits/libero_goal_ood_task_6.json",
+      "source": {
+        "content_sha256": "04d378fa87fcfd18ac2e1f8cef15e2b01dc22f242bec5f14929a5f69222a3b87",
+        "encoding": "json",
+        "sha256": "04d378fa87fcfd18ac2e1f8cef15e2b01dc22f242bec5f14929a5f69222a3b87"
+      },
+      "task_key": "libero_goal_ood:6"
+    },
+    {
+      "download_sha256": "f7454d99a757587e764add7d914dbc7fa75abc8a68e267c0a8427900dc0aa028",
+      "path": "audits/libero_spatial_ood_task_2.json",
+      "source": {
+        "content_sha256": "f7454d99a757587e764add7d914dbc7fa75abc8a68e267c0a8427900dc0aa028",
+        "encoding": "json",
+        "sha256": "f7454d99a757587e764add7d914dbc7fa75abc8a68e267c0a8427900dc0aa028"
+      },
+      "task_key": "libero_spatial_ood:2"
+    },
+    {
+      "download_sha256": "b1ef42ca22de415f849cb381ac713d59aa844c814851f88ebc8592f33b1bd03b",
+      "path": "audits/libero_spatial_ood_task_8.json",
+      "source": {
+        "content_sha256": "b1ef42ca22de415f849cb381ac713d59aa844c814851f88ebc8592f33b1bd03b",
+        "encoding": "json",
+        "sha256": "b1ef42ca22de415f849cb381ac713d59aa844c814851f88ebc8592f33b1bd03b"
+      },
+      "task_key": "libero_spatial_ood:8"
+    }
+  ]
+}

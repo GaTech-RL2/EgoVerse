@@ -1,20 +1,41 @@
 # Astra flow reversal and policy improvement
 
-The corrected FRS study has **no completed development or evaluation result
-yet**. Its unchanged development run has three allocated workers on GROOT
-L40S-03 as
-[`astra-pi05-frs-development-20260926-1`](https://us-west-2-aws.osmo.nvidia.com/workflows/astra-pi05-frs-development-20260926-1).
-The prior L40S-01 run reached its four-hour queue timeout without receiving a
-GPU. Two earlier L40S-03 starts were reclaimed by higher-priority shared GPU
-quota enforcement during startup. These are infrastructure interruptions, not
-measured task failures. The [infrastructure record](infrastructure.json)
-preserves their scope and completed preflight checks.
+Corrected **development is complete and independently audited on three known
+failure cases at seed 19**. On each task's separate evaluation reset 1, direct
+Astra directions succeeded on 2/3 cases and Astra flow reversal steering on
+2/3. Both native controls, critique without learning, and the final learned-noise
+checkpoint scored 0/3. These selected development cases are not the full
+20-task evaluation.
 
-The [HTML method report](index.html) brings together all 20 task names, earlier
-measured results, the detailed approach, two flow diagrams and the exact Astra
-prompts. It is a dated snapshot of the method and active run; it contains no new
-FRS efficacy estimate. The [publication manifest](method_report_manifest.json)
-binds its source narratives and diagrams to their exact hashes.
+The [development HTML report](development/html/index.html) and
+[detailed Markdown report](development/report.md) retain every prescribed
+outcome, task audit, checkpoint, failed call and cost. Both adaptation arms had
+0/3 cumulative successes after three revisions; Astra promoted no candidates,
+so there were **zero auxiliary updates or optimizer steps**. The completed
+development recordings contain 45 unique rollouts, 12,766 actions, 14,720
+velocity evaluations and 775 provider calls. Known usage is **at least
+3,229,704 tokens**; three calls have unknown usage. This includes the completed
+cohort's failed calls and counts the shared baseline once. Setup and interrupted
+attempts remain separate.
+
+The full evaluation is now **in progress** on eight L40S workers in
+[`astra-pi05-frs-evaluation-20260925-1`](https://us-west-2-aws.osmo.nvidia.com/workflows/astra-pi05-frs-evaluation-20260925-1).
+It covers all 20 known tasks at seed 43, with adaptation reset 0 and ten separate
+evaluation resets per task. Its six final methods contribute 200 episodes each,
+with 400 additional evaluations of the first two learned checkpoints and 140
+physical adaptation rollouts: **1,740 planned rollouts**. These are planned
+counts, not completed evaluation results. New resets of known compositions do
+not establish novel-task generalization.
+
+The [HTML method report](index.html) brings together the completed development
+summary, current evaluation snapshot, all 20 task names, two flow diagrams,
+the detailed approach and all four exact Astra prompts. The
+[publication manifest](method_report_manifest.json) binds its source narratives,
+development evidence and diagrams to exact hashes. The
+[infrastructure record](infrastructure.json) preserves the earlier startup
+interruptions and queue timeout, marks development completed, and records the
+full evaluation launch separately. Those infrastructure interruptions are not
+measured task failures.
 
 All **20 released OOD tasks** have already been tested in earlier studies. The
 [coverage inventory](COVERAGE.md) gives every task and the historical native
@@ -23,31 +44,23 @@ baseline: 86/200 successes across ten resets per task. The separate completed
 [standalone HTML](../image_perturbations/evaluation/index.html) cover all 20 tasks
 at seed 37/reset 0: common baseline 8/20, Astra occlusion 12/20 and Astra demo
 blending 12/20 within two revisions. Different seeds, execution settings and
-retry budgets keep those results separate from this new experiment.
+retry budgets keep those results separate from this FRS experiment.
 
-The [detailed approach](APPROACH.md) explains exactly what Astra sees, when it
-intervenes, all four prompt contracts, action normalization, inverse/forward
-flow, judgment-gated replay and the auxiliary policy update. The
-[prompt appendix](PROMPTS.md) contains all four exact system-message strings
-and their hashes, with the original [worker manifest](prompts.json). The
+The [detailed approach](APPROACH.md) explains what Astra sees, when it intervenes,
+action normalization, inverse/forward flow, judgment-gated replay and the
+auxiliary policy update. The [prompt appendix](PROMPTS.md) contains all four
+exact system-message strings and their hashes, with the original
+[worker manifest](prompts.json). The
 [frozen protocol](../../configs/frs_policy_improvement_v1.json) compares native
 full/repeated noise, direct Astra directions, paper-like Astra FRS, critique
-without learning, and learned noise. It uses one adaptation reset and ten
-separate evaluation resets per task. Each learned checkpoint is evaluated after
-its corresponding adaptation round; the three-round cap is fixed.
-
-The complete evaluation plan contains 200 evaluation episodes per method at the
-final round, 400 additional evaluations of the first two learned checkpoints,
-and 140 physical adaptation rollouts: **1,740 planned rollouts**. These counts
-are planned coverage, not completed measurements. Full evaluation follows
-complete development recordings and their independent audits. The experiment
-runtime remains commit `a50f92dfd18a7fdfe1c6198d34ddb43386d28396`, payload SHA256
+without learning, and learned noise. Each learned checkpoint is evaluated after
+its corresponding adaptation round; the three-round cap is fixed. The runtime
+remains commit `a50f92dfd18a7fdfe1c6198d34ddb43386d28396`, payload SHA256
 `0828e19a85a7474d2e6ef2bbe705406da51690cdb4ed6891687407a007fc5bae`.
 
 The initial prompt-v1 development was deliberately interrupted after identifying
 an editor-capability mismatch. Its [retained evidence and costs](development_v1_interruption.json)
 include 151 recorded provider calls and at least 694,705 tokens, with three
-interrupted calls of unknown usage. It is excluded from efficacy. Exact worker
-prompts, failed-call usage, capped failures, iteration counts and training costs
-will accompany the complete audited FRS report; partial recordings are not
-released as a success-rate estimate.
+interrupted calls of unknown usage. These are additional costs, excluded from
+the completed corrected-development cohort and from efficacy. No full FRS
+evaluation estimate or learning-improvement claim is made from partial runs.

@@ -1,6 +1,6 @@
 # Exact Astra system prompts
 
-These are the exact four system-message strings for template `astra-frs-http-2`, emitted by all three corrected development workers from frozen runtime commit `a50f92dfd18a7fdfe1c6198d34ddb43386d28396`. The workers were preempted during startup, so these files document deployed configuration; they are not evidence of a completed rollout or a successful model response.
+These are the exact four system-message strings for template `astra-frs-http-2`, emitted by all three completed, audited development workers from frozen runtime commit `a50f92dfd18a7fdfe1c6198d34ddb43386d28396`. The unchanged prompts are also deployed in the running full evaluation. The [development report](development/report.md) separately records actual provider outcomes and task results; prompt configuration alone is not evidence of success.
 
 [Download the original worker manifest](prompts.json). Manifest SHA256: `cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8`.
 

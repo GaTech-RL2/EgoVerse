@@ -1,0 +1,43 @@
+{
+  "files": {
+    "plotted_values.json": {
+      "bytes": 14812,
+      "sha256": "13d84c1d6fc20aa8d0b431db78bfd6f99d0081dad3a4bfd83bb7984dc6ef8fe8"
+    },
+    "provider_token_cost.pdf": {
+      "bytes": 21690,
+      "sha256": "1cc2d46695c5d407a012ab7d375db05b1b9f545774d877f60bde8657b1243d3f"
+    },
+    "provider_token_cost.png": {
+      "bytes": 313836,
+      "sha256": "15d149d5cae5f422419a8bf7769b7df39741ffb19a7477996aa8ac219be8f997"
+    },
+    "provider_token_cost.svg": {
+      "bytes": 20474,
+      "sha256": "e81aa5c902950757bb41c56108d6e7f35641f5122cf1b59ac5fbc9ce5eb2c4b2"
+    },
+    "success_and_learning.pdf": {
+      "bytes": 24198,
+      "sha256": "68ada86b2d9ca25579aa4b01cbfd57a49372dafc59bbd1bfb49db64420e30e51"
+    },
+    "success_and_learning.png": {
+      "bytes": 374046,
+      "sha256": "803f6bead5f719364c01a2ddffa5c0715e60892e4895140bb61b7f7d62584bb4"
+    },
+    "success_and_learning.svg": {
+      "bytes": 33451,
+      "sha256": "5e6498f116a48d3dd523c69c1ae20c09edf33ee449bf585c83db48c2cd064916"
+    }
+  },
+  "matplotlib_version": "3.11.2",
+  "phase": "development",
+  "plotted_values_sha256": "13d84c1d6fc20aa8d0b431db78bfd6f99d0081dad3a4bfd83bb7984dc6ef8fe8",
+  "postprocessor_sources": {
+    "frs_html_report.py": "12d40133f4cb17267cef3ed18fd35ca26e8658036d3ea63a0f876e60f30ff23b",
+    "frs_plots.py": "a414a1f15f64b69a16c5f2ab743dacaa9c1150f0bc9feb9ed7c3579be05d3cca",
+    "frs_report.py": "2feed8467f5dcc4744a6666dc264f186e8bd74cc3badc170d3aac282186ee0fb"
+  },
+  "report_sha256": "7b69978c4cc5653fec9fe780a731e23f88777236562a44df2c38d01ede7c0be6",
+  "schema_version": "frs-scientific-figures-1.0",
+  "seed": 19
+}

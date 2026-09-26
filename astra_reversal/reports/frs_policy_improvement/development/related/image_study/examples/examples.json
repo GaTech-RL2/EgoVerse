@@ -1,0 +1,943 @@
+{
+  "considered_cases": [
+    {
+      "arms": {
+        "astra_demo_blend": {
+          "counts": {
+            "accepted_decisions": 0,
+            "accepted_explicit_noop_decisions": 0,
+            "accepted_generations": 0,
+            "accepted_generations_without_pixel_change": 0,
+            "accepted_nonzero_spec_generations_without_pixel_change": 0,
+            "accepted_pixel_changing_generations": 0,
+            "fallback_generations": 0,
+            "intervention_rollouts": 0,
+            "rejected_decisions": 0
+          },
+          "first_generation_sequence": null,
+          "status": "no_intervention_rollout"
+        },
+        "astra_occlusion": {
+          "counts": {
+            "accepted_decisions": 0,
+            "accepted_explicit_noop_decisions": 0,
+            "accepted_generations": 0,
+            "accepted_generations_without_pixel_change": 0,
+            "accepted_nonzero_spec_generations_without_pixel_change": 0,
+            "accepted_pixel_changing_generations": 0,
+            "fallback_generations": 0,
+            "intervention_rollouts": 0,
+            "rejected_decisions": 0
+          },
+          "first_generation_sequence": null,
+          "status": "no_intervention_rollout"
+        }
+      },
+      "audit_sha256": "390f70545b21018e55991b29f627fc0df3ae5e277251a24ae51a4a09cf0b579a",
+      "case_audit_digest": "185d1693303174b9a81eb6f7f86f1022bf55c958939e60f00461359d7d2bcc30",
+      "episode_id": "libero_goal_ood:seed37:task0:state0",
+      "events_sha256": "7625a9e6d9ba05d057f14fc5aebc76887281794dd3408fba91f8cc9b21676a74",
+      "initial_state_id": 0,
+      "instruction": "put the cream cheese in the basket",
+      "payload_sha256": "d29de49589955c7f22d2fea97674c7b8881ad45886cb8430ba70fce713e0a167",
+      "phase": "evaluation",
+      "protocol_sha256": "14d86962d95a95c87a2bd9e6cf8fee2a5fde013852266bddd64fd75ca364b929",
+      "reset_entry_sha256": "536bce9907155a50a326792455a7d9892674bb3a3a31ccc2840c6099354d4d2e",
+      "runtime_sha256": "d5694da078bf772b05f9e5d80a45b07847c547d62e3dafc155bf25b98078b8f7",
+      "summary_sha256": "c930d7ccf8f1c978f7badb845492ced2d2ea9c133222f4b2a6eb9ed7c4c44f44",
+      "task_id": 0,
+      "worker": 0,
+      "workflow": "astra-pi05-image-evaluation-20260925-1"
+    },
+    {
+      "arms": {
+        "astra_demo_blend": {
+          "counts": {
+            "accepted_decisions": 0,
+            "accepted_explicit_noop_decisions": 0,
+            "accepted_generations": 0,
+            "accepted_generations_without_pixel_change": 0,
+            "accepted_nonzero_spec_generations_without_pixel_change": 0,
+            "accepted_pixel_changing_generations": 0,
+            "fallback_generations": 0,
+            "intervention_rollouts": 0,
+            "rejected_decisions": 0
+          },
+          "first_generation_sequence": null,
+          "status": "no_intervention_rollout"
+        },
+        "astra_occlusion": {
+          "counts": {
+            "accepted_decisions": 0,
+            "accepted_explicit_noop_decisions": 0,
+            "accepted_generations": 0,
+            "accepted_generations_without_pixel_change": 0,
+            "accepted_nonzero_spec_generations_without_pixel_change": 0,
+            "accepted_pixel_changing_generations": 0,
+            "fallback_generations": 0,
+            "intervention_rollouts": 0,
+            "rejected_decisions": 0
+          },
+          "first_generation_sequence": null,
+          "status": "no_intervention_rollout"
+        }
+      },
+      "audit_sha256": "390f70545b21018e55991b29f627fc0df3ae5e277251a24ae51a4a09cf0b579a",
+      "case_audit_digest": "9f3f5dd42575b57685436b673407563489b635452747ad126ec37d30c351cb8f",
+      "episode_id": "libero_goal_ood:seed37:task4:state0",
+      "events_sha256": "53687c15decd1e9fe244fefdd75b7b8b8797e42bb3b82c508421b44f23b7994b",
+      "initial_state_id": 0,
+      "instruction": "put the wine bottle on the stove",
+      "payload_sha256": "d29de49589955c7f22d2fea97674c7b8881ad45886cb8430ba70fce713e0a167",
+      "phase": "evaluation",
+      "protocol_sha256": "14d86962d95a95c87a2bd9e6cf8fee2a5fde013852266bddd64fd75ca364b929",
+      "reset_entry_sha256": "33cd7f95bbfc951b459412283e695b2aaa98d8ef96950627f3f9e70e5bbf7bb3",
+      "runtime_sha256": "d5694da078bf772b05f9e5d80a45b07847c547d62e3dafc155bf25b98078b8f7",
+      "summary_sha256": "103f40bd0c138be3fc7ffb7e1ee64aece7cc86c11be3e88a77b4c37d842cc7a1",
+      "task_id": 4,
+      "worker": 0,
+      "workflow": "astra-pi05-image-evaluation-20260925-1"
+    },
+    {
+      "arms": {
+        "astra_demo_blend": {
+          "counts": {
+            "accepted_decisions": 5,
+            "accepted_explicit_noop_decisions": 2,
+            "accepted_generations": 22,
+            "accepted_generations_without_pixel_change": 10,
+            "accepted_nonzero_spec_generations_without_pixel_change": 0,
+            "accepted_pixel_changing_generations": 12,
+            "fallback_generations": 0,
+            "intervention_rollouts": 1,
+            "rejected_decisions": 0
+          },
+          "first_generation_sequence": 500,
+          "status": "selected"
+        },
+        "astra_occlusion": {
+          "counts": {
+            "accepted_decisions": 6,
+            "accepted_explicit_noop_decisions": 0,
+            "accepted_generations": 26,
+            "accepted_generations_without_pixel_change": 0,
+            "accepted_nonzero_spec_generations_without_pixel_change": 0,
+            "accepted_pixel_changing_generations": 26,
+            "fallback_generations": 0,
+            "intervention_rollouts": 1,
+            "rejected_decisions": 0
+          },
+          "first_generation_sequence": 447,
+          "status": "selected"
+        }
+      },
+      "audit_sha256": "390f70545b21018e55991b29f627fc0df3ae5e277251a24ae51a4a09cf0b579a",
+      "case_audit_digest": "4109e4969cd83e6fc21b06ccf4913fe794ae460ef6dedbcc0b24ee48cb3493d0",
+      "episode_id": "libero_goal_ood:seed37:task8:state0",
+      "events_sha256": "8a734a48f5abfa7510d071aa080252df2709b5145ff33bee82a41abcb9fe9374",
+      "initial_state_id": 0,
+      "instruction": "put the cream cheese on the stove",
+      "payload_sha256": "d29de49589955c7f22d2fea97674c7b8881ad45886cb8430ba70fce713e0a167",
+      "phase": "evaluation",
+      "protocol_sha256": "14d86962d95a95c87a2bd9e6cf8fee2a5fde013852266bddd64fd75ca364b929",
+      "reset_entry_sha256": "e9123e3e6f72f787ed06971ce814a65918ad92976b380b7ad30d5890a3a56908",
+      "runtime_sha256": "d5694da078bf772b05f9e5d80a45b07847c547d62e3dafc155bf25b98078b8f7",
+      "summary_sha256": "ada28cb12f351e42e89492ea5571d2364072589babc7734583bb71e02ab13394",
+      "task_id": 8,
+      "worker": 0,
+      "workflow": "astra-pi05-image-evaluation-20260925-1"
+    }
+  ],
+  "examples": {
+    "astra_demo_blend": {
+      "array_sources": {
+        "arrays/00004031.npy": {
+          "descriptor": {
+            "array": "arrays/00004031.npy",
+            "dtype": "uint8",
+            "sha256": "95a70e5be19966e9b74ef47eb8ee9c44438dd04164f111ce0422fc4a539c85fd",
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          },
+          "file_sha256": "6843764248260ab7636d4b8b8326b615cd3534b2ccaf801a1a814491eae1ad55"
+        },
+        "arrays/00004032.npy": {
+          "descriptor": {
+            "array": "arrays/00004032.npy",
+            "dtype": "uint8",
+            "sha256": "34073fc900ad9562df1a722efb4af493cc8c1db15cc054a6b3b078491243efc6",
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          },
+          "file_sha256": "99768ca726959c5566f0148ceadaceb1819ddda57287487dde4559b9f34ba788"
+        },
+        "arrays/00004033.npy": {
+          "descriptor": {
+            "array": "arrays/00004033.npy",
+            "dtype": "float32",
+            "sha256": "bad414b5e10d89c2744a6b0a83c3074d226e9d46c68396c68733e444db0dc282",
+            "shape": [
+              8
+            ]
+          },
+          "file_sha256": "f5bd72f4a8db7938d8fc420f7dc195067083f12896ebcd4edbee45581bf6aece"
+        },
+        "arrays/00004034.npy": {
+          "descriptor": {
+            "array": "arrays/00004034.npy",
+            "dtype": "uint8",
+            "sha256": "4780f5f89061b9487c924131b47691d8d6c9b15e28df23e8daaa5415d6eb8524",
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          },
+          "file_sha256": "71fd08c1176bcc3bffeac2d040d05e76d22d97fb2a4840d3b637a379c3d70c36"
+        },
+        "arrays/00004035.npy": {
+          "descriptor": {
+            "array": "arrays/00004035.npy",
+            "dtype": "uint8",
+            "sha256": "34073fc900ad9562df1a722efb4af493cc8c1db15cc054a6b3b078491243efc6",
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          },
+          "file_sha256": "99768ca726959c5566f0148ceadaceb1819ddda57287487dde4559b9f34ba788"
+        },
+        "arrays/00004036.npy": {
+          "descriptor": {
+            "array": "arrays/00004036.npy",
+            "dtype": "float32",
+            "sha256": "bad414b5e10d89c2744a6b0a83c3074d226e9d46c68396c68733e444db0dc282",
+            "shape": [
+              8
+            ]
+          },
+          "file_sha256": "f5bd72f4a8db7938d8fc420f7dc195067083f12896ebcd4edbee45581bf6aece"
+        }
+      },
+      "attempt_id": "astra_demo_blend_2",
+      "cameras": {
+        "observation/image": {
+          "donor_provenance": {
+            "camera": "observation/image",
+            "dataset_repo": "physical-intelligence/libero",
+            "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+            "donor_id": "std17-e392-f77",
+            "episode_index": 392,
+            "frame_index": 77,
+            "library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+            "parquet": {
+              "bytes": 13185754,
+              "episode_index": 392,
+              "frame_count": 103,
+              "relative_path": "data/chunk-000/episode_000392.parquet",
+              "sha256": "537adeaaa52f4ea2bba9c26a9053a5a738bead0967919222877577b027130116"
+            },
+            "phase": {
+              "denominator": 4,
+              "numerator": 3
+            },
+            "pixels_sha256": "bdbd96a0396c0690b3b7e8c153f8528c3b9ebff25969bd7ebb8d06cd21ac5e04",
+            "png_file_sha256": "5cb0a76f48bb203361b3d56ff8a580dfff7c8f07ccc9d9d9acb4506705d0b702",
+            "preprocessing": {
+              "image_tools_sha256": "d48b4bd7f44e79fe6db8a8e07c9161144fa250be686e1245014a8b47e6171977",
+              "output_dtype": "uint8",
+              "output_shape": [
+                224,
+                224,
+                3
+              ],
+              "policy_pixels_contain_labels_or_annotations": false,
+              "resize": "pinned openpi_client.image_tools.resize_with_pad(224,224), default PIL bilinear",
+              "rotation": "none; upstream RLDS conversion already rotated both cameras 180 degrees",
+              "source": "embedded 256x256 uint8 RGB PNG from the pinned standard training dataset",
+              "stored_demo_actions_state_or_object_poses": false
+            },
+            "prompt": "put the bowl on the stove",
+            "sample_sha256": "67d9a7658ed9fc5b3e5024199afb9a6c9ba565463f1c3f232b18a932b54ea48a",
+            "source_id": "17",
+            "source_pixels_sha256": "dfd5683c199fda40f1d7faf007aa2a9174fb57b6f83a712bcdbf599756060ce0"
+          },
+          "images": {
+            "donor": {
+              "dtype": "uint8",
+              "file": "astra_demo_blend/external_donor.png",
+              "file_sha256": "5cb0a76f48bb203361b3d56ff8a580dfff7c8f07ccc9d9d9acb4506705d0b702",
+              "pixels_sha256": "bdbd96a0396c0690b3b7e8c153f8528c3b9ebff25969bd7ebb8d06cd21ac5e04",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "edited": {
+              "dtype": "uint8",
+              "file": "astra_demo_blend/external_edited.png",
+              "file_sha256": "3be8f6349a42427ec91ef951e7d045f47595c1adcfaf45b130dba644ee651105",
+              "pixels_sha256": "4780f5f89061b9487c924131b47691d8d6c9b15e28df23e8daaa5415d6eb8524",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "raw": {
+              "dtype": "uint8",
+              "file": "astra_demo_blend/external_raw.png",
+              "file_sha256": "392fa0e35109a39f1a16faa69f5f7a544900beaf6d9389515fbd0b93925e4825",
+              "pixels_sha256": "95a70e5be19966e9b74ef47eb8ee9c44438dd04164f111ce0422fc4a539c85fd",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "operation": {
+            "alpha": 0.4,
+            "camera": "observation/image",
+            "donor_id": "std17-e392-f77",
+            "kind": "demo_blend"
+          },
+          "pixel_metrics": {
+            "after_sha256": "4780f5f89061b9487c924131b47691d8d6c9b15e28df23e8daaa5415d6eb8524",
+            "before_sha256": "95a70e5be19966e9b74ef47eb8ee9c44438dd04164f111ce0422fc4a539c85fd",
+            "changed_channel_values": 70821,
+            "changed_fraction": 0.6557118941326531,
+            "changed_pixels": 32901,
+            "donor_provenance": {
+              "camera": "observation/image",
+              "dataset_repo": "physical-intelligence/libero",
+              "dataset_revision": "a4336d589d589045d1c56423ffdf3b88a0e19b1f",
+              "donor_id": "std17-e392-f77",
+              "episode_index": 392,
+              "frame_index": 77,
+              "library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+              "parquet": {
+                "bytes": 13185754,
+                "episode_index": 392,
+                "frame_count": 103,
+                "relative_path": "data/chunk-000/episode_000392.parquet",
+                "sha256": "537adeaaa52f4ea2bba9c26a9053a5a738bead0967919222877577b027130116"
+              },
+              "phase": {
+                "denominator": 4,
+                "numerator": 3
+              },
+              "pixels_sha256": "bdbd96a0396c0690b3b7e8c153f8528c3b9ebff25969bd7ebb8d06cd21ac5e04",
+              "png_file_sha256": "5cb0a76f48bb203361b3d56ff8a580dfff7c8f07ccc9d9d9acb4506705d0b702",
+              "preprocessing": {
+                "image_tools_sha256": "d48b4bd7f44e79fe6db8a8e07c9161144fa250be686e1245014a8b47e6171977",
+                "output_dtype": "uint8",
+                "output_shape": [
+                  224,
+                  224,
+                  3
+                ],
+                "policy_pixels_contain_labels_or_annotations": false,
+                "resize": "pinned openpi_client.image_tools.resize_with_pad(224,224), default PIL bilinear",
+                "rotation": "none; upstream RLDS conversion already rotated both cameras 180 degrees",
+                "source": "embedded 256x256 uint8 RGB PNG from the pinned standard training dataset",
+                "stored_demo_actions_state_or_object_poses": false
+              },
+              "prompt": "put the bowl on the stove",
+              "sample_sha256": "67d9a7658ed9fc5b3e5024199afb9a6c9ba565463f1c3f232b18a932b54ea48a",
+              "source_id": "17",
+              "source_pixels_sha256": "dfd5683c199fda40f1d7faf007aa2a9174fb57b6f83a712bcdbf599756060ce0"
+            },
+            "dtype": "uint8",
+            "has_effect": true,
+            "linf": 83,
+            "mask_fraction": 1.0,
+            "mask_pixels": 50176,
+            "metric_units": "uint8_levels_0_255",
+            "operation": {
+              "alpha": 0.4,
+              "camera": "observation/image",
+              "donor_id": "std17-e392-f77",
+              "kind": "demo_blend"
+            },
+            "rms": 11.867087242431177,
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          }
+        },
+        "observation/wrist_image": {
+          "donor_provenance": null,
+          "images": {
+            "edited": {
+              "dtype": "uint8",
+              "file": "astra_demo_blend/wrist_edited.png",
+              "file_sha256": "c0a4649d2dc7730b1b4a52320db53276e0b4eb668d121a863cca419ee517dda6",
+              "pixels_sha256": "34073fc900ad9562df1a722efb4af493cc8c1db15cc054a6b3b078491243efc6",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "raw": {
+              "dtype": "uint8",
+              "file": "astra_demo_blend/wrist_raw.png",
+              "file_sha256": "c0a4649d2dc7730b1b4a52320db53276e0b4eb668d121a863cca419ee517dda6",
+              "pixels_sha256": "34073fc900ad9562df1a722efb4af493cc8c1db15cc054a6b3b078491243efc6",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "operation": null,
+          "pixel_metrics": {
+            "after_sha256": "34073fc900ad9562df1a722efb4af493cc8c1db15cc054a6b3b078491243efc6",
+            "before_sha256": "34073fc900ad9562df1a722efb4af493cc8c1db15cc054a6b3b078491243efc6",
+            "changed_channel_values": 0,
+            "changed_fraction": 0.0,
+            "changed_pixels": 0,
+            "donor_provenance": null,
+            "dtype": "uint8",
+            "has_effect": false,
+            "linf": 0,
+            "mask_fraction": 0.0,
+            "mask_pixels": 0,
+            "metric_units": "uint8_levels_0_255",
+            "operation": null,
+            "rms": 0.0,
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          }
+        }
+      },
+      "case": {
+        "audit_sha256": "390f70545b21018e55991b29f627fc0df3ae5e277251a24ae51a4a09cf0b579a",
+        "case_audit_digest": "4109e4969cd83e6fc21b06ccf4913fe794ae460ef6dedbcc0b24ee48cb3493d0",
+        "episode_id": "libero_goal_ood:seed37:task8:state0",
+        "events_sha256": "8a734a48f5abfa7510d071aa080252df2709b5145ff33bee82a41abcb9fe9374",
+        "initial_state_id": 0,
+        "instruction": "put the cream cheese on the stove",
+        "payload_sha256": "d29de49589955c7f22d2fea97674c7b8881ad45886cb8430ba70fce713e0a167",
+        "phase": "evaluation",
+        "protocol_sha256": "14d86962d95a95c87a2bd9e6cf8fee2a5fde013852266bddd64fd75ca364b929",
+        "reset_entry_sha256": "e9123e3e6f72f787ed06971ce814a65918ad92976b380b7ad30d5890a3a56908",
+        "runtime_sha256": "d5694da078bf772b05f9e5d80a45b07847c547d62e3dafc155bf25b98078b8f7",
+        "summary_sha256": "ada28cb12f351e42e89492ea5571d2364072589babc7734583bb71e02ab13394",
+        "task_id": 8,
+        "worker": 0,
+        "workflow": "astra-pi05-image-evaluation-20260925-1"
+      },
+      "condition_id": "b0aafe32591af9c24922685fefa2ce8c28cafe9cb18f754e13f1caa8220bc4b5",
+      "decision_id": "blend2-d3-stove-context",
+      "decision_index": 3,
+      "decision_sequence": 499,
+      "decision_step": 50,
+      "edited_observation_sha256": "193093c7809f13498025493a04c7fc9418ea16ee55e78cd08e2ed6d3ab1af0de",
+      "figure": {
+        "dtype": "uint8",
+        "file": "astra_demo_blend/comparison.png",
+        "file_sha256": "c8e63825661f3bbbaaaddeb723c685d2df3b5fa33bd4874fad35471952f29d39",
+        "panes": [
+          {
+            "camera": "observation/image",
+            "pixels_sha256": "95a70e5be19966e9b74ef47eb8ee9c44438dd04164f111ce0422fc4a539c85fd",
+            "role": "raw",
+            "xywh": [
+              16,
+              120,
+              224,
+              224
+            ]
+          },
+          {
+            "camera": "observation/image",
+            "pixels_sha256": "bdbd96a0396c0690b3b7e8c153f8528c3b9ebff25969bd7ebb8d06cd21ac5e04",
+            "role": "donor",
+            "xywh": [
+              256,
+              120,
+              224,
+              224
+            ]
+          },
+          {
+            "camera": "observation/image",
+            "pixels_sha256": "4780f5f89061b9487c924131b47691d8d6c9b15e28df23e8daaa5415d6eb8524",
+            "role": "edited",
+            "xywh": [
+              496,
+              120,
+              224,
+              224
+            ]
+          },
+          {
+            "camera": "observation/wrist_image",
+            "pixels_sha256": "34073fc900ad9562df1a722efb4af493cc8c1db15cc054a6b3b078491243efc6",
+            "role": "raw",
+            "xywh": [
+              16,
+              412,
+              224,
+              224
+            ]
+          },
+          {
+            "camera": "observation/wrist_image",
+            "pixels_sha256": "34073fc900ad9562df1a722efb4af493cc8c1db15cc054a6b3b078491243efc6",
+            "role": "edited",
+            "xywh": [
+              496,
+              412,
+              224,
+              224
+            ]
+          }
+        ],
+        "pixels_sha256": "7c3b51552b31dcd380c630ade0886517bcc30f32bd2bdde96c338f59f66a8ff1",
+        "shape": [
+          704,
+          736,
+          3
+        ]
+      },
+      "generation_sequence": 500,
+      "observation_step": 50,
+      "operations": [
+        {
+          "alpha": 0.4,
+          "camera": "observation/image",
+          "donor_id": "std17-e392-f77",
+          "kind": "demo_blend"
+        }
+      ],
+      "outcome_sequence": 516,
+      "provider_binding": {
+        "accepted": true,
+        "decision_id": "blend2-d3-stove-context",
+        "kind": "provider",
+        "payload_sha256": "71713789d62ce202391b6d88843c5e288993644b11c51f241d0211d6ed010693",
+        "provider_call": true,
+        "request_fingerprint": "f3391ad3ae6f81d111c10aa37c0a1cdfc06d765106a7b01d1a5d1c0d0bf93778",
+        "request_id": "f3391ad3ae6f81d1"
+      },
+      "raw_observation_sha256": "5c91402df2d76d9ea5322bdb1d4dbd3b86fa31a4812b25b0eb10a58b7933789f",
+      "recorded_outcome": {
+        "actions_executed": 106,
+        "status": "success",
+        "success": true,
+        "terminated": false
+      },
+      "request_fingerprint": "f3391ad3ae6f81d111c10aa37c0a1cdfc06d765106a7b01d1a5d1c0d0bf93778",
+      "request_id": "f3391ad3ae6f81d1",
+      "request_sequence": 498,
+      "status": "selected",
+      "valid_until_step": 75
+    },
+    "astra_occlusion": {
+      "array_sources": {
+        "arrays/00003695.npy": {
+          "descriptor": {
+            "array": "arrays/00003695.npy",
+            "dtype": "uint8",
+            "sha256": "d45cfc5fd637cb6d47e1c313791fc1bf89b4ea75ff8102e37147750e345d10d6",
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          },
+          "file_sha256": "435c2153107b1758abe33a254ee89b2b3309cef108b95ef086e7e9108443ac64"
+        },
+        "arrays/00003696.npy": {
+          "descriptor": {
+            "array": "arrays/00003696.npy",
+            "dtype": "uint8",
+            "sha256": "95069c87e4e4d995047113272130b43d14226858dd779ca23d8cfe593c31005b",
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          },
+          "file_sha256": "04a9eee3412d352b3c5dcabbd4c9234f36a224e7146eba65c437c91db5cd8812"
+        },
+        "arrays/00003697.npy": {
+          "descriptor": {
+            "array": "arrays/00003697.npy",
+            "dtype": "float32",
+            "sha256": "92911a6a4c8cf15f4f276686ee18904b51134eb5ce3a31ffa76f6963d25c94a3",
+            "shape": [
+              8
+            ]
+          },
+          "file_sha256": "b4cf4cfa017d7e4bcaa965bec761238d74409cf4eb9f1e20d9d877765fe481fa"
+        },
+        "arrays/00003698.npy": {
+          "descriptor": {
+            "array": "arrays/00003698.npy",
+            "dtype": "uint8",
+            "sha256": "fad1806ff136ebf05c063453c2a102784dbc0f1c1b713b9ae7df873b7fb23600",
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          },
+          "file_sha256": "0a50dde8325888f86e0428f326f5e7db9705d1936e40a1033f5a95b87396219b"
+        },
+        "arrays/00003699.npy": {
+          "descriptor": {
+            "array": "arrays/00003699.npy",
+            "dtype": "uint8",
+            "sha256": "f905a0f147227a4c0fca71fb830f25db2bd69701aae0bc98a660455b1a376850",
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          },
+          "file_sha256": "37e18fe8c828d373b76a4eecc959f6ef23c805bad0b5371030db4daf46c3ca94"
+        },
+        "arrays/00003700.npy": {
+          "descriptor": {
+            "array": "arrays/00003700.npy",
+            "dtype": "float32",
+            "sha256": "92911a6a4c8cf15f4f276686ee18904b51134eb5ce3a31ffa76f6963d25c94a3",
+            "shape": [
+              8
+            ]
+          },
+          "file_sha256": "b4cf4cfa017d7e4bcaa965bec761238d74409cf4eb9f1e20d9d877765fe481fa"
+        }
+      },
+      "attempt_id": "astra_occlusion_2",
+      "cameras": {
+        "observation/image": {
+          "donor_provenance": null,
+          "images": {
+            "edited": {
+              "dtype": "uint8",
+              "file": "astra_occlusion/external_edited.png",
+              "file_sha256": "70789cdc9454c901c61b98e2e7c568024ab73811fa92090e1e0864c4cef7723d",
+              "pixels_sha256": "fad1806ff136ebf05c063453c2a102784dbc0f1c1b713b9ae7df873b7fb23600",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "raw": {
+              "dtype": "uint8",
+              "file": "astra_occlusion/external_raw.png",
+              "file_sha256": "d882aaf898fd27086c70014aeff2b28c9de5e38825f9dc12b523fd5fef567bd5",
+              "pixels_sha256": "d45cfc5fd637cb6d47e1c313791fc1bf89b4ea75ff8102e37147750e345d10d6",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "operation": {
+            "box_xyxy": [
+              96,
+              112,
+              128,
+              139
+            ],
+            "camera": "observation/image",
+            "fill_rgb": [
+              127,
+              127,
+              127
+            ],
+            "kind": "occlusion",
+            "strength": 1
+          },
+          "pixel_metrics": {
+            "after_sha256": "fad1806ff136ebf05c063453c2a102784dbc0f1c1b713b9ae7df873b7fb23600",
+            "before_sha256": "d45cfc5fd637cb6d47e1c313791fc1bf89b4ea75ff8102e37147750e345d10d6",
+            "changed_channel_values": 2563,
+            "changed_fraction": 0.01721938775510204,
+            "changed_pixels": 864,
+            "donor_provenance": null,
+            "dtype": "uint8",
+            "has_effect": true,
+            "linf": 127,
+            "mask_fraction": 0.01721938775510204,
+            "mask_pixels": 864,
+            "metric_units": "uint8_levels_0_255",
+            "operation": {
+              "box_xyxy": [
+                96,
+                112,
+                128,
+                139
+              ],
+              "camera": "observation/image",
+              "fill_rgb": [
+                127,
+                127,
+                127
+              ],
+              "kind": "occlusion",
+              "strength": 1
+            },
+            "rms": 5.466735537626668,
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          }
+        },
+        "observation/wrist_image": {
+          "donor_provenance": null,
+          "images": {
+            "edited": {
+              "dtype": "uint8",
+              "file": "astra_occlusion/wrist_edited.png",
+              "file_sha256": "1fe7cd6235517ff4100441350f783e42cfaf9a64f44e0648d4d13b261d196a73",
+              "pixels_sha256": "f905a0f147227a4c0fca71fb830f25db2bd69701aae0bc98a660455b1a376850",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            },
+            "raw": {
+              "dtype": "uint8",
+              "file": "astra_occlusion/wrist_raw.png",
+              "file_sha256": "d950c734c8dd5769c3ad8811e2af46d202ca3326f21d9594271ed63f57b3a8eb",
+              "pixels_sha256": "95069c87e4e4d995047113272130b43d14226858dd779ca23d8cfe593c31005b",
+              "shape": [
+                224,
+                224,
+                3
+              ]
+            }
+          },
+          "operation": {
+            "box_xyxy": [
+              85,
+              49,
+              141,
+              103
+            ],
+            "camera": "observation/wrist_image",
+            "fill_rgb": [
+              127,
+              127,
+              127
+            ],
+            "kind": "occlusion",
+            "strength": 1
+          },
+          "pixel_metrics": {
+            "after_sha256": "f905a0f147227a4c0fca71fb830f25db2bd69701aae0bc98a660455b1a376850",
+            "before_sha256": "95069c87e4e4d995047113272130b43d14226858dd779ca23d8cfe593c31005b",
+            "changed_channel_values": 9018,
+            "changed_fraction": 0.060267857142857144,
+            "changed_pixels": 3024,
+            "donor_provenance": null,
+            "dtype": "uint8",
+            "has_effect": true,
+            "linf": 103,
+            "mask_fraction": 0.060267857142857144,
+            "mask_pixels": 3024,
+            "metric_units": "uint8_levels_0_255",
+            "operation": {
+              "box_xyxy": [
+                85,
+                49,
+                141,
+                103
+              ],
+              "camera": "observation/wrist_image",
+              "fill_rgb": [
+                127,
+                127,
+                127
+              ],
+              "kind": "occlusion",
+              "strength": 1
+            },
+            "rms": 11.384567267330398,
+            "shape": [
+              224,
+              224,
+              3
+            ]
+          }
+        }
+      },
+      "case": {
+        "audit_sha256": "390f70545b21018e55991b29f627fc0df3ae5e277251a24ae51a4a09cf0b579a",
+        "case_audit_digest": "4109e4969cd83e6fc21b06ccf4913fe794ae460ef6dedbcc0b24ee48cb3493d0",
+        "episode_id": "libero_goal_ood:seed37:task8:state0",
+        "events_sha256": "8a734a48f5abfa7510d071aa080252df2709b5145ff33bee82a41abcb9fe9374",
+        "initial_state_id": 0,
+        "instruction": "put the cream cheese on the stove",
+        "payload_sha256": "d29de49589955c7f22d2fea97674c7b8881ad45886cb8430ba70fce713e0a167",
+        "phase": "evaluation",
+        "protocol_sha256": "14d86962d95a95c87a2bd9e6cf8fee2a5fde013852266bddd64fd75ca364b929",
+        "reset_entry_sha256": "e9123e3e6f72f787ed06971ce814a65918ad92976b380b7ad30d5890a3a56908",
+        "runtime_sha256": "d5694da078bf772b05f9e5d80a45b07847c547d62e3dafc155bf25b98078b8f7",
+        "summary_sha256": "ada28cb12f351e42e89492ea5571d2364072589babc7734583bb71e02ab13394",
+        "task_id": 8,
+        "worker": 0,
+        "workflow": "astra-pi05-image-evaluation-20260925-1"
+      },
+      "condition_id": "38c7726bdd270ed835d9e6dea7232d0864ed48b701eca9734c539ef1b0f9c610",
+      "decision_id": "occlusion2-d1",
+      "decision_index": 1,
+      "decision_sequence": 446,
+      "decision_step": 0,
+      "edited_observation_sha256": "fc3f1c3b77ecb93bc16f834de8025191ed573c08b7ba2f3fc53b60e21541815e",
+      "figure": {
+        "dtype": "uint8",
+        "file": "astra_occlusion/comparison.png",
+        "file_sha256": "1d296290c44cae967d4c48e87848d40bf11dc1f3a4589a91fe2789d12b02b8b5",
+        "panes": [
+          {
+            "camera": "observation/image",
+            "pixels_sha256": "d45cfc5fd637cb6d47e1c313791fc1bf89b4ea75ff8102e37147750e345d10d6",
+            "role": "raw",
+            "xywh": [
+              16,
+              120,
+              224,
+              224
+            ]
+          },
+          {
+            "camera": "observation/image",
+            "pixels_sha256": "fad1806ff136ebf05c063453c2a102784dbc0f1c1b713b9ae7df873b7fb23600",
+            "role": "edited",
+            "xywh": [
+              256,
+              120,
+              224,
+              224
+            ]
+          },
+          {
+            "camera": "observation/wrist_image",
+            "pixels_sha256": "95069c87e4e4d995047113272130b43d14226858dd779ca23d8cfe593c31005b",
+            "role": "raw",
+            "xywh": [
+              16,
+              412,
+              224,
+              224
+            ]
+          },
+          {
+            "camera": "observation/wrist_image",
+            "pixels_sha256": "f905a0f147227a4c0fca71fb830f25db2bd69701aae0bc98a660455b1a376850",
+            "role": "edited",
+            "xywh": [
+              256,
+              412,
+              224,
+              224
+            ]
+          }
+        ],
+        "pixels_sha256": "ee930714cc848f6ef34700795a061dc27be7f7eebe7f0e47fad9c9f403dd3aa7",
+        "shape": [
+          704,
+          496,
+          3
+        ]
+      },
+      "generation_sequence": 447,
+      "observation_step": 0,
+      "operations": [
+        {
+          "box_xyxy": [
+            96,
+            112,
+            128,
+            139
+          ],
+          "camera": "observation/image",
+          "fill_rgb": [
+            127,
+            127,
+            127
+          ],
+          "kind": "occlusion",
+          "strength": 1
+        },
+        {
+          "box_xyxy": [
+            85,
+            49,
+            141,
+            103
+          ],
+          "camera": "observation/wrist_image",
+          "fill_rgb": [
+            127,
+            127,
+            127
+          ],
+          "kind": "occlusion",
+          "strength": 1
+        }
+      ],
+      "outcome_sequence": 483,
+      "provider_binding": {
+        "accepted": true,
+        "decision_id": "occlusion2-d1",
+        "kind": "provider",
+        "payload_sha256": "c70b561622ae9e11f2eb2f268a20acce77abd168344a4cd72196487aeb5776c6",
+        "provider_call": true,
+        "request_fingerprint": "c66a8d709acb53bf8bc376e967dc3d53c45d8f8ad53b0573a29b223aa3d078d3",
+        "request_id": "c66a8d709acb53bf"
+      },
+      "raw_observation_sha256": "74e9d002c5b09b90be9cd0042ffeb0a28305b518336c142d8831c326a7847fd2",
+      "recorded_outcome": {
+        "actions_executed": 126,
+        "status": "success",
+        "success": true,
+        "terminated": false
+      },
+      "request_fingerprint": "c66a8d709acb53bf8bc376e967dc3d53c45d8f8ad53b0573a29b223aa3d078d3",
+      "request_id": "c66a8d709acb53bf",
+      "request_sequence": 445,
+      "status": "selected",
+      "valid_until_step": 25
+    }
+  },
+  "library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+  "schema_version": "image-perturbation-examples-1.0",
+  "scope": "Audited recorded RGB evidence only. No inference/provider/simulator calls; no fabricated edits, task-outcome replay, or causal performance claim. Full audit receipts cover the complete runs; this exporter rechecks accepted Astra RGB generations and bound metadata, not all unselected action/noise arrays.",
+  "selection_rule": "Within the supplied completed audited cases: development before evaluation, then ascending worker index, task ID, state ID and episode ID. For each Astra arm select the first accepted generation with a nonzero specification and actual changed pixels, in recorded event sequence. Outcomes are not selection inputs.",
+  "source_sha256": {
+    "image_donor_bank.py": "ad4b7af6539cd5c8a1e4f0806a3c66259f47e9fbad466dd6743e9c00a258ea8f",
+    "image_perturbation_audit.py": "767610abca1e3d12e37be34446a3b1f795240a2b8f39a45694cc54d1344749c5",
+    "image_perturbation_examples.py": "a0bb7805cb919b334bbd9bec36f41fda56167d766cce9bf206c28e66feea859c",
+    "image_perturbations.py": "4e862e278cc6e9bc115cf6b9ba66962162af5a66617b708904cc9c08adc7a44b",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "status": "complete"
+}

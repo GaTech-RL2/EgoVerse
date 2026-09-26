@@ -1,0 +1,59 @@
+{
+  "schema_version": "frs-cuda-setup-probe-1.0",
+  "status": "passed",
+  "synthetic_setup_only": true,
+  "experimental_rollouts": 0,
+  "provider_calls": 0,
+  "native_velocity_evaluations": 0,
+  "total_setup_optimizer_steps": 2000,
+  "repeat_identical": true,
+  "gpu": "NVIDIA L40S",
+  "parameter_identities": [
+    {
+      "parameter_sha256": "9e1ef1d5882be173ae337260a37105b53977cf28beabe4103589c53245167564",
+      "optimizer_sha256": "d2d92b74a937262ad6241389f5c6399fdb8b85ae2c9f18091b07cb3a9bc60bc9",
+      "replay_sha256": "9508a4dd751d5f08cda0f7bcd166b30155eb4d53dc94c717f74b299686290330"
+    },
+    {
+      "parameter_sha256": "9e1ef1d5882be173ae337260a37105b53977cf28beabe4103589c53245167564",
+      "optimizer_sha256": "d2d92b74a937262ad6241389f5c6399fdb8b85ae2c9f18091b07cb3a9bc60bc9",
+      "replay_sha256": "9508a4dd751d5f08cda0f7bcd166b30155eb4d53dc94c717f74b299686290330"
+    }
+  ],
+  "checkpoint_sha256": [
+    {
+      "state.pt": "cebcf82c24f79afec6fe9acfaf9e8acf423678ded2355b4353cd0fa90ec55b53",
+      "manifest.json": "72028a2d4d0b2dbbd0e1225147b5846be1c9324f877dc13e0d27b8a48d612b23"
+    },
+    {
+      "state.pt": "141277e00a01945f8fca3a6cb5617b9e7454d870d20ee0232de5484b2de0bbe3",
+      "manifest.json": "985d44229d277a37962a6eb5c37a9ba361709ae4dd6487b54a21633a076630f9"
+    }
+  ],
+  "observations_sha256": "a0b0e91dd588656e47e25a5b8421f4883da3dbd9153c4db67ab191360c3b65cc",
+  "samples_sha256": "9508a4dd751d5f08cda0f7bcd166b30155eb4d53dc94c717f74b299686290330",
+  "fits": [
+    {
+      "device": "cuda",
+      "torch_version": "2.7.1+cu126",
+      "cuda_version": "12.6",
+      "optimizer_updates": 1000,
+      "wall_seconds": 6.414446611888707,
+      "target_out_of_range_fraction": 0.07142857142857142,
+      "mean_target_rmse": 0.26754873651523875
+    },
+    {
+      "device": "cuda",
+      "torch_version": "2.7.1+cu126",
+      "cuda_version": "12.6",
+      "optimizer_updates": 1000,
+      "wall_seconds": 4.10578440502286,
+      "target_out_of_range_fraction": 0.07142857142857142,
+      "mean_target_rmse": 0.26754873651523875
+    }
+  ],
+  "wall_seconds": 15.583551174029708,
+  "probe_sha256": "92f79599eb567d7989e4fcf05caa1adc0da80efb85d146496361617e97ec05f4",
+  "noise_policy_sha256": "560d985387629f07826daa5a3b6b25d8718360ad80c9bd54a6de57cb86445c1e",
+  "workflow": "astra-pi05-frs-cuda-setup-20260926-1"
+}

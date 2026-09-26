@@ -1,0 +1,536 @@
+{
+  "schema_version": "frs-development-independent-reconciliation-1.0",
+  "status": "passed",
+  "coverage": "Three completed development tasks; adaptation reset0 and held-out reset1 only. This is not the 20-task evaluation.",
+  "compiled_report_sha256": "7b69978c4cc5653fec9fe780a731e23f88777236562a44df2c38d01ede7c0be6",
+  "source_bindings": [
+    {
+      "artifact_id": "worker_0/task_6",
+      "suite": "libero_goal_ood",
+      "task_id": 6,
+      "archive_sha256": "3132315233a826c87bbb395d688e80c2ec2c8bd44b134b7ac3cffee9dcf49b2a",
+      "audit_receipt_sha256": "906511e3dc5c8a87d84754038a8a39e8dee45c0c504283792848e87ae62dc2e3",
+      "full_audit_sha256": "04d378fa87fcfd18ac2e1f8cef15e2b01dc22f242bec5f14929a5f69222a3b87",
+      "completion_seal_sha256": "773635ccee9a41c947cca96f063823e68458e0635070a2942bd22a9876ae78f4",
+      "source_sha256": {
+        "summary.json": "16aac41c8f694dea831f0e64be34e85d515f679d2e9447e621e4e8c7c8bffc21",
+        "events.jsonl": "fa6bb80e32614cd268a9effb1f96789d458e8cda6492d97bcc86489a8edf320c",
+        "provider.jsonl": "f13d996887c1a78b7c8bb6b1a0bcc1ac1db84a53b8aea01c716f7fa10ff43db9"
+      },
+      "preserved_live_prefix_is_complete": true,
+      "provider_event_joins": 241,
+      "all_prior_full_audit_validations_passed": true
+    },
+    {
+      "artifact_id": "worker_1/task_2",
+      "suite": "libero_spatial_ood",
+      "task_id": 2,
+      "archive_sha256": "44c1a6fed5d143c5649c8c485d957639cdd5d37f3fe5417bfe63a347bbb8c018",
+      "audit_receipt_sha256": "f811fce01642879bab162f0a998af0dea8c29b041a9842a45f7e1d9616a53ae3",
+      "full_audit_sha256": "f7454d99a757587e764add7d914dbc7fa75abc8a68e267c0a8427900dc0aa028",
+      "completion_seal_sha256": "542b8dc66c317002ae3e4bb69d53556713b8f6a71d2ee0b7e3422dbffbb043cd",
+      "source_sha256": {
+        "summary.json": "a42aa9385b1cf9e12bc61fadad3924af9cb8d160591ef07117c7a3cd9ccd7df8",
+        "events.jsonl": "5dde7c5f9342afdb1accc6d192b8e8862a1754555b65cbeb37f46c2589ea7219",
+        "provider.jsonl": "c16e5005bcc09d35ff41769294d6800b6a3601c1f8ace1be26707cc49eb23f52"
+      },
+      "preserved_live_prefix_is_complete": true,
+      "provider_event_joins": 261,
+      "all_prior_full_audit_validations_passed": true
+    },
+    {
+      "artifact_id": "worker_2/task_8",
+      "suite": "libero_spatial_ood",
+      "task_id": 8,
+      "archive_sha256": "9a1ffe5cdbcdc0743116dab21b7791377997f7319a64dba246bf58b960634360",
+      "audit_receipt_sha256": "4701c039a835c44138413b416a230feaafe5130b4ccf514da5e86d8d759279d9",
+      "full_audit_sha256": "b1ef42ca22de415f849cb381ac713d59aa844c814851f88ebc8592f33b1bd03b",
+      "completion_seal_sha256": "a28dabea9ecdcb2d543b4b4e740517d49241c42b3a8ee50e59bbd140bc845b77",
+      "source_sha256": {
+        "summary.json": "a8c3c30b33d69b06472dff9bc427574e4309e7a46a2f9074f453a94f0d79901b",
+        "events.jsonl": "5678ce1e29311f88278ab96d5511ac4284f82aebed8df035e20da9bc2ed16ad9",
+        "provider.jsonl": "6fedc0367f1342ba2998eb5779ffcdfd231921c55eb040956d52f6284b409d90"
+      },
+      "preserved_live_prefix_is_complete": true,
+      "provider_event_joins": 273,
+      "all_prior_full_audit_validations_passed": true
+    }
+  ],
+  "provider_usage": {
+    "provider_calls": 775,
+    "accepted_proposals": 771,
+    "failed_calls": 4,
+    "usage_available_calls": 772,
+    "usage_unavailable_calls": 3,
+    "tokens": {
+      "input_tokens": {
+        "sum": 3060656,
+        "available_calls": 772,
+        "missing_calls": 3,
+        "complete": false
+      },
+      "output_tokens": {
+        "sum": 169048,
+        "available_calls": 772,
+        "missing_calls": 3,
+        "complete": false
+      },
+      "reasoning_tokens": {
+        "sum": 23128,
+        "available_calls": 772,
+        "missing_calls": 3,
+        "complete": false
+      },
+      "total_tokens": {
+        "sum": 3229704,
+        "available_calls": 772,
+        "missing_calls": 3,
+        "complete": false
+      }
+    },
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "latency_seconds": 6293.0810055685,
+    "actual_models": {
+      "azure/openai/gpt-6-astra": 772,
+      "unavailable": 3
+    },
+    "http_status": {
+      "200": 772,
+      "unavailable": 2,
+      "503": 1
+    },
+    "errors": {
+      "Inference transport failed (TimeoutError)": 2,
+      "Inference endpoint returned HTTP 503": 1,
+      "proposal_rejected: Response does not echo request_id": 1
+    },
+    "monetary_cost": null,
+    "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+    "client_attempts": 775,
+    "preflight_failures": 0,
+    "preflight_errors": {},
+    "preflight_latency_seconds": 0
+  },
+  "independent_http_usage_arithmetic": {
+    "input_tokens": {
+      "sum": 3060656,
+      "missing_calls": 3
+    },
+    "output_tokens": {
+      "sum": 169048,
+      "missing_calls": 3
+    },
+    "total_tokens": {
+      "sum": 3229704,
+      "missing_calls": 3
+    },
+    "reasoning_tokens": {
+      "sum": 23128,
+      "missing_calls": 3
+    }
+  },
+  "per_role_costs": {
+    "action_edit": {
+      "provider_calls": 630,
+      "accepted_proposals": 627,
+      "failed_calls": 3,
+      "usage_available_calls": 628,
+      "usage_unavailable_calls": 2,
+      "tokens": {
+        "input_tokens": {
+          "sum": 2121666,
+          "available_calls": 628,
+          "missing_calls": 2,
+          "complete": false
+        },
+        "output_tokens": {
+          "sum": 126149,
+          "available_calls": 628,
+          "missing_calls": 2,
+          "complete": false
+        },
+        "reasoning_tokens": {
+          "sum": 11951,
+          "available_calls": 628,
+          "missing_calls": 2,
+          "complete": false
+        },
+        "total_tokens": {
+          "sum": 2247815,
+          "available_calls": 628,
+          "missing_calls": 2,
+          "complete": false
+        }
+      },
+      "reasoning_tokens_are_subset_of_output_tokens": true,
+      "latency_seconds": 4973.255039191339,
+      "actual_models": {
+        "azure/openai/gpt-6-astra": 628,
+        "unavailable": 2
+      },
+      "http_status": {
+        "200": 628,
+        "unavailable": 2
+      },
+      "errors": {
+        "Inference transport failed (TimeoutError)": 2,
+        "proposal_rejected: Response does not echo request_id": 1
+      },
+      "monetary_cost": null,
+      "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+      "client_attempts": 630,
+      "preflight_failures": 0,
+      "preflight_errors": {},
+      "preflight_latency_seconds": 0
+    },
+    "critique": {
+      "provider_calls": 18,
+      "accepted_proposals": 18,
+      "failed_calls": 0,
+      "usage_available_calls": 18,
+      "usage_unavailable_calls": 0,
+      "tokens": {
+        "input_tokens": {
+          "sum": 278274,
+          "available_calls": 18,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "output_tokens": {
+          "sum": 12333,
+          "available_calls": 18,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "reasoning_tokens": {
+          "sum": 1839,
+          "available_calls": 18,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "total_tokens": {
+          "sum": 290607,
+          "available_calls": 18,
+          "missing_calls": 0,
+          "complete": true
+        }
+      },
+      "reasoning_tokens_are_subset_of_output_tokens": true,
+      "latency_seconds": 282.46800426382106,
+      "actual_models": {
+        "azure/openai/gpt-6-astra": 18
+      },
+      "http_status": {
+        "200": 18
+      },
+      "errors": {},
+      "monetary_cost": null,
+      "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+      "client_attempts": 18,
+      "preflight_failures": 0,
+      "preflight_errors": {},
+      "preflight_latency_seconds": 0
+    },
+    "judge": {
+      "provider_calls": 18,
+      "accepted_proposals": 18,
+      "failed_calls": 0,
+      "usage_available_calls": 18,
+      "usage_unavailable_calls": 0,
+      "tokens": {
+        "input_tokens": {
+          "sum": 530462,
+          "available_calls": 18,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "output_tokens": {
+          "sum": 6433,
+          "available_calls": 18,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "reasoning_tokens": {
+          "sum": 585,
+          "available_calls": 18,
+          "missing_calls": 0,
+          "complete": true
+        },
+        "total_tokens": {
+          "sum": 536895,
+          "available_calls": 18,
+          "missing_calls": 0,
+          "complete": true
+        }
+      },
+      "reasoning_tokens_are_subset_of_output_tokens": true,
+      "latency_seconds": 215.57992051669862,
+      "actual_models": {
+        "azure/openai/gpt-6-astra": 18
+      },
+      "http_status": {
+        "200": 18
+      },
+      "errors": {},
+      "monetary_cost": null,
+      "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+      "client_attempts": 18,
+      "preflight_failures": 0,
+      "preflight_errors": {},
+      "preflight_latency_seconds": 0
+    },
+    "paper_direction": {
+      "provider_calls": 109,
+      "accepted_proposals": 108,
+      "failed_calls": 1,
+      "usage_available_calls": 108,
+      "usage_unavailable_calls": 1,
+      "tokens": {
+        "input_tokens": {
+          "sum": 130254,
+          "available_calls": 108,
+          "missing_calls": 1,
+          "complete": false
+        },
+        "output_tokens": {
+          "sum": 24133,
+          "available_calls": 108,
+          "missing_calls": 1,
+          "complete": false
+        },
+        "reasoning_tokens": {
+          "sum": 8753,
+          "available_calls": 108,
+          "missing_calls": 1,
+          "complete": false
+        },
+        "total_tokens": {
+          "sum": 154387,
+          "available_calls": 108,
+          "missing_calls": 1,
+          "complete": false
+        }
+      },
+      "reasoning_tokens_are_subset_of_output_tokens": true,
+      "latency_seconds": 821.7780415966408,
+      "actual_models": {
+        "azure/openai/gpt-6-astra": 108,
+        "unavailable": 1
+      },
+      "http_status": {
+        "200": 108,
+        "503": 1
+      },
+      "errors": {
+        "Inference endpoint returned HTTP 503": 1
+      },
+      "monetary_cost": null,
+      "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+      "client_attempts": 109,
+      "preflight_failures": 0,
+      "preflight_errors": {},
+      "preflight_latency_seconds": 0
+    }
+  },
+  "provider_choices": {
+    "critique": {
+      "rules_returned": 18
+    },
+    "action_edit": {
+      "defer": 550,
+      "edit": 77,
+      "rejected": 3
+    },
+    "judge": {
+      "same": 18
+    },
+    "paper_direction": {
+      "direction": 53,
+      "native_defer": 55,
+      "rejected": 1
+    }
+  },
+  "rejected_call_usage": {
+    "provider_calls": 4,
+    "accepted_proposals": 0,
+    "failed_calls": 4,
+    "usage_available_calls": 1,
+    "usage_unavailable_calls": 3,
+    "tokens": {
+      "input_tokens": {
+        "sum": 3406,
+        "available_calls": 1,
+        "missing_calls": 3,
+        "complete": false
+      },
+      "output_tokens": {
+        "sum": 193,
+        "available_calls": 1,
+        "missing_calls": 3,
+        "complete": false
+      },
+      "reasoning_tokens": {
+        "sum": 0,
+        "available_calls": 1,
+        "missing_calls": 3,
+        "complete": false
+      },
+      "total_tokens": {
+        "sum": 3599,
+        "available_calls": 1,
+        "missing_calls": 3,
+        "complete": false
+      }
+    },
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "latency_seconds": 346.3180245696567,
+    "actual_models": {
+      "unavailable": 3,
+      "azure/openai/gpt-6-astra": 1
+    },
+    "http_status": {
+      "unavailable": 2,
+      "503": 1,
+      "200": 1
+    },
+    "errors": {
+      "Inference transport failed (TimeoutError)": 2,
+      "Inference endpoint returned HTTP 503": 1,
+      "proposal_rejected: Response does not echo request_id": 1
+    },
+    "monetary_cost": null,
+    "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+    "client_attempts": 4,
+    "preflight_failures": 0,
+    "preflight_errors": {},
+    "preflight_latency_seconds": 0
+  },
+  "rejected_call_native_fallback": {
+    "generations": 4,
+    "executed_actions": 40,
+    "contexts": [
+      {
+        "episode_id": "libero_goal_ood:seed19:task6:state0",
+        "attempt_id": "critique_frs_no_learning_state0_round1",
+        "step": 260,
+        "executed_actions": 10,
+        "recorded_run_success": false
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "attempt_id": "critique_frs_no_learning_state0_round3",
+        "step": 250,
+        "executed_actions": 10,
+        "recorded_run_success": false
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed19:task2:state1",
+        "attempt_id": "astra_direction_direct_state1_round3",
+        "step": 170,
+        "executed_actions": 10,
+        "recorded_run_success": false
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed19:task8:state0",
+        "attempt_id": "critique_frs_no_learning_state0_round2",
+        "step": 220,
+        "executed_actions": 10,
+        "recorded_run_success": false
+      }
+    ]
+  },
+  "physical_totals": {
+    "rollouts": 45,
+    "actions": 12766,
+    "velocity_evaluations": 14720,
+    "accepted_policy_updates": 0,
+    "optimizer_steps": 0,
+    "auxiliary_inferences": 0
+  },
+  "evaluation_outcomes": [
+    {
+      "method": "astra_direction_direct",
+      "checkpoint_round": 3,
+      "successes": 2,
+      "episodes": 3,
+      "successful_episode_ids": [
+        "libero_goal_ood:seed19:task6:state1",
+        "libero_spatial_ood:seed19:task8:state1"
+      ]
+    },
+    {
+      "method": "astra_frs",
+      "checkpoint_round": 3,
+      "successes": 2,
+      "episodes": 3,
+      "successful_episode_ids": [
+        "libero_goal_ood:seed19:task6:state1",
+        "libero_spatial_ood:seed19:task2:state1"
+      ]
+    },
+    {
+      "method": "critique_frs_no_learning",
+      "checkpoint_round": 3,
+      "successes": 0,
+      "episodes": 3,
+      "successful_episode_ids": []
+    },
+    {
+      "method": "learned_noise",
+      "checkpoint_round": 1,
+      "successes": 0,
+      "episodes": 3,
+      "successful_episode_ids": []
+    },
+    {
+      "method": "learned_noise",
+      "checkpoint_round": 2,
+      "successes": 0,
+      "episodes": 3,
+      "successful_episode_ids": []
+    },
+    {
+      "method": "learned_noise",
+      "checkpoint_round": 3,
+      "successes": 0,
+      "episodes": 3,
+      "successful_episode_ids": []
+    },
+    {
+      "method": "native_euler10",
+      "checkpoint_round": 3,
+      "successes": 0,
+      "episodes": 3,
+      "successful_episode_ids": []
+    },
+    {
+      "method": "native_repeated_noise",
+      "checkpoint_round": 3,
+      "successes": 0,
+      "episodes": 3,
+      "successful_episode_ids": []
+    }
+  ],
+  "judgments": {
+    "same": 18
+  },
+  "promotions": 0,
+  "heldout_no_learning_empty_rule_deferrals": 90,
+  "learned_noise_untrained_fallback_generations": 270,
+  "interpretation": "All18 judges returned same, so no rules or noise-policy weights were promoted. The held-out no-learning arm received empty rules and deferred on all90 calls; no held-out action editing occurred. The auxiliary actor remained untrained and used its exact native-noise fallback.",
+  "checks": {
+    "all_seals_and_audit_hashes_match": true,
+    "all_archives_rehashed": true,
+    "all775_provider_decisions_join": true,
+    "all_report_outcome_rows_match_events": true,
+    "failed_call_costs_retained": true,
+    "live_prefixes_match_completed_files": true
+  },
+  "limitations": [
+    "This reconciliation rechecks ledgers, seals, outcomes and costs and binds the prior full array audits; it does not repeat every array replay or hidden model/physics computation.",
+    "Three missing usage reports make3,229,704 a lower bound on tokens. No dollar price is assumed. Reasoning tokens are included in output tokens.",
+    "Previous interrupted workflows and the transport smoke remain separate costs.",
+    "The three development resets cannot establish generalization or superiority of FRS over direct steering."
+  ],
+  "builder_sha256": "c5aa47dab8587db1e921ae564dbbf048d38b41300b5bc3f99da0b12d3c29b8ac"
+}

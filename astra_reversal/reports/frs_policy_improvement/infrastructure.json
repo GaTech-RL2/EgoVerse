@@ -96,7 +96,7 @@
       "pool": "groot-l40s-03",
       "source_revision": "a50f92dfd18a7fdfe1c6198d34ddb43386d28396",
       "payload_sha256": "0828e19a85a7474d2e6ef2bbe705406da51690cdb4ed6891687407a007fc5bae",
-      "efficacy_eligible": false,
+      "efficacy_eligible": true,
       "preflight_tests": {
         "0": {
           "unit_tests.log": {
@@ -129,17 +129,396 @@
           }
         }
       },
-      "status": "RUNNING",
+      "status": "COMPLETED",
       "submit_time_utc": "2026-09-26T16:18:30.612577",
       "start_time_utc": "2026-09-26T16:18:43.346548",
+      "end_time_utc": "2026-09-26T17:10:28.258375",
+      "status_receipt_sha256": "ea7c45aaa4a01461d5bfab123c85da68485eb2bb909ddb3ed11126a9860e81d5",
+      "reason": "All three prescribed tasks completed with passed sealed-task audits and a complete strict report.",
+      "provider_call_scope": "Completed development calls and missing usage are reconciled in development/report.json; setup and earlier interrupted attempts are separate.",
+      "status_history": [
+        {
+          "status": "RUNNING",
+          "submit_time_utc": "2026-09-26T16:18:30.612577",
+          "start_time_utc": "2026-09-26T16:18:43.346548",
+          "end_time_utc": null,
+          "status_receipt_sha256": "afdd30239f60b56084ed24c981a25941b4f62411df678bf0f442d7626c9c0bdd",
+          "reason": "Restart with unchanged payload after capacity became available; all three L40S workers passed preflight and entered task execution.",
+          "provider_call_scope": "Ongoing experiment; model-call costs are recorded in task ledgers, not inferred from this infrastructure snapshot.",
+          "snapshot_time_utc": "2026-09-26T16:28:01.760382+00:00"
+        }
+      ],
+      "workers": [
+        {
+          "name": "worker0",
+          "status": "COMPLETED",
+          "start_time_utc": "2026-09-26T16:18:43.346548",
+          "end_time_utc": "2026-09-26T17:03:52.114546"
+        },
+        {
+          "name": "worker1",
+          "status": "COMPLETED",
+          "start_time_utc": "2026-09-26T16:18:48.710614",
+          "end_time_utc": "2026-09-26T17:07:08.524063"
+        },
+        {
+          "name": "worker2",
+          "status": "COMPLETED",
+          "start_time_utc": "2026-09-26T16:18:47.782401",
+          "end_time_utc": "2026-09-26T17:10:28.258375"
+        }
+      ],
+      "phase": "development",
+      "efficacy_scope": "Completed selected three-case development only; not the full evaluation cohort.",
+      "report_sha256": "7b69978c4cc5653fec9fe780a731e23f88777236562a44df2c38d01ede7c0be6",
+      "report_manifest_sha256": "d5f09dfe9e827f2a0dfbf001602d6f93ece581a49b8f1eb636172a851b7846ee",
+      "task_audit_sha256": {
+        "libero_goal_ood:6": "04d378fa87fcfd18ac2e1f8cef15e2b01dc22f242bec5f14929a5f69222a3b87",
+        "libero_spatial_ood:2": "f7454d99a757587e764add7d914dbc7fa75abc8a68e267c0a8427900dc0aa028",
+        "libero_spatial_ood:8": "b1ef42ca22de415f849cb381ac713d59aa844c814851f88ebc8592f33b1bd03b"
+      },
+      "task_completion_seal_sha256": {
+        "libero_goal_ood:6": "773635ccee9a41c947cca96f063823e68458e0635070a2942bd22a9876ae78f4",
+        "libero_spatial_ood:2": "542b8dc66c317002ae3e4bb69d53556713b8f6a71d2ee0b7e3422dbffbb043cd",
+        "libero_spatial_ood:8": "a28dabea9ecdcb2d543b4b4e740517d49241c42b3a8ee50e59bbd140bc845b77"
+      }
+    },
+    {
+      "workflow": "astra-pi05-frs-evaluation-20260925-1",
+      "phase": "evaluation",
+      "pool": "groot-l40s-03",
+      "priority": "NORMAL",
+      "source_revision": "a50f92dfd18a7fdfe1c6198d34ddb43386d28396",
+      "payload_sha256": "0828e19a85a7474d2e6ef2bbe705406da51690cdb4ed6891687407a007fc5bae",
+      "efficacy_eligible": false,
+      "efficacy_scope": "Full evaluation is running; no completed aggregate efficacy or cost result is published.",
+      "requested_workers": 8,
+      "requested_hardware": "NVIDIA L40S",
+      "planned_tasks": 20,
+      "seed": 43,
+      "adaptation_reset_indexes": [
+        0
+      ],
+      "evaluation_reset_indexes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "planned_physical_rollouts": 1740,
+      "preflight_tests": {
+        "0": {
+          "unit_tests.log": {
+            "sha256": "edff092ac5073d0914a77b3a5a37373293fbda68c173813763efaecb9bc4de85",
+            "last_line": "819 passed in 82.02s (0:01:22)"
+          },
+          "native_tests.log": {
+            "sha256": "0c3afb9996d0312697b227fc4f7c80d6fe35ca0081a232d3c7e8f7f52b8de740",
+            "last_line": "19 passed in 23.60s"
+          }
+        },
+        "1": {
+          "unit_tests.log": {
+            "sha256": "638e6221add2fd1811c4e5e03ac9b2cf9b92efca4e6fd1ed4fd0711c95da978d",
+            "last_line": "819 passed in 80.70s (0:01:20)"
+          },
+          "native_tests.log": {
+            "sha256": "4c54b2e6920083c7b6cd9f5bab0ddc9d998d7cd680506a1ba6ba139d11d748be",
+            "last_line": "19 passed in 23.39s"
+          }
+        },
+        "2": {
+          "unit_tests.log": {
+            "sha256": "189f07761f05df8c0d958ea4d90636ccee8833e236a10cb996de1fa973a04335",
+            "last_line": "819 passed in 64.00s (0:01:03)"
+          },
+          "native_tests.log": {
+            "sha256": "c10990faea2940c2ddf3f1ceb407450021adca679befce1ac1ac770698c374ac",
+            "last_line": "19 passed in 6.93s"
+          }
+        },
+        "3": {
+          "unit_tests.log": {
+            "sha256": "f9b0daabb2fc75a05c390d8cd4f73582dbc54442e5423a358ff5ed30bbee1164",
+            "last_line": "819 passed in 77.94s (0:01:17)"
+          },
+          "native_tests.log": {
+            "sha256": "73cfc5812d04bdb69e44ba9f070cf9056a06217f361f9fac1b2ba9742b9f37f6",
+            "last_line": "19 passed in 21.24s"
+          }
+        },
+        "4": {
+          "unit_tests.log": {
+            "sha256": "6933e453738abc61c2516fbc18aa07bd640b822bedd735e85724663966f69de3",
+            "last_line": "819 passed in 77.13s (0:01:17)"
+          },
+          "native_tests.log": {
+            "sha256": "d8ff751ffe221cdcc2e97336416414d1408b141d73d6b5458fb4a01bfc862ded",
+            "last_line": "19 passed in 20.69s"
+          }
+        },
+        "5": {
+          "unit_tests.log": {
+            "sha256": "0c2ea06abe41af0994d0ba66aa6beee8d1c6725dfff8dd77330e3d41fe1aa03c",
+            "last_line": "819 passed in 77.88s (0:01:17)"
+          },
+          "native_tests.log": {
+            "sha256": "ca93a82c98b32bc5404fe6a906438ce1e0b74f1cd7c186c5d317bc49542f855e",
+            "last_line": "19 passed in 20.57s"
+          }
+        },
+        "6": {
+          "unit_tests.log": {
+            "sha256": "abbcb1f18957994165ac4191e9c6297d20a061c66a9e9fc27a8dc30cae6455fe",
+            "last_line": "819 passed in 78.21s (0:01:18)"
+          },
+          "native_tests.log": {
+            "sha256": "98c06149c58715e0395a6149d34395102a844f793239c9e7bf72b07bf511519a",
+            "last_line": "19 passed in 21.36s"
+          }
+        },
+        "7": {
+          "unit_tests.log": {
+            "sha256": "b983b57d121ad4a9da0f6995924e7723ac12cf1e7be829e876a69a9a1ba1346d",
+            "last_line": "819 passed in 79.22s (0:01:19)"
+          },
+          "native_tests.log": {
+            "sha256": "9949d0b48b0e33b89e214efdf1e15b0298f48292fe15a8889ffb2b392ccd866f",
+            "last_line": "19 passed in 21.59s"
+          }
+        }
+      },
+      "reason": "One authorized submission after complete development audits, report, codec verification, separate CUDA setup proof and explicit technical review. Scientific source/payload/protocol unchanged.",
+      "provider_call_scope": "Ongoing experiment; costs remain in task ledgers and are not inferred from this status snapshot.",
+      "controller_accepted_receipt_sha256": "1f3a9ed09f9d2985cd8d65b44159ab8b2af673d71ba35bd843f743b4ceeaa48d",
+      "launch_intent_sha256": "4d13c4676bd425373d9ef256f775bdf75998a029e50ce4873c4d291ad4499be2",
+      "submission_sha256": "9f78e3ab7646e9dcb11ddfcd3f32d94627e8270f93a12b8d699afcc21d16c309",
+      "status": "RUNNING",
+      "submit_time_utc": "2026-09-26T17:13:28.766975",
+      "start_time_utc": "2026-09-26T17:13:38.734676",
       "end_time_utc": null,
-      "status_receipt_sha256": "afdd30239f60b56084ed24c981a25941b4f62411df678bf0f442d7626c9c0bdd",
-      "reason": "Restart with unchanged payload after capacity became available; all three L40S workers passed preflight and entered task execution.",
-      "provider_call_scope": "Ongoing experiment; model-call costs are recorded in task ledgers, not inferred from this infrastructure snapshot."
+      "status_receipt_sha256": "11eb9849055d051232bea8f260b6051901072d4b56d638e2146ea9fea4b8f270",
+      "workers": [
+        {
+          "name": "worker0",
+          "status": "RUNNING",
+          "start_time_utc": "2026-09-26T17:13:38.734676",
+          "end_time_utc": null
+        },
+        {
+          "name": "worker1",
+          "status": "RUNNING",
+          "start_time_utc": "2026-09-26T17:13:40.307291",
+          "end_time_utc": null
+        },
+        {
+          "name": "worker2",
+          "status": "RUNNING",
+          "start_time_utc": "2026-09-26T17:13:40.307256",
+          "end_time_utc": null
+        },
+        {
+          "name": "worker3",
+          "status": "RUNNING",
+          "start_time_utc": "2026-09-26T17:13:43.074498",
+          "end_time_utc": null
+        },
+        {
+          "name": "worker4",
+          "status": "RUNNING",
+          "start_time_utc": "2026-09-26T17:13:43.934353",
+          "end_time_utc": null
+        },
+        {
+          "name": "worker5",
+          "status": "RUNNING",
+          "start_time_utc": "2026-09-26T17:13:45.950971",
+          "end_time_utc": null
+        },
+        {
+          "name": "worker6",
+          "status": "RUNNING",
+          "start_time_utc": "2026-09-26T17:13:47.726537",
+          "end_time_utc": null
+        },
+        {
+          "name": "worker7",
+          "status": "RUNNING",
+          "start_time_utc": "2026-09-26T17:13:47.672400",
+          "end_time_utc": null
+        }
+      ],
+      "status_history": [
+        {
+          "status": "RUNNING",
+          "submit_time_utc": "2026-09-26T17:13:28.766975",
+          "start_time_utc": "2026-09-26T17:13:38.734676",
+          "end_time_utc": null,
+          "status_receipt_sha256": "22e32a80da9e5ac73d998956b730fe4a0cb93518a9d16e0bc3e789762ca82be5",
+          "workers": [
+            {
+              "name": "worker0",
+              "status": "RUNNING",
+              "start_time_utc": "2026-09-26T17:13:38.734676",
+              "end_time_utc": null
+            },
+            {
+              "name": "worker1",
+              "status": "RUNNING",
+              "start_time_utc": "2026-09-26T17:13:40.307291",
+              "end_time_utc": null
+            },
+            {
+              "name": "worker2",
+              "status": "RUNNING",
+              "start_time_utc": "2026-09-26T17:13:40.307256",
+              "end_time_utc": null
+            },
+            {
+              "name": "worker3",
+              "status": "RUNNING",
+              "start_time_utc": "2026-09-26T17:13:43.074498",
+              "end_time_utc": null
+            },
+            {
+              "name": "worker4",
+              "status": "RUNNING",
+              "start_time_utc": "2026-09-26T17:13:43.934353",
+              "end_time_utc": null
+            },
+            {
+              "name": "worker5",
+              "status": "RUNNING",
+              "start_time_utc": "2026-09-26T17:13:45.950971",
+              "end_time_utc": null
+            },
+            {
+              "name": "worker6",
+              "status": "RUNNING",
+              "start_time_utc": "2026-09-26T17:13:47.726537",
+              "end_time_utc": null
+            },
+            {
+              "name": "worker7",
+              "status": "RUNNING",
+              "start_time_utc": "2026-09-26T17:13:47.672400",
+              "end_time_utc": null
+            }
+          ],
+          "snapshot_time_utc": "2026-09-26T17:21:04.315551+00:00"
+        }
+      ],
+      "preflight_scope": "All eight workers passed the frozen payload preflight: 819 unit and 19 native tests per worker. These are technical checks, not completed task outcomes."
     }
   ],
-  "active_workflow": "astra-pi05-frs-development-20260926-1",
+  "active_workflow": "astra-pi05-frs-evaluation-20260925-1",
   "active_status": "running",
   "requested_hardware": "NVIDIA L40S",
-  "snapshot_time_utc": "2026-09-26T16:28:01.760382+00:00"
+  "snapshot_time_utc": "2026-09-26T17:24:02.442616+00:00",
+  "active_phase": "evaluation",
+  "completed_development": {
+    "workflow": "astra-pi05-frs-development-20260926-1",
+    "phase": "development",
+    "status": "complete",
+    "seed": 19,
+    "task_keys": [
+      "libero_goal_ood:6",
+      "libero_spatial_ood:2",
+      "libero_spatial_ood:8"
+    ],
+    "report_path": "development/report.json",
+    "report_sha256": "7b69978c4cc5653fec9fe780a731e23f88777236562a44df2c38d01ede7c0be6",
+    "manifest_path": "development/manifest.json",
+    "manifest_sha256": "d5f09dfe9e827f2a0dfbf001602d6f93ece581a49b8f1eb636172a851b7846ee",
+    "final_separate_reset_results": {
+      "native_euler10": {
+        "round": 3,
+        "label": "Checkpoint after round 3",
+        "successes": 0,
+        "episodes": 3
+      },
+      "native_repeated_noise": {
+        "round": 3,
+        "label": "Checkpoint after round 3",
+        "successes": 0,
+        "episodes": 3
+      },
+      "astra_direction_direct": {
+        "round": 3,
+        "label": "Checkpoint after round 3",
+        "successes": 2,
+        "episodes": 3
+      },
+      "astra_frs": {
+        "round": 3,
+        "label": "Checkpoint after round 3",
+        "successes": 2,
+        "episodes": 3
+      },
+      "critique_frs_no_learning": {
+        "round": 3,
+        "label": "Checkpoint after round 3",
+        "successes": 0,
+        "episodes": 3
+      },
+      "learned_noise": {
+        "round": 3,
+        "label": "Checkpoint after round 3",
+        "successes": 0,
+        "episodes": 3
+      }
+    },
+    "adaptation_final_results": {
+      "critique_frs_no_learning": {
+        "round": 3,
+        "label": "Up to revision 3",
+        "successes": 0,
+        "episodes": 3
+      },
+      "critique_frs_learning": {
+        "round": 3,
+        "label": "Up to revision 3",
+        "successes": 0,
+        "episodes": 3
+      }
+    },
+    "promoted_candidates": 0,
+    "physical_cost": {
+      "unique_rollouts": 45,
+      "actions": 12766,
+      "velocity_evaluations": 14720,
+      "training_steps": 0,
+      "summed_wall_seconds": 7311.401358700939,
+      "provider_usage": {
+        "calls": 775,
+        "accepted_calls": 771,
+        "failed_calls": 4,
+        "preflight_failures": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 3060656,
+            "missing_calls": 3
+          },
+          "output_tokens": {
+            "sum": 169048,
+            "missing_calls": 3
+          },
+          "total_tokens": {
+            "sum": 3229704,
+            "missing_calls": 3
+          },
+          "reasoning_tokens": {
+            "sum": 23128,
+            "missing_calls": 3
+          }
+        }
+      }
+    }
+  }
 }

@@ -1,0 +1,497 @@
+{
+  "behavioral_audit": "Interrupted worker1..7 have no complete-array archive; only provider ledger arithmetic is reconciled here. These outcomes are excluded from canonical efficacy.",
+  "cancellation": "quota_preemption_for_higher_priority_shared_capacity",
+  "canonical_worker0_excluded_from_interruption_cost": true,
+  "final_snapshot_sha256": "b156cf77051160e0f853b041033c8f06f7427f1917b2ce5d075af72e21009e3e",
+  "known_interrupted_work_total": {
+    "accepted_proposals": 58,
+    "actual_models": {
+      "azure/openai/gpt-6-astra": 58
+    },
+    "client_attempts": 58,
+    "errors": {},
+    "failed_calls": 0,
+    "http_status": {
+      "200": 58
+    },
+    "latency_seconds": 690.6280804079288,
+    "monetary_cost": null,
+    "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+    "preflight_errors": {},
+    "preflight_failures": 0,
+    "preflight_latency_seconds": 0,
+    "provider_calls": 58,
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "tokens": {
+      "input_tokens": {
+        "available_calls": 58,
+        "complete": true,
+        "missing_calls": 0,
+        "sum": 1370696
+      },
+      "output_tokens": {
+        "available_calls": 58,
+        "complete": true,
+        "missing_calls": 0,
+        "sum": 17932
+      },
+      "reasoning_tokens": {
+        "available_calls": 58,
+        "complete": true,
+        "missing_calls": 0,
+        "sum": 3663
+      },
+      "total_tokens": {
+        "available_calls": 58,
+        "complete": true,
+        "missing_calls": 0,
+        "sum": 1388628
+      }
+    },
+    "usage_available_calls": 58,
+    "usage_unavailable_calls": 0
+  },
+  "missing_usage_note": "Outstanding requests and any unsynced calls can have unreported billed usage; known totals are a lower bound.",
+  "recovery": {
+    "payload_unchanged": true,
+    "prior_partial_costs_must_be_reported": true,
+    "prior_workflow": "astra-pi05-image-evaluation-20260925-1",
+    "reason": "OSMO quota preemption for a higher-priority job; no experiment failure",
+    "restarted_workers": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "retained_workers": [
+      0
+    ],
+    "source_unchanged": true
+  },
+  "restarted_workers": [
+    {
+      "known_usage": {
+        "accepted_proposals": 11,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 11
+        },
+        "client_attempts": 11,
+        "errors": {},
+        "failed_calls": 0,
+        "http_status": {
+          "200": 11
+        },
+        "latency_seconds": 112.29748727698461,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 11,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 11,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 238097
+          },
+          "output_tokens": {
+            "available_calls": 11,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 3112
+          },
+          "reasoning_tokens": {
+            "available_calls": 11,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 503
+          },
+          "total_tokens": {
+            "available_calls": 11,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 241209
+          }
+        },
+        "usage_available_calls": 11,
+        "usage_unavailable_calls": 0
+      },
+      "provider_ledger_sources": [
+        {
+          "bytes": 18328,
+          "calls": 4,
+          "sha256": "623d32226fa8c4ac736dd8d1d4ac504ae3ab54727f9b46ea16cf0cbab4f84847",
+          "source": "worker_1/case_1_0/astra_demo_blend_2_provider.jsonl"
+        },
+        {
+          "bytes": 13652,
+          "calls": 3,
+          "sha256": "9096a57de4a3a546c80d2c3f13e47ed98af85bdd693c34efea5a493883f9bd1b",
+          "source": "worker_1/case_1_0/astra_occlusion_2_provider.jsonl"
+        },
+        {
+          "bytes": 16611,
+          "calls": 4,
+          "sha256": "3c8d9c13bb6d65da0c93b86a40b7363e7a9d4680be61123f98bbffcf68f1bb90",
+          "source": "worker_1/case_5_0/astra_occlusion_2_provider.jsonl"
+        }
+      ],
+      "provider_receipts": 11,
+      "requests_without_provider_receipt": 0,
+      "worker": 1
+    },
+    {
+      "known_usage": {
+        "accepted_proposals": 22,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 22
+        },
+        "client_attempts": 22,
+        "errors": {},
+        "failed_calls": 0,
+        "http_status": {
+          "200": 22
+        },
+        "latency_seconds": 249.943128229992,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 22,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 22,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 550955
+          },
+          "output_tokens": {
+            "available_calls": 22,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 6985
+          },
+          "reasoning_tokens": {
+            "available_calls": 22,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 1337
+          },
+          "total_tokens": {
+            "available_calls": 22,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 557940
+          }
+        },
+        "usage_available_calls": 22,
+        "usage_unavailable_calls": 0
+      },
+      "provider_ledger_sources": [
+        {
+          "bytes": 54536,
+          "calls": 12,
+          "sha256": "79f6138866ec2721904f27f427b609960eadcd03d6b690ec1836618bb7487a9a",
+          "source": "worker_2/case_2_0/astra_occlusion_2_provider.jsonl"
+        },
+        {
+          "bytes": 46872,
+          "calls": 10,
+          "sha256": "4f214cca4794dae03750baedfda47d1cde257316b75edc8bb7b8fc22907c9f6c",
+          "source": "worker_2/case_2_0/astra_occlusion_3_provider.jsonl"
+        }
+      ],
+      "provider_receipts": 22,
+      "requests_without_provider_receipt": 0,
+      "worker": 2
+    },
+    {
+      "known_usage": {
+        "accepted_proposals": 14,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 14
+        },
+        "client_attempts": 14,
+        "errors": {},
+        "failed_calls": 0,
+        "http_status": {
+          "200": 14
+        },
+        "latency_seconds": 174.2308050449501,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 14,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 14,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 327979
+          },
+          "output_tokens": {
+            "available_calls": 14,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 4023
+          },
+          "reasoning_tokens": {
+            "available_calls": 14,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 825
+          },
+          "total_tokens": {
+            "available_calls": 14,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 332002
+          }
+        },
+        "usage_available_calls": 14,
+        "usage_unavailable_calls": 0
+      },
+      "provider_ledger_sources": [
+        {
+          "bytes": 53939,
+          "calls": 12,
+          "sha256": "4cffbddf07dcfe154fadf4816a9b0227bbb74226063229ee306246798c178b2b",
+          "source": "worker_3/case_3_0/astra_occlusion_2_provider.jsonl"
+        },
+        {
+          "bytes": 9229,
+          "calls": 2,
+          "sha256": "4eb293a7c9e852b1e4e7d7b8aa0d2ab9da5418b2c7a7823c4d18605aa91e84db",
+          "source": "worker_3/case_3_0/astra_occlusion_3_provider.jsonl"
+        }
+      ],
+      "provider_receipts": 14,
+      "requests_without_provider_receipt": 0,
+      "worker": 3
+    },
+    {
+      "known_usage": {
+        "accepted_proposals": 11,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 11
+        },
+        "client_attempts": 11,
+        "errors": {},
+        "failed_calls": 0,
+        "http_status": {
+          "200": 11
+        },
+        "latency_seconds": 154.15665985600208,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 11,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 11,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 253665
+          },
+          "output_tokens": {
+            "available_calls": 11,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 3812
+          },
+          "reasoning_tokens": {
+            "available_calls": 11,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 998
+          },
+          "total_tokens": {
+            "available_calls": 11,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 257477
+          }
+        },
+        "usage_available_calls": 11,
+        "usage_unavailable_calls": 0
+      },
+      "provider_ledger_sources": [
+        {
+          "bytes": 53131,
+          "calls": 11,
+          "sha256": "41e395d7b151ea2a18ae3948d7e3520789a353e77b98b8900d3cd7784bf9f2b1",
+          "source": "worker_4/case_4_0/astra_occlusion_2_provider.jsonl"
+        }
+      ],
+      "provider_receipts": 11,
+      "requests_without_provider_receipt": 0,
+      "worker": 4
+    },
+    {
+      "known_usage": {
+        "accepted_proposals": 0,
+        "actual_models": {},
+        "client_attempts": 0,
+        "errors": {},
+        "failed_calls": 0,
+        "http_status": {},
+        "latency_seconds": 0,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 0,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          },
+          "output_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          },
+          "reasoning_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          },
+          "total_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          }
+        },
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0
+      },
+      "provider_ledger_sources": [],
+      "provider_receipts": 0,
+      "requests_without_provider_receipt": 0,
+      "worker": 5
+    },
+    {
+      "known_usage": {
+        "accepted_proposals": 0,
+        "actual_models": {},
+        "client_attempts": 0,
+        "errors": {},
+        "failed_calls": 0,
+        "http_status": {},
+        "latency_seconds": 0,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 0,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          },
+          "output_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          },
+          "reasoning_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          },
+          "total_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          }
+        },
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0
+      },
+      "provider_ledger_sources": [],
+      "provider_receipts": 0,
+      "requests_without_provider_receipt": 0,
+      "worker": 6
+    },
+    {
+      "known_usage": {
+        "accepted_proposals": 0,
+        "actual_models": {},
+        "client_attempts": 0,
+        "errors": {},
+        "failed_calls": 0,
+        "http_status": {},
+        "latency_seconds": 0,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 0,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          },
+          "output_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          },
+          "reasoning_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          },
+          "total_tokens": {
+            "available_calls": 0,
+            "complete": true,
+            "missing_calls": 0,
+            "sum": 0
+          }
+        },
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0
+      },
+      "provider_ledger_sources": [],
+      "provider_receipts": 0,
+      "requests_without_provider_receipt": 0,
+      "worker": 7
+    }
+  ],
+  "retained_canonical_worker": 0,
+  "schema_version": "image-preemption-cost-1.0",
+  "workflow": "astra-pi05-image-evaluation-20260925-1"
+}

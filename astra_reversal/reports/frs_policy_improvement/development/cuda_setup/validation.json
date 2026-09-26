@@ -1,0 +1,90 @@
+{
+  "auxiliary_parameter_count": 181255,
+  "costs_separate_from_scientific_study": {
+    "bootstrap_through_probe_wall_seconds": 60.26344656944275,
+    "experimental_rollouts": 0,
+    "gpu_count": 1,
+    "gpu_hours_initializing_to_end": 0.021322186666666666,
+    "native_velocity_evaluations": 0,
+    "optimizer_fit_wall_seconds_sum": 10.520231016911566,
+    "osmo_initializing_to_end_seconds": 76.759872,
+    "osmo_task_start_to_end_seconds": 69.56365,
+    "probe_wall_seconds": 15.583551174029708,
+    "provider_calls": 0,
+    "setup_optimizer_steps": 2000,
+    "time_basis": "OSMO task initializing/start/end metadata; setup allocation time, not a billing charge"
+  },
+  "frozen_scientific_source": {
+    "payload_bytes": 22519916,
+    "payload_sha256": "0828e19a85a7474d2e6ef2bbe705406da51690cdb4ed6891687407a007fc5bae",
+    "source_revision": "a50f92dfd18a7fdfe1c6198d34ddb43386d28396"
+  },
+  "image": "nvcr.io/nvidia/pytorch:25.06-py3",
+  "limitations": [
+    "Synthetic setup validation; not a task rollout, Astra approval, held-out outcome or scientific policy promotion.",
+    "Two repeated first-round fits exercise the production CUDA path; the probe does not establish every possible replay distribution or task-level efficacy.",
+    "Temporary probe checkpoints were hash-recorded and reloaded in the job, then removed by the reviewed probe; no scientific checkpoint was changed."
+  ],
+  "original_verified_receipt_sha256": "dffb88979a0e5eb8d1d646ff2f1cc2822d666f01450caa5576efcffbaf469b6d",
+  "pool": "groot-l40s-03",
+  "priority": "NORMAL",
+  "probe_json_sha256": "f7f2a16ae2c4769063c9dfe28ff4c242ac75de39949019be851a3eaebd27eae3",
+  "publication_scope": "Selected fields from the verified setup receipt; infrastructure node identifiers and operational logs remain private.",
+  "retry_id": 0,
+  "schema_version": "frs-cuda-setup-public-summary-1.0",
+  "source_files": {
+    "astra_reversal/__init__.py": {
+      "bytes": 230,
+      "origin": "frozen_payload_and_commit_exact",
+      "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+    },
+    "astra_reversal/frs_noise_policy.py": {
+      "bytes": 31549,
+      "origin": "frozen_payload_and_commit_exact",
+      "sha256": "560d985387629f07826daa5a3b6b25d8718360ad80c9bd54a6de57cb86445c1e"
+    },
+    "astra_reversal/frs_operators.py": {
+      "bytes": 12174,
+      "origin": "frozen_payload_and_commit_exact",
+      "sha256": "46f0e8a46676d59562235c4e2be1cb8c5626f07e4d532ed6a281f098e8359cee"
+    },
+    "astra_reversal/records.py": {
+      "bytes": 4350,
+      "origin": "frozen_payload_and_commit_exact",
+      "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+    },
+    "bootstrap.sh": {
+      "bytes": 1189,
+      "origin": "setup_only_envelope",
+      "sha256": "9fb7d3160ca7e6c6f79d314a6511661b0d6803c52e7d1cba8c90a5079fdaa967"
+    },
+    "cuda_noise_probe.py": {
+      "bytes": 5035,
+      "origin": "reviewed_private_setup_probe",
+      "sha256": "92f79599eb567d7989e4fcf05caa1adc0da80efb85d146496361617e97ec05f4"
+    },
+    "run_probe.py": {
+      "bytes": 4437,
+      "origin": "setup_only_envelope",
+      "sha256": "65bfa20bb77d3a61230bd21a6dfe194770b9b0bfbc52942aad6227170a3094a3"
+    }
+  },
+  "source_manifest_sha256": "2e75ae5729532713217c173e07d214320d8126a51d974b66cbae2f91478e104c",
+  "status": "passed",
+  "synthetic_setup_only": true,
+  "terminal_status": "COMPLETED",
+  "validations": {
+    "all_safe_result_chunks_hash_verified": true,
+    "checkpoint_reload_prediction_equality_asserted_by_frozen_probe": true,
+    "exact_requested_runtime_versions": true,
+    "exact_source_from_frozen_payload_and_commit": true,
+    "no_inference_or_R2_credentials": true,
+    "no_scientific_rollouts_providers_or_native_VF": true,
+    "repeat_parameter_optimizer_and_replay_identity": true,
+    "single_separate_L40S": true,
+    "terminal_success_without_task_retry": true,
+    "two_1000_step_actual_cuda_updates": true
+  },
+  "workflow": "astra-pi05-frs-cuda-setup-20260926-1",
+  "workflow_spec_sha256": "445e4ab40e72091a2bdf07234c311f28d9ed4dec77091d195fcf8d64e88100f0"
+}

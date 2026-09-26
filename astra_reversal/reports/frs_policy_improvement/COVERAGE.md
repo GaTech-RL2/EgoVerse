@@ -1,6 +1,6 @@
 # Coverage and prior measurements
 
-This snapshot verifies all **20 released LIBERO-OOD compositions**. The new FRS study has no measured results yet. The separate seed-37 image evaluation is complete and audited on all 20 cases.
+This inventory verifies all **20 released LIBERO-OOD compositions**. Corrected FRS development is complete and audited on three selected known failure cases at seed 19; its [results](development/report.md) are separate from the running 20-task seed-43 evaluation. The separate seed-37 image evaluation is complete and audited on all 20 cases.
 
 The [OOD paper, §4](https://arxiv.org/html/2505.03500v5#S4) reports ten runs per task: 100 per suite, 200 total. The pinned release uses environment seed 7 once per task followed by ten resets. Its prescribed-state loading is commented out, and no OOD `.pruned_init` assets occur in the pinned tree. Consequently, state indexes denote captured reset-stream positions.
 
@@ -45,6 +45,6 @@ Success follows the released predicates, not a separate visual judgment. In part
 
 The [FRS paper, §4.1 and Appendix B/D/E](https://arxiv.org/html/2606.13675v2) uses Euler 10 reverse/forward, executes 10 actions per query, and evaluates 50 trials/task on different standard LIBERO task sets. Finite-step displacement is intentional. Its calibrated plumb line belongs to the VLM input; policy cameras remain raw. Its noise-policy learning and zero-shot steering are distinct from the earlier high-accuracy RK4 inversion experiments.
 
-The proposed [frozen FRS protocol](../../configs/frs_policy_improvement_v1.json) uses seed 43, adaptation reset 0 and evaluation resets 1–10 for each of the 20 known compositions. It separates native full/repeated-noise controls, direct Astra directions, Astra FRS, critique without learning and learned noise. Three fixed adaptation revisions are separate from learned-checkpoint evaluation after each round. Development remains the three known seed 19 cases. This is new-reset evaluation on known tasks, not novel-task generalization; checkpoint training overlap is unknown. No superiority over RL efficiency is tested.
+The [frozen FRS protocol](../../configs/frs_policy_improvement_v1.json) uses seed 43, adaptation reset 0 and evaluation resets 1–10 for each of the 20 known compositions. It separates native full/repeated-noise controls, direct Astra directions, Astra FRS, critique without learning and learned noise. Three fixed adaptation revisions are separate from learned-checkpoint evaluation after each round. Completed development covers the three known seed 19 cases and is reported separately. This is new-reset evaluation on known tasks, not novel-task generalization; checkpoint training overlap is unknown. No superiority over RL efficiency is tested.
 
-All numeric entries above come from completed source reports whose exact bytes are SHA-bound in coverage.json. The current FRS evaluation placeholder is not a measurement.
+All numeric entries above come from completed source reports whose exact bytes are SHA-bound in coverage.json, the original prior-study inventory. Current FRS development evidence and evaluation status are linked from the [report hub](index.html). Full FRS evaluation results remain pending.
