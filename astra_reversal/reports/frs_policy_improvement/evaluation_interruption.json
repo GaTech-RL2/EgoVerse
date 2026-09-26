@@ -1,0 +1,1380 @@
+{
+  "schema_version": "frs-budget-interruption-1",
+  "status": "interrupted_budget_exhausted",
+  "workflow": "astra-pi05-frs-evaluation-20260925-1",
+  "snapshot_time_utc": "2026-09-26T19:32:08.827666+00:00",
+  "terminal_osmo_status": "FAILED",
+  "end_time_utc": "2026-09-26T19:22:18.658405",
+  "status_receipt_sha256": "8b64088cf2e60f9c3d5bc59e02c5a195c487ede010ce3225f929b54a7f522df0",
+  "reason": "Inference provider returned budget_exceeded for the configured key. Its account spending cap was exhausted; account-wide budget use is not attributed entirely to this study.",
+  "action": "Sent SIGINT to the exact experiment process on each allocated worker so finally blocks retained archives; no replacement run submitted.",
+  "remaining_work": "Restore funded inference, preserve this interrupted attempt and validate a separate continuation/restart before publishing the complete 20-task cohort.",
+  "all_twenty_efficacy_complete": false,
+  "planned_tasks": 20,
+  "planned_physical_rollouts": 1740,
+  "completed_sealed_task_audits": [
+    {
+      "worker": 1,
+      "task_id": 1,
+      "receipt_sha256": "6524b3ba5e0aeed5e14d6c9a53e90ee55e905d67f2f932adca203f96324d400d",
+      "audit_sha256": "4537c37fa673e615ee0387f028c6655f304beb5e5ab5e6683df86b32cc5f63d7",
+      "completion_receipt_sha256": "a437960cc11c72e5da8ed82984c799f0f204ee12ab3fe70d75c89d980b338fd3"
+    },
+    {
+      "worker": 2,
+      "task_id": 2,
+      "receipt_sha256": "b5ed0a62be386035ff5fba738255309f574988b5f05b8b728f30b6bea741d52f",
+      "audit_sha256": "1622418eeb1851cbb49499a5970b48ef6a684a6d8c9e1e9a4e5a28f6943c9254",
+      "completion_receipt_sha256": "a15828338d1536f8df0f31b1c43c9f3f37e0af525ce0caa15019a3a882097b0b"
+    },
+    {
+      "worker": 4,
+      "task_id": 0,
+      "receipt_sha256": "791c38ed4db155a45519723452c6bd67bee92a7b1e66f99dc4d2b97c0d4c3f4e",
+      "audit_sha256": "c22bc0eb14bab210a2bc0d0e32c876676c50fce556515ce07288e551563d5f18",
+      "completion_receipt_sha256": "f04b109b1dd6bacadb73c7cad262a16c8e0bb6f4e15b40e44eaff0a0fe0cb9d5"
+    },
+    {
+      "worker": 5,
+      "task_id": 1,
+      "receipt_sha256": "d7cba92c3df4dbd34736fbd9bc18bc0c9f962f8aac3293e80ad36403fb7f17e5",
+      "audit_sha256": "13eecfe90e4e6452c801fa496283afae44dd16087fc8097cf196a569f5502329",
+      "completion_receipt_sha256": "cb91505fe330844356b3bc5c64de82b5be65865cf691a444d1f209fc177769a7"
+    },
+    {
+      "worker": 7,
+      "task_id": 3,
+      "receipt_sha256": "578a64c541fcf47e862a5b5cb9c20c5f5810adb7ec05a5ef1e95788fec4390e0",
+      "audit_sha256": "462c38ca238112e122d6cb6142cb0e9cd611e0fdd80f2b9ccdb465847b5e734c",
+      "completion_receipt_sha256": "97fba074eec31ac90c529390f3a72748d411c9ef225778cfa740a416b50bcf29"
+    }
+  ],
+  "recorded_complete_rollouts": 952,
+  "recorded_complete_rollout_actions": 197806,
+  "provider_usage": {
+    "calls": 6587,
+    "accepted_calls": 5405,
+    "failed_calls": 1182,
+    "http_429": 1159,
+    "explicit_budget_exceeded": 242,
+    "tokens": {
+      "input_tokens": {
+        "sum": 14398375,
+        "missing_calls": 1166
+      },
+      "output_tokens": {
+        "sum": 1163644,
+        "missing_calls": 1166
+      },
+      "reasoning_tokens": {
+        "sum": 246736,
+        "missing_calls": 1166
+      },
+      "total_tokens": {
+        "sum": 15562019,
+        "missing_calls": 1166
+      }
+    }
+  },
+  "archive_cost_reviews": [
+    {
+      "schema_version": "interrupted-frs-archive-cost-1",
+      "status": "archive_verified_cost_only",
+      "workflow": "astra-pi05-frs-evaluation-20260925-1",
+      "worker": 0,
+      "recorded_unix": 1790450737.689246,
+      "source": {
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-evaluation-20260925-1/worker_0/artifacts.tar.gz",
+        "bytes": 402040019,
+        "sha256": "1061ce312f2c18b54b0d3a729a16a8ea7a861f242aceae9ee8307d9d274ed5ec",
+        "gzip_eof_crc_verified": true,
+        "members": 23306,
+        "stream_seconds": 46.977152824401855
+      },
+      "files": {
+        "checkpoint.json": {
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+          "bytes": 3858
+        },
+        "frozen_plan.json": {
+          "sha256": "c29238a19036b3aada16811e62a49b626bf9c5823716501d7602c647cc31dd14",
+          "bytes": 2362
+        },
+        "frozen_weights_before.json": {
+          "sha256": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+          "bytes": 223650
+        },
+        "progress.json": {
+          "sha256": "b5331a6bef664a31ed610496f8143a621d2a72927ac0c1442b342069dd50d001",
+          "bytes": 159
+        },
+        "prompts.json": {
+          "sha256": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+          "bytes": 8389
+        },
+        "protocol.json": {
+          "sha256": "f7733557ce7d55b0c5ed481e70caa8f1dc10424019fc2b37420cc4b0c2d9af9a",
+          "bytes": 3049
+        },
+        "reset_manifest.json": {
+          "sha256": "b580e63b883fe1bbef4b192ab4c093f991c43a11d542f146967792a9d33fd1f7",
+          "bytes": 288686
+        },
+        "runtime.json": {
+          "sha256": "ab247d21527ba52d6bebdf61930e752cd80bd9b46f757c1417a483d3e1be24b8",
+          "bytes": 617
+        },
+        "task_0/provider.jsonl": {
+          "sha256": "52ca774a4476786542b7a426416197a65debb84e9f47ef71f951b2ab6fb2a1a8",
+          "bytes": 2745038
+        },
+        "task_0/summary.json": {
+          "sha256": "40305d66507937d4e7537e79c0b0443e0cc11ea6f126d2ca1257d959160e07e2",
+          "bytes": 388275
+        }
+      },
+      "tasks": [
+        {
+          "task": "task_0",
+          "task_id": 0,
+          "suite": "libero_goal_ood",
+          "summary_status": "running",
+          "recorded_complete_rollouts": 86,
+          "recorded_complete_actions": 19734,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 868,
+            "accepted_calls": 677,
+            "failed_calls": 191,
+            "http_429": 187,
+            "explicit_budget_exceeded": 56,
+            "tokens": {
+              "input_tokens": {
+                "sum": 1550445,
+                "missing_calls": 189
+              },
+              "output_tokens": {
+                "sum": 151718,
+                "missing_calls": 189
+              },
+              "reasoning_tokens": {
+                "sum": 41397,
+                "missing_calls": 189
+              },
+              "total_tokens": {
+                "sum": 1702163,
+                "missing_calls": 189
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        }
+      ],
+      "limits": "This verifies final archive bytes and descriptive call costs, not all NPY arrays, physical outcomes, full prompt bindings or complete-cohort efficacy. Missing token usage is unknown, not zero. Reasoning tokens are an output subset."
+    },
+    {
+      "schema_version": "interrupted-frs-archive-cost-1",
+      "status": "archive_verified_cost_only",
+      "workflow": "astra-pi05-frs-evaluation-20260925-1",
+      "worker": 1,
+      "recorded_unix": 1790450792.4058208,
+      "source": {
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-evaluation-20260925-1/worker_1/artifacts.tar.gz",
+        "bytes": 522535146,
+        "sha256": "cb9197399226835e1c3e151848d46078fd5d5d8892483c87adda23d72acd2048",
+        "gzip_eof_crc_verified": true,
+        "members": 32322,
+        "stream_seconds": 54.7156879901886
+      },
+      "files": {
+        "checkpoint.json": {
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+          "bytes": 3858
+        },
+        "frozen_plan.json": {
+          "sha256": "5bf183c1c1cc5c6533e63d8d93a772ddbed63132d3b53267ad4dca5df81a6ff7",
+          "bytes": 2362
+        },
+        "frozen_weights_before.json": {
+          "sha256": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+          "bytes": 223650
+        },
+        "progress.json": {
+          "sha256": "d85d3202098e9b866ce5448b0a15a9b07c956c1b5f1695e26d8cfa2b8326025b",
+          "bytes": 159
+        },
+        "prompts.json": {
+          "sha256": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+          "bytes": 8389
+        },
+        "protocol.json": {
+          "sha256": "f7733557ce7d55b0c5ed481e70caa8f1dc10424019fc2b37420cc4b0c2d9af9a",
+          "bytes": 3049
+        },
+        "reset_manifest.json": {
+          "sha256": "def1d81c0b55133bf571a947fb46ed887d9715d35a3f249b0cf6e5ad575962dd",
+          "bytes": 294789
+        },
+        "runtime.json": {
+          "sha256": "dcd92ace736f272127ab99e22423afc2b67a8a2a6435010078b2021f03bef32d",
+          "bytes": 617
+        },
+        "task_1/completion_receipt.json": {
+          "sha256": "a437960cc11c72e5da8ed82984c799f0f204ee12ab3fe70d75c89d980b338fd3",
+          "bytes": 1303
+        },
+        "task_1/provider.jsonl": {
+          "sha256": "6e173e1604e2d1985453fcb6141eb80efcacda45bf118b98e1cef59e4894ad81",
+          "bytes": 1841577
+        },
+        "task_1/summary.json": {
+          "sha256": "e7cb638079f4e0ab6f3387ad9031aefd6409ceba5c400ef2ba07b0012b81ce1f",
+          "bytes": 379651
+        },
+        "task_5/provider.jsonl": {
+          "sha256": "ed9c70680765f3123f808d2607c1c2a62e9a4e333989ee5637536fcf99488220",
+          "bytes": 544884
+        },
+        "task_5/summary.json": {
+          "sha256": "f7a1d5fa42f216a57797e43ef63bc1ba03bcd8fae1f63a33f087bea3e093e7a3",
+          "bytes": 301469
+        }
+      },
+      "tasks": [
+        {
+          "task": "task_1",
+          "task_id": 1,
+          "suite": "libero_goal_ood",
+          "summary_status": "complete",
+          "recorded_complete_rollouts": 87,
+          "recorded_complete_actions": 15363,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 582,
+            "accepted_calls": 581,
+            "failed_calls": 1,
+            "tokens": {
+              "input_tokens": {
+                "sum": 1755264,
+                "missing_calls": 1
+              },
+              "output_tokens": {
+                "sum": 119495,
+                "missing_calls": 1
+              },
+              "reasoning_tokens": {
+                "sum": 18113,
+                "missing_calls": 1
+              },
+              "total_tokens": {
+                "sum": 1874759,
+                "missing_calls": 1
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        },
+        {
+          "task": "task_5",
+          "task_id": 5,
+          "suite": "libero_goal_ood",
+          "summary_status": "running",
+          "recorded_complete_rollouts": 67,
+          "recorded_complete_actions": 12895,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 316,
+            "accepted_calls": 77,
+            "failed_calls": 239,
+            "http_429": 238,
+            "explicit_budget_exceeded": 13,
+            "tokens": {
+              "input_tokens": {
+                "sum": 343181,
+                "missing_calls": 238
+              },
+              "output_tokens": {
+                "sum": 19004,
+                "missing_calls": 238
+              },
+              "reasoning_tokens": {
+                "sum": 1892,
+                "missing_calls": 238
+              },
+              "total_tokens": {
+                "sum": 362185,
+                "missing_calls": 238
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        }
+      ],
+      "limits": "This verifies final archive bytes and descriptive call costs, not all NPY arrays, physical outcomes, full prompt bindings or complete-cohort efficacy. Missing token usage is unknown, not zero. Reasoning tokens are an output subset."
+    },
+    {
+      "schema_version": "interrupted-frs-archive-cost-1",
+      "status": "archive_verified_cost_only",
+      "workflow": "astra-pi05-frs-evaluation-20260925-1",
+      "worker": 2,
+      "recorded_unix": 1790450839.338392,
+      "source": {
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-evaluation-20260925-1/worker_2/artifacts.tar.gz",
+        "bytes": 445842588,
+        "sha256": "12afc56c9d1f4fe40592d1c51afc07629330da53804375201a1e34f6d29d67da",
+        "gzip_eof_crc_verified": true,
+        "members": 28593,
+        "stream_seconds": 46.93161106109619
+      },
+      "files": {
+        "checkpoint.json": {
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+          "bytes": 3858
+        },
+        "frozen_plan.json": {
+          "sha256": "e27f8f5a58178308338520a1a9ce9119f4bc603e23f3bde1452b99215d1dd459",
+          "bytes": 1870
+        },
+        "frozen_weights_before.json": {
+          "sha256": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+          "bytes": 223650
+        },
+        "progress.json": {
+          "sha256": "7cdbfa1867a91acaf6b61ca4a944757dd5b9acbeb3f8fabebd8091213cf883a5",
+          "bytes": 152
+        },
+        "prompts.json": {
+          "sha256": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+          "bytes": 8389
+        },
+        "protocol.json": {
+          "sha256": "f7733557ce7d55b0c5ed481e70caa8f1dc10424019fc2b37420cc4b0c2d9af9a",
+          "bytes": 3049
+        },
+        "reset_manifest.json": {
+          "sha256": "a24c2e0c10a7859423b26275aa486d285f2ee7090759b73b302894cc2980ac5c",
+          "bytes": 196677
+        },
+        "runtime.json": {
+          "sha256": "b121ee2d0bf08e77c286775f8c586475bd24a49c00562de2f699aee33f597f3e",
+          "bytes": 608
+        },
+        "task_2/completion_receipt.json": {
+          "sha256": "a15828338d1536f8df0f31b1c43c9f3f37e0af525ce0caa15019a3a882097b0b",
+          "bytes": 1303
+        },
+        "task_2/provider.jsonl": {
+          "sha256": "ac778a83f091504173585d18633202f6bf22d8af1664aad0f483b7e3fc3656be",
+          "bytes": 2323494
+        },
+        "task_2/summary.json": {
+          "sha256": "2ea7e90b4b05a87b9a69380bfb353be8119a0b40be956efbbc0f952c497db44f",
+          "bytes": 384545
+        },
+        "task_6/provider.jsonl": {
+          "sha256": "7c88b2366bf44c0fa4edad64b7f33c5391c4518fa10dabbfb574f78d8e3b7536",
+          "bytes": 143041
+        },
+        "task_6/summary.json": {
+          "sha256": "8b0c0d6bf900dbdb6190c8fdce2feac386c69901da6eb459d5a8451606b99942",
+          "bytes": 119078
+        }
+      },
+      "tasks": [
+        {
+          "task": "task_2",
+          "task_id": 2,
+          "suite": "libero_goal_ood",
+          "summary_status": "complete",
+          "recorded_complete_rollouts": 87,
+          "recorded_complete_actions": 20277,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 730,
+            "accepted_calls": 730,
+            "tokens": {
+              "input_tokens": {
+                "sum": 2037758,
+                "missing_calls": 0
+              },
+              "output_tokens": {
+                "sum": 148314,
+                "missing_calls": 0
+              },
+              "reasoning_tokens": {
+                "sum": 23796,
+                "missing_calls": 0
+              },
+              "total_tokens": {
+                "sum": 2186072,
+                "missing_calls": 0
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        },
+        {
+          "task": "task_6",
+          "task_id": 6,
+          "suite": "libero_goal_ood",
+          "summary_status": "running",
+          "recorded_complete_rollouts": 23,
+          "recorded_complete_actions": 4804,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 60,
+            "accepted_calls": 37,
+            "failed_calls": 23,
+            "http_429": 23,
+            "explicit_budget_exceeded": 11,
+            "tokens": {
+              "input_tokens": {
+                "sum": 162175,
+                "missing_calls": 23
+              },
+              "output_tokens": {
+                "sum": 9113,
+                "missing_calls": 23
+              },
+              "reasoning_tokens": {
+                "sum": 829,
+                "missing_calls": 23
+              },
+              "total_tokens": {
+                "sum": 171288,
+                "missing_calls": 23
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        }
+      ],
+      "limits": "This verifies final archive bytes and descriptive call costs, not all NPY arrays, physical outcomes, full prompt bindings or complete-cohort efficacy. Missing token usage is unknown, not zero. Reasoning tokens are an output subset."
+    },
+    {
+      "schema_version": "interrupted-frs-archive-cost-1",
+      "status": "archive_verified_cost_only",
+      "workflow": "astra-pi05-frs-evaluation-20260925-1",
+      "worker": 3,
+      "recorded_unix": 1790450889.149618,
+      "source": {
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-evaluation-20260925-1/worker_3/artifacts.tar.gz",
+        "bytes": 428509159,
+        "sha256": "2200695713200b9861d7ccb1602b4601a1b32e94488eb52e70f4be5a15b7e0cf",
+        "gzip_eof_crc_verified": true,
+        "members": 27274,
+        "stream_seconds": 49.807974100112915
+      },
+      "files": {
+        "checkpoint.json": {
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+          "bytes": 3858
+        },
+        "frozen_plan.json": {
+          "sha256": "0c6567da55d0be6388c61d49437dcdf2241025d771fbbc80ed9203ae69ba73ed",
+          "bytes": 1870
+        },
+        "frozen_weights_before.json": {
+          "sha256": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+          "bytes": 223650
+        },
+        "progress.json": {
+          "sha256": "0c25cff091aa5b1e60435b9f0b9013bcc019f92fc51fe528a067c0a515033a50",
+          "bytes": 152
+        },
+        "prompts.json": {
+          "sha256": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+          "bytes": 8389
+        },
+        "protocol.json": {
+          "sha256": "f7733557ce7d55b0c5ed481e70caa8f1dc10424019fc2b37420cc4b0c2d9af9a",
+          "bytes": 3049
+        },
+        "reset_manifest.json": {
+          "sha256": "715ec9d5d8474ef790bc4de7f57634d66fa90b0d83e53f97a52f5de5be6d5630",
+          "bytes": 197162
+        },
+        "runtime.json": {
+          "sha256": "19233ab84852fa540178ecbffd4d98a33c16bec010be9149e6e7fa588e28e64e",
+          "bytes": 608
+        },
+        "task_3/provider.jsonl": {
+          "sha256": "378b1f7a81ad04ae16d6d7514fd3abb9e910b0407c9dd143b27c32f5530d40e1",
+          "bytes": 2895812
+        },
+        "task_3/summary.json": {
+          "sha256": "8bc5e861aed35036bc63e6a581cd5c4d376aeb39b54c32c90fd03392d859876a",
+          "bytes": 372026
+        }
+      },
+      "tasks": [
+        {
+          "task": "task_3",
+          "task_id": 3,
+          "suite": "libero_goal_ood",
+          "summary_status": "running",
+          "recorded_complete_rollouts": 84,
+          "recorded_complete_actions": 23398,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 914,
+            "accepted_calls": 712,
+            "failed_calls": 202,
+            "http_429": 198,
+            "explicit_budget_exceeded": 56,
+            "tokens": {
+              "input_tokens": {
+                "sum": 1365741,
+                "missing_calls": 199
+              },
+              "output_tokens": {
+                "sum": 150263,
+                "missing_calls": 199
+              },
+              "reasoning_tokens": {
+                "sum": 39268,
+                "missing_calls": 199
+              },
+              "total_tokens": {
+                "sum": 1516004,
+                "missing_calls": 199
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        }
+      ],
+      "limits": "This verifies final archive bytes and descriptive call costs, not all NPY arrays, physical outcomes, full prompt bindings or complete-cohort efficacy. Missing token usage is unknown, not zero. Reasoning tokens are an output subset."
+    },
+    {
+      "schema_version": "interrupted-frs-archive-cost-1",
+      "status": "archive_verified_cost_only",
+      "workflow": "astra-pi05-frs-evaluation-20260925-1",
+      "worker": 4,
+      "recorded_unix": 1790450943.750867,
+      "source": {
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-evaluation-20260925-1/worker_4/artifacts.tar.gz",
+        "bytes": 510236580,
+        "sha256": "365ef41d4f7946b2c5b06335fd7c91a94d0027f39cfb7d8d9a714bef33fae18f",
+        "gzip_eof_crc_verified": true,
+        "members": 31324,
+        "stream_seconds": 54.600488901138306
+      },
+      "files": {
+        "checkpoint.json": {
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+          "bytes": 3858
+        },
+        "frozen_plan.json": {
+          "sha256": "6e05b8f633230e8d07d335be3820e3a7efcd3b3bf3a863d430c3177fe8623f8b",
+          "bytes": 2464
+        },
+        "frozen_weights_before.json": {
+          "sha256": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+          "bytes": 223650
+        },
+        "progress.json": {
+          "sha256": "c51b5f6ad469b07baf8b78d0323e13752724c1fdef6f00e21b9fa8851d489700",
+          "bytes": 162
+        },
+        "prompts.json": {
+          "sha256": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+          "bytes": 8389
+        },
+        "protocol.json": {
+          "sha256": "f7733557ce7d55b0c5ed481e70caa8f1dc10424019fc2b37420cc4b0c2d9af9a",
+          "bytes": 3049
+        },
+        "reset_manifest.json": {
+          "sha256": "f0fb8efc5f8c1edcdc98259911af7a45a1186ba873bf89bb76e88c212c93fb3a",
+          "bytes": 304826
+        },
+        "runtime.json": {
+          "sha256": "dda43ebd16de6108d4f6bba78b801fddc3751f6ca6b6192331a1c322d66ee7f5",
+          "bytes": 620
+        },
+        "task_0/completion_receipt.json": {
+          "sha256": "f04b109b1dd6bacadb73c7cad262a16c8e0bb6f4e15b40e44eaff0a0fe0cb9d5",
+          "bytes": 1303
+        },
+        "task_0/provider.jsonl": {
+          "sha256": "b6dc5c176354b7a0997df771caeb5697e73ed73eaaa01fefb8311fe828e6b7df",
+          "bytes": 1488124
+        },
+        "task_0/summary.json": {
+          "sha256": "617dfebd8cbc58fdf7a86dc9cac5ac79abe25ec30d79d0fb294b670ab04b26b6",
+          "bytes": 378602
+        },
+        "task_4/provider.jsonl": {
+          "sha256": "5c1583132b55cc96638968a2e6c3e81194c78a2b1a759b791ec38477f4715e39",
+          "bytes": 749303
+        },
+        "task_4/summary.json": {
+          "sha256": "54a35a39c55039664ca08bfb34eeef635cdd75b1a342f9515be47eb0ae2f0802",
+          "bytes": 282595
+        }
+      },
+      "tasks": [
+        {
+          "task": "task_0",
+          "task_id": 0,
+          "suite": "libero_spatial_ood",
+          "summary_status": "complete",
+          "recorded_complete_rollouts": 87,
+          "recorded_complete_actions": 9601,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 442,
+            "accepted_calls": 438,
+            "failed_calls": 4,
+            "tokens": {
+              "input_tokens": {
+                "sum": 1122788,
+                "missing_calls": 1
+              },
+              "output_tokens": {
+                "sum": 93368,
+                "missing_calls": 1
+              },
+              "reasoning_tokens": {
+                "sum": 18645,
+                "missing_calls": 1
+              },
+              "total_tokens": {
+                "sum": 1216156,
+                "missing_calls": 1
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        },
+        {
+          "task": "task_4",
+          "task_id": 4,
+          "suite": "libero_spatial_ood",
+          "summary_status": "running",
+          "recorded_complete_rollouts": 61,
+          "recorded_complete_actions": 18300,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 315,
+            "accepted_calls": 190,
+            "failed_calls": 125,
+            "http_429": 123,
+            "tokens": {
+              "input_tokens": {
+                "sum": 885095,
+                "missing_calls": 123
+              },
+              "output_tokens": {
+                "sum": 41353,
+                "missing_calls": 123
+              },
+              "reasoning_tokens": {
+                "sum": 3613,
+                "missing_calls": 123
+              },
+              "total_tokens": {
+                "sum": 926448,
+                "missing_calls": 123
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        }
+      ],
+      "limits": "This verifies final archive bytes and descriptive call costs, not all NPY arrays, physical outcomes, full prompt bindings or complete-cohort efficacy. Missing token usage is unknown, not zero. Reasoning tokens are an output subset."
+    },
+    {
+      "schema_version": "interrupted-frs-archive-cost-1",
+      "status": "archive_verified_cost_only",
+      "workflow": "astra-pi05-frs-evaluation-20260925-1",
+      "worker": 5,
+      "recorded_unix": 1790451001.4953868,
+      "source": {
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-evaluation-20260925-1/worker_5/artifacts.tar.gz",
+        "bytes": 525065942,
+        "sha256": "a24bcc3e5f0fbddbacbc3d9518d85f8d5af8fa0a0ecf295eae26db8890d028b8",
+        "gzip_eof_crc_verified": true,
+        "members": 31975,
+        "stream_seconds": 57.74282431602478
+      },
+      "files": {
+        "checkpoint.json": {
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+          "bytes": 3858
+        },
+        "frozen_plan.json": {
+          "sha256": "005771002e5424605657912a178bd22611ad0ac422eac7f657aebb0309e98139",
+          "bytes": 2464
+        },
+        "frozen_weights_before.json": {
+          "sha256": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+          "bytes": 223650
+        },
+        "progress.json": {
+          "sha256": "e714a6d44c0564e4417c8c9405c0d811a5f02b7cca31a6282aa0b85a4fee1077",
+          "bytes": 162
+        },
+        "prompts.json": {
+          "sha256": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+          "bytes": 8389
+        },
+        "protocol.json": {
+          "sha256": "f7733557ce7d55b0c5ed481e70caa8f1dc10424019fc2b37420cc4b0c2d9af9a",
+          "bytes": 3049
+        },
+        "reset_manifest.json": {
+          "sha256": "177022cb07486bfc59305479cb858d66a0f783b1845fdf76fa7ff41dff62e8fe",
+          "bytes": 304084
+        },
+        "runtime.json": {
+          "sha256": "7bc321527016bd3c898e5b1ba2f9099f0a9a90dd394305898039fa67167727b2",
+          "bytes": 620
+        },
+        "task_1/completion_receipt.json": {
+          "sha256": "cb91505fe330844356b3bc5c64de82b5be65865cf691a444d1f209fc177769a7",
+          "bytes": 1303
+        },
+        "task_1/provider.jsonl": {
+          "sha256": "93e4f82f508ae4b36bee182cd6c3f8a7a76df25c92ad8972380551ead9909a31",
+          "bytes": 1388486
+        },
+        "task_1/summary.json": {
+          "sha256": "f7edabab01876fa9c717ef4ba5c411b83f01dcb4f9bf997b0667ff210fc5b84f",
+          "bytes": 371895
+        },
+        "task_5/provider.jsonl": {
+          "sha256": "45c3ab63b544535538ff41cc6ab73290b0341392be47938c7822c577a9357a13",
+          "bytes": 851236
+        },
+        "task_5/summary.json": {
+          "sha256": "1f0324363d0297c59b4e12cbeee3e120f9b8f910e5aaaca62a9cd93034318d3a",
+          "bytes": 289351
+        }
+      },
+      "tasks": [
+        {
+          "task": "task_1",
+          "task_id": 1,
+          "suite": "libero_spatial_ood",
+          "summary_status": "complete",
+          "recorded_complete_rollouts": 87,
+          "recorded_complete_actions": 9221,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 420,
+            "accepted_calls": 418,
+            "failed_calls": 2,
+            "tokens": {
+              "input_tokens": {
+                "sum": 940479,
+                "missing_calls": 1
+              },
+              "output_tokens": {
+                "sum": 86492,
+                "missing_calls": 1
+              },
+              "reasoning_tokens": {
+                "sum": 17648,
+                "missing_calls": 1
+              },
+              "total_tokens": {
+                "sum": 1026971,
+                "missing_calls": 1
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        },
+        {
+          "task": "task_5",
+          "task_id": 5,
+          "suite": "libero_spatial_ood",
+          "summary_status": "running",
+          "recorded_complete_rollouts": 63,
+          "recorded_complete_actions": 18900,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 395,
+            "accepted_calls": 191,
+            "failed_calls": 204,
+            "http_429": 203,
+            "explicit_budget_exceeded": 48,
+            "tokens": {
+              "input_tokens": {
+                "sum": 884636,
+                "missing_calls": 203
+              },
+              "output_tokens": {
+                "sum": 42006,
+                "missing_calls": 203
+              },
+              "reasoning_tokens": {
+                "sum": 3709,
+                "missing_calls": 203
+              },
+              "total_tokens": {
+                "sum": 926642,
+                "missing_calls": 203
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        }
+      ],
+      "limits": "This verifies final archive bytes and descriptive call costs, not all NPY arrays, physical outcomes, full prompt bindings or complete-cohort efficacy. Missing token usage is unknown, not zero. Reasoning tokens are an output subset."
+    },
+    {
+      "schema_version": "interrupted-frs-archive-cost-1",
+      "status": "archive_verified_cost_only",
+      "workflow": "astra-pi05-frs-evaluation-20260925-1",
+      "worker": 6,
+      "recorded_unix": 1790451044.652504,
+      "source": {
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-evaluation-20260925-1/worker_6/artifacts.tar.gz",
+        "bytes": 381331426,
+        "sha256": "c5d0e15dac87a9e8265d341a490171dbba7ecfee8f5f348452d8e211b50197df",
+        "gzip_eof_crc_verified": true,
+        "members": 23626,
+        "stream_seconds": 43.15447282791138
+      },
+      "files": {
+        "checkpoint.json": {
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+          "bytes": 3858
+        },
+        "frozen_plan.json": {
+          "sha256": "65535f6a5a92b634c04b65cb2cb19340243fc055809c85e7439fdbdee8f3a691",
+          "bytes": 1939
+        },
+        "frozen_weights_before.json": {
+          "sha256": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+          "bytes": 223650
+        },
+        "progress.json": {
+          "sha256": "d3bc6324d217fc27c4abb3b4bf5a1f5d4a34108ad7c6785a251d941d5c5cf4db",
+          "bytes": 155
+        },
+        "prompts.json": {
+          "sha256": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+          "bytes": 8389
+        },
+        "protocol.json": {
+          "sha256": "f7733557ce7d55b0c5ed481e70caa8f1dc10424019fc2b37420cc4b0c2d9af9a",
+          "bytes": 3049
+        },
+        "reset_manifest.json": {
+          "sha256": "65593a99ce571fa89274136fe2b5a361fe94c5ace59da6d0c08821963cad48d5",
+          "bytes": 204019
+        },
+        "runtime.json": {
+          "sha256": "f01af904da3e439a6e6cc8194ab1e9e0d8001dc1092666fa001cdda5cf1250b8",
+          "bytes": 611
+        },
+        "task_2/provider.jsonl": {
+          "sha256": "83f17d7f60ef94c2c7e539fc238fbe638b598c510701790cf7abff96bbd01a54",
+          "bytes": 2761391
+        },
+        "task_2/summary.json": {
+          "sha256": "a0f23b2543eadfb361e2ad948fd349476bf769350d0c6705f59cae06eb04a474",
+          "bytes": 365467
+        }
+      },
+      "tasks": [
+        {
+          "task": "task_2",
+          "task_id": 2,
+          "suite": "libero_spatial_ood",
+          "summary_status": "running",
+          "recorded_complete_rollouts": 82,
+          "recorded_complete_actions": 20722,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 855,
+            "accepted_calls": 666,
+            "failed_calls": 189,
+            "http_429": 187,
+            "explicit_budget_exceeded": 58,
+            "tokens": {
+              "input_tokens": {
+                "sum": 1454947,
+                "missing_calls": 187
+              },
+              "output_tokens": {
+                "sum": 153541,
+                "missing_calls": 187
+              },
+              "reasoning_tokens": {
+                "sum": 47197,
+                "missing_calls": 187
+              },
+              "total_tokens": {
+                "sum": 1608488,
+                "missing_calls": 187
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        }
+      ],
+      "limits": "This verifies final archive bytes and descriptive call costs, not all NPY arrays, physical outcomes, full prompt bindings or complete-cohort efficacy. Missing token usage is unknown, not zero. Reasoning tokens are an output subset."
+    },
+    {
+      "schema_version": "interrupted-frs-archive-cost-1",
+      "status": "archive_verified_cost_only",
+      "workflow": "astra-pi05-frs-evaluation-20260925-1",
+      "worker": 7,
+      "recorded_unix": 1790451094.391306,
+      "source": {
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-evaluation-20260925-1/worker_7/artifacts.tar.gz",
+        "bytes": 452750005,
+        "sha256": "263b4cba1625deed9d2e05b9b1fb36e99868b9791f5e372cb12a5a62965b90c0",
+        "gzip_eof_crc_verified": true,
+        "members": 28436,
+        "stream_seconds": 49.737096071243286
+      },
+      "files": {
+        "checkpoint.json": {
+          "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+          "bytes": 3858
+        },
+        "frozen_plan.json": {
+          "sha256": "e753faa40789ce7f597a4be01c18a1de0ac543e47b8088bf4ae7d676fe33b977",
+          "bytes": 1939
+        },
+        "frozen_weights_before.json": {
+          "sha256": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+          "bytes": 223650
+        },
+        "progress.json": {
+          "sha256": "b694e755814b2787521b9779eb0f89679bf1bf6ce59dc831296e263ee80571ba",
+          "bytes": 155
+        },
+        "prompts.json": {
+          "sha256": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+          "bytes": 8389
+        },
+        "protocol.json": {
+          "sha256": "f7733557ce7d55b0c5ed481e70caa8f1dc10424019fc2b37420cc4b0c2d9af9a",
+          "bytes": 3049
+        },
+        "reset_manifest.json": {
+          "sha256": "dfdd5138ade3ceadcacc02b918e0ff9421d628982772d17864f6c4216c81a84c",
+          "bytes": 204088
+        },
+        "runtime.json": {
+          "sha256": "5b9a38cdc81785f163221c404681176f8ea36c1b08d533c40314d642b42c8428",
+          "bytes": 611
+        },
+        "task_3/completion_receipt.json": {
+          "sha256": "97fba074eec31ac90c529390f3a72748d411c9ef225778cfa740a416b50bcf29",
+          "bytes": 1303
+        },
+        "task_3/provider.jsonl": {
+          "sha256": "39b641e0629867160cd22805814aa77aa05532d162c8068fdf9395a38c1bc36b",
+          "bytes": 1734622
+        },
+        "task_3/summary.json": {
+          "sha256": "d1f34853668c5855e4e73114c71c438b190627904a6ad14c2f67663c5f693ec0",
+          "bytes": 377398
+        },
+        "task_7/provider.jsonl": {
+          "sha256": "a55dbd2038afaf155d0b82034b11a4d9963420f1e45daef913960743480f97a5",
+          "bytes": 586418
+        },
+        "task_7/summary.json": {
+          "sha256": "0c891c429f10f012c3862663f94e92e3203080964b58683b0971e8f3d5fddc55",
+          "bytes": 242384
+        }
+      },
+      "tasks": [
+        {
+          "task": "task_3",
+          "task_id": 3,
+          "suite": "libero_spatial_ood",
+          "summary_status": "complete",
+          "recorded_complete_rollouts": 87,
+          "recorded_complete_actions": 9291,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 498,
+            "accepted_calls": 496,
+            "failed_calls": 2,
+            "tokens": {
+              "input_tokens": {
+                "sum": 1010528,
+                "missing_calls": 1
+              },
+              "output_tokens": {
+                "sum": 107250,
+                "missing_calls": 1
+              },
+              "reasoning_tokens": {
+                "sum": 26931,
+                "missing_calls": 1
+              },
+              "total_tokens": {
+                "sum": 1117778,
+                "missing_calls": 1
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        },
+        {
+          "task": "task_7",
+          "task_id": 7,
+          "suite": "libero_spatial_ood",
+          "summary_status": "running",
+          "recorded_complete_rollouts": 51,
+          "recorded_complete_actions": 15300,
+          "physical_rollout_field_keys": [
+            "action_budget",
+            "actions_executed",
+            "attempt_id",
+            "captured_initial_success",
+            "counters",
+            "environment_seconds",
+            "episode_id",
+            "evaluation",
+            "execute_steps",
+            "initial_success",
+            "method",
+            "physical_run_id",
+            "policy_replans",
+            "policy_seconds",
+            "provider_record_indexes",
+            "provider_usage",
+            "reset_audit",
+            "reset_seconds",
+            "round_index",
+            "success",
+            "terminated",
+            "wall_seconds",
+            "zero_action_success"
+          ],
+          "provider_usage": {
+            "calls": 192,
+            "accepted_calls": 192,
+            "tokens": {
+              "input_tokens": {
+                "sum": 885338,
+                "missing_calls": 0
+              },
+              "output_tokens": {
+                "sum": 41727,
+                "missing_calls": 0
+              },
+              "reasoning_tokens": {
+                "sum": 3698,
+                "missing_calls": 0
+              },
+              "total_tokens": {
+                "sum": 927065,
+                "missing_calls": 0
+              }
+            }
+          },
+          "cost_scope": "All archived physical provider lines, including failed and interrupted calls."
+        }
+      ],
+      "limits": "This verifies final archive bytes and descriptive call costs, not all NPY arrays, physical outcomes, full prompt bindings or complete-cohort efficacy. Missing token usage is unknown, not zero. Reasoning tokens are an output subset."
+    }
+  ],
+  "limits": [
+    "Completed task subset is execution-selected and cannot estimate all 20-task performance.",
+    "All eight final archives were SHA/size/gzip-EOF verified for descriptive ledger costs. Only the listed completed tasks have full numerical and behavior audits.",
+    "Provider errors and any work in unfinished rollouts remain charged to this interrupted attempt; unavailable usage is unknown, never zero.",
+    "Rollout/action counts below include only completed summary rows; they exclude actions in interrupted in-flight rollouts.",
+    "Reasoning tokens are included in output tokens. No dollar price or account billing reconciliation is inferred."
+  ]
+}

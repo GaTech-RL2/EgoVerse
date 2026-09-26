@@ -403,46 +403,99 @@
     }
   },
   "frozen_frs_full_run": {
+    "active_status": "interrupted_budget_exhausted",
+    "completed_sealed_tasks": 5,
     "evaluation_resets_per_task": 10,
+    "infrastructure_source": {
+      "bytes": 21157,
+      "path": "astra_reversal/reports/frs_policy_improvement/infrastructure.json",
+      "sha256": "1628f66e050f7b07b03d807aecc5391377e977a79bfef4c05e07626c484924af"
+    },
+    "interruption_source": {
+      "bytes": 48763,
+      "path": "astra_reversal/reports/frs_policy_improvement/evaluation_interruption.json",
+      "sha256": "6f08df0176a17296ab3484ce7b7e30df537111c55b01d660e4576329dcb780fb"
+    },
+    "learning_gate_observations": {
+      "accepted_policy_updates": 0,
+      "judgments": {
+        "same": 29,
+        "uncertain": 1
+      },
+      "promotions": 0,
+      "scope": "Execution-selected completed tasks only; no full-cohort efficacy estimate.",
+      "selected_completed_tasks": 5,
+      "source": {
+        "bytes": 3038,
+        "path": "astra_reversal/reports/frs_policy_improvement/evaluation_gate_observations.json",
+        "sha256": "cc51fcf401460145be844c65eaf98a0156d4ceca531c64a4012b45d14dee4f84"
+      }
+    },
     "partial_outcomes_published_here": false,
     "payload_sha256": "0828e19a85a7474d2e6ef2bbe705406da51690cdb4ed6891687407a007fc5bae",
     "planned_physical_rollouts": 1740,
     "planned_tasks": 20,
+    "provider_usage": {
+      "accepted_calls": 5405,
+      "calls": 6587,
+      "explicit_budget_exceeded": 242,
+      "failed_calls": 1182,
+      "http_429": 1159,
+      "tokens": {
+        "input_tokens": {
+          "missing_calls": 1166,
+          "sum": 14398375
+        },
+        "output_tokens": {
+          "missing_calls": 1166,
+          "sum": 1163644
+        },
+        "reasoning_tokens": {
+          "missing_calls": 1166,
+          "sum": 246736
+        },
+        "total_tokens": {
+          "missing_calls": 1166,
+          "sum": 15562019
+        }
+      }
+    },
+    "recorded_completed_rollouts": 952,
     "source_revision": "a50f92dfd18a7fdfe1c6198d34ddb43386d28396",
-    "status": "RUNNING",
-    "status_file_sha256": "265663fac40a9dacb18772267568b719f3af23507a083fdf30f89edb80bafff7",
+    "status": "FAILED",
+    "status_file_sha256": "8b64088cf2e60f9c3d5bc59e02c5a195c487ede010ce3225f929b54a7f522df0",
     "workers": [
       {
         "name": "worker0",
-        "status": "RUNNING"
+        "status": "FAILED"
       },
       {
         "name": "worker1",
-        "status": "RUNNING"
+        "status": "FAILED"
       },
       {
         "name": "worker2",
-        "status": "RUNNING"
+        "status": "FAILED"
       },
       {
         "name": "worker3",
-        "status": "RUNNING"
+        "status": "FAILED"
       },
       {
         "name": "worker4",
-        "status": "RUNNING"
+        "status": "FAILED"
       },
       {
         "name": "worker5",
-        "status": "RUNNING"
+        "status": "FAILED"
       },
       {
         "name": "worker6",
-        "status": "RUNNING"
+        "status": "FAILED"
       },
       {
         "name": "worker7",
-        "status": "RUNNING"
+        "status": "FAILED"
       }
     ],
     "workflow": "astra-pi05-frs-evaluation-20260925-1"
@@ -466,11 +519,211 @@
     "cases": 20,
     "claim": "assisted correction, not autonomous learning",
     "config_snapshot": "protocol_snapshot.json",
+    "full_evaluation_launched": false,
     "max_evaluation_rollouts": 420,
     "max_pilot_rollouts": 63,
+    "pilot": {
+      "cohort_efficacy_released": false,
+      "complete_sealed_cases": 1,
+      "expected_cases": 3,
+      "html": "development/results/index.html",
+      "physical_completed_work": {
+        "accepted_decision_actions": 2443,
+        "accepted_decisions_executed": 98,
+        "actions": 11849,
+        "condition_seconds": 540.0977308445144,
+        "donor_capture_seconds": 22.108125436818227,
+        "donor_captures": 122,
+        "environment_seconds": 197.31900251016486,
+        "explicit_native_actions": 475,
+        "flow_velocity_evaluations": 23710,
+        "native_parity_velocity_evaluations": 30,
+        "nonzero_intervention_actions": 6468,
+        "policy_seconds": 2438.3196013825946,
+        "probe_velocity_evaluations": 360,
+        "provider": {
+          "accepted_proposals": 98,
+          "actual_models": {
+            "azure/openai/gpt-6-astra": 98,
+            "unavailable": 122
+          },
+          "client_attempts": 220,
+          "errors": {
+            "Inference endpoint returned HTTP 429": 122
+          },
+          "failed_calls": 122,
+          "http_status": {
+            "200": 98,
+            "429": 122
+          },
+          "latency_seconds": 954.1827029808192,
+          "monetary_cost": null,
+          "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+          "preflight_errors": {},
+          "preflight_failures": 0,
+          "preflight_latency_seconds": 0,
+          "provider_calls": 220,
+          "reasoning_tokens_are_subset_of_output_tokens": true,
+          "tokens": {
+            "input_tokens": {
+              "available_calls": 98,
+              "complete": false,
+              "missing_calls": 122,
+              "sum": 1113516
+            },
+            "output_tokens": {
+              "available_calls": 98,
+              "complete": false,
+              "missing_calls": 122,
+              "sum": 15530
+            },
+            "reasoning_tokens": {
+              "available_calls": 98,
+              "complete": false,
+              "missing_calls": 122,
+              "sum": 4910
+            },
+            "total_tokens": {
+              "available_calls": 98,
+              "complete": false,
+              "missing_calls": 122,
+              "sum": 1129046
+            }
+          },
+          "usage_available_calls": 98,
+          "usage_unavailable_calls": 122
+        },
+        "provider_error_taxonomy": {
+          "budget_exceeded": 48,
+          "http_429": 122,
+          "proposal_rejected": 0,
+          "transport_error": 0
+        },
+        "provider_failure_fallback_actions": 2700,
+        "rejected_call_usage": {
+          "accepted_proposals": 0,
+          "actual_models": {
+            "unavailable": 122
+          },
+          "client_attempts": 122,
+          "errors": {
+            "Inference endpoint returned HTTP 429": 122
+          },
+          "failed_calls": 122,
+          "http_status": {
+            "429": 122
+          },
+          "latency_seconds": 111.18758679926395,
+          "monetary_cost": null,
+          "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+          "preflight_errors": {},
+          "preflight_failures": 0,
+          "preflight_latency_seconds": 0,
+          "provider_calls": 122,
+          "reasoning_tokens_are_subset_of_output_tokens": true,
+          "tokens": {
+            "input_tokens": {
+              "available_calls": 0,
+              "complete": false,
+              "missing_calls": 122,
+              "sum": 0
+            },
+            "output_tokens": {
+              "available_calls": 0,
+              "complete": false,
+              "missing_calls": 122,
+              "sum": 0
+            },
+            "reasoning_tokens": {
+              "available_calls": 0,
+              "complete": false,
+              "missing_calls": 122,
+              "sum": 0
+            },
+            "total_tokens": {
+              "available_calls": 0,
+              "complete": false,
+              "missing_calls": 122,
+              "sum": 0
+            }
+          },
+          "usage_available_calls": 0,
+          "usage_unavailable_calls": 122
+        },
+        "rollouts": 42,
+        "velocity_evaluations": 24100,
+        "wall_seconds": 2741.770100242924
+      },
+      "scope": "Individually archive/provider-verified completed rollout observations, forced stability checks, and recorded cost lower bounds. Not a complete three-case or twenty-task success rate.",
+      "source": {
+        "bytes": 789760,
+        "path": "astra_reversal/reports/representation_steering/development/results/report.json",
+        "sha256": "76a4c36cb60f5145ecfe6177af51efd44297050b2a3e64716a0fdd0fba544dcf"
+      },
+      "status": "interrupted_budget_exhausted",
+      "unexercised_astra_arms": [
+        "astra_pixel_blend",
+        "astra_tli_vli"
+      ],
+      "verified_partial_cases": 2,
+      "verified_recorded_work": {
+        "all_actions_lower_bound": 12149,
+        "array_only_actions_lower_bound": 12139,
+        "arrays": 15096,
+        "cases": 3,
+        "completed_actions": 11849,
+        "completed_rollouts": 42,
+        "completed_velocity_evaluations": 24100,
+        "generations": 2431,
+        "incomplete_attempts": [
+          {
+            "action_bound_basis": "The latest recorded request/generation step proves the lower bound; the protocol cap is the upper bound because unrecorded interrupted work is unknown.",
+            "arm": "astra_vli",
+            "attempt_id": "astra_vli_revision2",
+            "episode_id": "libero_goal_ood:seed19:task6:state0",
+            "executed_actions_lower_bound": 25,
+            "executed_actions_upper_bound": 300,
+            "executed_prefix_lower_bound": {
+              "accepted_decisions_executed": 0,
+              "actions": 25,
+              "nonzero_intervention_actions": 0,
+              "provider_failure_fallback_actions": 25
+            },
+            "flow_velocity_evaluations_recorded": 50,
+            "outcome": "unknown_no_completed_rollout_record",
+            "recorded_chunk_actions_upper_bound": 25,
+            "recorded_generations": 5
+          },
+          {
+            "action_bound_basis": "The latest recorded request/generation step proves the lower bound; the protocol cap is the upper bound because unrecorded interrupted work is unknown.",
+            "arm": "astra_vli",
+            "attempt_id": "astra_vli_revision2",
+            "episode_id": "libero_spatial_ood:seed19:task2:state0",
+            "executed_actions_lower_bound": 275,
+            "executed_actions_upper_bound": 300,
+            "executed_prefix_lower_bound": {
+              "accepted_decisions_executed": 0,
+              "actions": 275,
+              "nonzero_intervention_actions": 0,
+              "provider_failure_fallback_actions": 275
+            },
+            "flow_velocity_evaluations_recorded": 550,
+            "outcome": "unknown_no_completed_rollout_record",
+            "recorded_chunk_actions_upper_bound": 275,
+            "recorded_generations": 55
+          }
+        ],
+        "recorded_velocity_evaluations_lower_bound": 24700,
+        "setup_velocity_evaluations": 390,
+        "unfinished_actions_lower_bound": 300,
+        "unfinished_attempts": 2,
+        "unfinished_attempts_protocol_cap_sum": 600,
+        "unfinished_recorded_flow_velocity_evaluations": 600
+      }
+    },
     "random_alpha_distribution": "uniform continuous [0,1]",
     "random_deferral_caveat": "Astra may explicitly defer to native; random controls do not reproduce its deferral distribution.",
-    "result_status": "no_audited_results_in_this_report",
+    "result_status": "interrupted_pilot_observations_only",
     "seed": 47,
     "source_config": {
       "bytes": 4302,
@@ -523,5 +776,5 @@
   },
   "related_studies_pooled": false,
   "schema_version": "representation-status-1.0",
-  "snapshot_utc": "2026-09-26T18:51:13.482683+00:00"
+  "snapshot_utc": "2026-09-26T19:50:05.107887+00:00"
 }

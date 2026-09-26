@@ -68,7 +68,7 @@ def prompt(repo, module, destination, settings):
     return value
 
 
-def build(repo, output, proposal):
+def build(repo, output, proposal, pilot_report=None):
     reports = repo / "astra_reversal/reports"
     gallery = read(output / "gallery.json")
     assert gallery["status"] == "verified" and gallery["video_count"] == 11
@@ -195,6 +195,66 @@ def build(repo, output, proposal):
         "payload_sha256": "0828e19a85a7474d2e6ef2bbe705406da51690cdb4ed6891687407a007fc5bae",
         "partial_outcomes_published_here": False,
     }
+    infra_path = reports / "frs_policy_improvement/infrastructure.json"
+    interruption_path = reports / "frs_policy_improvement/evaluation_interruption.json"
+    gate_path = reports / "frs_policy_improvement/evaluation_gate_observations.json"
+    infrastructure, interruption, gates = (
+        read(p) for p in (infra_path, interruption_path, gate_path)
+    )
+    assert (
+        infrastructure["active_status"]
+        == interruption["status"]
+        == "interrupted_budget_exhausted"
+    )
+    assert interruption["all_twenty_efficacy_complete"] is False
+    running.update(
+        active_status=infrastructure["active_status"],
+        infrastructure_source=source(repo, infra_path),
+        interruption_source=source(repo, interruption_path),
+        completed_sealed_tasks=len(interruption["completed_sealed_task_audits"]),
+        recorded_completed_rollouts=interruption["recorded_complete_rollouts"],
+        provider_usage=interruption["provider_usage"],
+        learning_gate_observations={
+            "source": source(repo, gate_path),
+            "selected_completed_tasks": len(gates["tasks"]),
+            "judgments": gates["judgments"],
+            "promotions": sum(t["promotions"] for t in gates["tasks"]),
+            "accepted_policy_updates": sum(
+                t["accepted_policy_updates"] for t in gates["tasks"]
+            ),
+            "scope": "Execution-selected completed tasks only; no full-cohort efficacy estimate.",
+        },
+    )
+    pilot = None
+    if pilot_report is not None:
+        result = read(pilot_report)
+        assert result["phase"] == "development" and result["seed"] == 19
+        assert result["expected_cases"] == result["received_cases"] == 3
+        assert result["status"] == "partial" and result["efficacy_released"] is False
+        assert all(
+            c["audit"]["status"] in ("passed", "verified_partial")
+            for c in result["cases"]
+        )
+        pooled = result["groups"]["pooled"]
+        pilot = {
+            "status": "interrupted_budget_exhausted",
+            "source": source(repo, pilot_report),
+            "expected_cases": 3,
+            "complete_sealed_cases": result["audited_cases"],
+            "verified_partial_cases": sum(
+                c["audit"]["status"] == "verified_partial" for c in result["cases"]
+            ),
+            "cohort_efficacy_released": False,
+            "physical_completed_work": pooled["physical_cost"],
+            "verified_recorded_work": pooled["verified_recorded_work"],
+            "unexercised_astra_arms": [
+                a
+                for a, v in pooled["operator_coverage"].items()
+                if a.startswith("astra_") and v["accepted_decisions_executed"] == 0
+            ],
+            "html": "development/results/index.html",
+            "scope": "Individually archive/provider-verified completed rollout observations, forced stability checks, and recorded cost lower bounds. Not a complete three-case or twenty-task success rate.",
+        }
     protocol_path = repo / "astra_reversal/configs/representation_steering_v1.json"
     plan_path = repo / "astra_reversal/REPRESENTATION_PLAN.md"
     protocol = read(protocol_path)
@@ -222,7 +282,11 @@ def build(repo, output, proposal):
         "schema_version": "representation-status-1.0",
         "snapshot_utc": stamp,
         "new_study": {
-            "result_status": "no_audited_results_in_this_report",
+            "result_status": "interrupted_pilot_observations_only"
+            if pilot
+            else "no_audited_results_in_this_report",
+            "full_evaluation_launched": False,
+            "pilot": pilot,
             "claim": "assisted correction, not autonomous learning",
             "source_config": source(repo, protocol_path),
             "source_plan": source(repo, plan_path),
@@ -265,11 +329,31 @@ def build(repo, output, proposal):
         },
     }
     write(output / "study_summary.json", summary)
+    pilot_text = ""
+    if pilot:
+        pc = pilot["physical_completed_work"]
+        pw = pilot["verified_recorded_work"]
+        pu = pc["provider"]
+        pilot_text = f"""## Interrupted pilot: verified observations, incomplete cohort
+
+The [seed-19 initial results and seven original videos](development/results/index.html) are now archive/provider bound. A spending-cap failure stopped the pilot; the full seed-47 evaluation **has not launched**. Two cases have verified partial archives and one has a complete case seal. A seal does not make unexercised Astra modes valid integration evidence. No three-case or twenty-task efficacy rate is released.
+
+There are {pc["rollouts"]} completed physical rollouts and {pc["actions"]:,} completed actions. Two unfinished rollouts add at least {pw["unfinished_actions_lower_bound"]:,} actions; their outcomes remain unknown. Recorded compute is {pw["recorded_velocity_evaluations_lower_bound"]:,} velocity evaluations, including {pw["setup_velocity_evaluations"]:,} setup/probe evaluations once per case. This includes {pw["unfinished_recorded_flow_velocity_evaluations"]:,} unfinished evaluations beyond the {pc["velocity_evaluations"]:,} completed-rollout total.
+
+The complete recorded ledger contains {pu["provider_calls"]} calls / {pu["accepted_proposals"]} accepted, at least {pu["tokens"]["total_tokens"]["sum"]:,} reported tokens and {pu["tokens"]["total_tokens"]["missing_calls"]} unknown-usage calls. All 122 failed calls returned HTTP 429; 48 explicitly carried the safe type `budget_exceeded`. Missing usage is not zero. Account-wide spending is not attributed entirely to this experiment.
+
+Two descriptive completed observations are wine TEI revision 2 (98 actions) and milk TLI revision 1 (120 actions), after their native baselines failed. They are not cohort rates or causal estimates. The Spatial-8 baseline succeeded in 106 actions; forced native retry, random TLI/VEI/VLI and Astra TEI/TLI/VEI then failed, while forced VLI succeeded in 125 actions with 50 recorded representation-effect actions. These extras test stability and are not rescues.
+
+The combined TLI+VLI and pixel-blend modes had no accepted decisions. They were never started on wine/milk; their Spatial-8 rollouts were native fallback only. Wine/milk VEI and VLI completed prefixes likewise have no accepted Astra edits. [Exact completed and unfinished accounting](development/results/report.md) and [raw recording provenance](development/results/video_gallery.json) keep those limitations visible.
+
+"""
     readme = f"""# Representation steering: evidence, next experiment and rollout videos
 
 [Open the portable HTML report and video gallery](index.html). The {gallery["video_count"]} clips are original recorded MP4s, total {gallery["total_video_bytes"]:,} bytes. No simulator replay, model call or transcoding was used. [Video provenance](gallery.json).
 
-The new seed-47 representation screen is an **assisted-correction experiment** with no policy updates. It has no audited results in this report. Its [plan](../../REPRESENTATION_PLAN.md) and [protocol](../../configs/representation_steering_v1.json) specify 20 known OOD tasks, one native baseline and at most two revisions per arm; maximum 420 rollouts. The three-case seed-19 pilot has maximum 63. These are planned budgets.
+The new seed-47 representation screen is an **assisted-correction experiment** with no policy updates. It has not launched. Its [plan](../../REPRESENTATION_PLAN.md) and [protocol](../../configs/representation_steering_v1.json) specify 20 known OOD tasks, one native baseline and at most two revisions per arm; maximum 420 rollouts. The three-case seed-19 pilot had maximum 63. These are protocol budgets, not completed coverage.
+
+{pilot_text}
 
 | Completed study | Separate baseline | Measured outcome | Budget / scope |
 |---|---:|---|---|
@@ -277,9 +361,9 @@ The new seed-47 representation screen is an **assisted-correction experiment** w
 | Real pixel perturbations, seed 37 | 8/20 | Astra occlusion 12/20; donor blend 12/20; random occlusion 10/20, random blend 11/20 | Shared baseline + up to 2 revisions; separate 20-reset cohort |
 | FRS development, seed 19 | 0/3 native and repeated-noise controls | Direct 2/3; FRS 2/3; critique/no-learning 0/3; final learned noise 0/3 | Three selected known failure tasks, evaluation reset 1 |
 
-All 18 FRS development judgments were ties; no candidate was promoted and no auxiliary update ran. Its physical cost remains 45 rollouts, 775 provider calls and at least 3,229,704 tokens (3 unknown-usage calls). This does not establish that a trained actor failed to learn. The [full frozen FRS run](https://us-west-2-aws.osmo.nvidia.com/workflows/{running["workflow"]}) is **{running["status"]}** in the saved snapshot; its 1,740 rollouts are planned coverage, and no partial efficacy is published here.
+All 18 FRS development judgments were ties; no candidate was promoted and no auxiliary update ran. Its physical cost remains 45 rollouts, 775 provider calls and at least 3,229,704 tokens (3 unknown-usage calls). This does not establish that a trained actor failed to learn. The [full frozen FRS run](../frs_policy_improvement/EVALUATION_INTERRUPTION.md) was also **interrupted by the spending cap**: 952 completed recorded rollouts, 6,587 calls and at least 15,562,019 known tokens, with 1,166 unknown-usage calls. Its 1,740 rollouts were planned coverage. Only five of twenty tasks completed and were fully audited; no complete-cohort efficacy is published. In that execution-selected [five-task subset](../frs_policy_improvement/evaluation_gate_observations.json), 30 judgments were 29 same / 1 uncertain, with zero promotions or auxiliary updates. Those gate observations remain separate from the three-case development cohort.
 
-The older seed-7 native baseline is 86/200, with TF32 enabled, fresh noise and ten trials per task. It remains [historical context](../ood_baseline.json), not a comparator pooled with the three cohorts above. All measured numbers are copied from complete audited reports and bound in [study_summary.json](study_summary.json).
+The older seed-7 native baseline is 86/200, with TF32 enabled, fresh noise and ten trials per task. It remains [historical context](../ood_baseline.json), not a comparator pooled with the three completed cohorts above. Complete-cohort numbers and incomplete archive-bound observations have separate sources and scope in [study_summary.json](study_summary.json).
 
 - [Research evidence and concrete hypotheses](RESEARCH.md)
 - [Exact method, observation access, effort and feedback boundaries](METHODS.md)
@@ -307,13 +391,17 @@ Snapshot: {stamp}. No dollars, 100% reliability, novel-task generalization or RL
         )
     exact = html.escape(prompt_tables["representation"]["system_prompt"])
     style = """body{margin:0;background:#f5f7fa;color:#1c3444;font:16px/1.65 system-ui,sans-serif}main{max-width:1160px;margin:36px auto;padding:0 24px}h1{font-size:42px;line-height:1.15;max-width:920px}h2{font-size:27px;line-height:1.3}h3{font-size:19px;line-height:1.4}a{color:#086984}header{padding:10px 0 22px}nav{display:flex;gap:18px;flex-wrap:wrap}.tag{font-size:13px;letter-spacing:1px;font-weight:750;color:#7e5618}section{margin:26px 0;padding:27px;background:#fff;border:1px solid #d9e3eb;border-radius:14px}.note{padding:16px;background:#fff3dc;border-left:4px solid #bb852b}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:18px}article{border:1px solid #cadce6;border-radius:12px;padding:17px;background:#f7fbfd}video{width:100%;max-height:340px;background:#111;border-radius:8px}.meta{font-size:12px;overflow-wrap:anywhere;color:#526572}table{border-collapse:collapse;display:block;overflow:auto;width:100%;font-size:14px}th,td{padding:10px;border-bottom:1px solid #dbe5eb;text-align:left}th{background:#edf4f7}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f6f8;padding:20px;font-size:13px;line-height:1.55}code{overflow-wrap:anywhere}details{margin:12px 0}summary{cursor:pointer;font-weight:650}footer{font-size:13px;color:#526572}svg{width:100%;height:auto}@media(max-width:620px){main{padding:0 12px}h1{font-size:32px}section{padding:18px}}"""
-    diagram = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 170" role="img" aria-label="Representation intervention path"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#477889"/></marker></defs><g fill="#edf5f7" stroke="#adc9d6"><rect x="10" y="30" width="190" height="84" rx="10"/><rect x="225" y="30" width="190" height="84" rx="10"/><rect x="440" y="30" width="190" height="84" rx="10"/><rect x="655" y="30" width="190" height="84" rx="10"/><rect x="870" y="30" width="200" height="84" rx="10"/></g><g fill="#1c3444" font-family="system-ui,sans-serif" text-anchor="middle" font-size="15"><text x="105" y="62">Raw paired cameras</text><text x="105" y="88">original task + state</text><text x="320" y="62">Astra choice / random</text><text x="320" y="88">donor(s), mode, alpha</text><text x="535" y="62">Text or visual slots</text><text x="535" y="88">fresh native condition</text><text x="750" y="62">Frozen policy · Euler10</text><text x="750" y="88">execute 5 actions</text><text x="970" y="62">Recorded feedback</text><text x="970" y="88">up to 2 revisions</text><text x="540" y="152">New screen: assisted correction. Policy learning is a separate future test; no representation results are claimed here.</text></g><g stroke="#477889" stroke-width="2" marker-end="url(#arrow)"><path d="M200 72H222"/><path d="M415 72H437"/><path d="M630 72H652"/><path d="M845 72H867"/></g></svg>"""
+    diagram = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 170" role="img" aria-label="Representation intervention path"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#477889"/></marker></defs><g fill="#edf5f7" stroke="#adc9d6"><rect x="10" y="30" width="190" height="84" rx="10"/><rect x="225" y="30" width="190" height="84" rx="10"/><rect x="440" y="30" width="190" height="84" rx="10"/><rect x="655" y="30" width="190" height="84" rx="10"/><rect x="870" y="30" width="200" height="84" rx="10"/></g><g fill="#1c3444" font-family="system-ui,sans-serif" text-anchor="middle" font-size="15"><text x="105" y="62">Raw paired cameras</text><text x="105" y="88">original task + state</text><text x="320" y="62">Astra choice / random</text><text x="320" y="88">donor(s), mode, alpha</text><text x="535" y="62">Text or visual slots</text><text x="535" y="88">fresh native condition</text><text x="750" y="62">Frozen policy · Euler10</text><text x="750" y="88">execute 5 actions</text><text x="970" y="62">Recorded feedback</text><text x="970" y="88">up to 2 revisions</text><text x="540" y="152">Representation choices condition a frozen policy. Assisted outcomes do not establish autonomous learning.</text></g><g stroke="#477889" stroke-width="2" marker-end="url(#arrow)"><path d="M200 72H222"/><path d="M415 72H437"/><path d="M630 72H652"/><path d="M845 72H867"/></g></svg>"""
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Representation steering — evidence, hypotheses and real rollout videos</title><style>{style}</style></head><body><main><header><span class="tag">NEW ASSISTED-CORRECTION SCREEN · COMPLETED HISTORICAL EVIDENCE</span><h1>Choose representations that change behavior, then test what was learned</h1><p>Text and visual interventions are candidate correction mechanisms. Assisted success and autonomous learning are separate questions.</p><nav><a href="#status">Measured vs planned</a><a href="#videos">11 real rollout videos</a><a href="#research">Research and fixes</a><a href="#method">Harness and method</a><a href="#prompt">Exact new prompt</a></nav></header><section id="status">{render("README.md")}</section><section><h2>Where the new interventions act</h2>{diagram}<p>TEI/TLI edit instruction representations. VEI/VLI edit actual visual representations. Pixel blending edits RGB before encoding. Donor scenes can distort geometry; implementation parity does not establish usefulness.</p></section><section id="videos"><h2>Original ID and OOD rollout videos</h2><p class="note">Outcome-selected successes and failures, with matching rescue baselines. Original 20-fps recordings show pre-action raw external frames; inference pauses and the terminal post-action image are omitted. These clips are not a performance sample.</p><div class="grid">{"".join(cards)}</div><p><a href="gallery.json">Full video, source archive, reset and audit provenance</a>. All {gallery["video_count"]} videos together: {gallery["total_video_bytes"]:,} bytes.</p></section><section id="research">{render("RESEARCH.md")}</section><section id="method">{render("METHODS.md")}</section><section id="prompt"><h2>Exact representation-selection system prompt</h2><p>Template <code>{prompt_tables["representation"]["template"]}</code>; configured Astra medium / 8192. The dynamic user request binds the raw observations, task, donor catalogs and prior same-arm feedback described above. This snapshot is configuration evidence, not a successful-call claim.</p><p class="meta">System-string SHA256: {prompt_tables["representation"]["system_prompt_sha256"]}</p><pre>{exact}</pre><p><a href="prompts/representation.json">Prompt, source hash and configured settings JSON</a> · <a href="prompts/frs.json">Earlier exact four FRS prompts</a></p></section><footer>Static portable HTML, local original MP4s, inline CSS/SVG, no remote player or scripts. <a href="manifest.json">File hashes</a> · <a href="study_summary.json">Bound source reports and status</a> · <a href="source/build_gallery.py.txt">Video exporter source</a> · <a href="source/build_report.py.txt">Page generator source</a>. Snapshot {stamp}.</footer></main></body></html>"""
     (output / "index.html").write_text(page + "\n")
     source_dir = output / "source"
     source_dir.mkdir(exist_ok=True)
     shutil.copyfile(__file__, source_dir / "build_report.py.txt")
-    paths = [p for p in output.rglob("*") if p.is_file() and p.name != "manifest.json"]
+    paths = [
+        p
+        for p in output.rglob("*")
+        if p.is_file() and p != output / "manifest.json" and p.name != ".DS_Store"
+    ]
     assert sum(p.stat().st_size for p in paths) < 40 * 1024 * 1024
     manifest = {
         "schema_version": "representation-publication-1.0",
@@ -335,8 +423,14 @@ if __name__ == "__main__":
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--proposal", type=Path, required=True)
+    parser.add_argument("--pilot-report", type=Path)
     args = parser.parse_args()
-    result = build(args.repo.resolve(), args.output.resolve(), args.proposal)
+    result = build(
+        args.repo.resolve(),
+        args.output.resolve(),
+        args.proposal,
+        args.pilot_report.resolve() if args.pilot_report else None,
+    )
     print(
         json.dumps(
             {

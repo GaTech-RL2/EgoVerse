@@ -1,0 +1,2097 @@
+{
+  "schema_version": "representation-provider-audit-1.0",
+  "status": "complete",
+  "complete": true,
+  "captured_at_utc": "2026-09-26T19:36:54.370258+00:00",
+  "episode_id": "libero_spatial_ood:seed19:task8:state0",
+  "workflow": "astra-pi05-representation-development-20260926-1",
+  "worker": 2,
+  "protocol_sha256": "2c2d887308fc9c6a67e1c711278e716b89399e3b7661f9f669c0845f4a883875",
+  "image_library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+  "source_file_sha256": {
+    "summary.json": {
+      "sha256": "02245406af5a2ae1a0e79eb1b70ac6816d56ad8dfdb2c655c170cb7fa70e3c23",
+      "bytes": 1098073
+    },
+    "worker/runtime.json": {
+      "sha256": "774295df184d7897439809ec1612924173def60c9b0e82d65225a4d7a38b6dd7",
+      "bytes": 535
+    },
+    "worker/protocol.json": {
+      "sha256": "7e26d73f3aa1c9363c25a8c68039e6b9c302ed5a8ee9c80540b9e6aafabf5806",
+      "bytes": 4744
+    },
+    "worker/prompts.json": {
+      "sha256": "38d3c0b519b05c4d72ac008cd37fec1e1e3fe19f1e986ee0fbbf0bb9cba42bb1",
+      "bytes": 5752
+    },
+    "worker/frozen_plan.json": {
+      "sha256": "3fa887594214d6d314163d1f1c1f6cb8aebde431438736f3afb3984206cdc33f",
+      "bytes": 447
+    },
+    "worker/reset_manifest.json": {
+      "sha256": "7c72a56781d86b639a9db99bb37158a093f6a7d4c26908fde5c59bd04707e595",
+      "bytes": 19326
+    },
+    "worker/checkpoint.json": {
+      "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+      "bytes": 3858
+    },
+    "worker/bank_inventory.json": {
+      "sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+      "bytes": 128686
+    },
+    "provider.jsonl": {
+      "sha256": "2307b2086b5cdb45fc2570ac2df756adf3e46643754f3b8f2a39867b5ad23211",
+      "bytes": 198625,
+      "records": 65,
+      "entire_file": true
+    },
+    "events.jsonl": {
+      "sha256": "a8910d223355291f27c4afbfaa522840e4e69beaf7a077aedef17dd7c50a6234",
+      "bytes": 166759579,
+      "records": 777,
+      "entire_file": true
+    },
+    "completion_receipt.json": {
+      "sha256": "770da5ea33ef85d7ea4389a0f8ab5afd01b21f95bdd4c353cda49d4a0bcc3f79",
+      "bytes": 516398
+    }
+  },
+  "source_code_sha256": {
+    "astra_reversal/representation_agent.py": "c55a20187f77dc7e38eeae2456fff56fa5de7c0e10ace28105f5f816b8b8d33f",
+    "astra_reversal/representation_search.py": "ab7680fac9c402affa1857efbc80e82dbf49206f5b9aa3696ae18ec0e282cc8e",
+    "astra_reversal/osmo/representation_steering.py": "6398979de97ee0b8a35f5439141a00e8ba82a68e9134f7f1de415f573a424107",
+    "astra_reversal/image_perturbation_agent.py": "c45804f119faaf03971c4e3d01f969bef2c73c24e84d956dfee33a8e4c29bc9c",
+    "astra_reversal/interpolation_agent.py": "59a00fd0e3f5145c0adf0c87136c534f0e1c26c9d07ebf6df54d72ed49908e29",
+    "astra_reversal/intervention_agent.py": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804",
+    "astra_reversal/astra_client.py": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f",
+    "astra_reversal/records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+    "astra_reversal/intervention_rollout.py": "be662dc5f4e13b74e14558e6bc663a86d99bc37aff6f30f723b17915c2656040",
+    "astra_reversal/vision_interpolation.py": "c74a281331ada07e5e2b2f0a327f4bc111f16dba54916b7da3151eaae241ead8"
+  },
+  "auditor_sha256": "d885b5002fb19cc5cb32c851573b2d13b87652af15e8e99861d87cb602928d2f",
+  "codec": {
+    "numpy": "1.26.4",
+    "pillow": "12.3.0",
+    "pillow_zlib": "1.3",
+    "python": "3.11.14"
+  },
+  "archive_audit": {
+    "status": "passed",
+    "scope": "sealed_case",
+    "complete_sealed_case": true,
+    "receipt_sha256": "1e4cc63d3a0dd496506c0c712dcfd7264a02dead7d159754e6725d040aa7e01c",
+    "receipt_name": "audit.json",
+    "archive_sha256": "1bfcefbc0f285972772df2fe6904bf3362287094ff8cfa1ed3b976b83a4c5c62",
+    "archive_bytes": 209689758,
+    "array_inventory_sha256": "a53fcf01991525c10e11bc5ef7f99787a8edf1ed652ff84cde0ea8b8998a38d3"
+  },
+  "bindings": {
+    "recorded_native_parity_velocity_evaluations": 10,
+    "recorded_probe_velocity_evaluations": 120,
+    "generation_application_bindings": 587,
+    "previous_raw_pairs_bound": 260,
+    "requests_validated": 65,
+    "exact_payload_bindings": 65,
+    "accepted_strict_parses": 41,
+    "provider_decision_bindings": 65,
+    "current_raw_pairs_bound": 242,
+    "completed_provider_rows_awaiting_download": 0
+  },
+  "unmatched": {
+    "provider_without_request": 0,
+    "request_without_provider": 0,
+    "request_awaiting_generation": 0
+  },
+  "provider": {
+    "provider_calls": 65,
+    "accepted_proposals": 41,
+    "failed_calls": 24,
+    "usage_available_calls": 41,
+    "usage_unavailable_calls": 24,
+    "tokens": {
+      "input_tokens": {
+        "sum": 467625,
+        "available_calls": 41,
+        "missing_calls": 24,
+        "complete": false
+      },
+      "output_tokens": {
+        "sum": 5692,
+        "available_calls": 41,
+        "missing_calls": 24,
+        "complete": false
+      },
+      "reasoning_tokens": {
+        "sum": 1550,
+        "available_calls": 41,
+        "missing_calls": 24,
+        "complete": false
+      },
+      "total_tokens": {
+        "sum": 473317,
+        "available_calls": 41,
+        "missing_calls": 24,
+        "complete": false
+      }
+    },
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "latency_seconds": 359.39678012789227,
+    "actual_models": {
+      "azure/openai/gpt-6-astra": 41,
+      "unavailable": 24
+    },
+    "http_status": {
+      "200": 41,
+      "429": 24
+    },
+    "errors": {
+      "Inference endpoint returned HTTP 429": 24
+    },
+    "monetary_cost": null,
+    "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+    "client_attempts": 65,
+    "preflight_failures": 0,
+    "preflight_errors": {},
+    "preflight_latency_seconds": 0
+  },
+  "rejections": {
+    "budget_exceeded": 16,
+    "http_error": 8
+  },
+  "http_429_taxonomy": {
+    "all_http_429": 24,
+    "explicit_budget_exceeded": 16,
+    "http_429_without_explicit_budget_type": 8,
+    "retry_after_metadata_recorded": false,
+    "scope": "Only exact structured error types are classified as budget_exceeded; raw provider messages are omitted."
+  },
+  "per_arm": {
+    "native_retry": {
+      "completed_intervention_rollouts": 1,
+      "intervention_outcomes": [
+        {
+          "attempt_id": "native_retry_revision1",
+          "revision": 1,
+          "success": false,
+          "actions": 300,
+          "accepted_decisions_executed": 0,
+          "nonzero_intervention_actions": 0,
+          "provider_failure_fallback_actions": 0
+        }
+      ],
+      "observed_success": true,
+      "first_success_revision": 0,
+      "censored_at_cap": false,
+      "development_extra_rollouts": 1,
+      "choices": {},
+      "provider": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "provider_through_success_or_cap": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 0,
+        "explicit_native_actions": 0,
+        "nonzero_intervention_actions": 0,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 0
+      }
+    },
+    "random_tli": {
+      "completed_intervention_rollouts": 1,
+      "intervention_outcomes": [
+        {
+          "attempt_id": "random_tli_revision1",
+          "revision": 1,
+          "success": false,
+          "actions": 300,
+          "accepted_decisions_executed": 0,
+          "nonzero_intervention_actions": 300,
+          "provider_failure_fallback_actions": 0
+        }
+      ],
+      "observed_success": true,
+      "first_success_revision": 0,
+      "censored_at_cap": false,
+      "development_extra_rollouts": 1,
+      "choices": {},
+      "provider": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "provider_through_success_or_cap": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 0,
+        "explicit_native_actions": 0,
+        "nonzero_intervention_actions": 300,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 0
+      }
+    },
+    "random_vei": {
+      "completed_intervention_rollouts": 1,
+      "intervention_outcomes": [
+        {
+          "attempt_id": "random_vei_revision1",
+          "revision": 1,
+          "success": false,
+          "actions": 300,
+          "accepted_decisions_executed": 0,
+          "nonzero_intervention_actions": 300,
+          "provider_failure_fallback_actions": 0
+        }
+      ],
+      "observed_success": true,
+      "first_success_revision": 0,
+      "censored_at_cap": false,
+      "development_extra_rollouts": 1,
+      "choices": {},
+      "provider": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "provider_through_success_or_cap": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 0,
+        "explicit_native_actions": 0,
+        "nonzero_intervention_actions": 300,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 0
+      }
+    },
+    "random_vli": {
+      "completed_intervention_rollouts": 1,
+      "intervention_outcomes": [
+        {
+          "attempt_id": "random_vli_revision1",
+          "revision": 1,
+          "success": false,
+          "actions": 300,
+          "accepted_decisions_executed": 0,
+          "nonzero_intervention_actions": 300,
+          "provider_failure_fallback_actions": 0
+        }
+      ],
+      "observed_success": true,
+      "first_success_revision": 0,
+      "censored_at_cap": false,
+      "development_extra_rollouts": 1,
+      "choices": {},
+      "provider": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "provider_through_success_or_cap": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 0,
+        "explicit_native_actions": 0,
+        "nonzero_intervention_actions": 300,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 0
+      }
+    },
+    "astra_tei": {
+      "completed_intervention_rollouts": 1,
+      "intervention_outcomes": [
+        {
+          "attempt_id": "astra_tei_revision1",
+          "revision": 1,
+          "success": false,
+          "actions": 300,
+          "accepted_decisions_executed": 12,
+          "nonzero_intervention_actions": 150,
+          "provider_failure_fallback_actions": 0
+        }
+      ],
+      "observed_success": true,
+      "first_success_revision": 0,
+      "censored_at_cap": false,
+      "development_extra_rollouts": 1,
+      "choices": {
+        "native": 6,
+        "nominal_neutral": 6,
+        "interpolate": 6
+      },
+      "provider": {
+        "provider_calls": 12,
+        "accepted_proposals": 12,
+        "failed_calls": 0,
+        "usage_available_calls": 12,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 134078,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 1588,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 393,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 135666,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 109.8130451051984,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 12
+        },
+        "http_status": {
+          "200": 12
+        },
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 12,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "provider_through_success_or_cap": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 300,
+        "explicit_native_actions": 150,
+        "nonzero_intervention_actions": 150,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 12
+      }
+    },
+    "astra_tli": {
+      "completed_intervention_rollouts": 1,
+      "intervention_outcomes": [
+        {
+          "attempt_id": "astra_tli_revision1",
+          "revision": 1,
+          "success": false,
+          "actions": 300,
+          "accepted_decisions_executed": 12,
+          "nonzero_intervention_actions": 175,
+          "provider_failure_fallback_actions": 0
+        }
+      ],
+      "observed_success": true,
+      "first_success_revision": 0,
+      "censored_at_cap": false,
+      "development_extra_rollouts": 1,
+      "choices": {
+        "native": 5,
+        "nominal_neutral": 5,
+        "interpolate": 7
+      },
+      "provider": {
+        "provider_calls": 12,
+        "accepted_proposals": 12,
+        "failed_calls": 0,
+        "usage_available_calls": 12,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 134051,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 1780,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 552,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 135831,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 102.74502342916094,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 12
+        },
+        "http_status": {
+          "200": 12
+        },
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 12,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "provider_through_success_or_cap": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 300,
+        "explicit_native_actions": 125,
+        "nonzero_intervention_actions": 175,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 12
+      }
+    },
+    "astra_vei": {
+      "completed_intervention_rollouts": 1,
+      "intervention_outcomes": [
+        {
+          "attempt_id": "astra_vei_revision1",
+          "revision": 1,
+          "success": false,
+          "actions": 300,
+          "accepted_decisions_executed": 12,
+          "nonzero_intervention_actions": 175,
+          "provider_failure_fallback_actions": 0
+        }
+      ],
+      "observed_success": true,
+      "first_success_revision": 0,
+      "censored_at_cap": false,
+      "development_extra_rollouts": 1,
+      "choices": {
+        "native": 5,
+        "nominal_neutral": 5,
+        "interpolate": 7
+      },
+      "provider": {
+        "provider_calls": 12,
+        "accepted_proposals": 12,
+        "failed_calls": 0,
+        "usage_available_calls": 12,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 141608,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 1800,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 561,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 143408,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 90.13659983861726,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 12
+        },
+        "http_status": {
+          "200": 12
+        },
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 12,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "provider_through_success_or_cap": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 300,
+        "explicit_native_actions": 125,
+        "nonzero_intervention_actions": 175,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 12
+      }
+    },
+    "astra_vli": {
+      "completed_intervention_rollouts": 1,
+      "intervention_outcomes": [
+        {
+          "attempt_id": "astra_vli_revision1",
+          "revision": 1,
+          "success": true,
+          "actions": 125,
+          "accepted_decisions_executed": 5,
+          "nonzero_intervention_actions": 50,
+          "provider_failure_fallback_actions": 0
+        }
+      ],
+      "observed_success": true,
+      "first_success_revision": 0,
+      "censored_at_cap": false,
+      "development_extra_rollouts": 1,
+      "choices": {
+        "native": 3,
+        "nominal_neutral": 3,
+        "interpolate": 2
+      },
+      "provider": {
+        "provider_calls": 5,
+        "accepted_proposals": 5,
+        "failed_calls": 0,
+        "usage_available_calls": 5,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 57888,
+            "available_calls": 5,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 524,
+            "available_calls": 5,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 44,
+            "available_calls": 5,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 58412,
+            "available_calls": 5,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 33.708772656857036,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 5
+        },
+        "http_status": {
+          "200": 5
+        },
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 5,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "provider_through_success_or_cap": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "executed": {
+        "actions": 125,
+        "accepted_decision_actions": 125,
+        "explicit_native_actions": 75,
+        "nonzero_intervention_actions": 50,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 5
+      }
+    },
+    "astra_tli_vli": {
+      "completed_intervention_rollouts": 1,
+      "intervention_outcomes": [
+        {
+          "attempt_id": "astra_tli_vli_revision1",
+          "revision": 1,
+          "success": false,
+          "actions": 300,
+          "accepted_decisions_executed": 0,
+          "nonzero_intervention_actions": 0,
+          "provider_failure_fallback_actions": 300
+        }
+      ],
+      "observed_success": true,
+      "first_success_revision": 0,
+      "censored_at_cap": false,
+      "development_extra_rollouts": 1,
+      "choices": {
+        "rejected": 12
+      },
+      "provider": {
+        "provider_calls": 12,
+        "accepted_proposals": 0,
+        "failed_calls": 12,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 12,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 11.526855404837988,
+        "actual_models": {
+          "unavailable": 12
+        },
+        "http_status": {
+          "429": 12
+        },
+        "errors": {
+          "Inference endpoint returned HTTP 429": 12
+        },
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 12,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "provider_through_success_or_cap": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 0,
+        "explicit_native_actions": 0,
+        "nonzero_intervention_actions": 0,
+        "provider_failure_fallback_actions": 300,
+        "accepted_decisions_executed": 0
+      }
+    },
+    "astra_pixel_blend": {
+      "completed_intervention_rollouts": 1,
+      "intervention_outcomes": [
+        {
+          "attempt_id": "astra_pixel_blend_revision1",
+          "revision": 1,
+          "success": false,
+          "actions": 300,
+          "accepted_decisions_executed": 0,
+          "nonzero_intervention_actions": 0,
+          "provider_failure_fallback_actions": 300
+        }
+      ],
+      "observed_success": true,
+      "first_success_revision": 0,
+      "censored_at_cap": false,
+      "development_extra_rollouts": 1,
+      "choices": {
+        "rejected": 12
+      },
+      "provider": {
+        "provider_calls": 12,
+        "accepted_proposals": 0,
+        "failed_calls": 12,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 12,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 11.466483693220653,
+        "actual_models": {
+          "unavailable": 12
+        },
+        "http_status": {
+          "429": 12
+        },
+        "errors": {
+          "Inference endpoint returned HTTP 429": 12
+        },
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 12,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "provider_through_success_or_cap": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      },
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 0,
+        "explicit_native_actions": 0,
+        "nonzero_intervention_actions": 0,
+        "provider_failure_fallback_actions": 300,
+        "accepted_decisions_executed": 0
+      }
+    }
+  },
+  "completed_attempts": [
+    {
+      "attempt_id": "native_revision0",
+      "arm": "native",
+      "revision": 0,
+      "success": true,
+      "actions": 106,
+      "completion_event_sequence": 25,
+      "completion_event_canonical_sha256": "5403ad0d91d8417a48ac59d23ed294b94a8709843e635e64fcfbff281a5a9508",
+      "flow_velocity_evaluations": 220,
+      "executed": {
+        "actions": 106,
+        "nonzero_intervention_actions": 0,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 0
+      },
+      "provider": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "attempt_id": "native_retry_revision1",
+      "arm": "native_retry",
+      "revision": 1,
+      "success": false,
+      "actions": 300,
+      "completion_event_sequence": 87,
+      "completion_event_canonical_sha256": "e841168d8f22eba18c966a4e89e6341acfd45ab2f159671ca41ccc09eeb1956f",
+      "flow_velocity_evaluations": 600,
+      "executed": {
+        "actions": 300,
+        "nonzero_intervention_actions": 0,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 0
+      },
+      "provider": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "attempt_id": "random_tli_revision1",
+      "arm": "random_tli",
+      "revision": 1,
+      "success": false,
+      "actions": 300,
+      "completion_event_sequence": 161,
+      "completion_event_canonical_sha256": "7d093efa1f8241065e24c65654ac8b38d245a43f33f6176489cc3c6c557d17d7",
+      "flow_velocity_evaluations": 600,
+      "executed": {
+        "actions": 300,
+        "nonzero_intervention_actions": 300,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 0
+      },
+      "provider": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "attempt_id": "random_vei_revision1",
+      "arm": "random_vei",
+      "revision": 1,
+      "success": false,
+      "actions": 300,
+      "completion_event_sequence": 235,
+      "completion_event_canonical_sha256": "72705c779c38fceb55b55c0efd703aea0404cc5319089636f77dfa05547a95aa",
+      "flow_velocity_evaluations": 600,
+      "executed": {
+        "actions": 300,
+        "nonzero_intervention_actions": 300,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 0
+      },
+      "provider": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "attempt_id": "random_vli_revision1",
+      "arm": "random_vli",
+      "revision": 1,
+      "success": false,
+      "actions": 300,
+      "completion_event_sequence": 309,
+      "completion_event_canonical_sha256": "f08c2679b33e923c15f98d975ff1c2d79667bb95288ae617733eb49d4400b600",
+      "flow_velocity_evaluations": 600,
+      "executed": {
+        "actions": 300,
+        "nonzero_intervention_actions": 300,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 0
+      },
+      "provider": {
+        "provider_calls": 0,
+        "accepted_proposals": 0,
+        "failed_calls": 0,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 0,
+        "actual_models": {},
+        "http_status": {},
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 0,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "attempt_id": "astra_tei_revision1",
+      "arm": "astra_tei",
+      "revision": 1,
+      "success": false,
+      "actions": 300,
+      "completion_event_sequence": 395,
+      "completion_event_canonical_sha256": "c900648cce2c454b36653b63d3caedc18b31f3fbcf196a6c1e4f851c8a771288",
+      "flow_velocity_evaluations": 600,
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 300,
+        "explicit_native_actions": 150,
+        "nonzero_intervention_actions": 150,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 12
+      },
+      "provider": {
+        "provider_calls": 12,
+        "accepted_proposals": 12,
+        "failed_calls": 0,
+        "usage_available_calls": 12,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 134078,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 1588,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 393,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 135666,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 109.8130451051984,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 12
+        },
+        "http_status": {
+          "200": 12
+        },
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 12,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "attempt_id": "astra_tli_revision1",
+      "arm": "astra_tli",
+      "revision": 1,
+      "success": false,
+      "actions": 300,
+      "completion_event_sequence": 481,
+      "completion_event_canonical_sha256": "26fcf5c0ae30cce73c9222b2d0241d842135c6fd203889d3c804d8d54b509728",
+      "flow_velocity_evaluations": 600,
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 300,
+        "explicit_native_actions": 125,
+        "nonzero_intervention_actions": 175,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 12
+      },
+      "provider": {
+        "provider_calls": 12,
+        "accepted_proposals": 12,
+        "failed_calls": 0,
+        "usage_available_calls": 12,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 134051,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 1780,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 552,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 135831,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 102.74502342916094,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 12
+        },
+        "http_status": {
+          "200": 12
+        },
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 12,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "attempt_id": "astra_vei_revision1",
+      "arm": "astra_vei",
+      "revision": 1,
+      "success": false,
+      "actions": 300,
+      "completion_event_sequence": 567,
+      "completion_event_canonical_sha256": "8ac316b113bbf62d8e269aeff0a8d4a7d0977b56831ffa8eda64d7c5ffd1e895",
+      "flow_velocity_evaluations": 600,
+      "executed": {
+        "actions": 300,
+        "accepted_decision_actions": 300,
+        "explicit_native_actions": 125,
+        "nonzero_intervention_actions": 175,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 12
+      },
+      "provider": {
+        "provider_calls": 12,
+        "accepted_proposals": 12,
+        "failed_calls": 0,
+        "usage_available_calls": 12,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 141608,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 1800,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 561,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 143408,
+            "available_calls": 12,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 90.13659983861726,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 12
+        },
+        "http_status": {
+          "200": 12
+        },
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 12,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "attempt_id": "astra_vli_revision1",
+      "arm": "astra_vli",
+      "revision": 1,
+      "success": true,
+      "actions": 125,
+      "completion_event_sequence": 604,
+      "completion_event_canonical_sha256": "8efd26524107c5ef3e163dbcee721895876f71d1a83c6c93408e70f7abefcac0",
+      "flow_velocity_evaluations": 250,
+      "executed": {
+        "actions": 125,
+        "accepted_decision_actions": 125,
+        "explicit_native_actions": 75,
+        "nonzero_intervention_actions": 50,
+        "provider_failure_fallback_actions": 0,
+        "accepted_decisions_executed": 5
+      },
+      "provider": {
+        "provider_calls": 5,
+        "accepted_proposals": 5,
+        "failed_calls": 0,
+        "usage_available_calls": 5,
+        "usage_unavailable_calls": 0,
+        "tokens": {
+          "input_tokens": {
+            "sum": 57888,
+            "available_calls": 5,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "output_tokens": {
+            "sum": 524,
+            "available_calls": 5,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "reasoning_tokens": {
+            "sum": 44,
+            "available_calls": 5,
+            "missing_calls": 0,
+            "complete": true
+          },
+          "total_tokens": {
+            "sum": 58412,
+            "available_calls": 5,
+            "missing_calls": 0,
+            "complete": true
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 33.708772656857036,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 5
+        },
+        "http_status": {
+          "200": 5
+        },
+        "errors": {},
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 5,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "attempt_id": "astra_tli_vli_revision1",
+      "arm": "astra_tli_vli",
+      "revision": 1,
+      "success": false,
+      "actions": 300,
+      "completion_event_sequence": 690,
+      "completion_event_canonical_sha256": "156315e38fb514096147ff03251c0f85d2649c64d841d00975fa56edfae89507",
+      "flow_velocity_evaluations": 600,
+      "executed": {
+        "actions": 300,
+        "nonzero_intervention_actions": 0,
+        "provider_failure_fallback_actions": 300,
+        "accepted_decisions_executed": 0
+      },
+      "provider": {
+        "provider_calls": 12,
+        "accepted_proposals": 0,
+        "failed_calls": 12,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 12,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 11.526855404837988,
+        "actual_models": {
+          "unavailable": 12
+        },
+        "http_status": {
+          "429": 12
+        },
+        "errors": {
+          "Inference endpoint returned HTTP 429": 12
+        },
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 12,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    },
+    {
+      "attempt_id": "astra_pixel_blend_revision1",
+      "arm": "astra_pixel_blend",
+      "revision": 1,
+      "success": false,
+      "actions": 300,
+      "completion_event_sequence": 776,
+      "completion_event_canonical_sha256": "fc9e8aca16c6fe5caf9ee925ffbbbe5f2086d7d64c802957f9fcf1e34580818b",
+      "flow_velocity_evaluations": 600,
+      "executed": {
+        "actions": 300,
+        "nonzero_intervention_actions": 0,
+        "provider_failure_fallback_actions": 300,
+        "accepted_decisions_executed": 0
+      },
+      "provider": {
+        "provider_calls": 12,
+        "accepted_proposals": 0,
+        "failed_calls": 12,
+        "usage_available_calls": 0,
+        "usage_unavailable_calls": 12,
+        "tokens": {
+          "input_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "output_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "reasoning_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          },
+          "total_tokens": {
+            "sum": 0,
+            "available_calls": 0,
+            "missing_calls": 12,
+            "complete": false
+          }
+        },
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "latency_seconds": 11.466483693220653,
+        "actual_models": {
+          "unavailable": 12
+        },
+        "http_status": {
+          "429": 12
+        },
+        "errors": {
+          "Inference endpoint returned HTTP 429": 12
+        },
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "client_attempts": 12,
+        "preflight_failures": 0,
+        "preflight_errors": {},
+        "preflight_latency_seconds": 0
+      }
+    }
+  ],
+  "incomplete_attempts": [],
+  "integration_coverage": {
+    "astra_tei": true,
+    "astra_tli": true,
+    "astra_vei": true,
+    "astra_vli": true,
+    "astra_tli_vli": false,
+    "astra_pixel_blend": false
+  },
+  "integration_all_six": false,
+  "physical_completed_rollouts": 11,
+  "physical_completed_actions": 2931,
+  "all_recorded_actions_bounds": {
+    "lower_bound": 2931,
+    "upper_bound": 2931
+  },
+  "provider_failure_fallback_actions_lower_bound": 600,
+  "physical_completed_velocity_evaluations": 6000,
+  "recorded_flow_velocity_evaluations": 5870,
+  "recorded_total_velocity_evaluations_lower_bound": 6000,
+  "limitations": [
+    "No model, physics, numerical counterfactual or new provider call was executed by this auditor.",
+    "Decoded request PNGs and robot state bind exact recorded array digests; passed archive audit supplies independent actual-NPY byte verification.",
+    "Nonzero actions mean actions generated with a logged nonzero conditioning edit, not proven causal action or success improvement.",
+    "Native choices are valid observed behavior; integration admission needs accepted/executed decisions, not success or a nonzero threshold.",
+    "Reasoning tokens are contained within output tokens. Missing reported usage remains missing; no monetary rate is invented.",
+    "A request without a ledger row can be pending or interrupted; its physical-call status and usage are unknown. Token completeness describes recorded calls only.",
+    "Preserved prefixes have no complete-case efficacy claim. Pilot outcomes must remain separate from the full20-task study."
+  ]
+}

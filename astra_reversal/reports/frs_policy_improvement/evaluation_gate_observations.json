@@ -1,0 +1,90 @@
+{
+  "schema_version": "frs-sealed-subset-learning-gates-1",
+  "scope": "Operational learning-gate observations from five fully audited completed tasks of the interrupted20-task study; no full-cohort efficacy estimate.",
+  "tasks": [
+    {
+      "worker": 1,
+      "suite": "libero_goal_ood",
+      "task_id": 1,
+      "summary_sha256": "e7cb638079f4e0ab6f3387ad9031aefd6409ceba5c400ef2ba07b0012b81ce1f",
+      "audit_sha256": "4537c37fa673e615ee0387f028c6655f304beb5e5ab5e6683df86b32cc5f63d7",
+      "receipt_sha256": "6524b3ba5e0aeed5e14d6c9a53e90ee55e905d67f2f932adca203f96324d400d",
+      "judgment_rounds": 6,
+      "judgments": {
+        "same": 6
+      },
+      "promotions": 0,
+      "accepted_policy_updates": 0,
+      "optimizer_steps": 0
+    },
+    {
+      "worker": 2,
+      "suite": "libero_goal_ood",
+      "task_id": 2,
+      "summary_sha256": "2ea7e90b4b05a87b9a69380bfb353be8119a0b40be956efbbc0f952c497db44f",
+      "audit_sha256": "1622418eeb1851cbb49499a5970b48ef6a684a6d8c9e1e9a4e5a28f6943c9254",
+      "receipt_sha256": "b5ed0a62be386035ff5fba738255309f574988b5f05b8b728f30b6bea741d52f",
+      "judgment_rounds": 6,
+      "judgments": {
+        "same": 6
+      },
+      "promotions": 0,
+      "accepted_policy_updates": 0,
+      "optimizer_steps": 0
+    },
+    {
+      "worker": 4,
+      "suite": "libero_spatial_ood",
+      "task_id": 0,
+      "summary_sha256": "617dfebd8cbc58fdf7a86dc9cac5ac79abe25ec30d79d0fb294b670ab04b26b6",
+      "audit_sha256": "c22bc0eb14bab210a2bc0d0e32c876676c50fce556515ce07288e551563d5f18",
+      "receipt_sha256": "791c38ed4db155a45519723452c6bd67bee92a7b1e66f99dc4d2b97c0d4c3f4e",
+      "judgment_rounds": 6,
+      "judgments": {
+        "same": 5,
+        "uncertain": 1
+      },
+      "promotions": 0,
+      "accepted_policy_updates": 0,
+      "optimizer_steps": 0
+    },
+    {
+      "worker": 5,
+      "suite": "libero_spatial_ood",
+      "task_id": 1,
+      "summary_sha256": "f7edabab01876fa9c717ef4ba5c411b83f01dcb4f9bf997b0667ff210fc5b84f",
+      "audit_sha256": "13eecfe90e4e6452c801fa496283afae44dd16087fc8097cf196a569f5502329",
+      "receipt_sha256": "d7cba92c3df4dbd34736fbd9bc18bc0c9f962f8aac3293e80ad36403fb7f17e5",
+      "judgment_rounds": 6,
+      "judgments": {
+        "same": 6
+      },
+      "promotions": 0,
+      "accepted_policy_updates": 0,
+      "optimizer_steps": 0
+    },
+    {
+      "worker": 7,
+      "suite": "libero_spatial_ood",
+      "task_id": 3,
+      "summary_sha256": "d1f34853668c5855e4e73114c71c438b190627904a6ad14c2f67663c5f693ec0",
+      "audit_sha256": "462c38ca238112e122d6cb6142cb0e9cd611e0fdd80f2b9ccdb465847b5e734c",
+      "receipt_sha256": "578a64c541fcf47e862a5b5cb9c20c5f5810adb7ec05a5ef1e95788fec4390e0",
+      "judgment_rounds": 6,
+      "judgments": {
+        "same": 6
+      },
+      "promotions": 0,
+      "accepted_policy_updates": 0,
+      "optimizer_steps": 0
+    }
+  ],
+  "judgment_rounds": 30,
+  "judgments": {
+    "same": 29,
+    "uncertain": 1
+  },
+  "promotions": 0,
+  "accepted_policy_updates": 0,
+  "optimizer_steps": 0
+}

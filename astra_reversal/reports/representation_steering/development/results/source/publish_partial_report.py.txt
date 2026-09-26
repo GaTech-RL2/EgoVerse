@@ -1,0 +1,115 @@
+"""Publish an existing verified interrupted report and its exact audit sources.
+
+No report outcomes are rewritten. Original compiled evidence remains unchanged.
+All paths are arguments; no network, model, simulator, or provider calls.
+"""
+
+import argparse
+import hashlib
+import json
+import shutil
+from pathlib import Path
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text())
+
+
+def write(path, value):
+    path.write_text(json.dumps(value, sort_keys=True, indent=2) + "\n")
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo", type=Path, default=Path.cwd())
+    parser.add_argument("--compiled", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--array-audits", type=Path, nargs=3, required=True)
+    parser.add_argument("--archive-summary", type=Path, required=True)
+    args = parser.parse_args(argv)
+    report = read(args.compiled / "report.json")
+    assert report["status"] == "partial" and report["efficacy_released"] is False
+    assert all(
+        c["audit"]["status"] in ("passed", "verified_partial") for c in report["cases"]
+    )
+    original = read(args.compiled / "manifest.json")
+    for name, row in original["files"].items():
+        assert sha(args.compiled / name) == row["sha256"]
+    shutil.copytree(args.compiled, args.output)
+    audits = args.output / "audits"
+    audits.mkdir()
+    audit_files = []
+    for path in args.array_audits:
+        receipt = read(path)
+        case = next(
+            c for c in report["cases"] if c["episode_id"] == receipt["episode_id"]
+        )
+        assert sha(path) == case["audit"]["array_receipt_sha256"]
+        name = f"array_worker_{receipt['worker']}.json"
+        shutil.copyfile(path, audits / name)
+        audit_files.append("audits/" + name)
+    shutil.copyfile(args.archive_summary, audits / "archive_review_summary.json")
+    source_dir = args.output / "source"
+    source_dir.mkdir(exist_ok=True)
+    shutil.copyfile(__file__, source_dir / "publish_partial_report.py.txt")
+    reporter = args.repo / "astra_reversal/representation_report.py"
+    assert sha(reporter) == report["source_sha256"]["representation_report.py"]
+    shutil.copyfile(reporter, source_dir / "representation_report.py.txt")
+    links = " · ".join(
+        f'<a href="{name}">{Path(name).name}</a>' for name in audit_files
+    )
+    links += ' · <a href="audits/archive_review_summary.json">Joined numerical/archive receipt</a> · <a href="../behavior/README.md">Provider receipts and behavior evidence</a> · <a href="source/representation_report.py.txt">Exact reporter source</a> · <a href="source/export_result_videos.py.txt">Exact video exporter</a> · <a href="source/publish_partial_report.py.txt">Exact publication helper</a>'
+    page = args.output / "index.html"
+    page.write_text(
+        page.read_text().replace(
+            "</main>",
+            "<section><h2>Independent audit and source downloads</h2><p>"
+            + links
+            + '</p><p><a href="publication.json">Publication provenance</a> · <a href="manifest.json">All file hashes</a></p></section></main>',
+        )
+    )
+    write(
+        args.output / "publication.json",
+        {
+            "schema_version": "representation-partial-publication-1.0",
+            "source_sha256": sha(__file__),
+            "report_sha256_unchanged": sha(args.compiled / "report.json"),
+            "original_compiled_manifest_sha256": sha(args.compiled / "manifest.json"),
+            "original_compiled_files": original["files"],
+            "modified_compiled_files": ["index.html", "manifest.json"],
+            "modification": "Added portable audit/source download links and file inventory; canonical report, CSV, Markdown and original MP4 bytes unchanged.",
+            "invocation": "python astra_reversal/.deps/representation-steering/publish_partial_report.py --repo REPO --compiled VERIFIED_COMPILED_DIR --output NEW_PUBLIC_DIR --array-audits WORKER0_AUDIT WORKER1_AUDIT WORKER2_AUDIT --archive-summary JOINED_ARCHIVE_REVIEW",
+        },
+    )
+    write(
+        args.output / "manifest.json",
+        {
+            "schema_version": "representation-report-publication-1.0",
+            "files": {
+                str(path.relative_to(args.output)): {
+                    "sha256": sha(path),
+                    "bytes": path.stat().st_size,
+                }
+                for path in sorted(args.output.rglob("*"))
+                if path.is_file() and path != args.output / "manifest.json"
+            },
+        },
+    )
+    assert sha(args.output / "report.json") == sha(args.compiled / "report.json")
+    print(
+        json.dumps(
+            {
+                "status": "published_partial_observations",
+                "report_sha256": sha(args.output / "report.json"),
+                "manifest_sha256": sha(args.output / "manifest.json"),
+            }
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

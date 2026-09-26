@@ -1,0 +1,58 @@
+"""Publish learning-gate counts only from the five fully audited FRS tasks."""
+from collections import Counter
+import hashlib
+import json
+from pathlib import Path
+
+run = Path("astra_reversal/.deps/frs-evaluation-v1")
+root = Path("astra_reversal/reports/frs_policy_improvement")
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+rows = []
+for path in sorted((run / "audits").glob("worker_*/task_*/receipt.json")):
+    proof = json.loads(path.read_text())
+    assert proof["status"] == "passed"
+    source = run / "interruption_review/source" / f"worker_{proof['worker']}" / f"task_{proof['task_id']}" / "summary.json"
+    assert sha(source) == proof["summary_sha256"]
+    summary = json.loads(source.read_text())
+    rounds = [r for arm in summary["adaptation"].values() for r in arm["rounds"]]
+    rows.append({"worker": proof["worker"], "suite": summary["suite"], "task_id": proof["task_id"],
+                 "summary_sha256": sha(source), "audit_sha256": proof["audit_sha256"], "receipt_sha256": sha(path),
+                 "judgment_rounds": len(rounds), "judgments": dict(Counter(r["judge"]["verdict"] for r in rounds)),
+                 "promotions": sum(r["promoted"] for r in rounds),
+                 "accepted_policy_updates": proof["physical_cost"]["accepted_policy_updates"],
+                 "optimizer_steps": proof["physical_cost"]["optimizer_steps"]})
+assert len(rows) == 5
+judgments = Counter()
+for row in rows:
+    judgments.update(row["judgments"])
+value = {"schema_version": "frs-sealed-subset-learning-gates-1", "scope": "Operational learning-gate observations from five fully audited completed tasks of the interrupted20-task study; no full-cohort efficacy estimate.",
+         "tasks": rows, "judgment_rounds": sum(r["judgment_rounds"] for r in rows), "judgments": dict(judgments),
+         "promotions": sum(r["promotions"] for r in rows), "accepted_policy_updates": sum(r["accepted_policy_updates"] for r in rows),
+         "optimizer_steps": sum(r["optimizer_steps"] for r in rows)}
+assert value["judgment_rounds"] == 30 and value["judgments"] == {"same": 29, "uncertain": 1}
+assert value["promotions"] == value["accepted_policy_updates"] == value["optimizer_steps"] == 0
+path = root / "evaluation_gate_observations.json"
+path.write_text(json.dumps(value, indent=2) + "\n")
+note = "The five fully audited completed tasks also contain30 candidate judgments:29 same and1 uncertain, with zero promotions, auxiliary updates or optimizer steps. This is a learning-gate observation from the interrupted subset, not a full20-task success estimate."
+note = note.replace("contain30", "contain 30").replace("judgments:29", "judgments: 29").replace("and1", "and 1").replace("full20-task", "full 20-task")
+p = root / "EVALUATION_INTERRUPTION.md"
+p.write_text(p.read_text() + "\n" + note + " [Bound task evidence](evaluation_gate_observations.json).\n")
+p = root / "index.html"
+body = p.read_text()
+anchor = '<section id="development">'
+body = body.replace(anchor, '<section><h2>Learning gate in the completed subset</h2><p>' + note + '</p><p><a href="evaluation_gate_observations.json">Exact task and audit bindings</a></p></section>\n' + anchor, 1)
+p.write_text(body)
+source = root / "source/publish_frs_gate_observations.py.txt"
+source.write_bytes(Path(__file__).read_bytes())
+p = root / "method_report_manifest.json"
+previous = sha(p)
+manifest = json.loads(p.read_text())
+manifest["previous_method_manifest_sha256"] = previous
+manifest["generator_sha256"] = sha(Path(__file__))
+for name in ("EVALUATION_INTERRUPTION.md", "index.html", "evaluation_gate_observations.json", "source/publish_frs_gate_observations.py.txt"):
+    target = root / name
+    manifest["files"][name] = {"sha256": sha(target), "bytes": target.stat().st_size}
+p.write_text(json.dumps(manifest, indent=2) + "\n")
+print(json.dumps({"judgments": value["judgments"], "optimizer_steps": value["optimizer_steps"], "scope": "five audited completed tasks"}))

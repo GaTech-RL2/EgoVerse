@@ -1,0 +1,106 @@
+{
+  "schema_version": "representation-provider-auditor-mutation-validation-1.0",
+  "status": "passed",
+  "auditor_sha256": "d885b5002fb19cc5cb32c851573b2d13b87652af15e8e99861d87cb602928d2f",
+  "checker_sha256": "d9586467310be0c35d433a2e54656cc449d1607bf057b8ec251a036ad5c06b0b",
+  "codec": {
+    "numpy": "1.26.4",
+    "pillow": "12.3.0",
+    "pillow_zlib": "1.3",
+    "python": "3.11.14"
+  },
+  "source_prefix": {
+    "summary.json": {
+      "sha256": "7d1af13fa63b52a7d7cfd8859114d1e6dfe0b489b586e9733d863ed280bc421c",
+      "bytes": 1145299
+    },
+    "worker/runtime.json": {
+      "sha256": "d6eef48b5a06ad551405c0f6f1a930dc292c1be20e3af4dfc219d33f0f24aa1e",
+      "bytes": 532
+    },
+    "worker/protocol.json": {
+      "sha256": "7e26d73f3aa1c9363c25a8c68039e6b9c302ed5a8ee9c80540b9e6aafabf5806",
+      "bytes": 4744
+    },
+    "worker/prompts.json": {
+      "sha256": "38d3c0b519b05c4d72ac008cd37fec1e1e3fe19f1e986ee0fbbf0bb9cba42bb1",
+      "bytes": 5752
+    },
+    "worker/frozen_plan.json": {
+      "sha256": "c0a96cc52b99954f469fa5d81d0bcd26e3b7ed337041d821cff55904dea86573",
+      "bytes": 444
+    },
+    "worker/reset_manifest.json": {
+      "sha256": "910074eccda4ca1869140d02a710e68307daa0cb408cf2bd56d20d31ac697398",
+      "bytes": 9684
+    },
+    "worker/checkpoint.json": {
+      "sha256": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+      "bytes": 3858
+    },
+    "worker/bank_inventory.json": {
+      "sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+      "bytes": 128686
+    },
+    "provider.jsonl": {
+      "sha256": "9b74c555b39e2d11cc3f4fe979c0493142725b052bcea817a23adb434d85a6d2",
+      "bytes": 211859,
+      "records": 78,
+      "entire_file": true
+    },
+    "events.jsonl": {
+      "sha256": "6ff38b0b836325cf49e439eaa7a30f29329d442431016ba67e282b60d1af02eb",
+      "bytes": 200089210,
+      "records": 1188,
+      "entire_file": true
+    }
+  },
+  "archive_receipt_sha256": "3568567398fb9e203a3e87b62755567eb24936994024a12ab081a9da6e702cc6",
+  "checks": [
+    {
+      "name": "unchanged_prefix_passes",
+      "passed": true
+    },
+    {
+      "name": "wire_payload_hash",
+      "passed": true,
+      "rejection": "Exact HTTP wire payload differs"
+    },
+    {
+      "name": "duplicate_physical_call",
+      "passed": true,
+      "rejection": "Multiple provider rows for one request: hidden retry or duplicated ledger"
+    },
+    {
+      "name": "request_png_raw_binding",
+      "passed": true,
+      "rejection": "Request PNG differs from recorded raw camera descriptor"
+    },
+    {
+      "name": "cross_arm_feedback",
+      "passed": true,
+      "rejection": "Completed feedback is not own-arm plus shared baseline"
+    },
+    {
+      "name": "stale_applied_decision",
+      "passed": true,
+      "rejection": "Generation used stale/different accepted decision"
+    },
+    {
+      "name": "actual_archive_binding_passes",
+      "passed": true
+    },
+    {
+      "name": "archive_event_hash_mismatch",
+      "passed": true,
+      "rejection": "Archive and provider audit read different task bytes: events.jsonl"
+    },
+    {
+      "name": "partial_archive_cannot_claim_complete",
+      "passed": true,
+      "rejection": "Incomplete final provider/event coverage"
+    }
+  ],
+  "new_provider_calls": 0,
+  "scope": "Offline mutations of a private copy only; experiment files and recorded outcomes unchanged."
+}

@@ -1,0 +1,77 @@
+{
+  "schema_version": "representation-interrupted-pilot-behavior-manifest-1.0",
+  "status": "verified_partial_development_evidence",
+  "complete_cohort": false,
+  "runtime_revision": "a3ca1e84",
+  "payload_sha256": "3d96a34778ba3bd0017e4f62086cd46650a911e150ac9ddc05ff8f5d65b4859f",
+  "files": {
+    "README.md": {
+      "sha256": "8ab539dbd8a5b37780f7c92ea9d9c6c2234d640b1e78d1a847cb973a3feb4294",
+      "bytes": 11090
+    },
+    "cabinet_raw_feedback.png": {
+      "sha256": "69b26a011e4c2a09dbd6b59bd4bca7377a860b9075e404c5ef6ab2f370d570ff",
+      "bytes": 826149
+    },
+    "cabinet_selected_donor.png": {
+      "sha256": "d853d634ba6ac6d924a3a9db2382caf5af9d82e527e0557df96e42c7465003f0",
+      "bytes": 221490
+    },
+    "evidence.json": {
+      "sha256": "ccbd9da7bf6aaecdd83f6b75017c2c5286e4e7a5531d6c6b53643342b9ede5e1",
+      "bytes": 388093
+    },
+    "milk_raw_feedback.png": {
+      "sha256": "54dbdb7dc2364b3f4d673047bebafdaba7571f8c7bcc4b60ca386cbbceb25ed8",
+      "bytes": 842384
+    },
+    "provider_auditor_validation.json": {
+      "sha256": "39ba88444894ba94f3a5bc86f9a488fb27899a3af8ade34a97abf7c08da87b03",
+      "bytes": 3394
+    },
+    "provider_worker_0.json": {
+      "sha256": "96bdedef34a1d08ab8c647d8a3390770f00ba8ea19da922a039f6006c610b3e9",
+      "bytes": 75774
+    },
+    "provider_worker_1.json": {
+      "sha256": "a24e3bc64bb5321092e8f7df5ab0755bee1c76572ac15eff3a149a1b31c677f8",
+      "bytes": 73235
+    },
+    "provider_worker_2.json": {
+      "sha256": "ebe6bf26f4fc11eb72fa969bf9e42d5945247e8bcc79ca6c99aa1c534c4967f2",
+      "bytes": 64187
+    },
+    "source/README.md": {
+      "sha256": "ae7634535a1f6fa0ca9625763fe05102975268387db0e2bd20f38543c77c8c85",
+      "bytes": 3921
+    },
+    "source/audit_provider.py": {
+      "sha256": "d885b5002fb19cc5cb32c851573b2d13b87652af15e8e99861d87cb602928d2f",
+      "bytes": 51650
+    },
+    "source/build_behavior_evidence.py": {
+      "sha256": "20b72e010f59f92d2270297cfb0bf506be4855645bf5a75c270d54a9fd8881d5",
+      "bytes": 18350
+    },
+    "source/verify_audit_provider.py": {
+      "sha256": "d9586467310be0c35d433a2e54656cc449d1607bf057b8ec251a036ad5c06b0b",
+      "bytes": 6977
+    },
+    "timelines.csv": {
+      "sha256": "6881c954ba6d3fc7626f357d627c6a05c8473aced0d42518aa41b5df123455de",
+      "bytes": 23809
+    },
+    "wine_raw_feedback.png": {
+      "sha256": "e8a9c7b81814bf4310b578e11b3f3854632d3a9704f3d7c7a4b3511d572b054a",
+      "bytes": 810106
+    }
+  },
+  "checks": {
+    "exact_provider_wire_and_history": true,
+    "archive_source_hash_joins": true,
+    "nine_offline_mutation_checks_passed": true,
+    "public_json_allowlist_scan_passed": true,
+    "no_new_provider_model_or_simulator_calls": true
+  },
+  "scope": "Two interrupted archive-bound prefixes and one sealed development case; no complete cohort efficacy and no full20 evaluation."
+}

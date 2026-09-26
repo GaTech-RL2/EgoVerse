@@ -191,7 +191,7 @@
       "source_revision": "a50f92dfd18a7fdfe1c6198d34ddb43386d28396",
       "payload_sha256": "0828e19a85a7474d2e6ef2bbe705406da51690cdb4ed6891687407a007fc5bae",
       "efficacy_eligible": false,
-      "efficacy_scope": "Full evaluation is running; no completed aggregate efficacy or cost result is published.",
+      "efficacy_scope": "Interrupted; complete 20-task efficacy remains unavailable.",
       "requested_workers": 8,
       "requested_hardware": "NVIDIA L40S",
       "planned_tasks": 20,
@@ -294,64 +294,64 @@
           }
         }
       },
-      "reason": "One authorized submission after complete development audits, report, codec verification, separate CUDA setup proof and explicit technical review. Scientific source/payload/protocol unchanged.",
-      "provider_call_scope": "Ongoing experiment; costs remain in task ledgers and are not inferred from this status snapshot.",
+      "reason": "Inference provider returned budget_exceeded for the configured key. Its account spending cap was exhausted; account-wide budget use is not attributed entirely to this study.",
+      "provider_call_scope": "Final archive-bound descriptive costs in evaluation_interruption.json; unknown usage retained.",
       "controller_accepted_receipt_sha256": "1f3a9ed09f9d2985cd8d65b44159ab8b2af673d71ba35bd843f743b4ceeaa48d",
       "launch_intent_sha256": "4d13c4676bd425373d9ef256f775bdf75998a029e50ce4873c4d291ad4499be2",
       "submission_sha256": "9f78e3ab7646e9dcb11ddfcd3f32d94627e8270f93a12b8d699afcc21d16c309",
-      "status": "RUNNING",
+      "status": "FAILED",
       "submit_time_utc": "2026-09-26T17:13:28.766975",
       "start_time_utc": "2026-09-26T17:13:38.734676",
-      "end_time_utc": null,
-      "status_receipt_sha256": "11eb9849055d051232bea8f260b6051901072d4b56d638e2146ea9fea4b8f270",
+      "end_time_utc": "2026-09-26T19:22:18.658405",
+      "status_receipt_sha256": "8b64088cf2e60f9c3d5bc59e02c5a195c487ede010ce3225f929b54a7f522df0",
       "workers": [
         {
           "name": "worker0",
-          "status": "RUNNING",
+          "status": "FAILED",
           "start_time_utc": "2026-09-26T17:13:38.734676",
-          "end_time_utc": null
+          "end_time_utc": "2026-09-26T19:19:17.500584"
         },
         {
           "name": "worker1",
-          "status": "RUNNING",
+          "status": "FAILED",
           "start_time_utc": "2026-09-26T17:13:40.307291",
-          "end_time_utc": null
+          "end_time_utc": "2026-09-26T19:22:18.658405"
         },
         {
           "name": "worker2",
-          "status": "RUNNING",
+          "status": "FAILED",
           "start_time_utc": "2026-09-26T17:13:40.307256",
-          "end_time_utc": null
+          "end_time_utc": "2026-09-26T19:20:15.784356"
         },
         {
           "name": "worker3",
-          "status": "RUNNING",
+          "status": "FAILED",
           "start_time_utc": "2026-09-26T17:13:43.074498",
-          "end_time_utc": null
+          "end_time_utc": "2026-09-26T19:19:25.803177"
         },
         {
           "name": "worker4",
-          "status": "RUNNING",
+          "status": "FAILED",
           "start_time_utc": "2026-09-26T17:13:43.934353",
-          "end_time_utc": null
+          "end_time_utc": "2026-09-26T19:20:24.006592"
         },
         {
           "name": "worker5",
-          "status": "RUNNING",
+          "status": "FAILED",
           "start_time_utc": "2026-09-26T17:13:45.950971",
-          "end_time_utc": null
+          "end_time_utc": "2026-09-26T19:20:25.002965"
         },
         {
           "name": "worker6",
-          "status": "RUNNING",
+          "status": "FAILED",
           "start_time_utc": "2026-09-26T17:13:47.726537",
-          "end_time_utc": null
+          "end_time_utc": "2026-09-26T19:19:13.234371"
         },
         {
           "name": "worker7",
-          "status": "RUNNING",
+          "status": "FAILED",
           "start_time_utc": "2026-09-26T17:13:47.672400",
-          "end_time_utc": null
+          "end_time_utc": "2026-09-26T19:20:23.413059"
         }
       ],
       "status_history": [
@@ -412,15 +412,25 @@
             }
           ],
           "snapshot_time_utc": "2026-09-26T17:21:04.315551+00:00"
+        },
+        {
+          "status": "RUNNING",
+          "submit_time_utc": "2026-09-26T17:13:28.766975",
+          "start_time_utc": "2026-09-26T17:13:38.734676",
+          "end_time_utc": null,
+          "status_receipt_sha256": "11eb9849055d051232bea8f260b6051901072d4b56d638e2146ea9fea4b8f270",
+          "reason": "One authorized submission after complete development audits, report, codec verification, separate CUDA setup proof and explicit technical review. Scientific source/payload/protocol unchanged.",
+          "provider_call_scope": "Ongoing experiment; costs remain in task ledgers and are not inferred from this status snapshot."
         }
       ],
-      "preflight_scope": "All eight workers passed the frozen payload preflight: 819 unit and 19 native tests per worker. These are technical checks, not completed task outcomes."
+      "preflight_scope": "All eight workers passed the frozen payload preflight: 819 unit and 19 native tests per worker. These are technical checks, not completed task outcomes.",
+      "interruption_report": "evaluation_interruption.json"
     }
   ],
   "active_workflow": "astra-pi05-frs-evaluation-20260925-1",
-  "active_status": "running",
+  "active_status": "interrupted_budget_exhausted",
   "requested_hardware": "NVIDIA L40S",
-  "snapshot_time_utc": "2026-09-26T17:24:02.442616+00:00",
+  "snapshot_time_utc": "2026-09-26T19:32:08.827666+00:00",
   "active_phase": "evaluation",
   "completed_development": {
     "workflow": "astra-pi05-frs-development-20260926-1",
