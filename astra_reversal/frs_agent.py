@@ -49,7 +49,7 @@ from .intervention_agent import (
 from .records import digest
 
 SCHEMA_VERSION = "frs-agent-1.0"
-PROMPT_TEMPLATE_VERSION = "astra-frs-http-1"
+PROMPT_TEMPLATE_VERSION = "astra-frs-http-2"
 PAPER_URL = "https://arxiv.org/html/2606.13675v2#A4.SS2"
 ROLES = ("paper_direction", "action_edit", "critique", "judge")
 LIMITS = {
@@ -119,6 +119,14 @@ visible failure mechanisms or uncertainty without calling them measured task
 success/failure. Produce a compact failure_assessment and a complete replacement
 set of zero to five rules. Each rule has a unique rule_id, a short observable
 trigger, and a short action suggestion for a future native-action editor.
+That editor can only defer to the current native prediction, add one WORLD XYZ
+translation offset (each component in [-0.5,0.5] dimensionless controller-input
+units) to the first 1..10 action rows, and keep/open/close the gripper in that
+prefix. Reference rotations and rows outside that prefix remain unchanged.
+It cannot directly command or pause rotation, reorient the wrist, change task
+language, or edit pixels. FRS may change the generated motion, but it provides
+no explicit rotation control for these rules. Omit any rule requiring unavailable
+controls; describe that limitation in failure_assessment when relevant.
 Rules must concern visible geometry, motion or contact; do not refer to a hidden
 reward, simulator predicate, object coordinates or a step-index oracle. Do not
 invent numerical progress. Cite supplied snapshot steps/cameras in evidence.

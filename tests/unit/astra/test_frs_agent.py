@@ -293,6 +293,41 @@ def test_critique_rules_can_feed_editor_without_transmitting_measured_outcome():
     )
 
 
+def test_critique_wire_prompt_limits_rules_to_the_actual_editor_controls():
+    critique = request_for("critique")
+    payload = build_payload(critique, MODEL)
+    prompt = " ".join(payload["messages"][0]["content"].split())
+    assert "defer to the current native prediction" in prompt
+    assert "WORLD XYZ translation offset" in prompt
+    assert "[-0.5,0.5] dimensionless controller-input units" in prompt
+    assert "first 1..10 action rows" in prompt
+    assert "keep/open/close the gripper" in prompt
+    assert "Reference rotations and rows outside that prefix remain unchanged" in prompt
+    assert "cannot directly command or pause rotation, reorient the wrist" in prompt
+    assert "Omit any rule requiring unavailable controls" in prompt
+    assert "describe that limitation in failure_assessment" in prompt
+    wire_context = json.loads(payload["messages"][1]["content"][0]["text"])
+    assert wire_context["prompt_template_version"] == "astra-frs-http-2"
+    # A rule within those capabilities remains usable by the strict editor.
+    rules = [
+        {
+            "rule_id": "clear-rim",
+            "trigger": "Fingers visibly touch the rim.",
+            "action": "Lift with a positive world-Z offset and keep the native gripper value.",
+        }
+    ]
+    parsed = parse_proposal(proposal_for(critique, rules=rules), critique)
+    editor = request_for(rules=parsed["rules"])
+    assert (
+        parse_proposal(
+            proposal_for(editor, delta_xyz=[0, 0, 0.5], apply_steps=10), editor
+        )["gripper"]
+        == "keep"
+    )
+    with pytest.raises(ClientError, match="delta_xyz"):
+        parse_proposal(proposal_for(editor, delta_xyz=[0, 0, 0.51]), editor)
+
+
 @pytest.mark.parametrize("role", ["critique", "judge"])
 @pytest.mark.parametrize("field", ["success", "reward", "object_poses", "termination"])
 def test_completed_rollout_rejects_privileged_or_outcome_metadata(role, field):

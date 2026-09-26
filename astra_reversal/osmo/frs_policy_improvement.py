@@ -2,6 +2,7 @@
 
 import hashlib
 import importlib.metadata
+import json
 import os
 import platform
 import tarfile
@@ -62,6 +63,46 @@ def frozen_parameter_receipt(policy):
             "sha256": hashlib.sha256(memoryview(raw)).hexdigest(),
         }
     return {"tensors": tensors, "sha256": digest(tensors)}
+
+
+def seal_completed_task(policy, task_id, before):
+    """Bind a completed task before a later worker interruption can lose proof."""
+    directory = RESULTS / f"task_{task_id}"
+    summary = json.loads((directory / "summary.json").read_text())
+    if summary.get("status") != "complete" or summary.get("task_id") != task_id:
+        raise ValueError("Only the expected completed task can be sealed")
+    after = frozen_parameter_receipt(policy)
+    if before != after:
+        raise RuntimeError("Native pi05 tensor bytes changed during the task")
+    write_json(directory / "frozen_weights_after.json", after)
+    task_names = ["summary.json", "events.jsonl", "frozen_weights_after.json"]
+    if (directory / "provider.jsonl").exists():
+        task_names.append("provider.jsonl")
+    metadata_names = (
+        "runtime.json",
+        "checkpoint.json",
+        "protocol.json",
+        "frozen_plan.json",
+        "reset_manifest.json",
+        "prompts.json",
+        "frozen_weights_before.json",
+    )
+    runtime = json.loads((RESULTS / "runtime.json").read_text())
+    receipt = {
+        "schema_version": "frs-completed-task-1.0",
+        "task_id": task_id,
+        "workflow": runtime["workflow"],
+        "worker": runtime["worker"],
+        "native_tensor_sha256": after["sha256"],
+        "task_files_sha256": {
+            name: file_sha256(directory / name) for name in task_names
+        },
+        "worker_metadata_sha256": {
+            name: file_sha256(RESULTS / name) for name in metadata_names
+        },
+    }
+    write_json(directory / "completion_receipt.json", receipt)
+    return receipt
 
 
 def main():
@@ -170,6 +211,7 @@ def main():
             experiment.run()
             if any(parameter.requires_grad for parameter in policy.policy.parameters()):
                 raise RuntimeError("Frozen pi05 weights became trainable")
+            seal_completed_task(policy, task_id, before)
             publish_task(archive, task_id)
         after = frozen_parameter_receipt(policy)
         write_json(RESULTS / "frozen_weights_after.json", after)
