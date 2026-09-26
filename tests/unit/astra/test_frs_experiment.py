@@ -231,6 +231,8 @@ def test_full_loop_uses_real_request_contracts_and_separates_evaluation(experime
     assert len(report["physical_rollouts"]) == 15
     assert len(report["evaluation"]) == 8
     assert len(training) == 3
+    assert report["initial_noise_policy_checkpoint"]["rounds"] == 0
+    assert (obj.directory / "noise_policy_initial").is_dir()
     assert {
         row["metadata"]["kind"] for _, samples, _ in training for row in samples
     } == {"frs_edit"}

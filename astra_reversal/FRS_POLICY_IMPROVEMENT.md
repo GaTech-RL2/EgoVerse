@@ -72,7 +72,8 @@ rollout. Then repeat the following **three times**, including after success:
    short rules with observable triggers and corrective actions.
 2. Restore the exact initial scene. Every ten actions, generate the current
    native prediction and show it to Astra with both current cameras, robot state,
-   rules, and the last two decisions. Astra may defer or adjust translation by
+   rules, the calibrated camera-to-world axis signs, and the last two decisions.
+   Astra may defer or adjust translation by
    at most 0.5 controller units per axis for 1–10 steps and optionally open/close
    the gripper. Rotations are preserved. Any resulting bound clipping is recorded.
 3. Normalize the edited prediction and invert it through the frozen flow model.

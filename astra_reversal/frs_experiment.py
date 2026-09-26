@@ -106,6 +106,7 @@ class FRSTaskExperiment:
         self.progress = progress or (lambda: None)
         self.reset_audits = {}
         self.parity_checked = False
+        self.camera_signs = None
         self.request_index = 0
         self.physical_runs = []
         self.results_by_id = {}
@@ -287,6 +288,7 @@ class FRSTaskExperiment:
                 from PIL import Image
 
                 guide_probe, guide_probe_receipt = gripper_guide(observation, env)
+                self.camera_signs = guide_probe_receipt["camera_to_controller_signs"]
                 Image.fromarray(guide_probe).save(self.directory / "guide_probe.png")
                 self.recorder.event(
                     "guide_probe",
@@ -305,13 +307,22 @@ class FRSTaskExperiment:
                 )
                 proposal = self.request(request)
             elif is_loop:
+                reasoner_spec = {
+                    **spec.as_dict(),
+                    "camera_direction_to_world_signs": {
+                        "toward_camera_world_x": self.camera_signs[0],
+                        "image_right_world_y": self.camera_signs[1],
+                        "up_world_z": self.camera_signs[2],
+                        "source": "calibrated_external_camera_and_actual_display_orientation",
+                    },
+                }
                 request = action_edit_request(
                     **self.identity(entry, attempt_id, step),
                     observation=observation,
                     native_actions=native_actions,
                     rules=list(rules),
                     previous_decisions=decisions[-2:],
-                    action_spec=spec.as_dict(),
+                    action_spec=reasoner_spec,
                 )
                 proposal = self.request(request)
             if is_paper or is_loop:
@@ -418,6 +429,7 @@ class FRSTaskExperiment:
                 base_noise=base_noise,
                 predicted_noise=noise,
                 actor_receipt=actor_receipt,
+                reasoner_action_spec=reasoner_spec if is_loop else None,
                 native_model_actions=native.value,
                 native_actions=native_actions,
                 native_clipping=native_clipping,
@@ -587,13 +599,17 @@ class FRSTaskExperiment:
         from .frs_noise_policy import AuxiliaryNoisePolicy
 
         # Independent initializations/arms never consume each other's feedback.
-        baseline, _ = self.rollout("native_repeated_noise", self.entries[0])
-        rules = self.adapt("critique_frs_no_learning", baseline)
         actor = AuxiliaryNoisePolicy(
             task_id=f"{self.benchmark.suite}:{self.entries[0]['task_id']}",
             seed=int(digest(self.entries[0]["episode_id"])[:8], 16),
             device="cuda",
         )
+        initial_checkpoint = actor.save(self.directory / "noise_policy_initial")
+        self.report["initial_noise_policy_checkpoint"] = initial_checkpoint
+        self.recorder.event("noise_policy_initial", checkpoint=initial_checkpoint)
+        self.save()
+        baseline, _ = self.rollout("native_repeated_noise", self.entries[0])
+        rules = self.adapt("critique_frs_no_learning", baseline)
         self.adapt("critique_frs_learning", baseline, actor=actor)
         for method in self.protocol["evaluation_methods"]:
             if method != "learned_noise":
