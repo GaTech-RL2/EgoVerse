@@ -113,7 +113,7 @@ Targets are the raw executed noise labels and are not clipped to the actor's ±5
 
 Only the auxiliary CNN/MLP parameters and its Adam state change. pi05 weights, tokenizer, action normalization, language/vision encoder parameters, and native velocity implementation remain frozen. The worker checks `requires_grad`, records full native tensor hashes before and after the run, and rejects changed weights. Each completed task is additionally sealed with its post-task native tensor hashes and file/metadata hashes before archiving, preserving its evidence if a later task is interrupted. The auxiliary checkpoint includes weights, optimizer state, replay, update history, source hashes, and a state identity. Training restores its prior model and optimizer state if an update raises an exception.
 
-The exact four system prompts are exported by `prompt_manifest()` from [frs_agent.py](../../frs_agent.py). Each role's text is the common contract concatenated with its role-specific body. Every worker writes the full strings in `prompts.json`; they are also required in the complete HTML evidence report. The hashes below cover exact UTF-8 system-message bytes, including whitespace, for `astra-frs-http-2`:
+The exact four system prompts are printed in the [prompt appendix](PROMPTS.md) and exported by `prompt_manifest()` from [frs_agent.py](../../frs_agent.py). Each role's text is the common contract concatenated with its role-specific body. Every worker writes the full strings in `prompts.json`; they are also required in the complete HTML evidence report. The hashes below cover exact UTF-8 system-message bytes, including whitespace, for `astra-frs-http-2`:
 
 | Role and exact source | System-prompt SHA256 |
 |---|---|

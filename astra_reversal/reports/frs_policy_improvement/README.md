@@ -20,6 +20,8 @@ retry budgets keep those results separate from this new experiment.
 The [detailed approach](APPROACH.md) explains exactly what Astra sees, when it
 intervenes, all four prompt contracts, action normalization, inverse/forward
 flow, judgment-gated replay and the auxiliary policy update. The
+[prompt appendix](PROMPTS.md) contains all four exact system-message strings
+and their hashes, with the original [worker manifest](prompts.json). The
 [frozen protocol](../../configs/frs_policy_improvement_v1.json) compares native
 full/repeated noise, direct Astra directions, paper-like Astra FRS, critique
 without learning, and learned noise. It uses one adaptation reset and ten
