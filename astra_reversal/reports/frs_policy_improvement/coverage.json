@@ -1,0 +1,1100 @@
+{
+  "existing_measurements": [
+    {
+      "action_budget": 300,
+      "comparison_note": "Native Euler10/TF32-on and matched RK4-100/TF32-off differ in solver/runtime; only matched fresh/reused/reversal isolates those interventions.",
+      "episodes_per_method": 200,
+      "execute_steps": 5,
+      "id": "paired_ood_seed7",
+      "methods": {
+        "astra_reversal": {
+          "episodes": 200,
+          "execution_errors": 0,
+          "label": "Astra reversal",
+          "successes": 5,
+          "zero_action_successes": 0
+        },
+        "baseline_euler10": {
+          "episodes": 200,
+          "execution_errors": 0,
+          "label": "Baseline: Euler 10, fresh noise, TF32 on",
+          "successes": 86,
+          "zero_action_successes": 0
+        },
+        "matched_fresh_noise": {
+          "episodes": 200,
+          "execution_errors": 0,
+          "label": "Matched solver: fresh noise",
+          "successes": 91,
+          "zero_action_successes": 0
+        },
+        "matched_reused_noise": {
+          "episodes": 200,
+          "execution_errors": 0,
+          "label": "Matched solver: reused noise",
+          "successes": 90,
+          "zero_action_successes": 0
+        }
+      },
+      "phase": "evaluation",
+      "repair": {
+        "canonical_execution_errors": 0,
+        "canonical_successes": 86,
+        "original_execution_errors": 8,
+        "original_successes": 82,
+        "replaced_entire_shard_episodes": 25,
+        "selection": "entire hardware-affected shard, independent of outcome"
+      },
+      "reset_indexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "seed": 7,
+      "source": "astra_reversal/reports/ood_paired.json",
+      "stabilization_steps": 10,
+      "status": "complete",
+      "tasks": 20
+    },
+    {
+      "attempt_cap_including_baseline": 5,
+      "baseline_successes": 8,
+      "cases": 20,
+      "id": "static_interventions_seed19",
+      "interpretation": "Known-task exploratory reset adaptation; vision used annotations and language used input embedding residuals, not phase TEI/TLI.",
+      "methods": {
+        "joint": {
+          "baseline_failure_denominator": 12,
+          "final_successes": 8,
+          "rescues": 0,
+          "successes_by_attempt": [
+            8,
+            8,
+            8,
+            8,
+            8
+          ]
+        },
+        "language_only": {
+          "baseline_failure_denominator": 12,
+          "final_successes": 9,
+          "rescues": 1,
+          "successes_by_attempt": [
+            8,
+            9,
+            9,
+            9,
+            9
+          ]
+        },
+        "language_vision": {
+          "baseline_failure_denominator": 12,
+          "final_successes": 9,
+          "rescues": 1,
+          "successes_by_attempt": [
+            8,
+            8,
+            8,
+            9,
+            9
+          ]
+        },
+        "noise_language": {
+          "baseline_failure_denominator": 12,
+          "final_successes": 9,
+          "rescues": 1,
+          "successes_by_attempt": [
+            8,
+            9,
+            9,
+            9,
+            9
+          ]
+        },
+        "noise_only": {
+          "baseline_failure_denominator": 12,
+          "final_successes": 9,
+          "rescues": 1,
+          "successes_by_attempt": [
+            8,
+            8,
+            9,
+            9,
+            9
+          ]
+        },
+        "noise_vision": {
+          "baseline_failure_denominator": 12,
+          "final_successes": 10,
+          "rescues": 2,
+          "successes_by_attempt": [
+            8,
+            8,
+            8,
+            9,
+            10
+          ]
+        },
+        "random_noise": {
+          "baseline_failure_denominator": 12,
+          "final_successes": 10,
+          "rescues": 2,
+          "successes_by_attempt": [
+            8,
+            8,
+            8,
+            8,
+            10
+          ]
+        },
+        "vision_only": {
+          "baseline_failure_denominator": 12,
+          "final_successes": 9,
+          "rescues": 1,
+          "successes_by_attempt": [
+            8,
+            9,
+            9,
+            9,
+            9
+          ]
+        }
+      },
+      "native_controls": {
+        "known_noise": {
+          "cases": 20,
+          "successes": 8
+        },
+        "policy_fresh": {
+          "cases": 20,
+          "successes": 6
+        }
+      },
+      "phase": "evaluation",
+      "physical_cost": {
+        "case_wall_seconds": 15963.298794649047,
+        "clipped_values": 131652,
+        "execution_velocity_evaluations": 242980,
+        "initialization_velocity_evaluations": 24600,
+        "policy_replans": 24298,
+        "proposal_seconds": 3750.1307538493784,
+        "rollout_wall_seconds": 10664.415153200709,
+        "rollouts": 424,
+        "simulated_actions": 121433,
+        "token_usage": {
+          "accepted_proposals": 316,
+          "actual_models": {
+            "azure/openai/gpt-6-astra": 323
+          },
+          "errors": {
+            "Proposal rejected: Noise basis_id differs from the fixed episode basis": 2,
+            "Proposal rejected: Proposal does not echo episode_id": 1,
+            "Proposal rejected: Proposal does not echo request_fingerprint": 4
+          },
+          "failed_calls": 7,
+          "http_status": {
+            "200": 323
+          },
+          "latency_seconds": 3714.0994433592496,
+          "monetary_cost": null,
+          "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+          "provider_calls": 323,
+          "reasoning_tokens_are_subset_of_output_tokens": true,
+          "tokens": {
+            "input_tokens": {
+              "available_calls": 323,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 1290573
+            },
+            "output_tokens": {
+              "available_calls": 323,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 116153
+            },
+            "reasoning_tokens": {
+              "available_calls": 323,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 19177
+            },
+            "total_tokens": {
+              "available_calls": 323,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 1406726
+            }
+          },
+          "usage_available_calls": 323,
+          "usage_unavailable_calls": 0
+        },
+        "total_velocity_evaluations": 267580
+      },
+      "reset_indexes": [
+        0
+      ],
+      "seed": 19,
+      "source": "astra_reversal/reports/iterative_interventions/evaluation/report.json",
+      "status": "complete",
+      "tasks": 20
+    },
+    {
+      "baseline_successes": 7,
+      "cases": 20,
+      "id": "phase_interpolation_seed29",
+      "interpretation": "Known-task exploratory reset adaptation; oracle one revision, Astra/random up to two. Vision marks are historical, not the later RGB-pixel operators.",
+      "methods": {
+        "astra_tei": {
+          "attempt_cap": 3,
+          "cases": 20,
+          "rescues": 4,
+          "successes": 11
+        },
+        "astra_tli": {
+          "attempt_cap": 3,
+          "cases": 20,
+          "rescues": 6,
+          "successes": 13
+        },
+        "astra_tli_vision": {
+          "attempt_cap": 3,
+          "cases": 20,
+          "rescues": 6,
+          "successes": 13
+        },
+        "oracle_tei": {
+          "attempt_cap": 2,
+          "cases": 20,
+          "rescues": 3,
+          "successes": 10
+        },
+        "oracle_tei_tli": {
+          "attempt_cap": 2,
+          "cases": 20,
+          "rescues": 6,
+          "successes": 13
+        },
+        "oracle_tli": {
+          "attempt_cap": 2,
+          "cases": 20,
+          "rescues": 5,
+          "successes": 12
+        },
+        "random_noise": {
+          "attempt_cap": 3,
+          "cases": 20,
+          "rescues": 2,
+          "successes": 9
+        }
+      },
+      "native_controls": {
+        "known_noise": {
+          "actions": 4674,
+          "cases": 20,
+          "successes": 7,
+          "velocity_evaluations": 9370
+        },
+        "policy_fresh": {
+          "actions": 4368,
+          "cases": 20,
+          "successes": 8,
+          "velocity_evaluations": 8770
+        },
+        "recovered_noise": {
+          "actions": 4674,
+          "cases": 20,
+          "successes": 7,
+          "velocity_evaluations": 9380
+        }
+      },
+      "phase": "evaluation",
+      "physical_cost": {
+        "case_wall_seconds_sum": 14841.24514501619,
+        "initialization_velocity_evaluations": 24600,
+        "interpolation_gate_velocity_evaluations": 1000,
+        "rollout_velocity_evaluations": 93540,
+        "rollout_wall_seconds": 14234.762558050628,
+        "rollouts": 190,
+        "simulated_actions": 46653,
+        "token_usage": {
+          "accepted_proposals": 653,
+          "actual_models": {
+            "azure/openai/gpt-6-astra": 679
+          },
+          "client_attempts": 679,
+          "errors": {
+            "proposal_rejected: Proposal does not echo request_fingerprint": 3,
+            "proposal_rejected: request_fingerprint must be a SHA256 digest": 23
+          },
+          "failed_calls": 26,
+          "http_status": {
+            "200": 679
+          },
+          "latency_seconds": 7013.549107934872,
+          "monetary_cost": null,
+          "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+          "preflight_errors": {},
+          "preflight_failures": 0,
+          "preflight_latency_seconds": 0,
+          "provider_calls": 679,
+          "reasoning_tokens_are_subset_of_output_tokens": true,
+          "tokens": {
+            "input_tokens": {
+              "available_calls": 679,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 5543789
+            },
+            "output_tokens": {
+              "available_calls": 679,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 214185
+            },
+            "reasoning_tokens": {
+              "available_calls": 679,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 24960
+            },
+            "total_tokens": {
+              "available_calls": 679,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 5757974
+            }
+          },
+          "usage_available_calls": 679,
+          "usage_unavailable_calls": 0
+        },
+        "velocity_evaluations": 119140
+      },
+      "reset_indexes": [
+        0
+      ],
+      "seed": 29,
+      "source": "astra_reversal/reports/phase_interpolation/evaluation/results/report.json",
+      "status": "complete",
+      "tasks": 20
+    },
+    {
+      "baseline_successes": 0,
+      "cases": 3,
+      "id": "image_development_seed19",
+      "interpretation": "Integration/development only on previously inspected Goal6, Spatial2 and Spatial8.",
+      "methods": {
+        "astra_demo_blend": {
+          "cases": 3,
+          "rescues": 1,
+          "successes": 1,
+          "successes_by_attempt": [
+            0,
+            1,
+            1
+          ]
+        },
+        "astra_occlusion": {
+          "cases": 3,
+          "rescues": 1,
+          "successes": 1,
+          "successes_by_attempt": [
+            0,
+            1,
+            1
+          ]
+        },
+        "random_demo_blend": {
+          "cases": 3,
+          "rescues": 1,
+          "successes": 1,
+          "successes_by_attempt": [
+            0,
+            1,
+            1
+          ]
+        },
+        "random_noise": {
+          "cases": 3,
+          "rescues": 0,
+          "successes": 0,
+          "successes_by_attempt": [
+            0,
+            0,
+            0
+          ]
+        },
+        "random_occlusion": {
+          "cases": 3,
+          "rescues": 1,
+          "successes": 1,
+          "successes_by_attempt": [
+            0,
+            0,
+            1
+          ]
+        }
+      },
+      "phase": "development",
+      "physical_cost": {
+        "accepted_decision_actions": 5498,
+        "case_wall_seconds_sum": 2652.915623185123,
+        "changed_image_actions": 4048,
+        "fallback_actions": 0,
+        "image_gate_velocity_evaluations": 180,
+        "initialization_velocity_evaluations": 3690,
+        "rejected_call_usage": {
+          "accepted_proposals": 0,
+          "actual_models": {},
+          "client_attempts": 0,
+          "errors": {},
+          "failed_calls": 0,
+          "http_status": {},
+          "latency_seconds": 0,
+          "monetary_cost": null,
+          "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+          "preflight_errors": {},
+          "preflight_failures": 0,
+          "preflight_latency_seconds": 0,
+          "provider_calls": 0,
+          "reasoning_tokens_are_subset_of_output_tokens": true,
+          "tokens": {
+            "input_tokens": {
+              "available_calls": 0,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "output_tokens": {
+              "available_calls": 0,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "reasoning_tokens": {
+              "available_calls": 0,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 0
+            },
+            "total_tokens": {
+              "available_calls": 0,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 0
+            }
+          },
+          "usage_available_calls": 0,
+          "usage_unavailable_calls": 0
+        },
+        "rollout_velocity_evaluations": 20010,
+        "rollout_wall_seconds": 2542.354675280134,
+        "rollouts": 36,
+        "simulated_actions": 9998,
+        "token_usage": {
+          "accepted_proposals": 105,
+          "actual_models": {
+            "azure/openai/gpt-6-astra": 105
+          },
+          "client_attempts": 105,
+          "errors": {},
+          "failed_calls": 0,
+          "http_status": {
+            "200": 105
+          },
+          "latency_seconds": 1218.5874146113492,
+          "monetary_cost": null,
+          "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+          "preflight_errors": {},
+          "preflight_failures": 0,
+          "preflight_latency_seconds": 0,
+          "provider_calls": 105,
+          "reasoning_tokens_are_subset_of_output_tokens": true,
+          "tokens": {
+            "input_tokens": {
+              "available_calls": 105,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 2616623
+            },
+            "output_tokens": {
+              "available_calls": 105,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 30941
+            },
+            "reasoning_tokens": {
+              "available_calls": 105,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 4919
+            },
+            "total_tokens": {
+              "available_calls": 105,
+              "complete": true,
+              "missing_calls": 0,
+              "sum": 2647564
+            }
+          },
+          "usage_available_calls": 105,
+          "usage_unavailable_calls": 0
+        },
+        "velocity_evaluations": 23880
+      },
+      "reset_indexes": [
+        0
+      ],
+      "seed": 19,
+      "source": "astra_reversal/reports/image_perturbations/development/results/report.json",
+      "status": "complete",
+      "tasks": 3
+    },
+    {
+      "expected_cases": 20,
+      "id": "image_evaluation_seed37",
+      "note": "The independent image study is running; no final evaluation efficacy is asserted by this coverage snapshot.",
+      "phase": "evaluation",
+      "reset_indexes": [
+        0
+      ],
+      "seed": 37,
+      "source": "astra_reversal/reports/image_perturbations/README.md",
+      "status": "pending_complete_audit",
+      "success_rate": null,
+      "successes": null,
+      "tasks": 20
+    }
+  ],
+  "local_source_sha256": {
+    "astra_reversal/configs/frs_policy_improvement_v1.json": "56f87290fc78e57f24f27a0c264858d987bdffb577916e33773ad1df56a6b2d5",
+    "astra_reversal/reports/image_perturbations/development/results/report.json": "e3215704e57b9ec00f3f454dbb4bbeaf5e16920dbaecb9f152b3b56cc52d6581",
+    "astra_reversal/reports/iterative_interventions/evaluation/report.json": "81bd679d49d23130c2c63547043d42cd68c603fa78d676c2c433cfe26129d1bb",
+    "astra_reversal/reports/ood_baseline.json": "40c6828cc18cf166663d88d33f656da7bda26215d9c1eed341522282cb72b0b9",
+    "astra_reversal/reports/ood_paired.json": "f3281b0594ee0131ecf3c0432d5134ac2a6f4444268fb8ab2068228cd7a8f941",
+    "astra_reversal/reports/phase_interpolation/evaluation/results/report.json": "4409d1113f1ac304ad2ebec767ec35448aa34ada02bb6bf5e130c4815222ca0c"
+  },
+  "non_pooling_rule": "Keep studies, seeds, reset counts, execution horizons, solvers, development and evaluation separate. Baseline-preserving retry success and learned-checkpoint evaluation are different estimands.",
+  "planned_frs": {
+    "adaptation_methods": [
+      "critique_frs_no_learning",
+      "critique_frs_learning"
+    ],
+    "adaptation_reset_indexes": [
+      0
+    ],
+    "adaptation_revisions": 3,
+    "claims": "New reset samples of known compositions; checkpoint training overlap unknown. Evaluation reset outcomes are not adaptation feedback. No matched RL efficiency claim.",
+    "development_seed": 19,
+    "development_task_keys": [
+      "libero_goal_ood:6",
+      "libero_spatial_ood:2",
+      "libero_spatial_ood:8"
+    ],
+    "evaluation_episodes_per_method": 200,
+    "evaluation_methods": [
+      "native_euler10",
+      "native_repeated_noise",
+      "astra_direction_direct",
+      "astra_frs",
+      "critique_frs_no_learning",
+      "learned_noise"
+    ],
+    "evaluation_reset_indexes": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "evaluation_tasks": 20,
+    "policy_images": "raw external and wrist; any calibrated plumb line is VLM-only",
+    "protocol_file_sha256": "56f87290fc78e57f24f27a0c264858d987bdffb577916e33773ad1df56a6b2d5",
+    "protocol_source": "astra_reversal/configs/frs_policy_improvement_v1.json",
+    "seed": 43,
+    "status": "not_measured"
+  },
+  "release": {
+    "default_seed": 7,
+    "files": {
+      "examples/libero/main.py": {
+        "sha256": "e3fee4e68d10043f8c63c5376007eab7707adae423317091e08b171d4dae0312",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/examples/libero/main.py"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_bbq_source_on_the_plate.bddl": {
+        "sha256": "35bdf9391b2d4f2c8eb58903f4c688069b712e1568d313ce1d19cb4a41c9aa41",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_bbq_source_on_the_plate.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_in_the_basket.bddl": {
+        "sha256": "0852791a76d851542f5ed08b682d3440bd6255ab54ea987545b34924561dcf7d",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_in_the_basket.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_on_the_plate.bddl": {
+        "sha256": "62dc454bfdd4a3162632da51fb3300f3e08ca342ca0ff5ea8839a474993fcda9",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_on_the_plate.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_on_the_stove.bddl": {
+        "sha256": "588acae456143a44edde1c3cc63c5ae24dd5c741bdcf367457070436f1397de4",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_on_the_stove.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_on_top_of_the_cabinet.bddl": {
+        "sha256": "bf05ee22714fe070fee420ccb7a697f65d64ab320b347448f99f90989d23fe6e",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_on_top_of_the_cabinet.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_orange_juice_on_the_stove.bddl": {
+        "sha256": "1cd35dbf657c8ef14efadb934d58b15433414464575192795680832c8ff198ca",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_orange_juice_on_the_stove.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_tomato_sauce_on_top_of_the_cabinet.bddl": {
+        "sha256": "4c13c3b6246262cb2e55b92444914a83096d8dbee5309db12957c692cb4dfdea",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_tomato_sauce_on_top_of_the_cabinet.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_in_the_bowl.bddl": {
+        "sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_in_the_bowl.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl": {
+        "sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_on_the_stove.bddl": {
+        "sha256": "f6aff68b9087f11e296f89edc8c782e9c711a9cecfb228a427715df3f4ab539a",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_on_the_stove.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_at_table_center_on_the_cabinet.bddl": {
+        "sha256": "9c9127a7737533425abf5dc8bd166cd5ff00ea6e5f0c1aa49159058c199d883c",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_at_table_center_on_the_cabinet.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_at_table_center_on_the_stove.bddl": {
+        "sha256": "299bc09902a8b1d7877db4baf949141cea99debe289f2d600a4a7303da272e26",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_at_table_center_on_the_stove.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_next_to_the_plate_on_the_cabinet.bddl": {
+        "sha256": "946fa9bda652173f768bd988d2a26bc0fb002aa92cf32eedeea37660c8ec1818",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_next_to_the_plate_on_the_cabinet.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_next_to_the_plate_on_the_stove.bddl": {
+        "sha256": "fb63f416148fb899ec93bcae989c8c694b92cc17840ed15dce400b10ca22dcd9",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_next_to_the_plate_on_the_stove.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_on_cookie_box_on_the_cabinet.bddl": {
+        "sha256": "a9fc6c11e3da8dfb35bef98011f99390b3fcb655e0d90f7f9a6ab38826f890b6",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_on_cookie_box_on_the_cabinet.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_on_cookie_box_on_the_stove.bddl": {
+        "sha256": "6ac72af7b417189a8b6d6ccbc1936791324bdf59285d8cda250dd08c04632630",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_on_cookie_box_on_the_stove.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_butter_on_the_plate.bddl": {
+        "sha256": "7de1c0ab2f2fd5a875d815149fe505319537f6e5f1189ac787c040b25aab5285",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_butter_on_the_plate.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_chocolate_pudding_on_the_plate.bddl": {
+        "sha256": "7c5220fd359c1a04bab18a1849bf957e06fe8705cca920a0bbae706e82635cd0",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_chocolate_pudding_on_the_plate.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_milk_on_the_plate.bddl": {
+        "sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_milk_on_the_plate.bddl"
+      },
+      "third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_orange_juice_on_the_plate.bddl": {
+        "sha256": "6dee489e91acb1739abb1d7e480a5e7358987cb61400f80a70bc3b724f542429",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_orange_juice_on_the_plate.bddl"
+      },
+      "third_party/modified_libero/libero/libero/benchmark/__init__.py": {
+        "sha256": "348e24a68d3e36f819b713ca6625257fe7b931b0dac83e13bcb28ef6cfc0a50a",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/benchmark/__init__.py"
+      },
+      "third_party/modified_libero/libero/libero/benchmark/libero_suite_task_map.py": {
+        "sha256": "21f9633b0e3c15eb73cf9de48fe3a4081162f297baacdb33fab4e4c2b98e8b63",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/benchmark/libero_suite_task_map.py"
+      },
+      "third_party/modified_libero/libero/libero/envs/object_states/base_object_states.py": {
+        "sha256": "c4711c5a029e3106940da92f8bf4d13b22eeec6907b483545eeca85e550a2750",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/envs/object_states/base_object_states.py"
+      },
+      "third_party/modified_libero/libero/libero/envs/objects/site_object.py": {
+        "sha256": "4907bf2550945c395b85fd92725763ada4da533ad50966eb179e637dabeeebf6",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/envs/objects/site_object.py"
+      },
+      "third_party/modified_libero/libero/libero/envs/predicates/base_predicates.py": {
+        "sha256": "319137e95330dbb22a266a8dceb8110f18413c2bf17461550222228c4bc310a1",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/envs/predicates/base_predicates.py"
+      },
+      "third_party/modified_libero/libero/libero/envs/problems/libero_tabletop_manipulation.py": {
+        "sha256": "0defb17c0bbab8f6bd34c021ac15598ea101fe1e48690cb440d4ef92762880fe",
+        "url": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/envs/problems/libero_tabletop_manipulation.py"
+      }
+    },
+    "ood_pruned_init_assets_in_tree": 0,
+    "repository": "https://github.com/QuanyiLi/pi0-text-latent",
+    "reset_note": "Task metadata constructs .pruned_init filenames, but the released OOD evaluator does not load them; both initial-state-loading lines are commented. Reset indexes name positions in a seeded env.reset stream, not prescribed OOD state assets.",
+    "reset_source": "seeded_reset_stream",
+    "revision": "587a6cbf64f16c7b87fa5805dc0ed934192239a4",
+    "seed_once_per_task": true,
+    "task_order_index": 0,
+    "trials_per_task": 10
+  },
+  "schema_version": "frs-coverage-1.0",
+  "snapshot_date": "2026-09-25",
+  "sources": {
+    "frs_paper": {
+      "evaluation_trials_per_task": 50,
+      "execution_horizon": 10,
+      "forward_steps": 10,
+      "reverse_steps": 10,
+      "scope": "Standard LIBERO Goal/Object/Spatial and selected LIBERO90 tasks; not this separate20-task OOD suite.",
+      "sections": [
+        "4.1",
+        "Appendix B.1",
+        "Appendix D.2-D.3",
+        "Appendix E.1"
+      ],
+      "solver": "Euler",
+      "url": "https://arxiv.org/html/2606.13675v2"
+    },
+    "ood_paper": {
+      "episodes_per_suite": 100,
+      "runs_per_task": 10,
+      "sections": [
+        "4 Experiments, Evaluation",
+        "Appendix D"
+      ],
+      "seed_wording": "Paper states ten independent runs with different random seeds.",
+      "suites": 2,
+      "tasks": 20,
+      "tasks_per_suite": 10,
+      "total_episodes": 200,
+      "url": "https://arxiv.org/html/2505.03500v5"
+    }
+  },
+  "status": "inventory_verified_new_frs_measurements_pending",
+  "success_predicate_caveats": [
+    {
+      "claim": "The released BDDL goal and predicate implementation determine the recorded binary outcome; natural-language in/on distinctions need not match the predicate spelling. Wine-in-bowl uses On(wine_bottle_1, akita_black_bowl_1).",
+      "source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_in_the_bowl.bddl#L124-L126"
+    },
+    {
+      "claim": "On dispatches to destination.check_ontop. Object destinations test relative height, actual contact, and horizontal center distance below 0.1 m; site destinations use their under geometry and parent contact when available.",
+      "source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/envs/object_states/base_object_states.py#L78-L94"
+    },
+    {
+      "claim": "SiteObject.under uses other_height=0.10 m. These geometry rules are not an independent semantic or stable-release judgment; preserve them exactly and report VLM judgments separately.",
+      "source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/envs/objects/site_object.py#L63-L80"
+    }
+  ],
+  "task_count": 20,
+  "tasks": [
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 4
+      },
+      "bddl_sha256": "0852791a76d851542f5ed08b682d3440bd6255ab54ea987545b34924561dcf7d",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_in_the_basket.bddl",
+      "instruction": "put the cream cheese in the basket",
+      "name": "put_the_cream_cheese_in_the_basket",
+      "released_goal_expression": "(And (On cream_cheese_1 basket_1))",
+      "suite": "libero_goal_ood",
+      "task_id": 0,
+      "task_key": "libero_goal_ood:0"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 7
+      },
+      "bddl_sha256": "1cd35dbf657c8ef14efadb934d58b15433414464575192795680832c8ff198ca",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_orange_juice_on_the_stove.bddl",
+      "instruction": "put the orange juice on the stove",
+      "name": "put_the_orange_juice_on_the_stove",
+      "released_goal_expression": "(And (On orange_juice_1 flat_stove_1_base_region))",
+      "suite": "libero_goal_ood",
+      "task_id": 1,
+      "task_key": "libero_goal_ood:1"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 5
+      },
+      "bddl_sha256": "35bdf9391b2d4f2c8eb58903f4c688069b712e1568d313ce1d19cb4a41c9aa41",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_bbq_source_on_the_plate.bddl",
+      "instruction": "put the bbq source on the plate",
+      "name": "put_the_bbq_source_on_the_plate",
+      "released_goal_expression": "(And (On bbq_sauce_1 plate_1))",
+      "suite": "libero_goal_ood",
+      "task_id": 2,
+      "task_key": "libero_goal_ood:2"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 0
+      },
+      "bddl_sha256": "4c13c3b6246262cb2e55b92444914a83096d8dbee5309db12957c692cb4dfdea",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_tomato_sauce_on_top_of_the_cabinet.bddl",
+      "instruction": "put the tomato sauce on top of the cabinet",
+      "name": "put_the_tomato_sauce_on_top_of_the_cabinet",
+      "released_goal_expression": "(And (On tomato_sauce_1 wooden_cabinet_1_top_side))",
+      "suite": "libero_goal_ood",
+      "task_id": 3,
+      "task_key": "libero_goal_ood:3"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 10
+      },
+      "bddl_sha256": "f6aff68b9087f11e296f89edc8c782e9c711a9cecfb228a427715df3f4ab539a",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_on_the_stove.bddl",
+      "instruction": "put the wine bottle on the stove",
+      "name": "put_the_wine_bottle_on_the_stove",
+      "released_goal_expression": "(And (On wine_bottle_1 flat_stove_1_base_region))",
+      "suite": "libero_goal_ood",
+      "task_id": 4,
+      "task_key": "libero_goal_ood:4"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 8
+      },
+      "bddl_sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl",
+      "instruction": "put the wine bottle on the plate",
+      "name": "put_the_wine_bottle_on_the_plate",
+      "released_goal_expression": "(And (On wine_bottle_1 plate_1))",
+      "suite": "libero_goal_ood",
+      "task_id": 5,
+      "task_key": "libero_goal_ood:5"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 3
+      },
+      "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_wine_bottle_in_the_bowl.bddl",
+      "instruction": "put the wine bottle in the bowl",
+      "name": "put_the_wine_bottle_in_the_bowl",
+      "released_goal_expression": "(And (On wine_bottle_1 akita_black_bowl_1))",
+      "suite": "libero_goal_ood",
+      "task_id": 6,
+      "task_key": "libero_goal_ood:6"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 2
+      },
+      "bddl_sha256": "62dc454bfdd4a3162632da51fb3300f3e08ca342ca0ff5ea8839a474993fcda9",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_on_the_plate.bddl",
+      "instruction": "put the cream cheese on the plate",
+      "name": "put_the_cream_cheese_on_the_plate",
+      "released_goal_expression": "(And (On cream_cheese_1 plate_1))",
+      "suite": "libero_goal_ood",
+      "task_id": 7,
+      "task_key": "libero_goal_ood:7"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 0
+      },
+      "bddl_sha256": "588acae456143a44edde1c3cc63c5ae24dd5c741bdcf367457070436f1397de4",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_on_the_stove.bddl",
+      "instruction": "put the cream cheese on the stove",
+      "name": "put_the_cream_cheese_on_the_stove",
+      "released_goal_expression": "(And (On cream_cheese_1 flat_stove_1_base_region))",
+      "suite": "libero_goal_ood",
+      "task_id": 8,
+      "task_key": "libero_goal_ood:8"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 8
+      },
+      "bddl_sha256": "bf05ee22714fe070fee420ccb7a697f65d64ab320b347448f99f90989d23fe6e",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_goal_ood/put_the_cream_cheese_on_top_of_the_cabinet.bddl",
+      "instruction": "put the cream cheese on top of the cabinet",
+      "name": "put_the_cream_cheese_on_top_of_the_cabinet",
+      "released_goal_expression": "(And (On cream_cheese_1 wooden_cabinet_1_top_side))",
+      "suite": "libero_goal_ood",
+      "task_id": 9,
+      "task_key": "libero_goal_ood:9"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 10
+      },
+      "bddl_sha256": "7de1c0ab2f2fd5a875d815149fe505319537f6e5f1189ac787c040b25aab5285",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_butter_on_the_plate.bddl",
+      "instruction": "put the butter on the plate",
+      "name": "put_the_butter_on_the_plate",
+      "released_goal_expression": "(And (On chocolate_pudding_1 plate_1))",
+      "suite": "libero_spatial_ood",
+      "task_id": 0,
+      "task_key": "libero_spatial_ood:0"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 10
+      },
+      "bddl_sha256": "7c5220fd359c1a04bab18a1849bf957e06fe8705cca920a0bbae706e82635cd0",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_chocolate_pudding_on_the_plate.bddl",
+      "instruction": "put the chocolate pudding on the plate",
+      "name": "put_the_chocolate_pudding_on_the_plate",
+      "released_goal_expression": "(And (On chocolate_pudding_1 plate_1))",
+      "suite": "libero_spatial_ood",
+      "task_id": 1,
+      "task_key": "libero_spatial_ood:1"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 4
+      },
+      "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_milk_on_the_plate.bddl",
+      "instruction": "put the milk on the plate",
+      "name": "put_the_milk_on_the_plate",
+      "released_goal_expression": "(And (On orange_juice_1 plate_1))",
+      "suite": "libero_spatial_ood",
+      "task_id": 2,
+      "task_key": "libero_spatial_ood:2"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 10
+      },
+      "bddl_sha256": "6dee489e91acb1739abb1d7e480a5e7358987cb61400f80a70bc3b724f542429",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_orange_juice_on_the_plate.bddl",
+      "instruction": "put the orange juice on the plate",
+      "name": "put_the_orange_juice_on_the_plate",
+      "released_goal_expression": "(And (On orange_juice_1 plate_1))",
+      "suite": "libero_spatial_ood",
+      "task_id": 3,
+      "task_key": "libero_spatial_ood:3"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 0
+      },
+      "bddl_sha256": "6ac72af7b417189a8b6d6ccbc1936791324bdf59285d8cda250dd08c04632630",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_on_cookie_box_on_the_stove.bddl",
+      "instruction": "put the bowl on cookie box on the stove",
+      "name": "put_the_bowl_on_cookie_box_on_the_stove",
+      "released_goal_expression": "(And (On akita_black_bowl_1 flat_stove_1_base_region))",
+      "suite": "libero_spatial_ood",
+      "task_id": 4,
+      "task_key": "libero_spatial_ood:4"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 0
+      },
+      "bddl_sha256": "a9fc6c11e3da8dfb35bef98011f99390b3fcb655e0d90f7f9a6ab38826f890b6",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_on_cookie_box_on_the_cabinet.bddl",
+      "instruction": "put the bowl on cookie box on the cabinet",
+      "name": "put_the_bowl_on_cookie_box_on_the_cabinet",
+      "released_goal_expression": "(And (On akita_black_bowl_1 wooden_cabinet_1_top_side))",
+      "suite": "libero_spatial_ood",
+      "task_id": 5,
+      "task_key": "libero_spatial_ood:5"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 0
+      },
+      "bddl_sha256": "946fa9bda652173f768bd988d2a26bc0fb002aa92cf32eedeea37660c8ec1818",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_next_to_the_plate_on_the_cabinet.bddl",
+      "instruction": "put the bowl next to the plate on the cabinet",
+      "name": "put_the_bowl_next_to_the_plate_on_the_cabinet",
+      "released_goal_expression": "(And (On akita_black_bowl_1 wooden_cabinet_1_top_side))",
+      "suite": "libero_spatial_ood",
+      "task_id": 6,
+      "task_key": "libero_spatial_ood:6"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 0
+      },
+      "bddl_sha256": "fb63f416148fb899ec93bcae989c8c694b92cc17840ed15dce400b10ca22dcd9",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_next_to_the_plate_on_the_stove.bddl",
+      "instruction": "put the bowl next to the plate on the stove",
+      "name": "put_the_bowl_next_to_the_plate_on_the_stove",
+      "released_goal_expression": "(And (On akita_black_bowl_1 flat_stove_1_base_region))",
+      "suite": "libero_spatial_ood",
+      "task_id": 7,
+      "task_key": "libero_spatial_ood:7"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 4
+      },
+      "bddl_sha256": "9c9127a7737533425abf5dc8bd166cd5ff00ea6e5f0c1aa49159058c199d883c",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_at_table_center_on_the_cabinet.bddl",
+      "instruction": "put the bowl at table center on the cabinet",
+      "name": "put_the_bowl_at_table_center_on_the_cabinet",
+      "released_goal_expression": "(And (On akita_black_bowl_1 wooden_cabinet_1_top_side))",
+      "suite": "libero_spatial_ood",
+      "task_id": 8,
+      "task_key": "libero_spatial_ood:8"
+    },
+    {
+      "baseline_seed7": {
+        "episodes": 10,
+        "execution_errors": 0,
+        "successes": 1
+      },
+      "bddl_sha256": "299bc09902a8b1d7877db4baf949141cea99debe289f2d600a4a7303da272e26",
+      "bddl_source": "https://github.com/QuanyiLi/pi0-text-latent/blob/587a6cbf64f16c7b87fa5805dc0ed934192239a4/third_party/modified_libero/libero/libero/bddl_files/libero_spatial_ood/put_the_bowl_at_table_center_on_the_stove.bddl",
+      "instruction": "put the bowl at table center on the stove",
+      "name": "put_the_bowl_at_table_center_on_the_stove",
+      "released_goal_expression": "(And (On akita_black_bowl_1 flat_stove_1_base_region))",
+      "suite": "libero_spatial_ood",
+      "task_id": 9,
+      "task_key": "libero_spatial_ood:9"
+    }
+  ]
+}
