@@ -557,24 +557,203 @@
       "tasks": 3
     },
     {
-      "expected_cases": 20,
+      "attempt_cap_including_baseline": 3,
+      "baseline_successes": 8,
+      "cases": 20,
       "id": "image_evaluation_seed37",
-      "note": "The independent image study is running; no final evaluation efficacy is asserted by this coverage snapshot.",
+      "interpretation": "Known-composition one-reset image adaptation; up to two revisions. Actual RGB occlusion or donor blending with fixed recovered noise and original instruction. All 20case recording audits passed. Interrupted execution costs are separate.",
+      "methods": {
+        "astra_demo_blend": {
+          "cases": 20,
+          "rescues": 4,
+          "successes": 12,
+          "successes_by_attempt": [
+            8,
+            11,
+            12
+          ]
+        },
+        "astra_occlusion": {
+          "cases": 20,
+          "rescues": 4,
+          "successes": 12,
+          "successes_by_attempt": [
+            8,
+            12,
+            12
+          ]
+        },
+        "random_demo_blend": {
+          "cases": 20,
+          "rescues": 3,
+          "successes": 11,
+          "successes_by_attempt": [
+            8,
+            10,
+            11
+          ]
+        },
+        "random_noise": {
+          "cases": 20,
+          "rescues": 2,
+          "successes": 10,
+          "successes_by_attempt": [
+            8,
+            10,
+            10
+          ]
+        },
+        "random_occlusion": {
+          "cases": 20,
+          "rescues": 2,
+          "successes": 10,
+          "successes_by_attempt": [
+            8,
+            10,
+            10
+          ]
+        }
+      },
+      "native_controls": {
+        "known_noise": {
+          "cases": 20,
+          "successes": 7
+        },
+        "policy_fresh": {
+          "cases": 20,
+          "successes": 6
+        }
+      },
       "phase": "evaluation",
+      "physical_cost": {
+        "accepted_decision_actions": 23272,
+        "case_wall_seconds_sum": 11240.08533292295,
+        "changed_image_actions": 17423,
+        "fallback_actions": 25,
+        "image_gate_velocity_evaluations": 1200,
+        "initialization_velocity_evaluations": 24600,
+        "rejected_call_usage": {
+          "accepted_proposals": 0,
+          "actual_models": {
+            "unavailable": 1
+          },
+          "client_attempts": 1,
+          "errors": {
+            "Inference endpoint returned HTTP 503": 1
+          },
+          "failed_calls": 1,
+          "http_status": {
+            "503": 1
+          },
+          "latency_seconds": 2.497549155028537,
+          "monetary_cost": null,
+          "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+          "preflight_errors": {},
+          "preflight_failures": 0,
+          "preflight_latency_seconds": 0,
+          "provider_calls": 1,
+          "reasoning_tokens_are_subset_of_output_tokens": true,
+          "tokens": {
+            "input_tokens": {
+              "available_calls": 0,
+              "complete": false,
+              "missing_calls": 1,
+              "sum": 0
+            },
+            "output_tokens": {
+              "available_calls": 0,
+              "complete": false,
+              "missing_calls": 1,
+              "sum": 0
+            },
+            "reasoning_tokens": {
+              "available_calls": 0,
+              "complete": false,
+              "missing_calls": 1,
+              "sum": 0
+            },
+            "total_tokens": {
+              "available_calls": 0,
+              "complete": false,
+              "missing_calls": 1,
+              "sum": 0
+            }
+          },
+          "usage_available_calls": 0,
+          "usage_unavailable_calls": 1
+        },
+        "rollout_velocity_evaluations": 87340,
+        "rollout_wall_seconds": 10937.049946564443,
+        "rollouts": 167,
+        "simulated_actions": 43594,
+        "token_usage": {
+          "accepted_proposals": 439,
+          "actual_models": {
+            "azure/openai/gpt-6-astra": 439,
+            "unavailable": 1
+          },
+          "client_attempts": 440,
+          "errors": {
+            "Inference endpoint returned HTTP 503": 1
+          },
+          "failed_calls": 1,
+          "http_status": {
+            "200": 439,
+            "503": 1
+          },
+          "latency_seconds": 4761.264509982482,
+          "monetary_cost": null,
+          "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+          "preflight_errors": {},
+          "preflight_failures": 0,
+          "preflight_latency_seconds": 0,
+          "provider_calls": 440,
+          "reasoning_tokens_are_subset_of_output_tokens": true,
+          "tokens": {
+            "input_tokens": {
+              "available_calls": 439,
+              "complete": false,
+              "missing_calls": 1,
+              "sum": 10939148
+            },
+            "output_tokens": {
+              "available_calls": 439,
+              "complete": false,
+              "missing_calls": 1,
+              "sum": 137958
+            },
+            "reasoning_tokens": {
+              "available_calls": 439,
+              "complete": false,
+              "missing_calls": 1,
+              "sum": 26957
+            },
+            "total_tokens": {
+              "available_calls": 439,
+              "complete": false,
+              "missing_calls": 1,
+              "sum": 11077106
+            }
+          },
+          "usage_available_calls": 439,
+          "usage_unavailable_calls": 1
+        },
+        "velocity_evaluations": 113140
+      },
       "reset_indexes": [
         0
       ],
       "seed": 37,
-      "source": "astra_reversal/reports/image_perturbations/README.md",
-      "status": "pending_complete_audit",
-      "success_rate": null,
-      "successes": null,
+      "source": "astra_reversal/reports/image_perturbations/evaluation/results/report.json",
+      "status": "complete",
       "tasks": 20
     }
   ],
   "local_source_sha256": {
     "astra_reversal/configs/frs_policy_improvement_v1.json": "56f87290fc78e57f24f27a0c264858d987bdffb577916e33773ad1df56a6b2d5",
     "astra_reversal/reports/image_perturbations/development/results/report.json": "e3215704e57b9ec00f3f454dbb4bbeaf5e16920dbaecb9f152b3b56cc52d6581",
+    "astra_reversal/reports/image_perturbations/evaluation/interruption_cost.json": "9eab2fc178cbec72e7dc2189340b9ff77d661b0ab21e7d4a307a85e8e31c7d1b",
+    "astra_reversal/reports/image_perturbations/evaluation/results/report.json": "bd2ae73794dcdf9c73f9033c8934ab23ce8ea2ab0b878b239d2af8c963adff87",
     "astra_reversal/reports/iterative_interventions/evaluation/report.json": "81bd679d49d23130c2c63547043d42cd68c603fa78d676c2c433cfe26129d1bb",
     "astra_reversal/reports/ood_baseline.json": "40c6828cc18cf166663d88d33f656da7bda26215d9c1eed341522282cb72b0b9",
     "astra_reversal/reports/ood_paired.json": "f3281b0594ee0131ecf3c0432d5134ac2a6f4444268fb8ab2068228cd7a8f941",

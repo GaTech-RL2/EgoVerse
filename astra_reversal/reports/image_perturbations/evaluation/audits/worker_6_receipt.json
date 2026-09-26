@@ -1,0 +1,63 @@
+{
+  "status": "passed",
+  "workflow": "astra-pi05-image-evaluation-recovery-20260925-1",
+  "worker": 6,
+  "phase": "evaluation",
+  "payload_sha256": "d29de49589955c7f22d2fea97674c7b8881ad45886cb8430ba70fce713e0a167",
+  "protocol_sha256": "14d86962d95a95c87a2bd9e6cf8fee2a5fde013852266bddd64fd75ca364b929",
+  "library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+  "archive": {
+    "workflow": "astra-pi05-image-evaluation-recovery-20260925-1",
+    "worker": 6,
+    "key": "experiments/astra-reversal-20260924/astra-pi05-image-evaluation-recovery-20260925-1/worker_6/artifacts.tar.gz",
+    "sha256": "0dcea70fd37bee1f41d18b6eee1f89246061c6690264cc5e3395d7bcff17c923",
+    "bytes": 512122956,
+    "download_seconds": 60.20857029201579,
+    "archive_sha256": "0dcea70fd37bee1f41d18b6eee1f89246061c6690264cc5e3395d7bcff17c923",
+    "extracted_bytes": 1011670911,
+    "gzip_crc_verified": true
+  },
+  "counts": {
+    "requests": 68,
+    "physical_provider_calls": 68,
+    "preflight_failures": 0,
+    "accepted_provider_proposals": 68,
+    "raw_snapshot_bindings": 523,
+    "decoded_camera_bindings": 1046,
+    "initialization_velocity_evaluations": 2460,
+    "image_gate_velocity_evaluations": 120,
+    "physical_rollouts": 24,
+    "physical_actions": 6580,
+    "generations": 1317,
+    "rollout_velocity_evaluations": 13170,
+    "accepted_decisions_executed": 145,
+    "image_active_policy_calls": 546,
+    "image_changed_policy_calls": 546,
+    "actions_with_accepted_decision": 3580,
+    "actions_with_changed_image": 2729,
+    "native_condition_fallback_actions": 0,
+    "velocity_evaluations": 15750,
+    "array_files": 12253,
+    "array_references": 12253,
+    "array_bytes": 834562616,
+    "actions": 6580,
+    "provider_calls": 68,
+    "accepted_proposals": 68,
+    "executed_decisions": 145
+  },
+  "cases": [
+    {
+      "episode_id": "libero_spatial_ood:seed37:task2:state0",
+      "summary_sha256": "a485872876027ea65704cccb60e43351b7257a52b8046adca50612b9971e79c0",
+      "status": "passed"
+    },
+    {
+      "episode_id": "libero_spatial_ood:seed37:task6:state0",
+      "summary_sha256": "7fa0158a2d7960d4753584b24fc76af371a04f877053e46bdf609fbcd1b0c2a6",
+      "status": "passed"
+    }
+  ],
+  "audit_file": "worker_6.json.gz",
+  "audit_sha256": "ed83dbfebd489579ba9659fff775cdfd6d887d980ad35cd06ee6a4ef77d86a40",
+  "audit_uncompressed_sha256": "a42a445433d691848f82dff7c220835430821018eef67c3b39fa9a9a424e2936"
+}

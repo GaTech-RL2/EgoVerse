@@ -1,0 +1,1780 @@
+{
+  "astra_rescues": [
+    {
+      "arm": "astra_occlusion",
+      "attempt": 2,
+      "calls_through_success": 6,
+      "complete_tokens_through_success": 134071,
+      "episode_id": "libero_goal_ood:seed37:task8:state0",
+      "full_rollout_revisions": 1,
+      "winning_attempt_effects": {
+        "accepted_decisions_executed": 6,
+        "actions_executed": 126,
+        "actions_with_accepted_decision": 126,
+        "actions_with_changed_image": 126,
+        "attempt_id": "astra_occlusion_2",
+        "native_condition_fallback_actions": 0
+      }
+    },
+    {
+      "arm": "astra_demo_blend",
+      "attempt": 2,
+      "calls_through_success": 5,
+      "complete_tokens_through_success": 111851,
+      "episode_id": "libero_goal_ood:seed37:task8:state0",
+      "full_rollout_revisions": 1,
+      "winning_attempt_effects": {
+        "accepted_decisions_executed": 5,
+        "actions_executed": 106,
+        "actions_with_accepted_decision": 106,
+        "actions_with_changed_image": 56,
+        "attempt_id": "astra_demo_blend_2",
+        "native_condition_fallback_actions": 0
+      }
+    },
+    {
+      "arm": "astra_occlusion",
+      "attempt": 2,
+      "calls_through_success": 4,
+      "complete_tokens_through_success": 87490,
+      "episode_id": "libero_goal_ood:seed37:task1:state0",
+      "full_rollout_revisions": 1,
+      "winning_attempt_effects": {
+        "accepted_decisions_executed": 4,
+        "actions_executed": 85,
+        "actions_with_accepted_decision": 85,
+        "actions_with_changed_image": 85,
+        "attempt_id": "astra_occlusion_2",
+        "native_condition_fallback_actions": 0
+      }
+    },
+    {
+      "arm": "astra_demo_blend",
+      "attempt": 2,
+      "calls_through_success": 4,
+      "complete_tokens_through_success": 88801,
+      "episode_id": "libero_goal_ood:seed37:task1:state0",
+      "full_rollout_revisions": 1,
+      "winning_attempt_effects": {
+        "accepted_decisions_executed": 4,
+        "actions_executed": 85,
+        "actions_with_accepted_decision": 85,
+        "actions_with_changed_image": 85,
+        "attempt_id": "astra_demo_blend_2",
+        "native_condition_fallback_actions": 0
+      }
+    },
+    {
+      "arm": "astra_occlusion",
+      "attempt": 2,
+      "calls_through_success": 12,
+      "complete_tokens_through_success": 283209,
+      "episode_id": "libero_goal_ood:seed37:task2:state0",
+      "full_rollout_revisions": 1,
+      "winning_attempt_effects": {
+        "accepted_decisions_executed": 12,
+        "actions_executed": 298,
+        "actions_with_accepted_decision": 298,
+        "actions_with_changed_image": 275,
+        "attempt_id": "astra_occlusion_2",
+        "native_condition_fallback_actions": 0
+      }
+    },
+    {
+      "arm": "astra_demo_blend",
+      "attempt": 2,
+      "calls_through_success": 5,
+      "complete_tokens_through_success": 112295,
+      "episode_id": "libero_spatial_ood:seed37:task9:state0",
+      "full_rollout_revisions": 1,
+      "winning_attempt_effects": {
+        "accepted_decisions_executed": 5,
+        "actions_executed": 115,
+        "actions_with_accepted_decision": 115,
+        "actions_with_changed_image": 115,
+        "attempt_id": "astra_demo_blend_2",
+        "native_condition_fallback_actions": 0
+      }
+    },
+    {
+      "arm": "astra_occlusion",
+      "attempt": 2,
+      "calls_through_success": 4,
+      "complete_tokens_through_success": 87442,
+      "episode_id": "libero_spatial_ood:seed37:task2:state0",
+      "full_rollout_revisions": 1,
+      "winning_attempt_effects": {
+        "accepted_decisions_executed": 4,
+        "actions_executed": 95,
+        "actions_with_accepted_decision": 95,
+        "actions_with_changed_image": 95,
+        "attempt_id": "astra_occlusion_2",
+        "native_condition_fallback_actions": 0
+      }
+    },
+    {
+      "arm": "astra_demo_blend",
+      "attempt": 3,
+      "calls_through_success": 16,
+      "complete_tokens_through_success": 387762,
+      "episode_id": "libero_spatial_ood:seed37:task2:state0",
+      "full_rollout_revisions": 2,
+      "winning_attempt_effects": {
+        "accepted_decisions_executed": 4,
+        "actions_executed": 76,
+        "actions_with_accepted_decision": 76,
+        "actions_with_changed_image": 50,
+        "attempt_id": "astra_demo_blend_3",
+        "native_condition_fallback_actions": 0
+      }
+    }
+  ],
+  "canonical_provider": {
+    "accepted_proposals": 439,
+    "actual_models": {
+      "azure/openai/gpt-6-astra": 439,
+      "unavailable": 1
+    },
+    "client_attempts": 440,
+    "errors": {
+      "Inference endpoint returned HTTP 503": 1
+    },
+    "failed_calls": 1,
+    "http_status": {
+      "200": 439,
+      "503": 1
+    },
+    "latency_seconds": 4761.264509982482,
+    "preflight_failures": 0,
+    "provider_calls": 440,
+    "tokens": {
+      "input_tokens": {
+        "available_calls": 439,
+        "complete": false,
+        "missing_calls": 1,
+        "sum": 10939148
+      },
+      "output_tokens": {
+        "available_calls": 439,
+        "complete": false,
+        "missing_calls": 1,
+        "sum": 137958
+      },
+      "reasoning_tokens": {
+        "available_calls": 439,
+        "complete": false,
+        "missing_calls": 1,
+        "sum": 26957
+      },
+      "total_tokens": {
+        "available_calls": 439,
+        "complete": false,
+        "missing_calls": 1,
+        "sum": 11077106
+      }
+    },
+    "usage_available_calls": 439,
+    "usage_unavailable_calls": 1
+  },
+  "case_outcomes": [
+    {
+      "baseline_success": true,
+      "episode_id": "libero_goal_ood:seed37:task0:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 1,
+        "astra_occlusion": 1,
+        "random_demo_blend": 1,
+        "random_noise": 1,
+        "random_occlusion": 1
+      },
+      "known_tokens": 0,
+      "missing_usage_calls": 0,
+      "provider_calls": 0,
+      "summary_sha256": "c930d7ccf8f1c978f7badb845492ced2d2ea9c133222f4b2a6eb9ed7c4c44f44",
+      "worker": 0
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_goal_ood:seed37:task1:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 2,
+        "astra_occlusion": 2,
+        "random_demo_blend": 3,
+        "random_noise": 2,
+        "random_occlusion": 2
+      },
+      "known_tokens": 176291,
+      "missing_usage_calls": 0,
+      "provider_calls": 8,
+      "summary_sha256": "b333bc83ec74fa4a86d62d6d54f088f2358a393fb49496af40a113e95619f557",
+      "worker": 1
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_goal_ood:seed37:task2:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": null,
+        "astra_occlusion": 2,
+        "random_demo_blend": null,
+        "random_noise": null,
+        "random_occlusion": 2
+      },
+      "known_tokens": 900854,
+      "missing_usage_calls": 0,
+      "provider_calls": 36,
+      "summary_sha256": "7e41cb5b2d06959854936b414437c834cecaf7bae49f77385e239431ed4eb203",
+      "worker": 2
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_goal_ood:seed37:task3:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": null,
+        "astra_occlusion": null,
+        "random_demo_blend": null,
+        "random_noise": null,
+        "random_occlusion": null
+      },
+      "known_tokens": 1228246,
+      "missing_usage_calls": 0,
+      "provider_calls": 48,
+      "summary_sha256": "f24b7bd8c5c554d69a4fd2085c5d7f8d0f4f81e7232f6c3e2c381efd8110d817",
+      "worker": 3
+    },
+    {
+      "baseline_success": true,
+      "episode_id": "libero_goal_ood:seed37:task4:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 1,
+        "astra_occlusion": 1,
+        "random_demo_blend": 1,
+        "random_noise": 1,
+        "random_occlusion": 1
+      },
+      "known_tokens": 0,
+      "missing_usage_calls": 0,
+      "provider_calls": 0,
+      "summary_sha256": "103f40bd0c138be3fc7ffb7e1ee64aece7cc86c11be3e88a77b4c37d842cc7a1",
+      "worker": 0
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_goal_ood:seed37:task5:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": null,
+        "astra_occlusion": null,
+        "random_demo_blend": null,
+        "random_noise": null,
+        "random_occlusion": null
+      },
+      "known_tokens": 1197648,
+      "missing_usage_calls": 1,
+      "provider_calls": 48,
+      "summary_sha256": "67ab326807d85596d8f72fc053415df6f9feca53a92563e8b81dcb4480e235fa",
+      "worker": 1
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_goal_ood:seed37:task6:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": null,
+        "astra_occlusion": null,
+        "random_demo_blend": null,
+        "random_noise": null,
+        "random_occlusion": null
+      },
+      "known_tokens": 1228200,
+      "missing_usage_calls": 0,
+      "provider_calls": 48,
+      "summary_sha256": "35304166cb973f0f413bab94274d8278cbf54759156f6ef43f0bf73f97202573",
+      "worker": 2
+    },
+    {
+      "baseline_success": true,
+      "episode_id": "libero_goal_ood:seed37:task7:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 1,
+        "astra_occlusion": 1,
+        "random_demo_blend": 1,
+        "random_noise": 1,
+        "random_occlusion": 1
+      },
+      "known_tokens": 0,
+      "missing_usage_calls": 0,
+      "provider_calls": 0,
+      "summary_sha256": "dc9b70a5d9c59c37d88c2441bf203b6dc33720834dbf229da5e5159f123db118",
+      "worker": 3
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_goal_ood:seed37:task8:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 2,
+        "astra_occlusion": 2,
+        "random_demo_blend": 2,
+        "random_noise": 2,
+        "random_occlusion": null
+      },
+      "known_tokens": 245922,
+      "missing_usage_calls": 0,
+      "provider_calls": 11,
+      "summary_sha256": "ada28cb12f351e42e89492ea5571d2364072589babc7734583bb71e02ab13394",
+      "worker": 0
+    },
+    {
+      "baseline_success": true,
+      "episode_id": "libero_goal_ood:seed37:task9:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 1,
+        "astra_occlusion": 1,
+        "random_demo_blend": 1,
+        "random_noise": 1,
+        "random_occlusion": 1
+      },
+      "known_tokens": 0,
+      "missing_usage_calls": 0,
+      "provider_calls": 0,
+      "summary_sha256": "5755b413551fc7ced110423c4d402e8d8b50a681d2a39a1a4e280878f1f71ec5",
+      "worker": 1
+    },
+    {
+      "baseline_success": true,
+      "episode_id": "libero_spatial_ood:seed37:task0:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 1,
+        "astra_occlusion": 1,
+        "random_demo_blend": 1,
+        "random_noise": 1,
+        "random_occlusion": 1
+      },
+      "known_tokens": 0,
+      "missing_usage_calls": 0,
+      "provider_calls": 0,
+      "summary_sha256": "4c61effb4d56102c6f016844d3ce8e10e831a5eaf987558919e63a00f1e306e0",
+      "worker": 4
+    },
+    {
+      "baseline_success": true,
+      "episode_id": "libero_spatial_ood:seed37:task1:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 1,
+        "astra_occlusion": 1,
+        "random_demo_blend": 1,
+        "random_noise": 1,
+        "random_occlusion": 1
+      },
+      "known_tokens": 0,
+      "missing_usage_calls": 0,
+      "provider_calls": 0,
+      "summary_sha256": "a86fb355b80ae1724f1542cb506f638c8e2f4235a6c924006a79a70ca74eeb4e",
+      "worker": 5
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_spatial_ood:seed37:task2:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 3,
+        "astra_occlusion": 2,
+        "random_demo_blend": 2,
+        "random_noise": null,
+        "random_occlusion": null
+      },
+      "known_tokens": 475204,
+      "missing_usage_calls": 0,
+      "provider_calls": 20,
+      "summary_sha256": "a485872876027ea65704cccb60e43351b7257a52b8046adca50612b9971e79c0",
+      "worker": 6
+    },
+    {
+      "baseline_success": true,
+      "episode_id": "libero_spatial_ood:seed37:task3:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 1,
+        "astra_occlusion": 1,
+        "random_demo_blend": 1,
+        "random_noise": 1,
+        "random_occlusion": 1
+      },
+      "known_tokens": 0,
+      "missing_usage_calls": 0,
+      "provider_calls": 0,
+      "summary_sha256": "5e772a944406c4212055bae024d13abe4e0c8b1d2f6d206888cbaffea20eea43",
+      "worker": 7
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_spatial_ood:seed37:task4:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": null,
+        "astra_occlusion": null,
+        "random_demo_blend": null,
+        "random_noise": null,
+        "random_occlusion": null
+      },
+      "known_tokens": 1225863,
+      "missing_usage_calls": 0,
+      "provider_calls": 48,
+      "summary_sha256": "0c972fa932d1bf301e8b7a697b2f27d1b8501e7551cc24dc91b869e2b5be956e",
+      "worker": 4
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_spatial_ood:seed37:task5:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": null,
+        "astra_occlusion": null,
+        "random_demo_blend": null,
+        "random_noise": null,
+        "random_occlusion": null
+      },
+      "known_tokens": 1225419,
+      "missing_usage_calls": 0,
+      "provider_calls": 48,
+      "summary_sha256": "9034da65336bebca4267eb431da672ec5d256a81ae59eb133da8a8cfa231e217",
+      "worker": 5
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_spatial_ood:seed37:task6:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": null,
+        "astra_occlusion": null,
+        "random_demo_blend": null,
+        "random_noise": null,
+        "random_occlusion": null
+      },
+      "known_tokens": 1223974,
+      "missing_usage_calls": 0,
+      "provider_calls": 48,
+      "summary_sha256": "7fa0158a2d7960d4753584b24fc76af371a04f877053e46bdf609fbcd1b0c2a6",
+      "worker": 6
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_spatial_ood:seed37:task7:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": null,
+        "astra_occlusion": null,
+        "random_demo_blend": null,
+        "random_noise": null,
+        "random_occlusion": null
+      },
+      "known_tokens": 1222249,
+      "missing_usage_calls": 0,
+      "provider_calls": 48,
+      "summary_sha256": "9b898654a8c55242b644e00e72ba295d14c4cab9923394759fa9afba704b62ed",
+      "worker": 7
+    },
+    {
+      "baseline_success": true,
+      "episode_id": "libero_spatial_ood:seed37:task8:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 1,
+        "astra_occlusion": 1,
+        "random_demo_blend": 1,
+        "random_noise": 1,
+        "random_occlusion": 1
+      },
+      "known_tokens": 0,
+      "missing_usage_calls": 0,
+      "provider_calls": 0,
+      "summary_sha256": "c5c83806dfb935cc49dd6790974f8c3b00cc5fffb94b7562e6082d63529a509f",
+      "worker": 4
+    },
+    {
+      "baseline_success": false,
+      "episode_id": "libero_spatial_ood:seed37:task9:state0",
+      "first_success_attempt": {
+        "astra_demo_blend": 2,
+        "astra_occlusion": null,
+        "random_demo_blend": null,
+        "random_noise": null,
+        "random_occlusion": null
+      },
+      "known_tokens": 727236,
+      "missing_usage_calls": 0,
+      "provider_calls": 29,
+      "summary_sha256": "9b79b7da1cfcb07868bed732ce159ee698e8326e7e17b010ea1471a0e09cb7f3",
+      "worker": 5
+    }
+  ],
+  "checker_sha256": "7f6eb804cf2d7936e3ebebfa3474c9819daf26eb75d0362f29380ceef27f4e92",
+  "checks": {
+    "actual_inventory": 1,
+    "actual_model": 439,
+    "arm_derivation": 1700,
+    "arm_inventory": 20,
+    "arm_physical_provider": 1300,
+    "arm_prefix_provider": 1300,
+    "arm_row_count": 1,
+    "attempt_sequence": 100,
+    "audit_case_binding": 60,
+    "audit_complete": 8,
+    "audit_compressed_hash": 8,
+    "audit_library": 8,
+    "audit_protocol": 8,
+    "audit_status": 8,
+    "audit_uncompressed_hash": 8,
+    "available_interruption_ledger_inventory": 1,
+    "baseline_iteration": 20,
+    "baseline_mode": 20,
+    "baseline_outcome": 20,
+    "baseline_stop": 40,
+    "bound_audit_claim": 100,
+    "cache": 440,
+    "canonical_archive_binding": 8,
+    "canonical_audit_hash": 8,
+    "canonical_plan_binding": 8,
+    "case_audit_usage": 260,
+    "case_count": 1,
+    "case_physical_rollouts": 20,
+    "case_receipt_count": 120,
+    "case_report_usage": 260,
+    "case_summary_usage": 260,
+    "censored_cap": 45,
+    "complete_audit_inventory": 1,
+    "control_inventory": 3,
+    "control_no_provider": 126,
+    "csv_cell": 4480,
+    "csv_columns": 267,
+    "csv_null": 225,
+    "csv_row_count": 2,
+    "evaluation_mode": 20,
+    "evaluation_seed": 20,
+    "example_actions": 2,
+    "example_array_source_binding": 12,
+    "example_case_audit_digest": 2,
+    "example_case_binding": 8,
+    "example_exact_rgb_reconstruction": 4,
+    "example_figure_file_hash": 2,
+    "example_figure_pixels": 2,
+    "example_outcome": 2,
+    "example_png_file_hash": 9,
+    "example_png_pixel_hash": 9,
+    "example_provider_accepted": 2,
+    "example_provider_decision": 2,
+    "expected_inventory": 1,
+    "figure_bytes": 4,
+    "figure_exact_pane": 9,
+    "figure_file_hash": 4,
+    "figure_report_binding": 1,
+    "frozen_assignment_inventory": 8,
+    "frozen_plan_protocol": 8,
+    "group_case_ids": 30,
+    "group_case_wall_seconds": 3,
+    "group_cost": 21,
+    "group_outcome": 90,
+    "group_provider_usage": 39,
+    "interrupted_call_count": 1,
+    "interrupted_known_tokens": 1,
+    "interrupted_total_usage": 13,
+    "interrupted_worker_usage": 91,
+    "interruption_ledger_calls": 8,
+    "interruption_ledger_hash": 8,
+    "one_provider_record_per_slot": 41,
+    "paired_comparison": 6,
+    "physical_attempt": 1670,
+    "physical_decision_count": 167,
+    "physical_provider": 2171,
+    "plotted_calls": 2,
+    "plotted_control_success": 3,
+    "plotted_known_tokens": 2,
+    "plotted_missing_usage": 2,
+    "plotted_success_curve": 5,
+    "plotted_token_partition": 6,
+    "pooled_physical": 9,
+    "pooled_usage": 13,
+    "private_input_sha256": 69,
+    "provider_25_action_schedule": 41,
+    "provider_attempt": 440,
+    "provider_episode": 440,
+    "provider_receipt_binding": 1760,
+    "provider_sidecar_summary_identity": 41,
+    "receipt_audit_binding": 56,
+    "receipt_case_inventory": 8,
+    "report_problems": 1,
+    "report_status": 1,
+    "request_identity": 440,
+    "requested_model": 440,
+    "rescue_statistics": 15,
+    "response_format": 440,
+    "sampling": 440,
+    "shared_baseline_identity": 100,
+    "stop_on_success": 15,
+    "summary_identity": 20,
+    "summary_status": 20,
+    "unique_arm_rows": 1,
+    "unique_bound_provider": 440,
+    "unique_physical_requests": 1,
+    "unique_physical_rows": 1,
+    "usage_arithmetic": 439,
+    "winning_effects": 100,
+    "wire_reasoning_usage": 439,
+    "wire_usage": 1317,
+    "worker_count_sum": 208
+  },
+  "coverage": {
+    "arm_rows": 100,
+    "cases": 20,
+    "duplicate_or_missing_cases": 0,
+    "physical_attempts": 167,
+    "seed": 37,
+    "state_index": 0,
+    "suites": 2,
+    "tasks_per_suite": 10,
+    "worker_receipts": 8
+  },
+  "examples": {
+    "exact_figure_panes_verified": 9,
+    "individual_pngs_verified": 9,
+    "selected": [
+      {
+        "arm": "astra_demo_blend",
+        "attempt_id": "astra_demo_blend_2",
+        "decision_index": 3,
+        "decision_step": 50,
+        "episode_id": "libero_goal_ood:seed37:task8:state0",
+        "recorded_success": true,
+        "request_fingerprint": "f3391ad3ae6f81d111c10aa37c0a1cdfc06d765106a7b01d1a5d1c0d0bf93778",
+        "winning_actions": 106,
+        "winning_actions_with_changed_pixels": 56,
+        "winning_native_fallback_actions": 0
+      },
+      {
+        "arm": "astra_occlusion",
+        "attempt_id": "astra_occlusion_2",
+        "decision_index": 1,
+        "decision_step": 0,
+        "episode_id": "libero_goal_ood:seed37:task8:state0",
+        "recorded_success": true,
+        "request_fingerprint": "c66a8d709acb53bf8bc376e967dc3d53c45d8f8ad53b0573a29b223aa3d078d3",
+        "winning_actions": 126,
+        "winning_actions_with_changed_pixels": 126,
+        "winning_native_fallback_actions": 0
+      }
+    ],
+    "selection_scope": "The supplied example set contains only the retained original worker 0's three cases. Both displayed edits come from Goal task 8. These are first eligible nonzero edits within that supplied set, not representative sampling of all 20 cases."
+  },
+  "hash_bound_private_inputs": [
+    {
+      "artifact": "astra-pi05-image-evaluation-20260925-1/worker_0/frozen_plan.json",
+      "bytes": 1064,
+      "sha256": "af456f0d8e73597cc481928b17fa61d8f6f61bf15f300d99d0b536ceecb4218d"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-20260925-1/worker_0/case_0_0/summary.json",
+      "bytes": 162409,
+      "sha256": "c930d7ccf8f1c978f7badb845492ced2d2ea9c133222f4b2a6eb9ed7c4c44f44"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-20260925-1/worker_0/case_4_0/summary.json",
+      "bytes": 162404,
+      "sha256": "103f40bd0c138be3fc7ffb7e1ee64aece7cc86c11be3e88a77b4c37d842cc7a1"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-20260925-1/worker_0/case_8_0/summary.json",
+      "bytes": 288190,
+      "sha256": "ada28cb12f351e42e89492ea5571d2364072589babc7734583bb71e02ab13394"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-20260925-1/worker_0/case_8_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 25261,
+      "sha256": "2bfa06d409f930a6f10ab3f00f80e39327f19d72625c7f1b71c21eb9232cb773"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-20260925-1/worker_0/case_8_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 22932,
+      "sha256": "be1644c5c7bcab4c7d283df28cdf3acf68f70c51757721a2d0ad13398200f225"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_1/frozen_plan.json",
+      "bytes": 1073,
+      "sha256": "d4faf33aee7857189c80bd803865461c0bfd69e408f47b8bc87401f8c4ae6d47"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_1/case_1_0/summary.json",
+      "bytes": 253671,
+      "sha256": "b333bc83ec74fa4a86d62d6d54f088f2358a393fb49496af40a113e95619f557"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_1/case_1_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 16727,
+      "sha256": "a39752a931474a7fbd25411aeda92931dec4ddc50540e121bb2a053ca84cf74c"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_1/case_1_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 17277,
+      "sha256": "10fee2cab8a924a37c8cae9ba0297750aa38bb07463de7d8e521a28714a628c3"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_1/case_5_0/summary.json",
+      "bytes": 578527,
+      "sha256": "67ab326807d85596d8f72fc053415df6f9feca53a92563e8b81dcb4480e235fa"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_1/case_5_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 54475,
+      "sha256": "9e52ac3ccb7ac1920a2b95beeb822db296076b4818d3f7f8786eb55f5cf477b4"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_1/case_5_0/astra_occlusion_3_provider.jsonl",
+      "bytes": 44904,
+      "sha256": "10fa60bb7c7b4aed6bfb81beec95358c080eedb487183c05af5c169570bd5b21"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_1/case_5_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 58219,
+      "sha256": "37b6b4e3ab69631d2bb33773f67f0a2270c3d2b61aea8c382b9f5ce02c86c61f"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_1/case_5_0/astra_demo_blend_3_provider.jsonl",
+      "bytes": 54046,
+      "sha256": "7cd5347e2a1ca3f5009d8c5338226e522c8ba0a26da8ba8eb57b3eab335ab947"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_1/case_9_0/summary.json",
+      "bytes": 162427,
+      "sha256": "5755b413551fc7ced110423c4d402e8d8b50a681d2a39a1a4e280878f1f71ec5"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_2/frozen_plan.json",
+      "bytes": 1030,
+      "sha256": "100dcfe9bb9961a8edae6aa10439380dd268daf678ecc5d2dba2b5cefe740bc2"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_2/case_2_0/summary.json",
+      "bytes": 485769,
+      "sha256": "7e41cb5b2d06959854936b414437c834cecaf7bae49f77385e239431ed4eb203"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_2/case_2_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 54309,
+      "sha256": "ca35e5fcdce7feb706a2334ec5b8d57e13e472908871d8e33efbe346cfed9ca3"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_2/case_2_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 61542,
+      "sha256": "e9b1b5b2ef5c930ea3a59f478dc4c090bfb95b0de90287ff24bcb8e35c08bff3"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_2/case_2_0/astra_demo_blend_3_provider.jsonl",
+      "bytes": 52727,
+      "sha256": "936435eae5ca0ece695b0817974d48c32d4af27b7aef49c95d724eb901fae1cc"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_2/case_6_0/summary.json",
+      "bytes": 589323,
+      "sha256": "35304166cb973f0f413bab94274d8278cbf54759156f6ef43f0bf73f97202573"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_2/case_6_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 50347,
+      "sha256": "24cc2ab80775eeb648006298300424111a6aab6a8437f8dd32dcf3287ad180e9"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_2/case_6_0/astra_occlusion_3_provider.jsonl",
+      "bytes": 54421,
+      "sha256": "367f321fc31c274758cd6c4e120a64c7b2726ac208b240c8bcbf4bbcd231c15e"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_2/case_6_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 60056,
+      "sha256": "61770583a3c5b25fe5cf48973891168caccbe689665f1a7e1567f41787cd9772"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_2/case_6_0/astra_demo_blend_3_provider.jsonl",
+      "bytes": 52179,
+      "sha256": "4ef73b8c1f56a20e4e41bef7e6d8d09b4297845d83030a7a2a05635d23ace675"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_3/frozen_plan.json",
+      "bytes": 1030,
+      "sha256": "d94087077fbaba40db6bd28ab4fb210222b1ec31a0636c25ab661ce17058b363"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_3/case_3_0/summary.json",
+      "bytes": 583383,
+      "sha256": "f24b7bd8c5c554d69a4fd2085c5d7f8d0f4f81e7232f6c3e2c381efd8110d817"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_3/case_3_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 50506,
+      "sha256": "7287b8e7f2ae4ee978e01a2b40909e6a375f87db524d5e48be95451ca70b7299"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_3/case_3_0/astra_occlusion_3_provider.jsonl",
+      "bytes": 56209,
+      "sha256": "a624ba6dd040a4ac4adbbdd67af9fd15ea4992bc7856b29b5ccab4c31e7175c7"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_3/case_3_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 53417,
+      "sha256": "83b2010dbfd780eee73187d18f0d678c21fe5ee2a2a52f740d08916cc90fd3de"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_3/case_3_0/astra_demo_blend_3_provider.jsonl",
+      "bytes": 54392,
+      "sha256": "f4a6c8c7874e43fe72988e29e044a712a7d417ea2a25faaa3f645ba0311fad33"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_3/case_7_0/summary.json",
+      "bytes": 162421,
+      "sha256": "dc9b70a5d9c59c37d88c2441bf203b6dc33720834dbf229da5e5159f123db118"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_4/frozen_plan.json",
+      "bytes": 1085,
+      "sha256": "803741881590d66e913b181028f471bdc12859b1a5e6c542336086ea027f17f1"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_4/case_0_0/summary.json",
+      "bytes": 162449,
+      "sha256": "4c61effb4d56102c6f016844d3ce8e10e831a5eaf987558919e63a00f1e306e0"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_4/case_4_0/summary.json",
+      "bytes": 584329,
+      "sha256": "0c972fa932d1bf301e8b7a697b2f27d1b8501e7551cc24dc91b869e2b5be956e"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_4/case_4_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 54365,
+      "sha256": "4b87df38f2bb08d52387977eae408dae6df7080a65c66b47b1feabc5d9dacb39"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_4/case_4_0/astra_occlusion_3_provider.jsonl",
+      "bytes": 45565,
+      "sha256": "8aae5158f372f7ce773be4ff8b81676fb8747d4ef3ea52b0d6e73e97f1a78cd7"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_4/case_4_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 54018,
+      "sha256": "1447a7c0ef63610849b465b25b4fec73a052c859a83d2dcb88d8139bcad9e5ce"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_4/case_4_0/astra_demo_blend_3_provider.jsonl",
+      "bytes": 60520,
+      "sha256": "3ffca750c252ce365faef5faa0c744587631feedda867665816e5212b1d37f5b"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_4/case_8_0/summary.json",
+      "bytes": 162466,
+      "sha256": "c5c83806dfb935cc49dd6790974f8c3b00cc5fffb94b7562e6082d63529a509f"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/frozen_plan.json",
+      "bytes": 1085,
+      "sha256": "0ea12bd4a85e079d9a534d8103e1cf04987dae29bb1ae81eb45ecd48fa1a00cf"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/case_1_0/summary.json",
+      "bytes": 162429,
+      "sha256": "a86fb355b80ae1724f1542cb506f638c8e2f4235a6c924006a79a70ca74eeb4e"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/case_5_0/summary.json",
+      "bytes": 575453,
+      "sha256": "9034da65336bebca4267eb431da672ec5d256a81ae59eb133da8a8cfa231e217"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/case_5_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 50166,
+      "sha256": "6663cd6f61fbc8e230fca66bc64a4a6b0c02644a6f7cb3e9d8e471a9e573cb7a"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/case_5_0/astra_occlusion_3_provider.jsonl",
+      "bytes": 41215,
+      "sha256": "ed9e8994462c77b6604e7e0d43d5eafc14e50b15667e21926c5a2f17c3f2ec5d"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/case_5_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 58509,
+      "sha256": "c085feae95f3c0a3e606587a15646de5c32fda9cc0885f5b1db04abb46d3a6ca"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/case_5_0/astra_demo_blend_3_provider.jsonl",
+      "bytes": 57222,
+      "sha256": "eb20cd2f85cebb9a0ba8d13f9e73e2c4cecd31ff9c2f30e6652d6ac8b5b332ed"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/case_9_0/summary.json",
+      "bytes": 444110,
+      "sha256": "9b79b7da1cfcb07868bed732ce159ee698e8326e7e17b010ea1471a0e09cb7f3"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/case_9_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 57566,
+      "sha256": "d36bbf462179dd3b6aa9524c16afb13a9ad75e83d7aa802f67b4455631151077"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/case_9_0/astra_occlusion_3_provider.jsonl",
+      "bytes": 51458,
+      "sha256": "472db8491cc0c2145aecfab97e383a03d4159008a7555726f9ec9ee02d8bc703"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_5/case_9_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 21804,
+      "sha256": "2f34ed555e047acc23be7b43a1138ac1614adb6d82069541238ea3bac2b9e2b5"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_6/frozen_plan.json",
+      "bytes": 1039,
+      "sha256": "8ac63c23a73ce869ce68cc6c6e1eb500bc1b9a832d681bebaeeef882c93ed551"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_6/case_2_0/summary.json",
+      "bytes": 357877,
+      "sha256": "a485872876027ea65704cccb60e43351b7257a52b8046adca50612b9971e79c0"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_6/case_2_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 13491,
+      "sha256": "4610822d2fb5f1b73b8327f37803c734b78457f81fdf0ecc883c0a470f236e73"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_6/case_2_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 59216,
+      "sha256": "7a43c8c2ad1e5be347729f16a2d9a7add80a5f5324d587d825c0b29d81c2a5fd"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_6/case_2_0/astra_demo_blend_3_provider.jsonl",
+      "bytes": 17040,
+      "sha256": "c736c2c4ee4c1f5946fc1a0214234b211ab20cc94b707f16bc87baf50255d057"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_6/case_6_0/summary.json",
+      "bytes": 578919,
+      "sha256": "7fa0158a2d7960d4753584b24fc76af371a04f877053e46bdf609fbcd1b0c2a6"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_6/case_6_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 53853,
+      "sha256": "0e83ef524f20caf3e62f4e4415396b1fc580bcb89dccfaec6b462ee2d90d8585"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_6/case_6_0/astra_occlusion_3_provider.jsonl",
+      "bytes": 44320,
+      "sha256": "501f5cb090217c2f720654fd9fd6d9d06f3a7102cd83393a6afc54ad07bcc150"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_6/case_6_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 57094,
+      "sha256": "a33f7e3d4822570eae94cafc83f3e934fdd03b40341b6578bb004a28d47e52af"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_6/case_6_0/astra_demo_blend_3_provider.jsonl",
+      "bytes": 59408,
+      "sha256": "d303ff961f61fa372244cbf3ab25222575a534d390bb097804a0bca47033a957"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_7/frozen_plan.json",
+      "bytes": 1039,
+      "sha256": "014e28217c76ef894b27e6525da17ec9a077dc196bc2f74c5905d169a33c7074"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_7/case_3_0/summary.json",
+      "bytes": 162439,
+      "sha256": "5e772a944406c4212055bae024d13abe4e0c8b1d2f6d206888cbaffea20eea43"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_7/case_7_0/summary.json",
+      "bytes": 566354,
+      "sha256": "9b898654a8c55242b644e00e72ba295d14c4cab9923394759fa9afba704b62ed"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_7/case_7_0/astra_occlusion_2_provider.jsonl",
+      "bytes": 57639,
+      "sha256": "03f177f9b12f03545a9187e8e562ceb81725c333fd1de982e6c66c2210627166"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_7/case_7_0/astra_occlusion_3_provider.jsonl",
+      "bytes": 41506,
+      "sha256": "13da1d91d9116dd8b24b362823db05907c59481b1d8db156469f25ca8c458bfb"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_7/case_7_0/astra_demo_blend_2_provider.jsonl",
+      "bytes": 54210,
+      "sha256": "a240255cf1786036587421a2a1999f71ed2d71e0068e7e0a42f94207046bc5de"
+    },
+    {
+      "artifact": "astra-pi05-image-evaluation-recovery-20260925-1/worker_7/case_7_0/astra_demo_blend_3_provider.jsonl",
+      "bytes": 49505,
+      "sha256": "679027b4e37f74f7177aa2752a2e08d35e93b9e2dee297d176358960c33520b6"
+    }
+  ],
+  "interruption_overhead": {
+    "complete_total_cost_available": false,
+    "excluded_from_canonical_outcomes": true,
+    "known_combined_calls": 498,
+    "known_combined_tokens": 12465734,
+    "known_usage": {
+      "accepted_proposals": 58,
+      "actual_models": {
+        "azure/openai/gpt-6-astra": 58
+      },
+      "client_attempts": 58,
+      "errors": {},
+      "failed_calls": 0,
+      "http_status": {
+        "200": 58
+      },
+      "latency_seconds": 690.6280804079288,
+      "preflight_failures": 0,
+      "provider_calls": 58,
+      "tokens": {
+        "input_tokens": {
+          "available_calls": 58,
+          "complete": true,
+          "missing_calls": 0,
+          "sum": 1370696
+        },
+        "output_tokens": {
+          "available_calls": 58,
+          "complete": true,
+          "missing_calls": 0,
+          "sum": 17932
+        },
+        "reasoning_tokens": {
+          "available_calls": 58,
+          "complete": true,
+          "missing_calls": 0,
+          "sum": 3663
+        },
+        "total_tokens": {
+          "available_calls": 58,
+          "complete": true,
+          "missing_calls": 0,
+          "sum": 1388628
+        }
+      },
+      "usage_available_calls": 58,
+      "usage_unavailable_calls": 0
+    },
+    "longer_local_ledger_prefixes": [],
+    "workers": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "limitations": [
+    "The 8 baseline wins are shared by every arm and are not Astra rescues. Rescue medians use only four successful failed-baseline cases per Astra arm; capped failures remain in the 20-case outcome denominator and have no imputed tokens-to-success.",
+    "The single HTTP 503 has no reported usage. Canonical tokens and canonical-plus-interruption tokens are known lower bounds, not complete billed totals. Interrupted outstanding or unsynced calls can add unknown cost.",
+    "Reasoning tokens are included within output tokens and are not added again. No dollar rate is supplied.",
+    "Shared baseline, initialization and image gate are counted once in physical totals. Standalone per-arm costs repeat common setup and must not be summed as physical work.",
+    "Existing complete archive audit receipts and their byte hashes were checked; complete archives, all recorded arrays, hidden model states, dynamics and task outcomes were not independently rerun in this reconciliation.",
+    "Accepted decisions can be explicit or pixel no-ops. The 25 fallback actions and per-winning-rollout pixel changes are retained; successful rollouts do not establish that the pixel edits caused success."
+  ],
+  "method": "Re-derived outcomes and costs directly from stored attempt records and physical provider rows with separate standard-library arithmetic; did not invoke the report builder or provider summarizer. Reconstructed only the four published example camera edits with the declared float64 RGB formula.",
+  "native_controls": {
+    "known_noise": {
+      "cases": 20,
+      "successes": 7
+    },
+    "policy_fresh": {
+      "cases": 20,
+      "successes": 6
+    },
+    "recovered_noise": {
+      "cases": 20,
+      "successes": 8
+    }
+  },
+  "outcomes": {
+    "libero_goal_ood": {
+      "astra_demo_blend": {
+        "baseline_successes": 4,
+        "cases": 10,
+        "censored_without_success": 4,
+        "paired_vs_matched_random_on_failed_baselines": {
+          "astra_only_rescue": 0,
+          "both_rescue": 2,
+          "neither_rescues": 4,
+          "random_only_rescue": 0
+        },
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 2,
+            "maximum": 111851,
+            "median": 100326.0,
+            "minimum": 88801
+          },
+          "full_rollout_revisions": {
+            "count": 2,
+            "maximum": 1,
+            "median": 1.0,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 2,
+            "maximum": 5,
+            "median": 4.5,
+            "minimum": 4
+          }
+        },
+        "rescues": 2,
+        "successes": 6,
+        "successes_by_attempt": [
+          4,
+          6,
+          6
+        ]
+      },
+      "astra_occlusion": {
+        "baseline_successes": 4,
+        "cases": 10,
+        "censored_without_success": 3,
+        "paired_vs_matched_random_on_failed_baselines": {
+          "astra_only_rescue": 1,
+          "both_rescue": 2,
+          "neither_rescues": 3,
+          "random_only_rescue": 0
+        },
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 3,
+            "maximum": 283209,
+            "median": 134071,
+            "minimum": 87490
+          },
+          "full_rollout_revisions": {
+            "count": 3,
+            "maximum": 1,
+            "median": 1,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 3,
+            "maximum": 12,
+            "median": 6,
+            "minimum": 4
+          }
+        },
+        "rescues": 3,
+        "successes": 7,
+        "successes_by_attempt": [
+          4,
+          7,
+          7
+        ]
+      },
+      "random_demo_blend": {
+        "baseline_successes": 4,
+        "cases": 10,
+        "censored_without_success": 4,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 2,
+            "maximum": 0,
+            "median": 0.0,
+            "minimum": 0
+          },
+          "full_rollout_revisions": {
+            "count": 2,
+            "maximum": 2,
+            "median": 1.5,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 2,
+            "maximum": 0,
+            "median": 0.0,
+            "minimum": 0
+          }
+        },
+        "rescues": 2,
+        "successes": 6,
+        "successes_by_attempt": [
+          4,
+          5,
+          6
+        ]
+      },
+      "random_noise": {
+        "baseline_successes": 4,
+        "cases": 10,
+        "censored_without_success": 4,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 2,
+            "maximum": 0,
+            "median": 0.0,
+            "minimum": 0
+          },
+          "full_rollout_revisions": {
+            "count": 2,
+            "maximum": 1,
+            "median": 1.0,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 2,
+            "maximum": 0,
+            "median": 0.0,
+            "minimum": 0
+          }
+        },
+        "rescues": 2,
+        "successes": 6,
+        "successes_by_attempt": [
+          4,
+          6,
+          6
+        ]
+      },
+      "random_occlusion": {
+        "baseline_successes": 4,
+        "cases": 10,
+        "censored_without_success": 4,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 2,
+            "maximum": 0,
+            "median": 0.0,
+            "minimum": 0
+          },
+          "full_rollout_revisions": {
+            "count": 2,
+            "maximum": 1,
+            "median": 1.0,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 2,
+            "maximum": 0,
+            "median": 0.0,
+            "minimum": 0
+          }
+        },
+        "rescues": 2,
+        "successes": 6,
+        "successes_by_attempt": [
+          4,
+          6,
+          6
+        ]
+      }
+    },
+    "libero_spatial_ood": {
+      "astra_demo_blend": {
+        "baseline_successes": 4,
+        "cases": 10,
+        "censored_without_success": 4,
+        "paired_vs_matched_random_on_failed_baselines": {
+          "astra_only_rescue": 1,
+          "both_rescue": 1,
+          "neither_rescues": 4,
+          "random_only_rescue": 0
+        },
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 2,
+            "maximum": 387762,
+            "median": 250028.5,
+            "minimum": 112295
+          },
+          "full_rollout_revisions": {
+            "count": 2,
+            "maximum": 2,
+            "median": 1.5,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 2,
+            "maximum": 16,
+            "median": 10.5,
+            "minimum": 5
+          }
+        },
+        "rescues": 2,
+        "successes": 6,
+        "successes_by_attempt": [
+          4,
+          5,
+          6
+        ]
+      },
+      "astra_occlusion": {
+        "baseline_successes": 4,
+        "cases": 10,
+        "censored_without_success": 5,
+        "paired_vs_matched_random_on_failed_baselines": {
+          "astra_only_rescue": 1,
+          "both_rescue": 0,
+          "neither_rescues": 5,
+          "random_only_rescue": 0
+        },
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 1,
+            "maximum": 87442,
+            "median": 87442,
+            "minimum": 87442
+          },
+          "full_rollout_revisions": {
+            "count": 1,
+            "maximum": 1,
+            "median": 1,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 1,
+            "maximum": 4,
+            "median": 4,
+            "minimum": 4
+          }
+        },
+        "rescues": 1,
+        "successes": 5,
+        "successes_by_attempt": [
+          4,
+          5,
+          5
+        ]
+      },
+      "random_demo_blend": {
+        "baseline_successes": 4,
+        "cases": 10,
+        "censored_without_success": 5,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 1,
+            "maximum": 0,
+            "median": 0,
+            "minimum": 0
+          },
+          "full_rollout_revisions": {
+            "count": 1,
+            "maximum": 1,
+            "median": 1,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 1,
+            "maximum": 0,
+            "median": 0,
+            "minimum": 0
+          }
+        },
+        "rescues": 1,
+        "successes": 5,
+        "successes_by_attempt": [
+          4,
+          5,
+          5
+        ]
+      },
+      "random_noise": {
+        "baseline_successes": 4,
+        "cases": 10,
+        "censored_without_success": 6,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 0,
+            "maximum": null,
+            "median": null,
+            "minimum": null
+          },
+          "full_rollout_revisions": {
+            "count": 0,
+            "maximum": null,
+            "median": null,
+            "minimum": null
+          },
+          "physical_provider_calls_through_success": {
+            "count": 0,
+            "maximum": null,
+            "median": null,
+            "minimum": null
+          }
+        },
+        "rescues": 0,
+        "successes": 4,
+        "successes_by_attempt": [
+          4,
+          4,
+          4
+        ]
+      },
+      "random_occlusion": {
+        "baseline_successes": 4,
+        "cases": 10,
+        "censored_without_success": 6,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 0,
+            "maximum": null,
+            "median": null,
+            "minimum": null
+          },
+          "full_rollout_revisions": {
+            "count": 0,
+            "maximum": null,
+            "median": null,
+            "minimum": null
+          },
+          "physical_provider_calls_through_success": {
+            "count": 0,
+            "maximum": null,
+            "median": null,
+            "minimum": null
+          }
+        },
+        "rescues": 0,
+        "successes": 4,
+        "successes_by_attempt": [
+          4,
+          4,
+          4
+        ]
+      }
+    },
+    "pooled": {
+      "astra_demo_blend": {
+        "baseline_successes": 8,
+        "cases": 20,
+        "censored_without_success": 8,
+        "paired_vs_matched_random_on_failed_baselines": {
+          "astra_only_rescue": 1,
+          "both_rescue": 3,
+          "neither_rescues": 8,
+          "random_only_rescue": 0
+        },
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 4,
+            "maximum": 387762,
+            "median": 112073.0,
+            "minimum": 88801
+          },
+          "full_rollout_revisions": {
+            "count": 4,
+            "maximum": 2,
+            "median": 1.0,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 4,
+            "maximum": 16,
+            "median": 5.0,
+            "minimum": 4
+          }
+        },
+        "rescues": 4,
+        "successes": 12,
+        "successes_by_attempt": [
+          8,
+          11,
+          12
+        ]
+      },
+      "astra_occlusion": {
+        "baseline_successes": 8,
+        "cases": 20,
+        "censored_without_success": 8,
+        "paired_vs_matched_random_on_failed_baselines": {
+          "astra_only_rescue": 2,
+          "both_rescue": 2,
+          "neither_rescues": 8,
+          "random_only_rescue": 0
+        },
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 4,
+            "maximum": 283209,
+            "median": 110780.5,
+            "minimum": 87442
+          },
+          "full_rollout_revisions": {
+            "count": 4,
+            "maximum": 1,
+            "median": 1.0,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 4,
+            "maximum": 12,
+            "median": 5.0,
+            "minimum": 4
+          }
+        },
+        "rescues": 4,
+        "successes": 12,
+        "successes_by_attempt": [
+          8,
+          12,
+          12
+        ]
+      },
+      "random_demo_blend": {
+        "baseline_successes": 8,
+        "cases": 20,
+        "censored_without_success": 9,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 3,
+            "maximum": 0,
+            "median": 0,
+            "minimum": 0
+          },
+          "full_rollout_revisions": {
+            "count": 3,
+            "maximum": 2,
+            "median": 1,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 3,
+            "maximum": 0,
+            "median": 0,
+            "minimum": 0
+          }
+        },
+        "rescues": 3,
+        "successes": 11,
+        "successes_by_attempt": [
+          8,
+          10,
+          11
+        ]
+      },
+      "random_noise": {
+        "baseline_successes": 8,
+        "cases": 20,
+        "censored_without_success": 10,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 2,
+            "maximum": 0,
+            "median": 0.0,
+            "minimum": 0
+          },
+          "full_rollout_revisions": {
+            "count": 2,
+            "maximum": 1,
+            "median": 1.0,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 2,
+            "maximum": 0,
+            "median": 0.0,
+            "minimum": 0
+          }
+        },
+        "rescues": 2,
+        "successes": 10,
+        "successes_by_attempt": [
+          8,
+          10,
+          10
+        ]
+      },
+      "random_occlusion": {
+        "baseline_successes": 8,
+        "cases": 20,
+        "censored_without_success": 10,
+        "rescue_only": {
+          "complete_total_tokens_to_success": {
+            "count": 2,
+            "maximum": 0,
+            "median": 0.0,
+            "minimum": 0
+          },
+          "full_rollout_revisions": {
+            "count": 2,
+            "maximum": 1,
+            "median": 1.0,
+            "minimum": 1
+          },
+          "physical_provider_calls_through_success": {
+            "count": 2,
+            "maximum": 0,
+            "median": 0.0,
+            "minimum": 0
+          }
+        },
+        "rescues": 2,
+        "successes": 10,
+        "successes_by_attempt": [
+          8,
+          10,
+          10
+        ]
+      }
+    }
+  },
+  "physical_cost": {
+    "accepted_decision_actions": 23272,
+    "additional_native_control_rollouts": 40,
+    "changed_image_actions": 17423,
+    "fallback_actions": 25,
+    "image_gate_velocity_evaluations": 1200,
+    "initialization_velocity_evaluations": 24600,
+    "intervention_rollouts": 107,
+    "rollout_velocity_evaluations": 87340,
+    "rollouts": 167,
+    "shared_baseline_rollouts": 20,
+    "simulated_actions": 43594,
+    "velocity_evaluations": 113140
+  },
+  "rejected_calls": [
+    {
+      "attempt_id": "astra_occlusion_3",
+      "decision_index": 2,
+      "episode_id": "libero_goal_ood:seed37:task5:state0",
+      "error_kind": "http_error",
+      "http_status": 503,
+      "observation_step": 25,
+      "request_fingerprint": "eeb07a842e0b6bae4fc59b930ea65a50c57f84001cf2bed6efe6b538b5fe596b",
+      "request_id": "eeb07a842e0b6bae",
+      "token_usage": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "reasoning_tokens": null,
+        "total_tokens": null
+      }
+    }
+  ],
+  "schema_version": "image-independent-reconciliation-1.0",
+  "scope": "Independent arithmetic and source-hash reconciliation of published results, all eight existing audit receipts, all 20 hash-bound source summaries, all canonical provider sidecars, interrupted saved ledger prefixes, CSVs and displayed RGB examples. This is not a new full-array or simulator audit.",
+  "source_sha256": {
+    "audits/worker_0.json.gz": "7e6eed4ee8b29f196dc593980994a60dce3650bed03cc94e69742a6ea7de3c03",
+    "audits/worker_0_receipt.json": "b482bcc7e225cf2d73fe992bdde4e106103d31e796618d780a492f1404c16574",
+    "audits/worker_1.json.gz": "047889698491761776fa00f2a1b4deb5671aeea74c3d6ccace25c42ca6a2e8eb",
+    "audits/worker_1_receipt.json": "427cfcebeb0eb690928178a227f6eecb3e538b2293433fef14d87a5cb763c5d2",
+    "audits/worker_2.json.gz": "1eed1887fe8dca77ada0ac3ce9b17d3b34b2b492b708aac0345c92a30a6f01e0",
+    "audits/worker_2_receipt.json": "67cf053278d0f6aefb4284f389c02bc081530d58848a2ad3e865760956bcdd40",
+    "audits/worker_3.json.gz": "d6957c1e61df3b08a91b9c89629c00b55bc2398c8f038cf6b8b109539cd4fa31",
+    "audits/worker_3_receipt.json": "beb457baedb40d8aac8d9f852d290013dcaafbb5b8f95615696ced2533a31282",
+    "audits/worker_4.json.gz": "321c7776a5ca207adedbf1e5e32c52d84d59d1d4f6bd14803d7a5fc1efdcb9c8",
+    "audits/worker_4_receipt.json": "a34705e94cc165bf572aa652efa2c12f33a8db2e65c1330599f3012ecba45e47",
+    "audits/worker_5.json.gz": "9cbf21f8766a1b04e1d5b3c6851857ad3ac8d873bca09da2c55a4e06ddaaeb6c",
+    "audits/worker_5_receipt.json": "d7923272a8a8f80386eccfb79e3088e64098bb58da59aa91fdd3b75fcc171340",
+    "audits/worker_6.json.gz": "ed83dbfebd489579ba9659fff775cdfd6d887d980ad35cd06ee6a4ef77d86a40",
+    "audits/worker_6_receipt.json": "e0c076531a810ea94fb38b75c1734a8414009df45a6e5f26771234919e2d9fa6",
+    "audits/worker_7.json.gz": "d505fd4df272c03cf28e7733bc7a6cf6691319a22a3efed6431c7d390a876203",
+    "audits/worker_7_receipt.json": "fd924c3b7fbf303eb457deafd22d01c530b735adb4c193e31a47f4bb52444a8a",
+    "examples/astra_demo_blend/comparison.png": "c8e63825661f3bbbaaaddeb723c685d2df3b5fa33bd4874fad35471952f29d39",
+    "examples/astra_demo_blend/external_donor.png": "5cb0a76f48bb203361b3d56ff8a580dfff7c8f07ccc9d9d9acb4506705d0b702",
+    "examples/astra_demo_blend/external_edited.png": "3be8f6349a42427ec91ef951e7d045f47595c1adcfaf45b130dba644ee651105",
+    "examples/astra_demo_blend/external_raw.png": "392fa0e35109a39f1a16faa69f5f7a544900beaf6d9389515fbd0b93925e4825",
+    "examples/astra_demo_blend/wrist_edited.png": "c0a4649d2dc7730b1b4a52320db53276e0b4eb668d121a863cca419ee517dda6",
+    "examples/astra_demo_blend/wrist_raw.png": "c0a4649d2dc7730b1b4a52320db53276e0b4eb668d121a863cca419ee517dda6",
+    "examples/astra_occlusion/comparison.png": "1d296290c44cae967d4c48e87848d40bf11dc1f3a4589a91fe2789d12b02b8b5",
+    "examples/astra_occlusion/external_edited.png": "70789cdc9454c901c61b98e2e7c568024ab73811fa92090e1e0864c4cef7723d",
+    "examples/astra_occlusion/external_raw.png": "d882aaf898fd27086c70014aeff2b28c9de5e38825f9dc12b523fd5fef567bd5",
+    "examples/astra_occlusion/wrist_edited.png": "1fe7cd6235517ff4100441350f783e42cfaf9a64f44e0648d4d13b261d196a73",
+    "examples/astra_occlusion/wrist_raw.png": "d950c734c8dd5769c3ad8811e2af46d202ca3326f21d9594271ed63f57b3a8eb",
+    "examples/examples.json": "c4d824964fdd20eee8df92102f687e83869b6cd3f1d7c9d07a57dba18d299519",
+    "figures/astra_token_cost.png": "9c1555718c5914393726b6b96cd5d822d051dd7d4dca582044a35202cf0f007f",
+    "figures/astra_token_cost.svg": "e2c36d0f048118f6a8a4d768ab6d22d1381d2b8d35f28654768c958a987de5c5",
+    "figures/figure_source.json": "28ac6319ce5342f38f243cb05d480cd17ef514057517a7f833e1dfeb2d9debbe",
+    "figures/success_by_revision.png": "b8db9e6c3ca7963197dc4a16a9a652245a7b4b26d9ce1daa670e173aa24d5e9b",
+    "figures/success_by_revision.svg": "1a929147ba51a3273949ca39fbae0fff587925946ad850fc6a59c36b3411c233",
+    "interruption_cost.json": "9eab2fc178cbec72e7dc2189340b9ff77d661b0ab21e7d4a307a85e8e31c7d1b",
+    "results/canonical_sources.json": "18b089dfd1a0539bcc778c72da87973a460ebf417ac25a41c3877becf097ba6e",
+    "results/case_arms.csv": "7dc6d4aab3400b072bee1d8f181ec2298457544f2ed03a136a5ce50ca59ec041",
+    "results/physical_attempts.csv": "8a358b720f42903167cfa2d60427fbcf8b9175bc663ce9d9e4fa323e93b3a061",
+    "results/report.json": "bd2ae73794dcdf9c73f9033c8934ab23ce8ea2ab0b878b239d2af8c963adff87"
+  },
+  "status": "passed",
+  "worker_bindings": [
+    {
+      "archive_sha256": "0701ba9c9ec621f8ec44d43672be1ab18335e7a47b990f29ce1df4ba86840c19",
+      "audit_uncompressed_sha256": "390f70545b21018e55991b29f627fc0df3ae5e277251a24ae51a4a09cf0b579a",
+      "case_summary_bindings_verified": true,
+      "episode_ids": [
+        "libero_goal_ood:seed37:task0:state0",
+        "libero_goal_ood:seed37:task4:state0",
+        "libero_goal_ood:seed37:task8:state0"
+      ],
+      "worker": 0,
+      "workflow": "astra-pi05-image-evaluation-20260925-1"
+    },
+    {
+      "archive_sha256": "a1ab88ea59cc59cef49b403ee38fe4d864a3b5f2cf0ba2835bf9fc4a5fe7f123",
+      "audit_uncompressed_sha256": "2fefbd4ab9b3da2b0fe35999de90d2163da13a490ae3519ce17134482ca12664",
+      "case_summary_bindings_verified": true,
+      "episode_ids": [
+        "libero_goal_ood:seed37:task1:state0",
+        "libero_goal_ood:seed37:task5:state0",
+        "libero_goal_ood:seed37:task9:state0"
+      ],
+      "worker": 1,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+    },
+    {
+      "archive_sha256": "10660627dcbe3023d578b03bfe0aadc43493b86291d085b4685b3dccb8ec8d3c",
+      "audit_uncompressed_sha256": "b6ffa89ce974ba91822c7186e1f493cd918bf523c2f2c71c3b5b07193f4c3337",
+      "case_summary_bindings_verified": true,
+      "episode_ids": [
+        "libero_goal_ood:seed37:task2:state0",
+        "libero_goal_ood:seed37:task6:state0"
+      ],
+      "worker": 2,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+    },
+    {
+      "archive_sha256": "fd34711e884ad1e59f62a7f73ee27ea1adcd90ffec429d3fbf2aed532881819f",
+      "audit_uncompressed_sha256": "0f801e600d5d295c1625162aa3b5f07f4e43b6523fb7c961a432c023f06987ac",
+      "case_summary_bindings_verified": true,
+      "episode_ids": [
+        "libero_goal_ood:seed37:task3:state0",
+        "libero_goal_ood:seed37:task7:state0"
+      ],
+      "worker": 3,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+    },
+    {
+      "archive_sha256": "a53a37bbb9aeaf9c1b671ee299ec8f16c92c709e6eee91195934c4063e9a963e",
+      "audit_uncompressed_sha256": "c49f77f65118ea19624af60acc5580f3a599e0e637de32da1d0f6f92332b6a3f",
+      "case_summary_bindings_verified": true,
+      "episode_ids": [
+        "libero_spatial_ood:seed37:task0:state0",
+        "libero_spatial_ood:seed37:task4:state0",
+        "libero_spatial_ood:seed37:task8:state0"
+      ],
+      "worker": 4,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+    },
+    {
+      "archive_sha256": "3dc6edfd5824bb36c11492a9d8b558eb87e89ef810d999f7c8f0f9e4bd37650a",
+      "audit_uncompressed_sha256": "2c583b2a25a5002fe60233769cf3fb326556ea49934f6661242a180d95219639",
+      "case_summary_bindings_verified": true,
+      "episode_ids": [
+        "libero_spatial_ood:seed37:task1:state0",
+        "libero_spatial_ood:seed37:task5:state0",
+        "libero_spatial_ood:seed37:task9:state0"
+      ],
+      "worker": 5,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+    },
+    {
+      "archive_sha256": "0dcea70fd37bee1f41d18b6eee1f89246061c6690264cc5e3395d7bcff17c923",
+      "audit_uncompressed_sha256": "a42a445433d691848f82dff7c220835430821018eef67c3b39fa9a9a424e2936",
+      "case_summary_bindings_verified": true,
+      "episode_ids": [
+        "libero_spatial_ood:seed37:task2:state0",
+        "libero_spatial_ood:seed37:task6:state0"
+      ],
+      "worker": 6,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+    },
+    {
+      "archive_sha256": "45cf6ce737fa5b7e421e5afb067411e1ca8d9c31fe5d3d412eab1920153e6911",
+      "audit_uncompressed_sha256": "c14e7a4a9bf93e57ab86c3ed29c57ab1b236cbf19c9c7a86967d9e81cb478579",
+      "case_summary_bindings_verified": true,
+      "episode_ids": [
+        "libero_spatial_ood:seed37:task3:state0",
+        "libero_spatial_ood:seed37:task7:state0"
+      ],
+      "worker": 7,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+    }
+  ]
+}

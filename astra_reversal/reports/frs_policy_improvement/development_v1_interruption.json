@@ -1,0 +1,306 @@
+{
+  "correction": "Prompt template v2 constrains critique rules to available bounded XYZ and gripper edits; rotation commands are unavailable. No operator or model-weight change was made.",
+  "efficacy_eligible": false,
+  "interruption": {
+    "partial_results_eligible_for_efficacy": false,
+    "provider_costs_retained": true,
+    "reason": "Correct critique prompt/action-space interface mismatch before evaluation.",
+    "requested_unix": 1790402538.31289,
+    "workers": [
+      {
+        "exec_exit": 0,
+        "signal_sent": true,
+        "worker": 0
+      },
+      {
+        "exec_exit": 0,
+        "signal_sent": true,
+        "worker": 1
+      },
+      {
+        "exec_exit": 0,
+        "signal_sent": true,
+        "worker": 2
+      }
+    ],
+    "workflow": "astra-pi05-frs-development-20260925-1"
+  },
+  "known_provider_usage": {
+    "accepted_proposals": 148,
+    "actual_models": {
+      "azure/openai/gpt-6-astra": 148,
+      "unavailable": 3
+    },
+    "client_attempts": 151,
+    "errors": {
+      "unclassified_failure": 3
+    },
+    "failed_calls": 3,
+    "http_status": {
+      "200": 148,
+      "unavailable": 3
+    },
+    "latency_seconds": 1069.172412278771,
+    "monetary_cost": null,
+    "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+    "preflight_errors": {},
+    "preflight_failures": 0,
+    "preflight_latency_seconds": 0,
+    "provider_calls": 151,
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "tokens": {
+      "input_tokens": {
+        "available_calls": 148,
+        "complete": false,
+        "missing_calls": 3,
+        "sum": 658769
+      },
+      "output_tokens": {
+        "available_calls": 148,
+        "complete": false,
+        "missing_calls": 3,
+        "sum": 35936
+      },
+      "reasoning_tokens": {
+        "available_calls": 148,
+        "complete": false,
+        "missing_calls": 3,
+        "sum": 5153
+      },
+      "total_tokens": {
+        "available_calls": 148,
+        "complete": false,
+        "missing_calls": 3,
+        "sum": 694705
+      }
+    },
+    "usage_available_calls": 148,
+    "usage_unavailable_calls": 3
+  },
+  "missing_usage_note": "SIGINT stopped three in-flight provider requests. Their receipts remain with unknown token usage; no zero cost is assumed. Totals cover all retained provider ledgers and are a lower bound.",
+  "schema_version": "frs-development-interruption-1.0",
+  "source": {
+    "payload_bytes": 22518819,
+    "payload_sha256": "c761391e1d95287f886376de2e717ff576a10b9d5198aeca57320a2c0dce39b5",
+    "source_revision": "0ec9fdffa2e5a74657116ab08aaa5ca90c512f8b"
+  },
+  "workers": [
+    {
+      "archive": {
+        "bytes": 11668387,
+        "download_seconds": 2.042023916001199,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-development-20260925-1/worker_0/artifacts.tar.gz",
+        "sha256": "10f3b007ecb91fd5e751ea8dd2f5ef8178d56374811da4ed8ead3717e283a8e8",
+        "worker": 0,
+        "workflow": "astra-pi05-frs-development-20260925-1"
+      },
+      "extracted_bytes": 26657622,
+      "gzip_crc_verified": true,
+      "known_provider_usage": {
+        "accepted_proposals": 44,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 44,
+          "unavailable": 1
+        },
+        "client_attempts": 45,
+        "errors": {
+          "unclassified_failure": 1
+        },
+        "failed_calls": 1,
+        "http_status": {
+          "200": 44,
+          "unavailable": 1
+        },
+        "latency_seconds": 306.1459910739213,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 45,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 44,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 199785
+          },
+          "output_tokens": {
+            "available_calls": 44,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 10323
+          },
+          "reasoning_tokens": {
+            "available_calls": 44,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 1208
+          },
+          "total_tokens": {
+            "available_calls": 44,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 210108
+          }
+        },
+        "usage_available_calls": 44,
+        "usage_unavailable_calls": 1
+      },
+      "provider_sources": [
+        {
+          "path": "results/task_6/provider.jsonl",
+          "records": 45,
+          "sha256": "25696100716f5849db449577c72767778d314877a4cdb3c44a0ddc6fcfe2efb9"
+        }
+      ],
+      "worker": 0
+    },
+    {
+      "archive": {
+        "bytes": 12070032,
+        "download_seconds": 1.7941802499990445,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-development-20260925-1/worker_1/artifacts.tar.gz",
+        "sha256": "4cbc5af120a9b00571db50ea30cffcc0e1b0d670f51c9fdda61762ff5030ee27",
+        "worker": 1,
+        "workflow": "astra-pi05-frs-development-20260925-1"
+      },
+      "extracted_bytes": 26853601,
+      "gzip_crc_verified": true,
+      "known_provider_usage": {
+        "accepted_proposals": 44,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 44,
+          "unavailable": 1
+        },
+        "client_attempts": 45,
+        "errors": {
+          "unclassified_failure": 1
+        },
+        "failed_calls": 1,
+        "http_status": {
+          "200": 44,
+          "unavailable": 1
+        },
+        "latency_seconds": 348.23717610607855,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 45,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 44,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 201669
+          },
+          "output_tokens": {
+            "available_calls": 44,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 12150
+          },
+          "reasoning_tokens": {
+            "available_calls": 44,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 2750
+          },
+          "total_tokens": {
+            "available_calls": 44,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 213819
+          }
+        },
+        "usage_available_calls": 44,
+        "usage_unavailable_calls": 1
+      },
+      "provider_sources": [
+        {
+          "path": "results/task_2/provider.jsonl",
+          "records": 45,
+          "sha256": "a1a55e87af4ca9c0fc796bd03a15646784d975137969b87694d28ef3b67ef1dd"
+        }
+      ],
+      "worker": 1
+    },
+    {
+      "archive": {
+        "bytes": 14340050,
+        "download_seconds": 2.20149074998335,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-frs-development-20260925-1/worker_2/artifacts.tar.gz",
+        "sha256": "412491de31fcc6a7d6e077f78dfd31eb496662e385e29f27d60567e8e84bd260",
+        "worker": 2,
+        "workflow": "astra-pi05-frs-development-20260925-1"
+      },
+      "extracted_bytes": 31829988,
+      "gzip_crc_verified": true,
+      "known_provider_usage": {
+        "accepted_proposals": 60,
+        "actual_models": {
+          "azure/openai/gpt-6-astra": 60,
+          "unavailable": 1
+        },
+        "client_attempts": 61,
+        "errors": {
+          "unclassified_failure": 1
+        },
+        "failed_calls": 1,
+        "http_status": {
+          "200": 60,
+          "unavailable": 1
+        },
+        "latency_seconds": 414.78924509877106,
+        "monetary_cost": null,
+        "monetary_cost_unavailable_reason": "No verified provider price was supplied.",
+        "preflight_errors": {},
+        "preflight_failures": 0,
+        "preflight_latency_seconds": 0,
+        "provider_calls": 61,
+        "reasoning_tokens_are_subset_of_output_tokens": true,
+        "tokens": {
+          "input_tokens": {
+            "available_calls": 60,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 257315
+          },
+          "output_tokens": {
+            "available_calls": 60,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 13463
+          },
+          "reasoning_tokens": {
+            "available_calls": 60,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 1195
+          },
+          "total_tokens": {
+            "available_calls": 60,
+            "complete": false,
+            "missing_calls": 1,
+            "sum": 270778
+          }
+        },
+        "usage_available_calls": 60,
+        "usage_unavailable_calls": 1
+      },
+      "provider_sources": [
+        {
+          "path": "results/task_8/provider.jsonl",
+          "records": 61,
+          "sha256": "acfadf73a58706aa866f963e37888fdd3a77d9217b5c488f97d85d40d7ab5f14"
+        }
+      ],
+      "worker": 2
+    }
+  ],
+  "workflow": "astra-pi05-frs-development-20260925-1"
+}

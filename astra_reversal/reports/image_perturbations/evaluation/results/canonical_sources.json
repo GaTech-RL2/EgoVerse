@@ -1,0 +1,143 @@
+{
+  "schema_version": "image-canonical-sources-1.0",
+  "workers": [
+    {
+      "worker": 0,
+      "workflow": "astra-pi05-image-evaluation-20260925-1",
+      "archive": {
+        "archive_sha256": "0701ba9c9ec621f8ec44d43672be1ab18335e7a47b990f29ce1df4ba86840c19",
+        "bytes": 211240298,
+        "download_seconds": 22.152601375011727,
+        "extracted_bytes": 441732251,
+        "gzip_crc_verified": true,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-image-evaluation-20260925-1/worker_0/artifacts.tar.gz",
+        "sha256": "0701ba9c9ec621f8ec44d43672be1ab18335e7a47b990f29ce1df4ba86840c19",
+        "worker": 0,
+        "workflow": "astra-pi05-image-evaluation-20260925-1"
+      },
+      "audit_sha256": "390f70545b21018e55991b29f627fc0df3ae5e277251a24ae51a4a09cf0b579a",
+      "frozen_plan_sha256": "af456f0d8e73597cc481928b17fa61d8f6f61bf15f300d99d0b536ceecb4218d"
+    },
+    {
+      "worker": 1,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1",
+      "archive": {
+        "archive_sha256": "a1ab88ea59cc59cef49b403ee38fe4d864a3b5f2cf0ba2835bf9fc4a5fe7f123",
+        "bytes": 462226390,
+        "download_seconds": 51.22183020901866,
+        "extracted_bytes": 937392252,
+        "gzip_crc_verified": true,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-image-evaluation-recovery-20260925-1/worker_1/artifacts.tar.gz",
+        "sha256": "a1ab88ea59cc59cef49b403ee38fe4d864a3b5f2cf0ba2835bf9fc4a5fe7f123",
+        "worker": 1,
+        "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+      },
+      "audit_sha256": "2fefbd4ab9b3da2b0fe35999de90d2163da13a490ae3519ce17134482ca12664",
+      "frozen_plan_sha256": "d4faf33aee7857189c80bd803865461c0bfd69e408f47b8bc87401f8c4ae6d47"
+    },
+    {
+      "worker": 2,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1",
+      "archive": {
+        "archive_sha256": "10660627dcbe3023d578b03bfe0aadc43493b86291d085b4685b3dccb8ec8d3c",
+        "bytes": 555772028,
+        "download_seconds": 63.49438816701877,
+        "extracted_bytes": 1098653004,
+        "gzip_crc_verified": true,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-image-evaluation-recovery-20260925-1/worker_2/artifacts.tar.gz",
+        "sha256": "10660627dcbe3023d578b03bfe0aadc43493b86291d085b4685b3dccb8ec8d3c",
+        "worker": 2,
+        "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+      },
+      "audit_sha256": "b6ffa89ce974ba91822c7186e1f493cd918bf523c2f2c71c3b5b07193f4c3337",
+      "frozen_plan_sha256": "100dcfe9bb9961a8edae6aa10439380dd268daf678ecc5d2dba2b5cefe740bc2"
+    },
+    {
+      "worker": 3,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1",
+      "archive": {
+        "archive_sha256": "fd34711e884ad1e59f62a7f73ee27ea1adcd90ffec429d3fbf2aed532881819f",
+        "bytes": 347162995,
+        "download_seconds": 40.40434449998429,
+        "extracted_bytes": 688724815,
+        "gzip_crc_verified": true,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-image-evaluation-recovery-20260925-1/worker_3/artifacts.tar.gz",
+        "sha256": "fd34711e884ad1e59f62a7f73ee27ea1adcd90ffec429d3fbf2aed532881819f",
+        "worker": 3,
+        "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+      },
+      "audit_sha256": "0f801e600d5d295c1625162aa3b5f07f4e43b6523fb7c961a432c023f06987ac",
+      "frozen_plan_sha256": "d94087077fbaba40db6bd28ab4fb210222b1ec31a0636c25ab661ce17058b363"
+    },
+    {
+      "worker": 4,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1",
+      "archive": {
+        "archive_sha256": "a53a37bbb9aeaf9c1b671ee299ec8f16c92c709e6eee91195934c4063e9a963e",
+        "bytes": 344030850,
+        "download_seconds": 38.894725291989744,
+        "extracted_bytes": 697934143,
+        "gzip_crc_verified": true,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-image-evaluation-recovery-20260925-1/worker_4/artifacts.tar.gz",
+        "sha256": "a53a37bbb9aeaf9c1b671ee299ec8f16c92c709e6eee91195934c4063e9a963e",
+        "worker": 4,
+        "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+      },
+      "audit_sha256": "c49f77f65118ea19624af60acc5580f3a599e0e637de32da1d0f6f92332b6a3f",
+      "frozen_plan_sha256": "803741881590d66e913b181028f471bdc12859b1a5e6c542336086ea027f17f1"
+    },
+    {
+      "worker": 5,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1",
+      "archive": {
+        "archive_sha256": "3dc6edfd5824bb36c11492a9d8b558eb87e89ef810d999f7c8f0f9e4bd37650a",
+        "bytes": 579629146,
+        "download_seconds": 68.91319183300948,
+        "extracted_bytes": 1163843268,
+        "gzip_crc_verified": true,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-image-evaluation-recovery-20260925-1/worker_5/artifacts.tar.gz",
+        "sha256": "3dc6edfd5824bb36c11492a9d8b558eb87e89ef810d999f7c8f0f9e4bd37650a",
+        "worker": 5,
+        "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+      },
+      "audit_sha256": "2c583b2a25a5002fe60233769cf3fb326556ea49934f6661242a180d95219639",
+      "frozen_plan_sha256": "0ea12bd4a85e079d9a534d8103e1cf04987dae29bb1ae81eb45ecd48fa1a00cf"
+    },
+    {
+      "worker": 6,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1",
+      "archive": {
+        "archive_sha256": "0dcea70fd37bee1f41d18b6eee1f89246061c6690264cc5e3395d7bcff17c923",
+        "bytes": 512122956,
+        "download_seconds": 60.20857029201579,
+        "extracted_bytes": 1011670911,
+        "gzip_crc_verified": true,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-image-evaluation-recovery-20260925-1/worker_6/artifacts.tar.gz",
+        "sha256": "0dcea70fd37bee1f41d18b6eee1f89246061c6690264cc5e3395d7bcff17c923",
+        "worker": 6,
+        "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+      },
+      "audit_sha256": "a42a445433d691848f82dff7c220835430821018eef67c3b39fa9a9a424e2936",
+      "frozen_plan_sha256": "8ac63c23a73ce869ce68cc6c6e1eb500bc1b9a832d681bebaeeef882c93ed551"
+    },
+    {
+      "worker": 7,
+      "workflow": "astra-pi05-image-evaluation-recovery-20260925-1",
+      "archive": {
+        "archive_sha256": "45cf6ce737fa5b7e421e5afb067411e1ca8d9c31fe5d3d412eab1920153e6911",
+        "bytes": 327453147,
+        "download_seconds": 39.215544582984876,
+        "extracted_bytes": 655282755,
+        "gzip_crc_verified": true,
+        "key": "experiments/astra-reversal-20260924/astra-pi05-image-evaluation-recovery-20260925-1/worker_7/artifacts.tar.gz",
+        "sha256": "45cf6ce737fa5b7e421e5afb067411e1ca8d9c31fe5d3d412eab1920153e6911",
+        "worker": 7,
+        "workflow": "astra-pi05-image-evaluation-recovery-20260925-1"
+      },
+      "audit_sha256": "c14e7a4a9bf93e57ab86c3ed29c57ab1b236cbf19c9c7a86967d9e81cb478579",
+      "frozen_plan_sha256": "014e28217c76ef894b27e6525da17ec9a077dc196bc2f74c5905d169a33c7074"
+    }
+  ],
+  "interruption_cost": "../interruption_cost.json",
+  "canonical_retention_rule": "Retain original fully archived/audited worker0; replace interrupted worker1..7 with complete unchanged-payload recovery workers."
+}

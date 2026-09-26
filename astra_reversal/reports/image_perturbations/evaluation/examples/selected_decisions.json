@@ -1,0 +1,79 @@
+{
+  "events_sha256": "8a734a48f5abfa7510d071aa080252df2709b5145ff33bee82a41abcb9fe9374",
+  "decisions": [
+    {
+      "event_sequence": 446,
+      "proposal": {
+        "schema_version": "image-perturbation-1.0",
+        "episode_id": "libero_goal_ood:seed37:task8:state0",
+        "attempt_id": "astra_occlusion_2",
+        "decision_index": 1,
+        "observation_step": 0,
+        "image_mode": "occlusion",
+        "request_id": "c66a8d709acb53bf",
+        "decision_id": "occlusion2-d1",
+        "observed_phase": "Initial scene: cream cheese on the table, gripper raised, stove visible at left.",
+        "rationale": "The failed rollout appeared to place the cheese in the bowl before moving the bowl onto the stove. Hide the competing bowl in both initial views while preserving the cheese and stove. Keep the wrist occlusion small because its contents will change as the camera moves.",
+        "image_perturbations": [
+          {
+            "kind": "occlusion",
+            "camera": "observation/image",
+            "box_xyxy": [
+              96,
+              112,
+              128,
+              139
+            ],
+            "fill_rgb": [
+              127,
+              127,
+              127
+            ],
+            "strength": 1
+          },
+          {
+            "kind": "occlusion",
+            "camera": "observation/wrist_image",
+            "box_xyxy": [
+              85,
+              49,
+              141,
+              103
+            ],
+            "fill_rgb": [
+              127,
+              127,
+              127
+            ],
+            "strength": 1
+          }
+        ],
+        "request_fingerprint": "c66a8d709acb53bf8bc376e967dc3d53c45d8f8ad53b0573a29b223aa3d078d3"
+      }
+    },
+    {
+      "event_sequence": 499,
+      "proposal": {
+        "schema_version": "image-perturbation-1.0",
+        "episode_id": "libero_goal_ood:seed37:task8:state0",
+        "attempt_id": "astra_demo_blend_2",
+        "decision_index": 3,
+        "observation_step": 50,
+        "image_mode": "demo_blend",
+        "request_id": "f3391ad3ae6f81d1",
+        "decision_id": "blend2-d3-stove-context",
+        "observed_phase": "Gripper has narrowed around the cream cheese near table height; acquisition appears underway, but a secure lift is not yet visible.",
+        "rationale": "The previous rollout visibly placed the cheese in the bowl before transporting the bowl. Introduce a moderate external-camera blend from the stove-transfer demonstration to test a destination bias before that diversion recurs. Keep the wrist image raw for grasp feedback and retain most live external pixels because the donor carries a different object and its geometry is not guaranteed to align.",
+        "image_perturbations": [
+          {
+            "kind": "demo_blend",
+            "camera": "observation/image",
+            "donor_id": "std17-e392-f77",
+            "alpha": 0.4
+          }
+        ],
+        "request_fingerprint": "f3391ad3ae6f81d111c10aa37c0a1cdfc06d765106a7b01d1a5d1c0d0bf93778"
+      }
+    }
+  ]
+}

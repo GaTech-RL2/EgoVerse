@@ -1,6 +1,6 @@
 # Coverage and prior measurements
 
-This snapshot verifies all **20 released LIBERO-OOD compositions**. The new FRS study has no measured results yet. The separate seed-37 image evaluation is pending complete recording and audit; its final success rate is not asserted here.
+This snapshot verifies all **20 released LIBERO-OOD compositions**. The new FRS study has no measured results yet. The separate seed-37 image evaluation is complete and audited on all 20 cases.
 
 The [OOD paper, §4](https://arxiv.org/html/2505.03500v5#S4) reports ten runs per task: 100 per suite, 200 total. The pinned release uses environment seed 7 once per task followed by ten resets. Its prescribed-state loading is commented out, and no OOD `.pruned_init` assets occur in the pinned tree. Consequently, state indexes denote captured reset-stream positions.
 
@@ -37,9 +37,9 @@ The repaired native Euler-10/TF32-on baseline is **86/200**: Goal 47/100 and Spa
 | Static intervention search | Seed 19, reset 0, 20 cases; up to 4 revisions | Common baseline 8/20; random 10/20; Astra noise 9, language 9, vision 9, noise+language 9, noise+vision 10, language+vision 9, joint 8 |
 | Phase interpolation | Seed 29, reset 0, 20 cases | Common baseline 7/20; random 9; oracle TEI 10, TLI 12, combined 13; Astra TEI 11, TLI 13, TLI+vision 13 |
 | Pixel intervention development | Seed 19, three known cases; up to 2 revisions | Common baseline 0/3; random noise 0/3; random occlusion 1/3; random blend 1/3; Astra occlusion 1/3; Astra blend 1/3 |
-| Pixel intervention evaluation | Seed 37, reset 0, 20 expected cases | Pending complete audit; no final result |
+| Pixel intervention evaluation | Seed 37, reset 0, 20 cases; up to 2 revisions | Common baseline 8/20; random noise 10; random occlusion 10; random blend 11; Astra occlusion 12; Astra blend 12 |
 
-The static study used visual annotations and a pooled input-text residual. Phase interpolation used TEI and layerwise TLI with optional temporary visual marks. The newer pixel study uses real donor-image blends or neutral occlusion. These operators and denominators are not pooled. Oracle phase arms used one revision; Astra/random phase arms used up to two. All retry results include a shared baseline and simulator reset access, with failures retained. [Static report](../iterative_interventions/evaluation/report.json); [phase report](../phase_interpolation/evaluation/results/report.json); [pixel development](../image_perturbations/development/results/report.json).
+The static study used visual annotations and a pooled input-text residual. Phase interpolation used TEI and layerwise TLI with optional temporary visual marks. The newer pixel study uses real donor-image blends or neutral occlusion. These operators and denominators are not pooled. Oracle phase arms used one revision; Astra/random phase arms used up to two. All retry results include a shared baseline and simulator reset access, with failures retained. [Static report](../iterative_interventions/evaluation/report.json); [phase report](../phase_interpolation/evaluation/results/report.json); [pixel development](../image_perturbations/development/results/report.json); [complete pixel evaluation](../image_perturbations/evaluation/README.md).
 
 Success follows the released predicates, not a separate visual judgment. In particular, the wine-in-bowl BDDL uses `On`; object `check_ontop` combines height, contact and a 0.1 m horizontal-distance threshold, while site geometry uses a 0.10 m vertical band. The exact source links and each task’s BDDL digest are preserved in coverage.json. A binary terminal flag does not establish stable release or agreement with a VLM’s assessment.
 
@@ -47,4 +47,4 @@ The [FRS paper, §4.1 and Appendix B/D/E](https://arxiv.org/html/2606.13675v2) u
 
 The proposed [frozen FRS protocol](../../configs/frs_policy_improvement_v1.json) uses seed 43, adaptation reset 0 and evaluation resets 1–10 for each of the 20 known compositions. It separates native full/repeated-noise controls, direct Astra directions, Astra FRS, critique without learning and learned noise. Three fixed adaptation revisions are separate from learned-checkpoint evaluation after each round. Development remains the three known seed 19 cases. This is new-reset evaluation on known tasks, not novel-task generalization; checkpoint training overlap is unknown. No superiority over RL efficiency is tested.
 
-All numeric entries above come from completed source reports whose exact bytes are SHA-bound in coverage.json. Current FRS/pixel evaluation placeholders are not measurements.
+All numeric entries above come from completed source reports whose exact bytes are SHA-bound in coverage.json. The current FRS evaluation placeholder is not a measurement.
