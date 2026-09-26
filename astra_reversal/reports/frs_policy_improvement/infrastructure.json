@@ -1,7 +1,7 @@
 {
   "schema_version": "frs-infrastructure-events-1.0",
-  "scope": "Corrected-runtime starts and queue moves; no FRS efficacy measurement is inferred. Original prompt-v1 interruption and model-call costs are separate.",
-  "zero_call_scope": "No provider call receipts or task recordings observed for these starts. This is not a provider billing reconciliation.",
+  "scope": "Corrected-runtime infrastructure starts, queue expiry and recovery; no FRS efficacy measurement is inferred. Original prompt-v1 interruption and model-call costs are separate.",
+  "zero_call_scope": "Zero observed counts refer to terminated startup/queue attempts only; they are not a provider billing reconciliation. Active-run costs are recorded separately in task ledgers.",
   "source_payload_unchanged": true,
   "runs": [
     {
@@ -81,19 +81,65 @@
       "pool": "groot-l40s-01",
       "source_revision": "a50f92dfd18a7fdfe1c6198d34ddb43386d28396",
       "payload_sha256": "0828e19a85a7474d2e6ef2bbe705406da51690cdb4ed6891687407a007fc5bae",
-      "status": "PENDING",
+      "status": "FAILED_QUEUE_TIMEOUT",
       "provider_calls_observed": 0,
       "efficacy_eligible": false,
       "preflight_tests": {},
-      "reason": "Unchanged development run queued for L40S-01 capacity",
+      "reason": "Unallocated L40S-01 job reached four-hour queue timeout; no GPU or model call",
       "submit_time_utc": "2026-09-26T06:40:00.124201",
       "start_time_utc": null,
+      "end_time_utc": "2026-09-26T10:40:04.062442",
+      "status_receipt_sha256": "da01ed7b4365f0ea84087d8df7cc9a0dfba0b842d9dc0c30a6f3b296631d5d09"
+    },
+    {
+      "workflow": "astra-pi05-frs-development-20260926-1",
+      "pool": "groot-l40s-03",
+      "source_revision": "a50f92dfd18a7fdfe1c6198d34ddb43386d28396",
+      "payload_sha256": "0828e19a85a7474d2e6ef2bbe705406da51690cdb4ed6891687407a007fc5bae",
+      "efficacy_eligible": false,
+      "preflight_tests": {
+        "0": {
+          "unit_tests.log": {
+            "sha256": "94f471d19454dce0042863d92b1aba6dcff635af6e34df371fe514eab300fed0",
+            "last_line": "819 passed in 81.40s (0:01:21)"
+          },
+          "native_tests.log": {
+            "sha256": "36e0d34b0b10801f17666966ad05092f3c0d93591cd542e6b8abc22d99537a9d",
+            "last_line": "19 passed in 21.82s"
+          }
+        },
+        "1": {
+          "unit_tests.log": {
+            "sha256": "2a8bcc8ba16329e7f2360a2c496f51929465e9e80a8b7c39c34ce4ad4de3a5c2",
+            "last_line": "819 passed in 79.19s (0:01:19)"
+          },
+          "native_tests.log": {
+            "sha256": "19e984f40bef582024a368e2aed562e678c531bfaec45a96906b2e458f873804",
+            "last_line": "19 passed in 22.09s"
+          }
+        },
+        "2": {
+          "unit_tests.log": {
+            "sha256": "c00fbf5943aff41a352d79ce9a98b27320efc2b44e5f0fcd04a6e239331b812c",
+            "last_line": "819 passed in 78.51s (0:01:18)"
+          },
+          "native_tests.log": {
+            "sha256": "8fce063f6bf78f1b79b52de322b738aaf28cfbfbd1fee5f73e9ebe7f72356f6e",
+            "last_line": "19 passed in 22.01s"
+          }
+        }
+      },
+      "status": "RUNNING",
+      "submit_time_utc": "2026-09-26T16:18:30.612577",
+      "start_time_utc": "2026-09-26T16:18:43.346548",
       "end_time_utc": null,
-      "status_receipt_sha256": "b3e9f0548e048327200d8f354d55eb12622781e852e6b371166111c3420ea05a"
+      "status_receipt_sha256": "afdd30239f60b56084ed24c981a25941b4f62411df678bf0f442d7626c9c0bdd",
+      "reason": "Restart with unchanged payload after capacity became available; all three L40S workers passed preflight and entered task execution.",
+      "provider_call_scope": "Ongoing experiment; model-call costs are recorded in task ledgers, not inferred from this infrastructure snapshot."
     }
   ],
-  "active_workflow": "astra-pi05-frs-development-20260925-5",
-  "active_status": "queued",
+  "active_workflow": "astra-pi05-frs-development-20260926-1",
+  "active_status": "running",
   "requested_hardware": "NVIDIA L40S",
-  "snapshot_time_utc": "2026-09-26T07:48:53.371157+00:00"
+  "snapshot_time_utc": "2026-09-26T16:28:01.760382+00:00"
 }

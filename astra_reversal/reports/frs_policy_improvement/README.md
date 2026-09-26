@@ -1,16 +1,18 @@
 # Astra flow reversal and policy improvement
 
 The corrected FRS study has **no completed development or evaluation result
-yet**. Its unchanged development run is queued on GROOT L40S-01 as
-[`astra-pi05-frs-development-20260925-5`](https://us-west-2-aws.osmo.nvidia.com/workflows/astra-pi05-frs-development-20260925-5).
-Two recent L40S-03 starts were reclaimed by higher-priority shared GPU quota
-enforcement during startup. These are infrastructure interruptions, not measured
-task failures. The [infrastructure record](infrastructure.json) preserves their
-scope and completed preflight checks.
+yet**. Its unchanged development run has three allocated workers on GROOT
+L40S-03 as
+[`astra-pi05-frs-development-20260926-1`](https://us-west-2-aws.osmo.nvidia.com/workflows/astra-pi05-frs-development-20260926-1).
+The prior L40S-01 run reached its four-hour queue timeout without receiving a
+GPU. Two earlier L40S-03 starts were reclaimed by higher-priority shared GPU
+quota enforcement during startup. These are infrastructure interruptions, not
+measured task failures. The [infrastructure record](infrastructure.json)
+preserves their scope and completed preflight checks.
 
 The [HTML method report](index.html) brings together all 20 task names, earlier
 measured results, the detailed approach, two flow diagrams and the exact Astra
-prompts. It is a dated snapshot of the method and queued run; it contains no new
+prompts. It is a dated snapshot of the method and active run; it contains no new
 FRS efficacy estimate. The [publication manifest](method_report_manifest.json)
 binds its source narratives and diagrams to their exact hashes.
 
