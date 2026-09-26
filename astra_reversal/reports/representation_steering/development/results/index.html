@@ -1,0 +1,541 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Representation steering — development</title><style>body{font:16px/1.6 system-ui;max-width:1200px;margin:35px auto;padding:0 22px;color:#183344}table{border-collapse:collapse;display:block;overflow:auto}td,th{padding:10px;border-bottom:1px solid #ccd9e0;text-align:left}a{color:#086984}code{overflow-wrap:anywhere}</style><main><h1>Representation steering — development</h1>
+<p>Status: <strong>partial</strong>. Seed 19; 1/3 prescribed cases independently audited. Efficacy released: False.</p>
+<p>Recorded completed-rollout work: 42 rollouts, 11,849 actions, 24,100 velocity evaluations. Separately, the full recorded ledger contains 220 provider calls and 0 preflight failures, including any unfinished rollout. Shared baseline and numerical probes counted once. Incomplete-run rollout/action/compute totals are lower bounds; in-flight work is not assigned zero cost.</p>
+<p>Provider-reported tokens, including rejected calls: input_tokens: 1,113,516 (lower bound; missing usage); output_tokens: 15,530 (lower bound; missing usage); reasoning_tokens: 4,910 (lower bound; missing usage); total_tokens: 1,129,046 (lower bound; missing usage). Reasoning is a subset of output.</p>
+<p>Summed rollout wall time: 2741.770s. This is measured work across cases, not elapsed workflow time; all other timings are nested.</p>
+<p>Independent archive/provider proofs cover 3 cases: 15,096 arrays and 2,431 recorded generations. They establish <strong>24,700 recorded velocity evaluations</strong>, including 390 setup/probe evaluations once per case. Of these, 24,100 belong to completed rollouts and 600 to unfinished rollouts; these are different scopes, not extra additive totals.</p>
+<p>The 2 known unfinished attempts executed <strong>at least 300 additional actions</strong> beyond the exact 11,849 completed-row actions: at least 12,149 actions overall. This uses the latest verified request/generation step. The weaker array-only bound (12,139 overall) overlaps that evidence and is not added again. Outcomes and unsynchronized tails remain unknown; the per-attempt protocol cap does not make missing work complete.</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Unfinished attempt</th>
+<th style="text-align:right">Additional actions lower bound</th>
+<th style="text-align:right">Recorded flow evaluations</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>astra_vli_revision2</td>
+<td style="text-align:right">25</td>
+<td style="text-align:right">50</td>
+<td>unknown</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>astra_vli_revision2</td>
+<td style="text-align:right">275</td>
+<td style="text-align:right">550</td>
+<td>unknown</td>
+</tr>
+</tbody>
+</table>
+<p>Success curves and paired comparisons are withheld until the full prescribed cohort and both audits are complete. Recorded costs remain available; unrecorded or in-flight work is unknown.</p>
+<p>The recorded provider classified calls as <strong>budget_exceeded</strong>. This is a spending-cap failure, not evidence that the unexecuted Astra operators worked. Available token sums are lower bounds; missing usage and unfinished work remain unknown.</p>
+<p>Individually verified completed-rollout observations from preserved archives. This table is not a complete-cohort success rate or a causal steering claim. A forced rollout after a successful baseline is a stability check, not a rescue.</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Actual physical rollout</th>
+<th>Recorded outcome</th>
+<th style="text-align:right">Actions</th>
+<th>Accepted / edit-effect / fallback actions</th>
+<th>Application scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>native_revision0</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 0</td>
+<td>native policy</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>native_retry_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 0</td>
+<td>native policy</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>native_retry_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 0</td>
+<td>native policy</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>random_tli_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>random_tli_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>random_vei_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>random_vei_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>random_vli_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>random_vli_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>astra_tei_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>300 / 300 / 0</td>
+<td>accepted representation choices; native portions may also occur</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>astra_tei_revision2</td>
+<td>success</td>
+<td style="text-align:right">98</td>
+<td>98 / 98 / 0</td>
+<td>accepted representation choices; native portions may also occur</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>astra_tli_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>300 / 300 / 0</td>
+<td>accepted representation choices; native portions may also occur</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>astra_tli_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 300</td>
+<td>native fallback only; no accepted Astra choice executed</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>astra_vei_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 300</td>
+<td>native fallback only; no accepted Astra choice executed</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>astra_vei_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 300</td>
+<td>native fallback only; no accepted Astra choice executed</td>
+</tr>
+<tr>
+<td>libero_goal_ood:seed19:task6:state0</td>
+<td>astra_vli_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 300</td>
+<td>native fallback only; no accepted Astra choice executed</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>native_revision0</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 0</td>
+<td>native policy</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>native_retry_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 0</td>
+<td>native policy</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>native_retry_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 0</td>
+<td>native policy</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>random_tli_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>random_tli_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>random_vei_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>random_vei_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>random_vli_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>random_vli_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>astra_tei_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>300 / 300 / 0</td>
+<td>accepted representation choices; native portions may also occur</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>astra_tei_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>300 / 300 / 0</td>
+<td>accepted representation choices; native portions may also occur</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>astra_tli_revision1</td>
+<td>success</td>
+<td style="text-align:right">120</td>
+<td>120 / 120 / 0</td>
+<td>accepted representation choices; native portions may also occur</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>astra_vei_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 300</td>
+<td>native fallback only; no accepted Astra choice executed</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>astra_vei_revision2</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 300</td>
+<td>native fallback only; no accepted Astra choice executed</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task2:state0</td>
+<td>astra_vli_revision1</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 300</td>
+<td>native fallback only; no accepted Astra choice executed</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>native_revision0</td>
+<td>success</td>
+<td style="text-align:right">106</td>
+<td>0 / 0 / 0</td>
+<td>native policy</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>native_retry_revision1 (forced stability)</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 0</td>
+<td>native policy</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>random_tli_revision1 (forced stability)</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>random_vei_revision1 (forced stability)</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>random_vli_revision1 (forced stability)</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 300 / 0</td>
+<td>random representation choice</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_tei_revision1 (forced stability)</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>300 / 150 / 0</td>
+<td>accepted representation choices; native portions may also occur</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_tli_revision1 (forced stability)</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>300 / 175 / 0</td>
+<td>accepted representation choices; native portions may also occur</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_vei_revision1 (forced stability)</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>300 / 175 / 0</td>
+<td>accepted representation choices; native portions may also occur</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_vli_revision1 (forced stability)</td>
+<td>success</td>
+<td style="text-align:right">125</td>
+<td>125 / 50 / 0</td>
+<td>accepted representation choices; native portions may also occur</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_tli_vli_revision1 (forced stability)</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 300</td>
+<td>native fallback only; no accepted Astra choice executed</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_pixel_blend_revision1 (forced stability)</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+<td>0 / 0 / 300</td>
+<td>native fallback only; no accepted Astra choice executed</td>
+</tr>
+</tbody>
+</table>
+<p>Forced development stability checks, shown separately. These are the same physical rows listed above, not extra cost or rescues.</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Extra arm</th>
+<th>Actual outcome</th>
+<th style="text-align:right">Actions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>native_retry</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>random_tli</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>random_vei</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>random_vli</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_tei</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_tli</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_vei</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_vli</td>
+<td>success</td>
+<td style="text-align:right">125</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_tli_vli</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+</tr>
+<tr>
+<td>libero_spatial_ood:seed19:task8:state0</td>
+<td>astra_pixel_blend</td>
+<td>failure</td>
+<td style="text-align:right">300</td>
+</tr>
+</tbody>
+</table>
+<p>Recorded operator coverage. Accepted calls during unfinished rollouts are not counted as executed decisions. Zero executed accepted choices means a configured Astra arm did not exercise its requested steering in the completed evidence.</p>
+<table>
+<thead>
+<tr>
+<th>Astra arm</th>
+<th style="text-align:right">Recorded calls / accepted</th>
+<th style="text-align:right">Completed rollouts</th>
+<th style="text-align:right">Executed accepted decisions</th>
+<th style="text-align:right">Edit-effect actions</th>
+<th style="text-align:right">Native fallback actions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>astra_tei</td>
+<td style="text-align:right">52 / 52</td>
+<td style="text-align:right">5</td>
+<td style="text-align:right">52</td>
+<td style="text-align:right">1148</td>
+<td style="text-align:right">0</td>
+</tr>
+<tr>
+<td>astra_tli</td>
+<td style="text-align:right">41 / 29</td>
+<td style="text-align:right">4</td>
+<td style="text-align:right">29</td>
+<td style="text-align:right">595</td>
+<td style="text-align:right">300</td>
+</tr>
+<tr>
+<td>astra_vei</td>
+<td style="text-align:right">60 / 12</td>
+<td style="text-align:right">5</td>
+<td style="text-align:right">12</td>
+<td style="text-align:right">175</td>
+<td style="text-align:right">1200</td>
+</tr>
+<tr>
+<td>astra_vli</td>
+<td style="text-align:right">43 / 5</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">5</td>
+<td style="text-align:right">50</td>
+<td style="text-align:right">600</td>
+</tr>
+<tr>
+<td>astra_tli_vli</td>
+<td style="text-align:right">12 / 0</td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">300</td>
+</tr>
+<tr>
+<td>astra_pixel_blend</td>
+<td style="text-align:right">12 / 0</td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">300</td>
+</tr>
+</tbody>
+</table>
+<p><a href="report.json">Machine report</a> · <a href="case_arms.csv">Case/arm CSV</a> · <a href="physical_rollouts.csv">Physical rollout CSV</a> · <a href="verified_completed_rollouts.csv">Verified completed-rollout CSV</a> · <a href="unfinished_attempts.csv">Unfinished-work CSV</a> · <a href="revision_budgets.csv">Budget/token CSV</a> · <a href="development_stability.csv">Forced development CSV</a> · <a href="protocol.json">Protocol</a></p>
+<ul>
+<li>Exploratory assisted correction on known task compositions and prescribed resets; no autonomous learning or held-out-task claim.</li>
+<li>Every arm shares one native baseline. Success at revision zero is not an intervention rescue; failures remain in the fixed denominator.</li>
+<li>Revision budgets count full reset rollouts. An online decision every 25 actions is a different unit; both are reported.</li>
+<li>Policy noise is matched across arms at a case/revision/step and changes across revisions. Native retries measure gains available from that new noise alone.</li>
+<li>Random controls use the same source catalogs and continuous alpha bounds. Astra's explicit deferral distribution is not reproduced by random controls.</li>
+<li>Recorded representation changes and accepted proposals are not proofs of action causation. A success can include neutral choices or native fallback after a failed call.</li>
+<li>Physical totals count the shared baseline and numerical probes once. Standalone arm attribution repeats shared setup and must never be summed across arms.</li>
+<li>Rollout wall time includes provider waits, donor captures, probes, recording and simulator work. Policy, environment, conditioning, capture and provider times are nested diagnostics, not extra wall time.</li>
+<li>All physical calls, including rejected calls, contribute available provider usage. Missing usage stays unknown; known sums are lower bounds. Reasoning tokens are a subset of output. No dollar cost is assumed.</li>
+<li>Rescue-only medians exclude baseline successes and censored failures. Failed searches retain their full recorded token and rollout costs.</li>
+<li>Development may force a revision after baseline success. Those extra physical costs are reported separately and do not improve the success curve.</li>
+<li>Partial costs cover recorded work only. In-flight, interrupted, setup and donor-extraction work are not silently assigned zero cost or pooled into the completed cohort.</li>
+<li>Independent audits bind archives, arrays, provider feedback, resets and frozen weights. This report does not independently replay model hidden states or simulator physics.</li>
+<li>Videos contain raw external-camera frames before each executed action, at 20 fps; they omit inference pauses, stabilization and the terminal post-action image.</li>
+</ul>
+<section id="original-videos"><h2>Original verified rollout videos</h2><p>Descriptive selected observations, not complete-cohort efficacy. Playback is 20 fps and excludes inference pauses and the terminal post-action image. Policy inputs are never annotated in these videos.</p><article><h3>libero_goal_ood:seed19:task6:state0 · native_revision0</h3><video controls preload="metadata" playsinline style="width:280px;max-width:100%" src="videos/00_libero_goal_ood_task6_native_revision0.mp4"></video><p>Recorded failure; recorded physical rollout; 300 actions / 15s. Accepted / edit-effect / fallback actions: 0 / 0 / 0.</p><p>put the wine bottle in the bowl</p><a href="videos/00_libero_goal_ood_task6_native_revision0.mp4" download>Original MP4</a></article><article><h3>libero_goal_ood:seed19:task6:state0 · astra_tei_revision2</h3><video controls preload="metadata" playsinline style="width:280px;max-width:100%" src="videos/01_libero_goal_ood_task6_astra_tei_revision2.mp4"></video><p>Recorded success; recorded physical rollout; 98 actions / 4.9s. Accepted / edit-effect / fallback actions: 98 / 98 / 0.</p><p>put the wine bottle in the bowl</p><a href="videos/01_libero_goal_ood_task6_astra_tei_revision2.mp4" download>Original MP4</a></article><article><h3>libero_spatial_ood:seed19:task2:state0 · native_revision0</h3><video controls preload="metadata" playsinline style="width:280px;max-width:100%" src="videos/02_libero_spatial_ood_task2_native_revision0.mp4"></video><p>Recorded failure; recorded physical rollout; 300 actions / 15s. Accepted / edit-effect / fallback actions: 0 / 0 / 0.</p><p>put the milk on the plate</p><a href="videos/02_libero_spatial_ood_task2_native_revision0.mp4" download>Original MP4</a></article><article><h3>libero_spatial_ood:seed19:task2:state0 · astra_tli_revision1</h3><video controls preload="metadata" playsinline style="width:280px;max-width:100%" src="videos/03_libero_spatial_ood_task2_astra_tli_revision1.mp4"></video><p>Recorded success; recorded physical rollout; 120 actions / 6s. Accepted / edit-effect / fallback actions: 120 / 120 / 0.</p><p>put the milk on the plate</p><a href="videos/03_libero_spatial_ood_task2_astra_tli_revision1.mp4" download>Original MP4</a></article><article><h3>libero_spatial_ood:seed19:task8:state0 · native_revision0</h3><video controls preload="metadata" playsinline style="width:280px;max-width:100%" src="videos/04_libero_spatial_ood_task8_native_revision0.mp4"></video><p>Recorded success; recorded physical rollout; 106 actions / 5.3s. Accepted / edit-effect / fallback actions: 0 / 0 / 0.</p><p>put the bowl at table center on the cabinet</p><a href="videos/04_libero_spatial_ood_task8_native_revision0.mp4" download>Original MP4</a></article><article><h3>libero_spatial_ood:seed19:task8:state0 · astra_vei_revision1</h3><video controls preload="metadata" playsinline style="width:280px;max-width:100%" src="videos/05_libero_spatial_ood_task8_astra_vei_revision1.mp4"></video><p>Recorded failure; forced stability check; no rescue; 300 actions / 15s. Accepted / edit-effect / fallback actions: 300 / 175 / 0.</p><p>put the bowl at table center on the cabinet</p><a href="videos/05_libero_spatial_ood_task8_astra_vei_revision1.mp4" download>Original MP4</a></article><article><h3>libero_spatial_ood:seed19:task8:state0 · astra_vli_revision1</h3><video controls preload="metadata" playsinline style="width:280px;max-width:100%" src="videos/06_libero_spatial_ood_task8_astra_vli_revision1.mp4"></video><p>Recorded success; forced stability check; no rescue; 125 actions / 6.25s. Accepted / edit-effect / fallback actions: 125 / 50 / 0.</p><p>put the bowl at table center on the cabinet</p><a href="videos/06_libero_spatial_ood_task8_astra_vli_revision1.mp4" download>Original MP4</a></article><p><a href="video_gallery.json">Exact selection, hashes, archive and audit provenance</a></p></section><section><h2>Independent audit and source downloads</h2><p><a href="audits/array_worker_0.json">array_worker_0.json</a> · <a href="audits/array_worker_1.json">array_worker_1.json</a> · <a href="audits/array_worker_2.json">array_worker_2.json</a> · <a href="audits/archive_review_summary.json">Joined numerical/archive receipt</a> · <a href="../behavior/README.md">Provider receipts and behavior evidence</a> · <a href="source/representation_report.py.txt">Exact reporter source</a> · <a href="source/export_result_videos.py.txt">Exact video exporter</a> · <a href="source/publish_partial_report.py.txt">Exact publication helper</a></p><p><a href="publication.json">Publication provenance</a> · <a href="manifest.json">All file hashes</a></p></section></main></html>

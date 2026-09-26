@@ -1,0 +1,90 @@
+{
+  "invocation": "python astra_reversal/.deps/representation-steering/publish_partial_report.py --repo REPO --compiled VERIFIED_COMPILED_DIR --output NEW_PUBLIC_DIR --array-audits WORKER0_AUDIT WORKER1_AUDIT WORKER2_AUDIT --archive-summary JOINED_ARCHIVE_REVIEW",
+  "modification": "Added portable audit/source download links and file inventory; canonical report, CSV, Markdown and original MP4 bytes unchanged.",
+  "modified_compiled_files": [
+    "index.html",
+    "manifest.json"
+  ],
+  "original_compiled_files": {
+    "case_arms.csv": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "development_stability.csv": {
+      "bytes": 13332,
+      "sha256": "96033f97382644d99999c2a1a4248e1cdd0b28896f577aa07251a1b6502e1286"
+    },
+    "index.html": {
+      "bytes": 23231,
+      "sha256": "41c5a331a8c706fc1dd27de6bf8ff0d98ff95f4a70463803dc6a7d8e99891392"
+    },
+    "physical_rollouts.csv": {
+      "bytes": 53412,
+      "sha256": "f0e11c6e207ee0a1799cceeaf515ef8c2ea511194cf96fb7f7a49c27b84d7945"
+    },
+    "protocol.json": {
+      "bytes": 4744,
+      "sha256": "13a3278c83386bd5e28c8870ec344c2c54c2df714bf93103202663f382636e22"
+    },
+    "report.json": {
+      "bytes": 789760,
+      "sha256": "76a4c36cb60f5145ecfe6177af51efd44297050b2a3e64716a0fdd0fba544dcf"
+    },
+    "report.md": {
+      "bytes": 12978,
+      "sha256": "36dbd18f7f9fea6554da8d934159b32e725ec90dd3018a4f389cc7b8c7bbe3f5"
+    },
+    "revision_budgets.csv": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "source/export_result_videos.py.txt": {
+      "bytes": 8689,
+      "sha256": "db4fb1c89e8c19ccdbe7540b93888351bb65d81e95d5556f7251c02352b19584"
+    },
+    "unfinished_attempts.csv": {
+      "bytes": 1052,
+      "sha256": "6099016adfaa1c92ce70f2b04f99626fdcec703a6192db0d30b2d360ce614e1e"
+    },
+    "verified_completed_rollouts.csv": {
+      "bytes": 56773,
+      "sha256": "ebb2bee228a35e45c48e27e8212b7490faa2d30d8e6475dae033fbe2159abbb5"
+    },
+    "video_gallery.json": {
+      "bytes": 11902,
+      "sha256": "54387117a978be6017acd5e9844b5362fe6475286ff9a3408b475dd9c2138a42"
+    },
+    "videos/00_libero_goal_ood_task6_native_revision0.mp4": {
+      "bytes": 64969,
+      "sha256": "a5f85cf726390db282cf2c23d3f4c72922c12c934b0b3f96103082ef7ef1d909"
+    },
+    "videos/01_libero_goal_ood_task6_astra_tei_revision2.mp4": {
+      "bytes": 30219,
+      "sha256": "254a127941f7b3c8d8dbb8836dba8752d00ca8a041c4250955428947cc2363ce"
+    },
+    "videos/02_libero_spatial_ood_task2_native_revision0.mp4": {
+      "bytes": 90575,
+      "sha256": "48264456cba819227c98a7c5fca1fa55aec69fef51fd17c5e6137b7e21a6e16b"
+    },
+    "videos/03_libero_spatial_ood_task2_astra_tli_revision1.mp4": {
+      "bytes": 41704,
+      "sha256": "22164b1674c0adae2f3cae72c8ee06173f837048f93137f568c1ebaf6577308e"
+    },
+    "videos/04_libero_spatial_ood_task8_native_revision0.mp4": {
+      "bytes": 35921,
+      "sha256": "2d025845500e96da5371eea7e6bbf3f22c2fbaf1335a76843373d086755a0cb0"
+    },
+    "videos/05_libero_spatial_ood_task8_astra_vei_revision1.mp4": {
+      "bytes": 120136,
+      "sha256": "0c797ed54a6d42d4f633a16ca591a97380e1cd755db573b2fa1c86187066d732"
+    },
+    "videos/06_libero_spatial_ood_task8_astra_vli_revision1.mp4": {
+      "bytes": 50140,
+      "sha256": "1ce79a1c1d2eac7065f7a4b84a7dd1433b0cf5ae9cff30ddf7bfb3794e056481"
+    }
+  },
+  "original_compiled_manifest_sha256": "fe4c1f3dff2c65c2f718da89323cc71ca149c7de2078ee6496bb60651dda6e37",
+  "report_sha256_unchanged": "76a4c36cb60f5145ecfe6177af51efd44297050b2a3e64716a0fdd0fba544dcf",
+  "schema_version": "representation-partial-publication-1.0",
+  "source_sha256": "4ab4ead8bce2fe0b4d665f1af8a5f659abe50ea6f38a42e789a7fa023808d938"
+}

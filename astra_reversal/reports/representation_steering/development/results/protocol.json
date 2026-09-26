@@ -1,0 +1,132 @@
+{
+  "action_budget": 300,
+  "arms": [
+    "native_retry",
+    "random_tli",
+    "random_vei",
+    "random_vli",
+    "astra_tei",
+    "astra_tli",
+    "astra_vei",
+    "astra_vli",
+    "astra_tli_vli",
+    "astra_pixel_blend"
+  ],
+  "astra": {
+    "call_interval": 25,
+    "failure_policy": "clear active intervention; fresh native conditioning until the next scheduled decision",
+    "hold": "Accepted choices are reapplied to fresh observations at every 5-action replan until the next scheduled decision; no asynchronous responses.",
+    "max_calls_per_rollout": 12,
+    "max_completion_tokens": 8192,
+    "max_current_snapshots": 4,
+    "max_previous_decisions": 2,
+    "model": "azure/openai/gpt-6-astra",
+    "reasoning_effort": "medium",
+    "retries": 0,
+    "timeout_seconds": 170
+  },
+  "development_cases": {
+    "libero_goal_ood": [
+      [
+        6,
+        0
+      ]
+    ],
+    "libero_spatial_ood": [
+      [
+        2,
+        0
+      ],
+      [
+        8,
+        0
+      ]
+    ]
+  },
+  "development_seed": 19,
+  "evaluation_cases": [
+    [
+      0,
+      0
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      2,
+      0
+    ],
+    [
+      3,
+      0
+    ],
+    [
+      4,
+      0
+    ],
+    [
+      5,
+      0
+    ],
+    [
+      6,
+      0
+    ],
+    [
+      7,
+      0
+    ],
+    [
+      8,
+      0
+    ],
+    [
+      9,
+      0
+    ]
+  ],
+  "execute_steps": 5,
+  "feedback": {
+    "current": "Up to4 recent raw paired observations, proprioception, original task, own2 previous decisions, and labeled training-donor contact sheets.",
+    "dense_reward_or_object_pose": false,
+    "online_privileged_feedback": false,
+    "previous_rollout": "Own latest completed rollout's4 raw paired snapshots and binary benchmark outcome; first revision receives shared baseline. No cross-arm feedback."
+  },
+  "learning": {
+    "base_policy_frozen": true,
+    "claim": "Assisted correction study, not autonomous learned improvement.",
+    "enabled": false
+  },
+  "noise": "Fresh native full-dimensional Gaussian per replan; identical keyed stream across all arms at the same episode/revision/step. Revision0 is the shared native baseline. Revisions1,2 use new matched streams, including native_retry.",
+  "representations": {
+    "pixel_blend": "Round-to-nearest uint8 convex blend of current raw pixels and the same verified donor pair before native vision encoding.",
+    "random_controls": "At each25-action decision, sample uniformly from the same donor/source catalogs and alpha uniformly on [0,1]; distinct A/B text sources. Independent intervention RNG, same policy noise as Astra. Astra may also explicitly defer to native; random controls do not model its deferral distribution.",
+    "tei": "Existing instruction-token interpolation: (1-alpha)E_A+alpha E_B; alpha0 selects A, alpha1 selects B.",
+    "tli": "Existing instruction-token residual after blocks0..16: h += (1-2alpha)(T_A-T_B); alpha0.5 is zero. Nine frozen demonstration-mean text banks remain unchanged.",
+    "tli_vli": "Disjoint text residual and visual convex interventions in the same prefix forward, with independent language and vision coefficients.",
+    "vei": "For both observed cameras, convex interpolation of current post-projector image-prefix tokens toward the same-grid tokens of one verified paired training frame; alpha0 is native.",
+    "vision_bank_prompt": "Current original target instruction; donor task prompt is metadata only. No donor proprioception is imported.",
+    "vision_library": "Existing45 fixed paired training frames from nine standard LIBERO tasks; no OOD demonstrations.",
+    "vli": "For both observed cameras, convex interpolation of current post-block visual slots toward the corresponding slots of one verified paired training frame at blocks0..16; alpha0 is native. No direct writes to text slots."
+  },
+  "revisions": 2,
+  "schema_version": "representation-steering-1.0",
+  "scope": "Exploratory follow-up on all20 known OOD compositions with a new seed47/reset0; not held-out-task generalization or a paper pi0 replication. Historical studies use different settings and are not pooled.",
+  "seed": 19,
+  "solver": {
+    "solver": "euler",
+    "steps": 10,
+    "time_power": 1.0
+  },
+  "stopping": "Stop an arm after first benchmark success or2 intervention revisions. A successful shared baseline needs no intervention. Development additionally executes one revision for implementation coverage, explicitly excluded from success gains.",
+  "suites": [
+    "libero_goal_ood",
+    "libero_spatial_ood"
+  ],
+  "video": {
+    "every_rollout": true,
+    "fps": 20,
+    "source": "Unmodified policy external-camera frame before every executed action; recording excludes inference pauses and the terminal post-action frame."
+  }
+}

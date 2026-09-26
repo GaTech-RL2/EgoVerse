@@ -1,0 +1,199 @@
+{
+  "archive": {
+    "all_member_hashes_verified": true,
+    "bytes": 209689758,
+    "content_length": 209689758,
+    "etag": "\"129d5a29813d626419eb15770f2efaa1-25\"",
+    "gzip_crc_verified": true,
+    "key": "experiments/astra-reversal-20260924/astra-pi05-representation-development-20260926-1/worker_2/task_8.tar.gz",
+    "last_modified": "Sat, 26 Sep 2026 19:16:25 GMT",
+    "member_paths_safe": true,
+    "retained_local": true,
+    "sha256": "1bfcefbc0f285972772df2fe6904bf3362287094ff8cfa1ed3b976b83a4c5c62"
+  },
+  "checks": {
+    "all_npy_references_verified": true,
+    "all_regular_members_verified": true,
+    "complete_sealed_case": true,
+    "condition_ids_verified": true,
+    "keyed_noise_exact": true,
+    "native_action_decoding_exact": true,
+    "native_tensor_receipts_equal": true,
+    "paired_resets_exact": true,
+    "recorded_direct_slot_boundaries_verified": true
+  },
+  "counts": {
+    "actions": 2931,
+    "array_references": 3656,
+    "arrays": 3656,
+    "flow_velocity_evaluations": 5870,
+    "generations": 587,
+    "native_parity_velocity_evaluations": 10,
+    "physical_rollouts": 11,
+    "probe_velocity_evaluations": 120,
+    "velocity_evaluations": 6000
+  },
+  "episode_id": "libero_spatial_ood:seed19:task8:state0",
+  "identities": {
+    "bank_inventory_sha256": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "image_library_id": "a5029e337631628a8d4e9a0098e308d411841411f668a3e6c36490560e5bd8e2",
+    "native_tensor_sha256": "c0c8d17e2c875a7f60c919e3c8f4545c29ed97f20570ff4d75bad5b184e244d6",
+    "payload_sha256": "3d96a34778ba3bd0017e4f62086cd46650a911e150ac9ddc05ff8f5d65b4859f",
+    "protocol_sha256": "2c2d887308fc9c6a67e1c711278e716b89399e3b7661f9f669c0845f4a883875",
+    "reset_manifest_sha256": "31af5ee35b3cbe6eabf84e9a96fc31707daf17c751535736e89be19e34559ace",
+    "source_revision": "a3ca1e84b6213d9d53eaafa55f969571fa0be770"
+  },
+  "input_file_sha256": {
+    "completion_receipt.json": "770da5ea33ef85d7ea4389a0f8ab5afd01b21f95bdd4c353cda49d4a0bcc3f79",
+    "events.jsonl": "a8910d223355291f27c4afbfaa522840e4e69beaf7a077aedef17dd7c50a6234",
+    "frozen_weights_after.json": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+    "provider.jsonl": "2307b2086b5cdb45fc2570ac2df756adf3e46643754f3b8f2a39867b5ad23211",
+    "summary.json": "02245406af5a2ae1a0e79eb1b70ac6816d56ad8dfdb2c655c170cb7fa70e3c23"
+  },
+  "inventory_sha256": {
+    "arrays": "a53fcf01991525c10e11bc5ef7f99787a8edf1ed652ff84cde0ea8b8998a38d3",
+    "members": "98104436e0b43839807c1141b0a0b520a56a2a76765e419d1ff2ed713e99dc45"
+  },
+  "limitations": [
+    "No GPU, hidden-state, simulator, model-parameter or provider-call rerun.",
+    "Layer/probe metrics are hash-bound worker recordings; complete hidden/action probe tensors were not recorded.",
+    "Executed prefixes follow the frozen five-action helper and completed action counts; individual simulator step actions were not separately recorded.",
+    "Provider payload/response/PNG-history joins are delegated to the independent provider audit.",
+    "Remote keys are operationally immutable, not WORM; remote recovery needs current credentials or a valid signed URL and repeat SHA/size verification."
+  ],
+  "numerical": {
+    "native_parity": {
+      "max_abs": 0.0,
+      "rmse": 0.0
+    },
+    "weighted_vision": {
+      "alpha": 0.5,
+      "bank_id": "bb5faadbda7365f42854950d8efb5caf76368b94b5e79b8cff381bab297c3983",
+      "checks": {
+        "composite_neutral": true,
+        "existing_tli_composition_parity": true,
+        "native_sampler_parity": true,
+        "parameter_versions_unchanged": true,
+        "same_donor_vei": true,
+        "same_donor_vli": true,
+        "vei_0.0": true,
+        "vei_0.0_protected": true,
+        "vei_0.5": true,
+        "vei_0.5_protected": true,
+        "vli_0.0": true,
+        "vli_0.0_protected": true,
+        "vli_0.5": true,
+        "vli_0.5_protected": true
+      },
+      "control_error_from_native": {
+        "vei_0.0": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "vei_0.5": {
+          "max_abs": 1.997120440006256,
+          "rmse": 0.8296647531822169
+        },
+        "vli_0.0": {
+          "max_abs": 0.0,
+          "rmse": 0.0
+        },
+        "vli_0.5": {
+          "max_abs": 1.9958744049072266,
+          "rmse": 0.8666357928622783
+        }
+      },
+      "difference_is_not_absolute_saturation": true,
+      "native_sampler_parity": {
+        "max_abs": 0.0,
+        "rmse": 0.0,
+        "tolerance": 1e-05,
+        "velocity_evaluations": 10
+      },
+      "per_axis_probe_errors_available": false,
+      "probe_sha256": "d4f71f3d7e95c94395b3be959a7d5f7f87500e19fe35e63c7f89c1914b272eb2",
+      "status": "passed",
+      "velocity_evaluations": 120
+    }
+  },
+  "postprocessor": {
+    "normalization_sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+    "scientific_source_sha256": {
+      "action_adapter.py": "4e3b800923761aae73933340c646db945399005eec3b7e0c9dc933db69cb84e6",
+      "image_donor_bank.py": "ad4b7af6539cd5c8a1e4f0806a3c66259f47e9fbad466dd6743e9c00a258ea8f",
+      "interpolation_catalog.py": "803d7518065bfc73d1cbff8f7d692a02c8dd9aac3bd447e27fc60585ce5f4916",
+      "interpolation_conditioning.py": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+      "intervention_rollout.py": "be662dc5f4e13b74e14558e6bc663a86d99bc37aff6f30f723b17915c2656040",
+      "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+      "libero_runner.py": "4f96aca61c2d8534377ba6ad92e946b9aba2432f5643fb3c5444177045cad61b",
+      "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+      "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2",
+      "representation_agent.py": "c55a20187f77dc7e38eeae2456fff56fa5de7c0e10ace28105f5f816b8b8d33f",
+      "representation_search.py": "ab7680fac9c402affa1857efbc80e82dbf49206f5b9aa3696ae18ec0e282cc8e",
+      "vision_interpolation.py": "c74a281331ada07e5e2b2f0a327f4bc111f16dba54916b7da3151eaae241ead8"
+    },
+    "source_sha256": "97331b6cfbddd65f7bd6f9d7711c4cbcc6e014ff074f2729899c3b192083e783"
+  },
+  "preserved_videos": {
+    "astra_pixel_blend_revision1.mp4": {
+      "bytes": 104192,
+      "sha256": "815cc10cbe8ad854aa5d39a27e8fa15aae9bd801d0a9e9b4dbabaf57de94cd04"
+    },
+    "astra_tei_revision1.mp4": {
+      "bytes": 104965,
+      "sha256": "7adac2c331e838f40d44b5170d36724566e1bfb85c66441acc34ae734e4d5b76"
+    },
+    "astra_tli_revision1.mp4": {
+      "bytes": 112182,
+      "sha256": "4615304934e3b2d8997e1954de989c2446c2e8389896e8c2755403befc7efa21"
+    },
+    "astra_tli_vli_revision1.mp4": {
+      "bytes": 104192,
+      "sha256": "815cc10cbe8ad854aa5d39a27e8fa15aae9bd801d0a9e9b4dbabaf57de94cd04"
+    },
+    "astra_vei_revision1.mp4": {
+      "bytes": 120136,
+      "sha256": "0c797ed54a6d42d4f633a16ca591a97380e1cd755db573b2fa1c86187066d732"
+    },
+    "astra_vli_revision1.mp4": {
+      "bytes": 50140,
+      "sha256": "1ce79a1c1d2eac7065f7a4b84a7dd1433b0cf5ae9cff30ddf7bfb3794e056481"
+    },
+    "native_retry_revision1.mp4": {
+      "bytes": 104192,
+      "sha256": "815cc10cbe8ad854aa5d39a27e8fa15aae9bd801d0a9e9b4dbabaf57de94cd04"
+    },
+    "native_revision0.mp4": {
+      "bytes": 35921,
+      "sha256": "2d025845500e96da5371eea7e6bbf3f22c2fbaf1335a76843373d086755a0cb0"
+    },
+    "random_tli_revision1.mp4": {
+      "bytes": 105801,
+      "sha256": "35439ecf5e19fcd2fe66ebf944291e0e7a4a02f15a2c0a38adc27dc53d5a906e"
+    },
+    "random_vei_revision1.mp4": {
+      "bytes": 99845,
+      "sha256": "20985ffd67f564680bf22233f1d7bee6feca3902fc29c4962c6db4bccd16f3dd"
+    },
+    "random_vli_revision1.mp4": {
+      "bytes": 70575,
+      "sha256": "411a65789d72abae169e1dd9db95227c9f1cc52d61c1335726e93bad3400d59a"
+    }
+  },
+  "schema_version": "representation-case-array-audit-1",
+  "status": "passed",
+  "task_id": 8,
+  "worker": 2,
+  "worker_metadata_sha256": {
+    "bank_inventory.json": "27613179e27ab4164502c026038809bd4db71c188d01204e926d0d6b8df746d0",
+    "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+    "frozen_plan.json": "3fa887594214d6d314163d1f1c1f6cb8aebde431438736f3afb3984206cdc33f",
+    "frozen_weights_before.json": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+    "image_library.json": "d8e9255c0b5bcd38df2770705eca6749c4817c8d2bf36fa95911ef2e5a4cb4e0",
+    "prompts.json": "38d3c0b519b05c4d72ac008cd37fec1e1e3fe19f1e986ee0fbbf0bb9cba42bb1",
+    "protocol.json": "7e26d73f3aa1c9363c25a8c68039e6b9c302ed5a8ee9c80540b9e6aafabf5806",
+    "reset_manifest.json": "7c72a56781d86b639a9db99bb37158a093f6a7d4c26908fde5c59bd04707e595",
+    "runtime.json": "774295df184d7897439809ec1612924173def60c9b0e82d65225a4d7a38b6dd7"
+  },
+  "workflow": "astra-pi05-representation-development-20260926-1"
+}

@@ -1,0 +1,193 @@
+"""Append small original MP4 examples to an existing audit-gated result bundle.
+
+Uses only local archive-verified members. No download, model, simulator,
+transcoding or frame modification. Selection is descriptive and explicit.
+"""
+
+import argparse
+import hashlib
+import html
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text())
+
+
+def write(path, value):
+    path.write_text(json.dumps(value, sort_keys=True, indent=2) + "\n")
+
+
+def select(report):
+    rows = report["verified_completed_rollout_observations"]
+    order = {episode: i for i, episode in enumerate(report["expected_episode_ids"])}
+    rows = sorted(rows, key=lambda row: (order[row["episode_id"]], row["revision"]))
+    baselines = {r["episode_id"]: r for r in rows if r["arm"] == "native"}
+    chosen = []
+    for arm in ("astra_tei", "astra_tli", "astra_vei", "astra_vli"):
+        candidates = [
+            r
+            for r in rows
+            if r["arm"] == arm
+            and r["accepted_decisions_executed"] > 0
+            and r["nonzero_intervention_actions"] > 0
+        ]
+        if arm in ("astra_tei", "astra_tli"):
+            candidates = [
+                r
+                for r in candidates
+                if r["recorded_success"]
+                and not baselines[r["episode_id"]]["recorded_success"]
+            ]
+        if candidates:
+            chosen.append(candidates[0])
+    selected = []
+    for row in chosen:
+        baseline = baselines[row["episode_id"]]
+        if baseline not in selected:
+            selected.append(baseline)
+        selected.append(row)
+    return selected
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--cases", type=Path, nargs="+", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args(argv)
+    report = read(args.report)
+    destination = args.output.resolve()
+    assert sha(destination / "report.json") == sha(args.report)
+    cases = {read(p / "summary.json")["episode_id"]: p for p in args.cases}
+    metadata = {c["episode_id"]: c for c in report["cases"]}
+    videos = destination / "videos"
+    videos.mkdir(exist_ok=False)
+    rows = []
+    for index, row in enumerate(select(report)):
+        episode, attempt = row["episode_id"], row["attempt_id"]
+        case = metadata[episode]
+        assert case["audit"]["status"] in ("passed", "verified_partial")
+        directory = cases[episode]
+        assert sha(directory / "summary.json") == case["summary_sha256"]
+        source = directory / row["video_file"]
+        assert source.name == row["video_file"] and sha(source) == row["video_sha256"]
+        probe = json.loads(
+            subprocess.check_output(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-count_frames",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=codec_name,nb_read_frames,r_frame_rate,width,height",
+                    "-of",
+                    "json",
+                    str(source),
+                ]
+            )
+        )["streams"][0]
+        assert probe["codec_name"] == "h264" and probe["r_frame_rate"] == "20/1"
+        assert int(probe["nb_read_frames"]) == row["actions"]
+        name = f"{index:02d}_{case['suite']}_task{case['task_id']}_{attempt}.mp4"
+        shutil.copyfile(source, videos / name)
+        rows.append(
+            {
+                "episode_id": episode,
+                "attempt_id": attempt,
+                "instruction": case["instruction"],
+                "video": f"videos/{name}",
+                "sha256": row["video_sha256"],
+                "bytes": source.stat().st_size,
+                "recorded_success": row["recorded_success"],
+                "actions": row["actions"],
+                "fps": 20,
+                "seconds": row["actions"] / 20,
+                "forced_after_baseline_success": row["forced_after_baseline_success"],
+                "accepted_decision_actions": row["accepted_decision_actions"],
+                "nonzero_intervention_actions": row["nonzero_intervention_actions"],
+                "provider_failure_fallback_actions": row[
+                    "provider_failure_fallback_actions"
+                ],
+                "audit_scope": case["audit"]["status"],
+                "summary_sha256": case["summary_sha256"],
+                "array_receipt_sha256": case["audit"]["array_receipt_sha256"],
+                "provider_receipt_sha256": case["audit"]["provider_receipt_sha256"],
+                "archive": case["audit"]["archive"],
+            }
+        )
+    assert sum(r["bytes"] for r in rows) < 15 * 1024 * 1024
+    receipt = {
+        "schema_version": "representation-result-videos-1.0",
+        "report_sha256": sha(args.report),
+        "phase": report["phase"],
+        "source_sha256": sha(__file__),
+        "videos": rows,
+        "selection": "First prescribed-case-order verified baseline-failed recorded success with executed nonzero Astra choices for TEI/TLI; first completed nonzero accepted VEI/VLI rollout regardless of outcome; include each selected case's original native baseline once. Outcome-selected descriptive examples, not a rate estimate.",
+        "timing": "Original raw external-camera pre-action frames at 20 fps. Exactly one frame per executed action, no inference pauses/stabilization/terminal post-action image. No transcoding or replay.",
+        "comparison": "Same prescribed reset per case; revision noise changes. Forced-after-baseline rows are stability checks, not rescues. Recorded success is the benchmark predicate, not proof of stable release or intervention causation.",
+    }
+    write(destination / "video_gallery.json", receipt)
+    sources = destination / "source"
+    sources.mkdir(exist_ok=True)
+    shutil.copyfile(__file__, sources / "export_result_videos.py.txt")
+    cards = []
+    for row in rows:
+        label = (
+            "forced stability check; no rescue"
+            if row["forced_after_baseline_success"]
+            else "recorded physical rollout"
+        )
+        cards.append(
+            f'<article><h3>{html.escape(row["episode_id"])} · {html.escape(row["attempt_id"])}</h3><video controls preload="metadata" playsinline style="width:280px;max-width:100%" src="{row["video"]}"></video><p>{"Recorded success" if row["recorded_success"] else "Recorded failure"}; {label}; {row["actions"]} actions / {row["seconds"]:g}s. Accepted / edit-effect / fallback actions: {row["accepted_decision_actions"]} / {row["nonzero_intervention_actions"]} / {row["provider_failure_fallback_actions"]}.</p><p>{html.escape(row["instruction"])}</p><a href="{row["video"]}" download>Original MP4</a></article>'
+        )
+    page = destination / "index.html"
+    value = page.read_text()
+    assert '<section id="original-videos">' not in value and "</main>" in value
+    section = (
+        '<section id="original-videos"><h2>Original verified rollout videos</h2><p>Descriptive selected observations, not complete-cohort efficacy. Playback is 20 fps and excludes inference pauses and the terminal post-action image. Policy inputs are never annotated in these videos.</p>'
+        + "".join(cards)
+        + '<p><a href="video_gallery.json">Exact selection, hashes, archive and audit provenance</a></p></section>'
+    )
+    page.write_text(value.replace("</main>", section + "</main>"))
+    old_manifest = sha(destination / "manifest.json")
+    write(
+        destination / "manifest.json",
+        {
+            "schema_version": "representation-report-publication-1.0",
+            "prior_manifest_sha256": old_manifest,
+            "report_sha256_unchanged": sha(args.report),
+            "video_exporter_sha256": sha(__file__),
+            "files": {
+                str(p.relative_to(destination)): {
+                    "sha256": sha(p),
+                    "bytes": p.stat().st_size,
+                }
+                for p in sorted(destination.rglob("*"))
+                if p.is_file() and p != destination / "manifest.json"
+            },
+        },
+    )
+    print(
+        json.dumps(
+            {
+                "status": "verified",
+                "videos": len(rows),
+                "video_bytes": sum(r["bytes"] for r in rows),
+                "gallery_sha256": sha(destination / "video_gallery.json"),
+            }
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

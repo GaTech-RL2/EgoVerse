@@ -18,14 +18,7 @@ velocity evaluations and 775 provider calls. Known usage is **at least
 cohort's failed calls and counts the shared baseline once. Setup and interrupted
 attempts remain separate.
 
-The full evaluation is now **in progress** on eight L40S workers in
-[`astra-pi05-frs-evaluation-20260925-1`](https://us-west-2-aws.osmo.nvidia.com/workflows/astra-pi05-frs-evaluation-20260925-1).
-It covers all 20 known tasks at seed 43, with adaptation reset 0 and ten separate
-evaluation resets per task. Its six final methods contribute 200 episodes each,
-with 400 additional evaluations of the first two learned checkpoints and 140
-physical adaptation rollouts: **1,740 planned rollouts**. These are planned
-counts, not completed evaluation results. New resets of known compositions do
-not establish novel-task generalization.
+The full evaluation was **interrupted when the inference key reached its spending cap**. All eight L40S workers stopped and retained their final archives. 5 of 20 planned task records had complete independent audits; no all 20-task FRS success rate is available. The [interruption and cost report](EVALUATION_INTERRUPTION.md) records 6,587 calls and at least 15,562,019 reported tokens, including failed calls. Its planned 1,740 rollouts were not all completed. A funded inference credential is needed to continue.
 
 The [HTML method report](index.html) brings together the completed development
 summary, current evaluation snapshot, all 20 task names, two flow diagrams,

@@ -1,0 +1,132 @@
+"""Update only the FRS status narrative, preserving completed development evidence."""
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+
+root = Path("astra_reversal/reports/frs_policy_improvement")
+run = Path("astra_reversal/.deps/frs-evaluation-v1")
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def write_json(path, value):
+    path.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
+
+
+manifest_path = root / "method_report_manifest.json"
+old_manifest_sha = sha(manifest_path)
+manifest = json.loads(manifest_path.read_text())
+for name, record in manifest["files"].items():
+    assert sha(root / name) == record["sha256"]
+    assert (root / name).stat().st_size == record["bytes"]
+status_path = run / "budget-stop-status-final.json"
+raw_status = status_path.read_text()
+status = json.loads(raw_status[raw_status.index("{"):])
+assert status["status"] == "FAILED"
+workers = [task for group in status["groups"] for task in group["tasks"]]
+assert len(workers) == 8 and all(task["status"] == "FAILED" for task in workers)
+reviews = json.loads((run / "interruption_review/index.json").read_text())
+assert reviews["status"] == "all_eight_final_archives_cost_verified"
+assert len(reviews["workers"]) == 8
+tasks = [task for worker in reviews["workers"] for task in worker["tasks"]]
+usage = {key: sum(task["provider_usage"].get(key, 0) for task in tasks)
+         for key in ("calls", "accepted_calls", "failed_calls", "http_429", "explicit_budget_exceeded")}
+usage["tokens"] = {key: {part: sum(task["provider_usage"]["tokens"][key][part] for task in tasks)
+                         for part in ("sum", "missing_calls")}
+                   for key in ("input_tokens", "output_tokens", "reasoning_tokens", "total_tokens")}
+assert usage["calls"] == usage["accepted_calls"] + usage["failed_calls"]
+audited = []
+for path in sorted((run / "audits").glob("worker_*/task_*/receipt.json")):
+    receipt = json.loads(path.read_text())
+    assert receipt["status"] == "passed" and receipt["workflow"] == status["name"]
+    assert sha(run / receipt["audit_path"]) == receipt["audit_sha256"]
+    audited.append({"worker": receipt["worker"], "task_id": receipt["task_id"],
+                    "receipt_sha256": sha(path), "audit_sha256": receipt["audit_sha256"],
+                    "completion_receipt_sha256": receipt["completion_receipt_sha256"]})
+stamp = datetime.now(timezone.utc).isoformat()
+incident = {"schema_version": "frs-budget-interruption-1", "status": "interrupted_budget_exhausted",
+            "workflow": status["name"], "snapshot_time_utc": stamp, "terminal_osmo_status": "FAILED",
+            "end_time_utc": status["end_time"], "status_receipt_sha256": sha(status_path),
+            "reason": "Inference provider returned budget_exceeded for the configured key. Its account spending cap was exhausted; account-wide budget use is not attributed entirely to this study.",
+            "action": "Sent SIGINT to the exact experiment process on each allocated worker so finally blocks retained archives; no replacement run submitted.",
+            "remaining_work": "Restore funded inference, preserve this interrupted attempt and validate a separate continuation/restart before publishing the complete 20-task cohort.",
+            "all_twenty_efficacy_complete": False, "planned_tasks": 20, "planned_physical_rollouts": 1740,
+            "completed_sealed_task_audits": audited,
+            "recorded_complete_rollouts": sum(task["recorded_complete_rollouts"] for task in tasks),
+            "recorded_complete_rollout_actions": sum(task["recorded_complete_actions"] for task in tasks),
+            "provider_usage": usage, "archive_cost_reviews": reviews["workers"],
+            "limits": ["Completed task subset is execution-selected and cannot estimate all 20-task performance.",
+                       "All eight final archives were SHA/size/gzip-EOF verified for descriptive ledger costs. Only the listed completed tasks have full numerical and behavior audits.",
+                       "Provider errors and any work in unfinished rollouts remain charged to this interrupted attempt; unavailable usage is unknown, never zero.",
+                       "Rollout/action counts below include only completed summary rows; they exclude actions in interrupted in-flight rollouts.",
+                       "Reasoning tokens are included in output tokens. No dollar price or account billing reconciliation is inferred."]}
+write_json(root / "evaluation_interruption.json", incident)
+total = usage["tokens"]["total_tokens"]
+note = f"""# Full FRS evaluation interrupted by the inference spending cap
+
+The eight-worker L40S run `{status['name']}` ended at {status['end_time']} UTC after the inference provider returned `budget_exceeded`. All experiment processes were stopped and their final archives retained. This is an incomplete experiment, not an all 20-task result. The configured key's account-wide spending cap does not identify this study's dollar cost.
+
+There are {len(audited)} independently audited, sealed completed tasks out of 20 planned. The final worker summaries contain {incident['recorded_complete_rollouts']:,} completed physical rollouts and {incident['recorded_complete_rollout_actions']:,} actions in those rollouts. These counts omit unfinished rollout prefixes; the execution-selected task subset is not a representative SR estimate.
+
+The final archived ledgers contain **{usage['calls']:,} calls**, {usage['accepted_calls']:,} accepted and {usage['failed_calls']:,} failed/rejected. Reported usage is **at least {total['sum']:,} tokens**, with {total['missing_calls']:,} calls missing total usage. There are {usage['http_429']:,} HTTP 429 responses, of which {usage['explicit_budget_exceeded']:,} explicitly expose the allowlisted `budget_exceeded` type. Unknown or differently shaped errors are not silently reclassified. Reasoning usage is an output subset.
+
+Every final worker archive was read to gzip EOF and bound by compressed SHA256/size to its retained summaries and provider ledgers. This supports descriptive cost accounting; it is not a full numerical/behavior audit of interrupted cases. [Machine-readable evidence](evaluation_interruption.json) retains all scopes and hashes without credentials or provider aliases.
+
+The completed three-case FRS development results remain unchanged. The [new representation report](../representation_steering/index.html) separately describes TEI/TLI/VEI/VLI and the same account-budget interruption. A funded credential is needed before the remaining Astra comparisons can be completed; no replacement has been launched.
+"""
+(root / "EVALUATION_INTERRUPTION.md").write_text(note)
+
+infra = json.loads((root / "infrastructure.json").read_text())
+assert infra["active_status"] == "running"
+active = next(item for item in infra["runs"] if item["workflow"] == status["name"])
+active["status_history"].append({key: active[key] for key in
+                                ("status", "submit_time_utc", "start_time_utc", "end_time_utc", "status_receipt_sha256", "reason", "provider_call_scope")})
+active.update(status="FAILED", end_time_utc=status["end_time"], status_receipt_sha256=sha(status_path),
+              reason=incident["reason"], efficacy_scope="Interrupted; complete 20-task efficacy remains unavailable.",
+              provider_call_scope="Final archive-bound descriptive costs in evaluation_interruption.json; unknown usage retained.",
+              interruption_report="evaluation_interruption.json")
+active["workers"] = [{"name": task["name"], "status": task["status"],
+                      "start_time_utc": task.get("start_time"), "end_time_utc": task.get("end_time")}
+                     for task in workers]
+infra.update(active_status="interrupted_budget_exhausted", snapshot_time_utc=stamp)
+write_json(root / "infrastructure.json", infra)
+
+readme = (root / "README.md").read_text()
+start = readme.index("The full evaluation is now **in progress**")
+stop = readme.index("The [HTML method report]", start)
+readme = readme[:start] + f"""The full evaluation was **interrupted when the inference key reached its spending cap**. All eight L40S workers stopped and retained their final archives. {len(audited)} of 20 planned task records had complete independent audits; no all 20-task FRS success rate is available. The [interruption and cost report](EVALUATION_INTERRUPTION.md) records {usage['calls']:,} calls and at least {total['sum']:,} reported tokens, including failed calls. Its planned 1,740 rollouts were not all completed. A funded inference credential is needed to continue.
+
+""" + readme[stop:]
+(root / "README.md").write_text(readme)
+replacements = {"running 20-task seed-43 evaluation": "interrupted 20-task seed-43 evaluation",
+                "Full FRS evaluation results remain pending.": "Full FRS evaluation remains incomplete after the account-budget interruption; see the report hub.",
+                "The unchanged prompts are also deployed in the running full evaluation.": "The unchanged prompts were used in the full evaluation, which was interrupted by the inference spending cap."}
+for name in ("COVERAGE.md", "PROMPTS.md"):
+    content = (root / name).read_text()
+    for old, new in replacements.items():
+        content = content.replace(old, new)
+    (root / name).write_text(content)
+body = (root / "index.html").read_text()
+body = body.replace("completed development and running evaluation", "completed development and interrupted evaluation")
+body = body.replace("FULL 20-TASK EVALUATION RUNNING", "FULL EVALUATION INTERRUPTED · INFERENCE BUDGET")
+body = body.replace("The full evaluation is running separately; no full-evaluation estimate is available yet.", "The full evaluation stopped after the inference key exhausted its spending budget; no full-evaluation estimate is available.")
+begin = body.index('<section id="status">')
+end = body.index('</section>', begin) + len('</section>')
+body = body[:begin] + f'''<section id="status"><h2>Full evaluation interrupted by inference budget</h2><div class="status"><strong>All eight L40S workers have stopped.</strong> The endpoint returned <code>budget_exceeded</code>; the workers retained their final archives. Last worker ended {status['end_time']} UTC. Snapshot: {stamp}.</div><p>{len(audited)} of 20 planned tasks have complete sealed audits. This execution-selected subset is not a full20-task success estimate. The frozen protocol planned 1,740 rollouts; {incident['recorded_complete_rollouts']:,} completed physical rollouts are recorded, plus unfinished prefixes that are not counted in that total.</p><p>The final archived ledgers contain {usage['calls']:,} calls and <strong>at least {total['sum']:,} reported tokens</strong>; {total['missing_calls']:,} calls have unknown total usage. These costs include failures and remain separate from completed development. They do not establish an account billing total.</p><p><a href="EVALUATION_INTERRUPTION.md">Interruption and cost report</a> · <a href="evaluation_interruption.json">Archive-bound evidence</a> · <a href="infrastructure.json">Preserved infrastructure history</a> · <a href="../representation_steering/index.html">Representation results and rollout videos</a></p><p>A funded inference credential is required before remaining Astra comparisons can continue. No replacement run has been submitted.</p></section>''' + body[end:]
+for old, new in replacements.items():
+    body = body.replace(old, new)
+(root / "index.html").write_text(body)
+source = root / "source/publish_frs_budget_stop.py.txt"
+source.parent.mkdir(exist_ok=True)
+source.write_bytes(Path(__file__).read_bytes())
+files = list(manifest["files"]) + ["evaluation_interruption.json", "EVALUATION_INTERRUPTION.md", "source/publish_frs_budget_stop.py.txt"]
+manifest.update(efficacy_status="completed_development_full_evaluation_interrupted",
+                snapshot_time_utc=stamp, previous_method_manifest_sha256=old_manifest_sha,
+                generator_sha256=sha(Path(__file__)))
+manifest["cohort_status"]["evaluation"].update(status="interrupted_budget_exhausted", audited_complete_tasks=len(audited))
+manifest["files"] = {name: {"sha256": sha(root / name), "bytes": (root / name).stat().st_size} for name in files}
+write_json(manifest_path, manifest)
+print(json.dumps({"status": "published_interruption", "calls": usage['calls'], "known_tokens": total['sum'], "audited_tasks": len(audited)}))
