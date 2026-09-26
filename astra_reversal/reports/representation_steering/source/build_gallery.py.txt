@@ -1,0 +1,390 @@
+"""Export original recorded MP4s after archive/outcome/frame-count checks.
+
+Offline only. Selected categories are descriptive, outcome-selected examples;
+they do not estimate performance. No rendering, replay, inference or transcoding.
+"""
+
+import argparse
+import hashlib
+import json
+import shutil
+import subprocess
+import tarfile
+from collections import defaultdict
+from fractions import Fraction
+from pathlib import Path
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for part in iter(lambda: stream.read(1024 * 1024), b""):
+            h.update(part)
+    return h.hexdigest()
+
+
+def read(path):
+    return json.loads(Path(path).read_text())
+
+
+def selected_specs(repo):
+    deps = repo / "astra_reversal/.deps"
+    reports = repo / "astra_reversal/reports"
+    specs = []
+
+    def add(key, label, study, base, worker, case, attempt, expected, receipt, **extra):
+        specs.append(
+            dict(
+                key=key,
+                label=label,
+                study=study,
+                base=base,
+                worker=worker,
+                case=case,
+                attempt=attempt,
+                expected_success=expected,
+                receipt=receipt,
+                **extra,
+            )
+        )
+
+    add(
+        "id_native_success",
+        "Standard LIBERO: native success",
+        "standard_id",
+        deps / "interventions-dev-v2",
+        0,
+        "case_0_1",
+        "policy_fresh_1",
+        True,
+        deps / "interventions-dev-v2/worker0-array-review.json",
+        archive=deps / "interventions-dev-v2/worker0-artifacts.tar.gz",
+        summary=repo
+        / "astra_reversal/artifacts/interventions-dev-v2/worker_0/case_0_1/summary.json",
+    )
+    phase = deps / "interpolation-evaluation-v1"
+    for key, label, worker, case, attempt, success in (
+        (
+            "ood_native_failure",
+            "OOD: native fresh-noise failure",
+            0,
+            "case_0_0",
+            "policy_fresh_1",
+            False,
+        ),
+        (
+            "tei_matched_baseline",
+            "Wine: matched recovered-noise baseline",
+            2,
+            "case_6_0",
+            "recovered_noise_1",
+            False,
+        ),
+        ("tei_rescue", "Wine: Astra TEI rescue", 2, "case_6_0", "astra_tei_2", True),
+        (
+            "tli_matched_baseline",
+            "Orange juice: matched recovered-noise baseline",
+            1,
+            "case_1_0",
+            "recovered_noise_1",
+            False,
+        ),
+        (
+            "tli_rescue",
+            "Orange juice: Astra TLI rescue",
+            1,
+            "case_1_0",
+            "astra_tli_3",
+            True,
+        ),
+    ):
+        add(
+            key,
+            label,
+            "phase_interpolation",
+            phase,
+            worker,
+            case,
+            attempt,
+            success,
+            reports
+            / f"phase_interpolation/evaluation/audits/worker_{worker}_receipt.json",
+        )
+    pixel = deps / "image-evaluation-recovery-v1"
+    for key, label, attempt, success in (
+        (
+            "pixel_matched_baseline",
+            "Pixel study: matched recovered-noise baseline",
+            "recovered_noise_1",
+            False,
+        ),
+        (
+            "pixel_occlusion",
+            "Actual pixel occlusion: rescue",
+            "astra_occlusion_2",
+            True,
+        ),
+        ("pixel_blend", "Actual donor-pixel blend: rescue", "astra_demo_blend_2", True),
+    ):
+        add(
+            key,
+            label,
+            "image_perturbations",
+            pixel,
+            1,
+            "case_1_0",
+            attempt,
+            success,
+            reports / "image_perturbations/evaluation/audits/worker_1_receipt.json",
+        )
+    frs = deps / "frs-development-v7"
+    for key, label, worker, task, success in (
+        ("frs_success", "FRS development: wine success", 0, 6, True),
+        ("frs_failure", "FRS development: bowl failure", 2, 8, False),
+    ):
+        add(
+            key,
+            label,
+            "frs_development",
+            frs,
+            worker,
+            f"task_{task}",
+            "astra_frs_state1_round3",
+            success,
+            frs / f"audits/worker_{worker}/task_{task}/receipt.json",
+            archive=frs / f"archives/worker_{worker}/task_{task}.tar.gz",
+        )
+    return specs
+
+
+def select_attempt(summary, name):
+    if "physical_rollouts" in summary:
+        matches = [a for a in summary["physical_rollouts"] if a["attempt_id"] == name]
+    else:
+        matches = []
+        for a in [
+            summary["baseline"],
+            *summary["controls"].values(),
+            *(a for arm in summary["arms"].values() for a in arm["attempts"][1:]),
+        ]:
+            if Path(a["video_path"]).stem == name:
+                matches.append(a)
+    assert len(matches) == 1, (name, len(matches))
+    return matches[0]
+
+
+def export(repo, output):
+    output.mkdir(parents=True, exist_ok=True)
+    videos = output / "videos"
+    videos.mkdir(exist_ok=True)
+    groups = defaultdict(list)
+    for spec in selected_specs(repo):
+        spec.setdefault(
+            "archive", spec["base"] / f"archives/worker_{spec['worker']}.tar.gz"
+        )
+        spec.setdefault(
+            "summary",
+            spec["base"]
+            / f"extracted/worker_{spec['worker']}/results/{spec['case']}/summary.json",
+        )
+        groups[spec["archive"]].append(spec)
+    rows = []
+    for archive, specs in groups.items():
+        receipt = read(specs[0]["receipt"])
+        assert receipt["status"] == "passed"
+        expected = receipt["archive"]
+        assert archive.stat().st_size == expected["bytes"]
+        archive_sha = sha(archive)
+        assert archive_sha == expected["sha256"]
+        prefix = "" if specs[0]["study"] == "frs_development" else "results/"
+        wanted = {f"{prefix}{s['case']}/{s['attempt']}.mp4" for s in specs}
+        wanted |= {f"{prefix}{s['case']}/summary.json" for s in specs}
+        wanted |= {"results/reset_manifest.json", "results/runtime.json"}
+        retained = {}
+        # Scan through gzip EOF; retain only selected videos and small metadata.
+        with tarfile.open(archive, "r|gz") as stream:
+            for item in stream:
+                if item.name in wanted:
+                    assert item.isfile() and item.size < 16 * 1024 * 1024
+                    assert item.name not in retained
+                    retained[item.name] = stream.extractfile(item).read()
+        if specs[0]["study"] == "frs_development":
+            audit_path = specs[0]["base"] / receipt["audit_path"]
+            assert sha(audit_path) == receipt["audit_sha256"]
+            worker_inputs = read(audit_path)["worker"]["input_file_sha256"]
+            metadata_root = specs[0]["summary"].parent.parent
+            for filename in ("reset_manifest.json", "runtime.json"):
+                assert sha(metadata_root / filename) == worker_inputs[filename]
+                retained[f"results/{filename}"] = (
+                    metadata_root / filename
+                ).read_bytes()
+        manifest = json.loads(retained["results/reset_manifest.json"])
+        runtime = json.loads(retained["results/runtime.json"])
+        for spec in specs:
+            name = f"{prefix}{spec['case']}/{spec['attempt']}.mp4"
+            raw = retained[name]
+            summary_raw = retained[f"{prefix}{spec['case']}/summary.json"]
+            assert summary_raw == spec["summary"].read_bytes()
+            summary_sha = hashlib.sha256(summary_raw).hexdigest()
+            summary = json.loads(summary_raw)
+            assert summary["status"] == "complete"
+            audit = read(spec["receipt"])
+            if spec["study"] == "standard_id":
+                assert summary_sha == audit["case_summary_sha256"]
+            elif spec["study"] == "frs_development":
+                assert summary_sha == audit["summary_sha256"]
+            elif spec["study"] == "image_perturbations":
+                assert any(
+                    c["summary_sha256"] == summary_sha
+                    and c["episode_id"] == summary["episode_id"]
+                    for c in audit["cases"]
+                )
+            else:
+                array_path = spec["receipt"].parent / audit["array_audit"]["file"]
+                assert sha(array_path) == audit["array_audit"]["sha256"]
+                array_audit = read(array_path)
+                assert any(
+                    c["summary_sha256"] == summary_sha
+                    and c["episode_id"] == summary["episode_id"]
+                    for c in array_audit["cases"]
+                )
+            attempt = select_attempt(summary, spec["attempt"])
+            assert attempt["success"] is spec["expected_success"]
+            assert (
+                attempt["initial_success"] is False and attempt["actions_executed"] > 0
+            )
+            if spec["key"] in {"pixel_occlusion", "pixel_blend"}:
+                assert attempt["actions_with_changed_image"] > 0
+            entry = next(
+                e
+                for e in manifest["episodes"]
+                if e["episode_id"] == attempt["episode_id"]
+            )
+            assert (
+                attempt["reset_audit"]["reset_state_sha256"]
+                == entry["reset_state_sha256"]
+            )
+            target = videos / f"{spec['key']}.mp4"
+            target.write_bytes(raw)
+            probe = json.loads(
+                subprocess.check_output(
+                    [
+                        "ffprobe",
+                        "-v",
+                        "error",
+                        "-count_frames",
+                        "-select_streams",
+                        "v:0",
+                        "-show_entries",
+                        "stream=codec_name,width,height,r_frame_rate,avg_frame_rate,nb_read_frames,duration",
+                        "-of",
+                        "json",
+                        str(target),
+                    ]
+                )
+            )["streams"]
+            assert len(probe) == 1
+            video = probe[0]
+            fps = float(Fraction(video["avg_frame_rate"]))
+            frames = int(video["nb_read_frames"])
+            assert fps == 20 and frames == attempt["actions_executed"]
+            assert sha(target) == hashlib.sha256(raw).hexdigest()
+            rows.append(
+                {
+                    "id": spec["key"],
+                    "label": spec["label"],
+                    "study": spec["study"],
+                    "video": str(target.relative_to(output)),
+                    "video_sha256": sha(target),
+                    "video_bytes": len(raw),
+                    "episode_id": attempt["episode_id"],
+                    "instruction": entry["instruction"],
+                    "suite": entry["suite"],
+                    "task_id": entry["task_id"],
+                    "seed": entry["seed"],
+                    "reset_index": entry["initial_state_id"],
+                    "attempt_id": spec["attempt"],
+                    "success": attempt["success"],
+                    "initial_success": False,
+                    "actions_executed": frames,
+                    "fps": fps,
+                    "duration_seconds": frames / fps,
+                    "frame_size": [video["width"], video["height"]],
+                    "codec": video["codec_name"],
+                    "transcoded": False,
+                    "replayed": False,
+                    "frame_timing": "Raw external policy image immediately before each executed action; terminal post-action image omitted; inference pauses and stabilization omitted.",
+                    "speed": "Original recorded 20 fps; nominal simulator execution time, not wall time including Astra latency.",
+                    "recorded_wall_seconds": attempt["wall_seconds"],
+                    "execute_steps": attempt["execute_steps"],
+                    "actions_with_changed_image": attempt.get(
+                        "actions_with_changed_image"
+                    ),
+                    "workflow": runtime["workflow"],
+                    "payload_sha256": runtime["payload_sha256"],
+                    "archive_sha256": archive_sha,
+                    "archive_bytes": archive.stat().st_size,
+                    "archive_member": name,
+                    "archive_gzip_eof_read": True,
+                    "summary_sha256": summary_sha,
+                    "reset_manifest_file_sha256": hashlib.sha256(
+                        retained["results/reset_manifest.json"]
+                    ).hexdigest(),
+                    "runtime_file_sha256": hashlib.sha256(
+                        retained["results/runtime.json"]
+                    ).hexdigest(),
+                    "reset_audit_sha256": attempt["reset_audit"]["sha256"],
+                    "source_audit_receipt_sha256": sha(spec["receipt"]),
+                    "source_audit_receipt": str(spec["receipt"].relative_to(repo)),
+                    "source_summary": str(spec["summary"].relative_to(repo)),
+                }
+            )
+    order = [s["key"] for s in selected_specs(repo)]
+    rows.sort(key=lambda r: order.index(r["id"]))
+    total = sum(r["video_bytes"] for r in rows)
+    assert total < 40 * 1024 * 1024
+    result = {
+        "schema_version": "representation-gallery-1.0",
+        "status": "verified",
+        "selection": "Descriptive outcome-selected examples, fixed before export: lowest numeric standard task available with native success; lowest Goal task with native-fresh failure; lowest suite/task with a baseline-failed TEI or TLI rescue; lowest task with nonzero-pixel rescue for each pixel arm; lowest FRS development task with success and with failure. Matching rescue baselines are included. This is not a performance sample.",
+        "original_recorded_videos_only": True,
+        "no_replay_or_inference": True,
+        "exporter_sha256": sha(__file__),
+        "video_count": len(rows),
+        "total_video_bytes": total,
+        "videos": rows,
+        "limitations": [
+            "Standard LIBERO is an in-distribution task example; exact checkpoint training overlap is unknown.",
+            "Success is the recorded released simulator predicate, not an independent visual-completion judgment.",
+            "Video shows the unmodified simulator camera, including in image and representation intervention arms; edited policy inputs are not overlaid on the recording.",
+            "The final action's resulting image is absent because the original recorder writes pre-action frames.",
+            "These clips come from different settings and cohorts; no pooled success or causal effect is inferred.",
+            "Archive hashes, selected-member equality, outcome/reset identities and encoded frame counts are checked here; model computation and physics are not rerun.",
+        ],
+    }
+    (output / "gallery.json").write_text(json.dumps(result, indent=2) + "\n")
+    source = output / "source"
+    source.mkdir(exist_ok=True)
+    shutil.copyfile(__file__, source / "build_gallery.py.txt")
+    return result
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo", type=Path, default=Path.cwd())
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    result = export(args.repo.resolve(), args.output.resolve())
+    print(
+        json.dumps(
+            {
+                k: result[k]
+                for k in (
+                    "status",
+                    "video_count",
+                    "total_video_bytes",
+                    "exporter_sha256",
+                )
+            }
+        )
+    )
