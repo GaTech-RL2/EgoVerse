@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:egoverse:learned-correction-report:1.0",
+  "title": "Offline learned correction result contract — schema only",
+  "description": "No observations are contained in this file. Complete coverage and audit invariants also require the producer checks documented in DESIGN_REVIEW.md.",
+  "type": "object",
+  "required": ["schema_version", "status", "efficacy_released", "protocol_sha256", "source_sha256", "planned_inventory", "training", "historical_teacher_acquisition", "evaluation_rows", "audits", "groups", "physical_cost", "limitations"],
+  "properties": {
+    "schema_version": {"const": "learned-correction-report-1.0"},
+    "status": {"enum": ["partial", "audit_pending", "audit_failed", "complete"]},
+    "efficacy_released": {"type": "boolean"},
+    "protocol_sha256": {"$ref": "#/$defs/sha256"},
+    "source_sha256": {"type": "object", "additionalProperties": {"$ref": "#/$defs/sha256"}},
+    "planned_inventory": {
+      "type": "object",
+      "required": ["ood_seed", "ood_tasks", "ood_reset_indexes", "standard_suite", "standard_task_ids", "standard_reset_indexes", "methods", "reset_cases", "physical_evaluation_rollouts", "ood_action_cap", "standard_action_cap"],
+      "properties": {
+        "ood_seed": {"const": 61},
+        "ood_tasks": {"const": 20},
+        "ood_reset_indexes": {"const": [1, 2]},
+        "standard_suite": {"const": "libero_10"},
+        "standard_task_ids": {"const": [0, 1, 2, 3]},
+        "standard_reset_indexes": {"const": [1, 2]},
+        "methods": {"const": ["native", "recorded_schedule", "learned_selector", "flow_head", "gated_flow_head"]},
+        "reset_cases": {"const": 48},
+        "physical_evaluation_rollouts": {"const": 240},
+        "ood_action_cap": {"const": 300},
+        "standard_action_cap": {"const": 520}
+      }
+    },
+    "training": {
+      "type": "object",
+      "required": ["corpus_manifest_sha256", "teacher_rollouts", "historical_native_anchor_rollouts", "historical_windows", "new_native_anchor_collection_rollouts", "new_native_anchor_admitted_rollouts", "native_anchor_rollouts", "selector_checkpoint_sha256", "flow_head_checkpoint_sha256", "base_checkpoint_sha256", "parameter_inventory_sha256", "feature_definition", "class_dictionary_sha256", "gate", "fit_diagnostics", "cost"],
+      "properties": {
+        "corpus_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "teacher_rollouts": {"const": 12},
+        "historical_native_anchor_rollouts": {"const": 7},
+        "historical_windows": {"const": 413},
+        "new_native_anchor_collection_rollouts": {"type": "integer", "minimum": 0, "maximum": 4},
+        "new_native_anchor_admitted_rollouts": {"type": "integer", "minimum": 0, "maximum": 4},
+        "native_anchor_rollouts": {"type": "integer", "minimum": 7, "maximum": 11},
+        "selector_checkpoint_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "flow_head_checkpoint_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "base_checkpoint_sha256": {"$ref": "#/$defs/sha256"},
+        "parameter_inventory_sha256": {"$ref": "#/$defs/sha256"},
+        "feature_definition": {"type": "object"},
+        "class_dictionary_sha256": {"$ref": "#/$defs/sha256"},
+        "gate": {
+          "type": "object",
+          "required": ["threshold", "comparison", "interpretation", "calibrated_failure_probability"],
+          "properties": {
+            "threshold": {"const": 0.5},
+            "comparison": {"const": ">"},
+            "interpretation": {"const": "imitation_support_score"},
+            "calibrated_failure_probability": {"const": false}
+          }
+        },
+        "fit_diagnostics": {"type": "object", "description": "Training-fit diagnostics with their exact split and weighting; not deployment efficacy."},
+        "cost": {"$ref": "#/$defs/cost"}
+      }
+    },
+    "historical_teacher_acquisition": {
+      "type": "object",
+      "required": ["sources", "attribution_scope", "included_in_new_experiment_cost"],
+      "properties": {
+        "sources": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source"}},
+        "attribution_scope": {"type": "string", "minLength": 1},
+        "included_in_new_experiment_cost": {"const": false}
+      },
+      "description": "Retain historical acquisition costs and missing usage without treating them as new calls or free data. Do not silently sum overlapping source cohorts."
+    },
+    "evaluation_rows": {"type": "array", "maxItems": 240, "items": {"$ref": "#/$defs/rollout"}},
+    "audits": {"type": "array", "items": {"$ref": "#/$defs/audit"}},
+    "groups": {
+      "type": ["object", "null"],
+      "description": "Null until full coverage and audits pass. Primary groups are ood_known_compositions and standard_libero10_retention; OOD strata teacher_covered and other_compositions remain separate.",
+      "additionalProperties": {"$ref": "#/$defs/group"}
+    },
+    "physical_cost": {
+      "type": "object",
+      "required": ["native_anchor_collection", "feature_extraction", "optimization", "evaluation", "audit_publication"],
+      "additionalProperties": {"$ref": "#/$defs/cost"}
+    },
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  },
+  "allOf": [
+    {"if": {"properties": {"efficacy_released": {"const": true}}}, "then": {"properties": {"status": {"const": "complete"}, "evaluation_rows": {"minItems": 240, "maxItems": 240}, "groups": {"type": "object"}, "training": {"properties": {"new_native_anchor_collection_rollouts": {"const": 4}, "selector_checkpoint_sha256": {"$ref": "#/$defs/sha256"}, "flow_head_checkpoint_sha256": {"$ref": "#/$defs/sha256"}}}}}, "else": {"properties": {"groups": {"type": "null"}}}},
+    {"if": {"properties": {"status": {"const": "complete"}}}, "then": {"properties": {"efficacy_released": {"const": true}}}}
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "source": {
+      "type": "object", "required": ["identifier", "sha256", "scope"],
+      "properties": {"identifier": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}, "scope": {"type": "string", "minLength": 1}}
+    },
+    "measurement": {
+      "type": "object", "required": ["value", "unit", "complete", "scope"],
+      "properties": {"value": {"type": ["number", "null"], "minimum": 0}, "unit": {"type": "string"}, "complete": {"type": "boolean"}, "scope": {"type": "string", "minLength": 1}},
+      "description": "Null means unknown, not zero. Scope states whether the measurement is nested, a physical sum, a lower bound, or elapsed time."
+    },
+    "cost": {
+      "type": "object", "required": ["scope", "measurements", "new_provider_calls"],
+      "properties": {
+        "scope": {"type": "string", "minLength": 1},
+        "measurements": {"type": "object", "additionalProperties": {"$ref": "#/$defs/measurement"}},
+        "new_provider_calls": {"type": ["integer", "null"], "minimum": 0}
+      },
+      "description": "Each physical stage is counted once; nested policy/head/prefix timings are not added to rollout wall time. Zero calls requires verified no-provider execution; null is unknown. A nonzero call count is retained as an explicit protocol violation and blocks efficacy release."
+    },
+    "rollout": {
+      "type": "object",
+      "required": ["physical_run_id", "episode_id", "cohort", "suite", "task_id", "reset_index", "method", "status", "recorded_success", "initial_success", "credited_success", "actions", "action_cap", "censored_at_cap", "reset_sha256", "noise_rule_sha256", "checkpoint_sha256", "summary_sha256", "audit_sha256", "activation", "cost"],
+      "properties": {
+        "physical_run_id": {"type": "string", "minLength": 1}, "episode_id": {"type": "string", "minLength": 1},
+        "cohort": {"enum": ["ood_known_compositions", "standard_libero10_retention"]},
+        "suite": {"enum": ["libero_goal_ood", "libero_spatial_ood", "libero_10"]},
+        "task_id": {"type": "integer", "minimum": 0, "maximum": 9}, "reset_index": {"enum": [1, 2]},
+        "method": {"enum": ["native", "recorded_schedule", "learned_selector", "flow_head", "gated_flow_head"]},
+        "status": {"enum": ["complete", "execution_error", "interrupted"]},
+        "recorded_success": {"type": ["boolean", "null"]}, "initial_success": {"type": ["boolean", "null"]},
+        "credited_success": {"type": ["boolean", "null"]}, "actions": {"type": "integer", "minimum": 0, "maximum": 520},
+        "action_cap": {"enum": [300, 520]}, "censored_at_cap": {"type": ["boolean", "null"]},
+        "reset_sha256": {"$ref": "#/$defs/sha256"}, "noise_rule_sha256": {"$ref": "#/$defs/sha256"},
+        "checkpoint_sha256": {"type": "object", "additionalProperties": {"$ref": "#/$defs/sha256"}},
+        "summary_sha256": {"$ref": "#/$defs/sha256"}, "audit_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "activation": {"type": "object", "description": "Measured selector native/intervention choices, gate activations, corrected actions, clipping, and zero corrections; do not infer benefit from activation."},
+        "cost": {"$ref": "#/$defs/cost"}
+      }
+    },
+    "audit": {
+      "type": "object", "required": ["episode_id", "status", "receipt_sha256", "scope"],
+      "properties": {"episode_id": {"type": "string"}, "status": {"enum": ["passed", "failed", "incomplete"]}, "receipt_sha256": {"$ref": "#/$defs/sha256"}, "scope": {"type": "string", "minLength": 1}}
+    },
+    "group": {
+      "type": "object", "required": ["cases", "tasks", "methods", "paired"],
+      "properties": {
+        "cases": {"type": "integer", "minimum": 1}, "tasks": {"type": "integer", "minimum": 1},
+        "methods": {"type": "object", "additionalProperties": {"$ref": "#/$defs/method_metrics"}},
+        "paired": {"type": "array", "items": {"$ref": "#/$defs/paired"}}
+      }
+    },
+    "method_metrics": {
+      "type": "object", "required": ["cases", "successes", "capped_failures", "success_only_actions", "cost"],
+      "properties": {
+        "cases": {"type": "integer", "minimum": 1}, "successes": {"type": "integer", "minimum": 0},
+        "capped_failures": {"type": "integer", "minimum": 0},
+        "success_only_actions": {"type": "object", "description": "Count and distribution among credited successes only; report capped failures alongside it."},
+        "cost": {"$ref": "#/$defs/cost"}
+      }
+    },
+    "paired": {
+      "type": "object", "required": ["arm", "control", "both_success", "arm_only_success", "control_only_success", "both_failure", "discordant_episodes"],
+      "properties": {
+        "arm": {"type": "string"}, "control": {"type": "string"},
+        "both_success": {"type": "integer", "minimum": 0}, "arm_only_success": {"type": "integer", "minimum": 0},
+        "control_only_success": {"type": "integer", "minimum": 0}, "both_failure": {"type": "integer", "minimum": 0},
+        "discordant_episodes": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  },
+  "x-producer-invariants": [
+    "Validate the exact Cartesian product of suite/task/reset/method, not only row counts; bind all five rows to identical prescribed reset and native checkpoint identities.",
+    "All240 physical rows must complete and pass independent audits before efficacy release; execution errors, initial-success invalid cases, interrupted rows and missing sources require explicit review.",
+    "OOD primary denominator40 covers20 tasks; standard retention denominator8 covers4 of10 tasks. Report teacher-covered OOD16 and other-composition OOD24 strata without removing either from the primary cohort.",
+    "Compare all arms to native, learned_selector to recorded_schedule, and gated_flow_head to flow_head on the same cases; preserve discordant episode IDs and conditional denominators.",
+    "Use one learned selector and one learned correction checkpoint across their applicable arms; gate-off and zero-head paths reproduce native under matched noise.",
+    "Native anchor collection uses only original standard LIBERO10 taskIDs0..3/reset0, with success filtering fixed before evaluation; evaluation resetIDs1,2 never enter training or checkpoint selection.",
+    "A single fixed rollout per method/case is not cumulative best-of-attempts success. Source teacher revision counts and training updates are different units.",
+    "New provider calls must be verified zero for complete release; preserve unknown or nonzero measurements in an incomplete/failed report instead of rewriting them to zero.",
+    "Do not publish credentials, signed URLs, raw provider bodies, absolute private paths or checkpoint weight files in the report."
+  ]
+}

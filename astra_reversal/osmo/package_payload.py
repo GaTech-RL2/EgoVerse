@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--include-astra-proposal-replay", action="store_true")
     parser.add_argument("--include-interpolation-banks", action="store_true")
     parser.add_argument("--include-image-donors", action="store_true")
+    parser.add_argument("--include-recipe-corpus", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = Path("astra_reversal")
@@ -67,6 +68,12 @@ def main():
         if args.include_interpolation_banks:
             path = root / ".deps/interpolation-inputs/bank_inventory.json"
             archive.add(path, arcname=str(path))
+        if args.include_recipe_corpus:
+            from astra_reversal.recipe_corpus import load_corpus
+
+            path = root / ".deps/recipe-inputs/corpus"
+            load_corpus(path)
+            archive.add(path.resolve(), arcname=str(path))
         if args.include_image_donors:
             from astra_reversal.image_donor_bank import load_library
 
