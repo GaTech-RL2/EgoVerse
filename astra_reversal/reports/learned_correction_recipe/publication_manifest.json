@@ -1,13 +1,20 @@
 {
   "checkpoint_seal_sha256": "8de15f7ca42d020879ba476b298f81c51d969c3517d0eb4cf74e570a5a391362",
+  "dashboard_validation": {
+    "browser_checks_passed": 17,
+    "browser_exceptions": 0,
+    "local_html_links_checked": 47,
+    "scope": "Local-file desktop/mobile rendering, six cohort filters, five method selectors, case timelines, 14-clip gallery coverage, SVG overview and separate task catalog.",
+    "screenshots_reviewed": 8
+  },
   "files": {
     "DESIGN_REVIEW.md": {
       "bytes": 14866,
       "sha256": "1108f893178fa5467243e9efa9220c27a1b6f537d84237e3e40ed29c023935ce"
     },
     "README.md": {
-      "bytes": 16338,
-      "sha256": "512e1054754f99db76fb2e0bec45670c3cdc5aa3d69e42a3f418943c9e90ec88"
+      "bytes": 16882,
+      "sha256": "b7651644649abd93bfdcea235dac52e5382823fc909e945bfd641d87a663e390"
     },
     "checkpoint/head/manifest.json": {
       "bytes": 51980,
@@ -44,6 +51,62 @@
     "checkpoint/training_receipt.json": {
       "bytes": 114973,
       "sha256": "1ca136465b811edaa169905cc52b4d9b7cd4b63b2b89bbee5f7fa7cc423bd672"
+    },
+    "dashboard/data.json": {
+      "bytes": 627088,
+      "sha256": "fdd87f096107bf1319f3c18c48e3625316b0e23635bd96583f35b700d52786a8"
+    },
+    "dashboard/flows.zip": {
+      "bytes": 8366,
+      "sha256": "1ac6d7c2d297d701cc58af219a6304d938e56f3aff5429da7d77cfdf379f1c1c"
+    },
+    "dashboard/flows/all-methods.svg": {
+      "bytes": 9983,
+      "sha256": "b62db37fa07ab9a3d3000da40718f57afca762823e6261f58ce5e43fbfe41965"
+    },
+    "dashboard/flows/flow_head.svg": {
+      "bytes": 4212,
+      "sha256": "802771c6a8bda1bcde42230a1d8d1ffad8e5a3f1a7a578dd9e90cd9e01750eb9"
+    },
+    "dashboard/flows/gated_flow_head.svg": {
+      "bytes": 4996,
+      "sha256": "62308c3ae44bdafb61f22768d047853b33ac29a84655353f57cd72c671cb2c85"
+    },
+    "dashboard/flows/learned_selector.svg": {
+      "bytes": 4360,
+      "sha256": "4a2ca7f2af9d53471792ccc050e582d2d3ed3c78bdf598e85f9823af0a7dfa7a"
+    },
+    "dashboard/flows/native.svg": {
+      "bytes": 2739,
+      "sha256": "4ecc7644455b2a9cf606c1b2b4e5c7ca3b22ba4e79f3ed31e8c89536df66bf8c"
+    },
+    "dashboard/flows/recorded_schedule.svg": {
+      "bytes": 4412,
+      "sha256": "e7f1c82ce0a51fffc9527aff633ecfa197530235934ad68ab6d739cd4df8873a"
+    },
+    "dashboard/index.html": {
+      "bytes": 454162,
+      "sha256": "b160cd0086251abc2f544dd8f22dbf20de03386b896d699ee1084ae835928a94"
+    },
+    "dashboard/manifest.json": {
+      "bytes": 2243,
+      "sha256": "14d2c1b543c137fa907943c7527e198f03cf76d3762abbce2d37fbffe4cad740"
+    },
+    "dashboard/source/build_dashboard.py": {
+      "bytes": 21870,
+      "sha256": "228b3cdf58563c38c8b151810cd33ae8d2ed675f1b8b7987a92516d4063bcab8"
+    },
+    "dashboard/source/dashboard.css": {
+      "bytes": 15340,
+      "sha256": "4cdb384f1151e2d6c647903a694392b47ce3cf2d27ab4ab53b634a8c2eb57a63"
+    },
+    "dashboard/source/dashboard.js": {
+      "bytes": 11998,
+      "sha256": "e3b1832b464848942f1d286b7e3658a00f9f271c5463e7524ee6809a22ef5481"
+    },
+    "dashboard/source/template.html": {
+      "bytes": 11319,
+      "sha256": "0c13b524b376d62f1de2cd61e1143a88e3caa56a5afc4cc69cbbd2dbb96c9fb7"
     },
     "report_schema.json": {
       "bytes": 12712,
@@ -252,13 +315,20 @@
   },
   "local_validation": {
     "skip_scope": "Optional OpenPI dependency unavailable locally; separate real-GPU native integration checks passed.",
-    "unit_passed": 1391,
-    "unit_seconds": 149.23,
+    "unit_passed": 1402,
+    "unit_seconds": 171.38,
     "unit_skipped": 5
   },
   "report_sha256": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802",
   "results_manifest_sha256": "f84c26b8c4364e9b487a589d601a0290eced78cb0b8456bbe7ee1e95dff122c2",
   "runtime_commit": "144ea47d0d6a6d6ff6a1ec3e1cfae8314b7a97e0",
-  "schema_version": "learned-recipe-delivery-1.0",
-  "scope": "Exact learned bundle and complete measured report with interpretation. Hash inventory excludes this manifest itself. No signed artifact URLs, base checkpoint, full rollout arrays or provider credentials included."
+  "schema_version": "learned-recipe-delivery-1.1",
+  "scope": "Exact learned bundle, complete measured report and interactive dashboard. Original experiment results are unchanged. Hash inventory excludes this manifest itself. The linked task extension is separately published and simulator-validated, with policy evaluation pending.",
+  "task_extension": {
+    "path": "../ood_extensions/v1",
+    "policy_rollouts": 0,
+    "publication_manifest_sha256": "8d109aa91af111eab17289dd5c91a2e619a62f5a749d5ffc3fd4deb49498cdc8",
+    "simulator_reset_checks": 32,
+    "task_count": 16
+  }
 }

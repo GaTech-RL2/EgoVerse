@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Astra × LIBERO · Methods and results</title>
+  <style>__STYLE__</style>
+</head>
+<body>
+  <a class="skip" href="#results">Skip to results</a>
+  <header class="topbar"><a class="brand" href="#top"><span class="brand-mark">A</span> ASTRA <span class="muted">/</span> LIBERO</a><nav aria-label="Page navigation"><a href="#results">Results</a><a href="#methods">Method flows</a><a href="#cases">Every task</a><a href="#videos">Rollouts</a><a href="#cost">Cost</a><a href="../../ood_extensions/v1/index.html">New tasks ↗</a></nav><span class="run-tag">VERIFIED RUN · SEED 61</span></header>
+  <main id="top">
+    <section class="hero">
+      <div><p class="eyebrow">FROM TEACHER ASSISTANCE TO AUTONOMOUS CONTROL</p><h1>Where to intervene.<br>What actually improves.</h1><p class="lead">Five ways to use a frozen π0.5 policy. Explore how recorded Astra corrections become language edits or flow-velocity corrections—and how each method performs on the same resets.</p><div class="hero-links"><a class="primary-link" href="#methods">Explore the five methods <span aria-hidden="true">↘</span></a><a class="text-link" href="flows/all-methods.svg" download>Download flow overview ↓</a></div></div>
+      <aside class="takeaway"><span class="pill">STRONGEST OBSERVED RESULT</span><h2>Reusing the teacher’s program worked best.</h2><div class="hero-result"><strong>67.5<span>%</span></strong><span>27 / 40 OOD successes<br>Recorded teacher schedule</span></div><div class="native-compare"><span>Frozen native policy</span><strong>37.5% · 15 / 40</strong></div><p>Twelve native failures recovered; no native successes lost. Learned text selection retains part of this benefit. The action head has mixed results.</p></aside>
+    </section>
+    <div class="run-facts"><div><strong>240</strong><span>paired physical rollouts</span></div><div><strong>20 × 2</strong><span>OOD tasks × new resets</span></div><div><strong>8 / 8</strong><span>ID successes, every method</span></div><div><strong>0</strong><span>new Astra API calls</span></div></div>
+    <p class="scope-note">This experiment measures new-reset transfer on known compositions. The ID panel covers four of ten LIBERO10 tasks. All methods get one attempt per case; Astra and learning are disabled during evaluation.</p>
+
+    <section id="results" class="section">
+      <div class="section-head"><div><p class="eyebrow">01 / SAME CASES, FIVE METHODS</p><h2>Compare the outcomes</h2></div><label class="select-label" for="cohort">Evaluation subset<select id="cohort"><option value="ood">All OOD · 40 cases</option><option value="libero_goal_ood">Goal OOD · 20 cases</option><option value="libero_spatial_ood">Spatial OOD · 20 cases</option><option value="ood_teacher_tasks">Correction-teacher tasks · 16 cases</option><option value="ood_other_tasks">Other OOD tasks · 24 cases</option><option value="id_panel">Standard ID panel · 8 cases</option></select></label></div>
+      <p id="cohort-note" class="context" aria-live="polite"></p>
+      <div id="result-cards" class="result-grid"></div>
+      <div class="paired-panel"><div><h3 id="paired-title"></h3><p id="paired-summary"></p></div><div><div id="paired-bar" class="paired-bar" role="img"></div><div id="paired-legend" class="paired-legend"></div></div></div>
+      <p class="fineprint">Success is the simulator predicate within the fixed action cap. Gains and losses compare the same reset against native. Bars are descriptive counts; two resets per task do not establish statistical significance.</p>
+    </section>
+
+    <section id="methods" class="section">
+      <div class="section-head"><div><p class="eyebrow">02 / WHERE THE INTERVENTION ENTERS</p><h2>Follow the policy, step by step</h2></div><a class="text-link" href="flows.zip" download>All flow charts (.zip) ↓</a></div>
+      <div id="method-buttons" class="method-buttons" role="group" aria-label="Choose a method"></div>
+      <article id="method-detail" class="method-detail">
+        <div class="method-heading"><div><span id="method-kind" class="pill"></span><h3 id="method-title"></h3><p id="method-description"></p></div><a id="flow-download" class="text-link" download>Download this flow ↓</a></div>
+        <div id="method-facts" class="method-facts"></div>
+        <div id="flow" class="flow-wrap" tabindex="0" aria-label="Method flow chart; scroll horizontally on small screens"></div>
+        <div class="method-foot"><div><h4>What is learned or stored?</h4><p id="method-training"></p></div><div><h4>How to read the result</h4><p id="method-reading"></p></div></div>
+      </article>
+      <details class="operator-details"><summary>What do TEI, TLI and a flow correction actually change?</summary><div class="operator-grid"><article><span class="operator-label">TEI · TEXT EMBEDDING INTERPOLATION</span><h3>Mix the instruction’s input embeddings.</h3><div class="formula">E ← (1 − α) E(A) + α E(B)</div><p>Two source prompts form a new instruction representation before the language blocks. α = 0 chooses A; α = 1 chooses B.</p></article><article><span class="operator-label">TLI · TEXT LATENT INTERPOLATION</span><h3>Add a direction inside the language model.</h3><div class="formula">h ← h + (1 − 2α)(T<sub>A</sub> − T<sub>B</sub>)</div><p>A stored text-latent difference edits eligible instruction slots after blocks 0–16. α = 0.5 is neutral.</p></article><article><span class="operator-label">FLOW HEAD · VELOCITY RESIDUAL</span><h3>Nudge the action vector field.</h3><div class="formula">v ← v<sub>native</sub> + 0.5 tanh((Wh + b) / 0.5)</div><p>The head directly changes the first five physical action rows. Images and language conditioning stay original.</p></article></div><p class="scope-note">This run uses ordinary flow integration after offline learning. It does not perform test-time flow inversion, fresh Astra reasoning, pixel edits or visual-embedding interpolation.</p></details>
+    </section>
+
+    <section id="cases" class="section">
+      <div class="section-head"><div><p class="eyebrow">03 / COMPLETE TASK COVERAGE</p><h2>See exactly where it works</h2></div><label class="select-label" for="task-filter">Task family<select id="task-filter"><option value="ood">Both OOD suites</option><option value="libero_goal_ood">Goal OOD</option><option value="libero_spatial_ood">Spatial OOD</option><option value="libero_10">Standard ID panel</option></select></label></div>
+      <p class="context">Each pair of tiles is reset 1 and reset 2. Select any tile to inspect the same case across all methods.</p><div class="tile-legend"><span><i class="success-tile">✓</i> Success</span><span><i class="failure-tile">×</i> Capped failure</span><span><i class="teacher-dot"></i> Has a correction teacher</span></div>
+      <div class="table-scroll"><table id="task-table"><thead><tr><th scope="col">Task instruction</th><th scope="col">Native</th><th scope="col">Schedule</th><th scope="col">Selector</th><th scope="col">Head</th><th scope="col">Gated head</th></tr></thead><tbody></tbody></table></div>
+      <article class="case-inspector"><div class="section-head"><div><span class="eyebrow">SELECTED RESET</span><h3 id="case-title"></h3><p id="case-meta" class="context"></p></div><button id="jump-video" class="secondary-button" type="button">View exported clips ↓</button></div><div id="case-metrics" class="case-metrics"></div><h4>When each intervention was active</h4><div id="case-timeline"></div><div class="timeline-legend"><span><i style="background:#e4e9ef"></i>Native</span><span><i style="background:#d59735"></i>TEI</span><span><i style="background:#4274d9"></i>TLI</span><span><i style="background:#845ac0"></i>Flow head</span><span><i class="unused"></i>After termination</span></div><p class="fineprint">Timelines use recorded applied choices and executed actions. Different methods visit different states. Hover or focus a segment for its choice and action interval. The gated-head timeline shows the gate’s effect only; its predicted TEI/TLI class is not applied.</p></article>
+    </section>
+
+    <section id="videos" class="section">
+      <div class="section-head"><div><p class="eyebrow">04 / LOOK AT THE BEHAVIOR</p><h2>Watch paired rollouts</h2></div><label class="select-label" for="video-case">Exported example<select id="video-case"></select></label></div>
+      <p class="context">Original clips from the verified archives: successes, failures, rescues and losses. Outcome-selected illustrations, not an additional evaluation cohort.</p><div id="video-grid" class="video-grid"></div><p class="fineprint">20 fps; one pre-action frame per executed action. Inference pauses and the terminal post-action frame are omitted. Videos are displayed at their recorded action rate.</p>
+    </section>
+
+    <section id="cost" class="section">
+      <div class="section-head"><div><p class="eyebrow">05 / THE COST OF THIS RECIPE</p><h2>Learning once, then acting without Astra</h2></div></div>
+      <div class="cost-grid"><article><span class="eyebrow">CORPUS</span><strong>23</strong><h3>recorded trajectories</h3><p>12 successful Astra text corrections + 11 native anchors, including four newly collected ones. 601 windows are correlated samples.</p></article><article><span class="eyebrow">OFFLINE LEARNING</span><strong>1,000</strong><h3>updates per module</h3><p>The selector and head are fitted once. The 3.6B-parameter base remains frozen; evaluation has no policy updates.</p></article><article><span class="eyebrow">NEW COMPUTE</span><strong id="gpu-hours"></strong><h3>L40S task-hours</h3><p>Training and evaluation task reservations, including setup and artifact work. This is not sampled utilization or a dollar bill.</p></article><article><span class="eyebrow">NEW INFERENCE</span><strong>0</strong><h3>Astra calls / tokens</h3><p>Reuses existing teachers. Their acquisition was not free; coding and review-agent usage is outside this measurement.</p></article></div>
+      <div class="cost-note"><strong>Historical context:</strong> the two whole source studies recorded 899 calls and at least 6,887,020 tokens. They include unused and unsuccessful trials; the exact cost of the selected twelve teachers is unknown. <a href="../results/HISTORICAL_CONTEXT.md">Read the accounting →</a></div>
+      <div id="extensions"></div>
+    </section>
+    <footer><div><strong>Measured results, inspectable evidence.</strong><p>Compiled from the complete 240-rollout report. Dashboard filters never pool historical cohorts or hide failed attempts.</p></div><div><a href="../README.md">Detailed methods</a><a href="../results/index.html">Original report</a><a href="../results/rollouts.csv" download>All trials CSV</a><a href="data.json" download>Dashboard data</a><a href="manifest.json">Source hashes</a></div></footer>
+  </main>
+  <noscript><p class="noscript">Enable JavaScript for filters and task inspection. <a href="../results/index.html">The static verified report</a> and <a href="flows/all-methods.svg">all-method flow overview</a> are available without JavaScript.</p></noscript>
+  <script id="experiment-data" type="application/json">__DATA__</script>
+  <script>__SCRIPT__</script>
+</body>
+</html>

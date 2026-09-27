@@ -1,6 +1,8 @@
 The learned text selector improved OOD success from **15/40 (37.5%) to 19/40 (47.5%)**, but the small flow correction did not reliably improve control. Replaying a successful teacher's prescribed text-intervention schedule performed best: **27/40 (67.5%)**, with twelve recoveries and no lost native successes. This is evidence that the recorded interventions transfer to new resets of these compositions; the first distillation recipe retains only part of that benefit.
 
-[HTML report, diagrams, plots and 14 rollout videos](results/index.html) · [Every physical trial](results/rollouts.csv) · [Machine report](results/report.json) · [Frozen design](DESIGN_REVIEW.md) · [Learned checkpoint seal](checkpoint/seal.json)
+[Interactive dashboard and method flow charts](dashboard/index.html) · [Original HTML report and 14 rollout videos](results/index.html) · [Every physical trial](results/rollouts.csv) · [Machine report](results/report.json) · [Frozen design](DESIGN_REVIEW.md) · [Learned checkpoint seal](checkpoint/seal.json)
+
+The dashboard adds cohort filters, a separate flow chart for every method, paired gains/losses, a complete task grid and per-case intervention timelines. [Six downloadable SVG diagrams](dashboard/flows.zip) include the five methods and a combined overview. A [separate catalog of sixteen new OOD task compositions](../ood_extensions/v1/index.html) provides simulator validation and previews; those tasks have no policy evaluation results yet and do not change any numbers below.
 
 | Method | OOD success | Gain vs native | Harm vs native | Standard ID panel |
 |---|---:|---:|---:|---:|

@@ -1,0 +1,1229 @@
+{
+  "claims": [
+    "Novelty is relative to the supplied original and paper OOD task definitions, plus the already-used teacher tasks contained in that paper set.",
+    "Full checkpoint training coverage is unknown; these are candidate OOD compositions, not certified unseen pretraining data.",
+    "These definitions are separate from the paper benchmark and are never pooled into its reported success rate.",
+    "Simulator validation and policy solvability are separate checks. Task generation alone is not performance evidence."
+  ],
+  "definition_manifest_sha256": "ec6f77a647bec5db6ed7846b7356c447950ba5845909b6457b72813279077323",
+  "evaluation_contract": {
+    "astra_recipe_training_forbidden": true,
+    "new_teacher_acquisition_requires_separate_development_split": true,
+    "paired_reset_manifest_required": true,
+    "preserve_paper_benchmark": true,
+    "suggested_action_cap": 300
+  },
+  "families": {
+    "astra_goal_composition": 8,
+    "astra_spatial_composition": 8
+  },
+  "generator_sha256": "11bb5db3680779ccafe5c6259ad2046f397755c76a1631b7346365954fac8ff3",
+  "new_policy_rollouts": 0,
+  "reference_inventory": [
+    {
+      "path": "libero_10/KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it.bddl",
+      "sha256": "491835cc2eb6956f7ce3d1ee4e266377116168fe453e6529fe105e3b0333635d",
+      "source": "original"
+    },
+    {
+      "path": "libero_10/KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it.bddl",
+      "sha256": "5255fe54d7f25fad4dee8fa30a30033d8cb908f1708d953c91ab609264fb4fb8",
+      "source": "original"
+    },
+    {
+      "path": "libero_10/KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it.bddl",
+      "sha256": "456d145f92be049f445fc77673dc583d9d17ea7afe92f6ffcb2fd1fa5565d420",
+      "source": "original"
+    },
+    {
+      "path": "libero_10/KITCHEN_SCENE8_put_both_moka_pots_on_the_stove.bddl",
+      "sha256": "ae1299a707d3e810096ad648948c517de40474bcdacca93a15e17d191e34454a",
+      "source": "original"
+    },
+    {
+      "path": "libero_10/LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket.bddl",
+      "sha256": "e27ab37f512fe42e35771d6130f531e6a9656929e7b4c60b348b81360cf5675d",
+      "source": "original"
+    },
+    {
+      "path": "libero_10/LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket.bddl",
+      "sha256": "2e661058917f683a25bce480015197f0a2c1911bcbc2b9dd9d947199069c9618",
+      "source": "original"
+    },
+    {
+      "path": "libero_10/LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket.bddl",
+      "sha256": "3f552805c7ab34c44debcf38a48b8131d6fee3011dd86c039650b84e0f77d058",
+      "source": "original"
+    },
+    {
+      "path": "libero_10/LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate.bddl",
+      "sha256": "0c6749b920bff1e1efe47ffb0e0b801a3e6959a650e710f376dd2b812c74e865",
+      "source": "original"
+    },
+    {
+      "path": "libero_10/LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate.bddl",
+      "sha256": "dbc9464b424cdc9b771b92d0b8a8c185b1b539f6a4133b323dc858bcf8f6a9c2",
+      "source": "original"
+    },
+    {
+      "path": "libero_10/STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy.bddl",
+      "sha256": "07ca32c940d70c065e870452ef9c63e6dfa1d8506e6a86cf9b3763f652ba2d9f",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE10_close_the_top_drawer_of_the_cabinet.bddl",
+      "sha256": "a0824cbe6b3146c00984f5a01307a3e39aac9ddc434ee4ff040b5536a0c48bbc",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE10_close_the_top_drawer_of_the_cabinet_and_put_the_black_bowl_on_top_of_it.bddl",
+      "sha256": "da9fc4fcf5523a989a547b61450c0809926e710af0c37341b15593930e42f8d9",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE10_put_the_black_bowl_in_the_top_drawer_of_the_cabinet.bddl",
+      "sha256": "ffca5a60db6d6fe14aedb8ec9d4fe75363d49f28b686c9d55acda312450cb19a",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE10_put_the_butter_at_the_back_in_the_top_drawer_of_the_cabinet_and_close_it.bddl",
+      "sha256": "3d00910a47feefbe351a02442c03c9d66cf62a1dc89f4b653fd0250b90f7fa88",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE10_put_the_butter_at_the_front_in_the_top_drawer_of_the_cabinet_and_close_it.bddl",
+      "sha256": "af0684ddb06f1b9b1f151db3bea2d390e3b8b8eed1f2529b2e82d58c5e227709",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE10_put_the_chocolate_pudding_in_the_top_drawer_of_the_cabinet_and_close_it.bddl",
+      "sha256": "f6438ca7aa12c288cc491844c5af26e06777a85c1a9ec7a65f62fbf14f9bf838",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE1_open_the_bottom_drawer_of_the_cabinet.bddl",
+      "sha256": "26453b960c3c071a731e13d1447c31dd4dc939a8852030edad5e90d0ee465e0e",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet.bddl",
+      "sha256": "d4f8f86fec0d4fe418f8c063792d07d179a71f06fb799dc5132ca06896e16ac1",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE1_open_the_top_drawer_of_the_cabinet_and_put_the_bowl_in_it.bddl",
+      "sha256": "642afeac021a9e8d20256da9fcd8a2f34ca2dd4df89a4d67c90b9facf46e4e97",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE1_put_the_black_bowl_on_the_plate.bddl",
+      "sha256": "9875b091f27560f75e556353e204e8fb27526e3ee9449c02ef1b127115055450",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE1_put_the_black_bowl_on_top_of_the_cabinet.bddl",
+      "sha256": "ccfdf462b617303e43c1d194f03cc667be03dd705a92bfc689938c5952f538fa",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE2_open_the_top_drawer_of_the_cabinet.bddl",
+      "sha256": "f720fe5676043a9f543a02165f656e97ad2f4f82483a576a938d69b4ae404f26",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE2_put_the_black_bowl_at_the_back_on_the_plate.bddl",
+      "sha256": "2737aa69961170f8da85c221b5cb4a5d07c83df2c9fa6a96abddf04d4897680b",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE2_put_the_black_bowl_at_the_front_on_the_plate.bddl",
+      "sha256": "6cae8e15ca524c067b2eeae02e95400a5f14ad5152e358d4acaeb355f23d0d54",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE2_put_the_middle_black_bowl_on_the_plate.bddl",
+      "sha256": "a8e33d394ddf23f9707937db18d1a42a43e882989ce36e7cbf95d63dc2bc5645",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE2_put_the_middle_black_bowl_on_top_of_the_cabinet.bddl",
+      "sha256": "7d42a8806524b08fa90f67e31e3c80a339f0ecba7a7d6cb378612a6b4648705e",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE2_stack_the_black_bowl_at_the_front_on_the_black_bowl_in_the_middle.bddl",
+      "sha256": "381cf12788739624b2037b3cabca34b8efdd7c6397bf38c1af7056caf49d38b7",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE2_stack_the_middle_black_bowl_on_the_back_black_bowl.bddl",
+      "sha256": "5ec3417a41a4a98764a111ac11e10bb1bf36d108d04c16bc2c173ad6e9e8dc6d",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE3_put_the_frying_pan_on_the_stove.bddl",
+      "sha256": "f54f8550e4058af1ed72aa0a0a41a4ae8d8d5cacbf453085130b0a279c7f8d55",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE3_put_the_moka_pot_on_the_stove.bddl",
+      "sha256": "d94a21d1fb32f76c08050242581c692486ae12956ae2de3dd96dd4d7d656fcd6",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE3_turn_on_the_stove.bddl",
+      "sha256": "b081c85eec6ba5ede60bcb773e33cef284bd7befc96d4bbeeff48764d6fe16d6",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE3_turn_on_the_stove_and_put_the_frying_pan_on_it.bddl",
+      "sha256": "f478f7d636e36ff4f6a689a43e01d9b9310429a7e3c5e7c397cbea766e81c125",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE4_close_the_bottom_drawer_of_the_cabinet.bddl",
+      "sha256": "625d60f5028da5944f596df6a10b19d4cff3df2d5721650da671612e58f21527",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE4_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer.bddl",
+      "sha256": "18b09520ca3a22695c469c6537dc94ef58bbb2326b0d870e22ac7b1daf4f8f49",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet.bddl",
+      "sha256": "ef4d7e68ed3a7c84141fdc881233d1981b0ddfa0ec35e06ff762e4f161599dc0",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE4_put_the_black_bowl_on_top_of_the_cabinet.bddl",
+      "sha256": "d03064c6e26a4ad51a1d3f53b1f068a1cfefc83440c0abbda0bda47b3b657edb",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE4_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet.bddl",
+      "sha256": "70fd15c43ee8f9c92e2e832e64a8afd118d9cba43b7817572750b03b6cba06fc",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE4_put_the_wine_bottle_on_the_wine_rack.bddl",
+      "sha256": "a5a1a379b1c9511105218c72417b1b4d76ece5119ef08cefcd51facfb2f1b108",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE5_close_the_top_drawer_of_the_cabinet.bddl",
+      "sha256": "8a3a63e58724927992d314ce99b7308c4a80401d4f2bf832bbd6fb1b836b162f",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE5_put_the_black_bowl_in_the_top_drawer_of_the_cabinet.bddl",
+      "sha256": "df10ccf402c0fdb47f50cf77c295e3014d5283504048c9da5089dd5af08f13ee",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE5_put_the_black_bowl_on_the_plate.bddl",
+      "sha256": "858a18579b18d23aca74f0c1042841c0ae9117f4952eb42be6260b4e46052b50",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE5_put_the_black_bowl_on_top_of_the_cabinet.bddl",
+      "sha256": "c43bc716d0015fd88243bd979290cf7509e1fa1ab9c5c4482329eb34b69220b0",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE5_put_the_ketchup_in_the_top_drawer_of_the_cabinet.bddl",
+      "sha256": "6ac925726b1963919995df27483c5e5ba72877b5de52f7e40c6c47ce382d0a1c",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE6_close_the_microwave.bddl",
+      "sha256": "97df87deffb264990bcb06b877deaace02d296c01de7cc5c312c7bfc30da3b00",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE6_put_the_yellow_and_white_mug_to_the_front_of_the_white_mug.bddl",
+      "sha256": "d766b419c796848db2c93b46b9388770d8a2597730623ccab02a37853a6538d6",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE7_open_the_microwave.bddl",
+      "sha256": "af12c019cde75245f2d301c2519dca670818f6827ad412853777ec9389874f2f",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE7_put_the_white_bowl_on_the_plate.bddl",
+      "sha256": "dc9b9db1cfc513b0ce88fa40c0406ccb6b4dbf42543404b88319e94f0f34c6ee",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE7_put_the_white_bowl_to_the_right_of_the_plate.bddl",
+      "sha256": "ab81d511d4ea256154fa759b9e09e10c5209642a1048c44996a09cb0daea6296",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE8_put_the_right_moka_pot_on_the_stove.bddl",
+      "sha256": "e301f416142994ebfb993f2da8d623dc48e68c74a3a9aae10ea29fc8f6c8858c",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE8_turn_off_the_stove.bddl",
+      "sha256": "f8853af24d192d8416cba268ad3b95ad697cb92a06922bad5f1e4a6d5646c4f3",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE9_put_the_frying_pan_on_the_cabinet_shelf.bddl",
+      "sha256": "6c779772e772fae0f2a1e3b6fc48536ea165295021635c27962d2a8bba7becc2",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE9_put_the_frying_pan_on_top_of_the_cabinet.bddl",
+      "sha256": "dab7ed3a0f17e0f619a50130a247a706af0903402c9876ea5957f8cc90964bb5",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE9_put_the_frying_pan_under_the_cabinet_shelf.bddl",
+      "sha256": "a414dbc0ca297d07c9f609dc63948e312e1f977bf2e85344cb54ad8c957bda2b",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE9_put_the_white_bowl_on_top_of_the_cabinet.bddl",
+      "sha256": "a595358c840e6dca31d2d914726bb49d58944252ae868796bd603345a444b627",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE9_turn_on_the_stove.bddl",
+      "sha256": "e258902172935538f45757dfad6e5c25b2313138555cbf79e6119a4024948d13",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/KITCHEN_SCENE9_turn_on_the_stove_and_put_the_frying_pan_on_it.bddl",
+      "sha256": "83bdf9dec9795fec4d378c0914184bb2e09fa4dbd8038edfee75844040676087",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE1_pick_up_the_alphabet_soup_and_put_it_in_the_basket.bddl",
+      "sha256": "99ae5af0f77aca18d2eab39e4b302a9af59ae86766b8e7dc528c08a75fa12515",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE1_pick_up_the_cream_cheese_box_and_put_it_in_the_basket.bddl",
+      "sha256": "750d8ec117142214ab2910df68290258be0b516adadc753a02297267028ea9dd",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE1_pick_up_the_ketchup_and_put_it_in_the_basket.bddl",
+      "sha256": "4dda6bfe902c85a12e8bf54295f212d857d30fbadd43e7579a14c4b31f078121",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE1_pick_up_the_tomato_sauce_and_put_it_in_the_basket.bddl",
+      "sha256": "cce015229a021baf1124562dd5efbc5bc65195926ecce34254c9da5728690816",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE2_pick_up_the_alphabet_soup_and_put_it_in_the_basket.bddl",
+      "sha256": "2cebb752ffc9d2f2a06c3b257cbfc652df42905a12f597d7304f93bfdb42f50b",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE2_pick_up_the_butter_and_put_it_in_the_basket.bddl",
+      "sha256": "8d580df5f2bf9796b22f0bfa1f06b1c9b63643cffcff67e534cca56c5dd330b5",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE2_pick_up_the_milk_and_put_it_in_the_basket.bddl",
+      "sha256": "db1d192adbf1ccfc2360bd3fbcd6382f6927ffa88011d2f72e186e7c4e52d089",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE2_pick_up_the_orange_juice_and_put_it_in_the_basket.bddl",
+      "sha256": "a8429485e725b7ba764f1fa17618880c0b0be9257ae931af5a8b3c9dcbbe5497",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE2_pick_up_the_tomato_sauce_and_put_it_in_the_basket.bddl",
+      "sha256": "741bf27d071004a840596227ae19d030f5a8439c6262909957daa7a971ea49e2",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE3_pick_up_the_alphabet_soup_and_put_it_in_the_tray.bddl",
+      "sha256": "3af51e28930dc08a6e728d1f68ce2583251bb326cf8dea2295127b2819a29891",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE3_pick_up_the_butter_and_put_it_in_the_tray.bddl",
+      "sha256": "9ec972d564151ee40d8b5b5fc1bd7acf62a3256d42c8d49e671c1d6caece7827",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE3_pick_up_the_cream_cheese_and_put_it_in_the_tray.bddl",
+      "sha256": "394de660979995c9dd1131bdbfa5fb25eb824828e60dee25a5b80c3cbfd5155a",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE3_pick_up_the_ketchup_and_put_it_in_the_tray.bddl",
+      "sha256": "9d765199eb93e1d52a043171a322ca369369566056fab904d6ebfba1d01bc3a5",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE3_pick_up_the_tomato_sauce_and_put_it_in_the_tray.bddl",
+      "sha256": "7580a3282b33142c441a3a4f906e7f88415a9a734b3ef14e59e22f3a8d7d3315",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE4_pick_up_the_black_bowl_on_the_left_and_put_it_in_the_tray.bddl",
+      "sha256": "55a2869f06068a66279aa4434c9d97907301e763b394dd20e49e03f216636396",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE4_pick_up_the_chocolate_pudding_and_put_it_in_the_tray.bddl",
+      "sha256": "766f93639728bc0be416df897e5ebe7143196ea8eff8b35301cc05a753824a54",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE4_pick_up_the_salad_dressing_and_put_it_in_the_tray.bddl",
+      "sha256": "ddd537c6a69f8ad765ac5cfbae8fbadcb3e13cc8746d8cfe6c28659aae7228d5",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE4_stack_the_left_bowl_on_the_right_bowl_and_place_them_in_the_tray.bddl",
+      "sha256": "a92734858c6df932338de4f6d70d0bab628b8ac6588ec22fd3b3d56d01c67d56",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE4_stack_the_right_bowl_on_the_left_bowl_and_place_them_in_the_tray.bddl",
+      "sha256": "b410e4cdb62e59d3f87a8e06490c0193f57b51d7f792a976bca62a6f206b9bb5",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE5_put_the_red_mug_on_the_left_plate.bddl",
+      "sha256": "31b8c105f80a531465e4651d3d000fab366835d3634bfdf9cb4af0fe54e4e76c",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE5_put_the_red_mug_on_the_right_plate.bddl",
+      "sha256": "25041096f0d0ec68a44ddd0aab85bbe12ff8a67abd73249460acbb1f2c153329",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate.bddl",
+      "sha256": "4ea39c7b56d60c046e8034d209b8fbd2e734ec4f525a214c031e42ee3683a5a4",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE5_put_the_yellow_and_white_mug_on_the_right_plate.bddl",
+      "sha256": "a24811b2fb2350bf02ad2105395a2f62d102949cab39edfe9e6183b06e4e6409",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_left_of_the_plate.bddl",
+      "sha256": "6dedd8a22eba99fc31669d830fb4251190976d9236030db2142e966ba42668fd",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE6_put_the_chocolate_pudding_to_the_right_of_the_plate.bddl",
+      "sha256": "b6dfb0380bcb6291fb45274a04ce1dba222f737d2284b1fb36463f5920420bcb",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE6_put_the_red_mug_on_the_plate.bddl",
+      "sha256": "07c3ace6506306dbf58c8f5043c8a4fbe52cc99b3f010cc07c081026a040e658",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate.bddl",
+      "sha256": "7b1f805dc9b6abe3793655026bd4bb14b24f4596c65506f561a3a7057abf3771",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_front_compartment_of_the_caddy.bddl",
+      "sha256": "9fd25c1eb92bd285325d639bdc5920e4ca38b2e39b346e46202dbe6eca7dd37b",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_left_compartment_of_the_caddy.bddl",
+      "sha256": "7a46821e87185877e6bf9f2128f56842cb2bb58e3822f0b0a9650d4b78250ae4",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy.bddl",
+      "sha256": "4a4ce354be7b6123b80a2d28a21d055cfd775c2841b94e205c32ae83a2902e67",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE1_pick_up_the_yellow_and_white_mug_and_place_it_to_the_right_of_the_caddy.bddl",
+      "sha256": "46fe1a53f826f4e7e67a02695578aee431e07847fe12b50ef78e300167551fe4",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy.bddl",
+      "sha256": "128e625a43bc1b9e2c611befc99c9dbfec29cf06c310609550c88c52b2509a1e",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_front_compartment_of_the_caddy.bddl",
+      "sha256": "36918ffce6dc6365de0e9b1c889f7d62f18709c2b3ab1c15cd83e518291d894f",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_left_compartment_of_the_caddy.bddl",
+      "sha256": "a09ebd472eab1cddf4050711d54789994ce0dbc58a11b03654b6699129093611",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE2_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy.bddl",
+      "sha256": "5d3f98f9daa18ea19d7d27372641882eedb7fb28287f25a8ae22d61333efb5b4",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE3_pick_up_the_book_and_place_it_in_the_front_compartment_of_the_caddy.bddl",
+      "sha256": "61fca3149420ce78e29520e085aae8edead8f4b555c5424a7ae6a9b6cf9a4b9d",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE3_pick_up_the_book_and_place_it_in_the_left_compartment_of_the_caddy.bddl",
+      "sha256": "6634a1c13651a4958442c58879c25e1ece3ffdb9cfba2d7fe233d7d95f9c35ed",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE3_pick_up_the_book_and_place_it_in_the_right_compartment_of_the_caddy.bddl",
+      "sha256": "63d362bdf1fbca21132b30fccc7a29846aa81f3811c6b6b258818501595f89ec",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE3_pick_up_the_red_mug_and_place_it_to_the_right_of_the_caddy.bddl",
+      "sha256": "67ac86171a2ffc17064e839487189a8d28b0e33b7896ff39d82ce3bfe02ada3e",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE3_pick_up_the_white_mug_and_place_it_to_the_right_of_the_caddy.bddl",
+      "sha256": "7723f0144dc82eac22dd095eaeff9ca5e1ec701f5a629a7be4e5176cb5f7bf8d",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE4_pick_up_the_book_in_the_middle_and_place_it_on_the_cabinet_shelf.bddl",
+      "sha256": "b17612a9a5fb0314c5aadb297cf8936d8e36ae6d97840e2d7fd8622399321323",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE4_pick_up_the_book_on_the_left_and_place_it_on_top_of_the_shelf.bddl",
+      "sha256": "cc32019a35c3bf065ea454992d3b16e0c2d6d9882e1e762ff41ebe4f5728f2da",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE4_pick_up_the_book_on_the_right_and_place_it_on_the_cabinet_shelf.bddl",
+      "sha256": "bae10bd25c00e92750c7bbc68470ba506a94c31cc2d25785262402793875ab04",
+      "source": "original"
+    },
+    {
+      "path": "libero_90/STUDY_SCENE4_pick_up_the_book_on_the_right_and_place_it_under_the_cabinet_shelf.bddl",
+      "sha256": "bd51b8a8e9f681d834c9e879de4fbe408ba20d265ff7d1b95968e574d357a59c",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal/open_the_middle_drawer_of_the_cabinet.bddl",
+      "sha256": "832ab48ec476807c767e8985666e295700f92d1f8daeae1c34eee1e75293769b",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal/open_the_top_drawer_and_put_the_bowl_inside.bddl",
+      "sha256": "3056e4dc72ee590432cfb18c610fd077a572c8b8f256e45328031005dd0b6757",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal/push_the_plate_to_the_front_of_the_stove.bddl",
+      "sha256": "26f22f8ad39a4b2b344b049115c45661a877fa0b4821fb78246725e7e87d8c0b",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal/put_the_bowl_on_the_plate.bddl",
+      "sha256": "358b7781437e412c67d6a7648c1c28796b6b1bf117a25e61316cb8dfeb940e5b",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal/put_the_bowl_on_the_stove.bddl",
+      "sha256": "c6812d6c988be830412aa6fc4801af04d60f8c4565d2625763b6a0f2b843a87f",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal/put_the_bowl_on_top_of_the_cabinet.bddl",
+      "sha256": "2ffba859a154f50c3c99ffb3420743fa5aa65c70bf7d4cd26f5bc81d07be5713",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal/put_the_cream_cheese_in_the_bowl.bddl",
+      "sha256": "81c54eace32b92466598103b3b6e8435ce90f10996ef18cec4a35fe6c4d31a98",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal/put_the_wine_bottle_on_the_rack.bddl",
+      "sha256": "3d3ee18139056aa3780572cde17b1c50dc20ae0d299403f65e514e8471ba0e8e",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal/put_the_wine_bottle_on_top_of_the_cabinet.bddl",
+      "sha256": "2ef6f403a8451e216af44158c1a6c975cf8e5058ad02d78367ac0be443d096fe",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal/turn_on_the_stove.bddl",
+      "sha256": "cbd2a0514d53226c5d09e17af40b22935d4cb6ff8fdaff0d55f555de1adecc13",
+      "source": "original"
+    },
+    {
+      "path": "libero_object/pick_up_the_alphabet_soup_and_place_it_in_the_basket.bddl",
+      "sha256": "df088984da13131f8332ee0f13a7896c6a97afd02ee5007a42e8fc5e0893571e",
+      "source": "original"
+    },
+    {
+      "path": "libero_object/pick_up_the_bbq_sauce_and_place_it_in_the_basket.bddl",
+      "sha256": "8a7e37b76fce5621e649e260dbcfcec7ce2f9a055ca09a4f1ebaf5ca74a739c2",
+      "source": "original"
+    },
+    {
+      "path": "libero_object/pick_up_the_butter_and_place_it_in_the_basket.bddl",
+      "sha256": "5d8053b40ff33246fdbcc38548db84032c6bb647b4b88b6646d9cf6b73a5006c",
+      "source": "original"
+    },
+    {
+      "path": "libero_object/pick_up_the_chocolate_pudding_and_place_it_in_the_basket.bddl",
+      "sha256": "674ceabc400b7b16d46e8eaf678709d4a633235c7e0a80233775044fe38b19b0",
+      "source": "original"
+    },
+    {
+      "path": "libero_object/pick_up_the_cream_cheese_and_place_it_in_the_basket.bddl",
+      "sha256": "7019f37ee158d67a21338a6df0c441dd8f84979b946b5e20bb49463ef0508ea2",
+      "source": "original"
+    },
+    {
+      "path": "libero_object/pick_up_the_ketchup_and_place_it_in_the_basket.bddl",
+      "sha256": "4a4e545483a3fe30cf0ef3dc05bfe5e6ad5e37c94b4376dfa73fe1b60e75b319",
+      "source": "original"
+    },
+    {
+      "path": "libero_object/pick_up_the_milk_and_place_it_in_the_basket.bddl",
+      "sha256": "9910aabf6717e8ba3e24a3f8500d9bce9ee075346ea6961e8fd766f1257d2996",
+      "source": "original"
+    },
+    {
+      "path": "libero_object/pick_up_the_orange_juice_and_place_it_in_the_basket.bddl",
+      "sha256": "6298533e7bcfb83e40779a77fda39216e8cd53f22bf1af6388585dad0abb0b50",
+      "source": "original"
+    },
+    {
+      "path": "libero_object/pick_up_the_salad_dressing_and_place_it_in_the_basket.bddl",
+      "sha256": "024978e9e8f43a49b49d0965f4f426d364ce056307f0fcf5733dc4682fac437a",
+      "source": "original"
+    },
+    {
+      "path": "libero_object/pick_up_the_tomato_sauce_and_place_it_in_the_basket.bddl",
+      "sha256": "b1f4bb69d256a05f693838de46182bb0d3de0de68eec350df1b5b1e76f6c136d",
+      "source": "original"
+    },
+    {
+      "path": "libero_spatial/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate.bddl",
+      "sha256": "9b59eb1287802868ad9bc78d58e6d36d4ba31134e679cfdbdf4b0feb660c959b",
+      "source": "original"
+    },
+    {
+      "path": "libero_spatial/pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate.bddl",
+      "sha256": "5e19880ebc844f86b89f63b172aab0b7a89f85b6e6955891f544f0ea7d0795d5",
+      "source": "original"
+    },
+    {
+      "path": "libero_spatial/pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate.bddl",
+      "sha256": "4371189e11d9fd29bb548ab9a8adcd741bb0ce41bb66c612672d0e8cb29a52a9",
+      "source": "original"
+    },
+    {
+      "path": "libero_spatial/pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate.bddl",
+      "sha256": "566c65596f3472e752e6522817bff51bbf3ce5159d7bec1d3554e5ead46b1e55",
+      "source": "original"
+    },
+    {
+      "path": "libero_spatial/pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate.bddl",
+      "sha256": "c8fbb9effa27b947d04d26862d75273d93cac1806734e53836cd472a08aec1fe",
+      "source": "original"
+    },
+    {
+      "path": "libero_spatial/pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate.bddl",
+      "sha256": "53a7516571412a2f46a27cbf8482d3b76dbad4221858c8f6b565d506c274e61d",
+      "source": "original"
+    },
+    {
+      "path": "libero_spatial/pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate.bddl",
+      "sha256": "3d4ccf070c3d9883ae0676f2d888588f98c696ddad71b7694f47c379fc99ef36",
+      "source": "original"
+    },
+    {
+      "path": "libero_spatial/pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate.bddl",
+      "sha256": "10239815a9d18ad53e09365d453a362ee54d29ca276e04eef411cf1db8d72940",
+      "source": "original"
+    },
+    {
+      "path": "libero_spatial/pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate.bddl",
+      "sha256": "dd11837141a30d874ebbbfaae20e91ecc67ec85ab3872ceb4cff3abfcbef7cb0",
+      "source": "original"
+    },
+    {
+      "path": "libero_spatial/pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate.bddl",
+      "sha256": "5293e759381b477e126beaf83d738542bbd4d93f522a3eead1066e612bad4a8c",
+      "source": "original"
+    },
+    {
+      "path": "libero_goal_ood/put_the_bbq_source_on_the_plate.bddl",
+      "sha256": "35bdf9391b2d4f2c8eb58903f4c688069b712e1568d313ce1d19cb4a41c9aa41",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_goal_ood/put_the_cream_cheese_in_the_basket.bddl",
+      "sha256": "0852791a76d851542f5ed08b682d3440bd6255ab54ea987545b34924561dcf7d",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_goal_ood/put_the_cream_cheese_on_the_plate.bddl",
+      "sha256": "62dc454bfdd4a3162632da51fb3300f3e08ca342ca0ff5ea8839a474993fcda9",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_goal_ood/put_the_cream_cheese_on_the_stove.bddl",
+      "sha256": "588acae456143a44edde1c3cc63c5ae24dd5c741bdcf367457070436f1397de4",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_goal_ood/put_the_cream_cheese_on_top_of_the_cabinet.bddl",
+      "sha256": "bf05ee22714fe070fee420ccb7a697f65d64ab320b347448f99f90989d23fe6e",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_goal_ood/put_the_orange_juice_on_the_stove.bddl",
+      "sha256": "1cd35dbf657c8ef14efadb934d58b15433414464575192795680832c8ff198ca",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_goal_ood/put_the_tomato_sauce_on_top_of_the_cabinet.bddl",
+      "sha256": "4c13c3b6246262cb2e55b92444914a83096d8dbee5309db12957c692cb4dfdea",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_goal_ood/put_the_wine_bottle_in_the_bowl.bddl",
+      "sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl",
+      "sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_goal_ood/put_the_wine_bottle_on_the_stove.bddl",
+      "sha256": "f6aff68b9087f11e296f89edc8c782e9c711a9cecfb228a427715df3f4ab539a",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_spatial_ood/put_the_bowl_at_table_center_on_the_cabinet.bddl",
+      "sha256": "9c9127a7737533425abf5dc8bd166cd5ff00ea6e5f0c1aa49159058c199d883c",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_spatial_ood/put_the_bowl_at_table_center_on_the_stove.bddl",
+      "sha256": "299bc09902a8b1d7877db4baf949141cea99debe289f2d600a4a7303da272e26",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_spatial_ood/put_the_bowl_next_to_the_plate_on_the_cabinet.bddl",
+      "sha256": "946fa9bda652173f768bd988d2a26bc0fb002aa92cf32eedeea37660c8ec1818",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_spatial_ood/put_the_bowl_next_to_the_plate_on_the_stove.bddl",
+      "sha256": "fb63f416148fb899ec93bcae989c8c694b92cc17840ed15dce400b10ca22dcd9",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_spatial_ood/put_the_bowl_on_cookie_box_on_the_cabinet.bddl",
+      "sha256": "a9fc6c11e3da8dfb35bef98011f99390b3fcb655e0d90f7f9a6ab38826f890b6",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_spatial_ood/put_the_bowl_on_cookie_box_on_the_stove.bddl",
+      "sha256": "6ac72af7b417189a8b6d6ccbc1936791324bdf59285d8cda250dd08c04632630",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_spatial_ood/put_the_butter_on_the_plate.bddl",
+      "sha256": "7de1c0ab2f2fd5a875d815149fe505319537f6e5f1189ac787c040b25aab5285",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_spatial_ood/put_the_chocolate_pudding_on_the_plate.bddl",
+      "sha256": "7c5220fd359c1a04bab18a1849bf957e06fe8705cca920a0bbae706e82635cd0",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_spatial_ood/put_the_milk_on_the_plate.bddl",
+      "sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+      "source": "paper_ood"
+    },
+    {
+      "path": "libero_spatial_ood/put_the_orange_juice_on_the_plate.bddl",
+      "sha256": "6dee489e91acb1739abb1d7e480a5e7358987cb61400f80a70bc3b724f542429",
+      "source": "paper_ood"
+    }
+  ],
+  "reference_task_count": 150,
+  "schema_version": "astra-ood-extension-1.0",
+  "source_revisions": {
+    "original_libero": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
+    "paper_ood": "587a6cbf64f16c7b87fa5805dc0ed934192239a4"
+  },
+  "status": "simulator_validated_policy_evaluation_pending",
+  "success_rate": null,
+  "task_count": 16,
+  "tasks": [
+    {
+      "bddl": "bddl/astra_goal_composition/put_the_milk_in_the_bowl.bddl",
+      "bddl_sha256": "1b087a82e6847be0eba0787a154c97405a86370cf4d32efd845f8414e5a6f7cd",
+      "destination": "akita_black_bowl_1",
+      "family": "astra_goal_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "milk_1",
+          "akita_black_bowl_1"
+        ]
+      ],
+      "id": "astra_goal_composition:0",
+      "instruction": "put the milk in the bowl",
+      "novelty_axis": "object type \u00d7 destination",
+      "novelty_check": "absent from all supplied original and paper OOD goal atoms",
+      "novelty_key": [
+        "on",
+        "milk",
+        "akita_black_bowl"
+      ],
+      "source_object": "milk_1",
+      "template": "libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl",
+      "template_sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+      "template_source": "paper_ood"
+    },
+    {
+      "bddl": "bddl/astra_goal_composition/put_the_butter_on_the_stove.bddl",
+      "bddl_sha256": "4e68b1549c26c5fc25ef6201aff1dde5376e23f07c9359a0231dbb22d60adfef",
+      "destination": "flat_stove_1_base_region",
+      "family": "astra_goal_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "butter_1",
+          "flat_stove_1_base_region"
+        ]
+      ],
+      "id": "astra_goal_composition:1",
+      "instruction": "put the butter on the stove",
+      "novelty_axis": "object type \u00d7 destination",
+      "novelty_check": "absent from all supplied original and paper OOD goal atoms",
+      "novelty_key": [
+        "on",
+        "butter",
+        "flat_stove/placement_surface"
+      ],
+      "source_object": "butter_1",
+      "template": "libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl",
+      "template_sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+      "template_source": "paper_ood"
+    },
+    {
+      "bddl": "bddl/astra_goal_composition/put_the_chocolate_pudding_in_the_bowl.bddl",
+      "bddl_sha256": "0ab18079510232e342c583742455b799e725395511e5fd673390749067a9a5b6",
+      "destination": "akita_black_bowl_1",
+      "family": "astra_goal_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "chocolate_pudding_1",
+          "akita_black_bowl_1"
+        ]
+      ],
+      "id": "astra_goal_composition:2",
+      "instruction": "put the chocolate pudding in the bowl",
+      "novelty_axis": "object type \u00d7 destination",
+      "novelty_check": "absent from all supplied original and paper OOD goal atoms",
+      "novelty_key": [
+        "on",
+        "chocolate_pudding",
+        "akita_black_bowl"
+      ],
+      "source_object": "chocolate_pudding_1",
+      "template": "libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl",
+      "template_sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+      "template_source": "paper_ood"
+    },
+    {
+      "bddl": "bddl/astra_goal_composition/put_the_alphabet_soup_on_the_plate.bddl",
+      "bddl_sha256": "b0a25476d49422949b0fc6a07c91c517f00943a2cefcbf86e2c494087576724f",
+      "destination": "plate_1",
+      "family": "astra_goal_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "alphabet_soup_1",
+          "plate_1"
+        ]
+      ],
+      "id": "astra_goal_composition:3",
+      "instruction": "put the alphabet soup on the plate",
+      "novelty_axis": "object type \u00d7 destination",
+      "novelty_check": "absent from all supplied original and paper OOD goal atoms",
+      "novelty_key": [
+        "on",
+        "alphabet_soup",
+        "plate"
+      ],
+      "source_object": "alphabet_soup_1",
+      "template": "libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl",
+      "template_sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+      "template_source": "paper_ood"
+    },
+    {
+      "bddl": "bddl/astra_goal_composition/put_the_tomato_sauce_on_the_plate.bddl",
+      "bddl_sha256": "df60ae075ed9ef6916dcc990604f6b3c9c64c492ffc61cccb70d8941d9b939f4",
+      "destination": "plate_1",
+      "family": "astra_goal_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "tomato_sauce_1",
+          "plate_1"
+        ]
+      ],
+      "id": "astra_goal_composition:4",
+      "instruction": "put the tomato sauce on the plate",
+      "novelty_axis": "object type \u00d7 destination",
+      "novelty_check": "absent from all supplied original and paper OOD goal atoms",
+      "novelty_key": [
+        "on",
+        "tomato_sauce",
+        "plate"
+      ],
+      "source_object": "tomato_sauce_1",
+      "template": "libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl",
+      "template_sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+      "template_source": "paper_ood"
+    },
+    {
+      "bddl": "bddl/astra_goal_composition/put_the_ketchup_on_the_stove.bddl",
+      "bddl_sha256": "795cf249442c13680c8d4d707fc9cbc6b3244e67761f42289c801505bffadd9a",
+      "destination": "flat_stove_1_base_region",
+      "family": "astra_goal_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "ketchup_1",
+          "flat_stove_1_base_region"
+        ]
+      ],
+      "id": "astra_goal_composition:5",
+      "instruction": "put the ketchup on the stove",
+      "novelty_axis": "object type \u00d7 destination",
+      "novelty_check": "absent from all supplied original and paper OOD goal atoms",
+      "novelty_key": [
+        "on",
+        "ketchup",
+        "flat_stove/placement_surface"
+      ],
+      "source_object": "ketchup_1",
+      "template": "libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl",
+      "template_sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+      "template_source": "paper_ood"
+    },
+    {
+      "bddl": "bddl/astra_goal_composition/put_the_orange_juice_on_top_of_the_cabinet.bddl",
+      "bddl_sha256": "be679f33db4082742da50fa32bc06baeefa99b5f63696d404587164d27d14b6c",
+      "destination": "wooden_cabinet_1_top_side",
+      "family": "astra_goal_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "orange_juice_1",
+          "wooden_cabinet_1_top_side"
+        ]
+      ],
+      "id": "astra_goal_composition:6",
+      "instruction": "put the orange juice on top of the cabinet",
+      "novelty_axis": "object type \u00d7 destination",
+      "novelty_check": "absent from all supplied original and paper OOD goal atoms",
+      "novelty_key": [
+        "on",
+        "orange_juice",
+        "wooden_cabinet/top_side"
+      ],
+      "source_object": "orange_juice_1",
+      "template": "libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl",
+      "template_sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+      "template_source": "paper_ood"
+    },
+    {
+      "bddl": "bddl/astra_goal_composition/put_the_bbq_sauce_on_top_of_the_cabinet.bddl",
+      "bddl_sha256": "d4972a25115b7bb29ce4c4abcd370eafa8971710f2c2adbc7392e479af6b0432",
+      "destination": "wooden_cabinet_1_top_side",
+      "family": "astra_goal_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "bbq_sauce_1",
+          "wooden_cabinet_1_top_side"
+        ]
+      ],
+      "id": "astra_goal_composition:7",
+      "instruction": "put the bbq sauce on top of the cabinet",
+      "novelty_axis": "object type \u00d7 destination",
+      "novelty_check": "absent from all supplied original and paper OOD goal atoms",
+      "novelty_key": [
+        "on",
+        "bbq_sauce",
+        "wooden_cabinet/top_side"
+      ],
+      "source_object": "bbq_sauce_1",
+      "template": "libero_goal_ood/put_the_wine_bottle_on_the_plate.bddl",
+      "template_sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+      "template_source": "paper_ood"
+    },
+    {
+      "bddl": "bddl/astra_spatial_composition/pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_stove.bddl",
+      "bddl_sha256": "05ca044d2916268f67c385733fdfdf69241dca28c710830d94ef2011b0c11f65",
+      "destination": "flat_stove_1_cook_region",
+      "family": "astra_spatial_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "akita_black_bowl_1",
+          "flat_stove_1_cook_region"
+        ]
+      ],
+      "id": "astra_spatial_composition:0",
+      "instruction": "pick up the black bowl next to the cookie box and place it on the stove",
+      "novelty_axis": "source spatial relation \u00d7 destination",
+      "novelty_check": "absent from supplied source-relation/goal combinations; goal pair alone is familiar",
+      "novelty_key": [
+        "akita_black_bowl",
+        "on",
+        "table/next_to_box_region",
+        "on",
+        "flat_stove/placement_surface"
+      ],
+      "source_object": "akita_black_bowl_1",
+      "source_relation": "next to the cookie box",
+      "template": "libero_spatial/pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate.bddl",
+      "template_sha256": "566c65596f3472e752e6522817bff51bbf3ce5159d7bec1d3554e5ead46b1e55",
+      "template_source": "original"
+    },
+    {
+      "bddl": "bddl/astra_spatial_composition/pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_top_of_the_cabinet.bddl",
+      "bddl_sha256": "4207fbe3b88389680aca0ceb08ed7f8067b9fa720afbcee218667e6bd47a7c3f",
+      "destination": "wooden_cabinet_1_top_side",
+      "family": "astra_spatial_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "akita_black_bowl_1",
+          "wooden_cabinet_1_top_side"
+        ]
+      ],
+      "id": "astra_spatial_composition:1",
+      "instruction": "pick up the black bowl next to the cookie box and place it on top of the cabinet",
+      "novelty_axis": "source spatial relation \u00d7 destination",
+      "novelty_check": "absent from supplied source-relation/goal combinations; goal pair alone is familiar",
+      "novelty_key": [
+        "akita_black_bowl",
+        "on",
+        "table/next_to_box_region",
+        "on",
+        "wooden_cabinet/top_side"
+      ],
+      "source_object": "akita_black_bowl_1",
+      "source_relation": "next to the cookie box",
+      "template": "libero_spatial/pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate.bddl",
+      "template_sha256": "566c65596f3472e752e6522817bff51bbf3ce5159d7bec1d3554e5ead46b1e55",
+      "template_source": "original"
+    },
+    {
+      "bddl": "bddl/astra_spatial_composition/pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_stove.bddl",
+      "bddl_sha256": "5887c91b4dd1e45b3b444659c58f7f4474c065a80dc8c244c8147c5f0056d549",
+      "destination": "flat_stove_1_cook_region",
+      "family": "astra_spatial_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "akita_black_bowl_1",
+          "flat_stove_1_cook_region"
+        ]
+      ],
+      "id": "astra_spatial_composition:2",
+      "instruction": "pick up the black bowl next to the ramekin and place it on the stove",
+      "novelty_axis": "source spatial relation \u00d7 destination",
+      "novelty_check": "absent from supplied source-relation/goal combinations; goal pair alone is familiar",
+      "novelty_key": [
+        "akita_black_bowl",
+        "on",
+        "table/next_to_ramekin_region",
+        "on",
+        "flat_stove/placement_surface"
+      ],
+      "source_object": "akita_black_bowl_1",
+      "source_relation": "next to the ramekin",
+      "template": "libero_spatial/pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate.bddl",
+      "template_sha256": "53a7516571412a2f46a27cbf8482d3b76dbad4221858c8f6b565d506c274e61d",
+      "template_source": "original"
+    },
+    {
+      "bddl": "bddl/astra_spatial_composition/pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_top_of_the_cabinet.bddl",
+      "bddl_sha256": "f9e9b5dd35c93f304cb97af446bb97eb81aaf986080c14075bf5d801d349156d",
+      "destination": "wooden_cabinet_1_top_side",
+      "family": "astra_spatial_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "akita_black_bowl_1",
+          "wooden_cabinet_1_top_side"
+        ]
+      ],
+      "id": "astra_spatial_composition:3",
+      "instruction": "pick up the black bowl next to the ramekin and place it on top of the cabinet",
+      "novelty_axis": "source spatial relation \u00d7 destination",
+      "novelty_check": "absent from supplied source-relation/goal combinations; goal pair alone is familiar",
+      "novelty_key": [
+        "akita_black_bowl",
+        "on",
+        "table/next_to_ramekin_region",
+        "on",
+        "wooden_cabinet/top_side"
+      ],
+      "source_object": "akita_black_bowl_1",
+      "source_relation": "next to the ramekin",
+      "template": "libero_spatial/pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate.bddl",
+      "template_sha256": "53a7516571412a2f46a27cbf8482d3b76dbad4221858c8f6b565d506c274e61d",
+      "template_source": "original"
+    },
+    {
+      "bddl": "bddl/astra_spatial_composition/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_stove.bddl",
+      "bddl_sha256": "8099d238b61a62095cb54ea4ac618b1f71c57c7222224c454db18ff20caa6767",
+      "destination": "flat_stove_1_cook_region",
+      "family": "astra_spatial_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "akita_black_bowl_1",
+          "flat_stove_1_cook_region"
+        ]
+      ],
+      "id": "astra_spatial_composition:4",
+      "instruction": "pick up the black bowl between the plate and the ramekin and place it on the stove",
+      "novelty_axis": "source spatial relation \u00d7 destination",
+      "novelty_check": "absent from supplied source-relation/goal combinations; goal pair alone is familiar",
+      "novelty_key": [
+        "akita_black_bowl",
+        "on",
+        "table/between_plate_ramekin_region",
+        "on",
+        "flat_stove/placement_surface"
+      ],
+      "source_object": "akita_black_bowl_1",
+      "source_relation": "between the plate and the ramekin",
+      "template": "libero_spatial/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate.bddl",
+      "template_sha256": "9b59eb1287802868ad9bc78d58e6d36d4ba31134e679cfdbdf4b0feb660c959b",
+      "template_source": "original"
+    },
+    {
+      "bddl": "bddl/astra_spatial_composition/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_top_of_the_cabinet.bddl",
+      "bddl_sha256": "4768184001c786c77cb1385f277484f643d4b4c760fc2af2d918e9b9301c29c2",
+      "destination": "wooden_cabinet_1_top_side",
+      "family": "astra_spatial_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "akita_black_bowl_1",
+          "wooden_cabinet_1_top_side"
+        ]
+      ],
+      "id": "astra_spatial_composition:5",
+      "instruction": "pick up the black bowl between the plate and the ramekin and place it on top of the cabinet",
+      "novelty_axis": "source spatial relation \u00d7 destination",
+      "novelty_check": "absent from supplied source-relation/goal combinations; goal pair alone is familiar",
+      "novelty_key": [
+        "akita_black_bowl",
+        "on",
+        "table/between_plate_ramekin_region",
+        "on",
+        "wooden_cabinet/top_side"
+      ],
+      "source_object": "akita_black_bowl_1",
+      "source_relation": "between the plate and the ramekin",
+      "template": "libero_spatial/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate.bddl",
+      "template_sha256": "9b59eb1287802868ad9bc78d58e6d36d4ba31134e679cfdbdf4b0feb660c959b",
+      "template_source": "original"
+    },
+    {
+      "bddl": "bddl/astra_spatial_composition/pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_stove.bddl",
+      "bddl_sha256": "8ce149d8b7b36434b6b957b6e0165455a46ac773dea6be45708f7b694dd084c8",
+      "destination": "flat_stove_1_cook_region",
+      "family": "astra_spatial_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "akita_black_bowl_1",
+          "flat_stove_1_cook_region"
+        ]
+      ],
+      "id": "astra_spatial_composition:6",
+      "instruction": "pick up the black bowl on the ramekin and place it on the stove",
+      "novelty_axis": "source spatial relation \u00d7 destination",
+      "novelty_check": "absent from supplied source-relation/goal combinations; goal pair alone is familiar",
+      "novelty_key": [
+        "akita_black_bowl",
+        "on",
+        "glazed_rim_porcelain_ramekin",
+        "on",
+        "flat_stove/placement_surface"
+      ],
+      "source_object": "akita_black_bowl_1",
+      "source_relation": "on the ramekin",
+      "template": "libero_spatial/pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate.bddl",
+      "template_sha256": "10239815a9d18ad53e09365d453a362ee54d29ca276e04eef411cf1db8d72940",
+      "template_source": "original"
+    },
+    {
+      "bddl": "bddl/astra_spatial_composition/pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_top_of_the_cabinet.bddl",
+      "bddl_sha256": "2cdd49f108849fbbed435829ff27bbf10fc91461bf45f7f6641392ca7c9cd39d",
+      "destination": "wooden_cabinet_1_top_side",
+      "family": "astra_spatial_composition",
+      "goal_atoms": [
+        [
+          "On",
+          "akita_black_bowl_1",
+          "wooden_cabinet_1_top_side"
+        ]
+      ],
+      "id": "astra_spatial_composition:7",
+      "instruction": "pick up the black bowl on the ramekin and place it on top of the cabinet",
+      "novelty_axis": "source spatial relation \u00d7 destination",
+      "novelty_check": "absent from supplied source-relation/goal combinations; goal pair alone is familiar",
+      "novelty_key": [
+        "akita_black_bowl",
+        "on",
+        "glazed_rim_porcelain_ramekin",
+        "on",
+        "wooden_cabinet/top_side"
+      ],
+      "source_object": "akita_black_bowl_1",
+      "source_relation": "on the ramekin",
+      "template": "libero_spatial/pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate.bddl",
+      "template_sha256": "10239815a9d18ad53e09365d453a362ee54d29ca276e04eef411cf1db8d72940",
+      "template_source": "original"
+    }
+  ],
+  "validation_receipt": {
+    "path": "validation/receipt.json",
+    "sha256": "670b8c6908997745383825b6f799efcfecac20c558cb775f03f70d93566a9943"
+  }
+}
