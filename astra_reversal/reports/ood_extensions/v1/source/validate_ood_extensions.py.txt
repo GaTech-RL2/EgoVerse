@@ -111,14 +111,14 @@ def run(task_directory, libero_root, output, task_limit=None):
                             "source_center_minus_target_z": float(dz),
                         }
                         break
-                assert positive is not None, (
-                    "No contact/predicate witness found in prescribed vertical scan"
-                )
+                assert (
+                    positive is not None
+                ), "No contact/predicate witness found in prescribed vertical scan"
                 env.set_state(initial)
                 env.sim.forward()
-                assert not env.check_success(), (
-                    "Restored unsolved state became successful"
-                )
+                assert (
+                    not env.check_success()
+                ), "Restored unsolved state became successful"
                 # Round trip verifies that these saved states are usable for replay.
                 assert np.array_equal(np.asarray(env.get_sim_state()), initial)
                 rows.append(

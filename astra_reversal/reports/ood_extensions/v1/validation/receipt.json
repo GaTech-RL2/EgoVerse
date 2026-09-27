@@ -1111,6 +1111,6 @@
   ],
   "status": "passed",
   "task_count": 16,
-  "validator_sha256": "91ccc653981c329e885757e2876bc914f2e77af76c8dfdf69eb4c6118828c39b",
-  "wall_seconds": 20.723707958997693
+  "validator_sha256": "6dac2607cc6c3dc296b1a8e4b13aa99cd2b6790e857a62b4d200bec13a292e12",
+  "wall_seconds": 20.859379125002306
 }

@@ -119,10 +119,10 @@ def arrow(path, dashed=False, color="#8091a7"):
 
 
 def wrap(title, body, height, description, width=1220):
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" role="img" aria-labelledby="title desc">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" role="img" aria-labelledby="title desc">
 <title id="title">{html.escape(title)}</title><desc id="desc">{html.escape(description)}</desc>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8091a7"/></marker></defs>
-<rect width="{width}" height="{height}" fill="white"/><g font-family="Inter,Arial,sans-serif">{body}</g></svg>'''
+<rect width="{width}" height="{height}" fill="white"/><g font-family="Inter,Arial,sans-serif">{body}</g></svg>"""
 
 
 def flow(arm):

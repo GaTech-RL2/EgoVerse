@@ -1321,7 +1321,7 @@
     ],
     "validation_receipt": {
       "path": "validation/receipt.json",
-      "sha256": "670b8c6908997745383825b6f799efcfecac20c558cb775f03f70d93566a9943"
+      "sha256": "416ac94fb171d3cab220cf7084c0b7433954c9e79b706bdb411ac4621f1f10de"
     }
   },
   "flows": {

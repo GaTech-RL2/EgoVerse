@@ -1,9 +1,9 @@
 {
-  "extension_manifest_sha256": "27f5e809d45a904003f0020485132ec15a7bcbe55a05495c99f0e466b7d84fce",
+  "extension_manifest_sha256": "d781fea57b92089cd83cca89a3b4ba3da46d06b7f37c75579ee57e4980527ece",
   "files": {
     "data.json": {
       "bytes": 627088,
-      "sha256": "fdd87f096107bf1319f3c18c48e3625316b0e23635bd96583f35b700d52786a8"
+      "sha256": "4458573f564de77978ade7a20bd60cea6394af23b1a5d64809b1396ae9b93baa"
     },
     "flows.zip": {
       "bytes": 8366,
@@ -35,11 +35,11 @@
     },
     "index.html": {
       "bytes": 454162,
-      "sha256": "b160cd0086251abc2f544dd8f22dbf20de03386b896d699ee1084ae835928a94"
+      "sha256": "e382b88889883d9156f6e2b640a18e7b878c4f9a85a24386fd00b00e4404b7d0"
     },
     "source/build_dashboard.py": {
       "bytes": 21870,
-      "sha256": "228b3cdf58563c38c8b151810cd33ae8d2ed675f1b8b7987a92516d4063bcab8"
+      "sha256": "0eb8071d4de98dcbe785559e68d36dad50b17a322d9b813dc53185d5528328f2"
     },
     "source/dashboard.css": {
       "bytes": 15340,

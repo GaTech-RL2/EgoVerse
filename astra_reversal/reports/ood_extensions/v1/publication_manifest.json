@@ -86,7 +86,7 @@
     },
     "manifest.json": {
       "bytes": 52352,
-      "sha256": "27f5e809d45a904003f0020485132ec15a7bcbe55a05495c99f0e466b7d84fce"
+      "sha256": "d781fea57b92089cd83cca89a3b4ba3da46d06b7f37c75579ee57e4980527ece"
     },
     "source/ood_extensions.py.txt": {
       "bytes": 13983,
@@ -98,7 +98,7 @@
     },
     "source/validate_ood_extensions.py.txt": {
       "bytes": 8765,
-      "sha256": "91ccc653981c329e885757e2876bc914f2e77af76c8dfdf69eb4c6118828c39b"
+      "sha256": "6dac2607cc6c3dc296b1a8e4b13aa99cd2b6790e857a62b4d200bec13a292e12"
     },
     "validation/previews/task_00_seed71.png": {
       "bytes": 63869,
@@ -166,7 +166,7 @@
     },
     "validation/receipt.json": {
       "bytes": 40740,
-      "sha256": "670b8c6908997745383825b6f799efcfecac20c558cb775f03f70d93566a9943"
+      "sha256": "416ac94fb171d3cab220cf7084c0b7433954c9e79b706bdb411ac4621f1f10de"
     },
     "validation/states/task_00_seed71.npy": {
       "bytes": 760,

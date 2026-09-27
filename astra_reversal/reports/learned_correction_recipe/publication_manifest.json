@@ -54,7 +54,7 @@
     },
     "dashboard/data.json": {
       "bytes": 627088,
-      "sha256": "fdd87f096107bf1319f3c18c48e3625316b0e23635bd96583f35b700d52786a8"
+      "sha256": "4458573f564de77978ade7a20bd60cea6394af23b1a5d64809b1396ae9b93baa"
     },
     "dashboard/flows.zip": {
       "bytes": 8366,
@@ -86,15 +86,15 @@
     },
     "dashboard/index.html": {
       "bytes": 454162,
-      "sha256": "b160cd0086251abc2f544dd8f22dbf20de03386b896d699ee1084ae835928a94"
+      "sha256": "e382b88889883d9156f6e2b640a18e7b878c4f9a85a24386fd00b00e4404b7d0"
     },
     "dashboard/manifest.json": {
       "bytes": 2243,
-      "sha256": "14d2c1b543c137fa907943c7527e198f03cf76d3762abbce2d37fbffe4cad740"
+      "sha256": "9a3da4c92d7dd39dbe1f37bfed2d7fbf3b25092535eb926e1be9a1ed6509f4df"
     },
     "dashboard/source/build_dashboard.py": {
       "bytes": 21870,
-      "sha256": "228b3cdf58563c38c8b151810cd33ae8d2ed675f1b8b7987a92516d4063bcab8"
+      "sha256": "0eb8071d4de98dcbe785559e68d36dad50b17a322d9b813dc53185d5528328f2"
     },
     "dashboard/source/dashboard.css": {
       "bytes": 15340,
@@ -314,9 +314,10 @@
     }
   },
   "local_validation": {
+    "ruff_version": "0.8.6",
     "skip_scope": "Optional OpenPI dependency unavailable locally; separate real-GPU native integration checks passed.",
     "unit_passed": 1402,
-    "unit_seconds": 171.38,
+    "unit_seconds": 186.27,
     "unit_skipped": 5
   },
   "report_sha256": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802",
@@ -327,7 +328,7 @@
   "task_extension": {
     "path": "../ood_extensions/v1",
     "policy_rollouts": 0,
-    "publication_manifest_sha256": "8d109aa91af111eab17289dd5c91a2e619a62f5a749d5ffc3fd4deb49498cdc8",
+    "publication_manifest_sha256": "0ae2ae7d31b58315d90705440348a68c0cad3d9bed55c3f47defe05914ff01d4",
     "simulator_reset_checks": 32,
     "task_count": 16
   }
