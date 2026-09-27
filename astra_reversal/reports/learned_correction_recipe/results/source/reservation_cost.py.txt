@@ -1,0 +1,52 @@
+"""Summarize completed OSMO reservations without retaining service credentials."""
+import datetime
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+
+def sha(path):
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def phase(root, expected_tasks):
+    status_path = root / 'status.json'
+    value = json.loads(status_path.read_text())
+    assert value['status'] == 'COMPLETED'
+    rows = []
+    for group in value['groups']:
+        for task in group['tasks']:
+            assert task['status'] == 'COMPLETED'
+            assert task['start_time'] and task['end_time']
+            seconds = (datetime.datetime.fromisoformat(task['end_time']) - datetime.datetime.fromisoformat(task['start_time'])).total_seconds()
+            assert seconds > 0
+            runtime_path = root / 'downloaded' / task['name'].replace('worker', 'worker_') / 'runtime.json'
+            runtime = json.loads(runtime_path.read_text())
+            assert runtime['gpu'] == 'NVIDIA L40S' and not runtime['provider_credential_attached']
+            rows.append({'worker': task['name'], 'gpu': runtime['gpu'], 'gpus': 1,
+                         'start_time': task['start_time'], 'end_time': task['end_time'],
+                         'reservation_seconds': seconds, 'gpu_hours': seconds / 3600,
+                         'runtime_sha256': sha(runtime_path)})
+    assert len(rows) == expected_tasks
+    return {'workflow': value['name'], 'status': value['status'],
+            'status_source_sha256': sha(status_path), 'queued_seconds': value['queued_time'],
+            'workers': rows, 'gpu_hours': sum(row['gpu_hours'] for row in rows)}
+
+
+if __name__ == '__main__':
+    training, evaluation, output = map(Path, sys.argv[1:])
+    train = phase(training, 1)
+    test = phase(evaluation, 5)
+    result = {'schema_version': 'recipe-reservation-cost-1.0', 'training': train, 'evaluation': test,
+              'total_l40s_gpu_hours': train['gpu_hours'] + test['gpu_hours'],
+              'new_experiment_astra_provider_calls': 0, 'new_experiment_astra_provider_tokens': 0,
+              'gpu_price': None, 'currency_cost': None,
+              'scope': 'OSMO task start-to-end wall time multiplied by one requested L40S per worker, including runtime setup, preflight, computation and archive upload. Queue and initialization before task start are excluded. This is a reservation proxy, not sampled GPU utilization or billed GPU time.',
+              'token_scope': 'Experiment-time Astra API requests only. Coding, analysis and review agent token usage is not instrumented by this experiment.',
+              'calculator_sha256': sha(Path(__file__))}
+    with output.open('x') as stream:
+        json.dump(result, stream, indent=2)
+        stream.write('\n')
+    print(json.dumps({'training_gpu_hours': train['gpu_hours'], 'evaluation_gpu_hours': test['gpu_hours'], 'total_gpu_hours': result['total_l40s_gpu_hours']}))

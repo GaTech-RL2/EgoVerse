@@ -1,0 +1,42 @@
+{
+  "cohorts_pooled_for_efficacy": false,
+  "monetary_cost": null,
+  "new_cost_scope": "Experiment-time Astra inference API only; coding/review/orchestration assistant tokens were not instrumented.",
+  "new_recipe_provider_calls": 0,
+  "new_recipe_provider_tokens": 0,
+  "reasoning_is_subset_of_output": true,
+  "schema_version": "recipe-historical-context-1.0",
+  "scope": "Whole source-study acquisition, not cost attributable to the selected 12 teachers or seven historical native anchors.",
+  "selected_teacher_subset_cost": null,
+  "source_sha256": "bacf95e61bec10ae8eb5fcc50a88072606baa44517d4f6d8deb4cca04334c9cd",
+  "studies": [
+    {
+      "calls": 679,
+      "complete_total": true,
+      "input_tokens": 5543789,
+      "known_total_tokens": 5757974,
+      "output_tokens": 214185,
+      "reasoning_tokens_subset": 24960,
+      "report": "../../phase_interpolation/evaluation/results/report.json",
+      "report_sha256": "4409d1113f1ac304ad2ebec767ec35448aa34ada02bb6bf5e130c4815222ca0c",
+      "study": "Complete seed29 phase study",
+      "usage_available_calls": 679,
+      "usage_missing_calls": 0
+    },
+    {
+      "calls": 220,
+      "complete_total": false,
+      "input_tokens": 1113516,
+      "known_total_tokens": 1129046,
+      "output_tokens": 15530,
+      "reasoning_tokens_subset": 4910,
+      "report": "../../representation_steering/development/results/report.json",
+      "report_sha256": "76a4c36cb60f5145ecfe6177af51efd44297050b2a3e64716a0fdd0fba544dcf",
+      "study": "Interrupted seed19 representation pilot",
+      "usage_available_calls": 98,
+      "usage_missing_calls": 122
+    }
+  ],
+  "whole_study_calls": 899,
+  "whole_study_known_total_tokens_lower_bound": 6887020
+}

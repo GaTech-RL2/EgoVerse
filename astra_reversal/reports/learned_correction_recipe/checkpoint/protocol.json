@@ -1,0 +1,121 @@
+{
+  "schema_version": "learned-correction-recipe-1.0",
+  "seed": 61,
+  "provider_calls_allowed": false,
+  "arms": [
+    "native",
+    "recorded_schedule",
+    "learned_selector",
+    "flow_head",
+    "gated_flow_head"
+  ],
+  "execute_steps": 5,
+  "selector_interval": 25,
+  "solver": {
+    "name": "euler",
+    "steps": 10,
+    "tf32": false
+  },
+  "training": {
+    "historical_teacher_selection": "all successful actual Astra TEI/TLI trajectories from seed29 phase evaluation and the two seed19 pilot text rescues",
+    "historical_trajectories": 19,
+    "correction_trajectories": 12,
+    "native_anchor_trajectories": 7,
+    "historical_windows": 413,
+    "corrected_task_compositions": 8,
+    "fresh_anchor_suite": "libero_10",
+    "fresh_anchor_task_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "fresh_anchor_reset_id": 0,
+    "fresh_anchor_admission": "completed simulator success only; all collection costs retained",
+    "selector_steps": 1000,
+    "selector_batch_size": 64,
+    "selector_learning_rate": 0.001,
+    "selector_weight_decay": 0.0001,
+    "selector_hidden_widths": [
+      128,
+      64
+    ],
+    "selector_features": "native final prefix block: mean valid visual slots, mean instruction slots, raw robot state8",
+    "selector_inputs_excluded": [
+      "elapsed_step",
+      "task_id",
+      "future_progress",
+      "online_success",
+      "teacher_intervened_hidden_states",
+      "evaluation_observations"
+    ],
+    "gate_threshold": 0.5,
+    "gate_tie": "native",
+    "head_steps": 1000,
+    "head_learning_rate": 0.0001,
+    "head_batch_size": 128,
+    "head_anchor_weight": 1.0,
+    "head_l2": 0.0001,
+    "head_gradient_clip": 1.0,
+    "head_draws_per_window": 8,
+    "head_residual_bound": 0.5,
+    "head_trainable_parameters": 7175,
+    "head_supervision": "masked first min(5,actually_executed) rows and first7 channels; smooth bounded residual native flow objective",
+    "head_suffix": "new original-condition native sample for unexecuted physical rows, zero clean padding; imputation only, never supervision"
+  },
+  "evaluation": {
+    "ood_suites": [
+      "libero_goal_ood",
+      "libero_spatial_ood"
+    ],
+    "ood_task_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "ood_reset_ids": [
+      1,
+      2
+    ],
+    "ood_action_budget": 300,
+    "id_suite": "libero_10",
+    "id_task_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "id_reset_ids": [
+      1,
+      2
+    ],
+    "id_action_budget": 520,
+    "physical_rollouts": 240,
+    "workers": 5,
+    "every_arm_on_every_reset": true,
+    "policy_noise": "fresh full dimensional Gaussian keyed by episode_id,seed,step; shared across arms",
+    "training_disabled": true,
+    "astra_disabled": true,
+    "trajectory_retrieval_disabled_for_learned_arms": true
+  },
+  "recorded_schedule": {
+    "trajectory_preference": [
+      "phase:astra_tli",
+      "phase:astra_tei",
+      "representation:astra_tli",
+      "representation:astra_tei"
+    ],
+    "tie_break": "lowest revision then lexicographic episode_id and trajectory_id",
+    "clock": "absolute executed action count; latest recorded applied choice at or before step",
+    "after_teacher_termination": "hold last choice",
+    "unknown_task": "native"
+  },
+  "interpretation": "offline distillation on known task compositions; new-reset transfer and limited four-task ID retention, not held-out-task or zero-shot generalization"
+}

@@ -1,0 +1,169 @@
+{
+  "changes": {
+    "index.html": "Add portable links and a headline derived from the canonical outcome table; no numerical data edits.",
+    "manifest.json": "Rebuild the full public file inventory after adding context, reconciliation, exact safe audit receipts and source snapshots."
+  },
+  "invocation": {
+    "output": "astra_reversal/reports/learned_correction_recipe/results",
+    "report": "astra_reversal/.deps/recipe-evaluation-v1/complete-report-with-videos",
+    "training": "astra_reversal/.deps/recipe-training-v1/audited/worker_0/results",
+    "workers": [
+      "astra_reversal/.deps/recipe-evaluation-v1/audited/worker_0/results",
+      "astra_reversal/.deps/recipe-evaluation-v1/audited/worker_1/results",
+      "astra_reversal/.deps/recipe-evaluation-v1/audited/worker_2/results",
+      "astra_reversal/.deps/recipe-evaluation-v1/audited/worker_3/results",
+      "astra_reversal/.deps/recipe-evaluation-v1/audited/worker_4/results"
+    ]
+  },
+  "original_files": {
+    "figures/outcomes.pdf": {
+      "bytes": 18733,
+      "sha256": "8753513b412be3ffb4c8529cc3e8068d583047d06ef7cc1aefb46a8e318c2955"
+    },
+    "figures/outcomes.png": {
+      "bytes": 73838,
+      "sha256": "4faeef83e8c3bda4ce4ffcacb4ec9e3a4f3fd28ca47858234cdff6bc81bbeacd"
+    },
+    "figures/training.pdf": {
+      "bytes": 18278,
+      "sha256": "278bb5f0569e6a401eb6ced67994998b61800e561d94c4cceaeac658759ef46d"
+    },
+    "figures/training.png": {
+      "bytes": 91309,
+      "sha256": "3b199b7d44449cd350bf35e1be86e4c2c0a13d4fca94ab13711d903be7760912"
+    },
+    "figures/values.json": {
+      "bytes": 8804,
+      "sha256": "7f568f558fcb7fe354ba128a4e41a2f9e52da35819468e164f9e0e2c4d9d2bfe"
+    },
+    "gallery.json": {
+      "bytes": 9947,
+      "sha256": "dfe50777c00700334204c59b99494a64e0afe175eefec901e3a0ef45d62a62e9"
+    },
+    "index.html": {
+      "bytes": 16346,
+      "sha256": "9405314850ad5b39bf61b753de4de1d0b8e1c1ed6e6978f1dd6e7be2aea28f0e"
+    },
+    "input_provenance.json": {
+      "bytes": 100723,
+      "sha256": "23c87a0298163bc35aab8de263377e7e0485991af379640f5c0d16fadd11a0a8"
+    },
+    "manifest.json": {
+      "bytes": 5090,
+      "sha256": "2e1ac43ac492dc2b186e6e3629022e5975acc897f041d57dfe0ef1f9202b4a6b"
+    },
+    "metrics.csv": {
+      "bytes": 751,
+      "sha256": "48d74c5a29248979f16b203a6cb0c6fffbaaf577e64a74fdb72c4f9c19a2d616"
+    },
+    "per_task.json": {
+      "bytes": 230915,
+      "sha256": "2c5d557f5874713062115cd9c5bf8064ffa07dbd309b70595727a3c7af839c18"
+    },
+    "protocol.json": {
+      "bytes": 3458,
+      "sha256": "e8333e12232c52ee22453d0c08bb2b1b0420c4d3fdd4c37efa49bbeb3e7340fe"
+    },
+    "report.json": {
+      "bytes": 3012929,
+      "sha256": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802"
+    },
+    "report.md": {
+      "bytes": 3478,
+      "sha256": "a4acc0fc982a93c55cec8d34c252bfd5946d46f79f7773d67d09b8ba8ce56b6e"
+    },
+    "rollouts.csv": {
+      "bytes": 84094,
+      "sha256": "4342a2dccfd29c7053266862297072fd4c25cfc820cc1a73b85b652a27d7ec0f"
+    },
+    "source/recipe_report.py.txt": {
+      "bytes": 90985,
+      "sha256": "2edb56495bad3a41bba3ad82af5db5a572eb659c2ca99f67d2eec3d81fedefc3"
+    },
+    "videos/libero_10_task0_state1_native.mp4": {
+      "bytes": 96941,
+      "sha256": "1df72cb85a9cda67cba12c8a0057d4ebdf8f4bd171cdf90ab62ef561d27787a5"
+    },
+    "videos/libero_goal_ood_task0_state1_native.mp4": {
+      "bytes": 42189,
+      "sha256": "c2089a137d125f8d3baa798e7f047bdb4cea5edb2b92010ef00201419b29f296"
+    },
+    "videos/libero_goal_ood_task0_state2_flow_head.mp4": {
+      "bytes": 92630,
+      "sha256": "d4a5c7af55c1fde47e2370fcde70a72165b4fd4ca98c3f7d8e1abeab2bc41cc4"
+    },
+    "videos/libero_goal_ood_task0_state2_gated_flow_head.mp4": {
+      "bytes": 98424,
+      "sha256": "e53672c9dc4a09dbccd673c8070763f97830774d911a556d6c1cf8aab0e6265e"
+    },
+    "videos/libero_goal_ood_task0_state2_learned_selector.mp4": {
+      "bytes": 105791,
+      "sha256": "aab3d3c169d4d27af0225ae6ec36667dacde9836e97c4061ad62e7d6ae8f84a1"
+    },
+    "videos/libero_goal_ood_task0_state2_native.mp4": {
+      "bytes": 107893,
+      "sha256": "0244f9230234da3fc3c75a072cab6ac3acab6ae0765d1fad76a75fada2b60f4b"
+    },
+    "videos/libero_goal_ood_task2_state1_native.mp4": {
+      "bytes": 103764,
+      "sha256": "3c4580565c6d798d672a7de844e6671d57f2661aaf294420d3a3df7a5760f6ef"
+    },
+    "videos/libero_goal_ood_task5_state1_native.mp4": {
+      "bytes": 67774,
+      "sha256": "d697f382fdbeab5b32fb086f6a6e160baae466a11be78210fa6ffd2d0bb11033"
+    },
+    "videos/libero_goal_ood_task5_state1_recorded_schedule.mp4": {
+      "bytes": 43720,
+      "sha256": "555ca7b306bd0acd2a5de69d5a90cf4fcdc9f24ca4bbb0c47c0cd98450ac4b69"
+    },
+    "videos/libero_goal_ood_task5_state2_flow_head.mp4": {
+      "bytes": 46476,
+      "sha256": "38056a3d6a754c32f8c09bc6964c4cb188e8fad28fabe4e89260cbc5eea4aef1"
+    },
+    "videos/libero_goal_ood_task5_state2_gated_flow_head.mp4": {
+      "bytes": 42248,
+      "sha256": "5f1923df0d759c8604a28ceeae043654928788731bdc92d73b345e353443eff2"
+    },
+    "videos/libero_goal_ood_task5_state2_native.mp4": {
+      "bytes": 65990,
+      "sha256": "5408c09c4fe8517cd1b905a34bfb7e76e57123f016772186893a3ebb80e456e4"
+    },
+    "videos/libero_spatial_ood_task2_state1_learned_selector.mp4": {
+      "bytes": 37273,
+      "sha256": "35b017d5081d5f135b4022164a81e8ab275a79d1592ed923ccc4fb6bd827f4dd"
+    },
+    "videos/libero_spatial_ood_task2_state1_native.mp4": {
+      "bytes": 99933,
+      "sha256": "1433dd0fee231d45c13c3aacd69bb43ae133e92109a74a68439f73d6e0368739"
+    }
+  },
+  "original_report_sha256": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802",
+  "path_normalization": "None; canonical producer already emits portable names.",
+  "report_numeric_bytes_unchanged": true,
+  "schema_version": "recipe-publication-postprocess-1.0",
+  "source_sha256": "bacf95e61bec10ae8eb5fcc50a88072606baa44517d4f6d8deb4cca04334c9cd",
+  "supplemental_receipts": {
+    "archive_final_validation.json": {
+      "bytes": 3822,
+      "input": "astra_reversal/.deps/recipe-evaluation-v1/archive_final_validation.json",
+      "sha256": "2086612088cfcb3b88d5a84e4274632d8057236b9a2800033f7ecbcaa37cade4"
+    },
+    "deployment_spot_review.json": {
+      "bytes": 18293,
+      "input": "astra_reversal/.deps/recipe-evaluation-v1/deployment_spot_review.json",
+      "sha256": "a76bc2d452d2ad42c82a9ba5b84659ed638fd2c4dcd34b51d30717691cdac6e2"
+    },
+    "osmo_task_cost.json": {
+      "bytes": 3608,
+      "input": "astra_reversal/.deps/recipe-evaluation-v1/osmo_task_cost.json",
+      "sha256": "7ad54bc0f90893e53b957bdd577ce829a60db8ecf3d9f0772e33979eb295d4d2"
+    },
+    "training_numerical_review.json": {
+      "bytes": 112532,
+      "input": "astra_reversal/.deps/recipe-training-v1/numerical_review.json",
+      "sha256": "67d06f2df1f80a171c9fe010dd429938f924a40ea25e356324410578ec7c592f"
+    }
+  },
+  "supplemental_receipts_mapping_sha256": "3783ab6ccf6c129beeb16d5df807bb563ece053ea2f3702e76eba7c7045b26d2",
+  "video_retention_receipt_sha256": "87b87f2cdfcd369c0749a82b40f10fb198d9fdf71abdbbeaac02d9d1febab823"
+}

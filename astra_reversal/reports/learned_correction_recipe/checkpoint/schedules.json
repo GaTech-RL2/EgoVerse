@@ -1,0 +1,1652 @@
+{
+  "put the orange juice on the stove": {
+    "trajectory_id": "31f7b98f3d761cf4b3faf031b61486d8eb1f39124d2f563980eb6f45812a7c4b",
+    "source_receipt_sha256": "81f1b2146e196a7796121e5620d26753a340dbeb9a7c156f43df0451852bb987",
+    "choices": [
+      {
+        "step": 0,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 5,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 10,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 15,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 20,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 25,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 30,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 35,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 40,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 45,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 50,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 55,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 60,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 65,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 70,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 75,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "18",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 80,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "18",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 85,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "18",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 90,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "18",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 95,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "18",
+          "alpha": 0.19999999999999996
+        }
+      }
+    ]
+  },
+  "put the wine bottle on the plate": {
+    "trajectory_id": "2e21276e3a2d9a01755a2cfdacfb1d96fed358bf203ebe8af75b22f531b360f6",
+    "source_receipt_sha256": "f783469580c12af02765265f12475edf4fcf4f9e499f35fbac90e23989e103cc",
+    "choices": [
+      {
+        "step": 0,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 5,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 10,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 15,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 20,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 25,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 30,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 35,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 40,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 45,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 50,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 55,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 60,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 65,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 70,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 75,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 80,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 85,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 90,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 95,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 100,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 105,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 110,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 115,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 120,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 125,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 130,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "14",
+          "alpha": 0.19999999999999996
+        }
+      }
+    ]
+  },
+  "put the wine bottle in the bowl": {
+    "trajectory_id": "70d6b404f8de85705d2dd9038a5ea5aadeb4ac6cff993e3e7ace1208c213613b",
+    "source_receipt_sha256": "882460aa9ce4ff7407cb8e93d5d4f70af241bc3c6fb208ebf1744b6c9994cbed",
+    "choices": [
+      {
+        "step": 0,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 5,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 10,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 15,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 20,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 25,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 30,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 35,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 40,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 45,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.8
+        }
+      },
+      {
+        "step": 50,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 55,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 60,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 65,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 70,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 75,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "13",
+          "source_b_id": "14",
+          "alpha": 0.35
+        }
+      }
+    ]
+  },
+  "put the cream cheese on the plate": {
+    "trajectory_id": "defb63f30ea2f9d9fbd7cd4fc2d87035c13826955182f99354b84b817f6918a1",
+    "source_receipt_sha256": "252b17696d729d9c59010bb2631af4039869fbe04f26709d65eb5afd5dbb735e",
+    "choices": [
+      {
+        "step": 0,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 5,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 10,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 15,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 20,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 25,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 30,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 35,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 40,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 45,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 50,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.7
+        }
+      },
+      {
+        "step": 55,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.7
+        }
+      },
+      {
+        "step": 60,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.7
+        }
+      },
+      {
+        "step": 65,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.7
+        }
+      },
+      {
+        "step": 70,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.7
+        }
+      },
+      {
+        "step": 75,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 80,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 85,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 90,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 95,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 100,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 105,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.19999999999999996
+        }
+      },
+      {
+        "step": 110,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "13",
+          "alpha": 0.19999999999999996
+        }
+      }
+    ]
+  },
+  "put the bowl at table center on the cabinet": {
+    "trajectory_id": "92a053281f76d5cf7aab9eb4337b1303f27ee1d24c30f7dd88790c9e4e94f60e",
+    "source_receipt_sha256": "e86370d2f27359178f1b9b2d47997731e6e6cc7d09723435b4996684bcf3650c",
+    "choices": [
+      {
+        "step": 0,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 5,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 10,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 15,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 20,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 25,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 30,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 35,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 40,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 45,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 50,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 55,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 60,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 65,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 70,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 75,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.09999999999999998
+        }
+      },
+      {
+        "step": 80,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.09999999999999998
+        }
+      },
+      {
+        "step": 85,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.09999999999999998
+        }
+      },
+      {
+        "step": 90,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.09999999999999998
+        }
+      },
+      {
+        "step": 95,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.09999999999999998
+        }
+      },
+      {
+        "step": 100,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.09999999999999998
+        }
+      },
+      {
+        "step": 105,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.09999999999999998
+        }
+      },
+      {
+        "step": 110,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.09999999999999998
+        }
+      },
+      {
+        "step": 115,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "18",
+          "source_b_id": "38",
+          "alpha": 0.09999999999999998
+        }
+      }
+    ]
+  },
+  "put the bowl on cookie box on the cabinet": {
+    "trajectory_id": "1facb2f52c01b327d85cf2be6b4fe5b6ba68c424944a43139b829c3f84330958",
+    "source_receipt_sha256": "3058b5b81b9608ca4a179ac2f40c207c46072102372bdfad638783bbd42c638e",
+    "choices": [
+      {
+        "step": 0,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 5,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 10,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 15,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 20,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 25,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 30,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 35,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 40,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 45,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 50,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 55,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 60,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 65,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 70,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 75,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 80,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 85,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 90,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 95,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 100,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 105,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      },
+      {
+        "step": 110,
+        "choice": {
+          "operator": "tei",
+          "source_a_id": "18",
+          "source_b_id": "35",
+          "alpha": 0.0
+        }
+      }
+    ]
+  },
+  "put the bowl at table center on the stove": {
+    "trajectory_id": "7d82db0c907b0b27b716ea25f97991fda536a9046768b646620d0f3093478708",
+    "source_receipt_sha256": "52e8b0fa45e127fd4c342b44ac40c70861f9da50a5ad6f779307a8f6a740db64",
+    "choices": [
+      {
+        "step": 0,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 5,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 10,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 15,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 20,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 25,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 30,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 35,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 40,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 45,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.85
+        }
+      },
+      {
+        "step": 50,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 55,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 60,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 65,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 70,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.35
+        }
+      },
+      {
+        "step": 75,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.15000000000000002
+        }
+      },
+      {
+        "step": 80,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.15000000000000002
+        }
+      },
+      {
+        "step": 85,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.15000000000000002
+        }
+      },
+      {
+        "step": 90,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.15000000000000002
+        }
+      },
+      {
+        "step": 95,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.15000000000000002
+        }
+      },
+      {
+        "step": 100,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "17",
+          "source_b_id": "38",
+          "alpha": 0.15000000000000002
+        }
+      }
+    ]
+  },
+  "put the milk on the plate": {
+    "trajectory_id": "39165c8e95c8bba926156564964d1960eb491ac003b906f51fbdc56043f3b43a",
+    "source_receipt_sha256": "a24e3bc64bb5321092e8f7df5ab0755bee1c76572ac15eff3a149a1b31c677f8",
+    "choices": [
+      {
+        "step": 0,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 5,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 10,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 15,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 20,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 25,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 30,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 35,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 40,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 45,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 50,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 55,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 60,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 65,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 70,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 75,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 80,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 85,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 90,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 95,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "14",
+          "source_b_id": "18",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 100,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "17",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 105,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "17",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 110,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "17",
+          "alpha": 0.25
+        }
+      },
+      {
+        "step": 115,
+        "choice": {
+          "operator": "tli",
+          "source_a_id": "10",
+          "source_b_id": "17",
+          "alpha": 0.25
+        }
+      }
+    ]
+  }
+}

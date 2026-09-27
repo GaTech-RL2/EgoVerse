@@ -96,6 +96,22 @@ def physical(
     directory.mkdir(parents=True)
     (directory / "arrays").mkdir()
     (directory / "rollout.mp4").write_bytes(b"synthetic-test-video-not-exported")
+    observation = {
+        "observation/image": np.zeros((2, 2, 3), np.uint8),
+        "observation/wrist_image": np.ones((2, 2, 3), np.uint8),
+        "observation/state": np.zeros(8, np.float32),
+    }
+    descriptors = {}
+    for i, (key, array) in enumerate(observation.items()):
+        name = f"arrays/observation_{i}.npy"
+        np.save(directory / name, array)
+        descriptors[key] = {
+            "array": name,
+            "shape": list(array.shape),
+            "dtype": str(array.dtype),
+            "sha256": digest(array),
+        }
+    native_condition_id = digest({**observation, "prompt": entry["instruction"]})
     reset = {
         k: entry[k]
         for k in (
@@ -234,7 +250,7 @@ def physical(
             {
                 "operator": "bounded_final_action_expert_residual",
                 "native_prefix_unchanged": True,
-                "original_condition_id": H,
+                "original_condition_id": native_condition_id,
                 "original_prompt_sha256": digest(entry["instruction"]),
                 "direct_rows_5_to_9_unchanged": True,
                 "direct_padding_unchanged": True,
@@ -243,7 +259,9 @@ def physical(
                     "parameter_sha256": HEAD,
                     "optimizer_steps": 1000,
                     "test_only": False,
+                    "zero_effect": False,
                 },
+                "enabled": True,
                 "residual_max_abs": 0.2,
             }
             if head
@@ -253,16 +271,17 @@ def physical(
             {
                 "kind": "recipe_generation",
                 "observation_step": step,
-                "observation": {
-                    k: {}
-                    for k in (
-                        "observation/image",
-                        "observation/wrist_image",
-                        "observation/state",
-                    )
-                },
+                "observation": descriptors,
                 "noise": descriptor,
-                "condition_id": H,
+                "condition_id": digest(
+                    {
+                        "native_condition_id": native_condition_id,
+                        "head": HEAD,
+                        "config": training_config(),
+                    }
+                )
+                if head
+                else native_condition_id,
                 "choice": choice,
                 "gate_active": gate,
                 "head_active": head,
@@ -573,6 +592,7 @@ def make_training(root, protocol, *, successful_fresh=False):
         bundle / "head/manifest.json",
         {
             "history": [head],
+            "zero_effect": False,
             "base_identity": base,
             "parameter_sha256": HEAD,
             "optimizer_steps": 1000,
@@ -779,6 +799,9 @@ def mutate_worker(tmp_path, source, change):
         "initial_success",
         "provider",
         "head_condition",
+        "head_unwrapped_id",
+        "head_wrong_native_id",
+        "head_false_zero_effect",
         "probe",
         "duplicate_row",
     ],
@@ -794,7 +817,7 @@ def test_semantic_mutations_fail_even_after_resealing(
             rows[1] = rows[0]
             write(root / "rollouts.json", rows)
             return
-        index = 3 if change == "head_condition" else 0
+        index = 3 if change.startswith("head_") else 0
         row = rows[index]
         directory = root / row["relative_directory"]
         summary = json.loads((directory / "summary.json").read_text())
@@ -820,6 +843,24 @@ def test_semantic_mutations_fail_even_after_resealing(
             next(e for e in events if e["kind"] == "recipe_generation")["provenance"][
                 "native_prefix_unchanged"
             ] = False
+        elif change == "head_unwrapped_id":
+            generation = next(e for e in events if e["kind"] == "recipe_generation")
+            generation["condition_id"] = generation["provenance"][
+                "original_condition_id"
+            ]
+        elif change == "head_wrong_native_id":
+            generation = next(e for e in events if e["kind"] == "recipe_generation")
+            generation["provenance"]["original_condition_id"] = H
+            generation["condition_id"] = digest(
+                {"native_condition_id": H, "head": HEAD, "config": training_config()}
+            )
+        elif change == "head_false_zero_effect":
+            generation = next(e for e in events if e["kind"] == "recipe_generation")
+            generation["provenance"]["head"]["zero_effect"] = True
+            generation["provenance"]["enabled"] = False
+            generation["condition_id"] = generation["provenance"][
+                "original_condition_id"
+            ]
         elif change == "probe":
             summary["checks"]["feature_capture_parity"]["max_abs"] = 1e-8
             next(e for e in events if e["kind"] == "recipe_native_probes")["checks"] = (
@@ -898,6 +939,7 @@ def test_held_selector_decision_lasts_25_actions_and_terminal_window_is_partial(
         probe=False,
         schedules={},
         head_sha=HEAD,
+        head_zero_effect=False,
     )
     assert parsed["decision_count"] == 2
     assert parsed["gate_active_actions"] == parsed["head_active_actions"] == 31
@@ -924,6 +966,7 @@ def test_held_selector_decision_lasts_25_actions_and_terminal_window_is_partial(
             probe=False,
             schedules={},
             head_sha=HEAD,
+            head_zero_effect=False,
         )
 
 

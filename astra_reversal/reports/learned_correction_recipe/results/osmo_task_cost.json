@@ -1,0 +1,89 @@
+{
+  "schema_version": "recipe-reservation-cost-1.0",
+  "training": {
+    "workflow": "astra-pi05-recipe-training-20260927-1",
+    "status": "COMPLETED",
+    "status_source_sha256": "e93468f4c89b292abef65fd779a831b7ac67a732db99edccaf92b6c8b77057c7",
+    "queued_seconds": 8.056124,
+    "workers": [
+      {
+        "worker": "worker0",
+        "gpu": "NVIDIA L40S",
+        "gpus": 1,
+        "start_time": "2026-09-27T02:34:11.068017",
+        "end_time": "2026-09-27T02:51:38.370503",
+        "reservation_seconds": 1047.302486,
+        "gpu_hours": 0.29091735722222223,
+        "runtime_sha256": "575d7542ab862aed01eb2cb4499031a3d658fc8c87c3d2218611247ababc30b4"
+      }
+    ],
+    "gpu_hours": 0.29091735722222223
+  },
+  "evaluation": {
+    "workflow": "astra-pi05-recipe-evaluation-20260927-1",
+    "status": "COMPLETED",
+    "status_source_sha256": "602fb3702c0afde4c823f98d45732e33e56e2c4a2825b20801c89b77677f6023",
+    "queued_seconds": 9.390624,
+    "workers": [
+      {
+        "worker": "worker0",
+        "gpu": "NVIDIA L40S",
+        "gpus": 1,
+        "start_time": "2026-09-27T02:54:57.041009",
+        "end_time": "2026-09-27T03:21:00.714593",
+        "reservation_seconds": 1563.673584,
+        "gpu_hours": 0.4343537733333333,
+        "runtime_sha256": "07c5110d4fc31afd8819fe245365a8e91b409bddc1313a8a7c2dc5bd9a5e3a0e"
+      },
+      {
+        "worker": "worker1",
+        "gpu": "NVIDIA L40S",
+        "gpus": 1,
+        "start_time": "2026-09-27T02:54:57.591170",
+        "end_time": "2026-09-27T03:22:16.486722",
+        "reservation_seconds": 1638.895552,
+        "gpu_hours": 0.45524876444444445,
+        "runtime_sha256": "11048538322e7efa1f39617f65fbfbd0aa4401b049d520270ab35ab3e2631edf"
+      },
+      {
+        "worker": "worker2",
+        "gpu": "NVIDIA L40S",
+        "gpus": 1,
+        "start_time": "2026-09-27T02:54:58.833157",
+        "end_time": "2026-09-27T03:18:32.882525",
+        "reservation_seconds": 1414.049368,
+        "gpu_hours": 0.3927914911111111,
+        "runtime_sha256": "ac8b154e1144922f4ca2f38848a762f57eefd238a2eefee053b47ecc696f6d3e"
+      },
+      {
+        "worker": "worker3",
+        "gpu": "NVIDIA L40S",
+        "gpus": 1,
+        "start_time": "2026-09-27T02:54:59.430087",
+        "end_time": "2026-09-27T03:26:14.887319",
+        "reservation_seconds": 1875.457232,
+        "gpu_hours": 0.5209603422222222,
+        "runtime_sha256": "ed3c12ff1eb3c85c2f7283f2eb0fa63278527cb6c2ea6fc90d2a379316e97df8"
+      },
+      {
+        "worker": "worker4",
+        "gpu": "NVIDIA L40S",
+        "gpus": 1,
+        "start_time": "2026-09-27T02:55:00.923265",
+        "end_time": "2026-09-27T03:19:26.142547",
+        "reservation_seconds": 1465.219282,
+        "gpu_hours": 0.4070053561111111,
+        "runtime_sha256": "1ad3d8f3fd6d47f3b0a1fbdf37810a84e7553f6477b9e475b0cd1b23e043c8b3"
+      }
+    ],
+    "gpu_hours": 2.2103597272222224
+  },
+  "total_l40s_gpu_hours": 2.5012770844444447,
+  "new_experiment_astra_provider_calls": 0,
+  "new_experiment_astra_provider_tokens": 0,
+  "gpu_price": null,
+  "currency_cost": null,
+  "scope": "OSMO task start-to-end wall time multiplied by one requested L40S per worker, including runtime setup, preflight, computation and archive upload. Queue and initialization before task start are excluded. This is a reservation proxy, not sampled GPU utilization or billed GPU time.",
+  "token_scope": "Experiment-time Astra API requests only. Coding, analysis and review agent token usage is not instrumented by this experiment.",
+  "calculator_sha256": "62e537e6eb94f9592b0eae4690fbadbade04c358a982a312cac47c4052d30ea4"
+}

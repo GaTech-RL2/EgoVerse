@@ -1,0 +1,109 @@
+{
+  "archive_receipt_sha256": {
+    "training": "dfccd6252f77c5c1cd3a046e1eade2d7547a91dd4344674e5decd5d8bf60a896",
+    "worker_0": "74c1a27f7d5a5096a54aade7705d6f4d87b4d61e68c6d427d5fdff8517ba86da",
+    "worker_1": "8e0735748063836896fe4eb6ab6a82882caf4485acf41bb0cc00619a51a5d8fa",
+    "worker_2": "b200bb3b048ce67cd1d9dc9a69f74f041b1b3dcd71103539b6124c5b38ddecc4",
+    "worker_3": "0868827e4166104aca9fc4779abb170342bd11f8d1faf0e5e484f3ef49a39e6f",
+    "worker_4": "1aeffe373ba337e9fc37293f225226973692ef1e80d706159353cf316c7bb171"
+  },
+  "array_hidden_state_optimizer_physics_replay": false,
+  "evaluation_actions": 52431,
+  "evaluation_velocity_evaluations": 105620,
+  "groups": {
+    "id_panel": {
+      "flow_head": {
+        "cases": 8,
+        "median_actions_success_only": 250.0,
+        "successes": 8
+      },
+      "gated_flow_head": {
+        "cases": 8,
+        "median_actions_success_only": 248.0,
+        "successes": 8
+      },
+      "learned_selector": {
+        "cases": 8,
+        "median_actions_success_only": 245.0,
+        "successes": 8
+      },
+      "native": {
+        "cases": 8,
+        "median_actions_success_only": 248.0,
+        "successes": 8
+      },
+      "recorded_schedule": {
+        "cases": 8,
+        "median_actions_success_only": 248.0,
+        "successes": 8
+      }
+    },
+    "ood": {
+      "flow_head": {
+        "cases": 40,
+        "median_actions_success_only": 101.0,
+        "successes": 14
+      },
+      "gated_flow_head": {
+        "cases": 40,
+        "median_actions_success_only": 97.0,
+        "successes": 16
+      },
+      "learned_selector": {
+        "cases": 40,
+        "median_actions_success_only": 99,
+        "successes": 19
+      },
+      "native": {
+        "cases": 40,
+        "median_actions_success_only": 95,
+        "successes": 15
+      },
+      "recorded_schedule": {
+        "cases": 40,
+        "median_actions_success_only": 99,
+        "successes": 27
+      }
+    }
+  },
+  "input_file_sha256": {
+    "training": {
+      "runtime.json": "575d7542ab862aed01eb2cb4499031a3d658fc8c87c3d2218611247ababc30b4",
+      "training_receipt.json": "1ca136465b811edaa169905cc52b4d9b7cd4b63b2b89bbee5f7fa7cc423bd672"
+    },
+    "worker_0": {
+      "rollouts.json": "147a86ce1d9c4f990efdd8bee81fc74e64f44a8edea9498e49f366b60d06dcb2",
+      "runtime.json": "07c5110d4fc31afd8819fe245365a8e91b409bddc1313a8a7c2dc5bd9a5e3a0e",
+      "training_receipt.json": "1ca136465b811edaa169905cc52b4d9b7cd4b63b2b89bbee5f7fa7cc423bd672"
+    },
+    "worker_1": {
+      "rollouts.json": "bf332dcc56897f1d601bac5d6f383f74057c793cdba9088e94859486b879b5f4",
+      "runtime.json": "11048538322e7efa1f39617f65fbfbd0aa4401b049d520270ab35ab3e2631edf",
+      "training_receipt.json": "1ca136465b811edaa169905cc52b4d9b7cd4b63b2b89bbee5f7fa7cc423bd672"
+    },
+    "worker_2": {
+      "rollouts.json": "4fbb7141c1f9f04269b5da1cc95a89b2d83c26333ca0b88d6124d6f160394f1b",
+      "runtime.json": "ac8b154e1144922f4ca2f38848a762f57eefd238a2eefee053b47ecc696f6d3e",
+      "training_receipt.json": "1ca136465b811edaa169905cc52b4d9b7cd4b63b2b89bbee5f7fa7cc423bd672"
+    },
+    "worker_3": {
+      "rollouts.json": "08254cbbb669b9be7b5cc9ed429263a5e418dd25b54a10aeb2a354ddf593148a",
+      "runtime.json": "ed3c12ff1eb3c85c2f7283f2eb0fa63278527cb6c2ea6fc90d2a379316e97df8",
+      "training_receipt.json": "1ca136465b811edaa169905cc52b4d9b7cd4b63b2b89bbee5f7fa7cc423bd672"
+    },
+    "worker_4": {
+      "rollouts.json": "8a284072a2ce0a77b11d21d1e834a5bf104ed35e78dda6838803eee83754e4fb",
+      "runtime.json": "1ad3d8f3fd6d47f3b0a1fbdf37810a84e7553f6477b9e475b0cd1b23e043c8b3",
+      "training_receipt.json": "1ca136465b811edaa169905cc52b4d9b7cd4b63b2b89bbee5f7fa7cc423bd672"
+    }
+  },
+  "physical_rollouts": 240,
+  "provider_calls": 0,
+  "provider_tokens": 0,
+  "report_sha256": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802",
+  "schema_version": "recipe-independent-reconciliation-1.0",
+  "source_sha256": "bacf95e61bec10ae8eb5fcc50a88072606baa44517d4f6d8deb4cca04334c9cd",
+  "status": "passed",
+  "training_velocity_evaluations": 12728,
+  "unique_cases": 48
+}

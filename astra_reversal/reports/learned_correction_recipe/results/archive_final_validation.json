@@ -1,0 +1,99 @@
+{
+  "archive_auditor_source_sha256": "f729d475648efb55be4038031b163b006a65e21a2ef65bee7b220f0f68036519",
+  "audits": {
+    "training": {
+      "archive_bytes": 154545803,
+      "archive_sha256": "096aaa0f517faf20bbad529481c9926c43a4820567693bdbb5e83f665ad511ed",
+      "audit_sha256": "dfccd6252f77c5c1cd3a046e1eade2d7547a91dd4344674e5decd5d8bf60a896",
+      "member_inventory": {
+        "bytes": 207444900,
+        "members": 2418,
+        "sha256": "a03a60ac0af00e5481003c997d277f3d0d78cdfe158f855fbf2b620fe273cd70"
+      },
+      "retained_bytes": 26357754,
+      "retained_files": 635
+    },
+    "worker_0": {
+      "archive_bytes": 338668082,
+      "archive_sha256": "647806daa6cba38b59ffa5c26b83b7b1e1bc470a98e1080b3f15c7df7ee93b83",
+      "audit_sha256": "74c1a27f7d5a5096a54aade7705d6f4d87b4d61e68c6d427d5fdff8517ba86da",
+      "member_inventory": {
+        "bytes": 733689452,
+        "members": 13348,
+        "sha256": "7aeba55355642a536f805cc11bfdda4d08c7ff519a685789d6b0430eae3731b5"
+      },
+      "retained_bytes": 36890017,
+      "retained_files": 116
+    },
+    "worker_1": {
+      "archive_bytes": 372533943,
+      "archive_sha256": "0d0cd90e257b5dfb40a38b5b37acb763c1a1d4e6091fe1664c5febd632bb3e97",
+      "audit_sha256": "8e0735748063836896fe4eb6ab6a82882caf4485acf41bb0cc00619a51a5d8fa",
+      "member_inventory": {
+        "bytes": 815635105,
+        "members": 14637,
+        "sha256": "a37b8d8a33e3381bb7bb6f6a1ed036add829a11a93fdd8c31b30ed668f84c7fa"
+      },
+      "retained_bytes": 54014532,
+      "retained_files": 116
+    },
+    "worker_2": {
+      "archive_bytes": 272180096,
+      "archive_sha256": "791c81bc97eed20f9c754d71eb2757300e4feaa94bca978960c239dc66372a39",
+      "audit_sha256": "b200bb3b048ce67cd1d9dc9a69f74f041b1b3dcd71103539b6124c5b38ddecc4",
+      "member_inventory": {
+        "bytes": 596832512,
+        "members": 10737,
+        "sha256": "6e32a302e8d2c685569ed7e591c0ae38f3bbf2f481750dbc9d1f2dfcb81e2053"
+      },
+      "retained_bytes": 31989326,
+      "retained_files": 116
+    },
+    "worker_3": {
+      "archive_bytes": 413880756,
+      "archive_sha256": "e7e11ebe6ea0bd76d21b429ed96ba5da8ebe03319a3e97fb713e127451a88e7e",
+      "audit_sha256": "0868827e4166104aca9fc4779abb170342bd11f8d1faf0e5e484f3ef49a39e6f",
+      "member_inventory": {
+        "bytes": 906107619,
+        "members": 16210,
+        "sha256": "e028e110eacc1fe76e545a0c596c31d7e9b0b666bef0d0f89217c6d60ab9a78f"
+      },
+      "retained_bytes": 64121143,
+      "retained_files": 116
+    },
+    "worker_4": {
+      "archive_bytes": 322289002,
+      "archive_sha256": "a987d3322ab4e9511a029563c3f3386ba06f759ff83afbbfa653287f816adedf",
+      "audit_sha256": "1aeffe373ba337e9fc37293f225226973692ef1e80d706159353cf316c7bb171",
+      "member_inventory": {
+        "bytes": 698464068,
+        "members": 12895,
+        "sha256": "60c8e67cf50957978b9e81cad366bdec82fd8fa508020ef5d32047cb2d6e0fda"
+      },
+      "retained_bytes": 28547603,
+      "retained_files": 96
+    }
+  },
+  "checks": {
+    "all_retained_files_rehashed": true,
+    "all_seal_inventory_joins_exact": true,
+    "array_descriptors_replayed": false,
+    "model_or_physics_replayed": false,
+    "training_protocol_and_checkpoint_identities_match_evaluation": true,
+    "unique_evaluation_assignment_count_matches": true
+  },
+  "counts": {
+    "archives": 6,
+    "compressed_bytes": 1874097682,
+    "evaluation_physical_rollouts": 240,
+    "evaluation_unique_episodes": 48,
+    "evaluation_workers": 5,
+    "regular_member_bytes": 3958173656,
+    "regular_member_files": 70245,
+    "retained_bytes_rehashed": 241920375,
+    "retained_files_rehashed": 1195
+  },
+  "schema_version": "recipe-archive-final-validation-1.0",
+  "status": "passed",
+  "verifier_source_sha256": "3c50fc59f44e7a03d00fa65212e7ff32430c919ad40c8138ce8f0c095861f702"
+}
