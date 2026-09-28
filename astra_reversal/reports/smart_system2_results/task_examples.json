@@ -1,0 +1,113 @@
+{
+  "examples": [
+    {
+      "camera": "external",
+      "episode_id": "libero_goal_ood:seed61:task0:state1",
+      "image": "starting_images/g0_start.png",
+      "image_sha256": "a12848e011741b05793ee4b5adc06d5ac2b4fb0a2b03dfdf5b5499da6e0567f2",
+      "image_size": [
+        224,
+        224
+      ],
+      "instruction": "put the cream cheese in the basket",
+      "observation_step": 0,
+      "provenance": "First decoded frame of the original video, before the first policy action and after reset stabilization. Video compression is retained; no crop, annotation or image edit.",
+      "reset_index": 1,
+      "seed": 61,
+      "source_arm": "native",
+      "source_frame_index": 0,
+      "source_gallery_selection": "First lexicographic ood native success",
+      "source_summary_sha256": "1bb1207d92fbbe004a76e022fd591316dc46ebb57cea2d5b32d2e21ac9db855d",
+      "source_video": "astra_reversal/reports/learned_correction_recipe/results/videos/libero_goal_ood_task0_state1_native.mp4",
+      "source_video_sha256": "c2089a137d125f8d3baa798e7f047bdb4cea5edb2b92010ef00201419b29f296",
+      "suite": "libero_goal_ood",
+      "task_id": "G0",
+      "workflow": "astra-pi05-recipe-evaluation-20260927-1"
+    },
+    {
+      "camera": "external",
+      "episode_id": "libero_goal_ood:seed61:task5:state1",
+      "image": "starting_images/g5_start.png",
+      "image_sha256": "e9a4e7726242cfb9f3dc1df1f2694f19066c065d7c19a74548d235b13afdb65a",
+      "image_size": [
+        224,
+        224
+      ],
+      "instruction": "put the wine bottle on the plate",
+      "observation_step": 0,
+      "provenance": "First decoded frame of the original video, before the first policy action and after reset stabilization. Video compression is retained; no crop, annotation or image edit.",
+      "reset_index": 1,
+      "seed": 61,
+      "source_arm": "native",
+      "source_frame_index": 0,
+      "source_gallery_selection": "Outcome-selected recorded_schedule vs native: method_only_success; first lexicographic discordant reset",
+      "source_summary_sha256": "5cb1a61541fb0375785701e41e2a1c92ae09342cab26c87156cc844c34275dee",
+      "source_video": "astra_reversal/reports/learned_correction_recipe/results/videos/libero_goal_ood_task5_state1_native.mp4",
+      "source_video_sha256": "d697f382fdbeab5b32fb086f6a6e160baae466a11be78210fa6ffd2d0bb11033",
+      "suite": "libero_goal_ood",
+      "task_id": "G5",
+      "workflow": "astra-pi05-recipe-evaluation-20260927-1"
+    },
+    {
+      "camera": "external",
+      "episode_id": "libero_spatial_ood:seed61:task2:state1",
+      "image": "starting_images/s2_start.png",
+      "image_sha256": "f088f4eeabd8e3d16fb55a85f560a16fd350f01b699e70e711c88130d97f5bff",
+      "image_size": [
+        224,
+        224
+      ],
+      "instruction": "put the milk on the plate",
+      "observation_step": 0,
+      "provenance": "First decoded frame of the original video, before the first policy action and after reset stabilization. Video compression is retained; no crop, annotation or image edit.",
+      "reset_index": 1,
+      "seed": 61,
+      "source_arm": "native",
+      "source_frame_index": 0,
+      "source_gallery_selection": "Outcome-selected learned_selector vs native: method_only_success; first lexicographic discordant reset",
+      "source_summary_sha256": "6f3b8ac56cab9e2d561f0f5b33c5577022b53cb98108ea52be97a813dd9a9c01",
+      "source_video": "astra_reversal/reports/learned_correction_recipe/results/videos/libero_spatial_ood_task2_state1_native.mp4",
+      "source_video_sha256": "1433dd0fee231d45c13c3aacd69bb43ae133e92109a74a68439f73d6e0368739",
+      "suite": "libero_spatial_ood",
+      "task_id": "S2",
+      "workflow": "astra-pi05-recipe-evaluation-20260927-1"
+    },
+    {
+      "camera": "external",
+      "episode_id": "libero_spatial_ood:seed19:task8:state0",
+      "image": "starting_images/s8_start.png",
+      "image_sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6",
+      "image_size": [
+        224,
+        224
+      ],
+      "instruction": "put the bowl at table center on the cabinet",
+      "observation_step": 0,
+      "provenance": "Exact raw camera PNG from the audited phase-development request at action zero, before intervention or action execution; no image edit.",
+      "reset_index": 0,
+      "seed": 19,
+      "source_archive_sha256": "0d7883bfb76c1a8821e132e356644cb3ef45aa833864de159c6b084b9644e7ea",
+      "source_arm": "astra_tei",
+      "source_camera_evidence": {
+        "decoded_array_sha256": "bca21f309f4dad79e7722bc94900c157f4438e506195f0a87a0cc25bbddd5d45",
+        "npy_file_sha256": "777f5ffb4e9471471f7bf149d8e7f2f608d229b16c5f4b157a70cb07698969b6",
+        "png_sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6",
+        "recorded_array": "arrays/00002544.npy",
+        "shape": [
+          224,
+          224,
+          3
+        ]
+      },
+      "source_example": "astra_reversal/reports/phase_interpolation/development/examples/examples.json",
+      "source_example_sha256": "5d4725b385ec27ad6a1cc48a714abf9dffb5a5a815505b0d8efb9277115144eb",
+      "source_request_fingerprint": "7f49939bf7ce536f04b817c7842e18ecefb6ddfd8c38370c4dd210809eab2205",
+      "source_request_sequence": 420,
+      "suite": "libero_spatial_ood",
+      "task_id": "S8"
+    }
+  ],
+  "images_edited": false,
+  "new_rollouts": 0,
+  "schema_version": "smart-system2-starting-images-1.0"
+}

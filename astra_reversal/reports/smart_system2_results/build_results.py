@@ -600,6 +600,20 @@ def main() -> None:
         "success_vs_tokens.svg",
         "success_vs_tokens.pdf",
     ]
+    task_manifest_path = OUTPUT / "tasks_manifest.json"
+    if task_manifest_path.exists():
+        task_manifest = json.loads(task_manifest_path.read_text())
+        for name, evidence in task_manifest["files"].items():
+            assert sha(OUTPUT / name) == evidence["sha256"], name
+        outputs.extend(["tasks_manifest.json", *task_manifest["files"]])
+    runtime_path = OUTPUT / "runtime.json"
+    if runtime_path.exists():
+        runtime = json.loads(runtime_path.read_text())
+        for name, digest in runtime["source_sha256"].items():
+            assert sha(REPORTS / name) == digest, name
+        for name, digest in runtime["files"].items():
+            assert sha(OUTPUT / name) == digest, name
+        outputs.extend(["runtime.json", *runtime["files"]])
     manifest = {
         "schema_version": "smart-system2-results-publication-1.0",
         "source_sha256": source_hashes,

@@ -2,6 +2,10 @@
 
 [Figure PNG](success_vs_tokens.png) · [Editable SVG](success_vs_tokens.svg) · [PDF](success_vs_tokens.pdf) · [Exact values CSV](plotted_values.csv) · [Values and source hashes JSON](plotted_values.json)
 
+[All twenty task instructions and recorded starting images](tasks.md) · [Standalone task gallery](tasks.html) · [Task CSV](tasks.csv) · [Starting-image sheet](task_examples.png)
+
+[Rollout and intervention speed](runtime.md) · [Exact runtime aggregates](runtime.json)
+
 ## How success rate is measured
 
 **SR means success rate.** After each executed action, the shared [LIBERO runner](../../libero_runner.py) calls `env.check_success()`, which evaluates the task's programmed goal predicates. An OOD rollout succeeds if that check becomes true within the 300-action control budget. It stops on success; reaching the cap without success counts as failure. Videos and Astra's judgment do not determine the reported SR. In particular, an Astra judgment that a rollout is better is separate from simulator success and from permission to update the auxiliary policy.
@@ -41,6 +45,14 @@ The completed positive results demonstrate **offline reuse and distillation of s
 Teacher acquisition was not free. The two whole source studies recorded **at least 6,887,020 tokens across 899 calls**, including unsuccessful trials and unused arms. The exact acquisition cost attributable to the twelve selected teachers is unknown. Zero deployment-time Astra tokens therefore demonstrate an online cost saving, not a measured end-to-end amortized advantage. Training and evaluation still required robot-policy compute, reported separately in the original recipe.
 
 The earlier three-task critique/FRS adaptation arms each scored **0/3 (0%) versus their shared native baseline 0/3 (0%)**, with no rescues and no Astra-approved improvements. The final separate-reset critique/FRS and auxiliary-noise evaluations also each scored **0/3 (0%) versus native 0/3 (0%)**. The auxiliary learner performed **zero optimizer updates** because no candidates passed the improvement gate. This remains separate from the positive offline reuse/distillation results.
+
+## Rollout and intervention speed
+
+On OSMO L40S, **Astra client calls averaged 9.4–11.3 seconds** in the completed language/image studies, with a synchronous query every 25 actions. Among attempts that executed all 300 actions, median rollout time was **166 seconds for TEI, 197 for TLI, 190 for occlusion and 188 for image blending**, versus **43 seconds for each cohort's native baseline**. These baseline timers also include one-time noise initialization and numerical checks; they are not a steady-state policy speed benchmark. The client timer includes payload construction, provider/network waiting and response validation.
+
+In the offline recipe, median time among full 300-action rollouts was **28.9 seconds native, 28.9 for the recorded schedule and 30.3 for the learned selector**. Mean combined policy callback time per five-action replan was **370 ms, 383 ms and 395 ms**, respectively. Different trajectories prevent interpreting these differences as isolated intervention overhead. All three use zero online Astra calls. In the three-case FRS pilot, assisted episodes took **63.6, 80.4 and 225.4 seconds**, versus **17.9, 19.1 and 18.5 seconds native**; the two FRS successes stopped at 78 and 83 actions, whereas every native attempt used 300.
+
+The 20-fps rollout videos omit inference pauses. These measurements describe the recorded synchronous simulator harness and do not establish real-time robot execution. [Runtime tables, sample counts, timer boundaries and source hashes](runtime.md) include all methods and distinguish per-attempt time from total baseline-plus-retry time.
 
 ## Larger FRS run: launched for twenty tasks, incomplete
 

@@ -1,12 +1,20 @@
 {
   "files": {
     "README.md": {
-      "bytes": 14616,
-      "sha256": "afeebc1fd178f9ad851ff4234b7a1406db17fae285893f6420507baa84fd5ac9"
+      "bytes": 16489,
+      "sha256": "d0c48d083a99b4801eb38f3464c583e586a3e4875764c8ab602f00620b5483d0"
     },
     "build_results.py": {
-      "bytes": 22323,
-      "sha256": "982028f5136d46dee080bbb72920f1958a5fd66ef8e23bd17ba71b35938d33b5"
+      "bytes": 23096,
+      "sha256": "bcd6b3830a0357c79fd95986c5fda43b3637df674cc9c5774820f84e0554d31d"
+    },
+    "build_runtime.py": {
+      "bytes": 16674,
+      "sha256": "0f1b46fec965baf4d643ee493e5d3339d731d3f3faaed766a1f157ad565caed7"
+    },
+    "build_task_examples.py": {
+      "bytes": 17192,
+      "sha256": "06cff871482f0983f768f3ec11f32e0c8d95650812ace39fe22c66b319ea5d66"
     },
     "plotted_values.csv": {
       "bytes": 3304,
@@ -15,6 +23,30 @@
     "plotted_values.json": {
       "bytes": 19763,
       "sha256": "9b682e59bbaf30a537f495e443e0e09551a725e9ff452b0bc40fb8d08016956f"
+    },
+    "runtime.json": {
+      "bytes": 12211,
+      "sha256": "71bcde91ddc76e4301234b4dcac2c09db725e8b5deb7f5dc98fdf7e72663a085"
+    },
+    "runtime.md": {
+      "bytes": 6723,
+      "sha256": "4c24e2d4ba13ebf25771d7fe6a151719d762e993e3a4300f34ab593a54301632"
+    },
+    "starting_images/g0_start.png": {
+      "bytes": 43212,
+      "sha256": "a12848e011741b05793ee4b5adc06d5ac2b4fb0a2b03dfdf5b5499da6e0567f2"
+    },
+    "starting_images/g5_start.png": {
+      "bytes": 38409,
+      "sha256": "e9a4e7726242cfb9f3dc1df1f2694f19066c065d7c19a74548d235b13afdb65a"
+    },
+    "starting_images/s2_start.png": {
+      "bytes": 37371,
+      "sha256": "f088f4eeabd8e3d16fb55a85f560a16fd350f01b699e70e711c88130d97f5bff"
+    },
+    "starting_images/s8_start.png": {
+      "bytes": 47495,
+      "sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6"
     },
     "success_vs_tokens.pdf": {
       "bytes": 39902,
@@ -27,6 +59,38 @@
     "success_vs_tokens.svg": {
       "bytes": 55537,
       "sha256": "72b5842a91246f2043aa571a34524128878a40bf84115ec485090ec4976ed7be"
+    },
+    "task_examples.json": {
+      "bytes": 5421,
+      "sha256": "d8a1fc02ec21aefc1227275dc0c3fcdce16008c28a536b1375d5ed7bdcac74c2"
+    },
+    "task_examples.pdf": {
+      "bytes": 217424,
+      "sha256": "b0b38fa861b547ef7707aba744f8e13d2c7805449912d708d5a26007e43aa15c"
+    },
+    "task_examples.png": {
+      "bytes": 373912,
+      "sha256": "28f8e085566cf07ba7eee6d49240cfb53796b6811652703b9b8460209d911994"
+    },
+    "tasks.csv": {
+      "bytes": 7668,
+      "sha256": "bbd353057ac531baceecfbe08ae57251c04fdbd00c540175ee168b6db2e4455e"
+    },
+    "tasks.html": {
+      "bytes": 226509,
+      "sha256": "31de53c0f9791d65d14efce8bdecce6bd09a1e55cf42b812b7a6f04a96732f0b"
+    },
+    "tasks.json": {
+      "bytes": 23397,
+      "sha256": "99bd8640be6dabe68fc534147490b2086ebcd4c073257e44a0cf1ec33ec4bbeb"
+    },
+    "tasks.md": {
+      "bytes": 3602,
+      "sha256": "e0ca5f14f8a8badb6a7c9eac24e0e22797532a31118a10337139a177e8804e26"
+    },
+    "tasks_manifest.json": {
+      "bytes": 2656,
+      "sha256": "8de981d254d51fca80d966e2c5b337f88e6efb505b54604c00285a982acb2a0d"
     }
   },
   "matplotlib_version": "3.11.2",
