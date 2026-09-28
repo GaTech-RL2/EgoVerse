@@ -1,0 +1,303 @@
+{
+  "schema_version": "codex-reasoner-smoke-1.0",
+  "date": "2026-09-28",
+  "scope": "Reasoner-only recorded-observation smoke tests. No new physical rollout or success-rate result.",
+  "model": "gpt-6-astra",
+  "reasoning_effort": "medium",
+  "cli_version": "codex-cli 0.157.0",
+  "authentication": "Existing local ChatGPT Codex sign-in; no auth files copied",
+  "interactive_subagent": {
+    "model": "gpt-6-astra",
+    "reasoning_effort": "medium",
+    "proposal_validated": true,
+    "proposal": {
+      "schema_version": "frs-agent-1.0",
+      "role": "paper_direction",
+      "episode_id": "codex_observation_probe",
+      "attempt_id": "codex_observation_probe_1",
+      "request_index": 1,
+      "observation_step": 0,
+      "request_id": "ad55afeb3e5dbc9b",
+      "response_id": "frs-probe-20260928-c731b5",
+      "fine": false,
+      "coords": [
+        0,
+        0,
+        -1
+      ],
+      "motion_amount": "less",
+      "justification": "The gripper appears elevated above the center bowl and nearly aligned horizontally; a small downward approach is suggested, though depth alignment is uncertain.",
+      "request_fingerprint": "ad55afeb3e5dbc9bcb815b2b97f6e9931d521ec4b9b5ac2c8c4d76b82f7157a6"
+    },
+    "usage": null,
+    "usage_note": "Collaboration tool did not expose per-job token usage"
+  },
+  "tests": [
+    {
+      "method": "FRS",
+      "harness": "codex_exec prototype",
+      "image_count": 1,
+      "wall_seconds": 13.36204218864441,
+      "raw_usage": {
+        "input_tokens": 16467,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 189,
+        "reasoning_output_tokens": 64
+      },
+      "proposal": {
+        "schema_version": "frs-agent-1.0",
+        "role": "paper_direction",
+        "episode_id": "codex_observation_probe",
+        "attempt_id": "codex_observation_probe_1",
+        "request_index": 1,
+        "observation_step": 0,
+        "request_id": "ad55afeb3e5dbc9b",
+        "response_id": "obs0-6af428cd",
+        "fine": false,
+        "coords": [
+          1,
+          0,
+          0
+        ],
+        "motion_amount": "less",
+        "justification": "The center bowl is in front of the gripper and horizontally aligned; move closer before descending.",
+        "request_fingerprint": "ad55afeb3e5dbc9bcb815b2b97f6e9931d521ec4b9b5ac2c8c4d76b82f7157a6"
+      },
+      "accepted": true
+    },
+    {
+      "method": "VEI",
+      "harness": "codex_exec adapter",
+      "image_count": 12,
+      "wall_seconds": 11.070784624957014,
+      "raw_usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 27130,
+        "output_tokens": 79,
+        "reasoning_output_tokens": 0
+      },
+      "token_usage": {
+        "input_tokens": 27130,
+        "output_tokens": 79,
+        "reasoning_tokens": 0,
+        "total_tokens": 27209
+      },
+      "proposal": {
+        "attempt_id": "astra_vei_revision1",
+        "decision_id": "cd4750c8ea38722c",
+        "decision_index": 1,
+        "episode_id": "libero_spatial_ood:seed19:task8:state0",
+        "language": null,
+        "mode": "native",
+        "observation_step": 0,
+        "observed_phase": "Initial acquisition: gripper open above the table; center bowl remains on the tabletop.",
+        "rationale": "The current scene matches the successful native baseline's initial state, so retain native conditioning for acquisition.",
+        "representation_mode": "vei",
+        "request_fingerprint": "cd4750c8ea38722c9fb021fb3b8133de55363b6f2c5b06d6f2cf31cd096c40fe",
+        "request_id": "cd4750c8ea38722c",
+        "schema_version": "representation-1.0",
+        "vision": null
+      },
+      "accepted": true,
+      "prompt_sha256": "43a73b686752fec7edea01f64ed2a78de52f30da086589ed893c30cb2efd5593",
+      "image_hashes": [
+        {
+          "file": "image_0.png",
+          "image_index": 0,
+          "label": "TRAINING DONOR PREVIEWS ONLY, not current state; camera observation/image; labels are donor_id",
+          "sha256": "25337d6d298930705030d2c377e66515785228fa1d53235406867c528e60df7f"
+        },
+        {
+          "file": "image_1.png",
+          "image_index": 1,
+          "label": "TRAINING DONOR PREVIEWS ONLY, not current state; camera observation/wrist_image; labels are donor_id",
+          "sha256": "5165c080b4e6eef5ae3f871ab00b3e199cafb86a970ea5f3161d98c67d2a2257"
+        },
+        {
+          "file": "image_2.png",
+          "image_index": 2,
+          "label": "COMPLETED previous attempt native_revision0: first; step 0; RAW camera observation/image",
+          "sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6"
+        },
+        {
+          "file": "image_3.png",
+          "image_index": 3,
+          "label": "COMPLETED previous attempt native_revision0: first; step 0; RAW camera observation/wrist_image",
+          "sha256": "1ae193833a17969ce33da6070cc14944720e85b3523f95a780b4cfd552cb93c8"
+        },
+        {
+          "file": "image_4.png",
+          "image_index": 4,
+          "label": "COMPLETED previous attempt native_revision0: progress_1; step 35; RAW camera observation/image",
+          "sha256": "fa2d787a47aec6e5c18ed293babdc27ea662976eed8142d36bea3b42b65d50a6"
+        },
+        {
+          "file": "image_5.png",
+          "image_index": 5,
+          "label": "COMPLETED previous attempt native_revision0: progress_1; step 35; RAW camera observation/wrist_image",
+          "sha256": "97247162b1b40b37402b95be9bbb2ad99b3e7926dc7e0548041950eeccb5e109"
+        },
+        {
+          "file": "image_6.png",
+          "image_index": 6,
+          "label": "COMPLETED previous attempt native_revision0: progress_2; step 71; RAW camera observation/image",
+          "sha256": "165eaa305268a9c2c98039ad606dbeb0ebd157a8a856eff0fff82b38ba927ac6"
+        },
+        {
+          "file": "image_7.png",
+          "image_index": 7,
+          "label": "COMPLETED previous attempt native_revision0: progress_2; step 71; RAW camera observation/wrist_image",
+          "sha256": "f2d33f92a333e9247159f7c62c240946c103dd8dedff867a1297d251f418da83"
+        },
+        {
+          "file": "image_8.png",
+          "image_index": 8,
+          "label": "COMPLETED previous attempt native_revision0: last; step 106; RAW camera observation/image",
+          "sha256": "583002a82ed9cf26c3b3bc7b306c34bac4e2a825eda08eba1b66f3fbc7db6f9e"
+        },
+        {
+          "file": "image_9.png",
+          "image_index": 9,
+          "label": "COMPLETED previous attempt native_revision0: last; step 106; RAW camera observation/wrist_image",
+          "sha256": "c8d032942230358547211251418db4fc6eb903ad84374f968d64690f403425f3"
+        },
+        {
+          "file": "image_10.png",
+          "image_index": 10,
+          "label": "CURRENT attempt astra_vei_revision1: step_0; step 0; RAW camera observation/image",
+          "sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6"
+        },
+        {
+          "file": "image_11.png",
+          "image_index": 11,
+          "label": "CURRENT attempt astra_vei_revision1: step_0; step 0; RAW camera observation/wrist_image",
+          "sha256": "1ae193833a17969ce33da6070cc14944720e85b3523f95a780b4cfd552cb93c8"
+        }
+      ],
+      "configured_model": "gpt-6-astra",
+      "returned_model": null
+    },
+    {
+      "method": "VLI",
+      "harness": "codex_exec adapter",
+      "image_count": 12,
+      "wall_seconds": 9.124262582976371,
+      "raw_usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 27807,
+        "output_tokens": 89,
+        "reasoning_output_tokens": 0
+      },
+      "token_usage": {
+        "input_tokens": 27807,
+        "output_tokens": 89,
+        "reasoning_tokens": 0,
+        "total_tokens": 27896
+      },
+      "proposal": {
+        "attempt_id": "astra_vli_revision1",
+        "decision_id": "4943d025599d62d7",
+        "decision_index": 1,
+        "episode_id": "libero_spatial_ood:seed19:task8:state0",
+        "language": null,
+        "mode": "native",
+        "observation_step": 0,
+        "observed_phase": "Pre-acquisition: gripper open above the table; center bowl remains on the tabletop.",
+        "rationale": "The current scene matches the prior starting view, and native conditioning previously acquired and transported the bowl with reported completed success, supporting retaining native conditioning.",
+        "representation_mode": "vli",
+        "request_fingerprint": "4943d025599d62d7e6273bc09a23c7a0e933d66a208226effa04e1cb8f029a6c",
+        "request_id": "4943d025599d62d7",
+        "schema_version": "representation-1.0",
+        "vision": null
+      },
+      "accepted": true,
+      "prompt_sha256": "6296ecd4ebef74b6ffcc1b0acfa7505cc0489222749ad156a0a6cb31f92a7983",
+      "image_hashes": [
+        {
+          "file": "image_0.png",
+          "image_index": 0,
+          "label": "TRAINING DONOR PREVIEWS ONLY, not current state; camera observation/image; labels are donor_id",
+          "sha256": "25337d6d298930705030d2c377e66515785228fa1d53235406867c528e60df7f"
+        },
+        {
+          "file": "image_1.png",
+          "image_index": 1,
+          "label": "TRAINING DONOR PREVIEWS ONLY, not current state; camera observation/wrist_image; labels are donor_id",
+          "sha256": "5165c080b4e6eef5ae3f871ab00b3e199cafb86a970ea5f3161d98c67d2a2257"
+        },
+        {
+          "file": "image_2.png",
+          "image_index": 2,
+          "label": "COMPLETED previous attempt native_revision0: first; step 0; RAW camera observation/image",
+          "sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6"
+        },
+        {
+          "file": "image_3.png",
+          "image_index": 3,
+          "label": "COMPLETED previous attempt native_revision0: first; step 0; RAW camera observation/wrist_image",
+          "sha256": "1ae193833a17969ce33da6070cc14944720e85b3523f95a780b4cfd552cb93c8"
+        },
+        {
+          "file": "image_4.png",
+          "image_index": 4,
+          "label": "COMPLETED previous attempt native_revision0: progress_1; step 35; RAW camera observation/image",
+          "sha256": "fa2d787a47aec6e5c18ed293babdc27ea662976eed8142d36bea3b42b65d50a6"
+        },
+        {
+          "file": "image_5.png",
+          "image_index": 5,
+          "label": "COMPLETED previous attempt native_revision0: progress_1; step 35; RAW camera observation/wrist_image",
+          "sha256": "97247162b1b40b37402b95be9bbb2ad99b3e7926dc7e0548041950eeccb5e109"
+        },
+        {
+          "file": "image_6.png",
+          "image_index": 6,
+          "label": "COMPLETED previous attempt native_revision0: progress_2; step 71; RAW camera observation/image",
+          "sha256": "165eaa305268a9c2c98039ad606dbeb0ebd157a8a856eff0fff82b38ba927ac6"
+        },
+        {
+          "file": "image_7.png",
+          "image_index": 7,
+          "label": "COMPLETED previous attempt native_revision0: progress_2; step 71; RAW camera observation/wrist_image",
+          "sha256": "f2d33f92a333e9247159f7c62c240946c103dd8dedff867a1297d251f418da83"
+        },
+        {
+          "file": "image_8.png",
+          "image_index": 8,
+          "label": "COMPLETED previous attempt native_revision0: last; step 106; RAW camera observation/image",
+          "sha256": "583002a82ed9cf26c3b3bc7b306c34bac4e2a825eda08eba1b66f3fbc7db6f9e"
+        },
+        {
+          "file": "image_9.png",
+          "image_index": 9,
+          "label": "COMPLETED previous attempt native_revision0: last; step 106; RAW camera observation/wrist_image",
+          "sha256": "c8d032942230358547211251418db4fc6eb903ad84374f968d64690f403425f3"
+        },
+        {
+          "file": "image_10.png",
+          "image_index": 10,
+          "label": "CURRENT attempt astra_vli_revision1: step_0; step 0; RAW camera observation/image",
+          "sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6"
+        },
+        {
+          "file": "image_11.png",
+          "image_index": 11,
+          "label": "CURRENT attempt astra_vli_revision1: step_0; step 0; RAW camera observation/wrist_image",
+          "sha256": "1ae193833a17969ce33da6070cc14944720e85b3523f95a780b4cfd552cb93c8"
+        }
+      ],
+      "configured_model": "gpt-6-astra",
+      "returned_model": null
+    }
+  ],
+  "setup_failure": {
+    "count": 1,
+    "reason": "Strict-output schema rejected missing type on const node before successful prototype; fixed in generation_schema",
+    "usage": null
+  },
+  "remote_relay": "Passed: see osmo_relay_results.json",
+  "benchmark_results": "Not yet available for this Codex cohort"
+}

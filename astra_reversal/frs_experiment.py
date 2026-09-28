@@ -17,16 +17,22 @@ from .flow import error_metrics, noise_statistics
 from .intervention_rollout import run_rollout
 from .intervention_search import write_json
 from .provider_stop import ProviderUnavailable, require_provider_available
+from .reasoner_backend import make_client, validate_backend
 from .records import Recorder, digest, to_numpy
 
 
 def load_protocol(path=None):
     path = path or Path(__file__).parent / "configs/frs_policy_improvement_v1.json"
     value = json.loads(Path(path).read_text())
-    focused = value["schema_version"] == "frs-frozen-evaluation-1.0"
+    codex = value["schema_version"] == "frs-codex-frozen-evaluation-1.0"
+    focused = value["schema_version"] == "frs-frozen-evaluation-1.0" or codex
     if (
         value["schema_version"]
-        not in ("frs-policy-improvement-1.0", "frs-frozen-evaluation-1.0")
+        not in (
+            "frs-policy-improvement-1.0",
+            "frs-frozen-evaluation-1.0",
+            "frs-codex-frozen-evaluation-1.0",
+        )
         or value["execute_steps"] != 10
         or value["rounds"] != (0 if focused else 3)
         or value["action_budget"] != 300
@@ -46,6 +52,7 @@ def load_protocol(path=None):
         raise ValueError("Frozen FRS evaluation must retain its controls and stop rule")
     if not focused and value.get("evaluation_only"):
         raise ValueError("Evaluation-only runs require their own protocol version")
+    validate_backend(value["astra"], codex=codex)
     return value
 
 
@@ -110,8 +117,6 @@ class FRSTaskExperiment:
         development=False,
         progress=None,
     ):
-        from .frs_agent import FRSClient
-
         self.policy, self.create_env, self.benchmark = policy, create_env, benchmark
         self.entries = {row["initial_state_id"]: row for row in entries}
         self.protocol, self.development = protocol, development
@@ -125,13 +130,7 @@ class FRSTaskExperiment:
         self.physical_runs = []
         self.results_by_id = {}
         settings = protocol["astra"]
-        self.client = FRSClient(
-            model=settings["model"],
-            response_log=self.directory / "provider.jsonl",
-            reasoning_effort=settings["reasoning_effort"],
-            max_completion_tokens=settings["max_completion_tokens"],
-            timeout=settings["timeout_seconds"],
-        )
+        self.client = make_client("frs", settings, self.directory / "provider.jsonl")
         task = self.entries[0]
         if len({row["task_id"] for row in entries}) != 1:
             raise ValueError("Each adaptation experiment must have one task")

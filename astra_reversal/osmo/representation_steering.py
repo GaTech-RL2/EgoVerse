@@ -19,6 +19,7 @@ from astra_reversal.osmo.interpolation import (
     native_preflight,
 )
 from astra_reversal.osmo.ood_distributed import WorkerArchive
+from astra_reversal.reasoner_backend import initialize_worker_backend
 from astra_reversal.records import digest, file_sha256
 from astra_reversal.representation_search import RepresentationSearch, load_protocol
 
@@ -69,8 +70,9 @@ def main():
     write_json(RESULTS / "progress.json", {"status": "preflight", **target})
     archive.sync()
     try:
-        native_preflight(archive)
         protocol = load_protocol(os.environ.get("ASTRA_PROTOCOL_PATH"))
+        initialize_worker_backend(protocol["astra"])
+        native_preflight(archive)
         if phase == "development":
             protocol["seed"] = protocol["development_seed"]
         write_json(RESULTS / "protocol.json", protocol)

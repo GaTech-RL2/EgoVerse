@@ -20,6 +20,8 @@ def require_provider_available(record):
         raise ProviderUnavailable("provider_ledger_missing")
     status = record.get("http_status")
     status = status if type(status) is int else None
+    if record.get("provider_unavailable") is True:
+        raise ProviderUnavailable("reasoner_backend_unavailable", status)
     error = record.get("provider_error", {})
     error = error if isinstance(error, dict) else {}
     categories = (error.get("type"), error.get("code"))

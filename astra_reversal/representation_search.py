@@ -19,6 +19,7 @@ from .interpolation_catalog import donor_catalog
 from .intervention_rollout import CAMERAS, run_rollout
 from .intervention_search import write_json
 from .provider_stop import ProviderUnavailable, require_provider_available
+from .reasoner_backend import make_client, validate_backend
 from .records import Recorder, digest, file_sha256, to_numpy
 
 ARMS = (
@@ -39,10 +40,15 @@ VISION_ARMS = ("native_retry", "random_vei", "random_vli", "astra_vei", "astra_v
 def load_protocol(path=None):
     path = path or Path(__file__).parent / "configs/representation_steering_v1.json"
     value = json.loads(Path(path).read_text())
-    vision_only = value["schema_version"] == "vision-representation-screen-1.0"
+    codex = value["schema_version"] == "vision-codex-representation-screen-1.0"
+    vision_only = value["schema_version"] == "vision-representation-screen-1.0" or codex
     if (
         value["schema_version"]
-        not in ("representation-steering-1.0", "vision-representation-screen-1.0")
+        not in (
+            "representation-steering-1.0",
+            "vision-representation-screen-1.0",
+            "vision-codex-representation-screen-1.0",
+        )
         or value["arms"] != list(VISION_ARMS if vision_only else ARMS)
         or value["revisions"] != 2
         or value["execute_steps"] != 5
@@ -54,6 +60,7 @@ def load_protocol(path=None):
         raise ValueError("Change the protocol version before changing the experiment")
     if vision_only and not value["astra"].get("stop_on_provider_unavailable"):
         raise ValueError("The visual screen requires the provider stop rule")
+    validate_backend(value["astra"], codex=codex)
     return value
 
 
@@ -255,7 +262,7 @@ class RepresentationSearch:
         )
 
     def rollout(self, arm, revision, previous=None, history=()):
-        from .representation_agent import RepresentationClient, build_request
+        from .representation_agent import build_request
 
         env, _, _ = self.create_env(self.entry["task_id"], self.entry["seed"])
         spec = ActionSpec.from_environment(
@@ -269,12 +276,8 @@ class RepresentationSearch:
         settings = self.protocol["astra"]
         client = None
         if arm.startswith("astra_"):
-            client = RepresentationClient(
-                model=settings["model"],
-                response_log=self.directory / "provider.jsonl",
-                reasoning_effort=settings["reasoning_effort"],
-                max_completion_tokens=settings["max_completion_tokens"],
-                timeout=settings["timeout_seconds"],
+            client = make_client(
+                "representation", settings, self.directory / "provider.jsonl"
             )
         observations, decisions, generated = [], [], []
         active = None
