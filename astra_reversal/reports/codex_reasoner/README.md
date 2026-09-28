@@ -139,6 +139,16 @@ Astra request after a relay startup failure. No Codex job started in that retry.
 The relay now retries transient OSMO gateway errors and acknowledges exact
 response redelivery without re-executing a model job.
 
+The full vision study exposed another relay failure: a response interrupted
+before its declared HTTP Content-Length could be classified as invalid JSON.
+A local reproduction confirmed that transport defect; the original failures did
+not preserve HTTP framing, so their precise cause remains inferred. Short
+responses now follow the existing transport retry path, including safe redelivery
+of an already completed result. Complete malformed responses still stop the
+relay. Replacement workers use the same scientific payload and protocol;
+completed original cases take precedence, and interrupted or duplicate work is
+reported separately from the canonical evaluation cases.
+
 Codex-specific offline audits now verify the native job receipts without
 inventing HTTP responses. New workers also publish an immutable archive after
 each completed physical rollout, followed by its commit receipt. Each snapshot
@@ -165,7 +175,7 @@ Activate the project environment before Python. Stop local relays and tunnels
 when their workers finish. Failed Codex GPU workers exit without the older
 15-minute debugging hold.
 
-Validation: **1,565 unit tests passed; six tests skipped** (five require optional
+Validation: **1,572 unit tests passed; six tests skipped** (five require optional
 OpenPI, one image-order test requires multiple attachments). Ruff checks and
 formatting passed. The HTML was rendered in a browser and local asset links were
 verified.

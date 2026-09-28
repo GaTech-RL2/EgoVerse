@@ -589,3 +589,112 @@ def test_ack_cache_is_bounded_and_contains_only_digests():
     )
     with pytest.raises(ClientError, match="no_pending_invocation"):
         mailbox.submit(submission({**original, "invocation_id": "0" * 32}))
+
+
+def wire_response(value, *, truncate=False, declared=None):
+    """Real HTTPResponse framing over a hermetic in-memory socket."""
+    body = relay._json_bytes(value)
+    length = str(len(body)) if declared is None else declared
+    wire = (
+        b"HTTP/1.1 200 OK\r\nContent-Length: "
+        + length.encode()
+        + b"\r\n\r\n"
+        + (body[:10] if truncate else body)
+    )
+    response = relay.http.client.HTTPResponse(
+        SimpleNamespace(makefile=lambda *args: io.BytesIO(wire))
+    )
+    response.begin()
+    return response
+
+
+@pytest.mark.parametrize("endpoint", ["/health", "/pending", "/response"])
+def test_truncated_framing_retries_transport_not_executor(
+    monkeypatch, tmp_path, endpoint
+):
+    from astra_reversal import codex_executor
+
+    mailbox = relay.RelayMailbox()
+    executions, posts, attempts = [], [], []
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(mailbox.exchange, envelope_for(), 10)
+        active = wait_pending(mailbox)
+
+        def open_request(request, timeout):
+            path = relay.urllib.parse.urlsplit(request.full_url).path
+            attempts.append(path)
+            if path == "/health":
+                value = {"protocol": relay.PROTOCOL_VERSION, "status": "pending"}
+            elif path == "/pending":
+                value = active
+            else:
+                posts.append(request.data)
+                mailbox.submit(json.loads(request.data))
+                future.result(timeout=2)  # Worker consumes before the ACK is lost.
+                value = {"protocol": relay.PROTOCOL_VERSION, "accepted": True}
+            return wire_response(
+                value, truncate=path == endpoint and attempts.count(path) == 1
+            )
+
+        def execute(*args, **kwargs):
+            executions.append(args)
+            return result_for(active)
+
+        monkeypatch.setattr(
+            relay.urllib.request,
+            "build_opener",
+            lambda *args: SimpleNamespace(open=open_request),
+        )
+        monkeypatch.setattr(codex_executor, "execute_request", execute)
+        assert (
+            relay.run_relay(
+                "http://127.0.0.1:8769",
+                TOKEN,
+                tmp_path,
+                max_requests=1,
+                poll_interval=0.001,
+            )
+            == 1
+        )
+        assert future.result(timeout=2) == result_for(active)
+    assert len(executions) == 1
+    assert attempts.count(endpoint) == 2
+    if endpoint == "/response":
+        assert len(posts) == 2 and posts[0] == posts[1]
+        assert len(mailbox._acknowledged) == 1
+
+
+@pytest.mark.parametrize("kind", ["malformed_json", "oversized", "invalid_length"])
+def test_complete_response_contract_errors_remain_fatal(kind):
+    response = wire_response({"private": TOKEN})
+    if kind == "malformed_json":
+        response = wire_response({"private": TOKEN}, truncate=True, declared="10")
+    elif kind == "oversized":
+        response = wire_response({}, declared=str(relay.MAX_REQUEST_BYTES + 1))
+    else:
+        response = wire_response({}, declared="invalid")
+    opener = SimpleNamespace(open=lambda *args, **kwargs: response)
+    with pytest.raises(ClientError) as error:
+        relay._http(opener, "http://127.0.0.1", TOKEN, "/pending", 1)
+    assert TOKEN not in str(error.value)
+
+
+def test_cli_diagnostic_never_prints_exception_secrets(monkeypatch, tmp_path, capsys):
+    token_file = tmp_path / "token"
+    token_file.write_text(TOKEN)
+
+    def fail(*args, **kwargs):
+        raise RuntimeError(TOKEN + " private response payload")
+
+    monkeypatch.setattr(relay, "run_relay", fail)
+    with pytest.raises(SystemExit) as error:
+        relay.main(
+            ["--directory", str(tmp_path / "jobs"), "--token-file", str(token_file)]
+        )
+    assert error.value.code == 1
+    diagnostic = capsys.readouterr().err
+    assert json.loads(diagnostic) == {
+        "status": "relay_stopped",
+        "error_kind": "unexpected_error",
+    }
+    assert TOKEN not in diagnostic and "payload" not in diagnostic

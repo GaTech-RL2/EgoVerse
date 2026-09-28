@@ -667,9 +667,21 @@ def _http(opener, url, token, path, timeout, body=None):
         method="GET" if body is None else "POST",
     )
     with opener.open(request, timeout=timeout) as response:
+        declared = response.headers.get("Content-Length")
+        if declared is not None:
+            if not re.fullmatch(r"[0-9]+", declared):
+                raise ClientError("Worker relay Content-Length is invalid")
+            declared = int(declared)
+            if declared > MAX_REQUEST_BYTES:
+                raise ClientError("Worker relay response exceeds its size limit")
         raw = response.read(MAX_REQUEST_BYTES + 1)
         if len(raw) > MAX_REQUEST_BYTES:
             raise ClientError("Worker relay response exceeds its size limit")
+        if declared is not None and len(raw) < declared:
+            # HTTPResponse.read(amt) permits premature EOF without raising.
+            # Treat framing truncation as transport failure, not invalid JSON.
+            # Never attach the private partial response to the exception.
+            raise http.client.IncompleteRead(b"", declared - len(raw))
         return _strict_json(raw)
 
 
@@ -877,9 +889,22 @@ def main(argv=None):
         )
     except KeyboardInterrupt:
         return 130
-    except (ClientError, OSError, ValueError, TypeError):
+    except Exception as exc:
+        error_kind = next(
+            (
+                name
+                for kind, name in (
+                    (ClientError, "contract_or_provider_error"),
+                    (OSError, "transport_os_error"),
+                    (ValueError, "value_error"),
+                    (TypeError, "type_error"),
+                )
+                if isinstance(exc, kind)
+            ),
+            "unexpected_error",
+        )
         parser.exit(
-            1, "Codex relay stopped because its transport or provider is unavailable.\n"
+            1, json.dumps({"status": "relay_stopped", "error_kind": error_kind}) + "\n"
         )
     return 0
 
