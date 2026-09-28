@@ -10,6 +10,7 @@ from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
 import egomimic.utils.tensor_utils as TensorUtils
+from egomimic.pl_utils.ema import WeightEMA
 from egomimic.pl_utils.pl_data_utils import head_of_loader, video_loader_name
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
@@ -87,6 +88,20 @@ class ModelWrapper(LightningModule):
         # Val loader names in dataloader_idx order, from
         # MultiDataModuleWrapper.val_loader_names(); None = [valid, train_viz].
         self.val_loader_names = None
+
+        ema_cfg = (
+            self._as_config(config_tree).model.get("ema")
+            if config_tree is not None
+            else None
+        )
+        self._ema_cfg = (
+            OmegaConf.to_container(ema_cfg)
+            if ema_cfg is not None and ema_cfg.get("enabled", True)
+            else None
+        )
+        self.ema = None
+        self._ema_loaded = None
+        self._ema_last_step = None
 
     @staticmethod
     def _as_config(cfg):
@@ -228,6 +243,48 @@ class ModelWrapper(LightningModule):
         for k, v in info.items():
             self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
 
+    def _ensure_ema(self) -> None:
+        if self._ema_cfg is None or self.ema is not None:
+            return
+        opts = {k: v for k, v in self._ema_cfg.items() if k != "enabled"}
+        self.ema = WeightEMA(
+            ((n, p) for n, p in self.named_parameters() if p.requires_grad), **opts
+        )
+        if self._ema_loaded is not None:
+            self.ema.load_state_dict(self._ema_loaded)
+            self._ema_loaded = None
+
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        # Once per optimizer step, not per batch, so gradient accumulation is fine.
+        if self._ema_cfg is None or self.global_step == self._ema_last_step:
+            return
+        self._ema_last_step = self.global_step
+        self._ensure_ema()
+        decay = self.ema.update()
+        self.log("Train/ema_decay", decay, on_step=False, on_epoch=True)
+
+    def on_save_checkpoint(self, checkpoint):
+        if self.ema is None:
+            if self._ema_loaded is not None:
+                checkpoint["ema"] = self._ema_loaded
+            return
+        checkpoint["ema"] = self.ema.state_dict()
+        # ModelCheckpoint can save mid-validation, while the EMA weights are
+        # swapped in; the state_dict must still hold the raw ones.
+        raw = self.ema.raw_by_id()
+        if raw:
+            for key, value in self.state_dict(keep_vars=True).items():
+                if id(value) in raw:
+                    checkpoint["state_dict"][key] = raw[id(value)]
+
+    def on_load_checkpoint(self, checkpoint):
+        if self._ema_cfg is None or "ema" not in checkpoint:
+            return
+        if self.ema is not None:
+            self.ema.load_state_dict(checkpoint["ema"])
+        else:
+            self._ema_loaded = checkpoint["ema"]
+
     def _val_heads(self) -> dict:
         return {
             "valid": self.evaluator,
@@ -243,6 +300,11 @@ class ModelWrapper(LightningModule):
         reset_eval_rng = getattr(self.model, "reset_eval_pass_counter", None)
         if callable(reset_eval_rng):
             reset_eval_rng()
+
+        # Validate the EMA weights once there are any, trained or loaded.
+        if self.ema is not None or self._ema_loaded is not None:
+            self._ensure_ema()
+            self.ema.swap_in()
 
         heads = [h for h in self._val_heads().values() if h is not None]
         if not heads:
@@ -307,6 +369,8 @@ class ModelWrapper(LightningModule):
 
     def on_validation_end(self):
         print(f"[ON_VALIDATION_END] rank={self.global_rank}", flush=True)
+        if self.ema is not None:
+            self.ema.swap_out()
         for head in self._val_heads().values():
             if head is not None:
                 head.on_validation_end()
