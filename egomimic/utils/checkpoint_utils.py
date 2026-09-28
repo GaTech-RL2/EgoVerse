@@ -39,4 +39,9 @@ def load_checkpoint_weights(
             f"the model needs, e.g. {result.missing_keys[:5]}; the model would run "
             "on random weights. Is this checkpoint from the same model config?"
         )
+    # Lightning's restore calls this hook; a bare state_dict load does not, and
+    # ModelWrapper takes its EMA weights from it.
+    on_load = getattr(model, "on_load_checkpoint", None)
+    if callable(on_load):
+        on_load(checkpoint)
     log.info("Loaded weights from %s", ckpt_path)
