@@ -32,6 +32,16 @@ from egomimic.utils.pose_utils import (
 )
 
 
+# Joint-space mode: the ABC YAM station / abc_sim action space.
+JOINT_MODE = "joints"
+JOINT_ACTION_KEY = "actions_joints"
+JOINT_STATE_KEY = "observations.state.joint_positions"
+# Raw 30 Hz steps read per sample (1.5 s, the cartesian keymap's horizon),
+# resampled to the model's chunk length like the cartesian modes.
+JOINT_RAW_HORIZON = 45
+JOINT_ORDER = ("left.{}_joints", "left.{}_gripper", "right.{}_joints", "right.{}_gripper")
+
+
 class Eva(Embodiment):
     INTRINSICS = ARIA_INTRINSICS
     EXTRINSICS = {
@@ -62,6 +72,7 @@ class Eva(Embodiment):
             "cartesian_wristframe_ypr",
             "cartesian_wristframe_6d",
             "cartesian_wristframe_quat",
+            "joints",
         ],
         allow_legacy_rotation: bool = False,
     ) -> list[Transform]:
@@ -97,6 +108,13 @@ class Eva(Embodiment):
             ]
         if mode == "cartesian_wristframe_quat":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
+        if mode == JOINT_MODE:
+            # Absolute joint positions + gripper, 14-D per step, in the
+            # [left j1..j6, left grip, right j1..j6, right grip] order of the
+            # ABC YAM station and its simulator (abc_sim's 14-D state/action).
+            # Needs the "joints" keymap (obs_/cmd_joints are not in the
+            # cartesian one). No frame, no rotation: the sim steps these as-is.
+            return _build_eva_bimanual_joint_transform_list()
         raise ValueError(f"Unsupported transform_list mode '{mode}' for Eva")
 
     @staticmethod
@@ -105,7 +123,8 @@ class Eva(Embodiment):
         trained with ``get_transform_list(mode)`` back to camera-frame
         xyz+ypr+gripper (7/arm), given the batch's proprio
         ``observations.state.ee_pose``. ``None``: already in that layout."""
-        if mode == "cartesian":
+        if mode in ("cartesian", JOINT_MODE):
+            # joints: predictions are already the commanded joint targets.
             return None
         if mode == "cartesian_6d":
             return _build_eva_cartesian_revert_6d_transform_list()
@@ -120,6 +139,8 @@ class Eva(Embodiment):
         # One camera naming for every algo. Pi renames onto openpi's slots
         # itself (egomimic.models.preprocess_pi_obs.PI_CAMERA_SLOTS).
         keymap_mode = _strip_pi_keymap_mode(cls, keymap_mode)
+        if keymap_mode == JOINT_MODE:
+            return cls._get_joint_keymap()
         front_key = cls.VIZ_IMAGE_KEY
         right_wrist_key = "observations.images.right_wrist_img"
         left_wrist_key = "observations.images.left_wrist_img"
@@ -175,6 +196,36 @@ class Eva(Embodiment):
             },
         }
 
+        return key_map
+
+    @classmethod
+    def _get_joint_keymap(cls):
+        """Cameras + per-arm joint positions and gripper, observed (proprio)
+        and commanded (45-step action chunk). ABC zarrs (real and the
+        converted sim_224 episodes) carry ``{left,right}.{obs,cmd}_joints``
+        (6) and ``_gripper`` (1, in [0, 1])."""
+        key_map = {
+            cls.VIZ_IMAGE_KEY: {"key_type": "camera_keys", "zarr_key": "images.front_1"},
+            "observations.images.right_wrist_img": {
+                "key_type": "camera_keys",
+                "zarr_key": "images.right_wrist",
+            },
+            "observations.images.left_wrist_img": {
+                "key_type": "camera_keys",
+                "zarr_key": "images.left_wrist",
+            },
+        }
+        for arm in ("left", "right"):
+            for part in ("joints", "gripper"):
+                key_map[f"{arm}.obs_{part}"] = {
+                    "key_type": "proprio_keys",
+                    "zarr_key": f"{arm}.obs_{part}",
+                }
+                key_map[f"{arm}.cmd_{part}"] = {
+                    "key_type": "action_keys",
+                    "zarr_key": f"{arm}.cmd_{part}",
+                    "horizon": JOINT_RAW_HORIZON,
+                }
         return key_map
 
     @classmethod
@@ -614,4 +665,35 @@ def _build_eva_bimanual_transform_list(
             ),
         ]
     )
+    return transform_list
+
+
+def _build_eva_bimanual_joint_transform_list(
+    *,
+    actions_key: str = JOINT_ACTION_KEY,
+    obs_key: str = JOINT_STATE_KEY,
+    chunk_length: int = 100,
+    stride: int = 1,
+) -> list[Transform]:
+    """Joint-space pipeline: resample each commanded joint / gripper chunk to
+    ``chunk_length`` (as the cartesian modes do), then concatenate both arms in
+    ABC order into ``actions_joints`` (T, 14) and the observed joints into
+    ``observations.state.joint_positions`` (14,)."""
+    cmd_keys = [k.format("cmd") for k in JOINT_ORDER]
+    obs_keys = [k.format("obs") for k in JOINT_ORDER]
+    transform_list: list[Transform] = [
+        InterpolateLinear(
+            new_chunk_length=chunk_length,
+            action_key=key,
+            output_action_key=key,
+            stride=stride,
+        )
+        for key in cmd_keys
+    ]
+    transform_list += [
+        InterpolatePadMask(new_chunk_length=chunk_length, stride=stride),
+        ConcatKeys(key_list=cmd_keys, new_key_name=actions_key, delete_old_keys=True),
+        ConcatKeys(key_list=obs_keys, new_key_name=obs_key, delete_old_keys=True),
+        NumpyToTensor(keys=[actions_key, obs_key]),
+    ]
     return transform_list

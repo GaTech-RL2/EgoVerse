@@ -202,8 +202,40 @@ def keypoint_metrics(pred: torch.Tensor, gt: torch.Tensor, prefix: str) -> dict:
     return metrics
 
 
-def layout_metrics(pred: torch.Tensor, gt: torch.Tensor, prefix: str) -> dict:
-    """Dispatch on the last-dim width: cartesian, keypoint, or ``{}``."""
+# Bimanual joint layout (ABC YAM / abc_sim): [left j1..j6, left grip,
+# right j1..j6, right grip].
+JOINT_LAYOUT_14 = {"joints": (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12), "grip": (6, 13)}
+
+
+def joint_metrics(pred: torch.Tensor, gt: torch.Tensor, prefix: str) -> dict:
+    """Metrics for a bimanual joint-space chunk ``(B, T, 14)``; ``{}`` for
+    other widths. Joint errors are in degrees (mean absolute), the gripper in
+    its [0, 1] command units."""
+    pred_cpu, gt_cpu = pred.detach().cpu().float(), gt.detach().cpu().float()
+    if pred_cpu.shape[-1] != 14:
+        return {}
+    j = list(JOINT_LAYOUT_14["joints"])
+    g = list(JOINT_LAYOUT_14["grip"])
+    err = (pred_cpu[..., j] - gt_cpu[..., j]).abs() * _RAD2DEG
+    return {
+        f"{prefix}_joint_abs_err_deg_avg": err.mean(),
+        f"{prefix}_joint_abs_err_deg_final": err[:, -1].mean(),
+        f"{prefix}_joint_abs_err_deg_max_joint": err.mean(dim=(0, 1)).max(),
+        f"{prefix}_grip_paired_mse_avg": _paired_mse(pred_cpu[..., g], gt_cpu[..., g]),
+        f"{prefix}_grip_final_mse_avg": _paired_mse(
+            pred_cpu[:, -1, g], gt_cpu[:, -1, g]
+        ),
+    }
+
+
+def layout_metrics(
+    pred: torch.Tensor, gt: torch.Tensor, prefix: str, ac_key: str | None = None
+) -> dict:
+    """Dispatch on the action key, then the last-dim width: joints, cartesian,
+    keypoint, or ``{}``. A 14-D joint chunk has a cartesian width (xyz+ypr+grip
+    per arm), so joint actions must be named: ``ac_key`` ``actions_joints*``."""
+    if ac_key is not None and ac_key.startswith("actions_joints"):
+        return joint_metrics(pred, gt, prefix)
     metrics = cartesian_metrics(pred, gt, prefix)
     if metrics:
         return metrics

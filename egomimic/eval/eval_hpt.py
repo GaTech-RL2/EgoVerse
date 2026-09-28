@@ -59,7 +59,9 @@ class HPTEvalVideo(EvalVideo):
                 metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
                 metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
                 metrics.update(
-                    layout_metrics(preds[pred_key], _batch[ac_key], f"Valid/{pred_key}")
+                    layout_metrics(
+                        preds[pred_key], _batch[ac_key], f"Valid/{pred_key}", ac_key
+                    )
                 )
 
             if embodiment_name in algo.auxiliary_ac_keys:
