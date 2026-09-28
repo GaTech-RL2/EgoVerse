@@ -24,6 +24,9 @@ SOURCES = {
     "frs": "frs_policy_improvement/development/report.json",
     "recipe": "learned_correction_recipe/results/report.json",
     "history": "learned_correction_recipe/results/historical_context.json",
+    "frs_interruption": "frs_policy_improvement/evaluation_interruption.json",
+    "frs_gates": "frs_policy_improvement/evaluation_gate_observations.json",
+    "historical_baseline": "ood_baseline.json",
 }
 COLORS = {
     "native": "#697586",
@@ -226,10 +229,57 @@ def collect_rows(data: dict) -> list[dict]:
         rows.append(
             make_row("recipe", method, label, arm["successes"], arm["cases"], [], 1)
         )
+    baselines = {
+        r["cohort"]: r for r in rows if r["method"] in {"native", "native_euler10"}
+    }
+    for row in rows:
+        baseline = baselines[row["cohort"]]
+        assert row["cases"] == baseline["cases"]
+        row.update(
+            {
+                "baseline_method": baseline["method"],
+                "baseline_successes": baseline["successes"],
+                "baseline_cases": baseline["cases"],
+                "baseline_success_percent": baseline["success_percent"],
+                "difference_vs_baseline_percentage_points": 100
+                * (row["successes"] - baseline["successes"])
+                / row["cases"],
+            }
+        )
     return rows
 
 
-def create_figure(rows: list[dict]) -> None:
+def update_table(rows: list[dict]) -> None:
+    cohorts = {
+        "language": "A — language, 20 cases",
+        "pixels": "A — pixels, 20 cases",
+        "frs": "A — FRS pilot, 3 cases",
+        "recipe": "B — offline recipe, 40 cases",
+    }
+    lines = [
+        "| Experiment / cohort | Method | Method SR | Matched native SR | Difference (pp) | Known online tokens, total | Mean tokens / case | Unknown-usage calls |",
+        "|---|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for row in rows:
+        prefix = "≥" if row["cost_is_lower_bound"] else ""
+        score = f"{row['success_percent']:.1f}% ({row['successes']}/{row['cases']})"
+        baseline = f"{row['baseline_success_percent']:.1f}% ({row['baseline_successes']}/{row['baseline_cases']})"
+        difference = row["difference_vs_baseline_percentage_points"]
+        delta = f"{difference:+.1f}" if difference else "0"
+        lines.append(
+            f"| {cohorts[row['cohort']]} | {row['label']} | {score} | {baseline} | {delta} | "
+            f"{prefix}{row['known_online_tokens_total']:,} | "
+            f"{prefix}{row['mean_known_online_tokens_per_case']:,.1f} | "
+            f"{row['calls_with_unknown_token_usage']} |"
+        )
+    path = OUTPUT / "README.md"
+    content = path.read_text()
+    start = content.index("| Experiment / cohort |")
+    end = content.index("\n\n", start)
+    path.write_text(content[:start] + "\n".join(lines) + content[end:])
+
+
+def create_figure(rows: list[dict], interruption: dict) -> None:
     plt.rcParams.update(
         {
             "font.family": "DejaVu Sans",
@@ -315,7 +365,15 @@ def create_figure(rows: list[dict]) -> None:
         prefix = "≥" if row["cost_is_lower_bound"] else ""
         token_label = "0" if x == 0 else f"{prefix}{x:.1f}k"
         success = f"{y:g}%" if y * 10 == round(y * 10) else f"{y:.1f}%"
-        text = f"{label or row['label']}\n{success} ({row['successes']}/{row['cases']}) · {token_label} tokens"
+        if row["method"] == row["baseline_method"]:
+            text = f"{label or row['label']}\n{success} ({row['successes']}/{row['cases']}) · {token_label} tokens"
+            ax.axhline(y, color=COLORS["native"], ls=":", lw=0.8, alpha=0.5)
+        else:
+            text = (
+                f"{label or row['label']}\n"
+                f"{success} vs {row['baseline_success_percent']:g}% baseline\n"
+                f"{row['successes']}/{row['cases']} · {token_label} tokens"
+            )
         ax.annotate(
             text,
             (x, y),
@@ -420,7 +478,7 @@ def create_figure(rows: list[dict]) -> None:
         "recipe",
         "recorded_schedule",
         "schedule",
-        (22, 81),
+        (22, 83),
         label="Recorded schedule",
     )
     point(
@@ -428,7 +486,7 @@ def create_figure(rows: list[dict]) -> None:
         "recipe",
         "learned_selector",
         "selector",
-        (22, 59),
+        (22, 62),
         label="Learned TEI/TLI selector",
     )
     point(
@@ -436,17 +494,17 @@ def create_figure(rows: list[dict]) -> None:
         "recipe",
         "gated_flow_head",
         "gated",
-        (57, 40),
+        (57, 43),
         label="Gated flow head",
         marker="D",
     )
-    point(ax, "recipe", "native", "native", (22, 26))
+    point(ax, "recipe", "native", "native", (22, 24))
     point(
         ax,
         "recipe",
         "flow_head",
         "head",
-        (22, 10),
+        (22, 8),
         label="Learned flow head",
         marker="s",
     )
@@ -456,7 +514,8 @@ def create_figure(rows: list[dict]) -> None:
         "Experiment B: zero online calls; whole teacher-source studies used ≥6.89M tokens. Exact selected-teacher acquisition cost is unknown.",
         "FRS is a three-case development result. Compare methods within each panel; retries, resets and prompt/vision workloads differ.",
         "This figure excludes development/interruption overhead for the 20-case studies, teacher acquisition, robot-policy compute and coding-agent tokens.",
-        "Known benchmark compositions, new resets. Selected completed comparisons; partial VEI/VLI and interrupted full FRS results are not plotted.",
+        f"Larger FRS run: {interruption['recorded_complete_rollouts']:,} recorded rollouts, "
+        f"{len(interruption['completed_sealed_task_audits'])}/{interruption['planned_tasks']} tasks fully audited before the spending cap; full-cohort SR is unavailable.",
     ]
     for index, line in enumerate(footnotes):
         fig.text(0.073, 0.126 - index * 0.022, line, fontsize=8.7, color="#596779")
@@ -483,13 +542,14 @@ def create_figure(rows: list[dict]) -> None:
 def main() -> None:
     data = read_sources()
     rows = collect_rows(data)
+    assert not data["frs_interruption"]["all_twenty_efficacy_complete"]
     source_hashes = {relative: sha(REPORTS / relative) for relative in SOURCES.values()}
     with (OUTPUT / "plotted_values.csv").open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     payload = {
-        "schema_version": "smart-system2-success-tokens-1.0",
+        "schema_version": "smart-system2-success-tokens-1.1",
         "x_axis": "Mean known online Astra input + output tokens per task/reset case, including failed attempts and reported failed calls.",
         "y_axis": "Descriptive simulator success percentage within each separate study protocol.",
         "reasoning_tokens_already_in_output": True,
@@ -511,13 +571,34 @@ def main() -> None:
             "ID retention panel",
         ],
         "history": data["history"],
+        "larger_frs_status": {
+            "status": data["frs_interruption"]["status"],
+            "planned_tasks": data["frs_interruption"]["planned_tasks"],
+            "planned_physical_rollouts": data["frs_interruption"][
+                "planned_physical_rollouts"
+            ],
+            "recorded_complete_rollouts": data["frs_interruption"][
+                "recorded_complete_rollouts"
+            ],
+            "fully_audited_completed_tasks": len(
+                data["frs_interruption"]["completed_sealed_task_audits"]
+            ),
+            "all_twenty_efficacy_complete": data["frs_interruption"][
+                "all_twenty_efficacy_complete"
+            ],
+            "full_cohort_success_rate": None,
+            "provider_usage": data["frs_interruption"]["provider_usage"],
+            "completed_subset_judgments": data["frs_gates"]["judgments"],
+            "completed_subset_optimizer_steps": data["frs_gates"]["optimizer_steps"],
+        },
         "source_sha256": source_hashes,
         "rows": rows,
     }
     (OUTPUT / "plotted_values.json").write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n"
     )
-    create_figure(rows)
+    update_table(rows)
+    create_figure(rows, data["frs_interruption"])
     # Sources are immutable. Regeneration must never alter original publications.
     assert source_hashes == {
         relative: sha(REPORTS / relative) for relative in SOURCES.values()
