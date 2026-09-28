@@ -94,9 +94,57 @@ CLI jobs are counted explicitly; their internal provider request/retry counts
 can be unknown. Missing usage is never treated as zero, and no dollar cost is
 inferred from a subscription.
 
-The existing HTTP-specific offline audit/report programs do not yet validate
-this new cohort. New benchmark success rates must be audited separately before
-publication. No Codex benchmark success rate is available in this report.
+## Audited simulator pilot
+
+The first Codex FRS pilot completed on an L40S. The matched task was **“put the
+wine bottle in the bowl,” LIBERO Goal OOD task 6, development seed 19/reset 1**.
+There was one rollout per method:
+
+| Method | Simulator outcome | Actions | Rollout wall time | Codex jobs | Total tokens |
+|---|---|---:|---:|---:|---:|
+| Native π0.5, Euler10 | Failed | 300 | 24.57s | 0 | 0 |
+| Native repeated-noise control | Failed | 300 | 17.26s | 0 | 0 |
+| Codex Astra + FRS | Success | 83 | 121.86s | 9 | 148,591 |
+
+FRS made three interventions and six native deferrals. It shifted the approach
+at actions 0/10 and the placement alignment at action 60, while leaving the other
+decisions to the native policy. The nine calls used 146,960 input and 1,631 output
+tokens; 316 reasoning tokens are already included in output. Reasoner waits
+accounted for 112.92 seconds of the rollout wall time. These are harness-inclusive
+token counts, without a verified dollar conversion.
+
+The [interactive pilot page](index.html) includes matched rollout videos and
+each actual Astra input image with its returned short explanation. The videos
+play at 20 fps and omit inference pauses and the terminal post-action frame.
+[Machine-readable results](pilot_results.json),
+[FRS/Codex audit](pilot_frs_audit.json), and
+[archive seal audit](pilot_archive_audit.json) preserve the evidence.
+
+This **single development reset is excluded from the 20-task evaluation**. It
+does not establish a population success rate or a reliable improvement estimate.
+The offline audit verified 683 executed actions, 69 generations, 760 velocity
+evaluations, all nine exact Codex job bindings, the paired resets, flow/action
+transforms, and unchanged weights. It does not independently rerun model
+inference or physics.
+
+The first vision pilot was externally preempted by GPU quota reclamation. Its
+published prefix recorded eight completed rollouts, including a VEI success at
+95 actions, but lacked the arrays archive and final frozen-weight proof. That
+observation is **provisional**, not a certified VEI success-rate result. Thirteen
+completed local jobs consumed 388,137 tokens; the worker ledger preserved twelve
+of them (358,093 tokens). The additional 30,044-token job remains interrupted-work
+cost, and the partial VLI rollout has no known outcome. A separate fresh pilot
+reproduced all seven native/random control failures, then stopped at its first
+Astra request after a relay startup failure. No Codex job started in that retry.
+The relay now retries transient OSMO gateway errors and acknowledges exact
+response redelivery without re-executing a model job.
+
+Codex-specific offline audits now verify the native job receipts without
+inventing HTTP responses. New workers also publish an immutable archive after
+each completed physical rollout, followed by its commit receipt. Each snapshot
+includes arrays, videos, reset/config identity and a fresh frozen-weight check.
+These are durable evidence checkpoints; automatic simulator recovery is not
+implemented. The full evaluation success rates remain pending.
 
 ## Running the bridge
 
@@ -117,8 +165,10 @@ Activate the project environment before Python. Stop local relays and tunnels
 when their workers finish. Failed Codex GPU workers exit without the older
 15-minute debugging hold.
 
-Validation: **1,469 unit tests passed; five optional OpenPI tests skipped** in the
-local environment. Ruff checks and formatting passed.
+Validation: **1,565 unit tests passed; six tests skipped** (five require optional
+OpenPI, one image-order test requires multiple attachments). Ruff checks and
+formatting passed. The HTML was rendered in a browser and local asset links were
+verified.
 
 Codex automation can reuse saved CLI authentication and report usage in JSONL.
 [Official noninteractive documentation](https://learn.chatgpt.com/docs/non-interactive-mode).

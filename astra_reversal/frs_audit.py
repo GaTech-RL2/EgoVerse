@@ -453,7 +453,9 @@ def replay_generation(event, *, entry, adapter):
     }
 
 
-def verify_provider_binding(request, decision, row, settings):
+def verify_provider_binding(
+    request, decision, row, settings, *, job_directory=None, audit_receipts=None
+):
     """Join actual provider bytes to the exact observable-only reconstructed input."""
     require(
         request["request_fingerprint"]
@@ -471,6 +473,21 @@ def verify_provider_binding(request, decision, row, settings):
         "schema_version",
     ):
         require(row[key] == request[key], f"Provider identity mismatch: {key}")
+    if settings.get("backend") == "codex_relay":
+        from .codex_provider_audit import verify_codex_provider
+
+        proof = verify_codex_provider(
+            request, row, decision["response"], settings, job_directory=job_directory
+        )
+        if audit_receipts is not None:
+            audit_receipts.append(proof)
+        require(
+            decision.get("error") is None
+            if row["accepted"]
+            else bool(decision.get("error")),
+            "Codex decision error/acceptance differs",
+        )
+        return bool(row["accepted"])
     model = settings["model"]
     require(
         row["requested_model"] == model
@@ -580,15 +597,60 @@ def read_auxiliary_checkpoint(store, directory):
     return receipt, payload
 
 
+def _codex_frozen(protocol):
+    return protocol.get("schema_version") == "frs-codex-frozen-evaluation-1.0"
+
+
+def _physical_schedule(protocol, development):
+    """Exact prescribed physical cohort; development checks only reset1."""
+    frozen = _codex_frozen(protocol)
+    if frozen:
+        from .reasoner_backend import validate_backend
+
+        validate_backend(protocol["astra"], codex=True)
+        require(
+            protocol.get("evaluation_only") is True
+            and protocol["rounds"] == 0
+            and protocol["adaptation_methods"] == []
+            and protocol["learning"]["enabled"] is False
+            and protocol["evaluation_methods"]
+            == ["native_euler10", "native_repeated_noise", "astra_frs"],
+            "Codex frozen study changed its no-learning controls",
+        )
+    require(
+        protocol["evaluation_states"] == list(range(1, 11)),
+        "Held-out reset indexes changed",
+    )
+    expected = set() if frozen else {("native_repeated_noise", 0, 0)}
+    for method in protocol["adaptation_methods"]:
+        expected.update((method, 0, index) for index in range(1, 4))
+    states = (
+        protocol["evaluation_states"][:1]
+        if development
+        else protocol["evaluation_states"]
+    )
+    for method in protocol["evaluation_methods"]:
+        rounds = [0] if frozen else (range(1, 4) if method == "learned_noise" else [3])
+        expected.update((method, state, index) for state in states for index in rounds)
+    return expected
+
+
 class _TaskAudit:
-    def __init__(self, directory, norm_stats_path, expected_protocol):
+    def __init__(
+        self, directory, norm_stats_path, expected_protocol, codex_jobs_root=None
+    ):
         self.store = ArtifactStore(directory)
         self.summary = self.store.read_json("summary.json")
+        self.codex_jobs_root = (
+            Path(codex_jobs_root).resolve() if codex_jobs_root is not None else None
+        )
+        self.codex_provider_audits = []
         self.events = self.store.lines("events.jsonl")
         self.providers = self.store.lines("provider.jsonl")
         require(
             self.summary["status"] == "complete"
-            and self.summary["schema_version"] == "frs-task-1.0",
+            and self.summary["schema_version"]
+            in ("frs-task-1.0", "frs-frozen-evaluation-task-1.0"),
             "Task is not a complete FRS artifact",
         )
         require(
@@ -623,7 +685,12 @@ class _TaskAudit:
         if expected_protocol is None:
             expected_protocol = _json(
                 (
-                    Path(__file__).parent / "configs/frs_policy_improvement_v1.json"
+                    Path(__file__).parent
+                    / (
+                        "configs/frs_codex_frozen_evaluation_v1.json"
+                        if _codex_frozen(self.protocol)
+                        else "configs/frs_policy_improvement_v1.json"
+                    )
                 ).read_text()
             )
             if self.summary["development"]:
@@ -638,9 +705,20 @@ class _TaskAudit:
             self.protocol["solver"] == SOLVER
             and self.protocol["execute_steps"] == 10
             and self.protocol["action_budget"] == 300
-            and self.protocol["rounds"] == 3,
+            and self.protocol["rounds"] == (0 if _codex_frozen(self.protocol) else 3),
             "FRS solver/execution/training protocol changed",
         )
+        require(
+            self.summary["schema_version"]
+            == (
+                "frs-frozen-evaluation-task-1.0"
+                if _codex_frozen(self.protocol)
+                else "frs-task-1.0"
+            ),
+            "Task schema differs from its protocol",
+        )
+        if _codex_frozen(self.protocol):
+            _physical_schedule(self.protocol, self.summary["development"])
         require(
             self.summary["protocol_sha256"] == digest(self.protocol)
             and self.summary["entries_sha256"] == digest(task["entries"]),
@@ -775,24 +853,7 @@ class _TaskAudit:
         return self.result_cache[attempt_id]
 
     def physical(self):
-        expected = {("native_repeated_noise", 0, 0)}
-        for method in self.protocol["adaptation_methods"]:
-            expected.update((method, 0, round_index) for round_index in range(1, 4))
-        states = (
-            self.protocol["evaluation_states"][:1]
-            if self.summary["development"]
-            else self.protocol["evaluation_states"]
-        )
-        require(
-            self.protocol["evaluation_states"] == list(range(1, 11)),
-            "Held-out reset indexes changed",
-        )
-        for method in self.protocol["evaluation_methods"]:
-            expected.update(
-                (method, state, round_index)
-                for state in states
-                for round_index in (range(1, 4) if method == "learned_noise" else [3])
-            )
+        expected = _physical_schedule(self.protocol, self.summary["development"])
         observed, summary_rows, reset_pairs = set(), {}, {}
         for row in self.summary["physical_rollouts"]:
             require(
@@ -1081,8 +1142,23 @@ class _TaskAudit:
             "Provider record reused/out of order",
         )
         require(decision["role"] == request["role"], "Decision role mismatch")
+        job_directory = None
+        if self.codex_jobs_root is not None:
+            invocation = self.providers[index].get("invocation_id")
+            require(
+                isinstance(invocation, str)
+                and len(invocation) == 32
+                and all(c in "0123456789abcdef" for c in invocation),
+                "Invalid Codex invocation ID",
+            )
+            job_directory = self.codex_jobs_root / invocation
         accepted = verify_provider_binding(
-            request, decision, self.providers[index], self.protocol["astra"]
+            request,
+            decision,
+            self.providers[index],
+            self.protocol["astra"],
+            job_directory=job_directory,
+            audit_receipts=self.codex_provider_audits,
         )
         self.provider_used.add(index)
         self.counts["provider_bindings"] += 1
@@ -1192,6 +1268,12 @@ class _TaskAudit:
     def adaptation(self):
         baseline_id = "native_repeated_noise_state0_round0"
         self.learning_rounds = []
+        if _codex_frozen(self.protocol):
+            require(
+                self.summary["adaptation"] == {}
+                and not self.groups["adaptation_round"],
+                "Frozen Codex study contains adaptation work",
+            )
         for method in self.protocol["adaptation_methods"]:
             reported = self.summary["adaptation"][method]
             require(
@@ -1338,6 +1420,17 @@ class _TaskAudit:
         )
 
     def checkpoints(self):
+        if _codex_frozen(getattr(self, "protocol", {})):
+            require(
+                not self.groups["noise_policy_initial"]
+                and not self.actor_uses
+                and not self.learning_rounds
+                and not self.store.path("noise_policy_initial").exists()
+                and "initial_noise_policy_checkpoint" not in self.summary,
+                "Frozen Codex study contains auxiliary policy work",
+            )
+            self.initial_checkpoint_receipt = None
+            return []
         from .frs_noise_policy import (
             _validate_sample,
             training_config,
@@ -1856,10 +1949,15 @@ def _worker_inputs(directory, audit):
 
 
 def audit_task(
-    task_dir, *, norm_stats_path, expected_protocol=None, worker_metadata_dir=None
+    task_dir,
+    *,
+    norm_stats_path,
+    expected_protocol=None,
+    worker_metadata_dir=None,
+    codex_jobs_root=None,
 ):
     """Require a complete task and sealed or worker-final native weight proof."""
-    audit = _TaskAudit(task_dir, norm_stats_path, expected_protocol)
+    audit = _TaskAudit(task_dir, norm_stats_path, expected_protocol, codex_jobs_root)
     audit.physical()
     parity = audit.gates()
     audit.online_requests()
@@ -1896,8 +1994,16 @@ def audit_task(
         )
     }
     return {
-        "schema_version": SCHEMA_VERSION,
-        "status": "passed",
+        "schema_version": "frs-codex-frozen-audit-1.0"
+        if _codex_frozen(audit.protocol)
+        else SCHEMA_VERSION,
+        "status": "unverified"
+        if any(p["status"] != "passed" for p in audit.codex_provider_audits)
+        else "passed",
+        "codex_provider_audits": audit.codex_provider_audits,
+        "cohort_scope": "development_first_reset_only"
+        if audit.summary["development"]
+        else "evaluation_all_ten_resets",
         "suite": audit.summary["suite"],
         "task_id": audit.summary["task_id"],
         "development": audit.summary["development"],
@@ -1960,15 +2066,30 @@ def audit_task(
             "all_array_hashes": True,
             "native_weight_bytes_unchanged": True,
             "separated_reset_streams": True,
-            "exact_request_provider_bindings": True,
+            "exact_request_provider_bindings": all(
+                p["status"] == "passed" for p in audit.codex_provider_audits
+            ),
             "calibrated_direction_and_action_transforms": True,
             "executed_loop_noise_repeated": True,
-            "training_labels_only_Astra_better_adaptation": True,
+            "training_labels_only_Astra_better_adaptation": None
+            if _codex_frozen(audit.protocol)
+            else True,
             "no_heldout_feedback_or_labels": True,
-            "checkpoint_optimizer_replay_bindings": True,
+            "checkpoint_optimizer_replay_bindings": None
+            if _codex_frozen(audit.protocol)
+            else True,
         },
         "known_generating_noise_for_Astra_reference": None,
-        "limitations": LIMITATIONS,
+        "limitations": (
+            [text for text in LIMITATIONS if not text.startswith("Training receipts")]
+            + [
+                "This frozen cohort has no auxiliary policy, adaptation labels or optimizer updates.",
+                "Codex configured model is verified; served model is unknown unless exposed by its receipt. Jobs are not raw HTTP request counts.",
+                "Missing local job artifacts produce unverified provider proofs, never inferred verification.",
+            ]
+            if _codex_frozen(audit.protocol)
+            else LIMITATIONS
+        ),
     }
 
 
@@ -1977,6 +2098,7 @@ def main():
     parser.add_argument("task_dir", type=Path)
     parser.add_argument("--norm-stats", required=True, type=Path)
     parser.add_argument("--worker-metadata", type=Path)
+    parser.add_argument("--codex-jobs-root", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     if args.output.exists():
@@ -1985,6 +2107,7 @@ def main():
         args.task_dir,
         norm_stats_path=args.norm_stats,
         worker_metadata_dir=args.worker_metadata,
+        codex_jobs_root=args.codex_jobs_root,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x") as stream:

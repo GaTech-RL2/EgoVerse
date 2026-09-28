@@ -126,6 +126,8 @@ class RelayMailbox:
         self._serial = threading.Lock()
         self._condition = threading.Condition()
         self._pending = None
+        # Bounded ACKs contain only IDs and full-submission digests, never payloads.
+        self._acknowledged = {}
 
     def exchange(self, envelope, timeout):
         deadline = time.monotonic() + _positive(timeout, "Relay timeout")
@@ -137,6 +139,8 @@ class RelayMailbox:
                 if remaining <= 0:
                     raise _MailboxError("relay_queue_timeout", 410)
                 envelope = _copy(envelope)
+                if envelope["invocation_id"] in self._acknowledged:
+                    raise _MailboxError("accepted_invocation_id_reused")
                 envelope["expires_at"] = time.time() + remaining
                 self._pending = {
                     "envelope": envelope,
@@ -181,7 +185,26 @@ class RelayMailbox:
             "receipt",
         }:
             raise _MailboxError("invalid_result_envelope", 400)
+        invocation_id = value["invocation_id"]
+        if (
+            not isinstance(invocation_id, str)
+            or re.fullmatch(r"[0-9a-f]{32}", invocation_id) is None
+        ):
+            raise _MailboxError("invalid_invocation_id", 400)
+        try:
+            submission_digest = hashlib.sha256(
+                json.dumps(
+                    value, sort_keys=True, separators=(",", ":"), allow_nan=False
+                ).encode()
+            ).hexdigest()
+        except (ValueError, TypeError):
+            raise _MailboxError("invalid_result_json", 400) from None
         with self._condition:
+            accepted_digest = self._acknowledged.get(invocation_id)
+            if accepted_digest is not None:
+                if not hmac.compare_digest(accepted_digest, submission_digest):
+                    raise _MailboxError("accepted_invocation_result_mismatch")
+                return  # Lost ACK: do not touch a newer pending invocation.
             item = self._pending
             if item is None:
                 raise _MailboxError("no_pending_invocation")
@@ -201,6 +224,9 @@ class RelayMailbox:
             ):
                 raise _MailboxError("request_fingerprint_mismatch")
             self._pending["result"] = _copy(result)
+            self._acknowledged[invocation_id] = submission_digest
+            if len(self._acknowledged) > 256:
+                del self._acknowledged[next(iter(self._acknowledged))]
             self._condition.notify_all()
 
 
@@ -689,6 +715,8 @@ def run_relay(
 
     Connection polling and response delivery never relaunch a Codex job. Existing
     durable executor directories resolve any repeated pending invocation.
+    Gateway 502/503/504 retries affect only relay transport, never the executor
+    or the ChatGPT provider. Result delivery repeats the same bound submission.
     """
     from .codex_executor import execute_request
 
@@ -731,6 +759,10 @@ def run_relay(
         except urllib.error.HTTPError as exc:
             status = exc.code
             exc.close()
+            if status in (502, 503, 504):
+                healthy = False
+                stop_event.wait(poll_interval)
+                continue
             raise ClientError(
                 f"Worker relay rejected authentication or polling (HTTP {status})"
             ) from None
@@ -801,6 +833,9 @@ def run_relay(
             except urllib.error.HTTPError as exc:
                 status = exc.code
                 exc.close()
+                if status in (502, 503, 504):
+                    stop_event.wait(min(poll_interval, max(0, remaining)))
+                    continue
                 raise ClientError(
                     f"Worker relay rejected result delivery (HTTP {status})"
                 ) from None

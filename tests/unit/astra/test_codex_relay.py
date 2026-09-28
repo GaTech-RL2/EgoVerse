@@ -300,8 +300,11 @@ def test_mailbox_rejects_wrong_binding_and_replay():
         value.do_POST()
         assert value.responses[0][0] == 200
         assert future.result(timeout=2) == body["result"]
-        with pytest.raises(ClientError, match="no_pending_invocation"):
-            mailbox.submit(body)
+        mailbox.submit(body)  # Exact replay only acknowledges the consumed result.
+        changed = json.loads(json.dumps(body))
+        changed["result"]["receipt"]["exit_code"] = 1
+        with pytest.raises(ClientError, match="accepted_invocation_result_mismatch"):
+            mailbox.submit(changed)
 
 
 def test_expired_mailbox_does_not_accept_late_result():
@@ -394,3 +397,195 @@ def test_local_relay_rejects_path_invocation_ids():
     envelope["invocation_id"] = "../../elsewhere"
     with pytest.raises(ClientError, match="invocation ID"):
         relay._pending_request(envelope)
+
+
+@pytest.mark.parametrize("path", ["/health", "/pending"])
+@pytest.mark.parametrize("status", [502, 503, 504])
+def test_gateway_poll_retry_runs_executor_once(monkeypatch, tmp_path, path, status):
+    from astra_reversal import codex_executor
+
+    envelope = envelope_for()
+    envelope["expires_at"] = time.time() + 30
+    attempts, executions, errors = [], [], []
+
+    def http(opener, url, token, endpoint, timeout, body=None):
+        assert token == TOKEN
+        attempts.append(endpoint)
+        if endpoint == path and attempts.count(path) == 1:
+            error = relay.urllib.error.HTTPError(
+                url, status, "gateway", {}, io.BytesIO(b"private gateway details")
+            )
+            errors.append(error)
+            raise error
+        if endpoint == "/health":
+            return {"protocol": relay.PROTOCOL_VERSION, "status": "pending"}
+        if endpoint == "/pending":
+            return envelope
+        return {"protocol": relay.PROTOCOL_VERSION, "accepted": True}
+
+    def execute(*args, **kwargs):
+        executions.append(args)
+        return result_for(envelope)
+
+    monkeypatch.setattr(relay, "_http", http)
+    monkeypatch.setattr(codex_executor, "execute_request", execute)
+    assert (
+        relay.run_relay(
+            "http://127.0.0.1:8769",
+            TOKEN,
+            tmp_path,
+            max_requests=1,
+            poll_interval=0.001,
+        )
+        == 1
+    )
+    assert attempts.count(path) == 2 and len(executions) == 1
+    assert errors[0].fp.closed
+
+
+@pytest.mark.parametrize("status", [502, 503, 504])
+@pytest.mark.parametrize("first_delivery_reached_worker", [False, True])
+def test_gateway_ambiguous_post_reuses_bound_result_without_execution(
+    monkeypatch, tmp_path, status, first_delivery_reached_worker
+):
+    from astra_reversal import codex_executor
+
+    envelope = envelope_for()
+    envelope["expires_at"] = time.time() + 30
+    executions, posted = [], []
+    mailbox = relay.RelayMailbox()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        waiting = pool.submit(mailbox.exchange, envelope, 10)
+        active = wait_pending(mailbox)
+
+        def http(opener, url, token, endpoint, timeout, body=None):
+            assert token == TOKEN
+            if endpoint == "/health":
+                return {"protocol": relay.PROTOCOL_VERSION, "status": "pending"}
+            if endpoint == "/pending":
+                return active
+            posted.append(body)
+            if len(posted) == 1:
+                if first_delivery_reached_worker:
+                    mailbox.submit(body)
+                    waiting.result(timeout=2)  # ACK lost after worker consumed it.
+                raise relay.urllib.error.HTTPError(
+                    url, status, "gateway", {}, io.BytesIO()
+                )
+            try:
+                mailbox.submit(body)
+            except relay._MailboxError as exc:
+                raise relay.urllib.error.HTTPError(
+                    url, exc.status, "rejected", {}, io.BytesIO()
+                ) from None
+            return {"protocol": relay.PROTOCOL_VERSION, "accepted": True}
+
+        def execute(*args, **kwargs):
+            executions.append(args)
+            return result_for(active)
+
+        monkeypatch.setattr(relay, "_http", http)
+        monkeypatch.setattr(codex_executor, "execute_request", execute)
+
+        def run():
+            return relay.run_relay(
+                "http://127.0.0.1:8769",
+                TOKEN,
+                tmp_path,
+                max_requests=1,
+                poll_interval=0.001,
+            )
+
+        assert run() == 1
+        assert waiting.result(timeout=2) == result_for(active)
+    assert len(executions) == 1 and len(posted) == 2
+    assert posted[0] is posted[1]
+    assert posted[0]["invocation_id"] == active["invocation_id"]
+    assert posted[0]["request_fingerprint"] == active["request_fingerprint"]
+
+
+@pytest.mark.parametrize("status", [401, 403, 409, 410, 500])
+@pytest.mark.parametrize("path", ["/health", "/pending", "/response"])
+def test_non_gateway_errors_remain_fatal(monkeypatch, tmp_path, status, path):
+    from astra_reversal import codex_executor
+
+    envelope = envelope_for()
+    envelope["expires_at"] = time.time() + 30
+    calls, executions = [], []
+
+    def http(opener, url, token, endpoint, timeout, body=None):
+        calls.append(endpoint)
+        if endpoint == path:
+            raise relay.urllib.error.HTTPError(
+                url, status, TOKEN, {}, io.BytesIO(TOKEN.encode())
+            )
+        if endpoint == "/health":
+            return {"protocol": relay.PROTOCOL_VERSION, "status": "pending"}
+        if endpoint == "/pending":
+            return envelope
+        pytest.fail("Unexpected successful result delivery")
+
+    def execute(*args, **kwargs):
+        executions.append(args)
+        return result_for(envelope)
+
+    monkeypatch.setattr(relay, "_http", http)
+    monkeypatch.setattr(codex_executor, "execute_request", execute)
+    with pytest.raises(ClientError, match=f"HTTP {status}") as error:
+        relay.run_relay(
+            "http://127.0.0.1:8769",
+            TOKEN,
+            tmp_path,
+            max_requests=1,
+            poll_interval=0.001,
+        )
+    assert calls.count(path) == 1
+    assert len(executions) == (1 if path == "/response" else 0)
+    assert TOKEN not in str(error.value)
+
+
+def test_ack_replay_cannot_change_next_pending_invocation():
+    mailbox = relay.RelayMailbox()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        first = pool.submit(mailbox.exchange, envelope_for(), 2)
+        old = wait_pending(mailbox)
+        body = submission(old)
+        mailbox.submit(body)
+        assert first.result(timeout=2) == body["result"]
+        fresh = envelope_for()
+        fresh["invocation_id"] = "c" * 32
+        second = pool.submit(mailbox.exchange, fresh, 2)
+        pending = wait_pending(mailbox)
+        # Canonical digest permits object key reordering, but no value mutation.
+        reordered = dict(reversed(list(body.items())))
+        mailbox.submit(reordered)
+        assert mailbox.pending() == pending and not second.done()
+        changed = json.loads(json.dumps(body))
+        changed["request_fingerprint"] = "d" * 64
+        with pytest.raises(ClientError, match="result_mismatch"):
+            mailbox.submit(changed)
+        assert mailbox.pending() == pending and not second.done()
+        mailbox.submit(submission(pending))
+        assert second.result(timeout=2) == result_for(pending)
+    with pytest.raises(ClientError, match="accepted_invocation_id_reused"):
+        mailbox.exchange(old, 0.01)
+
+
+def test_ack_cache_is_bounded_and_contains_only_digests():
+    mailbox = relay.RelayMailbox()
+    original = envelope_for()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        for index in range(257):
+            envelope = {**original, "invocation_id": f"{index:032x}"}
+            future = pool.submit(mailbox.exchange, envelope, 2)
+            active = wait_pending(mailbox)
+            mailbox.submit(submission(active))
+            future.result(timeout=2)
+    assert len(mailbox._acknowledged) == 256
+    assert "0" * 32 not in mailbox._acknowledged
+    assert all(
+        isinstance(value, str) and len(value) == 64
+        for value in mailbox._acknowledged.values()
+    )
+    with pytest.raises(ClientError, match="no_pending_invocation"):
+        mailbox.submit(submission({**original, "invocation_id": "0" * 32}))

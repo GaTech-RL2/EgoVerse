@@ -539,6 +539,10 @@ class FRSTaskExperiment:
                     "success": result["success"],
                 }
             )
+            if self.protocol["astra"].get("backend") == "codex_relay":
+                # Checkpoint callbacks need the just-closed rollout's evaluation
+                # row before another physical rollout can start.
+                self.save()
         self.save()
 
     def adapt(self, method, baseline, *, actor=None):

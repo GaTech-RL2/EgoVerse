@@ -19,6 +19,7 @@ from astra_reversal.osmo.interpolation import (
     native_preflight,
 )
 from astra_reversal.osmo.ood_distributed import WorkerArchive
+from astra_reversal.osmo.rollout_checkpoint import checkpoint_progress
 from astra_reversal.reasoner_backend import initialize_worker_backend
 from astra_reversal.records import digest, file_sha256
 from astra_reversal.representation_search import RepresentationSearch, load_protocol
@@ -139,6 +140,14 @@ def main():
                     **target,
                 },
             )
+            progress = checkpoint_progress(
+                archive,
+                RESULTS,
+                task_id,
+                protocol,
+                before,
+                lambda: frozen_parameter_receipt(policy),
+            )
             search = RepresentationSearch(
                 policy,
                 create,
@@ -149,7 +158,7 @@ def main():
                 library=library,
                 banks=banks,
                 development=phase == "development",
-                progress=archive.sync,
+                progress=progress,
             )
             search.run()
             after = frozen_parameter_receipt(policy)

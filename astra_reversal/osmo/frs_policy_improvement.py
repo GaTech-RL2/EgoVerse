@@ -13,6 +13,7 @@ from astra_reversal.intervention_search import write_json
 from astra_reversal.osmo.experiment import RESULTS, ROOT
 from astra_reversal.osmo.interpolation import load_frozen_policy, native_preflight
 from astra_reversal.osmo.ood_distributed import WorkerArchive
+from astra_reversal.osmo.rollout_checkpoint import checkpoint_progress
 from astra_reversal.reasoner_backend import initialize_worker_backend
 from astra_reversal.records import digest, file_sha256
 
@@ -200,6 +201,14 @@ def main():
                 },
             )
             entries = [row for row in manifest["episodes"] if row["task_id"] == task_id]
+            progress = checkpoint_progress(
+                archive,
+                RESULTS,
+                task_id,
+                protocol,
+                before,
+                lambda: frozen_parameter_receipt(policy),
+            )
             experiment = FRSTaskExperiment(
                 policy,
                 create,
@@ -208,7 +217,7 @@ def main():
                 protocol,
                 RESULTS / f"task_{task_id}",
                 development=phase == "development",
-                progress=archive.sync,
+                progress=progress,
             )
             experiment.run()
             if any(parameter.requires_grad for parameter in policy.policy.parameters()):

@@ -1,0 +1,599 @@
+{
+  "arrays": {
+    "array_bytes": 26663616,
+    "array_files": 764,
+    "array_inventory_sha256": "7b1e83a99ff4ed19c331b581d865797c8beb9089c32894341bf7dc8e36753ad5",
+    "array_references": 764
+  },
+  "checkpoints": [],
+  "codex_provider_audits": [
+    {
+      "auditor_sources_sha256": {
+        "codex_accounting.py": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96",
+        "codex_executor.py": "246a9aa8313f704be0844915b1f1d1caf6f7f6f8ab1c7cb785c2875e21776979",
+        "codex_provider_audit.py": "7c56ef4d324b7460242e0eb4ed2bace923249334210ec9d0e64a8d52307a29fc",
+        "frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567"
+      },
+      "configured_model": "gpt-6-astra",
+      "files_sha256": {
+        "completed.json": "e47f7119d4733e0a0a64da912eddb54ed96fb7839032ec96c4dc4305f25c7ac6",
+        "events.jsonl": "4f877cec0754c297eb146f1df0dd924fc10fa87dec1e40872808d35202a15d74",
+        "final.json": "4ee7a5d06608b898355b9c3218a9723d9c5b16fdcb9b592e8923ba9c287004ec",
+        "image_0.png": "d936c0ad35603591b2c0cf8e7b1a928f5e250056abbbd1a2bfb0716aef62260a",
+        "image_1.png": "c34bfcceedabe0cf7ca9ae54ebfbb5ada4d570ec3fcb41c887f5dc69d1ea989e",
+        "invocation.json": "28a2f6f3a4267d0c8e8f259f514582ae16f9fd6a070ba3e55f831af7015a613b",
+        "prompt.txt": "f03c2d2ef36f1ca3399ce1d0cec9d012cc902f27aa255bde99c05ed1279bc3ba",
+        "request.json": "85a0c7ae26ca4880191a52282f5d2e4685a4bd26b60a00978b794a1c0717e2d7",
+        "schema.json": "cd0b6b51b93400d6555c75a19fdd4919764d3a7ddf9717c192ebd0a43f9b346a",
+        "started.json": "b3cda5bbbf294a5c52bda0f866eddc10d591905a1afaae4ccbef5def811f2dd6"
+      },
+      "ledger_binding_verified": true,
+      "local_job_verified": true,
+      "missing_files": [],
+      "request_fingerprint": "8f87faf1ff8aad5e96928eba7019938d4d68fec5eda51b3d26e26c2e4fed19d5",
+      "request_sha256": "85a0c7ae26ca4880191a52282f5d2e4685a4bd26b60a00978b794a1c0717e2d7",
+      "returned_model": null,
+      "schema_version": "codex-provider-audit-1.0",
+      "status": "passed",
+      "token_usage": {
+        "input_tokens": 16261,
+        "output_tokens": 204,
+        "reasoning_tokens": 57,
+        "total_tokens": 16465
+      },
+      "token_usage_is_lower_bound": false
+    },
+    {
+      "auditor_sources_sha256": {
+        "codex_accounting.py": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96",
+        "codex_executor.py": "246a9aa8313f704be0844915b1f1d1caf6f7f6f8ab1c7cb785c2875e21776979",
+        "codex_provider_audit.py": "7c56ef4d324b7460242e0eb4ed2bace923249334210ec9d0e64a8d52307a29fc",
+        "frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567"
+      },
+      "configured_model": "gpt-6-astra",
+      "files_sha256": {
+        "completed.json": "a112836607a66444f9894c898a28c863c511186e2c7c88e6ef00ec9db43b5f50",
+        "events.jsonl": "e5cb75199ca699d33cdaf8bd4ced01d6ac311f805052793d5ae194f8f6d2dbb3",
+        "final.json": "f05e5b686e2d8d9b8af3b5a67b0ec9699aa0c2a10dfdf2658491773c32059f9d",
+        "image_0.png": "e00edac196a1e593fb524af8537862e6846350730a2b070cb45e22ae97480b0b",
+        "image_1.png": "4d80a99a50d5915836a6f99baf490314f8ced085bd3066426ab3ae12684cb506",
+        "invocation.json": "68014bc0fbba59b6ec7b3ba74d4a80a0a8e5cf07e3a35bc5fc2225a46760c713",
+        "prompt.txt": "ce2c706a86abbaaed18b56213546d2e363884441b052d69be303172f7de0000f",
+        "request.json": "4e4847b49cff92337f9e27775a127995f88ec60df5f6ec2abebb08739800e52d",
+        "schema.json": "8f492e89e3a945a039243563b1d2f183ec501dfaf3a51a18418728938fc14b28",
+        "started.json": "aae9f7677bf95c3fe22a62a8e312b3fcd68fab2eb9910efb66702187d239d0ef"
+      },
+      "ledger_binding_verified": true,
+      "local_job_verified": true,
+      "missing_files": [],
+      "request_fingerprint": "62574a1bc6a0de136a28832bf15a66b2032aa35d43d3656432a1f67770e66f04",
+      "request_sha256": "4e4847b49cff92337f9e27775a127995f88ec60df5f6ec2abebb08739800e52d",
+      "returned_model": null,
+      "schema_version": "codex-provider-audit-1.0",
+      "status": "passed",
+      "token_usage": {
+        "input_tokens": 16257,
+        "output_tokens": 182,
+        "reasoning_tokens": 41,
+        "total_tokens": 16439
+      },
+      "token_usage_is_lower_bound": false
+    },
+    {
+      "auditor_sources_sha256": {
+        "codex_accounting.py": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96",
+        "codex_executor.py": "246a9aa8313f704be0844915b1f1d1caf6f7f6f8ab1c7cb785c2875e21776979",
+        "codex_provider_audit.py": "7c56ef4d324b7460242e0eb4ed2bace923249334210ec9d0e64a8d52307a29fc",
+        "frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567"
+      },
+      "configured_model": "gpt-6-astra",
+      "files_sha256": {
+        "completed.json": "d6236aed6c26c78ef9d351602f67c4d8f7deb9ac34ab33810a425dd8f6e65f47",
+        "events.jsonl": "e2de5115dea95834ee3aef206bd958d4cbd7fae825c651f133332b709241e53a",
+        "final.json": "275a321b0b9b9d768c2edb09408a4fbdbff481e6c27a5f72af2ff77fa50bf1e7",
+        "image_0.png": "4dfdadb3cc8f7faf34cb7b7650613d1f9947b4eae77a8a257a5e3f03348c89ce",
+        "image_1.png": "17aecff9444f0bf178aee85dacca0b842fdc972b67880374b7d16bc10719e1c9",
+        "invocation.json": "bbe2c4fdf50bf8a449073feb27dfbf79e96ace9c3e76b83d1cf25154ab66c270",
+        "prompt.txt": "22b03d67ce8d563dc13a0896cb139aea98ee1e2d0564b0adee179977e692efa2",
+        "request.json": "7da5ff8fc34dc0e2d465d6051c12e47c6af74ac2041fc392bd79a1bc5fe65c4d",
+        "schema.json": "7dcb40c74c18174c8a597a16564a9367082f400a885cc7f40e70f13a5923f833",
+        "started.json": "f752bc8e96956334f6709615df7bc7f848dbadcc43b62ed905531234baba6e83"
+      },
+      "ledger_binding_verified": true,
+      "local_job_verified": true,
+      "missing_files": [],
+      "request_fingerprint": "6ec24f6fb71a8a256c7bd134f165a00851a45f2bfdeafe4f1a47562960995b6d",
+      "request_sha256": "7da5ff8fc34dc0e2d465d6051c12e47c6af74ac2041fc392bd79a1bc5fe65c4d",
+      "returned_model": null,
+      "schema_version": "codex-provider-audit-1.0",
+      "status": "passed",
+      "token_usage": {
+        "input_tokens": 16268,
+        "output_tokens": 213,
+        "reasoning_tokens": 62,
+        "total_tokens": 16481
+      },
+      "token_usage_is_lower_bound": false
+    },
+    {
+      "auditor_sources_sha256": {
+        "codex_accounting.py": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96",
+        "codex_executor.py": "246a9aa8313f704be0844915b1f1d1caf6f7f6f8ab1c7cb785c2875e21776979",
+        "codex_provider_audit.py": "7c56ef4d324b7460242e0eb4ed2bace923249334210ec9d0e64a8d52307a29fc",
+        "frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567"
+      },
+      "configured_model": "gpt-6-astra",
+      "files_sha256": {
+        "completed.json": "4be17edb77cd7c3e024897c73a2434fdf4fd856113959edd76c5e571c63e96ed",
+        "events.jsonl": "9c75ff014e1fcf8fc05771590f9c909bdeca5acc36d7ecd24c58a59e1a66c9ba",
+        "final.json": "8b039b0f63bf27d6cf9262b756c21edd555de097551d3f7f7b0eceea0b99a571",
+        "image_0.png": "7b4bb1cc3da04383e695a5bce3369135c541934b3b3db444dd41bc0253468992",
+        "image_1.png": "be3271fb56fc912aa8c458c46f039114af73efb41d07666a292ea5d73a02355c",
+        "invocation.json": "8c79e8ad982e53064bfe17ecf2d5b69e8ca0b07e5a5da8e07660d3fa9e633253",
+        "prompt.txt": "209791ae3e7fedc8ed5c5a85e9dbd366949726ef2248a2b883d5ed2b72e6e819",
+        "request.json": "7a5934526a7c80cb866dd495a5179a8208a559ed41106d149b28ffb616347bce",
+        "schema.json": "cab290b5ea5de80f852423139fc5982d9f886a21378c075c0b73c06cf87d4103",
+        "started.json": "431dac01986d8a1f6ef94643e636cf051220ebba123b424923c8385dcdb6088c"
+      },
+      "ledger_binding_verified": true,
+      "local_job_verified": true,
+      "missing_files": [],
+      "request_fingerprint": "df37f72930146044b6bc7b2a2a31835d1e504d36ae88819a2bc22a933ef52063",
+      "request_sha256": "7a5934526a7c80cb866dd495a5179a8208a559ed41106d149b28ffb616347bce",
+      "returned_model": null,
+      "schema_version": "codex-provider-audit-1.0",
+      "status": "passed",
+      "token_usage": {
+        "input_tokens": 16239,
+        "output_tokens": 177,
+        "reasoning_tokens": 28,
+        "total_tokens": 16416
+      },
+      "token_usage_is_lower_bound": false
+    },
+    {
+      "auditor_sources_sha256": {
+        "codex_accounting.py": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96",
+        "codex_executor.py": "246a9aa8313f704be0844915b1f1d1caf6f7f6f8ab1c7cb785c2875e21776979",
+        "codex_provider_audit.py": "7c56ef4d324b7460242e0eb4ed2bace923249334210ec9d0e64a8d52307a29fc",
+        "frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567"
+      },
+      "configured_model": "gpt-6-astra",
+      "files_sha256": {
+        "completed.json": "579177509e39de1f16f2be6e61be1dd05b3158db8955d309bd440597ef49c313",
+        "events.jsonl": "cecf6e2a257644b2131a48e87b6de666e1ee351a5345ba5f40aeb1012517e900",
+        "final.json": "dec536c5fc5d9a1f1bdaa3c5e132c916b75adff68f00a8365cf101bdbc969087",
+        "image_0.png": "afe4595852b8edd8c54235cf23d51b4bc081507e64c31e5c85595e479af14dfe",
+        "image_1.png": "54ce1599a4582a9a31f98275880e4fa7396b80086aca958c9cb7e29c87e165ab",
+        "invocation.json": "ebb1aa50ad6b62f743298f8b93068cb34dde9ea257d348c247ae27f1b9ca94f2",
+        "prompt.txt": "e5828e160d4d16f3efaa479bd0586197c27fdaf83fb525e4b146ce24b4c85350",
+        "request.json": "d913d619142a1618e9752a71b6e6bd58f58cba62f44aac5884059e8bae69029d",
+        "schema.json": "2a909c70d13158e725858c86af25cd3ec1894f05ba31f3cd6d8b5094559ebb0b",
+        "started.json": "1c5e1263304db9d4b7f41a2c8d02b8a7abff1dcaf53ead7fbec7fc7947956893"
+      },
+      "ledger_binding_verified": true,
+      "local_job_verified": true,
+      "missing_files": [],
+      "request_fingerprint": "a73af0a01e61ab781e926f32712b9cd52009adaa09780044d544fd3655788d85",
+      "request_sha256": "d913d619142a1618e9752a71b6e6bd58f58cba62f44aac5884059e8bae69029d",
+      "returned_model": null,
+      "schema_version": "codex-provider-audit-1.0",
+      "status": "passed",
+      "token_usage": {
+        "input_tokens": 16243,
+        "output_tokens": 141,
+        "reasoning_tokens": 0,
+        "total_tokens": 16384
+      },
+      "token_usage_is_lower_bound": false
+    },
+    {
+      "auditor_sources_sha256": {
+        "codex_accounting.py": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96",
+        "codex_executor.py": "246a9aa8313f704be0844915b1f1d1caf6f7f6f8ab1c7cb785c2875e21776979",
+        "codex_provider_audit.py": "7c56ef4d324b7460242e0eb4ed2bace923249334210ec9d0e64a8d52307a29fc",
+        "frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567"
+      },
+      "configured_model": "gpt-6-astra",
+      "files_sha256": {
+        "completed.json": "7a7a3eee012d1bcbaa5b7e3761249fc2a3af7a564b76b0d51f0ded1e430809ad",
+        "events.jsonl": "d495d78d73c2e0df734eff8ec58f166592eb6092926c68c3d9a28fa7190b34a2",
+        "final.json": "a09cb5f04bd6c8ac779306f24e2d35c8869d919cadcb373cf2ab17a467d1f23f",
+        "image_0.png": "c23125977edd8ca24f43b07753f04ab74a264e67459c3e2a9cf2d584fe26a23d",
+        "image_1.png": "d70ce36b8bc22abdd117dfc412d157412e711e6a6ffe7022c459b368ef4b4197",
+        "invocation.json": "f1151c18579e2d820db67e0c2f88da5f34f674dce624f0e82be4ba24265f4b97",
+        "prompt.txt": "7b3cca17ab583aa666e63063d28ac3bf7188d39299a4238aea52ab5727d5ea57",
+        "request.json": "0e62d89992a2cff833757c8126a18292035bd92a30d66e1bcb8bfad7ff03cf69",
+        "schema.json": "413f7352d3581ace1236122fa192137d3fec74342f82690e82d3446eb0e33b09",
+        "started.json": "58f878bdff9b4fe7e554c6a55e527e5260146a02599c2b0bcd3aba79af39d46a"
+      },
+      "ledger_binding_verified": true,
+      "local_job_verified": true,
+      "missing_files": [],
+      "request_fingerprint": "ea35fbbcb8c44feed7ad6ea7c8254bc645893be2296288b56fe030bc041a02f1",
+      "request_sha256": "0e62d89992a2cff833757c8126a18292035bd92a30d66e1bcb8bfad7ff03cf69",
+      "returned_model": null,
+      "schema_version": "codex-provider-audit-1.0",
+      "status": "passed",
+      "token_usage": {
+        "input_tokens": 16245,
+        "output_tokens": 170,
+        "reasoning_tokens": 16,
+        "total_tokens": 16415
+      },
+      "token_usage_is_lower_bound": false
+    },
+    {
+      "auditor_sources_sha256": {
+        "codex_accounting.py": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96",
+        "codex_executor.py": "246a9aa8313f704be0844915b1f1d1caf6f7f6f8ab1c7cb785c2875e21776979",
+        "codex_provider_audit.py": "7c56ef4d324b7460242e0eb4ed2bace923249334210ec9d0e64a8d52307a29fc",
+        "frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567"
+      },
+      "configured_model": "gpt-6-astra",
+      "files_sha256": {
+        "completed.json": "7288c3c16b738ff513d9abe8b7c7369ae96a3b016557bba2dff0d5edce7f35dc",
+        "events.jsonl": "aff3154d6e40ea09c2ef78125e83de51e35e1a860f01a5b9024114b4d2080cad",
+        "final.json": "fadc776e8299a6937821ad9ab5ca47b7862bb197031aa29e828fb248f682244c",
+        "image_0.png": "5f20a4383783b94fb41b7e95faa36a67b32bdf1efe5e198b05c3ea8f18c9cf0f",
+        "image_1.png": "2f5667d3e68579cf8c933f8b1f56a05ec88c266a068cc0e7fb752a30f1e65fdb",
+        "invocation.json": "039b1aca0a9fb016db5ceb26930e5bfcdc9276faff922588ff5df9a2f80eba8c",
+        "prompt.txt": "0a87187bf8f4145677febe0defbe3ca78d4745e235379278c20577a03128d202",
+        "request.json": "83719c58fa8612e36c20bbd4374f024e4896ae46e6d6c3664f56653c7175a58d",
+        "schema.json": "dbcbc184de9906dd53e9e430760d9036863a88f7319d39e8362bb426baac7081",
+        "started.json": "6b75dd090cb345e56dd0679fb25abaac46b1017fc9fe7b9882d4e00011972dc6"
+      },
+      "ledger_binding_verified": true,
+      "local_job_verified": true,
+      "missing_files": [],
+      "request_fingerprint": "4f4294de479d85b87b041dfb141f4bf9d1f3a56ea883324843b2c7e8aa26dd60",
+      "request_sha256": "83719c58fa8612e36c20bbd4374f024e4896ae46e6d6c3664f56653c7175a58d",
+      "returned_model": null,
+      "schema_version": "codex-provider-audit-1.0",
+      "status": "passed",
+      "token_usage": {
+        "input_tokens": 16264,
+        "output_tokens": 208,
+        "reasoning_tokens": 51,
+        "total_tokens": 16472
+      },
+      "token_usage_is_lower_bound": false
+    },
+    {
+      "auditor_sources_sha256": {
+        "codex_accounting.py": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96",
+        "codex_executor.py": "246a9aa8313f704be0844915b1f1d1caf6f7f6f8ab1c7cb785c2875e21776979",
+        "codex_provider_audit.py": "7c56ef4d324b7460242e0eb4ed2bace923249334210ec9d0e64a8d52307a29fc",
+        "frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567"
+      },
+      "configured_model": "gpt-6-astra",
+      "files_sha256": {
+        "completed.json": "59eb4d47f7f3689daf533ea648962bf4d8c6c727835ae9efecddcccca89f6e80",
+        "events.jsonl": "2ce6414281d417bfaf029e1d3c2da5199f4c3dd807b49dde4c2e512609e0398f",
+        "final.json": "975167f59137691346c55c78425d99cd869e0be8d97c7b2ea8b2ff4f57e73be8",
+        "image_0.png": "00434b202c29799a1f3f0ccb71a5461b96b63e95bfff55f66757d245db26fa18",
+        "image_1.png": "f3b4b4199cf8de905435e19d0645b7d0f0a7fbc8ab6136962dd83a829274f1d8",
+        "invocation.json": "4939343580df49f62c9e451c2904d3e6f9fbc2fa63c0e4d175a696420cc7b39e",
+        "prompt.txt": "eca9c552b5112f6feb4d359456331a04616e9810e6792c37baf2267bf7d71f4b",
+        "request.json": "97ceeefc28746dbc4609b59fdafb0feaa4918470f5771e4a23c6a956f661a5c8",
+        "schema.json": "2842f285401fe261e68524bbe62dcbd875978dc6ab554aa8c8d5f09d81b70ded",
+        "started.json": "1412cf034f7d054ebb5449468137e6421aa5276d402f533dfe6b36a1b3a394ed"
+      },
+      "ledger_binding_verified": true,
+      "local_job_verified": true,
+      "missing_files": [],
+      "request_fingerprint": "84569a95df034838761ea07846ad42b36dad54461d64610d1828357c88465931",
+      "request_sha256": "97ceeefc28746dbc4609b59fdafb0feaa4918470f5771e4a23c6a956f661a5c8",
+      "returned_model": null,
+      "schema_version": "codex-provider-audit-1.0",
+      "status": "passed",
+      "token_usage": {
+        "input_tokens": 16248,
+        "output_tokens": 167,
+        "reasoning_tokens": 30,
+        "total_tokens": 16415
+      },
+      "token_usage_is_lower_bound": false
+    },
+    {
+      "auditor_sources_sha256": {
+        "codex_accounting.py": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96",
+        "codex_executor.py": "246a9aa8313f704be0844915b1f1d1caf6f7f6f8ab1c7cb785c2875e21776979",
+        "codex_provider_audit.py": "7c56ef4d324b7460242e0eb4ed2bace923249334210ec9d0e64a8d52307a29fc",
+        "frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567"
+      },
+      "configured_model": "gpt-6-astra",
+      "files_sha256": {
+        "completed.json": "048a00ec1be745cd608b9f06e6a6cb2477a5e01276908b6323f2e928d2af172c",
+        "events.jsonl": "32bef479c4cb055349aa653bdbba198482e88d5250eeaa36184905b09eb425b5",
+        "final.json": "2b15d90e35f5583f2f8c2b48acbf67f70cb54b71f295ab7bb4afa26b9bcc790c",
+        "image_0.png": "9f096f2c81415e75bf1af09c6a1807188e0a4f94aaea7461e484c6998194d8ec",
+        "image_1.png": "701fcd84e1060486a3894bf35ab36b3c771780728e081498b2c772cbe715f0be",
+        "invocation.json": "c6fd603770100673e263a6c7d830b4a439268254d25f69bc3ecf3751993e1f3f",
+        "prompt.txt": "63f06949307070a3a42efd01c876fb043a7662123d5a04e6ef6dcd875377ca87",
+        "request.json": "e22ced6f6c3dec84816321573305f173bda09513960abadd9761b91a06d1d5bd",
+        "schema.json": "ee217d496fa5a8947530ae9eba449c8d93966a18c19c5f73df85df6496350cec",
+        "started.json": "f9c3bc01410f095d50523eb0f900af70bed39a30c1df70349c7eeb574e778810"
+      },
+      "ledger_binding_verified": true,
+      "local_job_verified": true,
+      "missing_files": [],
+      "request_fingerprint": "a9d1db2cf4f298e45de0c5bbb295f6320b1dfbe99ce8dbbfec326656f684536a",
+      "request_sha256": "e22ced6f6c3dec84816321573305f173bda09513960abadd9761b91a06d1d5bd",
+      "returned_model": null,
+      "schema_version": "codex-provider-audit-1.0",
+      "status": "passed",
+      "token_usage": {
+        "input_tokens": 16935,
+        "output_tokens": 169,
+        "reasoning_tokens": 31,
+        "total_tokens": 17104
+      },
+      "token_usage_is_lower_bound": false
+    }
+  ],
+  "cohort_scope": "development_first_reset_only",
+  "counts": {
+    "accepted_provider_bindings": 9,
+    "actions": 683,
+    "clipped_actions": 233,
+    "deferred": 6,
+    "generations": 69,
+    "interventions": 3,
+    "physical_rollouts": 3,
+    "provider_bindings": 9,
+    "rejected": 0,
+    "velocity_evaluations": 760
+  },
+  "development": true,
+  "events_sha256": "28fc05e592be67403654b84e374da6ff9d22df853acbba9293e53ff09adf2316",
+  "initial_checkpoint": null,
+  "input_file_sha256": {
+    "completion_receipt.json": "47135ff39e03873c3ced55232b4ac185db01ae7b913338ed8eb9e4564d0d4f70",
+    "events.jsonl": "28fc05e592be67403654b84e374da6ff9d22df853acbba9293e53ff09adf2316",
+    "frozen_weights_after.json": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+    "provider.jsonl": "6e0ec6542a8d75dc0d9078e794efd01119bfda5b48221645a6b819c5719ac276",
+    "summary.json": "1b0341345b340faf05a58650fe07b51ddaaa70b3f3d598f97cfc5f38443abf51"
+  },
+  "known_generating_noise_for_Astra_reference": null,
+  "limitations": [
+    "No pi05/CNN inference, optimization, provider, simulator or GPU work is rerun.",
+    "Full recorded arrays, transforms, random streams, provider payloads, labels and checkpoints are verified. Hidden model computation and physics are not independently reproduced.",
+    "Finite Euler FRS deliberately changes inverse padding and may repeat physical noise; reported action deviation is not known-noise recovery or an exact-roundtrip gate.",
+    "Controller float32 arithmetic permits at most 1e-7 replay drift; stored hashes and seeded noise remain exact.",
+    "Camera projection is replayed from recorded calibration, not a reconstructed MuJoCo scene.",
+    "This frozen cohort has no auxiliary policy, adaptation labels or optimizer updates.",
+    "Codex configured model is verified; served model is unknown unless exposed by its receipt. Jobs are not raw HTTP request counts.",
+    "Missing local job artifacts produce unverified provider proofs, never inferred verification."
+  ],
+  "native_parity": {
+    "max_abs": 0.0,
+    "rmse": 0.0
+  },
+  "norm_stats_sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+  "physical_cost": {
+    "accepted_policy_updates": 0,
+    "actions": 683,
+    "auxiliary_inferences": 0,
+    "auxiliary_request_seconds": 0.0,
+    "client_attempts": 9,
+    "optimizer_steps": 0,
+    "provider_calls": 9,
+    "rollout_wall_seconds": 163.68893474712968,
+    "rollouts": 3,
+    "training_seconds": 0,
+    "velocity_evaluations": 760
+  },
+  "physical_runs": [
+    {
+      "actions": 300,
+      "attempt_id": "native_euler10_state1_round0",
+      "episode_id": "libero_goal_ood:seed19:task6:state1",
+      "evaluation": true,
+      "method": "native_euler10",
+      "physical_run_id": "libero_goal_ood:seed19:task6:state1:native_euler10_state1_round0",
+      "reset_sha256": "0763d3f6aadc4c64721556eaca487d8929e8e8012753b63aa28bd1c32b3ad04b",
+      "round_index": 0,
+      "success": false,
+      "velocity_evaluations": 310
+    },
+    {
+      "actions": 300,
+      "attempt_id": "native_repeated_noise_state1_round0",
+      "episode_id": "libero_goal_ood:seed19:task6:state1",
+      "evaluation": true,
+      "method": "native_repeated_noise",
+      "physical_run_id": "libero_goal_ood:seed19:task6:state1:native_repeated_noise_state1_round0",
+      "reset_sha256": "0763d3f6aadc4c64721556eaca487d8929e8e8012753b63aa28bd1c32b3ad04b",
+      "round_index": 0,
+      "success": false,
+      "velocity_evaluations": 300
+    },
+    {
+      "actions": 83,
+      "attempt_id": "astra_frs_state1_round0",
+      "episode_id": "libero_goal_ood:seed19:task6:state1",
+      "evaluation": true,
+      "method": "astra_frs",
+      "physical_run_id": "libero_goal_ood:seed19:task6:state1:astra_frs_state1_round0",
+      "reset_sha256": "0763d3f6aadc4c64721556eaca487d8929e8e8012753b63aa28bd1c32b3ad04b",
+      "round_index": 0,
+      "success": true,
+      "velocity_evaluations": 150
+    }
+  ],
+  "post_transform_action_deviation": {
+    "interpretation": "recorded_action_deviation_after_deliberate_padding_and_optional_mean_projection_not_an_exactness_gate",
+    "max_abs": 1.0008382962696487,
+    "pairs": 3,
+    "per_generation": [
+      {
+        "attempt_id": "astra_frs_state1_round0",
+        "max_abs": 0.9978717400081223,
+        "method": "astra_frs",
+        "rmse": 0.19376285623984782,
+        "step": 0
+      },
+      {
+        "attempt_id": "astra_frs_state1_round0",
+        "max_abs": 0.9858268333919114,
+        "method": "astra_frs",
+        "rmse": 0.1997016573760728,
+        "step": 10
+      },
+      {
+        "attempt_id": "astra_frs_state1_round0",
+        "max_abs": 1.0008382962696487,
+        "method": "astra_frs",
+        "rmse": 0.1971916967191489,
+        "step": 60
+      }
+    ]
+  },
+  "postprocessor_environment": {
+    "numpy": "1.26.4",
+    "pillow": "12.3.0",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "python": "3.11.14"
+  },
+  "postprocessor_sources": {
+    "action_adapter.py": "4e3b800923761aae73933340c646db945399005eec3b7e0c9dc933db69cb84e6",
+    "astra_client.py": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f",
+    "flow.py": "98f54818bc99ca10c53d723f27a8763023403a70a5bf839dd038a4a1742f1784",
+    "frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567",
+    "frs_audit.py": "69b2ab79f67fc3880352d0be71ac80345e62624f2aece27c9309db3d4d89254d",
+    "frs_experiment.py": "14e7fe9994629c08d0f322a9bc1401bbd871fadce58f2895165643f2417c1410",
+    "frs_guide.py": "1ae7542368cd9d273dff6622541c6ebc1319f898046fcc0bfdf60fa1274ae1c8",
+    "frs_noise_policy.py": "560d985387629f07826daa5a3b6b25d8718360ad80c9bd54a6de57cb86445c1e",
+    "frs_operators.py": "46f0e8a46676d59562235c4e2be1cb8c5626f07e4d532ed6a281f098e8359cee",
+    "image_perturbation_audit.py": "767610abca1e3d12e37be34446a3b1f795240a2b8f39a45694cc54d1344749c5",
+    "image_perturbations.py": "4e862e278cc6e9bc115cf6b9ba66962162af5a66617b708904cc9c08adc7a44b",
+    "interpolation_agent.py": "59a00fd0e3f5145c0adf0c87136c534f0e1c26c9d07ebf6df54d72ed49908e29",
+    "intervention_agent.py": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804",
+    "interventions.py": "9269b5c246ff9d3d82288aad37f6e89ca64801c1878ec3a0e17f72a6e6cd397c",
+    "lerobot_policy.py": "21967ced73cd33e8306ba0dbb9b6ce56c136c7eb9cdd84707267c0a318f2688a",
+    "openpi_inputs.py": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+    "records.py": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "provider_sha256": "6e0ec6542a8d75dc0d9078e794efd01119bfda5b48221645a6b819c5719ac276",
+  "provider_usage": {
+    "accepted_proposals": 9,
+    "actual_models": {
+      "unavailable": 9
+    },
+    "backend": "codex_relay",
+    "client_attempts": 9,
+    "codex_jobs": 9,
+    "counter_semantics": "provider_calls counts started Codex CLI jobs, not raw provider HTTP requests",
+    "derived_total_jobs": 9,
+    "errors": {},
+    "failed_calls": 0,
+    "internal_provider_requests": null,
+    "internal_provider_retries": null,
+    "latency_seconds": 112.92187732970342,
+    "monetary_cost": null,
+    "monetary_cost_unavailable_reason": "ChatGPT plan usage is not a verified per-token API price.",
+    "preflight_errors": {},
+    "preflight_failures": 0,
+    "preflight_latency_seconds": 0,
+    "provider_call_count_is_lower_bound": false,
+    "provider_calls": 9,
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "tokens": {
+      "input_tokens": {
+        "available_calls": 9,
+        "complete": true,
+        "lower_bound_calls": 0,
+        "missing_calls": 0,
+        "sum": 146960
+      },
+      "output_tokens": {
+        "available_calls": 9,
+        "complete": true,
+        "lower_bound_calls": 0,
+        "missing_calls": 0,
+        "sum": 1631
+      },
+      "reasoning_tokens": {
+        "available_calls": 9,
+        "complete": true,
+        "lower_bound_calls": 0,
+        "missing_calls": 0,
+        "sum": 316
+      },
+      "total_tokens": {
+        "available_calls": 9,
+        "complete": true,
+        "lower_bound_calls": 0,
+        "missing_calls": 0,
+        "sum": 148591
+      }
+    },
+    "total_tokens_semantics": "Reported total when available; otherwise derived input_tokens + output_tokens",
+    "unknown_job_start_attempts": 0,
+    "unknown_job_start_latency_seconds": 0,
+    "usage_available_calls": 9,
+    "usage_unavailable_calls": 0
+  },
+  "schema_version": "frs-codex-frozen-audit-1.0",
+  "status": "passed",
+  "suite": "libero_goal_ood",
+  "summary_sha256": "1b0341345b340faf05a58650fe07b51ddaaa70b3f3d598f97cfc5f38443abf51",
+  "task_id": 6,
+  "validations": {
+    "all_array_hashes": true,
+    "calibrated_direction_and_action_transforms": true,
+    "checkpoint_optimizer_replay_bindings": null,
+    "complete_physical_coverage": true,
+    "exact_request_provider_bindings": true,
+    "executed_loop_noise_repeated": true,
+    "native_weight_bytes_unchanged": true,
+    "no_heldout_feedback_or_labels": true,
+    "separated_reset_streams": true,
+    "training_labels_only_Astra_better_adaptation": null
+  },
+  "worker": {
+    "checkpoint_metadata_sha256": "1035ad61a448923d1df0456b1c16953118d562acd6d9d2869392cdf740f8e419",
+    "completion_receipt_sha256": "47135ff39e03873c3ced55232b4ac185db01ae7b913338ed8eb9e4564d0d4f70",
+    "input_file_sha256": {
+      "checkpoint.json": "0135c68c8e7d1d50ab914dd28cc51ccd4a9f9fbf4db5757dfdb33ed9a4a60478",
+      "frozen_plan.json": "d9bde4a47e40a2b9fc291854e7c7c148d9ff9778d42f431109378d65f83ab0da",
+      "frozen_weights_after.json": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+      "frozen_weights_before.json": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+      "prompts.json": "cd1e7bb487c125083659a23b309cd2635f4c777c097a04562ff67566a0a2c3c8",
+      "protocol.json": "74a1442535b814058566c960ae38aca8b55904d7f2847d172f9964fd6a0efa02",
+      "reset_manifest.json": "7ea7aefc6df303a1a8a245d8bf4ca9ca021f59dfe87dd8641017bdc5bbb76281",
+      "runtime.json": "9548f69ded3a0d3e3a864f93b3d12a72fee9bbd15dbb97d18ea7c40326e941ac"
+    },
+    "native_tensor_sha256": "c0c8d17e2c875a7f60c919e3c8f4545c29ed97f20570ff4d75bad5b184e244d6",
+    "reset_manifest_sha256": "b0d29a24a31414aeaf02b7a6f8a1c8a3edcc1778011ad2fe63f77a5e9b363883",
+    "runtime": {
+      "assignment": {
+        "suite": "libero_goal_ood",
+        "task_ids": [
+          6
+        ]
+      },
+      "gpu": "NVIDIA L40S",
+      "packages": {
+        "lerobot": "0.4.4",
+        "mujoco": "3.2.3",
+        "numpy": "1.26.4",
+        "pillow": "12.3.0",
+        "robosuite": "1.4.1",
+        "torch": "2.7.1+cu126",
+        "transformers": "4.53.3"
+      },
+      "payload_sha256": "368e9bfd395e796a6266c77ea5a814f354e72d897e66a2925feeb431c6cb484e",
+      "phase": "development",
+      "python": "3.11.14",
+      "source_revision": "f929f7893a03e413325c6271b656066923f64e8e",
+      "tf32": false,
+      "worker": 0,
+      "workflow": "astra-pi05-codex-frs-pilot-20260928-1"
+    },
+    "task_frozen_weights_after_sha256": "09f13b5c356b1620a43e61deb8ce38aa68df2b23154c40a19d6d0c35bbc49954",
+    "weight_check_scope": "worker_complete"
+  },
+  "zero_action_outcomes": []
+}
