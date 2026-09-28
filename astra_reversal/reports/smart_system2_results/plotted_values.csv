@@ -12,7 +12,6 @@ A,pixels,astra_occlusion,Astra occlusion,12,20,60.0,3,5441930,272096.5,218,1,Tru
 A,pixels,astra_demo_blend,Astra demo blend,12,20,60.0,3,5635176,281758.8,222,0,False,112073.0,1.0,image_perturbations/evaluation/results/report.json,native,8,20,40.0,20.0
 A,frs,native_euler10,Native Euler 10,0,3,0.0,1,0,0.0,0,0,False,,,frs_policy_improvement/development/report.json,native_euler10,0,3,0.0,0.0
 A,frs,native_repeated_noise,Native repeated noise,0,3,0.0,1,0,0.0,0,0,False,,,frs_policy_improvement/development/report.json,native_euler10,0,3,0.0,0.0
-A,frs,astra_direction_direct,Astra direct steering,2,3,66.66666666666667,1,87680,29226.666666666668,62,1,True,,,frs_policy_improvement/development/report.json,native_euler10,0,3,0.0,66.66666666666667
 A,frs,astra_frs,Astra FRS,2,3,66.66666666666667,1,66707,22235.666666666668,47,0,False,,,frs_policy_improvement/development/report.json,native_euler10,0,3,0.0,66.66666666666667
 B,recipe,native,Native baseline,15,40,37.5,1,0,0.0,0,0,False,,,learned_correction_recipe/results/report.json,native,15,40,37.5,0.0
 B,recipe,recorded_schedule,Recorded teacher schedule,27,40,67.5,1,0,0.0,0,0,False,,,learned_correction_recipe/results/report.json,native,15,40,37.5,30.0

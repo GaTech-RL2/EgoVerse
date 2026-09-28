@@ -36,7 +36,6 @@ COLORS = {
     "annotations": "#9670b6",
     "occlusion": "#c07b12",
     "blend": "#d45839",
-    "direct": "#9262a3",
     "frs": "#2563b6",
     "schedule": "#138472",
     "selector": "#2563b6",
@@ -188,7 +187,6 @@ def collect_rows(data: dict) -> list[dict]:
     for method, label in {
         "native_euler10": "Native Euler 10",
         "native_repeated_noise": "Native repeated noise",
-        "astra_direction_direct": "Astra direct steering",
         "astra_frs": "Astra FRS",
     }.items():
         episodes = [e for e in final_round["episodes"] if e["method_id"] == method]
@@ -447,23 +445,13 @@ def create_figure(rows: list[dict], interruption: dict) -> None:
     ax = axs[1, 0]
     panel(
         ax,
-        "Experiment A · Action steering pilot",
+        "Experiment A · FRS pilot",
         "3 selected cases · seed 19 / reset 1 · one attempt per method",
         45,
         [0, 10, 20, 30, 40],
     )
     point(ax, "frs", "native_euler10", "native", (2, 17), label="Both native controls")
     point(ax, "frs", "astra_frs", "frs", (19, 87), ha="center")
-    point(
-        ax,
-        "frs",
-        "astra_direction_direct",
-        "direct",
-        (44, 48),
-        label="Astra direct steering",
-        ha="right",
-        marker="D",
-    )
 
     ax = axs[1, 1]
     panel(
@@ -510,7 +498,7 @@ def create_figure(rows: list[dict], interruption: dict) -> None:
     )
 
     footnotes = [
-        "≥ marks incomplete provider usage: one call each for occlusion and direct steering. These token costs are lower bounds.",
+        "≥ marks incomplete provider usage: one occlusion call has unknown usage, so its token cost is a lower bound.",
         "Experiment B: zero online calls; whole teacher-source studies used ≥6.89M tokens. Exact selected-teacher acquisition cost is unknown.",
         "FRS is a three-case development result. Compare methods within each panel; retries, resets and prompt/vision workloads differ.",
         "This figure excludes development/interruption overhead for the 20-case studies, teacher acquisition, robot-policy compute and coding-agent tokens.",

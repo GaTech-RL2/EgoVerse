@@ -1,32 +1,32 @@
 {
   "files": {
     "README.md": {
-      "bytes": 14896,
-      "sha256": "13813295eb14fe305eeab38de8b209aef5736f11a9d566a98099059d174e1dde"
+      "bytes": 14616,
+      "sha256": "afeebc1fd178f9ad851ff4234b7a1406db17fae285893f6420507baa84fd5ac9"
     },
     "build_results.py": {
-      "bytes": 22623,
-      "sha256": "cb1462ae428ebb895a292d0b47f26ee68dee7b8088044efe32dce205b950b8b2"
+      "bytes": 22323,
+      "sha256": "982028f5136d46dee080bbb72920f1958a5fd66ef8e23bd17ba71b35938d33b5"
     },
     "plotted_values.csv": {
-      "bytes": 3504,
-      "sha256": "78c44d546a2336549cf312b8a3399fc3c8a4e5aef959386786ef59f46b3aba20"
+      "bytes": 3304,
+      "sha256": "9c7cd6473d64b91e292baece7fbecbe0a31679d87ea87830dfa849afe65716fa"
     },
     "plotted_values.json": {
-      "bytes": 20605,
-      "sha256": "0c13edfc50c36acd08a59ce891525bddeb00bf21eb261a55e77933a0aa95c05b"
+      "bytes": 19763,
+      "sha256": "9b682e59bbaf30a537f495e443e0e09551a725e9ff452b0bc40fb8d08016956f"
     },
     "success_vs_tokens.pdf": {
-      "bytes": 40233,
-      "sha256": "4340e7b9534f074230787b8458a668843028ddc0ca070b7e9d30bd29e71e9059"
+      "bytes": 39902,
+      "sha256": "1db948f6cef3c5e7528ea1cf98e160dc21a1e56143e4249ef4895f119818d177"
     },
     "success_vs_tokens.png": {
-      "bytes": 575220,
-      "sha256": "1d91fee268d573ad399a8fa0910c1c7f5575da5ade664a7dc7059d351f525ca6"
+      "bytes": 555361,
+      "sha256": "3863f215c35634a0300f93ab218d4bf032d1615f6e40e62248a4c7beebb5cd8d"
     },
     "success_vs_tokens.svg": {
-      "bytes": 56801,
-      "sha256": "cce2fc613d7bf387a75c1cf6cba46e5395d78f988b4122b8404ff974f803652a"
+      "bytes": 55537,
+      "sha256": "72b5842a91246f2043aa571a34524128878a40bf84115ec485090ec4976ed7be"
     }
   },
   "matplotlib_version": "3.11.2",

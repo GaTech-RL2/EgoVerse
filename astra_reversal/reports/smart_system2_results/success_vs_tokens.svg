@@ -909,26 +909,8 @@ z
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #2563b6" transform="translate(197.182612 448.935157)">66.7% vs 0% baseline</text>
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #2563b6" transform="translate(206.750893 461.386836)">2/3 · 22.2k tokens</text>
    </g>
-   <g id="patch_35">
-    <path d="M 365.844541 498.348645
-Q 352.350033 491.824106 338.855526 485.299567
-" style="fill: none; opacity: 0.6; stroke: #9262a3; stroke-width: 0.8; stroke-linecap: round"/>
-   </g>
    <g id="text_54">
-    <g id="patch_36">
-     <path d="M 357.028274 541.305154
-L 465.308978 541.305154
-L 465.308978 499.220154
-L 357.028274 499.220154
-z
-" style="fill: #ffffff; opacity: 0.9"/>
-    </g>
-    <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #9262a3" transform="translate(366.446634 510.059061)">Astra direct steering</text>
-    <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #9262a3" transform="translate(358.833274 523.804373)">66.7% vs 0% baseline</text>
-    <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #9262a3" transform="translate(370.009134 536.256053)">2/3 · ≥29.2k tokens</text>
-   </g>
-   <g id="text_55">
-    <text style="font-weight: 700; font-size: 13px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #17283c" x="71.4816" y="393.437032" transform="rotate(-0 71.4816 393.437032)">Experiment A · Action steering pilot</text>
+    <text style="font-weight: 700; font-size: 13px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #17283c" x="71.4816" y="393.437032" transform="rotate(-0 71.4816 393.437032)">Experiment A · FRS pilot</text>
    </g>
    <g id="PathCollection_11">
     <g clip-path="url(#p25bd8114a7)">
@@ -940,22 +922,9 @@ z
      <use xlink:href="#m0dc135b826" x="277.21346" y="484.427816" style="fill: #2563b6; stroke: #ffffff; stroke-width: 0.8"/>
     </g>
    </g>
-   <g id="PathCollection_13">
-    <defs>
-     <path id="m49e5842190" d="M -0 5.91608
-L 5.91608 0
-L 0 -5.91608
-L -5.91608 -0
-z
-" style="stroke: #ffffff; stroke-width: 0.8"/>
-    </defs>
-    <g clip-path="url(#p25bd8114a7)">
-     <use xlink:href="#m49e5842190" x="337.052509" y="484.427816" style="fill: #9262a3; stroke: #ffffff; stroke-width: 0.8"/>
-    </g>
-   </g>
   </g>
   <g id="axes_4">
-   <g id="patch_37">
+   <g id="patch_35">
     <path d="M 552.179782 622.008
 L 952.7616 622.008
 L 952.7616 420.437032
@@ -975,7 +944,7 @@ L 567.586775 420.437032
        <use xlink:href="#m3c405a85a1" x="567.586775" y="622.008" style="fill: #596779; stroke: #596779; stroke-width: 0.8"/>
       </g>
      </g>
-     <g id="text_56">
+     <g id="text_55">
       <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #596779" x="567.586775" y="636.605656" transform="rotate(-0 567.586775 636.605656)">0</text>
      </g>
     </g>
@@ -985,7 +954,7 @@ L 567.586775 420.437032
        <use xlink:href="#m3c405a85a1" x="700.40568" y="622.008" style="fill: #596779; stroke: #596779; stroke-width: 0.8"/>
       </g>
      </g>
-     <g id="text_57">
+     <g id="text_56">
       <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #596779" x="700.40568" y="636.606437" transform="rotate(-0 700.40568 636.606437)">50k</text>
      </g>
     </g>
@@ -995,11 +964,11 @@ L 567.586775 420.437032
        <use xlink:href="#m3c405a85a1" x="833.224585" y="622.008" style="fill: #596779; stroke: #596779; stroke-width: 0.8"/>
       </g>
      </g>
-     <g id="text_58">
+     <g id="text_57">
       <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #596779" x="833.224585" y="636.606437" transform="rotate(-0 833.224585 636.606437)">100k</text>
      </g>
     </g>
-    <g id="text_59">
+    <g id="text_58">
      <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #35445a" x="752.470691" y="654.607219" transform="rotate(-0 752.470691 654.607219)">Mean online Astra tokens per evaluated case</text>
     </g>
    </g>
@@ -1015,7 +984,7 @@ L 952.7616 612.409382
        <use xlink:href="#m8e109fa727" x="552.179782" y="612.409382" style="fill: #596779; stroke: #596779; stroke-width: 0.8"/>
       </g>
      </g>
-     <g id="text_60">
+     <g id="text_59">
       <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #596779" x="545.179782" y="616.208211" transform="rotate(-0 545.179782 616.208211)">0</text>
      </g>
     </g>
@@ -1030,7 +999,7 @@ L 952.7616 574.014912
        <use xlink:href="#m8e109fa727" x="552.179782" y="574.014912" style="fill: #596779; stroke: #596779; stroke-width: 0.8"/>
       </g>
      </g>
-     <g id="text_61">
+     <g id="text_60">
       <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #596779" x="545.179782" y="577.813741" transform="rotate(-0 545.179782 577.813741)">20</text>
      </g>
     </g>
@@ -1045,7 +1014,7 @@ L 952.7616 535.620442
        <use xlink:href="#m8e109fa727" x="552.179782" y="535.620442" style="fill: #596779; stroke: #596779; stroke-width: 0.8"/>
       </g>
      </g>
-     <g id="text_62">
+     <g id="text_61">
       <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #596779" x="545.179782" y="539.419271" transform="rotate(-0 545.179782 539.419271)">40</text>
      </g>
     </g>
@@ -1060,7 +1029,7 @@ L 952.7616 497.225972
        <use xlink:href="#m8e109fa727" x="552.179782" y="497.225972" style="fill: #596779; stroke: #596779; stroke-width: 0.8"/>
       </g>
      </g>
-     <g id="text_63">
+     <g id="text_62">
       <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #596779" x="545.179782" y="501.0248" transform="rotate(-0 545.179782 501.0248)">60</text>
      </g>
     </g>
@@ -1075,7 +1044,7 @@ L 952.7616 458.831502
        <use xlink:href="#m8e109fa727" x="552.179782" y="458.831502" style="fill: #596779; stroke: #596779; stroke-width: 0.8"/>
       </g>
      </g>
-     <g id="text_64">
+     <g id="text_63">
       <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #596779" x="545.179782" y="462.63033" transform="rotate(-0 545.179782 462.63033)">80</text>
      </g>
     </g>
@@ -1090,11 +1059,11 @@ L 952.7616 420.437032
        <use xlink:href="#m8e109fa727" x="552.179782" y="420.437032" style="fill: #596779; stroke: #596779; stroke-width: 0.8"/>
       </g>
      </g>
-     <g id="text_65">
+     <g id="text_64">
       <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #596779" x="545.179782" y="424.23586" transform="rotate(-0 545.179782 424.23586)">100</text>
      </g>
     </g>
-    <g id="text_66">
+    <g id="text_65">
      <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #35445a" x="519.689938" y="521.222516" transform="rotate(-90 519.689938 521.222516)">Success (%)</text>
     </g>
    </g>
@@ -1103,26 +1072,26 @@ L 952.7616 420.437032
 L 952.7616 540.419751
 " clip-path="url(#p6297d8b52d)" style="fill: none; stroke-dasharray: 0.8,1.32; stroke-dashoffset: 0; stroke: #697586; stroke-opacity: 0.5; stroke-width: 0.8"/>
    </g>
-   <g id="patch_38">
+   <g id="patch_36">
     <path d="M 552.179782 622.008
 L 552.179782 420.437032
 " style="fill: none; stroke: #c9d2dc; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
    </g>
-   <g id="patch_39">
+   <g id="patch_37">
     <path d="M 552.179782 622.008
 L 952.7616 622.008
 " style="fill: none; stroke: #c9d2dc; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
    </g>
-   <g id="text_67">
+   <g id="text_66">
     <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #596779" x="552.179782" y="414.389903" transform="rotate(-0 552.179782 414.389903)">40 cases · seed 61 · one attempt · prior teacher cost excluded</text>
    </g>
-   <g id="patch_40">
+   <g id="patch_38">
     <path d="M 622.281027 469.07438
 Q 595.903669 475.707351 569.526311 482.340321
 " style="fill: none; opacity: 0.6; stroke: #138472; stroke-width: 0.8; stroke-linecap: round"/>
    </g>
-   <g id="text_68">
-    <g id="patch_41">
+   <g id="text_67">
+    <g id="patch_39">
      <path d="M 624.222093 474.114832
 L 747.610765 474.114832
 L 747.610765 432.029832
@@ -1134,13 +1103,13 @@ z
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #138472" transform="translate(626.027093 456.614051)">67.5% vs 37.5% baseline</text>
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #138472" transform="translate(626.027093 469.06573)">27/40 · 0 tokens</text>
    </g>
-   <g id="patch_42">
+   <g id="patch_40">
     <path d="M 622.274114 508.35781
 Q 595.903428 514.561277 569.532742 520.764745
 " style="fill: none; opacity: 0.6; stroke: #2563b6; stroke-width: 0.8; stroke-linecap: round"/>
    </g>
-   <g id="text_69">
-    <g id="patch_43">
+   <g id="text_68">
+    <g id="patch_41">
      <path d="M 624.222093 514.429025
 L 747.610765 514.429025
 L 747.610765 472.344025
@@ -1152,13 +1121,13 @@ z
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #2563b6" transform="translate(626.027093 496.928244)">47.5% vs 37.5% baseline</text>
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #2563b6" transform="translate(626.027093 509.379924)">19/40 · 0 tokens</text>
    </g>
-   <g id="patch_44">
+   <g id="patch_42">
     <path d="M 715.202112 531.50893
 Q 642.39227 533.536894 569.582429 535.564858
 " style="fill: none; opacity: 0.6; stroke: #b68924; stroke-width: 0.8; stroke-linecap: round"/>
    </g>
-   <g id="text_70">
-    <g id="patch_45">
+   <g id="text_69">
+    <g id="patch_43">
      <path d="M 717.195327 550.903772
 L 831.520405 550.903772
 L 831.520405 508.818772
@@ -1170,13 +1139,13 @@ z
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #b68924" transform="translate(719.000327 533.402991)">40% vs 37.5% baseline</text>
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #b68924" transform="translate(719.000327 545.85467)">16/40 · 0 tokens</text>
    </g>
-   <g id="patch_46">
+   <g id="patch_44">
     <path d="M 622.267058 552.505685
 Q 595.903112 546.678486 569.539165 540.851286
 " style="fill: none; opacity: 0.6; stroke: #697586; stroke-width: 0.8; stroke-linecap: round"/>
    </g>
-   <g id="text_71">
-    <g id="patch_47">
+   <g id="text_70">
+    <g id="patch_45">
      <path d="M 624.222093 580.966018
 L 745.456937 580.966018
 L 745.456937 551.706018
@@ -1187,13 +1156,13 @@ z
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #697586" transform="translate(626.027093 563.465237)">Native baseline</text>
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #697586" transform="translate(626.027093 575.73137)">37.5% (15/40) · 0 tokens</text>
    </g>
-   <g id="patch_48">
+   <g id="patch_46">
     <path d="M 633.365987 575.18011
 Q 601.385743 560.61378 569.405499 546.047451
 " style="fill: none; opacity: 0.6; stroke: #b85445; stroke-width: 0.8; stroke-linecap: round"/>
    </g>
-   <g id="text_72">
-    <g id="patch_49">
+   <g id="text_71">
+    <g id="patch_47">
      <path d="M 624.222093 618.094094
 L 738.547171 618.094094
 L 738.547171 576.009094
@@ -1205,10 +1174,10 @@ z
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #b85445" transform="translate(626.027093 600.593313)">35% vs 37.5% baseline</text>
     <text style="font-size: 9.5px; font-family: 'DejaVu Sans'; fill: #b85445" transform="translate(626.027093 613.044993)">14/40 · 0 tokens</text>
    </g>
-   <g id="text_73">
+   <g id="text_72">
     <text style="font-weight: 700; font-size: 13px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #17283c" x="552.179782" y="393.437032" transform="rotate(-0 552.179782 393.437032)">Experiment B · Reuse and distillation</text>
    </g>
-   <g id="PathCollection_14">
+   <g id="PathCollection_13">
     <defs>
      <path id="mf72fc5e609" d="M 0 4.1833
 C 1.109424 4.1833 2.173559 3.742521 2.95804 2.95804
@@ -1226,12 +1195,12 @@ z
      <use xlink:href="#mf72fc5e609" x="567.586775" y="482.828046" style="fill: #138472; stroke: #ffffff; stroke-width: 0.8"/>
     </g>
    </g>
-   <g id="PathCollection_15">
+   <g id="PathCollection_14">
     <g clip-path="url(#p6297d8b52d)">
      <use xlink:href="#m0dc135b826" x="567.586775" y="521.222516" style="fill: #2563b6; stroke: #ffffff; stroke-width: 0.8"/>
     </g>
    </g>
-   <g id="PathCollection_16">
+   <g id="PathCollection_15">
     <defs>
      <path id="mc8c37a3942" d="M -0 5.91608
 L 5.91608 0
@@ -1244,12 +1213,12 @@ z
      <use xlink:href="#mc8c37a3942" x="567.586775" y="535.620442" style="fill: #b68924; stroke: #ffffff; stroke-width: 0.8"/>
     </g>
    </g>
-   <g id="PathCollection_17">
+   <g id="PathCollection_16">
     <g clip-path="url(#p6297d8b52d)">
      <use xlink:href="#mbc399dee2b" x="567.586775" y="540.419751" style="fill: #697586; stroke: #ffffff; stroke-width: 0.8"/>
     </g>
    </g>
-   <g id="PathCollection_18">
+   <g id="PathCollection_17">
     <defs>
      <path id="m4094d8d2cd" d="M -4.1833 4.1833
 L 4.1833 4.1833
@@ -1263,28 +1232,28 @@ z
     </g>
    </g>
   </g>
-  <g id="text_74">
+  <g id="text_73">
    <text style="font-weight: 700; font-size: 20px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #17283c" x="71.4816" y="40.382475" transform="rotate(-0 71.4816 40.382475)">Smart System2: success vs. online Astra token cost</text>
   </g>
-  <g id="text_75">
+  <g id="text_74">
    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #526277" x="71.4816" y="55.7136" transform="rotate(-0 71.4816 55.7136)">Higher success and fewer tokens are better. Separate cohorts; horizontal scales differ.</text>
   </g>
-  <g id="text_76">
+  <g id="text_75">
    <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #526277" x="71.4816" y="77.0832" transform="rotate(-0 71.4816 77.0832)">Cost = all reported input + output tokens / all evaluated task-reset cases, including failed attempts.</text>
   </g>
-  <g id="text_77">
-   <text style="font-size: 8.7px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #596779" x="71.4816" y="667.0368" transform="rotate(-0 71.4816 667.0368)">≥ marks incomplete provider usage: one call each for occlusion and direct steering. These token costs are lower bounds.</text>
+  <g id="text_76">
+   <text style="font-size: 8.7px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #596779" x="71.4816" y="667.0368" transform="rotate(-0 71.4816 667.0368)">≥ marks incomplete provider usage: one occlusion call has unknown usage, so its token cost is a lower bound.</text>
   </g>
-  <g id="text_78">
+  <g id="text_77">
    <text style="font-size: 8.7px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #596779" x="71.4816" y="683.8272" transform="rotate(-0 71.4816 683.8272)">Experiment B: zero online calls; whole teacher-source studies used ≥6.89M tokens. Exact selected-teacher acquisition cost is unknown.</text>
   </g>
-  <g id="text_79">
+  <g id="text_78">
    <text style="font-size: 8.7px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #596779" x="71.4816" y="700.6176" transform="rotate(-0 71.4816 700.6176)">FRS is a three-case development result. Compare methods within each panel; retries, resets and prompt/vision workloads differ.</text>
   </g>
-  <g id="text_80">
+  <g id="text_79">
    <text style="font-size: 8.7px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #596779" x="71.4816" y="717.408" transform="rotate(-0 71.4816 717.408)">This figure excludes development/interruption overhead for the 20-case studies, teacher acquisition, robot-policy compute and coding-agent tokens.</text>
   </g>
-  <g id="text_81">
+  <g id="text_80">
    <text style="font-size: 8.7px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #596779" x="71.4816" y="734.1984" transform="rotate(-0 71.4816 734.1984)">Larger FRS run: 952 recorded rollouts, 5/20 tasks fully audited before the spending cap; full-cohort SR is unavailable.</text>
   </g>
  </g>
