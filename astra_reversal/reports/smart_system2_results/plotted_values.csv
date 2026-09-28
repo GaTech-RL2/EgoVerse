@@ -1,0 +1,21 @@
+experiment,cohort,method,label,successes,cases,success_percent,max_attempts_per_case,known_online_tokens_total,mean_known_online_tokens_per_case,provider_calls,calls_with_unknown_token_usage,cost_is_lower_bound,median_tokens_among_rescues,median_revisions_among_rescues,source_report
+A,language,native,Native baseline,7,20,35.0,1,0,0.0,0,0,False,,,phase_interpolation/evaluation/results/report.json
+A,language,random_noise,Random noise retries,9,20,45.0,3,0,0.0,0,0,False,0.0,1.5,phase_interpolation/evaluation/results/report.json
+A,language,astra_tei,Astra TEI,11,20,55.0,3,2250708,112535.4,270,0,False,121924.0,2.0,phase_interpolation/evaluation/results/report.json
+A,language,astra_tli,Astra TLI,13,20,65.0,3,1757115,87855.75,209,0,False,28529.5,1.0,phase_interpolation/evaluation/results/report.json
+A,language,astra_tli_vision,Astra TLI + annotations,13,20,65.0,3,1750151,87507.55,200,0,False,28777.5,1.0,phase_interpolation/evaluation/results/report.json
+A,pixels,native,Native baseline,8,20,40.0,1,0,0.0,0,0,False,,,image_perturbations/evaluation/results/report.json
+A,pixels,random_noise,Random noise retries,10,20,50.0,3,0,0.0,0,0,False,0.0,1.0,image_perturbations/evaluation/results/report.json
+A,pixels,random_occlusion,Random occlusion,10,20,50.0,3,0,0.0,0,0,False,0.0,1.0,image_perturbations/evaluation/results/report.json
+A,pixels,random_demo_blend,Random demo blend,11,20,55.0,3,0,0.0,0,0,False,0,1,image_perturbations/evaluation/results/report.json
+A,pixels,astra_occlusion,Astra occlusion,12,20,60.0,3,5441930,272096.5,218,1,True,110780.5,1.0,image_perturbations/evaluation/results/report.json
+A,pixels,astra_demo_blend,Astra demo blend,12,20,60.0,3,5635176,281758.8,222,0,False,112073.0,1.0,image_perturbations/evaluation/results/report.json
+A,frs,native_euler10,Native Euler 10,0,3,0.0,1,0,0.0,0,0,False,,,frs_policy_improvement/development/report.json
+A,frs,native_repeated_noise,Native repeated noise,0,3,0.0,1,0,0.0,0,0,False,,,frs_policy_improvement/development/report.json
+A,frs,astra_direction_direct,Astra direct steering,2,3,66.66666666666667,1,87680,29226.666666666668,62,1,True,,,frs_policy_improvement/development/report.json
+A,frs,astra_frs,Astra FRS,2,3,66.66666666666667,1,66707,22235.666666666668,47,0,False,,,frs_policy_improvement/development/report.json
+B,recipe,native,Native baseline,15,40,37.5,1,0,0.0,0,0,False,,,learned_correction_recipe/results/report.json
+B,recipe,recorded_schedule,Recorded teacher schedule,27,40,67.5,1,0,0.0,0,0,False,,,learned_correction_recipe/results/report.json
+B,recipe,learned_selector,Learned TEI/TLI selector,19,40,47.5,1,0,0.0,0,0,False,,,learned_correction_recipe/results/report.json
+B,recipe,flow_head,Learned flow head,14,40,35.0,1,0,0.0,0,0,False,,,learned_correction_recipe/results/report.json
+B,recipe,gated_flow_head,Selector-gated flow head,16,40,40.0,1,0,0.0,0,0,False,,,learned_correction_recipe/results/report.json

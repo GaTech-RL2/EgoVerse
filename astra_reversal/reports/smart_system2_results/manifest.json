@@ -1,0 +1,41 @@
+{
+  "files": {
+    "README.md": {
+      "bytes": 8795,
+      "sha256": "0db86eec65ccf43dfd0a79c4d23416e15bb206163feb845a68be1e82ffa429d1"
+    },
+    "build_results.py": {
+      "bytes": 18674,
+      "sha256": "0b8481604eb2515c3d2ba958088e4ad52d6bbd9b4cbaaea923e72e846879655a"
+    },
+    "plotted_values.csv": {
+      "bytes": 2899,
+      "sha256": "67aa15af5cadb47967491cb3d40fa67c4a7bc3b3d931bfa9c143f73077b7056c"
+    },
+    "plotted_values.json": {
+      "bytes": 15396,
+      "sha256": "308b6f24fc4a77a27f676d02a3d40a4d7ef98bbfedfe922abefac50d4c4501e9"
+    },
+    "success_vs_tokens.pdf": {
+      "bytes": 40157,
+      "sha256": "d52fd8aa251e21a2af1064dfe69212c15ff6ad80519bc026e78204f91992e51f"
+    },
+    "success_vs_tokens.png": {
+      "bytes": 530088,
+      "sha256": "6ce150c7ba554d23c4e45db9b730033803fe0fa480355f1b315a2ac997ca2d7a"
+    },
+    "success_vs_tokens.svg": {
+      "bytes": 53807,
+      "sha256": "5909589e0e8eae543f75258456c72d6e22c108e926cc5152945b6f3388cc56c5"
+    }
+  },
+  "matplotlib_version": "3.11.2",
+  "schema_version": "smart-system2-results-publication-1.0",
+  "source_sha256": {
+    "frs_policy_improvement/development/report.json": "7b69978c4cc5653fec9fe780a731e23f88777236562a44df2c38d01ede7c0be6",
+    "image_perturbations/evaluation/results/report.json": "bd2ae73794dcdf9c73f9033c8934ab23ce8ea2ab0b878b239d2af8c963adff87",
+    "learned_correction_recipe/results/historical_context.json": "9b0c1b48ba306010ee792ffb405f201fd900d3d2644808bbb58acb006e954d87",
+    "learned_correction_recipe/results/report.json": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802",
+    "phase_interpolation/evaluation/results/report.json": "4409d1113f1ac304ad2ebec767ec35448aa34ada02bb6bf5e130c4815222ca0c"
+  }
+}
