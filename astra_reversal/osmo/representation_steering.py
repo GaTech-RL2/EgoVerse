@@ -70,7 +70,7 @@ def main():
     archive.sync()
     try:
         native_preflight(archive)
-        protocol = load_protocol()
+        protocol = load_protocol(os.environ.get("ASTRA_PROTOCOL_PATH"))
         if phase == "development":
             protocol["seed"] = protocol["development_seed"]
         write_json(RESULTS / "protocol.json", protocol)
