@@ -205,7 +205,7 @@ def test_auto_k_is_derived_from_the_resolved_split():
         cfg.trainer.limit_val_batches = limit
         with pytest.raises(ValueError, match="auto"):
             th._subsample_val_datasets(cfg, "valid", split, params)
-    cfg.trainer.limit_val_batches = 0  # validation off, as the bench scripts run
+    cfg.trainer.limit_val_batches = 0  # validation off
     assert th._subsample_val_datasets(cfg, "valid", split, params) == split
     cfg.trainer.limit_val_batches = 4
     with pytest.raises(ValueError, match="batch_size"):
@@ -497,16 +497,6 @@ def test_gate_is_open_without_a_trainer_or_an_evaluator():
     assert len(list(iter(video))) == 2, "evaluator without _should_viz -> gate open"
 
 
-def test_gated_loader_length_survives_a_closed_gate_at_setup():
-    """Lightning reads len() once, in setup_data, which can land on a non-viz
-    epoch: CombinedLoader.__len__ needs a live iterator the gate never made."""
-    dm = _dm()
-    _, video = dm.val_dataloader()
-    dm.trainer = _GateTrainer({"valid": _StubEval(should_viz=False)})
-    assert list(iter(video)) == []
-    assert len(video) == 2
-
-
 def test_gated_loader_length_is_lightnings_own_and_opens_no_iterator():
     from lightning.pytorch.utilities.combined_loader import _MaxSizeCycle
 
@@ -534,88 +524,6 @@ def test_video_head_without_a_viz_cap_is_rejected():
     _run({"valid": no_viz}, {"valid": {HUMAN: object()}})
     with pytest.raises(ValueError, match="viz_max_batches"):
         _run({"valid": capped, "train_viz": uncapped}, {"train_viz": {HUMAN: object()}})
-
-
-# sanity steps on: the loaders (and their len()) are set up on a pass whose gate
-# is already closed, which is what a real run does -- trainer/default.yaml sets no
-# num_sanity_val_steps, so lightning's default of 2 applies.
-@pytest.mark.parametrize("sanity_steps", [0, 2])
-def test_a_real_fit_builds_video_batches_only_on_viz_passes(tmp_path, sanity_steps):
-    """The gate against the real Lightning evaluation loop: a val dataloader
-    that yields nothing mid-sequence must not derail the pass, and the pinned
-    episode must not be touched at all on a non-viz epoch."""
-    import torch
-    from lightning import Trainer
-
-    class _Counting(_Episode):
-        def __init__(self, n):
-            super().__init__(n)
-            self.reads = 0
-
-        def __getitem__(self, i):
-            self.reads += 1
-            return super().__getitem__(i)
-
-    pinned, metric = _Counting(4), _Counting(4)
-    params = {HUMAN: {"batch_size": 2, "num_workers": 0, "shuffle": False}}
-    dm = MultiDataModuleWrapper(
-        train_datasets={HUMAN: _split({"ep0": 4})},
-        valid_datasets={HUMAN: MultiDataset(datasets={"ep0": metric}, mode="total")},
-        train_dataloader_params={HUMAN: {"batch_size": 2, "num_workers": 0}},
-        valid_dataloader_params=params,
-        video_datasets={
-            "valid": {HUMAN: MultiDataset(datasets={"pin": pinned}, mode="total")}
-        },
-    )
-
-    class _Module(LightningModule):
-        def __init__(self):
-            super().__init__()
-            self.layer = torch.nn.Linear(1, 1)
-            self.val_loaders_seen: list[tuple[int, int]] = []
-            self.pinned_reads: dict[int, int] = {}
-
-        # viz only on the second validation pass
-        def _val_heads(self):
-            return {
-                "valid": SimpleNamespace(_should_viz=lambda: self.current_epoch == 1)
-            }
-
-        def training_step(self, batch, batch_idx):
-            return self.layer(batch[HUMAN]["frame"].reshape(-1, 1)).sum()
-
-        def validation_step(self, batch, batch_idx, dataloader_idx=0):
-            if not self.trainer.sanity_checking:
-                self.val_loaders_seen.append((self.current_epoch, dataloader_idx))
-
-        def on_validation_epoch_end(self):
-            self.pinned_reads[self.current_epoch] = pinned.reads
-
-        def configure_optimizers(self):
-            return torch.optim.SGD(self.parameters(), lr=0.0)
-
-    model = _Module()
-    Trainer(
-        max_epochs=2,
-        accelerator="cpu",
-        devices=1,
-        limit_train_batches=2,
-        limit_val_batches=2,
-        check_val_every_n_epoch=1,
-        num_sanity_val_steps=sanity_steps,
-        logger=False,
-        enable_checkpointing=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        default_root_dir=str(tmp_path),
-    ).fit(model, datamodule=dm)
-
-    assert model.pinned_reads[0] == 0, "non-viz pass never touched the pinned episode"
-    assert model.pinned_reads[1] > 0, "viz pass still reads it"
-    # the metric loader is unaffected, and dataloader_idx stays stable
-    by_epoch = {e: [i for ep, i in model.val_loaders_seen if ep == e] for e in (0, 1)}
-    assert by_epoch[0] == [0, 0], "epoch 0: metric loader only"
-    assert by_epoch[1] == [0, 0, 1, 1], "epoch 1: metric loader then video loader"
 
 
 def test_video_loader_is_closed_off_rank_zero():

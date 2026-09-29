@@ -35,11 +35,7 @@ callbacks:
     every_n_epochs: 100
 
 # The GT/pred replay needs the true frames per chunk step: the mecka cartesian
-# chunk is 30 raw frames resampled to 100 steps (29/99), and the replay's own
-# stride inference only fits keypoint layouts (it falls back to 1: a 3.4x-slow
-# replay that drifts off the hand). The train_viz head composes its own copy.
+# chunk is 30 raw frames resampled to 100 steps (29/99). Pinned here; it wins
+# over (and equals) the value trainHydra derives, on every val head.
 evaluator:
   action_stride: 0.29292929292929293
-train_viz_evaluator:
-  base:
-    action_stride: 0.29292929292929293

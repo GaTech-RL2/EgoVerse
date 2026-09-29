@@ -10,7 +10,7 @@ _target_: egomimic.eval.eval_pi.PIEvalVideo
 viz_every_n_epochs: 100
 # On viz epochs, render only the first N val batches per rank (~1s/frame
 # CPU draw; unbounded rendering added ~2h per viz epoch on the combined
-# pretrain). Metrics still run on every batch. The train_viz wrapper
+# pretrain). Metrics still run on every batch. The train_viz head
 # inherits this cap.
 viz_max_batches: 10
 

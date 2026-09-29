@@ -73,9 +73,7 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
         for name, ds in (cfg.get("data") or {}).get("train_datasets", {}).items()
         if ds is not None and ds.get("resolver") is not None
     }
-    tree = OmegaConf.create(
-        {"model": model_cfg, "data": {"train_datasets": pipelines}}
-    )
+    tree = OmegaConf.create({"model": model_cfg, "data": {"train_datasets": pipelines}})
     has_weights = OmegaConf.select(tree, _PI_WEIGHT_KEY, default=None) is not None
     if has_weights and _weights_from_checkpoint(cfg):
         log.info(
@@ -314,18 +312,6 @@ def _train_viz_datasets(cfg: DictConfig, train_datasets: dict, instantiate):
     return {name: train_datasets[name] for name in params}, params
 
 
-def _build_train_viz_evaluator(cfg: DictConfig):
-    """``train_viz_evaluator`` if configured, else a TrainVizEvalVideo around a
-    second instance of the canonical evaluator (own frame buffers)."""
-    if not _train_viz_enabled(cfg):
-        return None
-    if cfg.get("train_viz_evaluator") is not None:
-        return hydra.utils.instantiate(cfg.train_viz_evaluator)
-    from egomimic.eval.eval_train_viz import TrainVizEvalVideo
-
-    return TrainVizEvalVideo(hydra.utils.instantiate(cfg.evaluator))
-
-
 def _unseen_op_valid_datasets(cfg: DictConfig, instantiate) -> dict:
     """Datasets for the third (unseen_op_valid) val loader: a data config's own
     ``unseen_op_valid_datasets``, in training runs with an evaluator only (eval
@@ -355,7 +341,7 @@ def _metric_frames_per_episode(
     batch_size / n_episodes)``, the SAME on every rank: the val heads come back
     inside CombinedLoaders, which Lightning does not wrap in a
     DistributedSampler (every rank runs every val batch, measured 2026-09-16;
-    see EvalVideo._video_fps), so a K scaled by the world size only made each
+    see EvalVideo._write_video), so a K scaled by the world size only made each
     rank score the first 1/W of a W-times-denser subsample. EvenStrideDataset
     keeps a whole episode when K exceeds its length, so a split that fits
     entirely is not subsampled.
@@ -501,14 +487,31 @@ def _require_capped_video_heads(model, datamodule) -> None:
             )
 
 
-def _build_unseen_op_valid_evaluator(cfg: DictConfig):
-    """The canonical evaluator (fresh instance, own frame buffers) wrapped to
-    log ``unseen_op_valid/`` and write ``videos_unseen_op_valid/``."""
-    from egomimic.eval.eval_train_viz import TrainVizEvalVideo
-
-    return TrainVizEvalVideo(
-        hydra.utils.instantiate(cfg.evaluator), prefix="unseen_op_valid"
-    )
+def _action_strides(datasets: dict) -> dict:
+    """``{dataset name: video frames per action-chunk step}`` for the GT/pred
+    replay (``EvalVideo.action_stride``): a sample reads ``horizon`` raw
+    frames, keeps every ``stride``-th and resamples them to
+    ``new_chunk_length`` steps (mecka: 30 frames at stride 1 -> 100 steps,
+    29/99 of a frame per step). A dataset whose pipeline has no resampling
+    step is left out (1 frame per step)."""
+    strides = {}
+    for name, ds in datasets.items():
+        leaf = next(MultiDataset._iter_leaves(ds), None)
+        horizons = [
+            spec["horizon"]
+            for spec in (getattr(leaf, "key_map", None) or {}).values()
+            if spec.get("key_type") == "action_keys" and "horizon" in spec
+        ]
+        resample = [
+            t
+            for t in getattr(leaf, "transform", None) or ()
+            if hasattr(t, "new_chunk_length")
+        ]
+        if horizons and resample:
+            s = resample[0].stride
+            span = (horizons[0] - 1) // s * s  # the last raw frame kept
+            strides[name] = span / (resample[0].new_chunk_length - 1)
+    return strides
 
 
 @task_wrapper
@@ -748,10 +751,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
 
     mode = _resolve_mode(cfg)
+    # {ModelWrapper attribute: evaluator}, a fresh instance (own frame buffers)
+    # per val head.
+    heads: Dict[str, Eval] = {}
 
     # In eval mode, apply trainer overrides from the eval object and disable logger
     if mode == "eval":
         eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
+        heads["evaluator"] = eval_obj
         log.info(
             "Eval mode: applying trainer overrides from eval config, disabling logger"
         )
@@ -801,32 +808,36 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     if mode == "train":
         _apply_init_weights(cfg, model)
         if cfg.get("evaluator") is not None:
-            eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             # data.valid_prefix (e.g. seen_op_valid in the opsplit configs)
             # renames the canonical head: `<prefix>/Valid/...` metrics and
             # `videos_<prefix>/` instead of `Valid/...` and `videos/`.
-            valid_prefix = cfg.data.get("valid_prefix")
-            if valid_prefix:
-                from egomimic.eval.eval_train_viz import TrainVizEvalVideo
-
-                eval_obj = TrainVizEvalVideo(eval_obj, prefix=valid_prefix)
-            eval_obj.trainer = trainer
-            eval_obj.model = model.model
-            model.evaluator = eval_obj
-        train_viz_eval_obj = (
-            _build_train_viz_evaluator(cfg) if datamodule.train_viz_datasets else None
-        )
-        if train_viz_eval_obj is not None:
-            train_viz_eval_obj.trainer = trainer
-            train_viz_eval_obj.model = model.model
-            model.train_viz_evaluator = train_viz_eval_obj
+            heads["evaluator"] = hydra.utils.instantiate(
+                cfg.evaluator, prefix=cfg.data.get("valid_prefix")
+            )
+        # (Both are empty unless training with an evaluator; see
+        # _train_viz_datasets / _unseen_op_valid_datasets.)
+        if datamodule.train_viz_datasets:
+            heads["train_viz_evaluator"] = hydra.utils.instantiate(
+                cfg.get("train_viz_evaluator") or cfg.evaluator, prefix="train_viz"
+            )
         if datamodule.unseen_op_valid_datasets:
-            unseen_eval_obj = _build_unseen_op_valid_evaluator(cfg)
-            unseen_eval_obj.trainer = trainer
-            unseen_eval_obj.model = model.model
-            model.unseen_op_valid_evaluator = unseen_eval_obj
+            heads["unseen_op_valid_evaluator"] = hydra.utils.instantiate(
+                cfg.evaluator, prefix="unseen_op_valid"
+            )
+    for attr, ev in heads.items():
+        ev.trainer = trainer
+        ev.model = model.model
+        # An explicit evaluator.action_stride wins over the pipeline's.
+        ev.action_stride = ev.action_stride or _action_strides(
+            datamodule.train_datasets
+        )
+        setattr(model, attr, ev)
+    # Without the names, loader indices fall back to [valid, train_viz] and
+    # the pinned video loader is misrouted.
+    model.val_loader_names = datamodule.val_loader_names()
+
+    if mode == "train":
         _require_capped_video_heads(model, datamodule)
-        model.val_loader_names = datamodule.val_loader_names()
         # Pre-fit baseline val. Skipped on requeues AND checkpoint resumes:
         # trainer.validate here runs BEFORE fit restores ckpt_path weights, so
         # on a resume it would score the un-resumed base model.
@@ -845,13 +856,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             weights_only=False,
         )
     elif mode == "eval":
-        eval_obj.trainer = trainer
-        eval_obj.model = model.model
-        model.evaluator = eval_obj
-        # Without the names, loader indices fall back to [valid, train_viz] and
-        # the pinned video loader is misrouted.
-        model.val_loader_names = datamodule.val_loader_names()
-
         if hasattr(eval_obj, "run"):
             eval_obj.run(trainer, model, datamodule, cfg)
         else:

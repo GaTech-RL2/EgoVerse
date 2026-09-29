@@ -8,7 +8,7 @@ Two layouts are recognised by width:
 
 - bimanual cartesian (12/14 ypr, 18/20 rot6d; see
   ``pose_utils.bimanual_cartesian_layout``): position MSE, geodesic rotation
-  error, raw rotation-channel MSE, DTW + Frechet on xyz;
+  error, DTW + Frechet on xyz;
 - wrist-first bimanual hand keypoints (138 ypr / 144 rot6d wrist; see
   ``pose_utils.bimanual_keypoint_layout``): mean keypoint L2 (m), wrist
   position MSE, wrist geodesic rotation error, DTW on the keypoint block.
@@ -59,27 +59,6 @@ def _segment_l2(pred: torch.Tensor, gt: torch.Tensor, idx: list, prefix: str) ->
     return out
 
 
-def _split_mse(pred_t: torch.Tensor, gt_t: torch.Tensor):
-    """(translation MSE, rotation-channel MSE) over a bimanual cartesian
-    vector, so a translation problem reads apart from a rotation one. The
-    rotation channels are whatever the layout holds: the continuous 6D
-    rotation-matrix columns for the 18D (human) / 20D (robot) widths,
-    yaw/pitch/roll for the 12/14D widths. Either way this is a plain
-    per-channel MSE (pre-Gram-Schmidt, axis-dependent, unitless for 6D; +-pi
-    wrap and gimbal lock for ypr), i.e. a training-tracking diagnostic, not a
-    rotation error; see :func:`_rot_geodesic_error` for that. Returns
-    (None, None) for an unknown width.
-    """
-    layout = bimanual_cartesian_layout(pred_t.shape[-1])
-    if layout is None:
-        return None, None
-    xyz_idx = list(layout["xyz"])
-    rot_idx = list(layout["rot"])
-    xyz = _paired_mse(pred_t[..., xyz_idx], gt_t[..., xyz_idx])
-    rot = _paired_mse(pred_t[..., rot_idx], gt_t[..., rot_idx])
-    return xyz, rot
-
-
 def _geodesic_from_rot_channels(pred: torch.Tensor, gt: torch.Tensor, rot: list):
     """Mean geodesic angle (rad) over both arms given the rotation channel
     indices of a per-arm-concatenated vector (3 ypr or 6 rot6d per arm)."""
@@ -127,11 +106,8 @@ def cartesian_metrics(pred: torch.Tensor, gt: torch.Tensor, prefix: str) -> dict
         return {}
     metrics = {}
     xyz_idx = list(layout["xyz"])
-    xyz_p, rot_p = _split_mse(pred_cpu, gt_cpu)
-    metrics[f"{prefix}_xyz_paired_mse_avg"] = xyz_p
-    metrics[f"{prefix}_rot6d_paired_mse_avg"] = rot_p
-    metrics[f"{prefix}_xyz_final_mse_avg"] = _paired_mse(
-        pred_cpu[:, -1, xyz_idx], gt_cpu[:, -1, xyz_idx]
+    metrics[f"{prefix}_xyz_paired_mse_avg"] = _paired_mse(
+        pred_cpu[..., xyz_idx], gt_cpu[..., xyz_idx]
     )
     metrics.update(_segment_l2(pred_cpu, gt_cpu, xyz_idx, f"{prefix}_xyz_l2"))
     # Distributional / alignment metrics on the position channels only
@@ -179,12 +155,8 @@ def keypoint_metrics(pred: torch.Tensor, gt: torch.Tensor, prefix: str) -> dict:
 
     metrics = {
         f"{prefix}_kp_l2_avg": _kp_l2(pred_cpu, gt_cpu),
-        f"{prefix}_kp_l2_final": _kp_l2(pred_cpu[:, -1], gt_cpu[:, -1]),
         f"{prefix}_wrist_xyz_paired_mse_avg": _paired_mse(
             pred_cpu[..., wrist_idx], gt_cpu[..., wrist_idx]
-        ),
-        f"{prefix}_wrist_xyz_final_mse_avg": _paired_mse(
-            pred_cpu[:, -1, wrist_idx], gt_cpu[:, -1, wrist_idx]
         ),
         f"{prefix}_wrist_rot_err_deg_avg": (
             _geodesic_from_rot_channels(pred_cpu, gt_cpu, rot_idx) * _RAD2DEG

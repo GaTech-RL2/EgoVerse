@@ -8,7 +8,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from egomimic.eval.eval_video import EvalVideo
-from egomimic.eval.replay_viz import ReplayClip, infer_stride, render_replay, rigid_fit
+from egomimic.eval.replay_viz import ReplayClip, render_replay, rigid_fit
 from egomimic.rldb.embodiment.human import Human
 
 
@@ -75,35 +75,9 @@ def test_tail_and_concat_round_trip():
     assert joined.intrinsics == clip.intrinsics[8:] + clip.intrinsics[10:]
 
 
-def _moving_camera_clip(stride, n=60, horizon=12, seed=0):
-    """GT chunks of a hand moving in the world, seen by a rotating camera."""
-    rng = np.random.default_rng(seed)
-    steps = n + horizon * stride
-    world = np.cumsum(rng.normal(scale=0.01, size=(steps, 42, 3)), axis=0)
-    world += rng.normal(scale=0.05, size=(42, 3)) + [0.0, 0.0, 0.5]
-    cams = Rotation.from_rotvec(np.cumsum(rng.normal(scale=0.02, size=(steps, 3)), 0))
-    gt = np.stack(
-        [
-            np.stack(
-                [
-                    cams[t].inv().apply(world[t + k * stride]).reshape(-1)
-                    for k in range(horizon)
-                ]
-            )
-            for t in range(n)
-        ]
-    ).astype(np.float32)
-    return ReplayClip(np.zeros((n, 90, 160, 3), np.uint8), gt, gt, [None] * n)
-
-
-def test_infer_stride_recovers_the_frames_per_step():
-    for stride in (1, 2, 3):
-        assert infer_stride(_moving_camera_clip(stride)) == stride
-
-
 def _resampled_clip(stride, n=60, horizon=100, seed=0):
-    """As _moving_camera_clip, but with a hand and camera that move
-    continuously, so a chunk step can fall between frames."""
+    """GT chunks of a hand moving continuously in the world, seen by a
+    rotating camera, so a chunk step can fall between frames."""
     rng = np.random.default_rng(seed)
     base = rng.normal(scale=0.05, size=(42, 3)) + [0.0, 0.0, 0.5]
     amp, freq, phase = rng.normal(scale=0.05, size=(3, 42, 3))
@@ -129,11 +103,6 @@ def _resampled_clip(stride, n=60, horizon=100, seed=0):
     return ReplayClip(np.zeros((n, 90, 160, 3), np.uint8), gt, gt, [None] * n)
 
 
-def test_infer_stride_recovers_a_resampled_chunk():
-    # 30 raw frames resampled to 100 steps (mecka, action stride 1).
-    assert infer_stride(_resampled_clip(29 / 99)) == 29 / 99
-
-
 def test_render_with_fractional_stride_plays_in_real_time():
     stride, horizon = 29 / 99, 100
     frames, used = render_replay(
@@ -145,12 +114,6 @@ def test_render_with_fractional_stride_plays_in_real_time():
     # Anchors 0 and 30: each chunk covers frames a..a+29, once as GT, once as pred.
     assert used == 60
     assert len(frames) == 2 * 2 * 30
-
-
-def test_infer_stride_needs_keypoints():
-    clip = _clip(20, 10)
-    clip.gt = clip.gt[..., :12]
-    assert infer_stride(clip) is None
 
 
 class _Buffering(EvalVideo):
@@ -186,3 +149,48 @@ def test_overlay_buffer_counts_frames_not_pixel_rows(monkeypatch):
         ev.on_validation_step({}, i, mode="both")
     ev.on_validation_end()
     assert written == [80]
+
+
+def test_replay_stops_after_its_chunk_budget():
+    """A pinned video loader replays REPLAY_CHUNKS chunks of horizon * stride
+    frames each, then skips the forward pass."""
+    forwards = []
+    ev = _Buffering(lambda: forwards.append(1) or _clip(4, horizon=10))
+    ev.action_stride = {"human_bimanual": 0.5}  # 5 frames a chunk, 25 in all
+    ev.trainer = types.SimpleNamespace(
+        current_epoch=0,
+        max_epochs=1,
+        lightning_module=types.SimpleNamespace(device="cpu"),
+    )
+    for i in range(10):
+        ev.on_validation_step({}, i, mode="video")
+    assert len(forwards) == 7  # ceil(25 / 4 frames a batch)
+
+
+def test_action_stride_is_derived_from_the_data_pipeline():
+    """Raw horizon frames, every stride-th kept, resampled to the chunk."""
+    from egomimic.rldb.embodiment.eva import Eva
+    from egomimic.trainHydra import _action_strides
+
+    def leaf(cls, keymap_mode, mode, **kw):
+        return types.SimpleNamespace(
+            key_map=cls.get_keymap(keymap_mode=keymap_mode),
+            transform=cls.get_transform_list(mode=mode, **kw),
+        )
+
+    strides = _action_strides(
+        {
+            "mecka": leaf(Human, "cartesian", "cartesian_wristframe_6d", stride=1),
+            "mecka_kp": leaf(Human, "keypoints", "keypoints_wristframe_6d", stride=1),
+            "aria": leaf(Human, "cartesian", "cartesian_wristframe_6d", stride=3),
+            "eva": leaf(Eva, "cartesian", "cartesian_wristframe_6d"),
+            "raw": types.SimpleNamespace(key_map={}, transform=None),
+        }
+    )
+    # 30 frames -> 100 steps; aria keeps frames 0, 3, .., 27; eva reads 45.
+    assert strides == {
+        "mecka": 29 / 99,
+        "mecka_kp": 29 / 99,
+        "aria": 27 / 99,
+        "eva": 44 / 99,
+    }

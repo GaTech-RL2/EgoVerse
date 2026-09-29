@@ -59,3 +59,24 @@ def test_no_wandb_logger_is_a_noop(tmp_path):
     ev.val_counter[HUMAN_BIMANUAL] = 0
     ev._write_video(HUMAN_BIMANUAL, _frames())
     assert (tmp_path / "videos/epoch_99/HUMAN_BIMANUAL/validation_video_0.mp4").exists()
+
+
+def test_prefixed_head_logs_and_writes_under_its_prefix(tmp_path):
+    """The train_viz / opsplit heads: ``<prefix>/...`` keys, ``videos_<prefix>/``."""
+    logged = []
+    for prefix, key, videos in (
+        (None, "Valid/x", "videos"),
+        ("train_viz", "train_viz/Valid/x", "videos_train_viz"),
+    ):
+        ev = _Eval(str(tmp_path))
+        ev.prefix = prefix
+        ev.compute_metrics_and_viz = lambda batch, do_viz=True: ({"Valid/x": 1.0}, {})
+        ev.trainer = _trainer([])
+        ev.trainer.lightning_module = types.SimpleNamespace(
+            device="cpu", log_dict=lambda metrics, **kw: logged.append(set(metrics))
+        )
+        ev.on_validation_step({}, 0, mode="metrics")
+        assert logged[-1] == {key}
+        ev.val_counter[HUMAN_BIMANUAL] = 0
+        ev._write_video(HUMAN_BIMANUAL, _frames())
+        assert (tmp_path / videos / "epoch_99/HUMAN_BIMANUAL").is_dir()

@@ -591,14 +591,3 @@ def test_train_viz_explicit_datasets_and_opt_outs():
         _viz_cfg(evaluator=None),
     ):
         assert th._train_viz_datasets(off, train, instantiate=None) == ({}, None)
-
-
-def test_train_viz_evaluator_wraps_the_canonical_evaluator():
-    import egomimic.trainHydra as th
-    from egomimic.eval.eval_train_viz import TrainVizEvalVideo
-
-    cfg = _viz_cfg()
-    ev = th._build_train_viz_evaluator(cfg)
-    assert isinstance(ev, TrainVizEvalVideo)
-    assert ev.viz_every_n_epochs == 7
-    assert th._build_train_viz_evaluator(_viz_cfg(train_viz=False)) is None
