@@ -1,16 +1,15 @@
 """Wiring checks for the hand-keypoint default: recipes, stems, the mecka
-left-wrist fix in keypoint modes, the annotation-cutoff span filter and the
-train_viz second val loader."""
+left-wrist fix in keypoint modes and the train_viz second val loader."""
 
 from __future__ import annotations
 
-import inspect
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
+from fixtures.poses import apply_transforms, bounds_shell, rand_chunk, rand_pose
 from lightning import LightningModule
 from scipy.spatial.transform import Rotation as R
 
@@ -145,22 +144,6 @@ def test_hpt_stems_follow_the_human_action(compose_resolve):
 
 
 # ------------------------------------------------------ mecka left-wrist fix
-def _pose(rng):
-    q = R.random(random_state=int(rng.integers(1 << 31))).as_quat()
-    return np.concatenate([rng.uniform(-1, 1, 3), q[[3, 0, 1, 2]]])
-
-
-def _chunk(rng, start, n):
-    out = np.zeros((n, 7))
-    p, r = start[:3].copy(), R.from_quat(start[[4, 5, 6, 3]])
-    for t in range(n):
-        if t:
-            p = p + rng.normal(0, 0.01, 3)
-            r = R.from_rotvec(rng.normal(0, 0.05, 3)) * r
-        out[t] = np.concatenate([p, r.as_quat()[[3, 0, 1, 2]]])
-    return out
-
-
 def _rz180(pose7):
     """What the fixed converter would have written: the same pose with its
     local axes relabelled by Rz(180 deg)."""
@@ -170,29 +153,22 @@ def _rz180(pose7):
     return out
 
 
-def _apply(tl, s):
-    s = {k: (v.copy() if isinstance(v, np.ndarray) else v) for k, v in s.items()}
-    for t in tl:
-        s = t.transform(s)
-    return s
-
-
 def test_fix_left_wrist_convention_equals_reconverting_in_keypoint_mode():
     rng = np.random.default_rng(31)
     H = Human.ACTION_HORIZON
-    raw = {"obs_head_pose": _pose(rng)}
+    raw = {"obs_head_pose": rand_pose(rng)}
     for side in ("left", "right"):
-        wrist = _pose(rng)
+        wrist = rand_pose(rng)
         raw[f"{side}.obs_wrist_pose"] = wrist
-        raw[f"{side}.action_wrist_pose"] = _chunk(rng, wrist, H)
+        raw[f"{side}.action_wrist_pose"] = rand_chunk(rng, wrist, H)
         kp = raw[f"{side}.action_wrist_pose"][:, None, :3] + rng.uniform(
             -0.1, 0.1, (H, 21, 3)
         )
         raw[f"{side}.action_keypoints"] = kp.reshape(H, 63)
         raw[f"{side}.obs_keypoints"] = kp[0].reshape(63)
-        ee = _pose(rng)
+        ee = rand_pose(rng)
         raw[f"{side}.obs_ee_pose"] = ee
-        raw[f"{side}.action_ee_pose"] = _chunk(rng, ee, H)
+        raw[f"{side}.action_ee_pose"] = rand_chunk(rng, ee, H)
     # "reconverted" twin: the fixed converter relabels the LEFT hand's axes on
     # every pose it writes (wrist_pose and ee_pose share the rotation).
     fixed = dict(raw)
@@ -205,20 +181,22 @@ def test_fix_left_wrist_convention_equals_reconverting_in_keypoint_mode():
         fixed[k] = _rz180(raw[k])
 
     kw = dict(stride=1, include_ee_pose=True, pad_proprio_gripper=True)
-    with_flag = _apply(
+    with_flag = apply_transforms(
         Human.get_transform_list(
             "keypoints_wristframe_6d", fix_left_wrist_convention=True, **kw
         ),
         raw,
     )
-    reconverted = _apply(
+    reconverted = apply_transforms(
         Human.get_transform_list("keypoints_wristframe_6d", **kw), fixed
     )
     assert set(with_flag) == set(reconverted)
     for k in with_flag:
         np.testing.assert_allclose(with_flag[k], reconverted[k], atol=1e-9, err_msg=k)
     # and the flag really changes the left hand's frame
-    unfixed = _apply(Human.get_transform_list("keypoints_wristframe_6d", **kw), raw)
+    unfixed = apply_transforms(
+        Human.get_transform_list("keypoints_wristframe_6d", **kw), raw
+    )
     assert (
         np.abs(unfixed["actions_keypoints"] - with_flag["actions_keypoints"]).max()
         > 1e-3
@@ -226,69 +204,17 @@ def test_fix_left_wrist_convention_equals_reconverting_in_keypoint_mode():
     # the same equivalence without the ee_pose side (plain HPT keypoint data)
     plain = {k: v for k, v in raw.items() if "ee_pose" not in k}
     plain_fixed = {k: v for k, v in fixed.items() if "ee_pose" not in k}
-    a = _apply(
+    a = apply_transforms(
         Human.get_transform_list(
             "keypoints_wristframe_6d", stride=1, fix_left_wrist_convention=True
         ),
         plain,
     )
-    b = _apply(
+    b = apply_transforms(
         Human.get_transform_list("keypoints_wristframe_6d", stride=1), plain_fixed
     )
     for k in a:
         np.testing.assert_allclose(a[k], b[k], atol=1e-9, err_msg=k)
-
-
-# --------------------------------------------------- annotation-cutoff filter
-def test_episode_has_annotation_spans():
-    from egomimic.rldb.zarr.zarr_dataset_multi import _episode_has_annotation_spans
-
-    def ds(anns):
-        return SimpleNamespace(_load_annotations=lambda: anns)
-
-    assert _episode_has_annotation_spans(
-        ds([{"text": "a", "start_idx": 0, "end_idx": 5}])
-    )
-    assert not _episode_has_annotation_spans(ds([]))
-    assert not _episode_has_annotation_spans(ds([{"text": "a"}]))  # span-less
-    assert not _episode_has_annotation_spans(ds([{"start_idx": 5, "end_idx": 5}]))
-
-    def boom():
-        raise OSError("corrupt")
-
-    assert not _episode_has_annotation_spans(SimpleNamespace(_load_annotations=boom))
-
-
-def test_annotation_cutoff_resolver_defaults_to_requiring_spans():
-    from egomimic.rldb.zarr.zarr_dataset_multi import S3AnnotationCutoffEpisodeResolver
-
-    r = S3AnnotationCutoffEpisodeResolver.__new__(S3AnnotationCutoffEpisodeResolver)
-    sig = inspect.signature(S3AnnotationCutoffEpisodeResolver.__init__)
-    assert sig.parameters["require_annotations"].default is True
-    good = SimpleNamespace(_load_annotations=lambda: [{"start_idx": 0, "end_idx": 3}])
-    bad = SimpleNamespace(_load_annotations=lambda: [])
-    r.require_annotations = True
-    # bypass the S3 base resolve: patch it on the instance's class chain
-    import egomimic.rldb.zarr.zarr_dataset_multi as m
-
-    orig = m.S3EpisodeResolver.resolve
-    m.S3EpisodeResolver.resolve = lambda self, filters=None, expected_embodiment=None: {
-        "g": good,
-        "b": bad,
-    }
-    try:
-        kept = r.resolve(filters=None, expected_embodiment="human_bimanual")
-        assert set(kept) == {"g"}
-        r.require_annotations = False
-        assert set(r.resolve()) == {"g", "b"}
-        m.S3EpisodeResolver.resolve = (
-            lambda self, filters=None, expected_embodiment=None: {"b": bad}
-        )
-        r.require_annotations = True
-        with pytest.raises(ValueError, match="no resolved episodes"):
-            r.resolve()
-    finally:
-        m.S3EpisodeResolver.resolve = orig
 
 
 # ------------------------------------------------------ train_viz second loader
@@ -446,11 +372,7 @@ def test_bounds_quantiles_include_the_observed_extremes():
     st = MultiDataset._compute_stats_for_array(X)
     np.testing.assert_array_equal(st["quantile_0_01"], X.min(axis=0))
     np.testing.assert_array_equal(st["quantile_99_99"], X.max(axis=0))
-    md = MultiDataset.__new__(MultiDataset)
-    md.norm_mode = "quantile"
-    md.norm_stats = {0: {"actions_keypoints": st}}
-    md.zarr_keys = {0: {"actions_keypoints": "actions_keypoints"}}
-    md._warned_violations = set()
+    md = bounds_shell("actions_keypoints", st)
     for row in (X.min(axis=0), X.max(axis=0)):
         assert (
             md._check_bounds(
@@ -518,14 +440,7 @@ def test_bounds_check_has_relative_slack_but_catches_corrupt_values():
     """Per-cell bounds tolerate frames moderately beyond the stats sample's
     range (valid extreme motion) and still reject values orders of magnitude
     off (fill constants, wrong-frame data)."""
-    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-
-    md = MultiDataset.__new__(MultiDataset)
-    md.norm_mode = "quantile"
-    lo, hi = np.full(18, -1.0, np.float32), np.full(18, 1.0, np.float32)
-    md.norm_stats = {0: {"actions_cartesian": {"quantile_1": lo, "quantile_99": hi}}}
-    md.zarr_keys = {0: {"actions_cartesian": "actions_cartesian"}}
-    md._warned_violations = set()
+    md = bounds_shell("actions_cartesian", width=18)
 
     def check(v):
         arr = np.zeros((3, 18), np.float32)

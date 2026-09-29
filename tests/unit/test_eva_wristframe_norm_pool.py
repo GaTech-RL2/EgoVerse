@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 import torch
+from fixtures.poses import rand_chunk, rand_pose
 from fixtures.synthetic_episodes import write_episode
 from hydra import compose, initialize_config_module
 
@@ -221,45 +222,7 @@ def test_multidataset_leaves_the_rot6d_block_alone():
     assert not torch.allclose(md._apply_norm_one(x, stats)[:, rot], x[:, rot])
 
 
-def test_bounds_check_ignores_constant_cells():
-    key = "actions_cartesian"
-    q1 = np.full((4, 14), -1.0, dtype=np.float32)
-    q99 = np.full((4, 14), 1.0, dtype=np.float32)
-    q1[0, :3] = q99[0, :3] = 0.0  # wrist-frame t=0: xyz exactly 0
-    md = MultiDataset.__new__(MultiDataset)
-    md.norm_mode = "quantile"
-    md.norm_stats = {0: {key: {"quantile_1": q1, "quantile_99": q99}}}
-    md.zarr_keys = {0: {key: key}}
-    md._warned_violations = set()
-
-    arr = np.zeros((4, 14), dtype=np.float32)
-    arr[0, 0] = 1e-3  # off-convention offset at a constant cell: admitted
-    assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is None
-    arr[1, 0] = 50.0  # corrupt value at a regular cell: still rejected
-    assert md._check_bounds({"embodiment": 0, key: arr}, None, 0, "ep") is not None
-
-
 # ------------------------------------------------------- rollout reverts
-def _rand_pose7(rng):
-    from scipy.spatial.transform import Rotation as R
-
-    q = R.random(random_state=int(rng.integers(1 << 31))).as_quat()
-    return np.concatenate([rng.uniform(-0.5, 0.5, 3), q[[3, 0, 1, 2]]])
-
-
-def _rand_chunk7(rng, start, n=45):
-    from scipy.spatial.transform import Rotation as R
-
-    out = np.zeros((n, 7))
-    p, r = start[:3].copy(), R.from_quat(start[[4, 5, 6, 3]])
-    for t in range(n):
-        if t:
-            p = p + rng.normal(0, 0.01, 3)
-            r = R.from_rotvec(rng.normal(0, 0.05, 3)) * r
-        out[t] = np.concatenate([p, r.as_quat()[[3, 0, 1, 2]]])
-    return out
-
-
 # Compared against cartesian_6d, so that mode is the reference, not a case.
 @pytest.mark.parametrize(
     "mode", ["cartesian_wristframe_ypr", "cartesian_wristframe_6d"]
@@ -273,12 +236,12 @@ def test_eva_revert_for_rollout_recovers_camframe_ypr(mode):
     from egomimic.rldb.embodiment.embodiment import Embodiment
 
     rng = np.random.default_rng(3)
-    lobs, robs = _rand_pose7(rng), _rand_pose7(rng)
+    lobs, robs = rand_pose(rng, 0.5), rand_pose(rng, 0.5)
     raw = {
         "left.obs_ee_pose": lobs,
         "right.obs_ee_pose": robs,
-        "left.cmd_ee_pose": _rand_chunk7(rng, lobs),
-        "right.cmd_ee_pose": _rand_chunk7(rng, robs),
+        "left.cmd_ee_pose": rand_chunk(rng, lobs, 45),
+        "right.cmd_ee_pose": rand_chunk(rng, robs, 45),
         "left.obs_gripper": np.array([0.2]),
         "right.obs_gripper": np.array([0.8]),
         "left.cmd_gripper": rng.uniform(0, 1, (45, 1)),

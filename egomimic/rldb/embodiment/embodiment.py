@@ -82,11 +82,6 @@ def canonical_embodiment_name(embodiment_name: str) -> str:
     return name
 
 
-def is_legacy_vendor_embodiment(embodiment_name: str) -> bool:
-    """True for vendor-tagged human names that only resolve through aliasing."""
-    return canonical_embodiment_name(embodiment_name) != embodiment_name.upper()
-
-
 def get_embodiment_id(embodiment_name):
     return EMBODIMENT[canonical_embodiment_name(embodiment_name)].value
 
