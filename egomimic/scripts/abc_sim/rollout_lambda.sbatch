@@ -7,6 +7,7 @@
 #     egomimic/scripts/abc_sim/rollout_lambda.sbatch
 #   TASK: any abc_sim name or alias (the sim_224 task_name); NUM_WORLDS=50;
 #   POLICY=hold for the no-motion floor (no server); CLIENT_EXTRA e.g. --save-video
+# Onto a running job: SLURM_JOB_ID=<job> bash egomimic/scripts/abc_sim/rollout_lambda.sbatch
 #SBATCH --job-name=abc_rollout
 #SBATCH --account=loaner
 #SBATCH --partition=loaner
@@ -25,10 +26,10 @@ TASK=${TASK:-sim_put_the_plastic_bottles_in_the_bin}
 : "${OUT:?set OUT}"
 POLICY=${POLICY:-served}
 [ "$POLICY" = hold ] || : "${CKPT:?set CKPT}"
-PORT=$(( 8700 + SLURM_JOB_ID % 200 ))
+PORT=${PORT:-$(( 8700 + SLURM_JOB_ID % 200 ))}  # set PORT per step when several share a job
 mkdir -p "$OUT"
 echo "=== abc_rollout job=$SLURM_JOB_ID node=$(hostname) task=$TASK ckpt=${CKPT:-none} policy=$POLICY out=$OUT"
-srun --ntasks=1 --container-image="$IMAGE" --container-mounts=/workspace:/workspace:rw --container-workdir="$SRC" \
+srun --exact --overlap --ntasks=1 --gres=gpu:h100:1 --cpus-per-task=${CPUS_PER_TASK:-16} --mem=120G --container-image="$IMAGE" --container-mounts=/workspace:/workspace:rw --container-workdir="$SRC" \
   bash -c "set -euo pipefail
     export HOME=/workspace/users/$USER HF_HOME=/workspace/users/$USER/.cache/huggingface HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
     export PYTHONPATH=$SRC PYTHONUNBUFFERED=1 OMP_NUM_THREADS=4
