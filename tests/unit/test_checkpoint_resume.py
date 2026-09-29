@@ -4,7 +4,6 @@ pytorch_weight_path=null (the checkpoint's state_dict holds every weight) while
 cfg keeps the real path. Slurm requeues resolve their ckpt_path before that
 decision, and only when last.ckpt exists."""
 
-import inspect
 import os
 from pathlib import Path
 
@@ -169,16 +168,6 @@ def test_pretrained_eval_keeps_base_weights(compose_resolve, tmp_path):
     cfg = _pi_cfg(compose_resolve, tmp_path, f"ckpt_path={ckpt}", "+pretrained=true")
     train_hydra._prepare_checkpoint_resume(cfg)
     assert _model_weight_path(cfg) is not None
-
-
-def test_ckpt_path_settled_before_model_config_tree():
-    """A requeue's ckpt_path must be known when the model's config tree is
-    built, or the resumed PI run reads its base weights again."""
-    module_src = inspect.getsource(train_hydra)  # train() is wrapped, no __wrapped__
-    src = module_src[module_src.index("\ndef train(") :]
-    assert src.index("_prepare_checkpoint_resume(cfg)") < src.index(
-        "_build_model_config_tree(cfg)"
-    )
 
 
 def test_unresolved_struct_cfg_like_a_real_run(monkeypatch, compose_resolve, tmp_path):

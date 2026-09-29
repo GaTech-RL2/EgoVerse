@@ -50,7 +50,7 @@ class DenoisingPolicy(nn.Module):
             f"[{self.__class__.__name__}] Total trainable parameters: {total_params / 1e6:.2f}M"
         )
 
-    def preprocess_sampling(self, global_cond, embodiment_name, generator=None):
+    def preprocess_sampling(self, global_cond, embodiment_name):
         if self.pooling == "mean":
             global_cond = global_cond.mean(dim=1)
         elif self.pooling == "flatten":
@@ -64,57 +64,28 @@ class DenoisingPolicy(nn.Module):
             ),
             dtype=global_cond.dtype,
             device=global_cond.device,
-            generator=generator,
         )
         return noise, global_cond
 
-    def inference(self, noise, global_cond, generator=None) -> torch.Tensor:
+    def inference(self, noise, global_cond) -> torch.Tensor:
         """
         To be implemented in subclass: predict actions from noise and conditioning.
         """
         raise NotImplementedError
 
-    def sample_action(self, global_cond, embodiment_name, generator=None):
-        noise, global_cond = self.preprocess_sampling(
-            global_cond, embodiment_name, generator
-        )
-        return self.inference(noise, global_cond, generator)
+    def sample_action(self, global_cond, embodiment_name):
+        noise, global_cond = self.preprocess_sampling(global_cond, embodiment_name)
+        return self.inference(noise, global_cond)
 
-    def forward(self, global_cond, generator=None):
-        """Sample actions from the conditioning.
-
-        ``generator`` is threaded down to ``sample_action`` so the eval path can
-        make sampling reproducible (see ``HPT.forward_eval``). It defaults to
-        ``None``, i.e. the global RNG, so training and every other caller are
-        unchanged.
-        """
+    def forward(self, global_cond):
         cond, embodiment = global_cond
-        return self.sample_action(cond, embodiment, generator=generator)
+        return self.sample_action(cond, embodiment)
 
     def predict(self, actions, global_cond) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         To be implemented in subclass: returns (prediction, target) given action input and conditioning.
         """
         raise NotImplementedError
-
-    def loss_fn(self, pred, target, pad_mask=None):
-        """
-        Computes loss, function to override for stuff like adaptive loss weighting
-
-        ``pad_mask`` (B, S, 1) or (B, S) marks the real action steps; padded
-        tail steps (0.0) drop out of the mean so the model is not supervised on
-        the dataset's repeat-last padding. ``None`` (or an all-ones mask) is
-        plain ``F.mse_loss``.
-        """
-        if pad_mask is None:
-            return F.mse_loss(pred, target)
-        mask = pad_mask.to(dtype=pred.dtype, device=pred.device)
-        if mask.dim() == pred.dim() - 1:
-            mask = mask.unsqueeze(-1)
-        mask = mask.expand_as(pred)
-        # At least one element: an all-padding chunk contributes 0, not NaN.
-        denom = mask.sum().clamp(min=1.0)
-        return (((pred - target) ** 2) * mask).sum() / denom
 
     def preprocess_compute_loss(self, global_cond, data):
         if self.pooling == "mean":
@@ -144,4 +115,4 @@ class DenoisingPolicy(nn.Module):
     def compute_loss(self, global_cond, data):
         actions, global_cond = self.preprocess_compute_loss(global_cond, data)
         pred, target = self.predict(actions, global_cond)
-        return self.loss_fn(pred, target, pad_mask=data.get("pad_mask"))
+        return F.mse_loss(pred, target)

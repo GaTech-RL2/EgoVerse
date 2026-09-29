@@ -1,4 +1,5 @@
 import copy
+import itertools
 import os
 import signal
 from typing import Any, Dict, List, Optional, Tuple
@@ -13,7 +14,7 @@ from lightning.fabric.utilities.cloud_io import _load as pl_load
 from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
-from omegaconf import DictConfig, ListConfig, OmegaConf, open_dict
+from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
 import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf resolvers
@@ -82,16 +83,6 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
         )
         OmegaConf.update(tree, _PI_WEIGHT_KEY, None)
     return tree
-
-
-def _model_trainer_defaults(cfg: DictConfig) -> dict:
-    """Trainer kwargs a model config supplies: the gradient clip it was
-    published with (pi0.5: openpi's 1.0), unless ``trainer.gradient_clip_val``
-    is set explicitly."""
-    clip = cfg.model.get("gradient_clip_val")
-    if clip is None or cfg.trainer.get("gradient_clip_val") is not None:
-        return {}
-    return {"gradient_clip_val": clip}
 
 
 def _requeue_resume_path(cfg: DictConfig) -> Optional[str]:
@@ -514,6 +505,108 @@ def _action_strides(datasets: dict) -> dict:
     return strides
 
 
+def compute_norm_stats(cfg: DictConfig, train_datasets: dict) -> MultiDataset:
+    """The stats-only ``MultiDataset`` for ``train_datasets`` under
+    ``cfg.norm_stats``: loaded from ``precomputed_norm_path`` or the
+    content-keyed cache when there is one, else computed (and cached) from a
+    norm-mode copy of each dataset. ``scripts/precompute_norm_stats.py`` calls
+    it too, so both key and write the cache the same way."""
+    # Stats-only MultiDataset (no graph of its own; explicitly populated from
+    # train_datasets). MultiDataset now owns NormStats's role too.
+    norm_stats = MultiDataset(
+        state={},
+        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
+    )
+    norm_stats.populate_from_datasets(train_datasets)
+
+    from egomimic.rldb.zarr import episode_norm_samples, norm_cache
+
+    sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
+    max_samples = OmegaConf.select(cfg, "norm_stats.max_samples", default=None)
+    pool_horizon = bool(OmegaConf.select(cfg, "norm_stats.pool_horizon", default=False))
+    explicit_path = OmegaConf.select(
+        cfg, "norm_stats.precomputed_norm_path", default=None
+    )
+    # Code default is False so configs without the key keep the old behaviour
+    # (always recompute); the shipped configs set norm_stats.use_cache=true.
+    use_cache = bool(OmegaConf.select(cfg, "norm_stats.use_cache", default=False))
+    cache_dir = OmegaConf.select(cfg, "norm_stats.cache_dir", default=None)
+
+    for dataset_name, dataset in train_datasets.items():
+        log.info(f"Inferring shapes for dataset <{dataset_name}>")
+        norm_stats.infer_shapes_from_batch(dataset[0])
+        instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
+        keymap_cfg = instantiate_copy.resolver.key_map
+        km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
+
+        # this remove annotation and image keys from the keymap
+        km["norm_mode"] = True
+        if "proprio_history" in km:
+            # Current-step proprio stats even on a history (K > 1) config:
+            # every history step is normalized with the CURRENT-step,
+            # per-channel (D,) stats, so a K > 1 run and the K = 1 baseline
+            # share exactly one set of stats.
+            km["proprio_history"] = 1
+
+        instantiate_copy.resolver.key_map = km
+        norm_dataset = _instantiate_dataset(instantiate_copy, dataset_name=dataset_name)
+
+        emb = get_embodiment_id(dataset_name)
+        key = inputs = cached = episode_cache = None
+        if explicit_path is None and use_cache and cache_dir:
+            episode_cache = episode_norm_samples.cache_root(
+                cache_dir, dataset_name, cfg.data.train_datasets[dataset_name]
+            )
+            episodes = {
+                h: norm_cache.episode_fingerprint(getattr(ds, "episode_path", None))
+                for h, ds in dataset.datasets.items()
+            }
+            inputs = norm_cache.cache_inputs(
+                dataset_name,
+                episodes,
+                cfg.data.train_datasets[dataset_name],
+                sample_frac,
+                pool_horizon,
+                max_samples,
+            )
+            key = norm_cache.norm_cache_key(inputs)
+            cached = norm_cache.find_cached(cache_dir, dataset_name, key, emb)
+            if cached is not None:
+                log.info(f"norm stats for <{dataset_name}>: cache hit {cached}")
+
+        # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
+        norm_stats.infer_norm_from_dataset(
+            norm_dataset,
+            dataset_name,
+            sample_frac=sample_frac,
+            max_samples=max_samples,
+            num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
+            precomputed_norm_path=explicit_path
+            if explicit_path is not None
+            else cached,
+            pool_horizon=pool_horizon,
+            episode_cache=episode_cache,
+        )
+        if key is not None and cached is None:
+            if norm_stats.norm_stats.get(emb):
+                norm_cache.write_cached(
+                    cache_dir,
+                    dataset_name,
+                    key,
+                    inputs,
+                    emb,
+                    norm_stats.norm_stats[emb],
+                    norm_stats._norm_run_metadata,
+                )
+        # Cache norm stats if save_cache_dir is set
+        save_cache_dir = OmegaConf.select(
+            cfg, "norm_stats.save_cache_dir", default=None
+        )
+        if save_cache_dir:
+            norm_stats.cache_stats(save_cache_dir=save_cache_dir)
+    return norm_stats
+
+
 @task_wrapper
 def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
@@ -613,123 +706,23 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.data, **datamodule_kwargs
         )
 
-        # Stats-only MultiDataset (no graph of its own; explicitly populated from
-        # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
-        norm_stats = MultiDataset(
-            state={},
-            norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
-        )
-        norm_stats.populate_from_datasets(datamodule.train_datasets)
-
-        from egomimic.rldb.zarr import episode_norm_samples, norm_cache
-
-        sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
-        max_samples = OmegaConf.select(cfg, "norm_stats.max_samples", default=None)
-        pool_horizon = bool(
-            OmegaConf.select(cfg, "norm_stats.pool_horizon", default=False)
-        )
-        explicit_path = OmegaConf.select(
-            cfg, "norm_stats.precomputed_norm_path", default=None
-        )
-        # Code default is False so configs without the key keep the old behaviour
-        # (always recompute); the shipped configs set norm_stats.use_cache=true.
-        use_cache = bool(OmegaConf.select(cfg, "norm_stats.use_cache", default=False))
-        cache_dir = OmegaConf.select(cfg, "norm_stats.cache_dir", default=None)
-
-        for dataset_name, dataset in datamodule.train_datasets.items():
-            log.info(f"Inferring shapes for dataset <{dataset_name}>")
-            norm_stats.infer_shapes_from_batch(dataset[0])
-            instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
-            keymap_cfg = instantiate_copy.resolver.key_map
-            km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
-
-            # this remove annotation and image keys from the keymap
-            km["norm_mode"] = True
-            if "proprio_history" in km:
-                # Current-step proprio stats even on a history (K > 1) config:
-                # every history step is normalized with the CURRENT-step,
-                # per-channel (D,) stats, so a K > 1 run and the K = 1 baseline
-                # share exactly one set of stats. Same rule as
-                # scripts/precompute_norm_stats.py.
-                km["proprio_history"] = 1
-
-            instantiate_copy.resolver.key_map = km
-            norm_dataset = _instantiate_dataset(
-                instantiate_copy, dataset_name=dataset_name
-            )
-
-            emb = get_embodiment_id(dataset_name)
-            key = inputs = cached = episode_cache = None
-            if explicit_path is None and use_cache and cache_dir:
-                episode_cache = episode_norm_samples.cache_root(
-                    cache_dir, dataset_name, cfg.data.train_datasets[dataset_name]
-                )
-                episodes = {
-                    h: norm_cache.episode_fingerprint(getattr(ds, "episode_path", None))
-                    for h, ds in dataset.datasets.items()
-                }
-                inputs = norm_cache.cache_inputs(
-                    dataset_name,
-                    episodes,
-                    cfg.data.train_datasets[dataset_name],
-                    sample_frac,
-                    pool_horizon,
-                    max_samples,
-                )
-                key = norm_cache.norm_cache_key(inputs)
-                cached = norm_cache.find_cached(cache_dir, dataset_name, key, emb)
-                if cached is not None:
-                    log.info(f"norm stats for <{dataset_name}>: cache hit {cached}")
-
-            # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
-            norm_stats.infer_norm_from_dataset(
-                norm_dataset,
-                dataset_name,
-                sample_frac=sample_frac,
-                max_samples=max_samples,
-                num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
-                precomputed_norm_path=explicit_path
-                if explicit_path is not None
-                else cached,
-                pool_horizon=pool_horizon,
-                episode_cache=episode_cache,
-            )
-            if key is not None and cached is None:
-                if norm_stats.norm_stats.get(emb):
-                    norm_cache.write_cached(
-                        cache_dir,
-                        dataset_name,
-                        key,
-                        inputs,
-                        emb,
-                        norm_stats.norm_stats[emb],
-                        norm_stats._norm_run_metadata,
-                    )
-            # Cache norm stats if save_cache_dir is set
-            save_cache_dir = OmegaConf.select(
-                cfg, "norm_stats.save_cache_dir", default=None
-            )
-            if save_cache_dir:
-                norm_stats.cache_stats(save_cache_dir=save_cache_dir)
+        norm_stats = compute_norm_stats(cfg, datamodule.train_datasets)
 
     # Wire each training/valid MultiDataset to the stats-only ``norm_stats``
     # by reference. Bounds-check + normalize run at the MultiDataset level in
     # ``__getitem__`` — not as per-leaf transforms — which avoids the shared
     # transform_list aliasing trap.
-    for ds in datamodule.train_datasets.values():
-        ds.set_norm_stats_from(norm_stats)
-    for ds in datamodule.valid_datasets.values():
-        ds.set_norm_stats_from(norm_stats)
-    for ds in getattr(datamodule, "train_viz_datasets", {}).values():
-        ds.set_norm_stats_from(norm_stats)
-    for ds in getattr(datamodule, "unseen_op_valid_datasets", {}).values():
-        ds.set_norm_stats_from(norm_stats)
     # The video subsets share leaves with their head's split but are separate
     # MultiDatasets, so they need their own wiring (EvenStrideDataset forwards
     # the call to the base it indexes into).
-    for head_datasets in getattr(datamodule, "video_datasets", {}).values():
-        for ds in head_datasets.values():
-            ds.set_norm_stats_from(norm_stats)
+    for ds in itertools.chain(
+        datamodule.train_datasets.values(),
+        datamodule.valid_datasets.values(),
+        getattr(datamodule, "train_viz_datasets", {}).values(),
+        getattr(datamodule, "unseen_op_valid_datasets", {}).values(),
+        *(d.values() for d in getattr(datamodule, "video_datasets", {}).values()),
+    ):
+        ds.set_norm_stats_from(norm_stats)
 
     _prepare_checkpoint_resume(cfg)
 
@@ -787,7 +780,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         callbacks=callbacks,
         logger=logger,
         plugins=plugins or None,
-        **_model_trainer_defaults(cfg),
     )
 
     object_dict = {
