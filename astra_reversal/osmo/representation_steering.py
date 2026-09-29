@@ -20,6 +20,12 @@ from astra_reversal.osmo.interpolation import (
 )
 from astra_reversal.osmo.ood_distributed import WorkerArchive
 from astra_reversal.osmo.rollout_checkpoint import checkpoint_progress
+from astra_reversal.osmo.task_selection import (
+    TASK_IDS_ENV,
+    select_assignment,
+    selected_entries,
+    selected_manifest,
+)
 from astra_reversal.reasoner_backend import initialize_worker_backend
 from astra_reversal.records import digest, file_sha256
 from astra_reversal.representation_search import RepresentationSearch, load_protocol
@@ -37,7 +43,9 @@ def main():
 
     phase = os.environ["ASTRA_REPRESENTATION_PHASE"]
     worker = int(os.environ["ASTRA_WORKER_INDEX"])
-    target = assignment(phase, worker)
+    target = select_assignment(
+        phase, assignment(phase, worker), os.environ.get(TASK_IDS_ENV)
+    )
     RESULTS.mkdir(parents=True, exist_ok=False)
     archive = WorkerArchive(worker)
     if torch.cuda.device_count() != 1 or "L40S" not in torch.cuda.get_device_name(0):
@@ -113,6 +121,10 @@ def main():
             if phase == "development"
             else manifest["episodes"][target["case_shard"] :: target["case_shards"]]
         )
+        if "task_ids" in target:
+            entries = selected_entries(entries, target["task_ids"])
+            manifest = selected_manifest(manifest, entries)
+            write_json(RESULTS / "reset_manifest.json", manifest)
         write_json(
             RESULTS / "frozen_plan.json",
             {
