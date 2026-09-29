@@ -29,7 +29,7 @@ from fixtures.train_harness import (
 )
 
 import egomimic.trainHydra as train_hydra
-from egomimic.algo.hpt import HPT
+from egomimic.algo.hpt import HPT, HPTModel
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
 
@@ -37,12 +37,12 @@ VENDOR_NAMES = ["eva", "aria", "mecka", "scale"]
 STEPS = 2
 
 
-def _run(cfg) -> float:
+def _run(cfg) -> dict:
     metrics, objects = train_hydra.train(cfg)
     loss = float(metrics["Train/action_loss"])
     assert math.isfinite(loss), f"non-finite loss {loss}"
     assert objects["trainer"].global_step == STEPS
-    return loss
+    return objects
 
 
 def _expected_keys(embodiment: str) -> set[str]:
@@ -96,7 +96,9 @@ def test_hpt_train_step(tmp_path, monkeypatch, vendor):
 def test_hpt_builds_the_policy_on_cpu_while_gpus_are_visible(tmp_path, monkeypatch):
     """Under submitit every rank sees all 8 GPUs, so an algo that picks its own
     construction device puts all 8 policies on cuda:0 and OOMs at 3B. Lightning
-    owns the move, so nothing may leave CPU in ``__init__``."""
+    owns the move, so nothing may leave CPU in ``__init__``. Also: HPT.__init__
+    finalizes the policy exactly once (a second pass re-inits and re-draws the
+    action tokens), and the model's enable_grad_norm reaches ModelWrapper."""
     hermetic_env(monkeypatch)
     recipe = RECIPES[("aria", "hpt")]
     data, out, hashes = write_fixtures(tmp_path, "aria")
@@ -111,10 +113,18 @@ def test_hpt_builds_the_policy_on_cpu_while_gpus_are_visible(tmp_path, monkeypat
             episode_hashes=hashes,
         )
         + cpu_trainer_overrides(STEPS)
-        + hpt_small_overrides(recipe.embodiment),
+        + hpt_small_overrides(recipe.embodiment)
+        + ["+model.enable_grad_norm=false"],
         out,
     )
 
+    finalized = []
+    finalize = HPTModel.finalize_modules
+    monkeypatch.setattr(
+        HPTModel,
+        "finalize_modules",
+        lambda self: finalized.append(self) or finalize(self),
+    )
     built = {}
     init = HPT.__init__
 
@@ -130,8 +140,10 @@ def test_hpt_builds_the_policy_on_cpu_while_gpus_are_visible(tmp_path, monkeypat
         built["policy_device"] = self.nets["policy"].device
 
     monkeypatch.setattr(HPT, "__init__", spy)
-    _run(cfg)
+    objects = _run(cfg)
 
+    assert len(finalized) == 1
+    assert objects["model"].enable_grad_norm is False
     assert built["param_devices"] == {"cpu"}
     assert built["algo_device"] is None
     assert built["policy_device"] is None

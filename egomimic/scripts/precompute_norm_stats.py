@@ -31,6 +31,7 @@ Usage (CPU node, repo root, emimic venv):
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 
 import hydra
@@ -84,6 +85,8 @@ def main() -> None:
         "paths.dataset_dir=/path/to/zarr/mirror)",
     )
     args = ap.parse_args()
+    # compute_norm_stats reports its per-dataset progress through logging.
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     cfg_dir = os.path.join(os.path.dirname(egomimic.__file__), "hydra_configs")
     GlobalHydra.instance().clear()
@@ -127,7 +130,7 @@ def main() -> None:
     out_dir = os.path.join(args.out, "norm_stats")
     print("\nDONE. Use this in training:")
     print(f"  norm_stats.precomputed_norm_path={out_dir}")
-    if not args.no_cache:
+    if not args.no_cache and cfg.norm_stats.get("cache_dir"):
         print(
             f"(or nothing: the content-keyed cache under {cfg.norm_stats.cache_dir} "
             "now holds these stats for the same episodes + recipe)"

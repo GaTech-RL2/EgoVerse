@@ -215,6 +215,11 @@ class PILatentEvalVideo(EvalVideo):
         self._row_hashes = []
         self._row_embodiments = []
         self._n_rows = 0
+        # A prefixed head (train_viz, opsplit) computes metrics only: a second
+        # set of embed_prefix/k_proj hooks would chain onto the canonical
+        # head's and break the restore order.
+        if self.prefix:
+            return
         self._register_hooks()
         if self.trainer.is_global_zero:
             os.makedirs(
@@ -305,6 +310,8 @@ class PILatentEvalVideo(EvalVideo):
 
     def on_validation_end(self):
         super().on_validation_end()
+        if self.prefix:
+            return
         self._remove_hooks()
 
         if not self.trainer.is_global_zero:

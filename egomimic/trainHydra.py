@@ -810,7 +810,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # _train_viz_datasets / _unseen_op_valid_datasets.)
         if datamodule.train_viz_datasets:
             heads["train_viz_evaluator"] = hydra.utils.instantiate(
-                cfg.get("train_viz_evaluator") or cfg.evaluator, prefix="train_viz"
+                cfg.evaluator, prefix="train_viz"
             )
         if datamodule.unseen_op_valid_datasets:
             heads["unseen_op_valid_evaluator"] = hydra.utils.instantiate(

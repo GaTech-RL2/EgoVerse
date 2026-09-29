@@ -141,6 +141,8 @@ def test_apply_image_augs_eval_mode_equals_batched_normalize(images):
     torch.testing.assert_close(
         algo._apply_image_augs(images, "front_img_1"), eval_augs(images), rtol=0, atol=0
     )
+    # a camera with no encoder passes through untouched
+    assert torch.equal(algo._apply_image_augs(images, "wrist_img_1"), images)
 
 
 def test_per_sample_augs_preserves_shape_dtype_device_and_grad():

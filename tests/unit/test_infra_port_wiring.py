@@ -118,7 +118,11 @@ def test_hpt_stems_follow_the_human_action(compose_resolve):
     (a base's ``state_ee_pose`` is nulled out, not inherited)."""
     from egomimic.algo.hpt import HPTModel
 
-    for model in ("hpt_bc_flow_mecka", "hpt_cotrain_flow_seperate_head"):
+    for model in (
+        "hpt_bc_flow_mecka",
+        "hpt_cotrain_flow_seperate_head",
+        "hpt_bc_keypoints_wrist_300M",
+    ):
         cfg = compose_resolve("train_zarr_cartesian", [f"model={model}"])
         stems = cfg.model.robomimic_model.stem_specs[HUMAN]
         live = {k for k, v in stems.items() if v is not None}
@@ -283,6 +287,36 @@ def test_validation_step_routes_by_dataloader_idx():
     w.train_viz_evaluator = None
     w.validation_step({"k": 4}, 0, dataloader_idx=1)  # no second head: ignored
     assert len(calls) == 3
+
+
+def test_prefixed_latent_head_leaves_pi_hooks_to_the_canonical_one(tmp_path):
+    """evaluator=eval_latent builds the train_viz head as a second
+    PILatentEvalVideo; driven in ModelWrapper's order (start valid, train_viz;
+    end valid, train_viz) embed_prefix must come back as the original."""
+    from egomimic.eval.eval_latent import PILatentEvalVideo
+
+    def embed_prefix(*_):
+        return "embs", "pad", "att"
+
+    layer = SimpleNamespace(self_attn=SimpleNamespace(k_proj=torch.nn.Linear(2, 2)))
+    layers = SimpleNamespace(layers=[layer])
+    pi = SimpleNamespace(
+        embed_prefix=embed_prefix,
+        paligemma_with_expert=SimpleNamespace(
+            paligemma=SimpleNamespace(language_model=layers),
+            gemma_expert=SimpleNamespace(model=layers),
+        ),
+    )
+    trainer = SimpleNamespace(
+        is_global_zero=True, current_epoch=0, max_epochs=1, default_root_dir=tmp_path
+    )
+    heads = [PILatentEvalVideo(), PILatentEvalVideo(prefix="train_viz")]
+    for h in heads:
+        h.trainer, h.model = trainer, SimpleNamespace(nets={"policy": pi})
+    for hook in ("on_validation_start", "on_validation_end"):
+        for h in heads:
+            getattr(h, hook)()
+    assert pi.embed_prefix is embed_prefix
 
 
 def test_unseen_op_valid_third_loader_and_routing():
