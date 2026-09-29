@@ -36,7 +36,7 @@ sys.path.insert(0, str(_SEW))
 VARIANTS = ["V0", "A1", "A2", "A3", "A4", "A5", "B2", "C3", "C4", "D1", "D3",
             "E4", "G1", "G2", "G3", "G4", "G6", "G7", "G8", "H3", "H4", "H5",
             "I2", "I3", "J1", "J2", "J3", "J3b", "J4", "J4b", "J5",
-            "S1", "S2", "S3", "S4"]
+            "S1", "S2", "S3", "S4", "W1", "W2", "W3", "GZ"]
 
 # 2026-09-25 handoff held-out VAL data: one npz per obs-variant (same episode
 # -> same GT), keys already in serving-obs names. Data variants use their own
@@ -47,6 +47,12 @@ def handoff_npz_for(variant: str) -> str:
         return f"{variant}.npz"
     if variant in ("S2", "S4"):
         return "D3.npz"
+    if variant in ("W1", "W2"):
+        return "W_2048.npz"          # 2048/2048
+    if variant == "W3":
+        return "W3_2048LR.npz"       # 2048 x3, has front_pcd_3 (left-eef ball)
+    if variant == "GZ":
+        return "GZ_gazecrop.npz"     # global = 2 m ball around the GT gaze point
     return "v2_default.npz"
 
 # offline val MAE@32 from the handoff catalog (V0 = 0.1405), for side-by-side
@@ -58,6 +64,7 @@ HANDOFF_OFFLINE_MAE = {
     "J2": .1423, "C3": .1425, "J3": .1434, "J3b": .1424, "E4": .1435, "J5": .1437,
     "A1": .1438, "A4": .1442, "H3": .1456, "C4": .1474, "A2": .1499, "B2": .1501,
     "J4": .1530, "J4b": .1393,
+    "W1": .1452, "W2": .1304,   # brightness aug: offline CANNOT show its value (val shares train lighting)
 }
 
 
@@ -77,6 +84,8 @@ def load_handoff_frames(variant: str, testdata_dir: Path, frames):
             "eef_pose_glass": np.asarray(z["eef_pose_glass"][r], np.float32).ravel(),
             "task_id": np.zeros(64, np.float32),
         }
+        if "front_pcd_3" in z.files:
+            obs["front_pcd_3"] = np.asarray(z["front_pcd_3"][r], np.float32)
         out.append((r, obs, np.asarray(z["gt_actions"][r:r + 64], np.float64)))
     return out, T
 
@@ -277,7 +286,11 @@ def main():
                       f"frames {[r for r, _, _ in samples]}")
             maes, ok_shape = [], True
             for r, obs_full, gt in samples:
-                obs = {k: obs_full[k] for k in ("front_pcd_1", "front_pcd_2")}
+                obs = {k: obs_full[k] for k in ("front_pcd_1", "front_pcd_2", "front_pcd_3")
+                       if k in obs_full and k in cam_keys}
+                missing = [k for k in dict.fromkeys(cam_keys) if k.startswith("front_pcd") and k not in obs]
+                if missing:
+                    print(f"  [warn] checkpoint wants {missing} but the test npz lacks them")
                 for k in pro_keys:            # spec §2: only what the ckpt asks for
                     obs[k] = obs_full.get(k, np.zeros(schematic_dim(pol, k) or 1, np.float32))
                 for rep in range(args.repeats):
