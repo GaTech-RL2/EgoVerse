@@ -61,3 +61,21 @@ def test_compile_keeps_state_dict_keys(monkeypatch):
     before = list(_Tiny().state_dict())
     algo = _wrapper_with({"enabled": True, "mode": None}, monkeypatch)
     assert list(algo.nets["policy"].state_dict()) == before
+
+
+def test_hpt_compile_targets_skip_heads_without_a_module():
+    """The trunk, each head's nn.Module ``.model`` and the encoders; a head
+    without one is skipped."""
+    from types import SimpleNamespace
+
+    from egomimic.algo.hpt import HPT
+
+    t, m, e = _Tiny(), _Tiny(), _Tiny()
+    policy = SimpleNamespace(
+        no_trunk=False,
+        trunk={"trunk": t},
+        heads={"a": SimpleNamespace(model=m), "b": SimpleNamespace()},
+        encoders=nn.ModuleDict({"e": e}),
+    )
+    targets = HPT.compile_targets(SimpleNamespace(nets={"policy": policy}))
+    assert targets == [t, m, e]

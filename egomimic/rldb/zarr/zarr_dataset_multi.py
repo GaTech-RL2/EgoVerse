@@ -2186,8 +2186,8 @@ class ZarrDataset(torch.utils.data.Dataset):
         ``_pad_to_horizon`` pads a short action chunk by repeating the last
         frame, which in a wrist-relative action space supervises "stop moving"
         at every episode (or annotation) tail. This mask says which steps are
-        real so ``loss_fn`` can drop the rest; ``None`` when the keymap has no
-        horizoned action key.
+        real; HPT currently drops it (the loss is plain MSE over every step).
+        ``None`` when the keymap has no horizoned action key.
         """
         horizon = self._action_horizon()
         if horizon is None:
