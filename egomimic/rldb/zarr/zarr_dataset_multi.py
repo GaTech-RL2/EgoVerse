@@ -21,14 +21,17 @@ Each episode is self-contained with its own metadata, enabling:
 from __future__ import annotations
 
 import copy
+import fcntl
 import json
 import logging
 import math
 import os
 import random
+import shutil
 import subprocess
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
@@ -312,6 +315,103 @@ def _warn_embodiment_mismatch(
         )
 
 
+STAGE_DIR_ENV = "EGOVERSE_STAGE_DIR"
+# Never read from /workspace NFS: those reads have hung ranks unkillably and drained nodes.
+DEFAULT_STAGE_DIR = f"/ephemeral/loaner-jobs/{os.getuid()}/egoverse-datasets"
+_STAGE_MIN_FREE_FRAC = 0.1
+
+
+class StagingError(RuntimeError):
+    pass
+
+
+def _episode_dir(root: Path, name: str) -> Path | None:
+    for cand in (root / name, root / f"{name}.zarr"):
+        if cand.is_dir():
+            return cand
+    return None
+
+
+def stage_episodes(
+    src_root: Path, stage_root: Path, names: set[str], workers: int = 16
+) -> set[str]:
+    """Copy episodes from ``src_root`` into node-local ``stage_root`` and return
+    the names now loadable from it (those present in ``src_root``). Ranks on a
+    node serialize on a lock file, so the first one copies and the rest find
+    fresh copies. Raises ``StagingError`` if any present episode can't be staged."""
+    from egomimic.rldb.zarr.norm_cache import episode_fingerprint
+
+    try:
+        stage_root.mkdir(parents=True, exist_ok=True)
+        lock = open(stage_root / ".lock", "w")
+    except OSError as e:
+        raise StagingError(
+            f"Stage dir {stage_root} is not writable ({e}); refusing to read "
+            f"episodes from {src_root}. Set ${STAGE_DIR_ENV} to a node-local dir."
+        ) from e
+
+    def check(name):
+        src = _episode_dir(src_root, name)
+        fp = None if src is None else episode_fingerprint(src)
+        if fp is None:
+            return None
+        dst = stage_root / src.name
+        return name, src, dst, dst.is_dir() and fp == episode_fingerprint(dst)
+
+    def check_all(names):
+        with ThreadPoolExecutor(workers) as ex:
+            return [c for c in ex.map(check, sorted(names)) if c is not None]
+
+    def copy(item):
+        name, src, dst, _ = item
+        usage = shutil.disk_usage(stage_root)
+        if usage.free < _STAGE_MIN_FREE_FRAC * usage.total:
+            return name, f"{stage_root} is below {_STAGE_MIN_FREE_FRAC:.0%} free"
+        tmp = stage_root / f".{src.name}.partial"
+        try:
+            shutil.rmtree(tmp, ignore_errors=True)
+            # copy2 keeps mtimes, so norm-stat cache keys match the source's.
+            shutil.copytree(src, tmp)
+            shutil.rmtree(dst, ignore_errors=True)
+            tmp.rename(dst)
+        except OSError as e:
+            shutil.rmtree(tmp, ignore_errors=True)
+            return name, str(e)
+        return name, None
+
+    with lock:
+        checked = check_all(names)
+        staged = {c[0] for c in checked if c[3]}
+        stale = [c[0] for c in checked if not c[3]]
+        if stale:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            # Another rank may have copied these while this one waited.
+            todo = [c for c in check_all(stale) if not c[3]]
+            staged |= set(stale) - {c[0] for c in todo}
+            if todo:
+                logger.info("Staging %d episodes into %s", len(todo), stage_root)
+            t0 = time.time()
+            with ThreadPoolExecutor(workers) as ex:
+                results = list(ex.map(copy, todo))
+            failed = [(n, err) for n, err in results if err is not None]
+            if failed:
+                raise StagingError(
+                    f"Failed to stage {len(failed)}/{len(todo)} episodes into "
+                    f"{stage_root}; refusing to read them from {src_root}. "
+                    f"First: {failed[0][0]}: {failed[0][1]}"
+                )
+            staged |= {n for n, _ in results}
+            if todo:
+                logger.info(
+                    "Staged %d episodes into %s in %.0fs",
+                    len(todo),
+                    stage_root,
+                    time.time() - t0,
+                )
+    logger.info("%d episodes load from %s", len(staged), stage_root)
+    return staged
+
+
 class EpisodeResolver:
     """
     Base class for episode resolution utilities.
@@ -407,10 +507,17 @@ class EpisodeResolver:
         )
 
     def load(self, paths: list[tuple[str, str]]) -> dict[str, "ZarrDataset"]:
+        """Datasets for ``paths``, first copied to a node-local stage directory
+        (``$EGOVERSE_STAGE_DIR`` or ``DEFAULT_STAGE_DIR``) and read from there."""
         valid = {h for _, h in paths}
-        return self._load_zarr_datasets(
-            search_path=self.folder_path, valid_folder_names=valid
+        stage_dir = os.environ.get(STAGE_DIR_ENV) or DEFAULT_STAGE_DIR
+        staged = stage_episodes(self.folder_path, Path(stage_dir), valid)
+        if not staged:
+            return {}
+        datasets = self._load_zarr_datasets(
+            search_path=Path(stage_dir), valid_folder_names=staged
         )
+        return dict(sorted(datasets.items()))
 
     @classmethod
     def _episode_already_present(cls, local_dir: Path, episode_hash: str) -> bool:

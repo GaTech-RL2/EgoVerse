@@ -48,3 +48,10 @@ def _reset_hydra_config_singleton():
     from hydra.core.hydra_config import HydraConfig
 
     HydraConfig.instance().cfg = None
+
+
+@pytest.fixture(autouse=True)
+def _stage_dir(tmp_path_factory, monkeypatch):
+    """Resolvers refuse to read episodes unstaged, and /ephemeral only exists on
+    compute nodes."""
+    monkeypatch.setenv("EGOVERSE_STAGE_DIR", str(tmp_path_factory.mktemp("stage")))
