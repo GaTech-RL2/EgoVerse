@@ -2,8 +2,8 @@
 # Find (and optionally kill) your own dataloader workers that outlived a cancelled
 # job and are still pinning GPU memory.
 #
-# The probe is `python -m egomimic.utils.gpu_orphans` (see there for why workers
-# leak); run this with the venv active, srun hands the step this shell's PATH.
+# The probe is `python3 -m egomimic.utils.gpu_orphans` (see there for why workers
+# leak); it needs only the node's system python3, no venv.
 #
 #   ./reap_gpu_orphans.sh gpu19            # report only
 #   ./reap_gpu_orphans.sh --kill gpu19     # reclaim
@@ -12,7 +12,7 @@
 # Only processes that are yours, orphaned (PPID 1) and holding an nvidia fd are
 # ever signalled, so this is safe to run against a node with live jobs on it.
 set -uo pipefail
-cd "$(dirname "$0")"  # srun keeps the cwd, so `python -m` finds egomimic
+cd "$(dirname "$0")"  # srun keeps the cwd, so `python3 -m` finds egomimic
 
 KILL=
 [[ ${1:-} == --kill ]] && { KILL=--kill; shift; }
@@ -22,7 +22,7 @@ if [[ $# -eq 0 ]]; then
 fi
 
 probe() {  # probe <srun args...>; returns srun's status, not grep's
-  "$@" python -m egomimic.utils.gpu_orphans $KILL 2>&1 | grep -v '^srun: job'
+  "$@" python3 -m egomimic.utils.gpu_orphans $KILL 2>&1 | grep -v '^srun: job'
   return "${PIPESTATUS[0]}"
 }
 
