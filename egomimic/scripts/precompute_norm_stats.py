@@ -80,24 +80,27 @@ def main() -> None:
     ap.add_argument(
         "overrides",
         nargs="*",
-        help="extra hydra overrides appended verbatim (e.g. "
+        help="extra hydra overrides; the flags above win over them (e.g. "
         "paths.dataset_dir=/path/to/zarr/mirror)",
     )
     args = ap.parse_args()
 
     cfg_dir = os.path.join(os.path.dirname(egomimic.__file__), "hydra_configs")
     GlobalHydra.instance().clear()
+    # The extra overrides go before the script's own flags, which stay
+    # authoritative: a trailing norm_stats.save_cache_dir=null would otherwise
+    # silently skip the explicit file this script promises.
     overrides = [
         f"data={args.data}",
         f"model={args.model}",
+        "seed=42",
+        *args.overrides,
         f"norm_stats.sample_frac={args.sample_frac}",
         f"norm_stats.max_samples={'null' if args.max_samples is None else args.max_samples}",
         f"norm_stats.num_workers={args.num_workers}",
         f"norm_stats.save_cache_dir={args.out}",
         "norm_stats.precomputed_norm_path=null",
         f"norm_stats.use_cache={str(not args.no_cache).lower()}",
-        "seed=42",
-        *args.overrides,
     ]
     with initialize_config_dir(version_base=None, config_dir=cfg_dir):
         cfg = compose(config_name=args.config_name, overrides=overrides)

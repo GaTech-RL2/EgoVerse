@@ -1,8 +1,9 @@
 # Composed recipe: ~300M HPT (+ Qwen text stem) BC on the 144-D wrist-frame
 # MANO keypoint action, mecka freeform fold-clothes, held-out-operator split.
-# Any cartesian 6D mecka data config takes the keypoint pipeline from the
-# `data:` block below, e.g. data=mecka_fold_freeform_opscale1_6d for a rung of
-# the operator ladder.
+# Any freeform / all-mecka cartesian 6D data config takes the keypoint pipeline
+# from the `data:` block below, e.g. data=mecka_fold_freeform_opscale1_6d for a
+# rung of the operator ladder. The flagship configs ship proprio_history 3: use
+# train_zarr_mecka_flagship_kp_hpt for them, which resets it.
 #
 #   python egomimic/trainHydra.py --config-name=train_zarr_mecka_kp_wrist_hpt \
 #     norm_stats.precomputed_norm_path=<out>/norm_stats

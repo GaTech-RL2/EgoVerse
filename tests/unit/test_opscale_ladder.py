@@ -10,6 +10,7 @@ The train split is an OPERATOR FILTER, not an episode pin, so these tests drive
 the real DatasetFilter with synthetic rows rather than counting hashes.
 """
 
+import hydra
 import pytest
 from test_data_configs_compose import compose_data
 
@@ -173,3 +174,25 @@ def test_video_pins_belong_to_their_own_split(ladder, k, variant):
     assert train.matches(
         {**BASE_ROW, "operator": OPERATORS[0], "episode_hash": vids.train_viz[0]}
     ), f"k={k}: the inherited train_viz video pin is not in this arm's split"
+
+
+@pytest.mark.parametrize("k", ARMS)
+@pytest.mark.parametrize("variant", VARIANTS)
+def test_rung_pipeline_and_whole_split(ladder, k, variant):
+    """`mode: total` everywhere: the filters ARE the split, so no seeded episode
+    split may run on top of them (mecka_all_6d's train split is mode: train).
+    The resolver is instantiated, not just read: a misspelled kwarg in the kp
+    recipe's `data:` block would otherwise only fail at training startup."""
+    data = ladder[(k, variant)]
+    for split in SPLITS:
+        assert data[split].human_bimanual.mode == "total", split
+    assert data.valid_prefix == "seen_op_valid"
+    res = data.train_datasets.human_bimanual.resolver
+    # without annotation_key every prompt is `default_prompt`
+    assert res.key_map.annotation_key == "annotations"
+    # HPTModel.stem_process raises unless K matches the stem's history_len (1)
+    assert res.key_map.get("proprio_history", 1) == 1
+    # processed_v3 mecka zarrs have the LEFT wrist frame double-mirrored.
+    assert res.transform_list.fix_left_wrist_convention is True
+    assert hydra.utils.instantiate(res.key_map)
+    assert hydra.utils.instantiate(res.transform_list)

@@ -1,5 +1,6 @@
 import logging
 
+import torch
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader, _MaxSizeCycle
 from torch.utils.data import DataLoader, default_collate
@@ -180,6 +181,10 @@ class MultiDataModuleWrapper(LightningDataModule):
                 dataset,
                 shuffle=shuffle,
                 collate_fn=self.collate_fn,
+                # Lightning builds the val iterators (worker/shuffle seeds)
+                # before on_validation_start snapshots the training RNG, so
+                # they draw from their own run-seeded generator, not the global.
+                generator=torch.Generator().manual_seed(torch.initial_seed()),
                 **dataset_params,
             )
         if gate is None:
