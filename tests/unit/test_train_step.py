@@ -98,7 +98,9 @@ def test_hpt_builds_the_policy_on_cpu_while_gpus_are_visible(tmp_path, monkeypat
     construction device puts all 8 policies on cuda:0 and OOMs at 3B. Lightning
     owns the move, so nothing may leave CPU in ``__init__``. Also: HPT.__init__
     finalizes the policy exactly once (a second pass re-inits and re-draws the
-    action tokens), and the model's enable_grad_norm reaches ModelWrapper."""
+    action tokens), the model's enable_grad_norm reaches ModelWrapper, and a
+    requeue's ckpt_path is settled before the model config tree is built (else
+    a resumed PI run reloads its base weights)."""
     hermetic_env(monkeypatch)
     recipe = RECIPES[("aria", "hpt")]
     data, out, hashes = write_fixtures(tmp_path, "aria")
@@ -140,8 +142,15 @@ def test_hpt_builds_the_policy_on_cpu_while_gpus_are_visible(tmp_path, monkeypat
         built["policy_device"] = self.nets["policy"].device
 
     monkeypatch.setattr(HPT, "__init__", spy)
+    order = []
+    for name in ("_prepare_checkpoint_resume", "_build_model_config_tree"):
+        real = getattr(train_hydra, name)
+        monkeypatch.setattr(
+            train_hydra, name, lambda c, _r=real, _n=name: order.append(_n) or _r(c)
+        )
     objects = _run(cfg)
 
+    assert order == ["_prepare_checkpoint_resume", "_build_model_config_tree"]
     assert len(finalized) == 1
     assert objects["model"].enable_grad_norm is False
     assert built["param_devices"] == {"cpu"}

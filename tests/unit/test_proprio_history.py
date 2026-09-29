@@ -671,11 +671,6 @@ def _eval_once(proprio):
 
     emb_id = get_embodiment_id("human_bimanual")
     emb_name = "human_bimanual"
-    # Action horizon 1: the evaluator's paired/final MSE does
-    # ``pred[:, -1].cpu()``, which is a real (contiguous) copy for the CUDA
-    # tensors a run produces but a non-contiguous view for the CPU tensors a
-    # test hands it, and torchmetrics' ``view(-1)`` rejects that. S = 1 keeps
-    # the slice contiguous; the proprio path under test is unaffected.
     g = torch.Generator().manual_seed(11)
     actions = torch.randn(2, 1, 18, generator=g)
     preds = {
