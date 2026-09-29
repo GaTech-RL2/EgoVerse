@@ -1,0 +1,34 @@
+{
+  "head/manifest.json": {
+    "bytes": 51980,
+    "sha256": "e913b6961d22ee31fd8043920fe5c3a89c021753d16546bb79092903e91f4251"
+  },
+  "head/state.pt": {
+    "bytes": 138033,
+    "sha256": "2efe7ee9982f3dfd7eb4e70285fcdd9e095e267e4a1f833dd4c5a42e489ded89"
+  },
+  "protocol.json": {
+    "bytes": 3458,
+    "sha256": "d71f866e36739854746b8b1d18d0906e3a981f867da897aa958f4a229baa9bb2"
+  },
+  "schedules.json": {
+    "bytes": 34999,
+    "sha256": "3e8c0c888dfdc9f5c53ffe821e9fb8a7154e3af7153b1144ea3970b76b88cc87"
+  },
+  "selector/metadata.json": {
+    "bytes": 6221,
+    "sha256": "cddca63b017b06d292524be56fe15e7636a111d30f09b884d7fcae9cd0cf67da"
+  },
+  "selector/normalization.npz": {
+    "bytes": 33336,
+    "sha256": "209212077f9f12a26010ac27b1202df932f7eafa6af7328cf3a77b85823a3c99"
+  },
+  "selector/weights.pt": {
+    "bytes": 2144645,
+    "sha256": "6569bde792e3e5987e08eaef66afbcfd1e92a4ff300545e9773c798881a663d2"
+  },
+  "training_receipt.json": {
+    "bytes": 114973,
+    "sha256": "1ca136465b811edaa169905cc52b4d9b7cd4b63b2b89bbee5f7fa7cc423bd672"
+  }
+}

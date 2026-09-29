@@ -4,6 +4,9 @@ set +x
 debug_failure() {
     local astra_exit=$?
     trap - ERR
+    if [[ "${ASTRA_RETAIN_FAILED_WORKER:-1}" == "0" ]]; then
+        exit "$astra_exit"
+    fi
     echo "Development worker failed with code $astra_exit; retaining it for up to 15 minutes for diagnosis."
     for astra_attempt in $(seq 1 180); do
         if [[ -f /tmp/astra-recovery-exit.status ]]; then

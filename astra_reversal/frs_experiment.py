@@ -16,22 +16,43 @@ from .astra_client import ClientError
 from .flow import error_metrics, noise_statistics
 from .intervention_rollout import run_rollout
 from .intervention_search import write_json
+from .provider_stop import ProviderUnavailable, require_provider_available
+from .reasoner_backend import make_client, validate_backend
 from .records import Recorder, digest, to_numpy
 
 
 def load_protocol(path=None):
     path = path or Path(__file__).parent / "configs/frs_policy_improvement_v1.json"
     value = json.loads(Path(path).read_text())
+    codex = value["schema_version"] == "frs-codex-frozen-evaluation-1.0"
+    focused = value["schema_version"] == "frs-frozen-evaluation-1.0" or codex
     if (
-        value["schema_version"] != "frs-policy-improvement-1.0"
+        value["schema_version"]
+        not in (
+            "frs-policy-improvement-1.0",
+            "frs-frozen-evaluation-1.0",
+            "frs-codex-frozen-evaluation-1.0",
+        )
         or value["execute_steps"] != 10
-        or value["rounds"] != 3
+        or value["rounds"] != (0 if focused else 3)
         or value["action_budget"] != 300
         or value["evaluation_states"] != list(range(1, 11))
         or value["astra"]["call_interval"] != 10
         or value["solver"] != {"solver": "euler", "steps": 10, "time_power": 1.0}
     ):
         raise ValueError("Unexpected FRS protocol; version changes explicitly")
+    if focused and (
+        not value.get("evaluation_only")
+        or value["evaluation_methods"]
+        != ["native_euler10", "native_repeated_noise", "astra_frs"]
+        or value["adaptation_methods"]
+        or value["learning"].get("enabled") is not False
+        or not value["astra"].get("stop_on_provider_unavailable")
+    ):
+        raise ValueError("Frozen FRS evaluation must retain its controls and stop rule")
+    if not focused and value.get("evaluation_only"):
+        raise ValueError("Evaluation-only runs require their own protocol version")
+    validate_backend(value["astra"], codex=codex)
     return value
 
 
@@ -96,8 +117,6 @@ class FRSTaskExperiment:
         development=False,
         progress=None,
     ):
-        from .frs_agent import FRSClient
-
         self.policy, self.create_env, self.benchmark = policy, create_env, benchmark
         self.entries = {row["initial_state_id"]: row for row in entries}
         self.protocol, self.development = protocol, development
@@ -111,13 +130,7 @@ class FRSTaskExperiment:
         self.physical_runs = []
         self.results_by_id = {}
         settings = protocol["astra"]
-        self.client = FRSClient(
-            model=settings["model"],
-            response_log=self.directory / "provider.jsonl",
-            reasoning_effort=settings["reasoning_effort"],
-            max_completion_tokens=settings["max_completion_tokens"],
-            timeout=settings["timeout_seconds"],
-        )
+        self.client = make_client("frs", settings, self.directory / "provider.jsonl")
         task = self.entries[0]
         if len({row["task_id"] for row in entries}) != 1:
             raise ValueError("Each adaptation experiment must have one task")
@@ -174,6 +187,15 @@ class FRSTaskExperiment:
             error=error,
             provider_record_index=before,
         )
+        if self.protocol["astra"].get("stop_on_provider_unavailable"):
+            try:
+                require_provider_available(self.client.records[-1])
+            except ProviderUnavailable as exc:
+                self.report.update(
+                    status="provider_unavailable", provider_stop=exc.receipt
+                )
+                self.save()
+                raise
         if self.request_index % 5 == 0:
             self.save()
         return response
@@ -517,6 +539,10 @@ class FRSTaskExperiment:
                     "success": result["success"],
                 }
             )
+            if self.protocol["astra"].get("backend") == "codex_relay":
+                # Checkpoint callbacks need the just-closed rollout's evaluation
+                # row before another physical rollout can start.
+                self.save()
         self.save()
 
     def adapt(self, method, baseline, *, actor=None):
@@ -595,7 +621,12 @@ class FRSTaskExperiment:
         return best_rules
 
     def run(self):
-        from .frs_agent import summarize_calls
+        if self.protocol.get("evaluation_only"):
+            self.report["schema_version"] = "frs-frozen-evaluation-task-1.0"
+            for method in self.protocol["evaluation_methods"]:
+                self.evaluate(method, round_index=0)
+            return self.finish()
+
         from .frs_noise_policy import AuxiliaryNoisePolicy
 
         # Independent initializations/arms never consume each other's feedback.
@@ -616,6 +647,11 @@ class FRSTaskExperiment:
                 self.evaluate(
                     method, rules=rules if method == "critique_frs_no_learning" else ()
                 )
+        return self.finish()
+
+    def finish(self):
+        from .frs_agent import summarize_calls
+
         self.report["provider_usage"] = summarize_calls(self.client.records)
         updates = [
             row["update"]

@@ -1,0 +1,256 @@
+{
+  "schema_version": "codex-pilot-results-1.0",
+  "scope": "One prespecified development task/reset; not the full evaluation cohort.",
+  "workflow": "astra-pi05-codex-frs-pilot-20260928-1",
+  "source": {
+    "source_revision": "f929f7893a03e413325c6271b656066923f64e8e",
+    "payload_sha256": "368e9bfd395e796a6266c77ea5a814f354e72d897e66a2925feeb431c6cb484e",
+    "payload_bytes": 49118447
+  },
+  "model": "gpt-6-astra",
+  "served_model": null,
+  "effort": "medium",
+  "backend": "local Codex CLI via authenticated OSMO relay",
+  "suite": "libero_goal_ood",
+  "task_id": 6,
+  "instruction": "put the wine bottle in the bowl",
+  "seed": 19,
+  "reset": 1,
+  "rollouts": [
+    {
+      "method": "native_euler10",
+      "label": "Native \u03c00.5",
+      "success": false,
+      "actions": 300,
+      "wall_seconds": 24.573195148725063,
+      "policy_seconds_including_reasoner": 13.390431323554367,
+      "environment_seconds": 4.314135606400669,
+      "codex_jobs": 0,
+      "total_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "reasoner_wait_seconds": 0,
+      "interventions": 0,
+      "native_deferrals": 0,
+      "video": "videos/native_euler10_state1_round0.mp4",
+      "video_sha256": "6db0140401906905b6c97ffb852672164e88296363e02e81c3d8b48b51f90447"
+    },
+    {
+      "method": "native_repeated_noise",
+      "label": "Native, repeated noise",
+      "success": false,
+      "actions": 300,
+      "wall_seconds": 17.257259324658662,
+      "policy_seconds_including_reasoner": 10.946301051415503,
+      "environment_seconds": 4.376051644328982,
+      "codex_jobs": 0,
+      "total_tokens": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "reasoner_wait_seconds": 0,
+      "interventions": 0,
+      "native_deferrals": 0,
+      "video": "videos/native_repeated_noise_state1_round0.mp4",
+      "video_sha256": "469a61b8f01d852d5a9cd4f66aa7f787088ba79bfbd986e971c1218616585376"
+    },
+    {
+      "method": "astra_frs",
+      "label": "Codex Astra + FRS",
+      "success": true,
+      "actions": 83,
+      "wall_seconds": 121.85848027374595,
+      "policy_seconds_including_reasoner": 118.86766932765022,
+      "environment_seconds": 1.2900531250052154,
+      "codex_jobs": 9,
+      "total_tokens": 148591,
+      "input_tokens": 146960,
+      "output_tokens": 1631,
+      "reasoner_wait_seconds": 112.92187732970342,
+      "interventions": 3,
+      "native_deferrals": 6,
+      "video": "videos/astra_frs_state1_round0.mp4",
+      "video_sha256": "5d29152366b2c6aff04c23892d12370ca49105063bc16a9bc026c37b2b31eae1"
+    }
+  ],
+  "decisions": [
+    {
+      "step": 0,
+      "native_deferral": false,
+      "coords": [
+        0,
+        1,
+        0
+      ],
+      "motion_amount": "less",
+      "visible_justification": "The wine bottle is slightly right of the gripper\u2019s tabletop projection; shift right before descending.",
+      "image": "decisions/step_0.png",
+      "image_sha256": "d936c0ad35603591b2c0cf8e7b1a928f5e250056abbbd1a2bfb0716aef62260a",
+      "guide_image": "decisions/step_0_guide.png",
+      "guide_image_sha256": "c34bfcceedabe0cf7ca9ae54ebfbb5ada4d570ec3fcb41c887f5dc69d1ea989e",
+      "total_tokens": 16465,
+      "relay_seconds": 13.235791350714862
+    },
+    {
+      "step": 10,
+      "native_deferral": false,
+      "coords": [
+        -1,
+        1,
+        0
+      ],
+      "motion_amount": "less",
+      "visible_justification": "The bottle is slightly right and farther back than the gripper\u2019s tabletop projection; align above it before descending.",
+      "image": "decisions/step_10.png",
+      "image_sha256": "e00edac196a1e593fb524af8537862e6846350730a2b070cb45e22ae97480b0b",
+      "guide_image": "decisions/step_10_guide.png",
+      "guide_image_sha256": "4d80a99a50d5915836a6f99baf490314f8ced085bd3066426ab3ae12684cb506",
+      "total_tokens": 16439,
+      "relay_seconds": 17.157796441111714
+    },
+    {
+      "step": 20,
+      "native_deferral": true,
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "motion_amount": "less",
+      "visible_justification": "The gripper is aligned above the upright wine bottle; defer the grasp approach to the native policy.",
+      "image": "decisions/step_20.png",
+      "image_sha256": "4dfdadb3cc8f7faf34cb7b7650613d1f9947b4eae77a8a257a5e3f03348c89ce",
+      "guide_image": "decisions/step_20_guide.png",
+      "guide_image_sha256": "17aecff9444f0bf178aee85dacca0b842fdc972b67880374b7d16bc10719e1c9",
+      "total_tokens": 16481,
+      "relay_seconds": 14.842265938874334
+    },
+    {
+      "step": 30,
+      "native_deferral": true,
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "motion_amount": "less",
+      "visible_justification": "The gripper is directly above the bottle neck beside the bowl; precise grasp alignment should use the native policy.",
+      "image": "decisions/step_30.png",
+      "image_sha256": "7b4bb1cc3da04383e695a5bce3369135c541934b3b3db444dd41bc0253468992",
+      "guide_image": "decisions/step_30_guide.png",
+      "guide_image_sha256": "be3271fb56fc912aa8c458c46f039114af73efb41d07666a292ea5d73a02355c",
+      "total_tokens": 16416,
+      "relay_seconds": 11.623312178999186
+    },
+    {
+      "step": 40,
+      "native_deferral": true,
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "motion_amount": "less",
+      "visible_justification": "The gripper is directly above the bottle neck, with contact partly occluded; defer precise grasping to the native policy.",
+      "image": "decisions/step_40.png",
+      "image_sha256": "afe4595852b8edd8c54235cf23d51b4bc081507e64c31e5c85595e479af14dfe",
+      "guide_image": "decisions/step_40_guide.png",
+      "guide_image_sha256": "54ce1599a4582a9a31f98275880e4fa7396b80086aca958c9cb7e29c87e165ab",
+      "total_tokens": 16384,
+      "relay_seconds": 11.420380803756416
+    },
+    {
+      "step": 50,
+      "native_deferral": true,
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "motion_amount": "less",
+      "visible_justification": "The gripper is directly above the bottle neck; grasping requires fine control, and contact is partly occluded.",
+      "image": "decisions/step_50.png",
+      "image_sha256": "c23125977edd8ca24f43b07753f04ab74a264e67459c3e2a9cf2d584fe26a23d",
+      "guide_image": "decisions/step_50_guide.png",
+      "guide_image_sha256": "d70ce36b8bc22abdd117dfc412d157412e711e6a6ffe7022c459b368ef4b4197",
+      "total_tokens": 16415,
+      "relay_seconds": 10.5849424819462
+    },
+    {
+      "step": 60,
+      "native_deferral": false,
+      "coords": [
+        0,
+        -1,
+        0
+      ],
+      "motion_amount": "less",
+      "visible_justification": "The bottle beneath the gripper is slightly right of the bowl; a small leftward move improves alignment before lowering.",
+      "image": "decisions/step_60.png",
+      "image_sha256": "5f20a4383783b94fb41b7e95faa36a67b32bdf1efe5e198b05c3ea8f18c9cf0f",
+      "guide_image": "decisions/step_60_guide.png",
+      "guide_image_sha256": "2f5667d3e68579cf8c933f8b1f56a05ec88c266a068cc0e7fb752a30f1e65fdb",
+      "total_tokens": 16472,
+      "relay_seconds": 12.149249248206615
+    },
+    {
+      "step": 70,
+      "native_deferral": true,
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "motion_amount": "less",
+      "visible_justification": "The bottle is aligned directly above the small gray bowl; defer to the native policy for careful lowering and placement.",
+      "image": "decisions/step_70.png",
+      "image_sha256": "00434b202c29799a1f3f0ccb71a5461b96b63e95bfff55f66757d245db26fa18",
+      "guide_image": "decisions/step_70_guide.png",
+      "guide_image_sha256": "f3b4b4199cf8de905435e19d0645b7d0f0a7fbc8ab6136962dd83a829274f1d8",
+      "total_tokens": 16415,
+      "relay_seconds": 11.271159971132874
+    },
+    {
+      "step": 80,
+      "native_deferral": true,
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "motion_amount": "less",
+      "visible_justification": "The gripper is aligned closely over the bottle neck; defer precise grasping to the native policy.",
+      "image": "decisions/step_80.png",
+      "image_sha256": "9f096f2c81415e75bf1af09c6a1807188e0a4f94aaea7461e484c6998194d8ec",
+      "guide_image": "decisions/step_80_guide.png",
+      "guide_image_sha256": "701fcd84e1060486a3894bf35ab36b3c771780728e081498b2c772cbe715f0be",
+      "total_tokens": 17104,
+      "relay_seconds": 10.636978914961219
+    }
+  ],
+  "audits": {
+    "flow_and_codex": {
+      "status": "passed",
+      "sha256": "9d68bfb43233811a81952953607d0f2b85d7cd4476888944054df749a7ffade4"
+    },
+    "sealed_archive": {
+      "archive_bytes": 12355380,
+      "archive_manifest_sha256": "05b16dbbf659ec15b757423a6d00abab7c243bd60e9b40477bc7a63b89ee7358",
+      "archive_sha256": "12b2231c9504fda03b755f8b7435389f5a640ea8fdaf05bc7ef9af7da41237e4",
+      "completion_seal_sha256": "47135ff39e03873c3ced55232b4ac185db01ae7b913338ed8eb9e4564d0d4f70",
+      "completion_seal_task_and_worker_metadata_hashes_match": true,
+      "every_archived_file_matches_extracted": true,
+      "regular_files": 773,
+      "schema_version": "codex-frs-pilot-archive-audit-1.0",
+      "status": "passed",
+      "uncompressed_regular_bytes": 27428942
+    }
+  },
+  "limitations": [
+    "Simulator success is env.check_success(), not Astra's judgment.",
+    "One rollout per method on one matched development reset; no population success rate or improvement estimate.",
+    "Fresh Codex job per decision. No policy update or cross-rollout critique in this FRS arm.",
+    "Token counts include the Codex harness. Jobs are not raw HTTP request counts; no subscription dollar estimate.",
+    "Videos run at 20 fps and omit model waits and the terminal post-action image.",
+    "Audits verify saved artifacts, transforms and receipts; they do not rerun model inference or physics."
+  ]
+}

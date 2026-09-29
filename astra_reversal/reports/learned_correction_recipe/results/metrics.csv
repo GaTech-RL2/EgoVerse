@@ -1,0 +1,11 @@
+cohort,arm,successes,cases,success_rate,gain_vs_native,harm_vs_native,censored_failures,early_terminal_failures,median_actions_success_only,actions,velocity_evaluations,provider_tokens
+ood,native,15,40,0.375,,,25,0,95,9200,18590,0
+ood,recorded_schedule,27,40,0.675,12,0,13,0,99,6796,13690,0
+ood,learned_selector,19,40,0.475,5,1,21,0,99,8219,16530,0
+ood,flow_head,14,40,0.35,2,3,26,0,101.0,9377,18810,0
+ood,gated_flow_head,16,40,0.4,2,1,24,0,97.0,8853,17780,0
+id_panel,native,8,8,1.0,,,0,0,248.0,1969,4020,0
+id_panel,recorded_schedule,8,8,1.0,0,0,0,0,248.0,1969,3990,0
+id_panel,learned_selector,8,8,1.0,0,0,0,0,245.0,1963,3970,0
+id_panel,flow_head,8,8,1.0,0,0,0,0,250.0,2116,4250,0
+id_panel,gated_flow_head,8,8,1.0,0,0,0,0,248.0,1969,3990,0

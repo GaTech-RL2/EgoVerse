@@ -1007,6 +1007,10 @@ def summarize_calls(records_or_path):
         for row in records
     ):
         raise ClientError("Token ledger contains an incompatible FRS record")
+    if any(row.get("backend") == "codex_relay" for row in records):
+        from .codex_accounting import summarize_codex_calls
+
+        return summarize_codex_calls(records)
     return _summarize_calls(
         [{**row, "client_schema_version": _LEDGER_VERSION} for row in records]
     )

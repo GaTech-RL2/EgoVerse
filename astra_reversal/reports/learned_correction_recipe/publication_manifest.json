@@ -1,0 +1,335 @@
+{
+  "checkpoint_seal_sha256": "8de15f7ca42d020879ba476b298f81c51d969c3517d0eb4cf74e570a5a391362",
+  "dashboard_validation": {
+    "browser_checks_passed": 17,
+    "browser_exceptions": 0,
+    "local_html_links_checked": 47,
+    "scope": "Local-file desktop/mobile rendering, six cohort filters, five method selectors, case timelines, 14-clip gallery coverage, SVG overview and separate task catalog.",
+    "screenshots_reviewed": 8
+  },
+  "files": {
+    "DESIGN_REVIEW.md": {
+      "bytes": 14866,
+      "sha256": "1108f893178fa5467243e9efa9220c27a1b6f537d84237e3e40ed29c023935ce"
+    },
+    "README.md": {
+      "bytes": 16882,
+      "sha256": "b7651644649abd93bfdcea235dac52e5382823fc909e945bfd641d87a663e390"
+    },
+    "checkpoint/head/manifest.json": {
+      "bytes": 51980,
+      "sha256": "e913b6961d22ee31fd8043920fe5c3a89c021753d16546bb79092903e91f4251"
+    },
+    "checkpoint/head/state.pt": {
+      "bytes": 138033,
+      "sha256": "2efe7ee9982f3dfd7eb4e70285fcdd9e095e267e4a1f833dd4c5a42e489ded89"
+    },
+    "checkpoint/protocol.json": {
+      "bytes": 3458,
+      "sha256": "d71f866e36739854746b8b1d18d0906e3a981f867da897aa958f4a229baa9bb2"
+    },
+    "checkpoint/schedules.json": {
+      "bytes": 34999,
+      "sha256": "3e8c0c888dfdc9f5c53ffe821e9fb8a7154e3af7153b1144ea3970b76b88cc87"
+    },
+    "checkpoint/seal.json": {
+      "bytes": 1063,
+      "sha256": "8de15f7ca42d020879ba476b298f81c51d969c3517d0eb4cf74e570a5a391362"
+    },
+    "checkpoint/selector/metadata.json": {
+      "bytes": 6221,
+      "sha256": "cddca63b017b06d292524be56fe15e7636a111d30f09b884d7fcae9cd0cf67da"
+    },
+    "checkpoint/selector/normalization.npz": {
+      "bytes": 33336,
+      "sha256": "209212077f9f12a26010ac27b1202df932f7eafa6af7328cf3a77b85823a3c99"
+    },
+    "checkpoint/selector/weights.pt": {
+      "bytes": 2144645,
+      "sha256": "6569bde792e3e5987e08eaef66afbcfd1e92a4ff300545e9773c798881a663d2"
+    },
+    "checkpoint/training_receipt.json": {
+      "bytes": 114973,
+      "sha256": "1ca136465b811edaa169905cc52b4d9b7cd4b63b2b89bbee5f7fa7cc423bd672"
+    },
+    "dashboard/data.json": {
+      "bytes": 627088,
+      "sha256": "4458573f564de77978ade7a20bd60cea6394af23b1a5d64809b1396ae9b93baa"
+    },
+    "dashboard/flows.zip": {
+      "bytes": 8366,
+      "sha256": "1ac6d7c2d297d701cc58af219a6304d938e56f3aff5429da7d77cfdf379f1c1c"
+    },
+    "dashboard/flows/all-methods.svg": {
+      "bytes": 9983,
+      "sha256": "b62db37fa07ab9a3d3000da40718f57afca762823e6261f58ce5e43fbfe41965"
+    },
+    "dashboard/flows/flow_head.svg": {
+      "bytes": 4212,
+      "sha256": "802771c6a8bda1bcde42230a1d8d1ffad8e5a3f1a7a578dd9e90cd9e01750eb9"
+    },
+    "dashboard/flows/gated_flow_head.svg": {
+      "bytes": 4996,
+      "sha256": "62308c3ae44bdafb61f22768d047853b33ac29a84655353f57cd72c671cb2c85"
+    },
+    "dashboard/flows/learned_selector.svg": {
+      "bytes": 4360,
+      "sha256": "4a2ca7f2af9d53471792ccc050e582d2d3ed3c78bdf598e85f9823af0a7dfa7a"
+    },
+    "dashboard/flows/native.svg": {
+      "bytes": 2739,
+      "sha256": "4ecc7644455b2a9cf606c1b2b4e5c7ca3b22ba4e79f3ed31e8c89536df66bf8c"
+    },
+    "dashboard/flows/recorded_schedule.svg": {
+      "bytes": 4412,
+      "sha256": "e7f1c82ce0a51fffc9527aff633ecfa197530235934ad68ab6d739cd4df8873a"
+    },
+    "dashboard/index.html": {
+      "bytes": 454162,
+      "sha256": "e382b88889883d9156f6e2b640a18e7b878c4f9a85a24386fd00b00e4404b7d0"
+    },
+    "dashboard/manifest.json": {
+      "bytes": 2243,
+      "sha256": "9a3da4c92d7dd39dbe1f37bfed2d7fbf3b25092535eb926e1be9a1ed6509f4df"
+    },
+    "dashboard/source/build_dashboard.py": {
+      "bytes": 21870,
+      "sha256": "0eb8071d4de98dcbe785559e68d36dad50b17a322d9b813dc53185d5528328f2"
+    },
+    "dashboard/source/dashboard.css": {
+      "bytes": 15340,
+      "sha256": "4cdb384f1151e2d6c647903a694392b47ce3cf2d27ab4ab53b634a8c2eb57a63"
+    },
+    "dashboard/source/dashboard.js": {
+      "bytes": 11998,
+      "sha256": "e3b1832b464848942f1d286b7e3658a00f9f271c5463e7524ee6809a22ef5481"
+    },
+    "dashboard/source/template.html": {
+      "bytes": 11319,
+      "sha256": "0c13b524b376d62f1de2cd61e1143a88e3caa56a5afc4cc69cbbd2dbb96c9fb7"
+    },
+    "report_schema.json": {
+      "bytes": 12712,
+      "sha256": "6f9c6cd15dc831e8c6af26509e172f7f89fd93756157309d66bc40f58bce5cfa"
+    },
+    "results/HISTORICAL_CONTEXT.md": {
+      "bytes": 1875,
+      "sha256": "9cc5f75a6be3c13070f8410dc6b839612cb105915b71a22cd4a4d20207545ecf"
+    },
+    "results/archive_final_validation.json": {
+      "bytes": 3822,
+      "sha256": "2086612088cfcb3b88d5a84e4274632d8057236b9a2800033f7ecbcaa37cade4"
+    },
+    "results/audits/training.json": {
+      "bytes": 139542,
+      "sha256": "dfccd6252f77c5c1cd3a046e1eade2d7547a91dd4344674e5decd5d8bf60a896"
+    },
+    "results/audits/worker_0.json": {
+      "bytes": 21195,
+      "sha256": "74c1a27f7d5a5096a54aade7705d6f4d87b4d61e68c6d427d5fdff8517ba86da"
+    },
+    "results/audits/worker_1.json": {
+      "bytes": 21215,
+      "sha256": "8e0735748063836896fe4eb6ab6a82882caf4485acf41bb0cc00619a51a5d8fa"
+    },
+    "results/audits/worker_2.json": {
+      "bytes": 21174,
+      "sha256": "b200bb3b048ce67cd1d9dc9a69f74f041b1b3dcd71103539b6124c5b38ddecc4"
+    },
+    "results/audits/worker_3.json": {
+      "bytes": 21238,
+      "sha256": "0868827e4166104aca9fc4779abb170342bd11f8d1faf0e5e484f3ef49a39e6f"
+    },
+    "results/audits/worker_4.json": {
+      "bytes": 17763,
+      "sha256": "1aeffe373ba337e9fc37293f225226973692ef1e80d706159353cf316c7bb171"
+    },
+    "results/deployment_spot_review.json": {
+      "bytes": 18293,
+      "sha256": "a76bc2d452d2ad42c82a9ba5b84659ed638fd2c4dcd34b51d30717691cdac6e2"
+    },
+    "results/figures/outcomes.pdf": {
+      "bytes": 18733,
+      "sha256": "8753513b412be3ffb4c8529cc3e8068d583047d06ef7cc1aefb46a8e318c2955"
+    },
+    "results/figures/outcomes.png": {
+      "bytes": 73838,
+      "sha256": "4faeef83e8c3bda4ce4ffcacb4ec9e3a4f3fd28ca47858234cdff6bc81bbeacd"
+    },
+    "results/figures/training.pdf": {
+      "bytes": 18278,
+      "sha256": "278bb5f0569e6a401eb6ced67994998b61800e561d94c4cceaeac658759ef46d"
+    },
+    "results/figures/training.png": {
+      "bytes": 91309,
+      "sha256": "3b199b7d44449cd350bf35e1be86e4c2c0a13d4fca94ab13711d903be7760912"
+    },
+    "results/figures/values.json": {
+      "bytes": 8804,
+      "sha256": "7f568f558fcb7fe354ba128a4e41a2f9e52da35819468e164f9e0e2c4d9d2bfe"
+    },
+    "results/gallery.json": {
+      "bytes": 9947,
+      "sha256": "dfe50777c00700334204c59b99494a64e0afe175eefec901e3a0ef45d62a62e9"
+    },
+    "results/historical_context.json": {
+      "bytes": 1708,
+      "sha256": "9b0c1b48ba306010ee792ffb405f201fd900d3d2644808bbb58acb006e954d87"
+    },
+    "results/independent_reconciliation.json": {
+      "bytes": 4118,
+      "sha256": "6cedd4803fbf21f66792334e35c21a30bd917998da1ee191304b230023de5de1"
+    },
+    "results/index.html": {
+      "bytes": 17659,
+      "sha256": "6937387d5089eb2d0610d3531324c2049dd4f8219a7eaf5728b124ebd9dccd86"
+    },
+    "results/input_provenance.json": {
+      "bytes": 100723,
+      "sha256": "23c87a0298163bc35aab8de263377e7e0485991af379640f5c0d16fadd11a0a8"
+    },
+    "results/manifest.json": {
+      "bytes": 7754,
+      "sha256": "f84c26b8c4364e9b487a589d601a0290eced78cb0b8456bbe7ee1e95dff122c2"
+    },
+    "results/metrics.csv": {
+      "bytes": 751,
+      "sha256": "48d74c5a29248979f16b203a6cb0c6fffbaaf577e64a74fdb72c4f9c19a2d616"
+    },
+    "results/osmo_task_cost.json": {
+      "bytes": 3608,
+      "sha256": "7ad54bc0f90893e53b957bdd577ce829a60db8ecf3d9f0772e33979eb295d4d2"
+    },
+    "results/per_task.json": {
+      "bytes": 230915,
+      "sha256": "2c5d557f5874713062115cd9c5bf8064ffa07dbd309b70595727a3c7af839c18"
+    },
+    "results/protocol.json": {
+      "bytes": 3458,
+      "sha256": "e8333e12232c52ee22453d0c08bb2b1b0420c4d3fdd4c37efa49bbeb3e7340fe"
+    },
+    "results/publication.json": {
+      "bytes": 7141,
+      "sha256": "8988789a6cb3873501e3c7085f8ae91f5849c8331042dfcc2763fd34c8c53a0a"
+    },
+    "results/report.json": {
+      "bytes": 3012929,
+      "sha256": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802"
+    },
+    "results/report.md": {
+      "bytes": 3478,
+      "sha256": "a4acc0fc982a93c55cec8d34c252bfd5946d46f79f7773d67d09b8ba8ce56b6e"
+    },
+    "results/rollouts.csv": {
+      "bytes": 84094,
+      "sha256": "4342a2dccfd29c7053266862297072fd4c25cfc820cc1a73b85b652a27d7ec0f"
+    },
+    "results/source/fetch_verified_videos.py.txt": {
+      "bytes": 5011,
+      "sha256": "356cc943ea54349950acefc319bb6f2264286ff066fb37cabcc86c57c5c4a011"
+    },
+    "results/source/publish_report.py.txt": {
+      "bytes": 20845,
+      "sha256": "bacf95e61bec10ae8eb5fcc50a88072606baa44517d4f6d8deb4cca04334c9cd"
+    },
+    "results/source/recipe_archive_audit.py.txt": {
+      "bytes": 19152,
+      "sha256": "f729d475648efb55be4038031b163b006a65e21a2ef65bee7b220f0f68036519"
+    },
+    "results/source/recipe_report.py.txt": {
+      "bytes": 90985,
+      "sha256": "2edb56495bad3a41bba3ad82af5db5a572eb659c2ca99f67d2eec3d81fedefc3"
+    },
+    "results/source/reservation_cost.py.txt": {
+      "bytes": 2953,
+      "sha256": "62e537e6eb94f9592b0eae4690fbadbade04c358a982a312cac47c4052d30ea4"
+    },
+    "results/source/verify_archive_receipts.py.txt": {
+      "bytes": 5990,
+      "sha256": "3c50fc59f44e7a03d00fa65212e7ff32430c919ad40c8138ce8f0c095861f702"
+    },
+    "results/training_numerical_review.json": {
+      "bytes": 112532,
+      "sha256": "67d06f2df1f80a171c9fe010dd429938f924a40ea25e356324410578ec7c592f"
+    },
+    "results/video_retention_receipt.json": {
+      "bytes": 5892,
+      "sha256": "87b87f2cdfcd369c0749a82b40f10fb198d9fdf71abdbbeaac02d9d1febab823"
+    },
+    "results/videos/libero_10_task0_state1_native.mp4": {
+      "bytes": 96941,
+      "sha256": "1df72cb85a9cda67cba12c8a0057d4ebdf8f4bd171cdf90ab62ef561d27787a5"
+    },
+    "results/videos/libero_goal_ood_task0_state1_native.mp4": {
+      "bytes": 42189,
+      "sha256": "c2089a137d125f8d3baa798e7f047bdb4cea5edb2b92010ef00201419b29f296"
+    },
+    "results/videos/libero_goal_ood_task0_state2_flow_head.mp4": {
+      "bytes": 92630,
+      "sha256": "d4a5c7af55c1fde47e2370fcde70a72165b4fd4ca98c3f7d8e1abeab2bc41cc4"
+    },
+    "results/videos/libero_goal_ood_task0_state2_gated_flow_head.mp4": {
+      "bytes": 98424,
+      "sha256": "e53672c9dc4a09dbccd673c8070763f97830774d911a556d6c1cf8aab0e6265e"
+    },
+    "results/videos/libero_goal_ood_task0_state2_learned_selector.mp4": {
+      "bytes": 105791,
+      "sha256": "aab3d3c169d4d27af0225ae6ec36667dacde9836e97c4061ad62e7d6ae8f84a1"
+    },
+    "results/videos/libero_goal_ood_task0_state2_native.mp4": {
+      "bytes": 107893,
+      "sha256": "0244f9230234da3fc3c75a072cab6ac3acab6ae0765d1fad76a75fada2b60f4b"
+    },
+    "results/videos/libero_goal_ood_task2_state1_native.mp4": {
+      "bytes": 103764,
+      "sha256": "3c4580565c6d798d672a7de844e6671d57f2661aaf294420d3a3df7a5760f6ef"
+    },
+    "results/videos/libero_goal_ood_task5_state1_native.mp4": {
+      "bytes": 67774,
+      "sha256": "d697f382fdbeab5b32fb086f6a6e160baae466a11be78210fa6ffd2d0bb11033"
+    },
+    "results/videos/libero_goal_ood_task5_state1_recorded_schedule.mp4": {
+      "bytes": 43720,
+      "sha256": "555ca7b306bd0acd2a5de69d5a90cf4fcdc9f24ca4bbb0c47c0cd98450ac4b69"
+    },
+    "results/videos/libero_goal_ood_task5_state2_flow_head.mp4": {
+      "bytes": 46476,
+      "sha256": "38056a3d6a754c32f8c09bc6964c4cb188e8fad28fabe4e89260cbc5eea4aef1"
+    },
+    "results/videos/libero_goal_ood_task5_state2_gated_flow_head.mp4": {
+      "bytes": 42248,
+      "sha256": "5f1923df0d759c8604a28ceeae043654928788731bdc92d73b345e353443eff2"
+    },
+    "results/videos/libero_goal_ood_task5_state2_native.mp4": {
+      "bytes": 65990,
+      "sha256": "5408c09c4fe8517cd1b905a34bfb7e76e57123f016772186893a3ebb80e456e4"
+    },
+    "results/videos/libero_spatial_ood_task2_state1_learned_selector.mp4": {
+      "bytes": 37273,
+      "sha256": "35b017d5081d5f135b4022164a81e8ab275a79d1592ed923ccc4fb6bd827f4dd"
+    },
+    "results/videos/libero_spatial_ood_task2_state1_native.mp4": {
+      "bytes": 99933,
+      "sha256": "1433dd0fee231d45c13c3aacd69bb43ae133e92109a74a68439f73d6e0368739"
+    }
+  },
+  "local_validation": {
+    "ruff_version": "0.8.6",
+    "skip_scope": "Optional OpenPI dependency unavailable locally; separate real-GPU native integration checks passed.",
+    "unit_passed": 1402,
+    "unit_seconds": 186.27,
+    "unit_skipped": 5
+  },
+  "report_sha256": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802",
+  "results_manifest_sha256": "f84c26b8c4364e9b487a589d601a0290eced78cb0b8456bbe7ee1e95dff122c2",
+  "runtime_commit": "144ea47d0d6a6d6ff6a1ec3e1cfae8314b7a97e0",
+  "schema_version": "learned-recipe-delivery-1.1",
+  "scope": "Exact learned bundle, complete measured report and interactive dashboard. Original experiment results are unchanged. Hash inventory excludes this manifest itself. The linked task extension is separately published and simulator-validated, with policy evaluation pending.",
+  "task_extension": {
+    "path": "../ood_extensions/v1",
+    "policy_rollouts": 0,
+    "publication_manifest_sha256": "0ae2ae7d31b58315d90705440348a68c0cad3d9bed55c3f47defe05914ff01d4",
+    "simulator_reset_checks": 32,
+    "task_count": 16
+  }
+}

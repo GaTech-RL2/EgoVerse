@@ -1,0 +1,12 @@
+{
+  "archive_bytes": 12355380,
+  "archive_manifest_sha256": "05b16dbbf659ec15b757423a6d00abab7c243bd60e9b40477bc7a63b89ee7358",
+  "archive_sha256": "12b2231c9504fda03b755f8b7435389f5a640ea8fdaf05bc7ef9af7da41237e4",
+  "completion_seal_sha256": "47135ff39e03873c3ced55232b4ac185db01ae7b913338ed8eb9e4564d0d4f70",
+  "completion_seal_task_and_worker_metadata_hashes_match": true,
+  "every_archived_file_matches_extracted": true,
+  "regular_files": 773,
+  "schema_version": "codex-frs-pilot-archive-audit-1.0",
+  "status": "passed",
+  "uncompressed_regular_bytes": 27428942
+}

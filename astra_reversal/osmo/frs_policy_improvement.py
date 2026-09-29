@@ -13,6 +13,14 @@ from astra_reversal.intervention_search import write_json
 from astra_reversal.osmo.experiment import RESULTS, ROOT
 from astra_reversal.osmo.interpolation import load_frozen_policy, native_preflight
 from astra_reversal.osmo.ood_distributed import WorkerArchive
+from astra_reversal.osmo.rollout_checkpoint import checkpoint_progress
+from astra_reversal.osmo.task_selection import (
+    TASK_IDS_ENV,
+    select_assignment,
+    selected_entries,
+    selected_manifest,
+)
+from astra_reversal.reasoner_backend import initialize_worker_backend
 from astra_reversal.records import digest, file_sha256
 
 
@@ -114,7 +122,9 @@ def main():
 
     phase = os.environ["ASTRA_FRS_PHASE"]
     worker = int(os.environ["ASTRA_WORKER_INDEX"])
-    target = assignment(phase, worker)
+    original_target = assignment(phase, worker)
+    requested = os.environ.get(TASK_IDS_ENV)
+    target = select_assignment(phase, original_target, requested)
     RESULTS.mkdir(parents=True, exist_ok=False)
     archive = WorkerArchive(worker)
     if os.environ.get("CUBLAS_WORKSPACE_CONFIG") != ":4096:8":
@@ -152,14 +162,17 @@ def main():
     write_json(RESULTS / "prompts.json", prompt_manifest())
     archive.sync()
     try:
+        protocol = load_protocol(os.environ.get("ASTRA_PROTOCOL_PATH"))
+        initialize_worker_backend(protocol["astra"])
         native_preflight(archive)
-        protocol = load_protocol()
         if phase == "development":
             protocol["seed"] = protocol["development_seed"]
         write_json(RESULTS / "protocol.json", protocol)
         root = ROOT / "astra_reversal/.deps/libero-ood/third_party/modified_libero"
         benchmark = BenchmarkConfig.preset(target["suite"])
-        cases = [[task, state] for task in target["task_ids"] for state in range(11)]
+        cases = [
+            [task, state] for task in original_target["task_ids"] for state in range(11)
+        ]
         manifest = capture_reset_manifest(
             root,
             benchmark,
@@ -168,6 +181,11 @@ def main():
             output=RESULTS / "reset_manifest.json",
             split="development" if phase == "development" else "followup_adaptation",
         )
+        if requested is not None:
+            manifest = selected_manifest(
+                manifest, selected_entries(manifest["episodes"], target["task_ids"])
+            )
+            write_json(RESULTS / "reset_manifest.json", manifest)
         write_json(
             RESULTS / "frozen_plan.json",
             {
@@ -198,6 +216,14 @@ def main():
                 },
             )
             entries = [row for row in manifest["episodes"] if row["task_id"] == task_id]
+            progress = checkpoint_progress(
+                archive,
+                RESULTS,
+                task_id,
+                protocol,
+                before,
+                lambda: frozen_parameter_receipt(policy),
+            )
             experiment = FRSTaskExperiment(
                 policy,
                 create,
@@ -206,7 +232,7 @@ def main():
                 protocol,
                 RESULTS / f"task_{task_id}",
                 development=phase == "development",
-                progress=archive.sync,
+                progress=progress,
             )
             experiment.run()
             if any(parameter.requires_grad for parameter in policy.policy.parameters()):

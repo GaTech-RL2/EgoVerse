@@ -18,6 +18,8 @@ from .flow import error_metrics
 from .interpolation_catalog import donor_catalog
 from .intervention_rollout import CAMERAS, run_rollout
 from .intervention_search import write_json
+from .provider_stop import ProviderUnavailable, require_provider_available
+from .reasoner_backend import make_client, validate_backend
 from .records import Recorder, digest, file_sha256, to_numpy
 
 ARMS = (
@@ -32,14 +34,22 @@ ARMS = (
     "astra_tli_vli",
     "astra_pixel_blend",
 )
+VISION_ARMS = ("native_retry", "random_vei", "random_vli", "astra_vei", "astra_vli")
 
 
 def load_protocol(path=None):
     path = path or Path(__file__).parent / "configs/representation_steering_v1.json"
     value = json.loads(Path(path).read_text())
+    codex = value["schema_version"] == "vision-codex-representation-screen-1.0"
+    vision_only = value["schema_version"] == "vision-representation-screen-1.0" or codex
     if (
-        value["schema_version"] != "representation-steering-1.0"
-        or value["arms"] != list(ARMS)
+        value["schema_version"]
+        not in (
+            "representation-steering-1.0",
+            "vision-representation-screen-1.0",
+            "vision-codex-representation-screen-1.0",
+        )
+        or value["arms"] != list(VISION_ARMS if vision_only else ARMS)
         or value["revisions"] != 2
         or value["execute_steps"] != 5
         or value["action_budget"] != 300
@@ -48,6 +58,9 @@ def load_protocol(path=None):
         or value["learning"]["enabled"]
     ):
         raise ValueError("Change the protocol version before changing the experiment")
+    if vision_only and not value["astra"].get("stop_on_provider_unavailable"):
+        raise ValueError("The visual screen requires the provider stop rule")
+    validate_backend(value["astra"], codex=codex)
     return value
 
 
@@ -249,7 +262,7 @@ class RepresentationSearch:
         )
 
     def rollout(self, arm, revision, previous=None, history=()):
-        from .representation_agent import RepresentationClient, build_request
+        from .representation_agent import build_request
 
         env, _, _ = self.create_env(self.entry["task_id"], self.entry["seed"])
         spec = ActionSpec.from_environment(
@@ -263,12 +276,8 @@ class RepresentationSearch:
         settings = self.protocol["astra"]
         client = None
         if arm.startswith("astra_"):
-            client = RepresentationClient(
-                model=settings["model"],
-                response_log=self.directory / "provider.jsonl",
-                reasoning_effort=settings["reasoning_effort"],
-                max_completion_tokens=settings["max_completion_tokens"],
-                timeout=settings["timeout_seconds"],
+            client = make_client(
+                "representation", settings, self.directory / "provider.jsonl"
             )
         observations, decisions, generated = [], [], []
         active = None
@@ -350,6 +359,16 @@ class RepresentationSearch:
                     }
                     self.save()
                     self.progress()
+                    if settings.get("stop_on_provider_unavailable"):
+                        try:
+                            require_provider_available(client.records[-1])
+                        except ProviderUnavailable as exc:
+                            self.report.update(
+                                status="provider_unavailable", provider_stop=exc.receipt
+                            )
+                            self.save()
+                            self.progress()
+                            raise
                 elif arm.startswith("random_"):
                     active = random_choice(
                         mode,
@@ -521,7 +540,7 @@ class RepresentationSearch:
     def run(self):
         baseline, baseline_feedback = self.rollout("native", 0)
         self.report["baseline"] = baseline
-        for arm in ARMS:
+        for arm in self.protocol["arms"]:
             attempts, previous = [baseline], baseline_feedback
             for revision in range(1, self.protocol["revisions"] + 1):
                 if any(row["success"] for row in attempts) and not (
@@ -539,7 +558,7 @@ class RepresentationSearch:
 
         rows = self.report["physical_rollouts"]
         integration = {}
-        for arm in ARMS:
+        for arm in self.protocol["arms"]:
             if not arm.startswith("astra_"):
                 continue
             selected = [row for row in rows if row["arm"] == arm]

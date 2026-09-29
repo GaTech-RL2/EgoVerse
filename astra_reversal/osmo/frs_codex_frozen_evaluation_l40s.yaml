@@ -1,0 +1,226 @@
+workflow:
+  name: astra-pi05-codex-frs-frozen-evaluation-20260928
+  resources:
+    default:
+      cpu: 4
+      gpu: 1
+      memory: 48Gi
+      storage: 100Gi
+      platform: ovx-l40s
+      nodesExcluded:
+      - osmogroot-dgxc-k8s-forge-az41-prd1-w-5728
+      - osmogroot-dgxc-k8s-forge-az41-prd1-w-0485
+      - osmogroot-dgxc-k8s-forge-az41-prd1-w-7183
+      - osmogroot-dgxc-k8s-forge-az41-prd1-w-2132
+  timeout:
+    queue_timeout: 4h
+    exec_timeout: 12h
+  tasks:
+  - name: worker0
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: &id001
+    - bash
+    args: &id002
+    - /tmp/astra-bootstrap.sh
+    environment:
+      PAYLOAD_SHA256: '{{payload_sha256}}'
+      ASTRA_RUN_ID: '{{workflow_id}}'
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.frs_policy_improvement
+      ASTRA_WORKER_INDEX: '0'
+      ASTRA_INCLUDE_OOD: '1'
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_TF32_OVERRIDE: '0'
+      ASTRA_FRS_PHASE: evaluation
+      ASTRA_SOURCE_REVISION: '{{source_revision}}'
+      CUBLAS_WORKSPACE_CONFIG: :4096:8
+      ASTRA_PROTOCOL_PATH: astra_reversal/configs/frs_codex_frozen_evaluation_v1.json
+      ASTRA_CODEX_RELAY_PORT: '8769'
+      ASTRA_CODEX_RELAY_HOST: 127.0.0.1
+      ASTRA_CODEX_RELAY_TOKEN_FILE: /tmp/astra-relay.token
+      ASTRA_RETAIN_FAILED_WORKER: '0'
+    credentials: &id003
+      grabber-arc-r2-20260916:
+        R2_ACCESS_KEY_ID: r2_access_key_id
+        R2_SECRET_ACCESS_KEY: r2_secret_access_key
+        R2_ENDPOINT_URL: r2_endpoint_url
+    files:
+    - &id004
+      localpath: bootstrap.sh
+      path: /tmp/astra-bootstrap.sh
+    - localpath: '{{relay_token_file}}'
+      path: /tmp/astra-relay.token
+  - name: worker1
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: *id001
+    args: *id002
+    environment:
+      PAYLOAD_SHA256: '{{payload_sha256}}'
+      ASTRA_RUN_ID: '{{workflow_id}}'
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.frs_policy_improvement
+      ASTRA_WORKER_INDEX: '1'
+      ASTRA_INCLUDE_OOD: '1'
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_TF32_OVERRIDE: '0'
+      ASTRA_FRS_PHASE: evaluation
+      ASTRA_SOURCE_REVISION: '{{source_revision}}'
+      CUBLAS_WORKSPACE_CONFIG: :4096:8
+      ASTRA_PROTOCOL_PATH: astra_reversal/configs/frs_codex_frozen_evaluation_v1.json
+      ASTRA_CODEX_RELAY_PORT: '8769'
+      ASTRA_CODEX_RELAY_HOST: 127.0.0.1
+      ASTRA_CODEX_RELAY_TOKEN_FILE: /tmp/astra-relay.token
+      ASTRA_RETAIN_FAILED_WORKER: '0'
+    credentials: *id003
+    files:
+    - *id004
+    - localpath: '{{relay_token_file}}'
+      path: /tmp/astra-relay.token
+  - name: worker2
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: *id001
+    args: *id002
+    environment:
+      PAYLOAD_SHA256: '{{payload_sha256}}'
+      ASTRA_RUN_ID: '{{workflow_id}}'
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.frs_policy_improvement
+      ASTRA_WORKER_INDEX: '2'
+      ASTRA_INCLUDE_OOD: '1'
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_TF32_OVERRIDE: '0'
+      ASTRA_FRS_PHASE: evaluation
+      ASTRA_SOURCE_REVISION: '{{source_revision}}'
+      CUBLAS_WORKSPACE_CONFIG: :4096:8
+      ASTRA_PROTOCOL_PATH: astra_reversal/configs/frs_codex_frozen_evaluation_v1.json
+      ASTRA_CODEX_RELAY_PORT: '8769'
+      ASTRA_CODEX_RELAY_HOST: 127.0.0.1
+      ASTRA_CODEX_RELAY_TOKEN_FILE: /tmp/astra-relay.token
+      ASTRA_RETAIN_FAILED_WORKER: '0'
+    credentials: *id003
+    files:
+    - *id004
+    - localpath: '{{relay_token_file}}'
+      path: /tmp/astra-relay.token
+  - name: worker3
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: *id001
+    args: *id002
+    environment:
+      PAYLOAD_SHA256: '{{payload_sha256}}'
+      ASTRA_RUN_ID: '{{workflow_id}}'
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.frs_policy_improvement
+      ASTRA_WORKER_INDEX: '3'
+      ASTRA_INCLUDE_OOD: '1'
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_TF32_OVERRIDE: '0'
+      ASTRA_FRS_PHASE: evaluation
+      ASTRA_SOURCE_REVISION: '{{source_revision}}'
+      CUBLAS_WORKSPACE_CONFIG: :4096:8
+      ASTRA_PROTOCOL_PATH: astra_reversal/configs/frs_codex_frozen_evaluation_v1.json
+      ASTRA_CODEX_RELAY_PORT: '8769'
+      ASTRA_CODEX_RELAY_HOST: 127.0.0.1
+      ASTRA_CODEX_RELAY_TOKEN_FILE: /tmp/astra-relay.token
+      ASTRA_RETAIN_FAILED_WORKER: '0'
+    credentials: *id003
+    files:
+    - *id004
+    - localpath: '{{relay_token_file}}'
+      path: /tmp/astra-relay.token
+  - name: worker4
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: *id001
+    args: *id002
+    environment:
+      PAYLOAD_SHA256: '{{payload_sha256}}'
+      ASTRA_RUN_ID: '{{workflow_id}}'
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.frs_policy_improvement
+      ASTRA_WORKER_INDEX: '4'
+      ASTRA_INCLUDE_OOD: '1'
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_TF32_OVERRIDE: '0'
+      ASTRA_FRS_PHASE: evaluation
+      ASTRA_SOURCE_REVISION: '{{source_revision}}'
+      CUBLAS_WORKSPACE_CONFIG: :4096:8
+      ASTRA_PROTOCOL_PATH: astra_reversal/configs/frs_codex_frozen_evaluation_v1.json
+      ASTRA_CODEX_RELAY_PORT: '8769'
+      ASTRA_CODEX_RELAY_HOST: 127.0.0.1
+      ASTRA_CODEX_RELAY_TOKEN_FILE: /tmp/astra-relay.token
+      ASTRA_RETAIN_FAILED_WORKER: '0'
+    credentials: *id003
+    files:
+    - *id004
+    - localpath: '{{relay_token_file}}'
+      path: /tmp/astra-relay.token
+  - name: worker5
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: *id001
+    args: *id002
+    environment:
+      PAYLOAD_SHA256: '{{payload_sha256}}'
+      ASTRA_RUN_ID: '{{workflow_id}}'
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.frs_policy_improvement
+      ASTRA_WORKER_INDEX: '5'
+      ASTRA_INCLUDE_OOD: '1'
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_TF32_OVERRIDE: '0'
+      ASTRA_FRS_PHASE: evaluation
+      ASTRA_SOURCE_REVISION: '{{source_revision}}'
+      CUBLAS_WORKSPACE_CONFIG: :4096:8
+      ASTRA_PROTOCOL_PATH: astra_reversal/configs/frs_codex_frozen_evaluation_v1.json
+      ASTRA_CODEX_RELAY_PORT: '8769'
+      ASTRA_CODEX_RELAY_HOST: 127.0.0.1
+      ASTRA_CODEX_RELAY_TOKEN_FILE: /tmp/astra-relay.token
+      ASTRA_RETAIN_FAILED_WORKER: '0'
+    credentials: *id003
+    files:
+    - *id004
+    - localpath: '{{relay_token_file}}'
+      path: /tmp/astra-relay.token
+  - name: worker6
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: *id001
+    args: *id002
+    environment:
+      PAYLOAD_SHA256: '{{payload_sha256}}'
+      ASTRA_RUN_ID: '{{workflow_id}}'
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.frs_policy_improvement
+      ASTRA_WORKER_INDEX: '6'
+      ASTRA_INCLUDE_OOD: '1'
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_TF32_OVERRIDE: '0'
+      ASTRA_FRS_PHASE: evaluation
+      ASTRA_SOURCE_REVISION: '{{source_revision}}'
+      CUBLAS_WORKSPACE_CONFIG: :4096:8
+      ASTRA_PROTOCOL_PATH: astra_reversal/configs/frs_codex_frozen_evaluation_v1.json
+      ASTRA_CODEX_RELAY_PORT: '8769'
+      ASTRA_CODEX_RELAY_HOST: 127.0.0.1
+      ASTRA_CODEX_RELAY_TOKEN_FILE: /tmp/astra-relay.token
+      ASTRA_RETAIN_FAILED_WORKER: '0'
+    credentials: *id003
+    files:
+    - *id004
+    - localpath: '{{relay_token_file}}'
+      path: /tmp/astra-relay.token
+  - name: worker7
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    command: *id001
+    args: *id002
+    environment:
+      PAYLOAD_SHA256: '{{payload_sha256}}'
+      ASTRA_RUN_ID: '{{workflow_id}}'
+      ASTRA_ENTRY_MODULE: astra_reversal.osmo.frs_policy_improvement
+      ASTRA_WORKER_INDEX: '7'
+      ASTRA_INCLUDE_OOD: '1'
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_TF32_OVERRIDE: '0'
+      ASTRA_FRS_PHASE: evaluation
+      ASTRA_SOURCE_REVISION: '{{source_revision}}'
+      CUBLAS_WORKSPACE_CONFIG: :4096:8
+      ASTRA_PROTOCOL_PATH: astra_reversal/configs/frs_codex_frozen_evaluation_v1.json
+      ASTRA_CODEX_RELAY_PORT: '8769'
+      ASTRA_CODEX_RELAY_HOST: 127.0.0.1
+      ASTRA_CODEX_RELAY_TOKEN_FILE: /tmp/astra-relay.token
+      ASTRA_RETAIN_FAILED_WORKER: '0'
+    credentials: *id003
+    files:
+    - *id004
+    - localpath: '{{relay_token_file}}'
+      path: /tmp/astra-relay.token

@@ -11,7 +11,6 @@ import numpy as np
 import pytest
 
 from astra_reversal.representation_search import (
-    ARMS,
     RepresentationSearch,
     keyed_rng,
     load_protocol,
@@ -56,13 +55,22 @@ def test_random_controls_use_only_declared_catalogs():
 @pytest.mark.parametrize(
     "baseline_success,development", [(False, False), (True, False), (True, True)]
 )
+@pytest.mark.parametrize("vision_only", [False, True])
 def test_each_arm_gets_only_its_own_feedback_and_shared_baseline(
-    baseline_success, development
+    baseline_success, development, vision_only
 ):
     # Exercise the orchestration with completed physical rollout records. Only
     # one arm succeeds at revision1; other arms must not see or reuse its result.
     search = RepresentationSearch.__new__(RepresentationSearch)
-    search.protocol = load_protocol()
+    search.protocol = load_protocol(
+        Path(__file__).resolve().parents[3]
+        / "astra_reversal/configs/vision_representation_screen_v1.json"
+        if vision_only
+        else None
+    )
+    selected_arms = search.protocol["arms"]
+    successful_arm = "astra_vli" if vision_only else "astra_tli"
+    failed_arm = "astra_vei" if vision_only else "astra_vli"
     search.development = development
     search.report = {"physical_rollouts": [], "arms": {}}
     search.save = lambda: None
@@ -82,7 +90,7 @@ def test_each_arm_gets_only_its_own_feedback_and_shared_baseline(
             "revision": revision,
             "success": baseline_success
             if revision == 0
-            else arm == "astra_tli" and revision == 1,
+            else arm == successful_arm and revision == 1,
             "actions_executed": 50,
             "decisions": [],
             "provider_records": [],
@@ -98,16 +106,17 @@ def test_each_arm_gets_only_its_own_feedback_and_shared_baseline(
     search.rollout = rollout
     result = search.run()
     expected = (
-        1 + len(ARMS)
+        1 + len(selected_arms)
         if baseline_success and development
         else 1
         if baseline_success
-        else 2 * len(ARMS)
+        else 2 * len(selected_arms)
     )
     assert len(seen) == expected
     assert result["physical_cost"]["rollouts"] == expected
     assert result["physical_cost"]["actions"] == 50 * expected
     assert sum(arm == "native" for arm, *_ in seen) == 1
+    assert set(result["arms"]) == set(selected_arms)
     if baseline_success:
         assert all(r["first_success_revision"] == 0 for r in result["arms"].values())
         assert all(
@@ -115,18 +124,21 @@ def test_each_arm_gets_only_its_own_feedback_and_shared_baseline(
             for r in result["arms"].values()
         )
     else:
-        assert result["arms"]["astra_tli"]["first_success_revision"] == 1
-        assert result["arms"]["astra_vli"]["censored"]
-        assert result["arms"]["astra_vli"]["success_by_revision"] == [
+        assert result["arms"][successful_arm]["first_success_revision"] == 1
+        assert result["arms"][failed_arm]["censored"]
+        assert result["arms"][failed_arm]["success_by_revision"] == [
             False,
             False,
             False,
         ]
 
 
-@pytest.mark.parametrize("action_count", [28, 54, 300])
+@pytest.mark.parametrize(
+    "action_count,provider_status",
+    [(28, 503), (54, 503), (300, 503), (300, 429), (300, 403)],
+)
 def test_real_client_contract_cadence_failure_clear_and_executed_prefix_costs(
-    monkeypatch, tmp_path, action_count
+    monkeypatch, tmp_path, action_count, provider_status
 ):
     """Use real HTTP serialization/parser/ledger with a synthetic in-memory opener.
 
@@ -167,7 +179,7 @@ def test_real_client_contract_cadence_failure_clear_and_executed_prefix_costs(
             if context["decision_index"] == 2:
                 raise urllib.error.HTTPError(
                     "https://synthetic.invalid",
-                    503,
+                    provider_status,
                     "synthetic failure",
                     {},
                     io.BytesIO(
@@ -302,6 +314,7 @@ def test_real_client_contract_cadence_failure_clear_and_executed_prefix_costs(
         banks={},
     )
     search.parity_checked = True  # The weighted CUDA gate is a separate test.
+    search.protocol["astra"]["stop_on_provider_unavailable"] = True
     search._condition = condition
     baseline = {
         "attempt_id": "native_revision0",
@@ -314,6 +327,17 @@ def test_real_client_contract_cadence_failure_clear_and_executed_prefix_costs(
         "decisions": [],
         "snapshots": [snapshot(300, label="previous raw final")],
     }
+    if provider_status in (429, 403):
+        from astra_reversal.provider_stop import ProviderUnavailable
+
+        with pytest.raises(ProviderUnavailable):
+            search.rollout("astra_tli", 1, previous, [baseline])
+        assert len(requests) == len(clients[0].records) == 2
+        assert len(applied) == 5  # Only the first 25 actions executed.
+        assert search.report["status"] == "provider_unavailable"
+        assert search.report["physical_rollouts"] == []
+        assert agent.summarize_calls(clients[0].records)["provider_calls"] == 2
+        return
     result, retained = search.rollout("astra_tli", 1, previous, [baseline])
     call_count = (action_count + 24) // 25
     assert len(requests) == len(clients[0].records) == call_count <= 12

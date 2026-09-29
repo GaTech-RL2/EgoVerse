@@ -1,0 +1,19 @@
+{
+  "schema_version": "astra-provider-availability-1.0",
+  "workflow": "astra-pi05-provider-check-20260928-1",
+  "observed_at_utc": "2026-09-28T18:31:27Z",
+  "scope": "Single small availability request, not a benchmark rollout or model integration test.",
+  "requested_model": "azure/openai/gpt-6-astra",
+  "reasoning_effort": "medium",
+  "max_completion_tokens": 256,
+  "provider_calls": 1,
+  "http_status": 429,
+  "error_type": "budget_exceeded",
+  "status": "unavailable",
+  "wall_seconds": 0.30513828387483954,
+  "token_usage": null,
+  "unknown_usage_calls": 1,
+  "requested_gpus": 0,
+  "full_study_workflows_submitted": 0,
+  "next_required_external_change": "Restore the inference credential's provider budget or configure a funded OSMO inference credential."
+}

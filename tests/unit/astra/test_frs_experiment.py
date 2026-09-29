@@ -81,7 +81,9 @@ def experiment(tmp_path, monkeypatch):
 
         def propose(self, request):
             requests.append(copy.deepcopy(request))
-            self.records.append({"role": request["role"]})
+            self.records.append(
+                {"role": request["role"], "provider_call": True, "http_status": 200}
+            )
             if (request["role"] == "critique" and self.fail_critique) or (
                 request["role"] == "action_edit" and self.fail_edit
             ):
@@ -257,6 +259,60 @@ def test_full_loop_uses_real_request_contracts_and_separates_evaluation(experime
         "native_defer",
         "direct_reference",
     }
+
+
+def test_focused_frs_runs_all_ten_resets_without_adaptation_or_actor(experiment):
+    from pathlib import Path
+
+    obj, requests, training = experiment
+    obj.protocol = load_protocol(
+        Path(__file__).resolve().parents[3]
+        / "astra_reversal/configs/frs_frozen_evaluation_v1.json"
+    )
+    obj.development = False
+    report = obj.run()
+    assert report["status"] == "complete"
+    assert len(report["physical_rollouts"]) == len(report["evaluation"]) == 30
+    assert {r["method"] for r in report["evaluation"]} == {
+        "native_euler10",
+        "native_repeated_noise",
+        "astra_frs",
+    }
+    assert all(r["round_index"] == 0 for r in report["evaluation"])
+    assert {r["episode_id"] for r in report["evaluation"]} == {
+        f"synthetic:state{i}" for i in range(1, 11)
+    }
+    assert report["adaptation"] == {} and training == []
+    assert "initial_noise_policy_checkpoint" not in report
+    assert {r["role"] for r in requests} == {"paper_direction"}
+    assert report["physical_cost"]["optimizer_steps"] == 0
+
+
+def test_frs_budget_stop_retains_one_call_and_no_completed_fallback_rollout(experiment):
+    from astra_reversal.astra_client import ClientError
+    from astra_reversal.provider_stop import ProviderUnavailable
+
+    obj, _, _ = experiment
+    obj.protocol["astra"]["stop_on_provider_unavailable"] = True
+
+    def exhausted(request):
+        obj.client.records.append(
+            {
+                "provider_call": True,
+                "http_status": 429,
+                "provider_error": {"type": "budget_exceeded"},
+            }
+        )
+        raise ClientError("synthetic HTTP 429")
+
+    obj.client.propose = exhausted
+    with pytest.raises(ProviderUnavailable, match="provider_budget_exhausted"):
+        obj.rollout("astra_frs", obj.entries[1])
+    assert len(obj.client.records) == 1
+    assert obj.physical_runs == []
+    assert obj.report["status"] == "provider_unavailable"
+    saved = json.loads((obj.directory / "summary.json").read_text())
+    assert saved["provider_stop"]["reason"] == "provider_budget_exhausted"
 
 
 def test_failed_critique_never_promotes_or_trains(experiment):

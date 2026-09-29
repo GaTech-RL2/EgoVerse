@@ -1,0 +1,64 @@
+{
+  "extension_manifest_sha256": "d781fea57b92089cd83cca89a3b4ba3da46d06b7f37c75579ee57e4980527ece",
+  "files": {
+    "data.json": {
+      "bytes": 627088,
+      "sha256": "4458573f564de77978ade7a20bd60cea6394af23b1a5d64809b1396ae9b93baa"
+    },
+    "flows.zip": {
+      "bytes": 8366,
+      "sha256": "1ac6d7c2d297d701cc58af219a6304d938e56f3aff5429da7d77cfdf379f1c1c"
+    },
+    "flows/all-methods.svg": {
+      "bytes": 9983,
+      "sha256": "b62db37fa07ab9a3d3000da40718f57afca762823e6261f58ce5e43fbfe41965"
+    },
+    "flows/flow_head.svg": {
+      "bytes": 4212,
+      "sha256": "802771c6a8bda1bcde42230a1d8d1ffad8e5a3f1a7a578dd9e90cd9e01750eb9"
+    },
+    "flows/gated_flow_head.svg": {
+      "bytes": 4996,
+      "sha256": "62308c3ae44bdafb61f22768d047853b33ac29a84655353f57cd72c671cb2c85"
+    },
+    "flows/learned_selector.svg": {
+      "bytes": 4360,
+      "sha256": "4a2ca7f2af9d53471792ccc050e582d2d3ed3c78bdf598e85f9823af0a7dfa7a"
+    },
+    "flows/native.svg": {
+      "bytes": 2739,
+      "sha256": "4ecc7644455b2a9cf606c1b2b4e5c7ca3b22ba4e79f3ed31e8c89536df66bf8c"
+    },
+    "flows/recorded_schedule.svg": {
+      "bytes": 4412,
+      "sha256": "e7f1c82ce0a51fffc9527aff633ecfa197530235934ad68ab6d739cd4df8873a"
+    },
+    "index.html": {
+      "bytes": 454162,
+      "sha256": "e382b88889883d9156f6e2b640a18e7b878c4f9a85a24386fd00b00e4404b7d0"
+    },
+    "source/build_dashboard.py": {
+      "bytes": 21870,
+      "sha256": "0eb8071d4de98dcbe785559e68d36dad50b17a322d9b813dc53185d5528328f2"
+    },
+    "source/dashboard.css": {
+      "bytes": 15340,
+      "sha256": "4cdb384f1151e2d6c647903a694392b47ce3cf2d27ab4ab53b634a8c2eb57a63"
+    },
+    "source/dashboard.js": {
+      "bytes": 11998,
+      "sha256": "e3b1832b464848942f1d286b7e3658a00f9f271c5463e7524ee6809a22ef5481"
+    },
+    "source/template.html": {
+      "bytes": 11319,
+      "sha256": "0c13b524b376d62f1de2cd61e1143a88e3caa56a5afc4cc69cbbd2dbb96c9fb7"
+    }
+  },
+  "method_count": 5,
+  "physical_rollouts": 240,
+  "schema_version": "recipe-dashboard-publication-1.0",
+  "source": "source/build_dashboard.py",
+  "source_report_sha256": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802",
+  "source_results_unchanged": true,
+  "video_count": 14
+}

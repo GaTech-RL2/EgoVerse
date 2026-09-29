@@ -1,0 +1,619 @@
+{
+  "schema_version": "codex-osmo-relay-smoke-1.0",
+  "workflow": "astra-pi05-codex-relay-check-20260928-2",
+  "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/astra-pi05-codex-relay-check-20260928-2",
+  "status": "COMPLETED",
+  "requested_gpus": 0,
+  "scope": "Three recorded observation decisions; no simulator rollout and no SR.",
+  "source_payload_sha256": "f4969d0eae51824440e4d06ea81043c3710aef04e98cf29a31f3c300f63c16c2",
+  "records": [
+    {
+      "method": "frs",
+      "request_fingerprint": "ad55afeb3e5dbc9bcb815b2b97f6e9931d521ec4b9b5ac2c8c4d76b82f7157a6",
+      "proposal": {
+        "attempt_id": "codex_observation_probe_1",
+        "coords": [
+          1,
+          0,
+          0
+        ],
+        "episode_id": "codex_observation_probe",
+        "fine": false,
+        "justification": "The center bowl is in front of the raised gripper; move closer while staying above the tabletop objects.",
+        "motion_amount": "less",
+        "observation_step": 0,
+        "request_id": "ad55afeb3e5dbc9b",
+        "request_index": 1,
+        "response_id": "e217f498-40b9-4d62-b3a6-58d3954c762e",
+        "role": "paper_direction",
+        "schema_version": "frs-agent-1.0",
+        "request_fingerprint": "ad55afeb3e5dbc9bcb815b2b97f6e9931d521ec4b9b5ac2c8c4d76b82f7157a6"
+      },
+      "record": {
+        "client_schema_version": "frs-agent-1.0",
+        "prompt_template_version": "astra-frs-http-2",
+        "backend": "codex_relay",
+        "endpoint": "codex_relay",
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "reasoning_effort": "medium",
+        "provider_call": true,
+        "provider_call_kind": "codex_exec",
+        "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+        "provider_unavailable": false,
+        "accepted": true,
+        "job_start_unknown": false,
+        "provider_call_count_is_lower_bound": false,
+        "request_time": 1790625956.812742,
+        "token_usage": {
+          "input_tokens": 16605,
+          "output_tokens": 141,
+          "reasoning_tokens": 0,
+          "total_tokens": 16746
+        },
+        "schema_version": "frs-agent-1.0",
+        "role": "paper_direction",
+        "episode_id": "codex_observation_probe",
+        "attempt_id": "codex_observation_probe_1",
+        "request_index": 1,
+        "observation_step": 0,
+        "request_id": "ad55afeb3e5dbc9b",
+        "request_fingerprint": "ad55afeb3e5dbc9bcb815b2b97f6e9931d521ec4b9b5ac2c8c4d76b82f7157a6",
+        "invocation_id": "55ad1404ad98042c94bbe31cf330b7e5",
+        "relay_payload_sha256": "ea395e6266d98557a3c9239edcc24822a8bfee7daba66d60489f9f9c48e3979a",
+        "system_prompt_sha256": "2a532271c65e66adfaebf7f50538145df31e8bbb4ceeaad3aad34672663d20cc",
+        "codex_receipt": {
+          "backend": "codex_exec",
+          "requested_model": "gpt-6-astra",
+          "configured_model": "gpt-6-astra",
+          "returned_model": null,
+          "reasoning_effort": "medium",
+          "request_fingerprint": "ad55afeb3e5dbc9bcb815b2b97f6e9931d521ec4b9b5ac2c8c4d76b82f7157a6",
+          "request_sha256": "e140d34530c733c46330000ad4c8cd0f55796c7d2e82b5946354357423813108",
+          "request_time": 1790625959.09057,
+          "provider_call": true,
+          "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+          "internal_retry_count": null,
+          "internal_turn_count": null,
+          "accepted": true,
+          "provider_unavailable": false,
+          "status": "accepted",
+          "token_usage": {
+            "input_tokens": 16605,
+            "output_tokens": 141,
+            "reasoning_tokens": 0,
+            "total_tokens": 16746
+          },
+          "raw_usage": {
+            "input_tokens": 16605,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 141,
+            "reasoning_output_tokens": 0
+          },
+          "tool_items": [],
+          "cli_version": "codex-cli 0.157.0",
+          "schema_sha256": "57918e96777ec47218e0583003cc13a62e56e6472d1a0fa9ea462bd99a59a852",
+          "original_schema_sha256": "4ac716077a25113ffba63269538e5927634f29242a20410f9c40944b41b2350b",
+          "prompt_template_version": "astra-frs-http-2",
+          "prompt_sha256": "4e38373ebbe8e7b2195288a25b41e7e42eac8e877ce3759c0482bf024ae42e5d",
+          "system_prompt_sha256": "2a532271c65e66adfaebf7f50538145df31e8bbb4ceeaad3aad34672663d20cc",
+          "image_hashes": [
+            {
+              "image_index": 0,
+              "file": "image_0.png",
+              "label": "CURRENT RAW external camera",
+              "sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6"
+            }
+          ],
+          "exit_code": 0,
+          "observed_completed_turns": 1,
+          "raw_usage_events": [
+            {
+              "input_tokens": 16605,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 141,
+              "reasoning_output_tokens": 0
+            }
+          ],
+          "total_tokens_derived": true,
+          "token_usage_is_lower_bound": false,
+          "final_sha256": "a72b40d1756286af7b46651cd4d36349628807198d3eea46746294bc2f8d40aa",
+          "response_time": 1790625972.5580952,
+          "latency_seconds": 13.4682957920013
+        },
+        "raw_usage": {
+          "input_tokens": 16605,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 141,
+          "reasoning_output_tokens": 0
+        },
+        "raw_usage_events": [
+          {
+            "input_tokens": 16605,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 141,
+            "reasoning_output_tokens": 0
+          }
+        ],
+        "token_usage_is_lower_bound": false,
+        "response_id": "e217f498-40b9-4d62-b3a6-58d3954c762e",
+        "response_time": 1790625974.8882208,
+        "latency_seconds": 18.07547909487039
+      },
+      "scope": "Recorded-observation reasoner test; no rollout or success rate"
+    },
+    {
+      "method": "vei",
+      "request_fingerprint": "2c7db38fadcffc3ef3f0b1363742de26b54c454f63e134d9e46a5194b5261d22",
+      "proposal": {
+        "language": null,
+        "mode": "interpolate",
+        "observed_phase": "Initial acquisition; gripper open above table, milk ungrasped and plate empty.",
+        "rationale": "The native rollout moved the bowl onto the plate while leaving the milk untouched; test a modest early packaged-object acquisition donor blend while preserving most live visual content.",
+        "request_id": "2c7db38fadcffc3e",
+        "vision": {
+          "alpha": 0.25,
+          "donor_id": "std13-e384-f28"
+        },
+        "schema_version": "representation-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "attempt_id": "astra_vei_revision1",
+        "decision_index": 1,
+        "observation_step": 0,
+        "representation_mode": "vei",
+        "request_fingerprint": "2c7db38fadcffc3ef3f0b1363742de26b54c454f63e134d9e46a5194b5261d22",
+        "decision_id": "2c7db38fadcffc3e"
+      },
+      "record": {
+        "client_schema_version": "representation-1.0",
+        "prompt_template_version": "astra-representation-http-1",
+        "backend": "codex_relay",
+        "endpoint": "codex_relay",
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "reasoning_effort": "medium",
+        "provider_call": true,
+        "provider_call_kind": "codex_exec",
+        "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+        "provider_unavailable": false,
+        "accepted": true,
+        "job_start_unknown": false,
+        "provider_call_count_is_lower_bound": false,
+        "request_time": 1790625974.9052255,
+        "token_usage": {
+          "input_tokens": 28006,
+          "output_tokens": 181,
+          "reasoning_tokens": 70,
+          "total_tokens": 28187
+        },
+        "schema_version": "representation-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "attempt_id": "astra_vei_revision1",
+        "decision_index": 1,
+        "observation_step": 0,
+        "representation_mode": "vei",
+        "request_id": "2c7db38fadcffc3e",
+        "request_fingerprint": "2c7db38fadcffc3ef3f0b1363742de26b54c454f63e134d9e46a5194b5261d22",
+        "invocation_id": "88517d3f627cf554109c20279533720d",
+        "relay_payload_sha256": "be627511fdf4b36c618204bf868099aee9ae390e90be2f90c7d3aa1348afb634",
+        "system_prompt_sha256": "44ff14079807f7b65d84d094abace2972e37e614c239e5dbb76eec75423432ca",
+        "codex_receipt": {
+          "backend": "codex_exec",
+          "requested_model": "gpt-6-astra",
+          "configured_model": "gpt-6-astra",
+          "returned_model": null,
+          "reasoning_effort": "medium",
+          "request_fingerprint": "2c7db38fadcffc3ef3f0b1363742de26b54c454f63e134d9e46a5194b5261d22",
+          "request_sha256": "54f7dca6e7db345eb73d83183c063f14d30784d23ce0eddacfb0306381126fb9",
+          "request_time": 1790625978.57807,
+          "provider_call": true,
+          "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+          "internal_retry_count": null,
+          "internal_turn_count": null,
+          "accepted": true,
+          "provider_unavailable": false,
+          "status": "accepted",
+          "token_usage": {
+            "input_tokens": 28006,
+            "output_tokens": 181,
+            "reasoning_tokens": 70,
+            "total_tokens": 28187
+          },
+          "raw_usage": {
+            "input_tokens": 28006,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 181,
+            "reasoning_output_tokens": 70
+          },
+          "tool_items": [],
+          "cli_version": "codex-cli 0.157.0",
+          "schema_sha256": "769af2dcb3667f80aca99f11919e9a205fa6773492a7bd5e1ed8b36e189eac51",
+          "original_schema_sha256": "1f34bf5efbedbfddde2b6fdadd519359f8b6f976d2533e7a7529861816cb5277",
+          "prompt_template_version": "astra-representation-http-1",
+          "prompt_sha256": "ab25c4424382b4c0e2a3d6d2ae71824bd78bc9f8ace31d55c9101b0db5073127",
+          "system_prompt_sha256": "44ff14079807f7b65d84d094abace2972e37e614c239e5dbb76eec75423432ca",
+          "image_hashes": [
+            {
+              "image_index": 0,
+              "file": "image_0.png",
+              "label": "TRAINING DONOR PREVIEWS ONLY, not current state; camera observation/image; labels are donor_id",
+              "sha256": "25337d6d298930705030d2c377e66515785228fa1d53235406867c528e60df7f"
+            },
+            {
+              "image_index": 1,
+              "file": "image_1.png",
+              "label": "TRAINING DONOR PREVIEWS ONLY, not current state; camera observation/wrist_image; labels are donor_id",
+              "sha256": "5165c080b4e6eef5ae3f871ab00b3e199cafb86a970ea5f3161d98c67d2a2257"
+            },
+            {
+              "image_index": 2,
+              "file": "image_2.png",
+              "label": "COMPLETED previous attempt native_revision0: first; step 0; RAW camera observation/image",
+              "sha256": "784fec07ab34c338cc47760aa2ca34cd8c220459f86bb3d776627992cd26ba6d"
+            },
+            {
+              "image_index": 3,
+              "file": "image_3.png",
+              "label": "COMPLETED previous attempt native_revision0: first; step 0; RAW camera observation/wrist_image",
+              "sha256": "7640d476324005ae0ecbc6873b378b5a746e30e3402d47eb5b5ed16d609b4575"
+            },
+            {
+              "image_index": 4,
+              "file": "image_4.png",
+              "label": "COMPLETED previous attempt native_revision0: progress_1; step 100; RAW camera observation/image",
+              "sha256": "1ce5c3ec9350622a3dd4d7fd28536b5c14171e06e5744ef4c7115df4c844ff79"
+            },
+            {
+              "image_index": 5,
+              "file": "image_5.png",
+              "label": "COMPLETED previous attempt native_revision0: progress_1; step 100; RAW camera observation/wrist_image",
+              "sha256": "c7f88b42de2a60a420f51479ef6b9440da497aa26ddbc9c3f211609679b26b14"
+            },
+            {
+              "image_index": 6,
+              "file": "image_6.png",
+              "label": "COMPLETED previous attempt native_revision0: progress_2; step 200; RAW camera observation/image",
+              "sha256": "60a987a82d6890ddb519b617f700d90c9202d383288fb1e2eddc071d8def0a3e"
+            },
+            {
+              "image_index": 7,
+              "file": "image_7.png",
+              "label": "COMPLETED previous attempt native_revision0: progress_2; step 200; RAW camera observation/wrist_image",
+              "sha256": "5d3a3df8bd5ac22a131847f3c25e40717fce7cdd780eff024b2a36351f35070e"
+            },
+            {
+              "image_index": 8,
+              "file": "image_8.png",
+              "label": "COMPLETED previous attempt native_revision0: last; step 300; RAW camera observation/image",
+              "sha256": "b1664764bd9979e8eb5eeb453481d5be70875e3fe8d96c890155aa061b24dd52"
+            },
+            {
+              "image_index": 9,
+              "file": "image_9.png",
+              "label": "COMPLETED previous attempt native_revision0: last; step 300; RAW camera observation/wrist_image",
+              "sha256": "177b24ba8974abc203420ad6c88977a78302118234bde8037d60e27fc87b11ea"
+            },
+            {
+              "image_index": 10,
+              "file": "image_10.png",
+              "label": "CURRENT attempt astra_vei_revision1: step_0; step 0; RAW camera observation/image",
+              "sha256": "784fec07ab34c338cc47760aa2ca34cd8c220459f86bb3d776627992cd26ba6d"
+            },
+            {
+              "image_index": 11,
+              "file": "image_11.png",
+              "label": "CURRENT attempt astra_vei_revision1: step_0; step 0; RAW camera observation/wrist_image",
+              "sha256": "7640d476324005ae0ecbc6873b378b5a746e30e3402d47eb5b5ed16d609b4575"
+            }
+          ],
+          "exit_code": 0,
+          "observed_completed_turns": 1,
+          "raw_usage_events": [
+            {
+              "input_tokens": 28006,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 181,
+              "reasoning_output_tokens": 70
+            }
+          ],
+          "total_tokens_derived": true,
+          "token_usage_is_lower_bound": false,
+          "final_sha256": "7413542765c8a1b708002b208e9b5ab2763a3f9a386461429e2a055e70a02669",
+          "response_time": 1790625989.150739,
+          "latency_seconds": 10.5737756669987
+        },
+        "raw_usage": {
+          "input_tokens": 28006,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 181,
+          "reasoning_output_tokens": 70
+        },
+        "raw_usage_events": [
+          {
+            "input_tokens": 28006,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 181,
+            "reasoning_output_tokens": 70
+          }
+        ],
+        "token_usage_is_lower_bound": false,
+        "decision_id": "2c7db38fadcffc3e",
+        "response_time": 1790625989.849258,
+        "latency_seconds": 14.944032903993502
+      },
+      "scope": "Recorded-observation reasoner test; no rollout or success rate"
+    },
+    {
+      "method": "vli",
+      "request_fingerprint": "36ec507ae5498de8904cf6cb66f13fedfa4c5fb94d5c7753b2e7334424d67235",
+      "proposal": {
+        "language": null,
+        "mode": "interpolate",
+        "observed_phase": "Initial acquisition: gripper open above table; milk remains upright and ungrasped.",
+        "rationale": "The failed native rollout placed the bowl on the plate while leaving milk untouched; test an early packaged-object acquisition donor at moderate strength to shift acquisition while preserving live scene information.",
+        "request_id": "36ec507ae5498de8",
+        "vision": {
+          "alpha": 0.3,
+          "donor_id": "std13-e384-f28"
+        },
+        "schema_version": "representation-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "attempt_id": "astra_vli_revision1",
+        "decision_index": 1,
+        "observation_step": 0,
+        "representation_mode": "vli",
+        "request_fingerprint": "36ec507ae5498de8904cf6cb66f13fedfa4c5fb94d5c7753b2e7334424d67235",
+        "decision_id": "36ec507ae5498de8"
+      },
+      "record": {
+        "client_schema_version": "representation-1.0",
+        "prompt_template_version": "astra-representation-http-1",
+        "backend": "codex_relay",
+        "endpoint": "codex_relay",
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "reasoning_effort": "medium",
+        "provider_call": true,
+        "provider_call_kind": "codex_exec",
+        "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+        "provider_unavailable": false,
+        "accepted": true,
+        "job_start_unknown": false,
+        "provider_call_count_is_lower_bound": false,
+        "request_time": 1790625989.852468,
+        "token_usage": {
+          "input_tokens": 27340,
+          "output_tokens": 186,
+          "reasoning_tokens": 74,
+          "total_tokens": 27526
+        },
+        "schema_version": "representation-1.0",
+        "episode_id": "libero_spatial_ood:seed19:task2:state0",
+        "attempt_id": "astra_vli_revision1",
+        "decision_index": 1,
+        "observation_step": 0,
+        "representation_mode": "vli",
+        "request_id": "36ec507ae5498de8",
+        "request_fingerprint": "36ec507ae5498de8904cf6cb66f13fedfa4c5fb94d5c7753b2e7334424d67235",
+        "invocation_id": "8caad824f455b97cfdf893bbe7fa5337",
+        "relay_payload_sha256": "4dfed08b9bb6f494dd34b7ba78e81a082200a22f39bd2f19d4a32ab079d74f39",
+        "system_prompt_sha256": "44ff14079807f7b65d84d094abace2972e37e614c239e5dbb76eec75423432ca",
+        "codex_receipt": {
+          "backend": "codex_exec",
+          "requested_model": "gpt-6-astra",
+          "configured_model": "gpt-6-astra",
+          "returned_model": null,
+          "reasoning_effort": "medium",
+          "request_fingerprint": "36ec507ae5498de8904cf6cb66f13fedfa4c5fb94d5c7753b2e7334424d67235",
+          "request_sha256": "fde16ba93861593262ca63946f89287daca543f386799e4f057cc585fc8e9c98",
+          "request_time": 1790625992.210359,
+          "provider_call": true,
+          "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+          "internal_retry_count": null,
+          "internal_turn_count": null,
+          "accepted": true,
+          "provider_unavailable": false,
+          "status": "accepted",
+          "token_usage": {
+            "input_tokens": 27340,
+            "output_tokens": 186,
+            "reasoning_tokens": 74,
+            "total_tokens": 27526
+          },
+          "raw_usage": {
+            "input_tokens": 27340,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 186,
+            "reasoning_output_tokens": 74
+          },
+          "tool_items": [],
+          "cli_version": "codex-cli 0.157.0",
+          "schema_sha256": "d80deffcb574d3c309f4489ebf476716fdb19d991319083d3e6fd22765fbcba8",
+          "original_schema_sha256": "044c9b08e20b8db6bde1ed13dc95724c17d1ff53db54c947560d18eee102af54",
+          "prompt_template_version": "astra-representation-http-1",
+          "prompt_sha256": "dd74a6d8c9b2ea4e95622851ccf896ff799e4a8e39e30d8bbd914f3a911d6f41",
+          "system_prompt_sha256": "44ff14079807f7b65d84d094abace2972e37e614c239e5dbb76eec75423432ca",
+          "image_hashes": [
+            {
+              "image_index": 0,
+              "file": "image_0.png",
+              "label": "TRAINING DONOR PREVIEWS ONLY, not current state; camera observation/image; labels are donor_id",
+              "sha256": "25337d6d298930705030d2c377e66515785228fa1d53235406867c528e60df7f"
+            },
+            {
+              "image_index": 1,
+              "file": "image_1.png",
+              "label": "TRAINING DONOR PREVIEWS ONLY, not current state; camera observation/wrist_image; labels are donor_id",
+              "sha256": "5165c080b4e6eef5ae3f871ab00b3e199cafb86a970ea5f3161d98c67d2a2257"
+            },
+            {
+              "image_index": 2,
+              "file": "image_2.png",
+              "label": "COMPLETED previous attempt native_revision0: first; step 0; RAW camera observation/image",
+              "sha256": "784fec07ab34c338cc47760aa2ca34cd8c220459f86bb3d776627992cd26ba6d"
+            },
+            {
+              "image_index": 3,
+              "file": "image_3.png",
+              "label": "COMPLETED previous attempt native_revision0: first; step 0; RAW camera observation/wrist_image",
+              "sha256": "7640d476324005ae0ecbc6873b378b5a746e30e3402d47eb5b5ed16d609b4575"
+            },
+            {
+              "image_index": 4,
+              "file": "image_4.png",
+              "label": "COMPLETED previous attempt native_revision0: progress_1; step 100; RAW camera observation/image",
+              "sha256": "1ce5c3ec9350622a3dd4d7fd28536b5c14171e06e5744ef4c7115df4c844ff79"
+            },
+            {
+              "image_index": 5,
+              "file": "image_5.png",
+              "label": "COMPLETED previous attempt native_revision0: progress_1; step 100; RAW camera observation/wrist_image",
+              "sha256": "c7f88b42de2a60a420f51479ef6b9440da497aa26ddbc9c3f211609679b26b14"
+            },
+            {
+              "image_index": 6,
+              "file": "image_6.png",
+              "label": "COMPLETED previous attempt native_revision0: progress_2; step 200; RAW camera observation/image",
+              "sha256": "60a987a82d6890ddb519b617f700d90c9202d383288fb1e2eddc071d8def0a3e"
+            },
+            {
+              "image_index": 7,
+              "file": "image_7.png",
+              "label": "COMPLETED previous attempt native_revision0: progress_2; step 200; RAW camera observation/wrist_image",
+              "sha256": "5d3a3df8bd5ac22a131847f3c25e40717fce7cdd780eff024b2a36351f35070e"
+            },
+            {
+              "image_index": 8,
+              "file": "image_8.png",
+              "label": "COMPLETED previous attempt native_revision0: last; step 300; RAW camera observation/image",
+              "sha256": "b1664764bd9979e8eb5eeb453481d5be70875e3fe8d96c890155aa061b24dd52"
+            },
+            {
+              "image_index": 9,
+              "file": "image_9.png",
+              "label": "COMPLETED previous attempt native_revision0: last; step 300; RAW camera observation/wrist_image",
+              "sha256": "177b24ba8974abc203420ad6c88977a78302118234bde8037d60e27fc87b11ea"
+            },
+            {
+              "image_index": 10,
+              "file": "image_10.png",
+              "label": "CURRENT attempt astra_vli_revision1: step_0; step 0; RAW camera observation/image",
+              "sha256": "784fec07ab34c338cc47760aa2ca34cd8c220459f86bb3d776627992cd26ba6d"
+            },
+            {
+              "image_index": 11,
+              "file": "image_11.png",
+              "label": "CURRENT attempt astra_vli_revision1: step_0; step 0; RAW camera observation/wrist_image",
+              "sha256": "7640d476324005ae0ecbc6873b378b5a746e30e3402d47eb5b5ed16d609b4575"
+            }
+          ],
+          "exit_code": 0,
+          "observed_completed_turns": 1,
+          "raw_usage_events": [
+            {
+              "input_tokens": 27340,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 186,
+              "reasoning_output_tokens": 74
+            }
+          ],
+          "total_tokens_derived": true,
+          "token_usage_is_lower_bound": false,
+          "final_sha256": "4f8565e8bdf6a526b9c9886611dfad1673c9f416d6e4c3b88e013719d49626ec",
+          "response_time": 1790626002.2275891,
+          "latency_seconds": 10.017686749983113
+        },
+        "raw_usage": {
+          "input_tokens": 27340,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 186,
+          "reasoning_output_tokens": 74
+        },
+        "raw_usage_events": [
+          {
+            "input_tokens": 27340,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 186,
+            "reasoning_output_tokens": 74
+          }
+        ],
+        "token_usage_is_lower_bound": false,
+        "decision_id": "36ec507ae5498de8",
+        "response_time": 1790626004.838826,
+        "latency_seconds": 14.986358578084037
+      },
+      "scope": "Recorded-observation reasoner test; no rollout or success rate"
+    }
+  ],
+  "usage": {
+    "backend": "codex_relay",
+    "provider_calls": 3,
+    "codex_jobs": 3,
+    "counter_semantics": "provider_calls counts started Codex CLI jobs, not raw provider HTTP requests",
+    "internal_provider_requests": null,
+    "internal_provider_retries": null,
+    "provider_call_count_is_lower_bound": false,
+    "unknown_job_start_attempts": 0,
+    "unknown_job_start_latency_seconds": 0,
+    "accepted_proposals": 3,
+    "failed_calls": 0,
+    "tokens": {
+      "input_tokens": {
+        "sum": 71951,
+        "available_calls": 3,
+        "missing_calls": 0,
+        "complete": true,
+        "lower_bound_calls": 0
+      },
+      "output_tokens": {
+        "sum": 508,
+        "available_calls": 3,
+        "missing_calls": 0,
+        "complete": true,
+        "lower_bound_calls": 0
+      },
+      "reasoning_tokens": {
+        "sum": 144,
+        "available_calls": 3,
+        "missing_calls": 0,
+        "complete": true,
+        "lower_bound_calls": 0
+      },
+      "total_tokens": {
+        "sum": 72459,
+        "available_calls": 3,
+        "missing_calls": 0,
+        "complete": true,
+        "lower_bound_calls": 0
+      }
+    },
+    "usage_available_calls": 3,
+    "usage_unavailable_calls": 0,
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "total_tokens_semantics": "Reported total when available; otherwise derived input_tokens + output_tokens",
+    "derived_total_jobs": 3,
+    "latency_seconds": 48.00587057694793,
+    "actual_models": {
+      "unavailable": 3
+    },
+    "errors": {},
+    "client_attempts": 3,
+    "preflight_failures": 0,
+    "preflight_errors": {},
+    "preflight_latency_seconds": 0,
+    "monetary_cost": null,
+    "monetary_cost_unavailable_reason": "ChatGPT plan usage is not a verified per-token API price."
+  }
+}

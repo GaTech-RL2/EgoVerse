@@ -1,0 +1,144 @@
+"""Independent final local hash/identity joins; no archive reread or model calls."""
+
+import hashlib
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def sha(path):
+    value = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024**2), b""):
+            value.update(block)
+    return value.hexdigest()
+
+
+def read(path):
+    return json.loads(path.read_bytes())
+
+
+source = ROOT / "astra_reversal/recipe_archive_audit.py"
+training_dir = ROOT / "astra_reversal/.deps/recipe-training-v1/audited/worker_0"
+evaluation_dir = ROOT / "astra_reversal/.deps/recipe-evaluation-v1"
+training = read(training_dir / "results/training_receipt.json")
+bundle = read(training_dir / "results/learned_bundle.json")
+audits, episode_ids, rollouts = {}, [], 0
+paths = [("training", training_dir)] + [
+    (f"worker_{worker}", evaluation_dir / "audited" / f"worker_{worker}")
+    for worker in range(5)
+]
+for label, directory in paths:
+    receipt = read(directory / "audit.json")
+    inventory = read(directory / "member_inventory.json")
+    assert receipt["status"] == "passed" and receipt["complete"] is True
+    assert receipt["source_sha256"] == sha(source)
+    assert receipt["checks"]["full_archive_stream_verified"] is True
+    assert receipt["checks"]["all_member_bytes_verified"] is True
+    assert receipt["checks"]["array_descriptors_verified"] is False
+    assert receipt["archive"]["gzip_crc_verified"] is True
+    assert receipt["archive"]["unchanged_before_after"] is True
+    assert receipt["archive"]["retained_local"] is False
+    assert (
+        sha(directory / "member_inventory.json")
+        == receipt["member_inventory"]["sha256"]
+    )
+    assert len(inventory) == receipt["member_inventory"]["members"]
+    assert (
+        sum(row["bytes"] for row in inventory.values())
+        == receipt["member_inventory"]["bytes"]
+    )
+    for name, expected in receipt["files"].items():
+        path = directory / "results" / name
+        assert expected == inventory[name]
+        assert (
+            path.stat().st_size == expected["bytes"] and sha(path) == expected["sha256"]
+        )
+    assert not list(directory.rglob("*.npy"))
+    assert not list(directory.rglob("*.tar.gz"))
+    assert sha(directory / "results/protocol.json") == sha(
+        training_dir / "results/protocol.json"
+    )
+    assert sha(directory / "results/training_receipt.json") == sha(
+        training_dir / "results/training_receipt.json"
+    )
+    if label == "training":
+        seal = read(directory / "results/bundle/seal.json")
+        assert receipt["checks"]["training_bundle_seal_verified"] is True
+        assert receipt["checks"]["embedded_bundle_archive_verified"] is True
+        assert receipt["checks"]["completion_seal_verified"] is False
+        assert {"bundle/" + name: row for name, row in seal.items()} == {
+            name: row
+            for name, row in inventory.items()
+            if name.startswith("bundle/") and name != "bundle/seal.json"
+        }
+    else:
+        seal = read(directory / "results/completion_receipt.json")
+        assert receipt["checks"]["completion_seal_verified"] is True
+        assert seal["files"] == {
+            name: row
+            for name, row in inventory.items()
+            if name != "completion_receipt.json"
+        }
+        assert seal["native_parameter_sha256"] == training["native_parameter_sha256"]
+        assert (
+            seal["head_parameter_sha256"] == training["head"]["after_parameter_sha256"]
+        )
+        assert seal["training_bundle_sha256"] == bundle["sha256"]
+        assert seal["provider_calls"] == seal["provider_tokens"] == 0
+        plan = read(directory / "results/frozen_plan.json")
+        assert len(plan["episode_ids"]) == seal["episodes"]
+        assert seal["physical_rollouts"] == seal["episodes"] * 5
+        episode_ids.extend(plan["episode_ids"])
+        rollouts += seal["physical_rollouts"]
+    audits[label] = {
+        "audit_sha256": sha(directory / "audit.json"),
+        "archive_sha256": receipt["archive"]["sha256"],
+        "archive_bytes": receipt["archive"]["bytes"],
+        "member_inventory": receipt["member_inventory"],
+        "retained_files": receipt["retained_files"],
+        "retained_bytes": receipt["retained_bytes"],
+    }
+assert len(episode_ids) == len(set(episode_ids)) == 48 and rollouts == 240
+result = {
+    "schema_version": "recipe-archive-final-validation-1.0",
+    "status": "passed",
+    "archive_auditor_source_sha256": sha(source),
+    "verifier_source_sha256": sha(Path(__file__)),
+    "audits": audits,
+    "counts": {
+        "archives": 6,
+        "evaluation_workers": 5,
+        "evaluation_unique_episodes": 48,
+        "evaluation_physical_rollouts": 240,
+        "compressed_bytes": sum(row["archive_bytes"] for row in audits.values()),
+        "regular_member_files": sum(
+            row["member_inventory"]["members"] for row in audits.values()
+        ),
+        "regular_member_bytes": sum(
+            row["member_inventory"]["bytes"] for row in audits.values()
+        ),
+        "retained_files_rehashed": sum(
+            row["retained_files"] for row in audits.values()
+        ),
+        "retained_bytes_rehashed": sum(
+            row["retained_bytes"] for row in audits.values()
+        ),
+    },
+    "checks": {
+        "all_retained_files_rehashed": True,
+        "all_seal_inventory_joins_exact": True,
+        "training_protocol_and_checkpoint_identities_match_evaluation": True,
+        "unique_evaluation_assignment_count_matches": True,
+        "array_descriptors_replayed": False,
+        "model_or_physics_replayed": False,
+    },
+}
+output = evaluation_dir / "archive_final_validation.json"
+encoded = (json.dumps(result, sort_keys=True, indent=2) + "\n").encode()
+assert not output.exists() or output.read_bytes() == encoded
+output.write_bytes(encoded)
+print(
+    json.dumps({"status": "passed", "sha256": sha(output), "counts": result["counts"]})
+)

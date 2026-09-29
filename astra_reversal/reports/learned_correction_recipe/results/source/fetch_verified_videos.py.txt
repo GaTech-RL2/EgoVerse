@@ -1,0 +1,128 @@
+"""Retain only declared gallery MP4s already covered by a passed archive audit."""
+
+import argparse
+import hashlib
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT))
+
+from astra_reversal.recipe_archive_audit import (  # noqa: E402
+    AuditError,
+    _relative,
+    _remote_open,
+)
+from astra_reversal.records import file_sha256  # noqa: E402
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root", type=Path)
+    parser.add_argument("selection", type=Path)
+    parser.add_argument("--maximum-bytes", type=int, default=40 * 1024**2)
+    args = parser.parse_args()
+    catalog = json.loads((args.root / "catalog.json").read_text())
+    selection = json.loads(args.selection.read_text())
+    records, total = [], 0
+    seen = set()
+    for choice in selection:
+        if set(choice) != {"worker", "path"}:
+            raise AuditError("unexpected_video_selection_fields")
+        worker, name = choice["worker"], _relative(choice["path"])
+        if type(worker) is not int or not 0 <= worker < 5 or not name.endswith(".mp4"):
+            raise AuditError("invalid_video_selection")
+        if (worker, name) in seen:
+            raise AuditError("duplicate_video_selection")
+        seen.add((worker, name))
+        directory = args.root / "audited" / f"worker_{worker}"
+        receipt = json.loads((directory / "audit.json").read_text())
+        if (
+            receipt["status"] != "passed"
+            or not receipt["complete"]
+            or not receipt["checks"]["completion_seal_verified"]
+        ):
+            raise AuditError("video_archive_not_verified")
+        inventory_path = directory / "member_inventory.json"
+        if file_sha256(inventory_path) != receipt["member_inventory"]["sha256"]:
+            raise AuditError("video_member_inventory_changed")
+        expected = json.loads(inventory_path.read_text())[name]
+        total += expected["bytes"]
+        if total > args.maximum_bytes:
+            raise AuditError("selected_video_byte_limit")
+        target = directory / "results" / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if not target.exists():
+            value = catalog["objects"][f"worker_{worker}/{name}"]
+            url = value["url"] if isinstance(value, dict) else value
+            descriptor, temporary = tempfile.mkstemp(
+                prefix=".video-", dir=target.parent
+            )
+            temporary = Path(temporary)
+            digest, size = hashlib.sha256(), 0
+            try:
+                with os.fdopen(descriptor, "wb") as output, _remote_open(url) as stream:
+                    if stream.status != 200:
+                        raise AuditError("video_http_status")
+                    for block in iter(lambda: stream.read(1024**2), b""):
+                        size += len(block)
+                        if size > expected["bytes"]:
+                            raise AuditError("video_size_exceeded")
+                        digest.update(block)
+                        output.write(block)
+                if {"sha256": digest.hexdigest(), "bytes": size} != expected:
+                    raise AuditError("video_archive_hash_mismatch")
+                temporary.replace(target)
+            finally:
+                temporary.unlink(missing_ok=True)
+        if (
+            file_sha256(target) != expected["sha256"]
+            or target.stat().st_size != expected["bytes"]
+        ):
+            raise AuditError("retained_video_changed")
+        records.append(
+            {
+                **choice,
+                **expected,
+                "archive_audit_sha256": file_sha256(directory / "audit.json"),
+                "member_inventory_sha256": receipt["member_inventory"]["sha256"],
+            }
+        )
+    value = {
+        "schema_version": "recipe-video-retention-1.0",
+        "status": "passed",
+        "selection_sha256": file_sha256(args.selection),
+        "source_sha256": file_sha256(__file__),
+        "videos": records,
+        "bytes": total,
+    }
+    output = args.selection.with_name(args.selection.stem + "_receipt.json")
+    encoded = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode()
+    if output.exists() and output.read_bytes() != encoded:
+        raise AuditError("video_retention_receipt_exists")
+    if not output.exists():
+        output.write_bytes(encoded)
+    print(
+        json.dumps(
+            {
+                "status": "passed",
+                "videos": len(records),
+                "bytes": total,
+                "receipt_sha256": file_sha256(output),
+            }
+        )
+    )
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except AuditError as error:
+        print(json.dumps({"status": "failed", "code": str(error)}))
+        raise SystemExit(1) from None
+    except Exception as error:
+        print(json.dumps({"status": "failed", "code": type(error).__name__}))
+        raise SystemExit(1) from None

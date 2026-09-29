@@ -1,0 +1,217 @@
+"""Reconcile completed recipe rows, then publish immutable reports with context.
+
+Operational postprocessor only: no network, model, training or simulator calls.
+The source report directory is never changed. Publication adds local navigation,
+an independent reconciliation receipt and separately scoped historical costs.
+"""
+
+import argparse
+import json
+import shutil
+import statistics
+from pathlib import Path
+
+from astra_reversal.records import digest, file_sha256
+
+ROOT = Path(__file__).resolve().parents[3]
+ARMS = ("native", "recorded_schedule", "learned_selector", "flow_head", "gated_flow_head")
+
+
+def read(path):
+    return json.loads(Path(path).read_text())
+
+
+def need(value, text):
+    if not value:
+        raise ValueError(text)
+
+
+def write(path, value):
+    Path(path).write_text(json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n")
+
+
+def files(root):
+    return {str(p.relative_to(root)): {"sha256": file_sha256(p), "bytes": p.stat().st_size} for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+def reconcile(report_dir, training, workers):
+    report = read(report_dir / "report.json")
+    need(report["status"] == "complete" and report["efficacy_released"] is True, "Incomplete report cannot be published")
+    need(len(workers) == 5, "Five evaluation directories required")
+    original_manifest = read(report_dir / "manifest.json")
+    for name, expected in original_manifest["files"].items():
+        p = report_dir / name
+        need(file_sha256(p) == expected["sha256"] and p.stat().st_size == expected["bytes"], "Generated report manifest mismatch")
+    raw, audits = [], {}
+    input_hashes = {}
+    for path in [training, *workers]:
+        runtime = read(path / "runtime.json")
+        label = "training" if runtime["phase"] == "training" else f"worker_{runtime['worker']}"
+        audit_path = path.parent / "audit.json"
+        audit = read(audit_path)
+        need(audit["status"] == "passed" and audit["complete"] is True, "Archive audit incomplete")
+        need(audit["workflow"] == runtime["workflow"] and audit["worker"] == runtime["worker"], "Audit assignment mismatch")
+        audits[label] = {"path": audit_path, "sha256": file_sha256(audit_path)}
+        for name in ("runtime.json", "training_receipt.json"):
+            need(file_sha256(path / name) == audit["files"][name]["sha256"], "Independent archive/input binding mismatch")
+        input_hashes[label] = {"runtime.json": file_sha256(path / "runtime.json"), "training_receipt.json": file_sha256(path / "training_receipt.json")}
+        if label != "training":
+            rows = read(path / "rollouts.json")
+            need(file_sha256(path / "rollouts.json") == audit["files"]["rollouts.json"]["sha256"], "Independent outcome index mismatch")
+            input_hashes[label]["rollouts.json"] = file_sha256(path / "rollouts.json")
+            for row in rows:
+                p = path / row["relative_directory"] / "summary.json"
+                need(row["summary_sha256"] == file_sha256(p) == audit["files"][row["relative_directory"] + "/summary.json"]["sha256"], "Physical summary binding mismatch")
+                summary = read(p)
+                need({k: v for k, v in row.items() if k not in ("relative_directory", "summary_sha256")} == summary, "Independent summary/index equality failed")
+                raw.append(row)
+    need(set(audits) == {"training", *(f"worker_{i}" for i in range(5))}, "Duplicate/missing archive worker")
+    indexed = {(r["episode_id"], r["arm"]): r for r in raw}
+    need(len(indexed) == len(raw) == 240, "Not exactly 240 distinct physical trials")
+    episodes = {r["episode_id"] for r in raw}
+    need(len(episodes) == 48 and all({arm for ep, arm in indexed if ep == episode} == set(ARMS) for episode in episodes), "Case/arm cartesian coverage differs")
+    need(all(r["provider_calls"] == r["provider_tokens"] == 0 and r["initial_success"] is False and r["actions_executed"] > 0 for r in raw), "Provider/initial-success convention differs")
+    output_rows = {(r["episode_id"], r["arm"]): r for r in report["rows"]}
+    need(set(output_rows) == set(indexed), "Report row coverage differs")
+    for key, row in indexed.items():
+        for field in ("success", "actions_executed", "policy_replans", "velocity_evaluations", "probe_velocity_evaluations", "prefix_evaluations", "probe_prefix_evaluations", "summary_sha256", "initial_state_id", "video_sha256"):
+            need(row[field] == output_rows[key][field], "Canonical physical measurement differs")
+    summaries = {}
+    cohorts = {"ood": [r for r in raw if r["suite"] != "libero_10"], "id_panel": [r for r in raw if r["suite"] == "libero_10"]}
+    for cohort, rows in cohorts.items():
+        summaries[cohort] = {}
+        for arm in ARMS:
+            subset = [r for r in rows if r["arm"] == arm]
+            expected = 40 if cohort == "ood" else 8
+            need(len(subset) == expected, "Cohort denominator differs")
+            successes = [r for r in subset if r["success"]]
+            failures = [r for r in subset if not r["success"]]
+            observed = report["groups"][cohort]["methods"][arm]
+            median = statistics.median(r["actions_executed"] for r in successes) if successes else None
+            need(observed["successes"] == len(successes) and observed["cases"] == expected and observed["median_actions_to_success"] == median, "Group success/median mismatch")
+            need(observed["budget_censored_failures"] == sum(r["actions_executed"] == r["action_budget"] for r in failures), "Censor mismatch")
+            summaries[cohort][arm] = {"successes": len(successes), "cases": expected, "median_actions_success_only": median}
+        for comparison in report["groups"][cohort]["paired"]:
+            reference, method = comparison["reference"], comparison["method"]
+            groups = {"both_success": [], "method_only_success": [], "reference_only_success": [], "both_failure": []}
+            for episode in sorted({r["episode_id"] for r in rows}):
+                a, b = indexed[episode, reference]["success"], indexed[episode, method]["success"]
+                category = "both_success" if a and b else "method_only_success" if b else "reference_only_success" if a else "both_failure"
+                groups[category].append(episode)
+            need(groups == comparison["episode_ids"], "Paired discordant IDs differ")
+            need(all(comparison[k] == len(v) for k, v in groups.items()), "Paired success/harm counts differ")
+    training_receipt = read(training / "training_receipt.json")
+    anchor = training_receipt["fresh_native_anchor_rollouts"]
+    train_vf = sum(r["velocity_evaluations"] + r["probe_velocity_evaluations"] for r in anchor) + training_receipt["feature_velocity_evaluations"]
+    eval_vf = sum(r["velocity_evaluations"] + r["probe_velocity_evaluations"] for r in raw)
+    need(report["cost"]["all_new_velocity_evaluations"] == train_vf + eval_vf, "Stage VF counted twice or omitted")
+    need(report["cost"]["evaluation"]["actions_executed"] == sum(r["actions_executed"] for r in raw), "Physical action cost differs")
+    bound = {r["input"]: r for r in report["archive_verification"]}
+    for label, audit in audits.items():
+        need(bound[label]["receipt_sha256"] == audit["sha256"], "Report archive receipt hash differs")
+    result = {"schema_version": "recipe-independent-reconciliation-1.0", "status": "passed", "source_sha256": file_sha256(__file__), "report_sha256": file_sha256(report_dir / "report.json"), "input_file_sha256": input_hashes, "archive_receipt_sha256": {k: v["sha256"] for k, v in audits.items()}, "physical_rollouts": 240, "unique_cases": 48, "groups": summaries, "training_velocity_evaluations": train_vf, "evaluation_velocity_evaluations": eval_vf, "evaluation_actions": sum(r["actions_executed"] for r in raw), "provider_calls": 0, "provider_tokens": 0, "array_hidden_state_optimizer_physics_replay": False}
+    return report, result, audits
+
+
+def historical_context():
+    definitions = [("phase_interpolation/evaluation/results/report.json", "Complete seed29 phase study", "token_usage"), ("representation_steering/development/results/report.json", "Interrupted seed19 representation pilot", "provider")]
+    records = []
+    for relative, label, key in definitions:
+        path = ROOT / "astra_reversal/reports" / relative
+        value = read(path)
+        provider = value["groups"]["pooled"]["physical_cost"][key]
+        records.append({"study": label, "report": "../../" + relative, "report_sha256": file_sha256(path), "calls": provider["provider_calls"], "input_tokens": provider["tokens"]["input_tokens"]["sum"], "output_tokens": provider["tokens"]["output_tokens"]["sum"], "known_total_tokens": provider["tokens"]["total_tokens"]["sum"], "reasoning_tokens_subset": provider["tokens"]["reasoning_tokens"]["sum"], "usage_available_calls": provider["usage_available_calls"], "usage_missing_calls": provider["usage_unavailable_calls"], "complete_total": provider["tokens"]["total_tokens"]["complete"]})
+    need([(r["calls"], r["known_total_tokens"]) for r in records] == [(679, 5757974), (220, 1129046)], "Historical frozen totals differ; review required")
+    value = {"schema_version": "recipe-historical-context-1.0", "scope": "Whole source-study acquisition, not cost attributable to the selected 12 teachers or seven historical native anchors.", "studies": records, "whole_study_calls": sum(r["calls"] for r in records), "whole_study_known_total_tokens_lower_bound": sum(r["known_total_tokens"] for r in records), "selected_teacher_subset_cost": None, "new_recipe_provider_calls": 0, "new_recipe_provider_tokens": 0, "new_cost_scope": "Experiment-time Astra inference API only; coding/review/orchestration assistant tokens were not instrumented.", "reasoning_is_subset_of_output": True, "cohorts_pooled_for_efficacy": False, "monetary_cost": None, "source_sha256": file_sha256(__file__)}
+    lines = ["# Historical acquisition context", "", value["scope"], "", "| Whole source study | Calls | Input | Output | Total | Missing usage |", "|---|---:|---:|---:|---:|---:|"]
+    for row in records:
+        total = ("≥" if not row["complete_total"] else "") + f"{row['known_total_tokens']:,}"
+        lines.append(f"| [{row['study']}]({row['report']}) | {row['calls']} | {row['input_tokens']:,} | {row['output_tokens']:,} | {total} | {row['usage_missing_calls']} calls |")
+    lines += ["", "These two whole source studies recorded 899 calls and at least 6,887,020 tokens. They include other arms, unsuccessful trials and unused trajectories. The selected twelve teachers' acquisition cost has not been isolated, so this total must not be labeled their exact cost or added to new evaluation tokens. Reasoning tokens are already included in output tokens. The pilot's 122 HTTP429 calls have unknown usage; 48 were explicitly classified as budget-exceeded errors.", "", "The new recipe makes no experiment-time Astra inference API calls. Coding, review and orchestration assistant tokens were not instrumented and are outside this zero-call claim. Its native anchor collection, frozen feature extraction, two optimizer fits and 240 physical evaluation trials are reported as separate new compute stages. No monetary price, amortized saving or superiority to another learning method is inferred.", "", "The historical efficacy cohorts use different resets, assistance budgets and selection rules. They are not pooled with the seed61 unconditional test. The selector imitates successful intervention support on known compositions; its gate is not a calibrated failure probability.", "", "[Method design](../DESIGN_REVIEW.md) · [Current report](index.html) · [Exact context numbers and source hashes](historical_context.json)", ""]
+    return value, "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--training", type=Path, required=True)
+    parser.add_argument("--workers", type=Path, nargs=5, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--supplemental-receipts", type=Path, required=True, help="JSON mapping the four approved public receipt filenames to their exact source paths")
+    parser.add_argument("--video-retention-receipt", type=Path, help="Exact archive-bound receipt for the selected gallery downloads")
+    args = parser.parse_args()
+    need(not args.output.exists(), "Publication destination already exists")
+    need(args.output.resolve() == ROOT / "astra_reversal/reports/learned_correction_recipe/results", "Unexpected public destination")
+    supplements = read(args.supplemental_receipts)
+    need(set(supplements) == {"osmo_task_cost.json", "training_numerical_review.json", "deployment_spot_review.json", "archive_final_validation.json"}, "Final task-time, numerical/spot and archive receipts are required")
+    supplemental_sources = {}
+    for name, source in supplements.items():
+        path = Path(source)
+        if not path.is_absolute():
+            path = args.supplemental_receipts.parent / path
+        payload = path.read_bytes()
+        need(b"X-Amz-Credential" not in payload and b"X-Amz-Signature" not in payload and b"Bearer " not in payload, "Supplement contains an unsafe credential field")
+        read(path)
+        supplemental_sources[name] = {"path": path, "sha256": file_sha256(path), "bytes": len(payload), "input": str(path.resolve().relative_to(ROOT))}
+    report, receipt, audits = reconcile(args.report, args.training, args.workers)
+    calculator = Path(__file__).with_name("reservation_cost.py")
+    need(read(supplemental_sources["osmo_task_cost.json"]["path"])["calculator_sha256"] == file_sha256(calculator), "Task-time calculator source differs")
+    verifier = Path(__file__).with_name("verify_archive_receipts.py")
+    final_archives = read(supplemental_sources["archive_final_validation.json"]["path"])
+    need(final_archives["status"] == "passed" and final_archives["verifier_source_sha256"] == file_sha256(verifier), "Final archive verifier identity/status differs")
+    need({key: value["audit_sha256"] for key, value in final_archives["audits"].items()} == {key: value["sha256"] for key, value in audits.items()}, "Final archive audit set differs")
+    gallery = read(args.report / "gallery.json")["videos"]
+    available = [row for row in gallery if row["available"]]
+    video_source = Path(__file__).with_name("fetch_verified_videos.py")
+    video_receipt = None
+    if available:
+        need(args.video_retention_receipt is not None, "Selected videos require their archive-bound transfer receipt")
+        video_receipt = read(args.video_retention_receipt)
+        need(video_receipt["status"] == "passed" and video_receipt["source_sha256"] == file_sha256(video_source), "Video transfer source/status differs")
+        selected = {(row["worker"], row["path"]): row for row in video_receipt["videos"]}
+        need(len(selected) == len(available) == len(video_receipt["videos"]), "Video selection coverage differs")
+        outcomes = {(row["episode_id"], row["arm"]): row for row in report["rows"]}
+        for clip in available:
+            outcome = outcomes[clip["episode_id"], clip["arm"]]
+            evidence = selected[outcome["worker"], outcome["relative_directory"] + "/rollout.mp4"]
+            audit = audits[f"worker_{outcome['worker']}"]
+            need(evidence["sha256"] == clip["sha256"] == outcome["video_sha256"] and evidence["bytes"] == clip["bytes"], "Video bytes differ from verified rollout")
+            need(evidence["archive_audit_sha256"] == audit["sha256"] and evidence["member_inventory_sha256"] == read(audit["path"])["member_inventory"]["sha256"], "Video transfer archive binding differs")
+    context, context_md = historical_context()
+    original_files = files(args.report)
+    shutil.copytree(args.report, args.output)
+    write(args.output / "independent_reconciliation.json", receipt)
+    write(args.output / "historical_context.json", context)
+    (args.output / "HISTORICAL_CONTEXT.md").write_text(context_md)
+    for name, record in supplemental_sources.items():
+        shutil.copyfile(record["path"], args.output / name)
+    (args.output / "audits").mkdir()
+    for label, record in audits.items():
+        shutil.copyfile(record["path"], args.output / "audits" / (label + ".json"))
+    shutil.copyfile(__file__, args.output / "source/publish_report.py.txt")
+    shutil.copyfile(ROOT / "astra_reversal/recipe_archive_audit.py", args.output / "source/recipe_archive_audit.py.txt")
+    shutil.copyfile(calculator, args.output / "source/reservation_cost.py.txt")
+    shutil.copyfile(verifier, args.output / "source/verify_archive_receipts.py.txt")
+    if video_receipt is not None:
+        shutil.copyfile(args.video_retention_receipt, args.output / "video_retention_receipt.json")
+        shutil.copyfile(video_source, args.output / "source/fetch_verified_videos.py.txt")
+    index = args.output / "index.html"
+    text = index.read_text()
+    navigation = "<nav><a href='../README.md'>Interpretation and methods</a> · <a href='../DESIGN_REVIEW.md'>Detailed design</a> · <a href='HISTORICAL_CONTEXT.md'>Historical acquisition cost</a> · <a href='independent_reconciliation.json'>Independent reconciliation</a> · <a href='osmo_task_cost.json'>OSMO task-time proxy</a> · <a href='training_numerical_review.json'>Training numerical review</a> · <a href='deployment_spot_review.json'>Deployment spot review</a> · <a href='archive_final_validation.json'>Final archive consistency</a> · <a href='audits/training.json'>Training archive audit</a> · " + " · ".join(f"<a href='audits/worker_{i}.json'>Evaluation audit {i}</a>" for i in range(5)) + (" · <a href='video_retention_receipt.json'>Video archive verification</a>" if video_receipt is not None else "") + "</nav>"
+    labels = {"native": "native", "recorded_schedule": "recorded schedule", "learned_selector": "learned selector", "flow_head": "flow head", "gated_flow_head": "gated flow head"}
+    headline = "<p><strong>Known-composition, new-reset evaluation.</strong> OOD successes: " + "; ".join(f"{labels[arm]} {report['groups']['ood']['methods'][arm]['successes']}/40" for arm in ARMS) + ". Four-task ID panel: " + "; ".join(f"{labels[arm]} {report['groups']['id_panel']['methods'][arm]['successes']}/8" for arm in ARMS) + ". Each method ran unconditionally; historical cohorts are separate.</p>"
+    need(text.count("<body>") == 1, "Unexpected HTML entry point")
+    index.write_text(text.replace("<body>", "<body>" + navigation + headline, 1))
+    provenance = {"schema_version": "recipe-publication-postprocess-1.0", "source_sha256": file_sha256(__file__), "original_report_sha256": original_files["report.json"]["sha256"], "original_files": original_files, "changes": {"index.html": "Add portable links to existing method design, historical costs and audit receipts; no numerical edits.", "manifest.json": "Rebuild the full public file inventory after adding context, reconciliation, exact safe audit receipts and source snapshots."}, "path_normalization": "None; canonical producer already emits portable names.", "invocation": {"report": str(args.report.resolve().relative_to(ROOT)), "training": str(args.training.resolve().relative_to(ROOT)), "workers": [str(p.resolve().relative_to(ROOT)) for p in args.workers], "output": str(args.output.resolve().relative_to(ROOT))}, "report_numeric_bytes_unchanged": file_sha256(args.output / "report.json") == original_files["report.json"]["sha256"]}
+    provenance["supplemental_receipts"] = {name: {k: v for k, v in record.items() if k != "path"} for name, record in supplemental_sources.items()}
+    provenance["video_retention_receipt_sha256"] = file_sha256(args.video_retention_receipt) if video_receipt is not None else None
+    provenance["supplemental_receipts_mapping_sha256"] = file_sha256(args.supplemental_receipts)
+    provenance["changes"]["index.html"] = "Add portable links and a headline derived from the canonical outcome table; no numerical data edits."
+    write(args.output / "publication.json", provenance)
+    manifest = {"schema_version": "recipe-final-publication-1.0", "report_sha256": file_sha256(args.output / "report.json"), "publication_sha256": file_sha256(args.output / "publication.json"), "source_sha256": file_sha256(__file__), "files": {k: v for k, v in files(args.output).items() if k != "manifest.json"}}
+    write(args.output / "manifest.json", manifest)
+    print(json.dumps({"status": "published", "report_sha256": manifest["report_sha256"], "reconciliation_sha256": file_sha256(args.output / "independent_reconciliation.json"), "manifest_sha256": file_sha256(args.output / "manifest.json"), "physical_rollouts": len(report["rows"])}))
+
+
+if __name__ == "__main__":
+    main()

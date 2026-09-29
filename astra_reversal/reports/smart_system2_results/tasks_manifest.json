@@ -1,0 +1,63 @@
+{
+  "example_count": 4,
+  "files": {
+    "build_task_examples.py": {
+      "bytes": 17192,
+      "sha256": "06cff871482f0983f768f3ec11f32e0c8d95650812ace39fe22c66b319ea5d66"
+    },
+    "starting_images/g0_start.png": {
+      "bytes": 43212,
+      "sha256": "a12848e011741b05793ee4b5adc06d5ac2b4fb0a2b03dfdf5b5499da6e0567f2"
+    },
+    "starting_images/g5_start.png": {
+      "bytes": 38409,
+      "sha256": "e9a4e7726242cfb9f3dc1df1f2694f19066c065d7c19a74548d235b13afdb65a"
+    },
+    "starting_images/s2_start.png": {
+      "bytes": 37371,
+      "sha256": "f088f4eeabd8e3d16fb55a85f560a16fd350f01b699e70e711c88130d97f5bff"
+    },
+    "starting_images/s8_start.png": {
+      "bytes": 47495,
+      "sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6"
+    },
+    "task_examples.json": {
+      "bytes": 5421,
+      "sha256": "d8a1fc02ec21aefc1227275dc0c3fcdce16008c28a536b1375d5ed7bdcac74c2"
+    },
+    "task_examples.pdf": {
+      "bytes": 217424,
+      "sha256": "b0b38fa861b547ef7707aba744f8e13d2c7805449912d708d5a26007e43aa15c"
+    },
+    "task_examples.png": {
+      "bytes": 373912,
+      "sha256": "28f8e085566cf07ba7eee6d49240cfb53796b6811652703b9b8460209d911994"
+    },
+    "tasks.csv": {
+      "bytes": 7668,
+      "sha256": "bbd353057ac531baceecfbe08ae57251c04fdbd00c540175ee168b6db2e4455e"
+    },
+    "tasks.html": {
+      "bytes": 226509,
+      "sha256": "31de53c0f9791d65d14efce8bdecce6bd09a1e55cf42b812b7a6f04a96732f0b"
+    },
+    "tasks.json": {
+      "bytes": 23397,
+      "sha256": "99bd8640be6dabe68fc534147490b2086ebcd4c073257e44a0cf1ec33ec4bbeb"
+    },
+    "tasks.md": {
+      "bytes": 3602,
+      "sha256": "e0ca5f14f8a8badb6a7c9eac24e0e22797532a31118a10337139a177e8804e26"
+    }
+  },
+  "schema_version": "smart-system2-task-publication-1.0",
+  "sources": {
+    "astra_reversal/libero_runner.py": "4f96aca61c2d8534377ba6ad92e946b9aba2432f5643fb3c5444177045cad61b",
+    "astra_reversal/reports/frs_policy_improvement/coverage.json": "7853ed47e97e1aff257c8d8099bfd0f5494ee2f8eeae1bf975c49cff7d59700a",
+    "astra_reversal/reports/learned_correction_recipe/results/gallery.json": "dfe50777c00700334204c59b99494a64e0afe175eefec901e3a0ef45d62a62e9",
+    "astra_reversal/reports/learned_correction_recipe/results/manifest.json": "f84c26b8c4364e9b487a589d601a0290eced78cb0b8456bbe7ee1e95dff122c2",
+    "astra_reversal/reports/learned_correction_recipe/results/report.json": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802",
+    "astra_reversal/reports/phase_interpolation/development/examples/examples.json": "5d4725b385ec27ad6a1cc48a714abf9dffb5a5a815505b0d8efb9277115144eb"
+  },
+  "task_count": 20
+}

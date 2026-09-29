@@ -1,0 +1,108 @@
+{
+  "files": {
+    "README.md": {
+      "bytes": 16489,
+      "sha256": "d0c48d083a99b4801eb38f3464c583e586a3e4875764c8ab602f00620b5483d0"
+    },
+    "build_results.py": {
+      "bytes": 23096,
+      "sha256": "bcd6b3830a0357c79fd95986c5fda43b3637df674cc9c5774820f84e0554d31d"
+    },
+    "build_runtime.py": {
+      "bytes": 16674,
+      "sha256": "0f1b46fec965baf4d643ee493e5d3339d731d3f3faaed766a1f157ad565caed7"
+    },
+    "build_task_examples.py": {
+      "bytes": 17192,
+      "sha256": "06cff871482f0983f768f3ec11f32e0c8d95650812ace39fe22c66b319ea5d66"
+    },
+    "plotted_values.csv": {
+      "bytes": 3304,
+      "sha256": "9c7cd6473d64b91e292baece7fbecbe0a31679d87ea87830dfa849afe65716fa"
+    },
+    "plotted_values.json": {
+      "bytes": 19763,
+      "sha256": "9b682e59bbaf30a537f495e443e0e09551a725e9ff452b0bc40fb8d08016956f"
+    },
+    "runtime.json": {
+      "bytes": 12211,
+      "sha256": "71bcde91ddc76e4301234b4dcac2c09db725e8b5deb7f5dc98fdf7e72663a085"
+    },
+    "runtime.md": {
+      "bytes": 6723,
+      "sha256": "4c24e2d4ba13ebf25771d7fe6a151719d762e993e3a4300f34ab593a54301632"
+    },
+    "starting_images/g0_start.png": {
+      "bytes": 43212,
+      "sha256": "a12848e011741b05793ee4b5adc06d5ac2b4fb0a2b03dfdf5b5499da6e0567f2"
+    },
+    "starting_images/g5_start.png": {
+      "bytes": 38409,
+      "sha256": "e9a4e7726242cfb9f3dc1df1f2694f19066c065d7c19a74548d235b13afdb65a"
+    },
+    "starting_images/s2_start.png": {
+      "bytes": 37371,
+      "sha256": "f088f4eeabd8e3d16fb55a85f560a16fd350f01b699e70e711c88130d97f5bff"
+    },
+    "starting_images/s8_start.png": {
+      "bytes": 47495,
+      "sha256": "ed9bdd93b353b13a3d84860dc1b393522c1d33ae168a3d270662fbbc70d40ae6"
+    },
+    "success_vs_tokens.pdf": {
+      "bytes": 39902,
+      "sha256": "1db948f6cef3c5e7528ea1cf98e160dc21a1e56143e4249ef4895f119818d177"
+    },
+    "success_vs_tokens.png": {
+      "bytes": 555361,
+      "sha256": "3863f215c35634a0300f93ab218d4bf032d1615f6e40e62248a4c7beebb5cd8d"
+    },
+    "success_vs_tokens.svg": {
+      "bytes": 55537,
+      "sha256": "72b5842a91246f2043aa571a34524128878a40bf84115ec485090ec4976ed7be"
+    },
+    "task_examples.json": {
+      "bytes": 5421,
+      "sha256": "d8a1fc02ec21aefc1227275dc0c3fcdce16008c28a536b1375d5ed7bdcac74c2"
+    },
+    "task_examples.pdf": {
+      "bytes": 217424,
+      "sha256": "b0b38fa861b547ef7707aba744f8e13d2c7805449912d708d5a26007e43aa15c"
+    },
+    "task_examples.png": {
+      "bytes": 373912,
+      "sha256": "28f8e085566cf07ba7eee6d49240cfb53796b6811652703b9b8460209d911994"
+    },
+    "tasks.csv": {
+      "bytes": 7668,
+      "sha256": "bbd353057ac531baceecfbe08ae57251c04fdbd00c540175ee168b6db2e4455e"
+    },
+    "tasks.html": {
+      "bytes": 226509,
+      "sha256": "31de53c0f9791d65d14efce8bdecce6bd09a1e55cf42b812b7a6f04a96732f0b"
+    },
+    "tasks.json": {
+      "bytes": 23397,
+      "sha256": "99bd8640be6dabe68fc534147490b2086ebcd4c073257e44a0cf1ec33ec4bbeb"
+    },
+    "tasks.md": {
+      "bytes": 3602,
+      "sha256": "e0ca5f14f8a8badb6a7c9eac24e0e22797532a31118a10337139a177e8804e26"
+    },
+    "tasks_manifest.json": {
+      "bytes": 2656,
+      "sha256": "8de981d254d51fca80d966e2c5b337f88e6efb505b54604c00285a982acb2a0d"
+    }
+  },
+  "matplotlib_version": "3.11.2",
+  "schema_version": "smart-system2-results-publication-1.0",
+  "source_sha256": {
+    "frs_policy_improvement/development/report.json": "7b69978c4cc5653fec9fe780a731e23f88777236562a44df2c38d01ede7c0be6",
+    "frs_policy_improvement/evaluation_gate_observations.json": "cc51fcf401460145be844c65eaf98a0156d4ceca531c64a4012b45d14dee4f84",
+    "frs_policy_improvement/evaluation_interruption.json": "6f08df0176a17296ab3484ce7b7e30df537111c55b01d660e4576329dcb780fb",
+    "image_perturbations/evaluation/results/report.json": "bd2ae73794dcdf9c73f9033c8934ab23ce8ea2ab0b878b239d2af8c963adff87",
+    "learned_correction_recipe/results/historical_context.json": "9b0c1b48ba306010ee792ffb405f201fd900d3d2644808bbb58acb006e954d87",
+    "learned_correction_recipe/results/report.json": "f1e24e7bc0364d2d9ee71ea5618e417db667cde1f2de67a7b0efd7ae44fdd802",
+    "ood_baseline.json": "40c6828cc18cf166663d88d33f656da7bda26215d9c1eed341522282cb72b0b9",
+    "phase_interpolation/evaluation/results/report.json": "4409d1113f1ac304ad2ebec767ec35448aa34ada02bb6bf5e130c4815222ca0c"
+  }
+}
