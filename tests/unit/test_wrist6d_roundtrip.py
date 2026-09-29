@@ -2,23 +2,23 @@
 
 The round-trip tests in ``test_pi05_norm_rot6d.py`` compare the pipeline
 against itself (``_rot6d_to_ypr(_ypr_to_rot6d(x)) == x``), which a
-consistently-wrong convention would pass, and the transform-list tests there
-only assert which Transform classes are present. These tests instead run the
-REAL transform lists on synthetic world-frame poses and compare every stage
-against plain numpy/scipy SE(3) math that shares no code with the pipeline:
+consistently-wrong convention would pass. These tests instead run the REAL
+transform lists on synthetic world-frame poses and compare every stage against
+plain numpy/scipy SE(3) math that shares no code with the pipeline:
 
   raw world-frame poses
-    -> Human/Eva.get_transform_list("cartesian_wristframe_6d")   (data)
+    -> Human/Eva.get_transform_list("cartesian_{wristframe_,}6d")  (data)
     -> quantile normalize (the dataset formula)
     -> to32_norm_6d / from32_norm_6d                            (model I/O)
     -> unnormalize
-    -> _build_*_cartesian_revert_6d_wristframe_transform_list   (evaluator)
+    -> _build_*_cartesian_revert_6d{_wristframe,}_transform_list (evaluator)
     -> head/cam-frame xyz+ypr  ==  independent inv(T_head) @ T_action
 """
 
 import numpy as np
 import pytest
 import torch
+from fixtures.poses import apply_transforms, pose_matrix, rand_chunk, rand_pose
 from scipy.spatial.transform import Rotation as R
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
@@ -49,34 +49,8 @@ def _rng(seed):
     return np.random.default_rng(seed)
 
 
-def _rand_pose(rng, scale=1.0):
-    q = R.random(random_state=int(rng.integers(1 << 31))).as_quat()  # xyzw
-    return np.concatenate([rng.uniform(-scale, scale, 3), q[[3, 0, 1, 2]]])
-
-
-def _rand_chunk(rng, start, n=T):
-    """Smooth random walk of xyz+quat(wxyz) poses starting AT ``start``."""
-    out = np.zeros((n, 7))
-    p = start[:3].copy()
-    r = R.from_quat(start[[4, 5, 6, 3]])
-    for t in range(n):
-        if t > 0:
-            p = p + rng.normal(0, 0.01, 3)
-            r = R.from_rotvec(rng.normal(0, 0.05, 3)) * r
-        q = r.as_quat()
-        out[t] = np.concatenate([p, q[[3, 0, 1, 2]]])
-    return out
-
-
-def _T(p7):
-    M = np.eye(4)
-    M[:3, :3] = R.from_quat(p7[[4, 5, 6, 3]]).as_matrix()
-    M[:3, 3] = p7[:3]
-    return M
-
-
 def _T_chunk(c):
-    return np.stack([_T(row) for row in c])
+    return np.stack([pose_matrix(row) for row in c])
 
 
 def _xyzypr(M):
@@ -87,13 +61,6 @@ def _xyzypr(M):
 
 def _R_of_ypr(ypr):
     return R.from_euler("ZYX", ypr).as_matrix()
-
-
-def _apply(transform_list, sample):
-    s = {k: (v.copy() if isinstance(v, np.ndarray) else v) for k, v in sample.items()}
-    for t in transform_list:
-        s = t.transform(s)
-    return s
 
 
 def _assert_pose12_close(got, ref, atol):
@@ -176,33 +143,32 @@ def test_gram_schmidt_matches_independent_and_is_proper():
 
 # ------------------------------------------------------------ human path
 @pytest.mark.parametrize("fix_left", [False, True])
-def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
-    from egomimic.rldb.embodiment.human import (
-        Human,
-        _build_human_cartesian_revert_6d_wristframe_transform_list,
-    )
+@pytest.mark.parametrize("mode", ["cartesian_wristframe_6d", "cartesian_6d"])
+def test_human_6d_pipeline_round_trips_to_headframe(mode, fix_left):
+    from egomimic.rldb.embodiment import human
 
+    wrist = mode == "cartesian_wristframe_6d"
     rng = _rng(2 + int(fix_left))
     B = 3
     raws = []
     for _ in range(B):
-        head, lobs, robs = _rand_pose(rng), _rand_pose(rng), _rand_pose(rng)
+        head, lobs, robs = rand_pose(rng), rand_pose(rng), rand_pose(rng)
         raws.append(
             {
                 "obs_head_pose": head,
                 "left.obs_ee_pose": lobs,
                 "right.obs_ee_pose": robs,
-                "left.action_ee_pose": _rand_chunk(rng, lobs),
-                "right.action_ee_pose": _rand_chunk(rng, robs),
+                "left.action_ee_pose": rand_chunk(rng, lobs, T),
+                "right.action_ee_pose": rand_chunk(rng, robs, T),
             }
         )
-    fwd = Human.get_transform_list(
-        "cartesian_wristframe_6d",
+    fwd = human.Human.get_transform_list(
+        mode,
         stride=1,
         fix_left_wrist_convention=fix_left,
         pad_proprio_gripper=True,
     )
-    outs = [_apply(fwd, r) for r in raws]
+    outs = [apply_transforms(fwd, r) for r in raws]
     act6 = np.stack([o["actions_cartesian"] for o in outs])
     obs6 = np.stack([o["observations.state.ee_pose"] for o in outs])
     assert act6.shape == (B, T, 18) and obs6.shape == (B, 20)
@@ -216,10 +182,10 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
     gt_act = np.zeros((B, T, 12))
     gt_obs = np.zeros((B, 12))
     for b, r in enumerate(raws):
-        Th = _T(r["obs_head_pose"])
+        Th = pose_matrix(r["obs_head_pose"])
         for si, side in enumerate(("left", "right")):
             Ta = _T_chunk(r[f"{side}.action_ee_pose"])
-            To = _T(r[f"{side}.obs_ee_pose"])
+            To = pose_matrix(r[f"{side}.obs_ee_pose"])
             if fix_left and side == "left":
                 Ta = Ta @ Rfix
                 To = To @ Rfix
@@ -233,17 +199,20 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
     keep = [i for i in range(20) if i not in (9, 19)]
     np.testing.assert_allclose(obs6[:, keep], obs_ref, atol=1e-9)
 
-    # (2) actions = each arm's pose in that arm's obs-wrist frame, 6D-encoded
+    # (2) actions = each arm's pose in that arm's obs-wrist frame (wrist
+    # mode) or the head frame (an identity "obs" pose), 6D-encoded
     for b in range(B):
+        frame = gt_obs[b] if wrist else np.zeros(12)
         for si in range(2):
             np.testing.assert_allclose(
                 act6[b, :, 9 * si : 9 * si + 9],
-                _wrist6d_ref(gt_obs[b], gt_act[b], si),
+                _wrist6d_ref(frame, gt_act[b], si),
                 atol=1e-9,
             )
-    # t = 0 is the identity pose exactly (reference IS the obs pose); the
-    # bounds-check tolerance in MultiDataset._check_bounds relies on this.
-    np.testing.assert_allclose(act6[:, 0, [0, 1, 2, 9, 10, 11]], 0.0, atol=1e-12)
+    if wrist:
+        # t = 0 is the identity pose exactly (reference IS the obs pose); the
+        # bounds-check tolerance in MultiDataset._check_bounds relies on this.
+        np.testing.assert_allclose(act6[:, 0, [0, 1, 2, 9, 10, 11]], 0.0, atol=1e-12)
 
     # (3) normalize -> pack -> unpack -> unnormalize is exact
     st_act = _quantile_stats(act6, 18)
@@ -264,7 +233,12 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
     torch.testing.assert_close(o_un, o_t, atol=1e-5, rtol=0)
 
     # (4) evaluator revert (batched, like eval_pi) lands back in head frame
-    rev = _build_human_cartesian_revert_6d_wristframe_transform_list()
+    rev = getattr(
+        human,
+        "_build_human_cartesian_revert_6d_wristframe_transform_list"
+        if wrist
+        else "_build_human_cartesian_revert_6d_transform_list",
+    )()
     out = Embodiment.apply_transform(
         {"actions_cartesian": a_un, "observations.state.ee_pose": o_un}, rev
     )
@@ -284,32 +258,31 @@ def test_human_wristframe_6d_pipeline_round_trips_to_headframe(fix_left):
 
 
 # -------------------------------------------------------------- eva path
-def test_eva_wristframe_6d_pipeline_round_trips_to_camframe():
-    from egomimic.rldb.embodiment.eva import (
-        Eva,
-        _build_eva_cartesian_revert_6d_wristframe_transform_list,
-    )
+@pytest.mark.parametrize("mode", ["cartesian_wristframe_6d", "cartesian_6d"])
+def test_eva_6d_pipeline_round_trips_to_camframe(mode):
+    from egomimic.rldb.embodiment import eva
 
-    extrinsics = Eva.EXTRINSICS
+    wrist = mode == "cartesian_wristframe_6d"
+    extrinsics = eva.Eva.EXTRINSICS
     rng = _rng(11)
     B = 3
     raws = []
     for _ in range(B):
-        lobs, robs = _rand_pose(rng), _rand_pose(rng)
+        lobs, robs = rand_pose(rng), rand_pose(rng)
         raws.append(
             {
                 "left.obs_ee_pose": lobs,
                 "right.obs_ee_pose": robs,
-                "left.cmd_ee_pose": _rand_chunk(rng, lobs),
-                "right.cmd_ee_pose": _rand_chunk(rng, robs),
+                "left.cmd_ee_pose": rand_chunk(rng, lobs, T),
+                "right.cmd_ee_pose": rand_chunk(rng, robs, T),
                 "left.obs_gripper": rng.uniform(0, 1, (1,)),
                 "right.obs_gripper": rng.uniform(0, 1, (1,)),
                 "left.cmd_gripper": rng.uniform(0, 1, (T, 1)),
                 "right.cmd_gripper": rng.uniform(0, 1, (T, 1)),
             }
         )
-    fwd = Eva.get_transform_list("cartesian_wristframe_6d")
-    outs = [_apply(fwd, r) for r in raws]
+    fwd = eva.Eva.get_transform_list(mode)
+    outs = [apply_transforms(fwd, r) for r in raws]
     act6 = np.stack([o["actions_cartesian"] for o in outs])
     obs6 = np.stack([o["observations.state.ee_pose"] for o in outs])
     assert act6.shape == (B, T, 20) and obs6.shape == (B, 20)
@@ -325,7 +298,7 @@ def test_eva_wristframe_6d_pipeline_round_trips_to_camframe():
             )
             gt_act[b, :, 7 * si + 6] = r[f"{side}.cmd_gripper"][:, 0]
             gt_obs[b, 7 * si : 7 * si + 6] = _xyzypr(
-                Einv @ _T(r[f"{side}.obs_ee_pose"])
+                Einv @ pose_matrix(r[f"{side}.obs_ee_pose"])
             )
             gt_obs[b, 7 * si + 6] = r[f"{side}.obs_gripper"][0]
 
@@ -336,8 +309,9 @@ def test_eva_wristframe_6d_pipeline_round_trips_to_camframe():
     np.testing.assert_allclose(obs6, obs_ref, atol=1e-7)
     pose_idx = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12]
     for b in range(B):
+        frame = gt_obs[b][pose_idx] if wrist else np.zeros(12)
         for si in range(2):
-            ref = _wrist6d_ref(gt_obs[b][pose_idx], gt_act[b][:, pose_idx], si)
+            ref = _wrist6d_ref(frame, gt_act[b][:, pose_idx], si)
             got = act6[b, :, 10 * si : 10 * si + 10]
             np.testing.assert_allclose(got[:, :9], ref, atol=1e-7)
             np.testing.assert_allclose(got[:, 9], gt_act[b, :, 7 * si + 6], atol=1e-12)
@@ -354,7 +328,12 @@ def test_eva_wristframe_6d_pipeline_round_trips_to_camframe():
     a_un = _apply_unnorm_one(conv.from32_norm_6d(a32), st_act, "quantile", act_rot)
     o_un = _apply_unnorm_one(o_n, st_obs, "quantile", obs_rot)
 
-    rev = _build_eva_cartesian_revert_6d_wristframe_transform_list()
+    rev = getattr(
+        eva,
+        "_build_eva_cartesian_revert_6d_wristframe_transform_list"
+        if wrist
+        else "_build_eva_cartesian_revert_6d_transform_list",
+    )()
     out = Embodiment.apply_transform(
         {"actions_cartesian": a_un, "observations.state.ee_pose": o_un}, rev
     )

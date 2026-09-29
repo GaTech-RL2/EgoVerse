@@ -56,11 +56,7 @@ from egomimic.utils.action_utils import (
 )
 from egomimic.utils.env import load_env
 from egomimic.utils.gpu_orphans import die_with_parent
-from egomimic.utils.pose_utils import (
-    bimanual_cartesian_layout,
-    bimanual_keypoint_layout,
-    rot6d_channels,
-)
+from egomimic.utils.pose_utils import key_layout, rot6d_channels
 
 
 def create_default_engine():
@@ -222,26 +218,16 @@ def _bounds_check_channels(zarr_key: str, width: int) -> list[int] | None:
     """Channels of a known bimanual layout that quantile bounds apply to
     (translation, gripper, keypoints), or ``None`` to check the full vector.
     Rotation channels (Euler or rot6d columns) are excluded."""
-    if zarr_key in ("actions_cartesian", "observations.state.ee_pose"):
-        layout = bimanual_cartesian_layout(width)
-        if layout is not None:
-            return list(layout["xyz"]) + list(layout["grip"])
-    elif zarr_key in ("actions_keypoints", "observations.state.keypoints"):
-        layout = bimanual_keypoint_layout(width)
-        if layout is not None:
-            return sorted(list(layout["wrist_xyz"]) + list(layout["keypoints"]))
-    return None
+    layout = key_layout(zarr_key, width)
+    if layout is None:
+        return None
+    return [i for i in range(width) if i not in layout["rot"]]
 
 
 def _embodiment_matches(name: object, expected: str) -> bool:
     """Compare an episode's embodiment string with a dataset's expected name,
     honouring the legacy vendor aliases (MECKA_BIMANUAL == human_bimanual)."""
-    try:
-        return canonical_embodiment_name(str(name)) == canonical_embodiment_name(
-            expected
-        )
-    except AttributeError:
-        return False
+    return canonical_embodiment_name(str(name)) == canonical_embodiment_name(expected)
 
 
 class PinError(ValueError):
@@ -1793,31 +1779,19 @@ class MultiDataset(torch.utils.data.Dataset):
 
     # ---- normalize / unnormalize ----
 
+    # The rot6d columns pass through unnormalized: already bounded in [-1, 1],
+    # and per-channel scaling pulls the pair off the rotation manifold (TRI's
+    # LBM and UMI exclude rotation from normalization too). It also removes the
+    # t=0 identity-rotation degeneracy at its source.
     def _apply_norm_one(self, tensor, stats, zarr_key=None):
         return _apply_norm_one(
-            tensor, stats, self.norm_mode, self._identity_channels(zarr_key, tensor)
+            tensor, stats, self.norm_mode, rot6d_channels(zarr_key, tensor.shape[-1])
         )
 
     def _apply_unnorm_one(self, tensor, stats, zarr_key=None):
         return _apply_unnorm_one(
-            tensor, stats, self.norm_mode, self._identity_channels(zarr_key, tensor)
+            tensor, stats, self.norm_mode, rot6d_channels(zarr_key, tensor.shape[-1])
         )
-
-    @staticmethod
-    def _identity_channels(zarr_key, tensor):
-        """Channels this key leaves unnormalized: the rot6d columns.
-
-        A 6D rotation is two columns of a rotation matrix, already bounded in
-        [-1, 1], and per-channel scaling and shifting pulls the pair off the
-        manifold for no gain in resolution -- which is why the two projects
-        that anchor an action chunk at near-identity, TRI's LBM and UMI, both
-        exclude rotation from normalization outright. It also removes the t=0
-        identity-rotation degeneracy at its source instead of catching it with
-        NORM_MIN_RANGE.
-        """
-        if zarr_key is None:
-            return None
-        return rot6d_channels(zarr_key, tensor.shape[-1])
 
     def normalize(self, data: dict, embodiment_id: int) -> dict:
         if not self.norm_stats.get(embodiment_id):
@@ -2223,23 +2197,6 @@ class ZarrDataset(torch.utils.data.Dataset):
         mask[: max(n_real, 0)] = 1.0
         return mask
 
-    def _proprio_history_spec(self) -> dict | None:
-        """The first non-camera keymap entry with ``history`` > 1, else None."""
-        for spec in self.key_map.values():
-            if spec.get("key_type") == "camera_keys":
-                continue
-            if int(spec.get("history") or 1) > 1:
-                return spec
-        return None
-
-    def _proprio_history_mask(self, idx: int) -> np.ndarray | None:
-        """1.0 per real history frame, 0.0 per front-padded one, ``(K,)``;
-        ``None`` when the keymap has no proprio history key."""
-        spec = self._proprio_history_spec()
-        if spec is None:
-            return None
-        return self._history_indices(idx, spec)[1]
-
     def _fps(self) -> float:
         """The episode's frame rate (zarr ``fps`` attr; 30 when absent)."""
         return float(self.metadata.get("fps") or 30)
@@ -2478,12 +2435,6 @@ class ZarrDataset(torch.utils.data.Dataset):
                         idx, spec
                     )[1]
 
-            history_mask = self._proprio_history_mask(idx)
-            if history_mask is not None:
-                # Informational: the front padding already looks exactly like a
-                # history-dropout sample, so the stem needs nothing extra.
-                data["proprio_history_mask"] = history_mask
-
             if self.transform:
                 for transform in self.transform or []:
                     data = transform.transform(data)
@@ -2551,26 +2502,13 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
         annotation span. Annotations use half-open ``[start_idx, end_idx)``.
         """
         mapping: dict[int, int] = {}
-        n_spans = 0
         for ann in self._load_annotations():
             start_idx = int(ann.get("start_idx", -1))
             end_idx = int(ann.get("end_idx", -1))
             if start_idx < 0 or end_idx <= start_idx:
                 continue
-            n_spans += 1
             for idx in range(start_idx, end_idx):
                 mapping[idx] = end_idx
-        # Visibility into annotation-cutoff usage: spans/frames_covered of 0
-        # means the cutoff is a no-op for this episode. One line per episode
-        # per rank is thousands of lines on a real split, so this is DEBUG and
-        # the resolver's kept N/M line carries the aggregate.
-        logger.debug(
-            "[AnnotationCutoff] ep=%s spans=%d frames_covered=%d/%d",
-            Path(self.episode_path).name,
-            n_spans,
-            len(mapping),
-            self.total_frames,
-        )
         return mapping
 
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
@@ -2585,68 +2523,10 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
         return min(end_idx, ann_end)
 
 
-def _episode_has_annotation_spans(ds: "ZarrDataset") -> bool:
-    """True if the episode has at least one usable ``[start_idx, end_idx)`` span.
-
-    Many Scale-"completed" episodes have an empty (or span-less) zarr
-    ``annotations`` array because the annotation-injection step lagged; the
-    AnnotationCutoff is a no-op for those, so they should be dropped when the
-    point of the run is to clamp chunks at annotation boundaries.
-    """
-    try:
-        anns = ds._load_annotations()
-    except Exception:
-        return False
-    return any(
-        isinstance(a, dict)
-        and 0 <= int(a.get("start_idx", -1)) < int(a.get("end_idx", -1))
-        for a in anns
-    )
-
-
 class S3AnnotationCutoffEpisodeResolver(S3EpisodeResolver):
-    """S3EpisodeResolver that loads ZarrAnnotationCutoffDataset instances.
-
-    When ``require_annotations`` is set (default), episodes whose zarr
-    ``annotations`` array has no usable span are dropped; otherwise the
-    annotation cutoff would silently no-op on them.
-    """
+    """S3EpisodeResolver that loads ZarrAnnotationCutoffDataset instances."""
 
     _dataset_class = ZarrAnnotationCutoffDataset
-
-    def __init__(self, *args, require_annotations: bool = True, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.require_annotations = require_annotations
-
-    def resolve(self, filters=None, expected_embodiment=None):
-        datasets = super().resolve(
-            filters=filters, expected_embodiment=expected_embodiment
-        )
-        if not self.require_annotations:
-            return datasets
-        kept = {
-            h: ds for h, ds in datasets.items() if _episode_has_annotation_spans(ds)
-        }
-        dropped = sorted(set(datasets) - set(kept))
-        if dropped:
-            logger.warning(
-                "[AnnotationCutoff] dropped %d/%d episodes with no usable "
-                "annotation spans (e.g. %s)",
-                len(dropped),
-                len(datasets),
-                dropped[:5],
-            )
-        logger.info(
-            "[AnnotationCutoff] kept %d/%d episodes with usable annotations",
-            len(kept),
-            len(datasets),
-        )
-        if not kept:
-            raise ValueError(
-                "[AnnotationCutoff] no resolved episodes contain usable annotation "
-                "spans; check the filter / annotation injection for this dataset."
-            )
-        return kept
 
 
 class LocalAnnotationCutoffEpisodeResolver(LocalEpisodeResolver):

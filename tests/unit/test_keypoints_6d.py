@@ -16,7 +16,7 @@ t = 0 and t = -1 against raw frames 0 and horizon-1.
 import numpy as np
 import pytest
 import torch
-from scipy.spatial.transform import Rotation as R
+from fixtures.poses import apply_transforms, pose_matrix, rand_chunk, rand_pose
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.embodiment.human import (
@@ -38,61 +38,29 @@ def _rng(seed):
     return np.random.default_rng(seed)
 
 
-def _rand_pose(rng, scale=1.0):
-    q = R.random(random_state=int(rng.integers(1 << 31))).as_quat()  # xyzw
-    return np.concatenate([rng.uniform(-scale, scale, 3), q[[3, 0, 1, 2]]])
-
-
-def _rand_chunk(rng, start, n):
-    out = np.zeros((n, 7))
-    p = start[:3].copy()
-    r = R.from_quat(start[[4, 5, 6, 3]])
-    for t in range(n):
-        if t > 0:
-            p = p + rng.normal(0, 0.01, 3)
-            r = R.from_rotvec(rng.normal(0, 0.05, 3)) * r
-        q = r.as_quat()
-        out[t] = np.concatenate([p, q[[3, 0, 1, 2]]])
-    return out
-
-
-def _T(p7):
-    M = np.eye(4)
-    M[:3, :3] = R.from_quat(p7[[4, 5, 6, 3]]).as_matrix()
-    M[:3, 3] = p7[:3]
-    return M
-
-
 def _in_frame(T_frame, pts):
     """Points (..., 3) world -> frame."""
     inv = np.linalg.inv(T_frame)
     return pts @ inv[:3, :3].T + inv[:3, 3]
 
 
-def _apply(transform_list, sample):
-    s = {k: (v.copy() if isinstance(v, np.ndarray) else v) for k, v in sample.items()}
-    for t in transform_list:
-        s = t.transform(s)
-    return s
-
-
 def _raw_sample(rng):
-    head = _rand_pose(rng)
+    head = rand_pose(rng)
     raw = {"obs_head_pose": head}
     world = {}
     for side in ("left", "right"):
-        wrist_obs = _rand_pose(rng)
-        wrist_act = _rand_chunk(rng, wrist_obs, HORIZON)  # (30, 7) world
+        wrist_obs = rand_pose(rng)
+        wrist_act = rand_chunk(rng, wrist_obs, HORIZON)  # (30, 7) world
         offsets = rng.uniform(-0.1, 0.1, size=(HORIZON, 21, 3))
         kp_act = wrist_act[:, None, :3] + offsets  # (30, 21, 3) world
         kp_obs = kp_act[0]
-        ee_obs = _rand_pose(rng)
+        ee_obs = rand_pose(rng)
         raw[f"{side}.obs_wrist_pose"] = wrist_obs
         raw[f"{side}.action_wrist_pose"] = wrist_act
         raw[f"{side}.obs_keypoints"] = kp_obs.reshape(63)
         raw[f"{side}.action_keypoints"] = kp_act.reshape(HORIZON, 63)
         raw[f"{side}.obs_ee_pose"] = ee_obs
-        raw[f"{side}.action_ee_pose"] = _rand_chunk(rng, ee_obs, HORIZON)
+        raw[f"{side}.action_ee_pose"] = rand_chunk(rng, ee_obs, HORIZON)
         world[side] = (wrist_obs, wrist_act, kp_obs, kp_act)
     return raw, head, world
 
@@ -135,7 +103,7 @@ def test_keypoints_wristframe_6d_pipeline_matches_independent_math(pad):
         include_ee_pose=True,
         pad_proprio_gripper=pad,
     )
-    out = _apply(fwd, raw)
+    out = apply_transforms(fwd, raw)
     assert set(out) == {
         "actions_keypoints",
         "observations.state.keypoints",
@@ -151,10 +119,10 @@ def test_keypoints_wristframe_6d_pipeline_matches_independent_math(pad):
 
     layout = bimanual_keypoint_layout(144)
     per_hand = layout["per_hand"]
-    Th = _T(head)
+    Th = pose_matrix(head)
     for si, side in enumerate(("left", "right")):
         wrist_obs, wrist_act, kp_obs, kp_act = world[side]
-        Tw = _T(wrist_obs)
+        Tw = pose_matrix(wrist_obs)
         o = si * per_hand
         # proprio: wrist pose in HEAD frame (xyz + rot6d), keypoints in the
         # wrist's own frame
@@ -169,7 +137,7 @@ def test_keypoints_wristframe_6d_pipeline_matches_independent_math(pad):
         # keypoints in the obs-wrist frame; endpoints are exact under
         # interpolation.
         for t_chunk, t_raw in ((0, 0), (CHUNK - 1, HORIZON - 1)):
-            Ta = _T(wrist_act[t_raw])
+            Ta = pose_matrix(wrist_act[t_raw])
             Trel = np.linalg.inv(Tw) @ Ta
             row = act[t_chunk]
             np.testing.assert_allclose(row[o : o + 3], Trel[:3, 3], atol=1e-6)
@@ -210,17 +178,17 @@ def test_keypoints_headframe_6d_pipeline_and_revert():
         if "ee_pose" in k:
             del raw[k]
     fwd = Human.get_transform_list("keypoints_headframe_6d", stride=1)
-    out = _apply(fwd, raw)
+    out = apply_transforms(fwd, raw)
     assert set(out) == {"actions_keypoints", "observations.state.keypoints"}
     act = np.asarray(out["actions_keypoints"])
     assert act.shape == (CHUNK, 144)
-    Th = _T(head)
+    Th = pose_matrix(head)
     layout = bimanual_keypoint_layout(144)
     per_hand = layout["per_hand"]
     for si, side in enumerate(("left", "right")):
         _, wrist_act, _, kp_act = world[side]
         o = si * per_hand
-        Tah = np.linalg.inv(Th) @ _T(wrist_act[0])
+        Tah = np.linalg.inv(Th) @ pose_matrix(wrist_act[0])
         np.testing.assert_allclose(act[0, o : o + 3], Tah[:3, 3], atol=1e-6)
         np.testing.assert_allclose(act[0, o + 3 : o + 6], Tah[:3, 0], atol=1e-6)
         np.testing.assert_allclose(
@@ -249,11 +217,11 @@ def test_keypoint_modes_without_ee_pose_emit_no_ee_pose():
         if "ee_pose" in k:
             del raw[k]
     for mode in ("keypoints_wristframe_6d", "keypoints_wristframe_ypr"):
-        out = _apply(
+        out = apply_transforms(
             Human.get_transform_list(mode, stride=1, allow_legacy_rotation=True), raw
         )
         assert set(out) == {"actions_keypoints", "observations.state.keypoints"}
-    ypr = _apply(
+    ypr = apply_transforms(
         Human.get_transform_list(
             "keypoints_wristframe_ypr", stride=1, allow_legacy_rotation=True
         ),

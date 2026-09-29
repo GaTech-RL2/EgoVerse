@@ -17,6 +17,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 import torch
+from fixtures.poses import bounds_shell
 
 from egomimic.rldb.zarr.action_chunk_transforms import (
     CartesianRot6DToYPR,
@@ -152,24 +153,6 @@ def test_proprio_pose_vector_round_trips(chunk_fn, ypr_dim, six_dim):
     np.testing.assert_allclose(batch["observations.state.ee_pose"], pose, atol=1e-6)
 
 
-def _keys_of(transforms, cls):
-    return {t.action_key for t in transforms if isinstance(t, cls)}
-
-
-# cartesian_wristframe_6d is covered by the test_wrist6d_roundtrip pipeline tests.
-@pytest.mark.parametrize("mode", ["cartesian_6d"])
-def test_6d_modes_convert_action_and_proprio(mode):
-    from egomimic.rldb.embodiment.eva import Eva
-    from egomimic.rldb.embodiment.human import Human
-
-    for cls in (Eva, Human):
-        transform_list = cls.get_transform_list(mode)
-        assert _keys_of(transform_list, CartesianYPRToRot6D) == {
-            "actions_cartesian",
-            "observations.state.ee_pose",
-        }, f"{cls.__name__} {mode} must 6D-encode both action and proprio"
-
-
 @pytest.mark.parametrize(
     "cls_name,mode",
     [
@@ -191,56 +174,13 @@ def test_legacy_rotation_modes_need_an_explicit_opt_in(cls_name, mode):
     assert cls.get_transform_list(mode, allow_legacy_rotation=True)
 
 
-def test_6d_revert_lists_revert_proprio():
-    from egomimic.rldb.embodiment.eva import (
-        _build_eva_cartesian_revert_6d_transform_list,
-        _build_eva_cartesian_revert_6d_wristframe_transform_list,
-    )
-    from egomimic.rldb.embodiment.human import (
-        _build_human_cartesian_revert_6d_transform_list,
-        _build_human_cartesian_revert_6d_wristframe_transform_list,
-    )
-
-    for build in (
-        _build_eva_cartesian_revert_6d_transform_list,
-        _build_eva_cartesian_revert_6d_wristframe_transform_list,
-        _build_human_cartesian_revert_6d_transform_list,
-        _build_human_cartesian_revert_6d_wristframe_transform_list,
-    ):
-        transform_list = build()
-        assert _keys_of(transform_list, CartesianRot6DToYPR) == {
-            "actions_cartesian",
-            "observations.state.ee_pose",
-        }, f"{build.__name__} must revert both action and proprio to ypr"
-
-
-def _bounds_check_dataset(key: str, width: int):
-    """Minimal MultiDataset shell exposing _check_bounds with +-1 quantile
-    bounds on ``key`` for embodiment 0."""
-    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-
-    md = MultiDataset.__new__(MultiDataset)
-    md.norm_mode = "quantile"
-    md.norm_stats = {
-        0: {
-            key: {
-                "quantile_1": np.full(width, -1.0, dtype=np.float32),
-                "quantile_99": np.full(width, 1.0, dtype=np.float32),
-            }
-        }
-    }
-    md.zarr_keys = {0: {key: key}}
-    md._warned_violations = set()
-    return md
-
-
 @pytest.mark.parametrize("key", ["actions_cartesian", "observations.state.ee_pose"])
 @pytest.mark.parametrize("width,rot_idx,xyz_idx", [(14, 3, 0), (20, 4, 0), (18, 5, 9)])
 def test_bounds_check_ignores_rotation_channels(key, width, rot_idx, xyz_idx):
     # Rotation channels (Euler wraps at +-pi; 6D columns are ~[-1, 1]) must be
     # excluded from quantile bounds checking, while translation/gripper
     # channels are still checked and NaN/Inf still rejects the full vector.
-    md = _bounds_check_dataset(key, width)
+    md = bounds_shell(key, width=width)
     arr = np.zeros((5, width), dtype=np.float32)
 
     arr[2, rot_idx] = 50.0  # far outside +-1, but a rotation channel
@@ -260,7 +200,7 @@ def test_bounds_check_ignores_rotation_channels(key, width, rot_idx, xyz_idx):
 def test_bounds_check_ignores_wrist_rotation_in_keypoint_layout(
     key, width, rot_idx, kp_idx
 ):
-    md = _bounds_check_dataset(key, width)
+    md = bounds_shell(key, width=width)
     arr = np.zeros((5, width), dtype=np.float32)
     arr[1, rot_idx] = 50.0  # wrist rotation channel: not bounds-checked
     assert md._check_bounds({"embodiment": 0, key: arr.copy()}, None, 0, "ep") is None
@@ -272,7 +212,7 @@ def test_bounds_check_ignores_wrist_rotation_in_keypoint_layout(
 def test_bounds_check_full_vector_for_other_keys():
     # Keys without a known layout (or unrecognized widths) keep the
     # full-vector check.
-    md = _bounds_check_dataset("some_other_key", 20)
+    md = bounds_shell("some_other_key", width=20)
     arr = np.zeros((5, 20), dtype=np.float32)
     arr[2, 4] = 50.0
     assert (
@@ -280,7 +220,7 @@ def test_bounds_check_full_vector_for_other_keys():
         is not None
     )
 
-    md16 = _bounds_check_dataset("actions_cartesian", 16)
+    md16 = bounds_shell("actions_cartesian", width=16)
     arr16 = np.zeros((5, 16), dtype=np.float32)
     arr16[2, 4] = 50.0
     assert (
@@ -293,8 +233,6 @@ def test_constant_cell_exemption_follows_norm_mode():
     """A channel the zscore normalizer still divides by must still be
     bounds-checked, even though its quantile range is zero: 0 in 99.6 % of
     samples and 1.0 in the rest gives q99 - q1 = 0 but std = 0.063."""
-    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-
     stats = {
         "quantile_1": np.zeros(18, dtype=np.float32),
         "quantile_99": np.zeros(18, dtype=np.float32),
@@ -305,11 +243,7 @@ def test_constant_cell_exemption_follows_norm_mode():
     arr[0, 0] = 50.0  # corrupt value in a quantile-collapsed channel
 
     for mode, rejected in (("quantile", False), ("zscore", True)):
-        md = MultiDataset.__new__(MultiDataset)
-        md.norm_mode = mode
-        md.norm_stats = {0: {"actions_cartesian": stats}}
-        md.zarr_keys = {0: {"actions_cartesian": "actions_cartesian"}}
-        md._warned_violations = set()
+        md = bounds_shell("actions_cartesian", stats, mode=mode)
         got = md._check_bounds(
             {"embodiment": 0, "actions_cartesian": arr}, None, 0, "ep"
         )
@@ -320,22 +254,10 @@ def test_bounds_check_tolerates_roundoff_on_collapsed_bounds():
     """Wrist-frame t=0 cells have bounds [0, 0]; values there must not reject
     (normalize() maps such constant cells to 0), while other cells are still
     checked."""
-    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-
     q99 = np.ones(18, dtype=np.float32)
     q99[0] = 0.0  # channel 0 collapsed to [0, 0]
-    md = MultiDataset.__new__(MultiDataset)
-    md.norm_mode = "quantile"
-    md.norm_stats = {
-        0: {
-            "actions_cartesian": {
-                "quantile_1": np.zeros(18, dtype=np.float32),
-                "quantile_99": q99,
-            }
-        }
-    }
-    md.zarr_keys = {0: {"actions_cartesian": "actions_cartesian"}}
-    md._warned_violations = set()
+    stats = {"quantile_1": np.zeros(18, dtype=np.float32), "quantile_99": q99}
+    md = bounds_shell("actions_cartesian", stats)
     arr = np.zeros((5, 18), dtype=np.float32)
     arr[0, 0] = 1e-9  # a roundoff-scale xyz value at a [0, 0] bound
     assert (
@@ -355,7 +277,7 @@ def test_bounds_check_tolerates_roundoff_on_collapsed_bounds():
 
 
 def test_bounds_check_warns_once_on_stat_shape_mismatch(caplog):
-    md = _bounds_check_dataset("actions_cartesian", 18)
+    md = bounds_shell("actions_cartesian", width=18)
     arr = np.zeros((5, 20), dtype=np.float32)  # stats are 18-wide
     with caplog.at_level("WARNING"):
         assert (
@@ -399,37 +321,6 @@ def test_rotate_local_frame_flips_left_wrist_convention():
     np.testing.assert_allclose(single, out[0], atol=1e-12)
 
 
-def test_fix_left_wrist_convention_flag_prepends_correction():
-    from egomimic.rldb.embodiment.human import Human
-    from egomimic.rldb.zarr.action_chunk_transforms import RotateLocalFrame
-
-    tl = Human.get_transform_list(
-        "cartesian_wristframe_6d", stride=1, fix_left_wrist_convention=True
-    )
-    assert isinstance(tl[0], RotateLocalFrame)
-    assert set(tl[0].keys) == {"left.action_ee_pose", "left.obs_ee_pose"}
-    # default off: other vendors' data must be untouched
-    tl_off = Human.get_transform_list("cartesian_wristframe_6d", stride=1)
-    assert not isinstance(tl_off[0], RotateLocalFrame)
-    # keypoints modes correct the wrist_pose keys their frames are built on
-    # (the converter wrote the same double-mirrored rotation into both), plus
-    # the ee_pose keys when those are built too.
-    tl_kp = Human.get_transform_list(
-        "keypoints_wristframe_6d", fix_left_wrist_convention=True
-    )
-    assert isinstance(tl_kp[0], RotateLocalFrame)
-    assert set(tl_kp[0].keys) == {"left.action_wrist_pose", "left.obs_wrist_pose"}
-    tl_kp_ee = Human.get_transform_list(
-        "keypoints_wristframe_6d", fix_left_wrist_convention=True, include_ee_pose=True
-    )
-    assert set(tl_kp_ee[0].keys) == {
-        "left.action_wrist_pose",
-        "left.obs_wrist_pose",
-        "left.action_ee_pose",
-        "left.obs_ee_pose",
-    }
-
-
 def test_vendor_embodiment_names_collapse_to_human():
     # Mirror episodes written by the vendor-split registry carry names like
     # MECKA_BIMANUAL in their zarr metadata; locally all human demo data is
@@ -437,7 +328,6 @@ def test_vendor_embodiment_names_collapse_to_human():
     from egomimic.rldb.embodiment.embodiment import (
         EMBODIMENT,
         get_embodiment_id,
-        is_legacy_vendor_embodiment,
     )
 
     for vendor in ("mecka", "scale", "aria", "lightwheel"):
@@ -450,10 +340,8 @@ def test_vendor_embodiment_names_collapse_to_human():
         assert (
             get_embodiment_id(f"{vendor}_left_arm") == EMBODIMENT.HUMAN_LEFT_ARM.value
         )
-        assert is_legacy_vendor_embodiment(f"{vendor.upper()}_BIMANUAL")
     assert get_embodiment_id("human_bimanual") == EMBODIMENT.HUMAN_BIMANUAL.value
     assert get_embodiment_id("eva_bimanual") == EMBODIMENT.EVA_BIMANUAL.value
-    assert not is_legacy_vendor_embodiment("human_bimanual")
     # the one robot is Eva: YAM_* (the ABC station after the 2026-09-01 relabel) is Eva
     assert get_embodiment_id("yam_bimanual") == EMBODIMENT.EVA_BIMANUAL.value
 
@@ -482,20 +370,6 @@ def test_unpad_gripper_zeros_inverts_pad_and_noops_unpadded():
         # no-op on already-unpadded widths
         same = UnpadGripperZeros(action_key="k").transform({"k": v.copy()})["k"]
         np.testing.assert_allclose(same, v)
-
-
-def test_human_6d_reverts_unpad_proprio():
-    from egomimic.rldb.embodiment.human import (
-        _build_human_cartesian_revert_6d_transform_list,
-        _build_human_cartesian_revert_6d_wristframe_transform_list,
-    )
-    from egomimic.rldb.zarr.action_chunk_transforms import UnpadGripperZeros
-
-    for build in (
-        _build_human_cartesian_revert_6d_transform_list,
-        _build_human_cartesian_revert_6d_wristframe_transform_list,
-    ):
-        assert any(isinstance(t, UnpadGripperZeros) for t in build()), build.__name__
 
 
 def _fallback_dataset():
