@@ -41,8 +41,14 @@ VISION_RECOVERY_PLAN_SHA = (
 )
 TASK_INVENTORY_SHA = "99bd8640be6dabe68fc534147490b2086ebcd4c073257e44a0cf1ec33ec4bbeb"
 APPROVED_RECOVERY_PLANS = {
-    "frs": {FRS_RECOVERY_PLAN_SHA: "frs_recovery1/recovery_plan.json"},
-    "vision": {VISION_RECOVERY_PLAN_SHA: "vision_recovery2/recovery_plan.json"},
+    "frs": {
+        FRS_RECOVERY_PLAN_SHA: "frs_recovery1/recovery_plan.json",
+        "0a1081520d100cf8978e3b5db794ffd1283293eb97bc59ed6d4162bb87ad63c2": "frs_recovery2/recovery_plan.json",
+    },
+    "vision": {
+        VISION_RECOVERY_PLAN_SHA: "vision_recovery2/recovery_plan.json",
+        "025b29e3b712d4301b0b6833cc200a7f3f8f2c1e61302117c1ab9e08d0213f86": "vision_recovery3/recovery_plan.json",
+    },
 }
 WEIGHTS = "c0c8d17e2c875a7f60c919e3c8f4545c29ed97f20570ff4d75bad5b184e244d6"
 FRS_PROTOCOL = "56cf1cf89fe8503417f5f3e5a86a8f723ddc0877d273fe4d9696eb87dec89947"
@@ -1292,19 +1298,24 @@ def public_scan(value):
         )
 
 
-def monitored_input(ops, state, family, explicit, fallback, recovery_state=None):
+def monitored_input(
+    ops, state, family, explicit, fallback, recovery_state=None, after_dns_state=None
+):
     if explicit is not None:
         return explicit.resolve(), None
-    recovery_entry = (recovery_state or {}).get("merges", {}).get(family, {})
-    if recovery_entry.get("report_path"):
-        entry = recovery_entry
-        path_key, sha_key = "report_path", "report_sha256"
-    elif family == "frs":
-        entry = state.get("families", {}).get("frs_full", {})
-        path_key, sha_key = "audit_progress_path", "audit_progress_sha256"
+    for candidate in (after_dns_state, recovery_state):
+        entry = (candidate or {}).get("merges", {}).get(family, {})
+        if entry.get("status") == "verified_report":
+            require(entry.get("report_path"), "Verified monitor input has no path")
+            path_key, sha_key = "report_path", "report_sha256"
+            break
     else:
-        entry = state.get("vision_merge", {})
-        path_key, sha_key = "report_path", "report_sha256"
+        if family == "frs":
+            entry = state.get("families", {}).get("frs_full", {})
+            path_key, sha_key = "audit_progress_path", "audit_progress_sha256"
+        else:
+            entry = state.get("vision_merge", {})
+            path_key, sha_key = "report_path", "report_sha256"
     if not entry.get(path_key):
         return fallback.resolve(), None
     path = Path(entry[path_key])
@@ -1337,6 +1348,16 @@ def build(args):
             == "codex-routing-recovery-monitor-1.0",
             "Unsupported recovery monitor state schema",
         )
+    after_dns_state, after_dns_state_sha = {}, None
+    if (ops / "recovery_after_dns_postprocess_state.json").is_file():
+        after_dns_state, after_dns_state_sha = read_json(
+            ops / "recovery_after_dns_postprocess_state.json"
+        )
+        require(
+            after_dns_state.get("schema_version")
+            == "codex-routing-recovery-monitor-1.0",
+            "Unsupported post-DNS recovery monitor state schema",
+        )
     progress, progress_sha = monitored_input(
         ops,
         state,
@@ -1344,6 +1365,7 @@ def build(args):
         getattr(args, "frs_merge", None) or args.frs_progress,
         ops / "frs_full/offline_frs_audits/progress.json",
         recovery_state,
+        after_dns_state,
     )
     merge, merge_sha = monitored_input(
         ops,
@@ -1352,6 +1374,7 @@ def build(args):
         args.vision_merge,
         ops / "vision_recovery1/merged_vision/provisional.json",
         recovery_state,
+        after_dns_state,
     )
     acquisition = (
         args.frs_acquisition or ops / "frs_full/acquisition_cost.json"
@@ -1438,6 +1461,7 @@ def build(args):
         "builder_sha256": file_sha(Path(__file__)),
         "monitor_state_sha256": state_sha,
         "recovery_monitor_state_sha256": recovery_state_sha,
+        "after_dns_recovery_monitor_state_sha256": after_dns_state_sha,
     }
     public_scan(report)
     encoded = (

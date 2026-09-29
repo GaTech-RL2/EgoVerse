@@ -18,11 +18,14 @@ After activating the project Python environment, rebuild from the repository roo
 python astra_reversal/reports/codex_full_evaluation/build_report.py
 ```
 
-The defaults first discover the current FRS and vision recovery merges from the
-recovery monitor state, checking its exact schema and each advertised SHA-256.
-Until a verified recovery merge is available, the original postprocessing monitor
-is used for that family. If no monitor entry exists, the original audit/merge
-locations are used. Explicit input arguments override discovery.
+The defaults first discover FRS and vision recovery merges from
+`recovery_after_dns_postprocess_state.json`, then the earlier
+`recovery_postprocess_state.json`. Each family is selected independently. Recovery
+entries must have status `verified_report`; the builder checks the exact monitor
+schema, advertised SHA-256 and reviewed recovery plan. A malformed verified entry
+fails closed. Until a verified recovery merge is available, the original
+postprocessing monitor is used for that family. If no monitor entry exists, the
+original audit/merge locations are used. Explicit input arguments override discovery.
 The FRS acquisition receipt must bind to the selected audit hash. The builder never fetches artifacts, executes models, modifies
 the scientific producer, updates audits or changes canonical case selection.
 Run the independent auditors and recovery merger separately before refreshing this
