@@ -24,8 +24,6 @@ import logging
 import os
 import signal
 
-from egomimic.utils.type_utils import str2bool
-
 logger = logging.getLogger(__name__)
 
 _DISABLE_ENV = "EGOMIMIC_REAP_GPU_ORPHANS"
@@ -140,6 +138,9 @@ def reap_orphans(dry_run: bool = False) -> list[int]:
     Off outside Slurm: only there do we know every process of ours on the node
     belongs to a job, so that a PPID-1 GPU holder can only be wreckage.
     """
+    # imported here: it pulls numpy, and the __main__ probe must run on a bare python3
+    from egomimic.utils.type_utils import str2bool
+
     if not str2bool(os.environ.get(_DISABLE_ENV, "1")):
         return []
     if "SLURM_JOB_ID" not in os.environ:
