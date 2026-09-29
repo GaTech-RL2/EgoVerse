@@ -1,24 +1,15 @@
-"""Episode-tail padding must not supervise "stop moving".
-
-The dataset emits a real ``action_pad_mask`` next to the action chunk, the
-interpolators carry it to the model horizon, and ``DenoisingPolicy.loss_fn``
-drops the padded steps -- but only behind the ``use_pad_mask`` algo flag, so
-the flag-off path is bit-for-bit today's behaviour.
+"""The dataset's ``action_pad_mask``: emitted next to the action chunk, carried
+to the model horizon by the interpolators, and dropped by HPT before the model
+(the loss is plain MSE over every step).
 """
 
 from __future__ import annotations
 
 import numpy as np
-import pytest
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from fixtures.synthetic_episodes import write_episode
-from omegaconf import OmegaConf
 
-import egomimic
 from egomimic.algo.hpt import HPT
-from egomimic.models.denoising_policy import DenoisingPolicy
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.human import Human
 from egomimic.rldb.zarr.zarr_dataset_multi import (
@@ -249,79 +240,7 @@ def test_keypoints_with_ee_pose_upsamples_the_mask_once(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# 4. loss_fn
-# ---------------------------------------------------------------------------
-
-
-def _policy() -> DenoisingPolicy:
-    return DenoisingPolicy.__new__(DenoisingPolicy)
-
-
-def test_loss_fn_without_mask_matches_mse_loss():
-    g = torch.Generator().manual_seed(0)
-    pred = torch.randn(3, 7, 5, generator=g)
-    target = torch.randn(3, 7, 5, generator=g)
-    p = _policy()
-    torch.testing.assert_close(p.loss_fn(pred, target), F.mse_loss(pred, target))
-    ones = torch.ones(3, 7, 1)
-    torch.testing.assert_close(
-        p.loss_fn(pred, target, pad_mask=ones), F.mse_loss(pred, target)
-    )
-
-
-def test_loss_fn_ignores_masked_steps():
-    g = torch.Generator().manual_seed(1)
-    pred = torch.randn(2, 6, 4, generator=g)
-    target = torch.randn(2, 6, 4, generator=g)
-    mask = torch.ones(2, 6, 1)
-    mask[:, 4:] = 0.0
-    p = _policy()
-    before = p.loss_fn(pred, target, pad_mask=mask)
-
-    perturbed = pred.clone()
-    perturbed[:, 4:] += 100.0
-    torch.testing.assert_close(p.loss_fn(perturbed, target, pad_mask=mask), before)
-
-    # ... and it is exactly the mse over the kept steps.
-    torch.testing.assert_close(before, F.mse_loss(pred[:, :4], target[:, :4]))
-
-
-def test_loss_fn_all_zero_mask_does_not_divide_by_zero():
-    p = _policy()
-    loss = p.loss_fn(
-        torch.randn(2, 6, 4), torch.randn(2, 6, 4), pad_mask=torch.zeros(2, 6, 1)
-    )
-    assert torch.isfinite(loss) and float(loss) == 0.0
-
-
-class _FixedPredPolicy(DenoisingPolicy):
-    """Minimal DenoisingPolicy: ``predict`` returns a canned prediction."""
-
-    def __init__(self, action_horizon: int, pred: torch.Tensor):
-        nn.Module.__init__(self)
-        self.action_horizon = action_horizon
-        self.pooling = None
-        self.padding = None
-        self._pred = pred
-
-    def predict(self, actions, global_cond):
-        return self._pred, actions
-
-
-def test_compute_loss_forwards_the_pad_mask():
-    g = torch.Generator().manual_seed(2)
-    target = torch.randn(2, 6, 4, generator=g)
-    pred = torch.randn(2, 6, 4, generator=g)
-    policy = _FixedPredPolicy(6, pred)
-    mask = torch.ones(2, 6, 1)
-    mask[:, 4:] = 0.0
-    global_cond = torch.zeros(2, 3)
-    loss = policy.compute_loss(global_cond, {"action": target, "pad_mask": mask})
-    torch.testing.assert_close(loss, F.mse_loss(pred[:, :4], target[:, :4]))
-
-
-# ---------------------------------------------------------------------------
-# 5. process_batch_for_training + the config flag
+# 4. process_batch_for_training
 # ---------------------------------------------------------------------------
 
 
@@ -330,65 +249,17 @@ class _NoRenameNormStats:
         return None
 
 
-def _process(use_pad_mask: bool, action_pad_mask: torch.Tensor | None, S: int = 6):
+def test_process_batch_drops_the_dataset_mask_and_supervises_every_step():
     algo = HPT.__new__(HPT)
     algo.norm_stats = _NoRenameNormStats()
     algo.device = "cpu"
     algo.annotation_key = None
-    algo.use_pad_mask = use_pad_mask
     emb = "human_bimanual"
     emb_id = get_embodiment_id(emb)
     algo.ac_keys = {emb_id: "actions_cartesian"}
-    inner = {"actions_cartesian": torch.zeros(2, S, 18)}
-    if action_pad_mask is not None:
-        inner["action_pad_mask"] = action_pad_mask
-    return HPT.process_batch_for_training(algo, {emb: inner})[emb_id]
-
-
-def test_process_batch_keeps_ones_when_the_flag_is_off():
     mask = torch.ones(2, 6)
     mask[:, 3:] = 0.0
-    out = _process(False, mask)
+    inner = {"actions_cartesian": torch.zeros(2, 6, 18), "action_pad_mask": mask}
+    out = HPT.process_batch_for_training(algo, {emb: inner})[emb_id]
     torch.testing.assert_close(out["pad_mask"], torch.ones(2, 6, 1))
     assert "action_pad_mask" not in out
-
-
-def test_process_batch_uses_the_dataset_mask_when_the_flag_is_on():
-    mask = torch.ones(2, 6)
-    mask[:, 3:] = 0.0
-    out = _process(True, mask)
-    assert out["pad_mask"].shape == (2, 6, 1)
-    torch.testing.assert_close(out["pad_mask"], mask[..., None])
-    assert "action_pad_mask" not in out
-
-
-def test_process_batch_falls_back_to_ones_without_the_dataset_key():
-    out = _process(True, None)
-    torch.testing.assert_close(out["pad_mask"], torch.ones(2, 6, 1))
-
-
-def test_process_batch_raises_on_a_length_mismatch():
-    with pytest.raises(ValueError, match="6"):
-        _process(True, torch.ones(2, 5))
-
-
-def test_use_pad_mask_defaults_to_false():
-    import inspect
-
-    assert inspect.signature(HPT.__init__).parameters["use_pad_mask"].default is False
-
-
-# The two flagship recipes: the ones a run would flip the knob on. Every other
-# HPT config takes the HPT.__init__ default, which the test above pins.
-@pytest.mark.parametrize(
-    "yaml_name",
-    ["hpt_bc_mecka_6d_300M", "hpt_bc_keypoints_wrist_300M"],
-)
-def test_algo_yaml_declares_use_pad_mask_off(yaml_name):
-    from pathlib import Path
-
-    path = (
-        Path(egomimic.__file__).parent / "hydra_configs" / "model" / f"{yaml_name}.yaml"
-    )
-    cfg = OmegaConf.load(path)
-    assert cfg.robomimic_model.use_pad_mask is False

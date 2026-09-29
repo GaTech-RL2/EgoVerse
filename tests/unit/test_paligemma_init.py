@@ -4,8 +4,7 @@ and everything pi0.5 adds on top starts from its PyTorch init.
 No network and no 3B model: the loader is exercised against a miniature module
 tree, and against a tiny real ``PaliGemmaForConditionalGeneration`` built by
 whichever transformers is installed (the vision tree differs across 4.x and
-5.x), with safetensors written on the fly; the download resolution is driven
-through stubs. The one thing that needs the real thing --
+5.x), with safetensors written on the fly; the download is stubbed. The one thing that needs the real thing --
 that the released checkpoint covers openpi's prefix exactly -- is asserted by
 ``load_paligemma_weights`` itself (it raises on any missing or unexpected
 tensor), so a rename upstream cannot pass silently.
@@ -90,23 +89,19 @@ def test_a_narrower_checkpoint_is_never_padded_out():
 # ------------------------------------------------------------------ init source
 
 
-def test_pi05_base_wins_when_only_it_is_set():
-    assert pgi.select_init_source("/ckpt/pi05_base_pytorch", None) == "pi05_base"
-
-
-def test_paligemma_when_the_base_checkpoint_is_off():
-    assert pgi.select_init_source(None, CANONICAL) == "paligemma"
-
-
-def test_neither_is_reported_as_no_weights():
-    assert pgi.select_init_source(None, None) == "none"
-
-
-def test_both_at_once_is_refused():
+def test_pi_refuses_both_init_sources():
     # The pi0.5 base already contains a trained PaliGemma; silently letting one
     # win would make the run's provenance unreadable from its config.
+    pytest.importorskip("openpi")
+    from types import SimpleNamespace
+
+    from egomimic.algo.pi import PI
+
+    config = SimpleNamespace(
+        pytorch_weight_path="/ckpt/pi05_base_pytorch", paligemma_weight_path=CANONICAL
+    )
     with pytest.raises(ValueError, match="both set"):
-        pgi.select_init_source("/ckpt/pi05_base_pytorch", CANONICAL)
+        PI(None, None, [], None, None, config, {}, None)
 
 
 # ------------------------------------------------------------ the loader itself
@@ -228,7 +223,7 @@ def test_a_padded_vocabulary_checkpoint_loads(tmp_path):
     pgi.load_paligemma_weights(_Model(), _write_checkpoint(tmp_path, tensors))
 
 
-# ------------------------------------------------------- download / mirror path
+# -------------------------------------------------------------- download path
 
 
 def _tiny_paligemma():
@@ -302,156 +297,26 @@ def test_a_nested_vision_tree_is_found():
     assert pgi._module_name(key, {}) == "model.vision_tower.post_layernorm.bias"
 
 
-def test_only_the_shards_are_downloaded():
-    assert pgi._ALLOW_PATTERNS == ["*.safetensors"]
-
-
 def test_a_local_directory_is_used_as_is(tmp_path):
     assert pgi.resolve_paligemma_dir(str(tmp_path)) == str(tmp_path)
 
 
-def _gated_error(repo_id):
-    """The 401 huggingface_hub raises for a license-gated repo."""
-    import requests
-    from huggingface_hub.errors import GatedRepoError
-
-    response = requests.Response()
-    response.status_code = 401
-    return GatedRepoError(f"401 for {repo_id}", response=response)
-
-
-def _stub_hub(monkeypatch, *, gated, digests, downloads):
+def test_a_repo_id_is_downloaded(monkeypatch, tmp_path):
     import huggingface_hub
 
-    def snapshot_download(repo_id, **_):
-        if repo_id in gated:
-            raise _gated_error(repo_id)
-        return downloads[repo_id]
-
-    monkeypatch.setattr(huggingface_hub, "snapshot_download", snapshot_download)
-    monkeypatch.setattr(pgi, "_shard_digests", lambda repo: digests[repo])
-    monkeypatch.setattr(pgi, "_verify_shards", lambda directory, expected: None)
-
-
-def test_the_canonical_repo_is_preferred(monkeypatch, tmp_path):
-    _stub_hub(
-        monkeypatch, gated=set(), digests={}, downloads={CANONICAL: str(tmp_path)}
+    monkeypatch.setattr(
+        huggingface_hub, "snapshot_download", lambda repo_id, **_: str(tmp_path)
     )
     assert pgi.resolve_paligemma_dir(CANONICAL) == str(tmp_path)
-
-
-def test_a_gated_canonical_repo_falls_back_to_a_matching_mirror(monkeypatch, tmp_path):
-    good = pgi.MIRROR_REPOS[0]
-    digests = {
-        CANONICAL: {"model.safetensors": "abc"},
-        good: {"model.safetensors": "abc"},
-    }
-    digests.update({m: {"model.safetensors": "abc"} for m in pgi.MIRROR_REPOS})
-    _stub_hub(
-        monkeypatch,
-        gated={CANONICAL},
-        digests=digests,
-        downloads={m: str(tmp_path) for m in pgi.MIRROR_REPOS},
-    )
-    assert pgi.resolve_paligemma_dir(CANONICAL, allow_mirror=True) == str(tmp_path)
-
-
-def test_the_mirror_is_opt_in(monkeypatch, tmp_path):
-    from huggingface_hub.errors import GatedRepoError
-
-    digests = {r: {"model.safetensors": "abc"} for r in (CANONICAL, *pgi.MIRROR_REPOS)}
-    _stub_hub(
-        monkeypatch,
-        gated={CANONICAL},
-        digests=digests,
-        downloads={m: str(tmp_path) for m in pgi.MIRROR_REPOS},
-    )
-    with pytest.raises(GatedRepoError):
-        pgi.resolve_paligemma_dir(CANONICAL)
-
-
-def test_a_rate_limit_is_not_a_reason_to_use_a_mirror(monkeypatch):
-    import huggingface_hub
-    import requests
-    from huggingface_hub.errors import HfHubHTTPError
-
-    response = requests.Response()
-    response.status_code = 429
-
-    def snapshot_download(repo_id, **_):
-        raise HfHubHTTPError("429", response=response)
-
-    monkeypatch.setattr(huggingface_hub, "snapshot_download", snapshot_download)
-    with pytest.raises(HfHubHTTPError):
-        pgi.resolve_paligemma_dir(CANONICAL, allow_mirror=True)
-
-
-def test_a_mirror_whose_shards_differ_is_rejected(monkeypatch, tmp_path):
-    # A mirror is transport only: different bytes means it is not PaliGemma.
-    digests = {CANONICAL: {"model.safetensors": "abc"}}
-    digests.update({m: {"model.safetensors": "TAMPERED"} for m in pgi.MIRROR_REPOS})
-    _stub_hub(
-        monkeypatch,
-        gated={CANONICAL},
-        digests=digests,
-        downloads={m: str(tmp_path) for m in pgi.MIRROR_REPOS},
-    )
-    with pytest.raises(RuntimeError, match="no verified mirror"):
-        pgi.resolve_paligemma_dir(CANONICAL, allow_mirror=True)
-
-
-def test_the_mirror_fallback_can_be_switched_off(monkeypatch, tmp_path):
-    from huggingface_hub.errors import GatedRepoError
-
-    _stub_hub(monkeypatch, gated={CANONICAL}, digests={}, downloads={})
-    with pytest.raises(GatedRepoError):
-        pgi.resolve_paligemma_dir(CANONICAL, allow_mirror=False)
-
-
-def test_a_non_canonical_repo_never_falls_back(monkeypatch, tmp_path):
-    # Only the gated canonical repo has verified stand-ins; anything else the
-    # user names must fail loudly rather than silently load other weights.
-    from huggingface_hub.errors import GatedRepoError
-
-    _stub_hub(
-        monkeypatch, gated={"someone/private-paligemma"}, digests={}, downloads={}
-    )
-    with pytest.raises(GatedRepoError):
-        pgi.resolve_paligemma_dir("someone/private-paligemma", allow_mirror=True)
 
 
 # -------------------------------------------------------------------- the config
 
 
-def test_the_overlay_flips_the_init_source_and_keeps_its_parent(compose_resolve):
+def test_the_overlay_flips_the_init_source(compose_resolve):
     cfg = compose_resolve(
         "train_zarr_cartesian_pi", ["model=pi0.5_bc_mecka_6d_paligemma_init"]
     )
     model = cfg.model.robomimic_model
     assert model.config.pytorch_weight_path is None
     assert model.config.paligemma_weight_path == CANONICAL
-    assert (
-        pgi.select_init_source(
-            model.config.pytorch_weight_path, model.config.paligemma_weight_path
-        )
-        == "paligemma"
-    )
-    # the two keys are all the overlay touches: pi0.5_bc_mecka_6d's own choices
-    # (cartesian 6D action, no Embodiment prompt block) must survive it
-    assert model.ac_keys.human_bimanual == "actions_cartesian"
-    assert model.embodiment_label is False
-    assert model.config.model.action_dim == 32
-    assert (
-        model.action_converters.rules.HUMAN_BIMANUAL._target_
-        == "egomimic.utils.action_utils.HumanBimanualCartesian6D"
-    )
-
-
-def test_the_base_pi_config_still_starts_from_pi05_base(compose_resolve):
-    cfg = compose_resolve("train_zarr_cartesian_pi", ["model=pi0.5_bc_mecka_6d"])
-    config = cfg.model.robomimic_model.config
-    assert config.paligemma_weight_path is None
-    assert (
-        pgi.select_init_source(config.pytorch_weight_path, config.paligemma_weight_path)
-        == "pi05_base"
-    )

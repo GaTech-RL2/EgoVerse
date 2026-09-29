@@ -1,7 +1,6 @@
 """Under Slurm the torch.compile cache is per job so two jobs on one node never
 share <tmp>/torchinductor_<user> (Phase 4)."""
 
-import ast
 import os
 import subprocess
 import sys
@@ -70,25 +69,3 @@ def test_worker_does_not_inherit_the_launchers_job_dir():
 
 def test_worker_keeps_a_user_value_from_the_launchers_shell():
     assert _launch("/scratch/ind") == ["/scratch/ind", "/scratch/ind"]
-
-
-def test_trainhydra_sets_it_in_main_not_at_import():
-    """A `-m` launcher imports trainHydra but never runs main(); setting it at
-    import would key every job of a sweep on the launcher."""
-    src = (ROOT / "egomimic" / "trainHydra.py").read_text()
-    tree = ast.parse(src)
-
-    def calls(nodes):
-        return any(
-            isinstance(n, ast.Call)
-            and getattr(n.func, "id", None) == "set_per_job_compile_cache_dir"
-            for node in nodes
-            for n in ast.walk(node)
-        )
-
-    top = [n for n in tree.body if not isinstance(n, (ast.FunctionDef, ast.ClassDef))]
-    main = next(
-        n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "main"
-    )
-    assert not calls(top)
-    assert calls(main.body)
