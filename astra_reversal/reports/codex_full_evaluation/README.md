@@ -18,9 +18,11 @@ After activating the project Python environment, rebuild from the repository roo
 python astra_reversal/reports/codex_full_evaluation/build_report.py
 ```
 
-The defaults discover the current FRS audit and immutable vision recovery merge
-from the existing postprocessing monitor state, checking the advertised SHA-256
-for each. If no monitor entry exists, the original audit/merge locations are used.
+The defaults first discover the current FRS and vision recovery merges from the
+recovery monitor state, checking its exact schema and each advertised SHA-256.
+Until a verified recovery merge is available, the original postprocessing monitor
+is used for that family. If no monitor entry exists, the original audit/merge
+locations are used. Explicit input arguments override discovery.
 The FRS acquisition receipt must bind to the selected audit hash. The builder never fetches artifacts, executes models, modifies
 the scientific producer, updates audits or changes canonical case selection.
 Run the independent auditors and recovery merger separately before refreshing this
@@ -34,6 +36,26 @@ python astra_reversal/reports/codex_full_evaluation/build_report.py \
   --frs-acquisition /path/to/matching/acquisition_cost.json \
   --vision-merge /path/to/refreshed-vision-merge/provisional.json
 ```
+
+To use a merged FRS campaign, pass `--frs-merge /path/to/merge.json` instead of
+`--frs-progress`. Its per-task source audit paths and hashes select the original
+proofs and extracted evidence. Its acquisition ledger includes all approved
+source roots while canonical method metrics count each selected task once.
+
+Original `64bb1649` and routing/transport recovery `9ab4cb57` are distinct pinned
+producer identities, with different payload hashes. The report retains the actual
+identity on every selected task and lists audited case counts for each producer.
+A pinned source-equivalence receipt verifies unchanged scientific implementation,
+protocols, prompts and assets. Runtime changes are limited to task selection and
+relay transport; report and test files also changed. Recovery source roots and
+their order come from explicit hash-pinned plans. Adding a later reviewed plan is
+an additive entry in `APPROVED_RECOVERY_PLANS`, not an unverified fallback or a
+source relabeling. Unreviewed plans and changed receipts fail closed.
+
+All 20 recorded instructions, including pending task identities, come from the
+committed task inventory at a pinned file digest and repository revision. Audited
+summary instructions and each rollout's BDDL hash must match that inventory. Task
+metadata does not supply scores; only independently audited task outcomes do.
 
 `--ops-root` changes the private input root; `--frs-campaign` changes the FRS
 extracted-evidence root. Vision final audit overrides are supplied to the recovery

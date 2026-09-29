@@ -27,6 +27,23 @@ SOURCE = {
     "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
     "payload_bytes": 50202537,
 }
+RECOVERY_SOURCE = {
+    "source_revision": "9ab4cb57120c2ad0dd8919a6dcb32f3f0dad4064",
+    "payload_sha256": "5c0a8715d44c9b16a48483476c417244b12b035af983d3d4f67b1c488d7df170",
+    "payload_bytes": 51637817,
+}
+EQUIVALENCE_SHA = "5ce1a0580f872efcbc8eee921bef8eadc9693d32068dc29821b1689e73e1e537"
+FRS_RECOVERY_PLAN_SHA = (
+    "f919278c12618412c6affdc4c959f28f6d786dea511e38f788341d9e0a998654"
+)
+VISION_RECOVERY_PLAN_SHA = (
+    "6a4a8eb2ee3fe78b11b3165f11c509b0e4c1f86ff81df264ba7981d86e968f5c"
+)
+TASK_INVENTORY_SHA = "99bd8640be6dabe68fc534147490b2086ebcd4c073257e44a0cf1ec33ec4bbeb"
+APPROVED_RECOVERY_PLANS = {
+    "frs": {FRS_RECOVERY_PLAN_SHA: "frs_recovery1/recovery_plan.json"},
+    "vision": {VISION_RECOVERY_PLAN_SHA: "vision_recovery2/recovery_plan.json"},
+}
 WEIGHTS = "c0c8d17e2c875a7f60c919e3c8f4545c29ed97f20570ff4d75bad5b184e244d6"
 FRS_PROTOCOL = "56cf1cf89fe8503417f5f3e5a86a8f723ddc0877d273fe4d9696eb87dec89947"
 VISION_PROTOCOL = "4a9a478d90b03d25ae72fc65ceb76a470a2958cffe5ee9216d7e1c8ef325fd81"
@@ -125,6 +142,132 @@ def benchmark_text(value):
         "Unsafe public instruction",
     )
     return value
+
+
+def accepted_source(value, equivalence):
+    require(
+        value == SOURCE
+        or (
+            value == RECOVERY_SOURCE
+            and equivalence is not None
+            and equivalence.get("proof_sha256") == EQUIVALENCE_SHA
+        ),
+        "Unapproved or unproven producer identity",
+    )
+    return dict(value)
+
+
+def source_equivalence(ops):
+    path = ops / "recovery_bundle/source_equivalence.json"
+    if not path.is_file():
+        return None
+    proof, digest = read_json(path, EQUIVALENCE_SHA)
+    require(
+        proof["schema_version"] == "routing-recovery-source-equivalence-1.0"
+        and proof["status"] == "passed_exact_reviewed_delta"
+        and proof["baseline_source_identity"] == SOURCE
+        and proof["recovery_source_identity"] == RECOVERY_SOURCE,
+        "Recovery source equivalence mismatch",
+    )
+    scientific_files = (
+        "astra_reversal/frs_experiment.py",
+        "astra_reversal/frs_noise_policy.py",
+        "astra_reversal/frs_operators.py",
+        "astra_reversal/frs_agent.py",
+        "astra_reversal/frs_guide.py",
+        "astra_reversal/representation_search.py",
+        "astra_reversal/representation_agent.py",
+        "astra_reversal/codex_executor.py",
+        "astra_reversal/configs/frs_codex_frozen_evaluation_v1.json",
+        "astra_reversal/configs/vision_codex_representation_screen_v1.json",
+    )
+    unchanged = proof["unchanged_source_files"]
+    require(
+        all(name in unchanged for name in scientific_files), "Scientific source changed"
+    )
+    runtime = [
+        item["path"]
+        for item in proof["source_changes"]
+        if not item["path"].startswith(("astra_reversal/reports/", "tests/"))
+    ]
+    require(
+        set(runtime)
+        == {
+            "astra_reversal/codex_relay.py",
+            "astra_reversal/osmo/frs_policy_improvement.py",
+            "astra_reversal/osmo/representation_steering.py",
+            "astra_reversal/osmo/task_selection.py",
+        },
+        "Unexpected recovery runtime delta",
+    )
+    return {
+        "proof_sha256": digest,
+        "reviewed_transition_policy_sha256": proof["reviewed_transition_policy_sha256"],
+        "baseline_source_identity": SOURCE,
+        "recovery_source_identity": RECOVERY_SOURCE,
+        "unchanged_scientific_sources_sha256": {
+            name: unchanged[name]["sha256"] for name in scientific_files
+        },
+        "unchanged_source_file_count": len(unchanged),
+        "unchanged_payload_file_count": len(
+            proof["unchanged_payload_files_including_assets"]
+        ),
+        "changed_runtime_files": runtime,
+    }
+
+
+def task_inventory():
+    path = HERE.parent / "smart_system2_results/tasks.json"
+    inventory, digest = read_json(path, TASK_INVENTORY_SHA)
+    require(
+        len(inventory["tasks"]) == 20
+        and {identity(row) for row in inventory["tasks"]} == set(IDENTITIES),
+        "Task inventory identity mismatch",
+    )
+    tasks = [
+        {
+            "suite": row["suite"],
+            "task_id": row["task_id"],
+            "label": task_label(identity(row)),
+            "instruction": benchmark_text(row["instruction"]),
+            "bddl_sha256": row["bddl_sha256"],
+        }
+        for row in sorted(
+            inventory["tasks"], key=lambda r: IDENTITIES.index(identity(r))
+        )
+    ]
+    require(
+        all(re.fullmatch(r"[0-9a-f]{64}", row["bddl_sha256"]) for row in tasks),
+        "Task inventory BDDL digest malformed",
+    )
+    return {
+        "repository_file": "astra_reversal/reports/smart_system2_results/tasks.json",
+        "repository_revision": RECOVERY_SOURCE["source_revision"],
+        "file_sha256": digest,
+        "release_revision": inventory["release"]["revision"],
+        "tasks": tasks,
+    }
+
+
+def recovery_plan(ops, family, digest):
+    approved = APPROVED_RECOVERY_PLANS[family]
+    require(digest in approved, "Recovery plan has not been reviewed")
+    plan, _ = read_json(inside(ops, approved[digest]), digest)
+    require(
+        plan["source_equivalence_proof_sha256"] == EQUIVALENCE_SHA
+        and plan["new_source_identity"] == RECOVERY_SOURCE
+        and plan["protocol_changes"] is False
+        and plan["model_weight_changes"] is False,
+        "Recovery plan changed scientific scope",
+    )
+    roots = plan["source_roots_in_predeclared_order"]
+    require(len(roots) == len(set(roots)), "Recovery plan repeats a source root")
+    original_roots = (
+        {"frs_full"} if family == "frs" else {"vision_full", "vision_recovery1"}
+    )
+    return plan, {
+        root: SOURCE if root in original_roots else RECOVERY_SOURCE for root in roots
+    }
 
 
 def median(values):
@@ -238,18 +381,95 @@ def coverage(rows):
     return result
 
 
-def load_frs(progress_path, campaign, acquisition_path, expected_sha=None):
+def load_frs(
+    progress_path,
+    campaign,
+    acquisition_path,
+    expected_sha=None,
+    *,
+    ops=None,
+    equivalence=None,
+):
     progress, progress_sha = read_json(progress_path, expected_sha)
+    is_merge = progress["schema_version"] == "codex-frs-private-recovery-merge-1.0"
     require(
-        progress["schema_version"] == "codex-frs-private-campaign-progress-1.0",
+        is_merge
+        or progress["schema_version"] == "codex-frs-private-campaign-progress-1.0",
         "Unsupported FRS progress",
     )
-    require(progress["source_identity"] == SOURCE, "FRS producer identity mismatch")
+    require(progress["expected_tasks"] == 20, "FRS expected task cohort changed")
+    source_progress = {}
+    if is_merge:
+        require(
+            ops is not None and equivalence is not None,
+            "FRS recovery proof unavailable",
+        )
+        plan, expected_sources = recovery_plan(
+            ops, "frs", progress["recovery_plan_sha256"]
+        )
+        require(
+            progress["source_equivalence_proof_sha256"] == EQUIVALENCE_SHA
+            and progress["source_roots_in_predeclared_order"]
+            == plan["source_roots_in_predeclared_order"],
+            "FRS recovery selection plan mismatch",
+        )
+        states = {row["source_root"]: row for row in progress["source_states"]}
+        require(
+            len(progress["source_states"]) == len(expected_sources)
+            and set(states) == set(expected_sources),
+            "FRS source state mismatch",
+        )
+        for root, row in states.items():
+            expected_source = expected_sources[root]
+            require(row["source_identity"] == expected_source, "FRS source mislabeled")
+            accepted_source(expected_source, equivalence)
+            if row["audit_progress_sha256"] is not None:
+                doc, _ = read_json(
+                    inside(ops, row["audit_progress_path"]),
+                    row["audit_progress_sha256"],
+                )
+                require(
+                    doc["source_identity"] == expected_source,
+                    "FRS source progress identity mismatch",
+                )
+                source_progress[root] = doc
+    else:
+        accepted_source(progress["source_identity"], equivalence)
     public_coverage = coverage(progress["task_coverage"])
     tasks, contexts, all_rollouts = [], {}, []
     protocols = set()
     for task in progress["tasks"]:
         key = identity(task)
+        producer = accepted_source(task["source_identity"], equivalence)
+        task_progress_path, task_campaign = progress_path, campaign
+        if is_merge:
+            root = task["source_root"]
+            require(
+                root in source_progress,
+                "Selected FRS task has no bound source progress",
+            )
+            state = states[root]
+            require(
+                task["source_identity"] == state["source_identity"]
+                and task["audit_progress_path"] == state["audit_progress_path"]
+                and task["audit_progress_sha256"] == state["audit_progress_sha256"],
+                "FRS selected source binding mismatch",
+            )
+            matches = [
+                row for row in source_progress[root]["tasks"] if identity(row) == key
+            ]
+            require(
+                len(matches) == 1
+                and all(task.get(k) == v for k, v in matches[0].items()),
+                "FRS merge changed audited task evidence",
+            )
+            task_progress_path = inside(ops, task["audit_progress_path"])
+            task_campaign = inside(ops, root)
+        else:
+            require(
+                producer == progress["source_identity"],
+                "FRS task/producer identity mismatch",
+            )
         require(key not in contexts, "Duplicate FRS task")
         require(
             task["phase"] == "evaluation"
@@ -257,7 +477,7 @@ def load_frs(progress_path, campaign, acquisition_path, expected_sha=None):
             "FRS reset cohort mismatch",
         )
         proof = inside(
-            progress_path.parent,
+            task_progress_path.parent,
             f"by_archive_sha256/{task['archive_sha256']}/{task['auditor_id']}",
         )
         binding, _ = read_json(proof / "binding.json")
@@ -284,7 +504,7 @@ def load_frs(progress_path, campaign, acquisition_path, expected_sha=None):
             "FRS archive audit mismatch",
         )
         task_dir = inside(
-            campaign, f"extracted/worker_{task['worker']}/results/task_{key[1]}"
+            task_campaign, f"extracted/worker_{task['worker']}/results/task_{key[1]}"
         )
         summary, summary_sha = read_json(
             task_dir / "summary.json", audit["summary_sha256"]
@@ -380,6 +600,7 @@ def load_frs(progress_path, campaign, acquisition_path, expected_sha=None):
             "members": archive["members"],
             "summary": summary,
             "waits": waits,
+            "producer_identity": producer,
         }
         all_rollouts.extend(public_rows)
         tasks.append(
@@ -388,6 +609,7 @@ def load_frs(progress_path, campaign, acquisition_path, expected_sha=None):
                 "task_id": key[1],
                 "label": task_label(key),
                 "instruction": benchmark_text(summary["instruction"]),
+                "producer_identity": producer,
                 "archive_sha256": task["archive_sha256"],
                 "summary_sha256": summary_sha,
                 "scientific_audit_sha256": task["scientific_audit_sha256"],
@@ -461,13 +683,36 @@ def load_frs(progress_path, campaign, acquisition_path, expected_sha=None):
     acquisition = None
     acquisition_status = "unavailable"
     acquisition_sha = None
-    if acquisition_path.is_file():
+    if is_merge:
+        ledger = progress["acquisition_cost_ledger"]
+        require(not ledger["integrity_errors"], "FRS acquisition integrity failure")
+        acquisition = {
+            "audited": acquisition_summary(ledger["canonical_acquisition"]),
+            "other": acquisition_summary(
+                ledger["interrupted_or_duplicate_acquisition"]
+            ),
+            "all": acquisition_summary(ledger["all_local_acquisition"]),
+        }
+        canonical_tokens = sum_tokens([row["tokens"] for row in methods])[
+            "total_tokens"
+        ]
+        require(
+            all(
+                acquisition["audited"]["tokens"]["total_tokens"][key]
+                == canonical_tokens[key]
+                for key in ("known_sum", "exact_total")
+            ),
+            "FRS canonical acquisition mismatch",
+        )
+        acquisition_sha, acquisition_status = progress_sha, "bound"
+    elif acquisition_path.is_file():
         cost, acquisition_sha = read_json(acquisition_path)
         if cost.get("audit_progress_sha256") != progress_sha:
             acquisition_status = "stale_audit_binding"
         else:
             require(
-                cost["source_identity"] == SOURCE and not cost["integrity_errors"],
+                cost["source_identity"] == progress["source_identity"]
+                and not cost["integrity_errors"],
                 "FRS acquisition integrity failure",
             )
             acquisition = {
@@ -497,20 +742,70 @@ def load_frs(progress_path, campaign, acquisition_path, expected_sha=None):
         "acquisition": acquisition,
         "acquisition_status": acquisition_status,
         "acquisition_receipt_sha256": acquisition_sha,
+        "evidence_kind": "recovery_merge" if is_merge else "single_campaign_audit",
+        "recovery_plan_sha256": progress["recovery_plan_sha256"] if is_merge else None,
+        "source_equivalence_proof_sha256": EQUIVALENCE_SHA if is_merge else None,
+        "source_audit_progress_sha256": [
+            row["audit_progress_sha256"]
+            for row in progress["source_states"]
+            if row["audit_progress_sha256"] is not None
+        ]
+        if is_merge
+        else [progress_sha],
     }, contexts
 
 
-def load_vision(merge_path, ops, expected_sha=None):
+def load_vision(merge_path, ops, expected_sha=None, *, equivalence=None):
     merged, merge_sha = read_json(merge_path, expected_sha)
     require(
         merged["schema_version"] == "codex-vision-private-recovery-merge-1.0",
         "Unsupported vision merge",
     )
     require(
-        merged["payload_identity"] == SOURCE
-        and merged["protocol_sha256"] == VISION_PROTOCOL,
-        "Vision producer identity mismatch",
+        merged["protocol_sha256"] == VISION_PROTOCOL, "Vision frozen protocol mismatch"
     )
+    multi = merged.get("multi_source_proof")
+    sources = {"vision_full": SOURCE, "vision_recovery1": SOURCE}
+    if multi is not None:
+        require(equivalence is not None, "Vision recovery proof unavailable")
+        _, sources = recovery_plan(ops, "vision", multi["recovery_plan_sha256"])
+        require(
+            multi["source_equivalence_proof_sha256"] == EQUIVALENCE_SHA
+            and merged["payload_identity"] is None
+            and merged["baseline_payload_identity"] == SOURCE,
+            "Vision multi-source transition mismatch",
+        )
+        require(
+            merged["source_identities"] == sources,
+            "Vision producer source map mismatch",
+        )
+    else:
+        require(
+            merged["payload_identity"] == SOURCE, "Vision producer identity mismatch"
+        )
+    require(
+        merged["source_roots_in_predeclared_order"] == list(sources),
+        "Vision selection order changed",
+    )
+    source_progress = {}
+    seen_sources = set()
+    for source in merged["source_audit_progress"]:
+        root = source["source_root"]
+        require(
+            root in sources and root not in seen_sources,
+            "Vision source audit map mismatch",
+        )
+        seen_sources.add(root)
+        producer = source.get("source_identity", SOURCE)
+        require(producer == sources[root], "Vision source progress mislabeled")
+        accepted_source(producer, equivalence)
+        if source["sha256"] is not None:
+            doc, _ = read_json(inside(ops, source["path"]), source["sha256"])
+            require(
+                doc["source_identity"] == producer,
+                "Vision source progress identity changed",
+            )
+            source_progress[root] = doc
     require(merged["native_tensor_sha256"] == WEIGHTS, "Vision frozen weight mismatch")
     require(
         not merged["acquisition_cost_ledger"]["integrity_errors"],
@@ -539,19 +834,35 @@ def load_vision(merge_path, ops, expected_sha=None):
             "Incomplete vision arm comparison",
         )
         first = rows[0]
+        root = first["source_root"]
+        require(
+            root in source_progress, "Selected vision case has no bound source progress"
+        )
+        producer = accepted_source(first.get("source_identity", SOURCE), equivalence)
+        require(producer == sources[root], "Vision selected producer mismatch")
+        if multi is not None:
+            require(
+                selected[key]["source_identity"] == producer,
+                "Vision coverage producer mismatch",
+            )
         require(
             all(
                 r["independent_audit_directory"] == first["independent_audit_directory"]
                 and r["source_root"] == first["source_root"]
+                and r.get("source_identity", SOURCE) == producer
                 for r in rows
             ),
             "Vision method evidence mismatch",
         )
         proof = inside(ops, first["independent_audit_directory"])
+        require(
+            proof.is_relative_to(inside(ops, root)),
+            "Vision proof escaped selected source",
+        )
         binding, binding_sha = read_json(proof / "binding.json")
         require(
             binding["complete"] is True
-            and binding["source_identity"] == SOURCE
+            and binding["source_identity"] == producer
             and identity(binding) == key,
             "Vision binding incomplete",
         )
@@ -572,7 +883,11 @@ def load_vision(merge_path, ops, expected_sha=None):
             "Vision audits incomplete",
         )
         require(
-            array_audit["identities"]["protocol_sha256"] == VISION_PROTOCOL,
+            array_audit["identities"]["protocol_sha256"] == VISION_PROTOCOL
+            and array_audit["identities"]["payload_sha256"]
+            == producer["payload_sha256"]
+            and array_audit["identities"]["source_revision"]
+            == producer["source_revision"],
             "Vision audit protocol mismatch",
         )
         task_dir = inside(
@@ -627,6 +942,7 @@ def load_vision(merge_path, ops, expected_sha=None):
                 "label": task_label(key),
                 "instruction": benchmark_text(summary["instruction"]),
                 "archive_sha256": first["archive_sha256"],
+                "producer_identity": producer,
                 "summary_sha256": summary_sha,
                 "binding_sha256": binding_sha,
                 "array_audit_sha256": binding["array_audit_sha256"],
@@ -648,6 +964,7 @@ def load_vision(merge_path, ops, expected_sha=None):
             "events_sha": array_audit["input_file_sha256"]["events.jsonl"],
             "rows": rows,
             "array_audit": array_audit,
+            "producer_identity": producer,
         }
     count = len(tasks)
     require(
@@ -736,11 +1053,18 @@ def load_vision(merge_path, ops, expected_sha=None):
         "physical_rollouts": sum(m["physical_rollouts"] for m in methods),
         "merge_sha256": merge_sha,
         "protocol_sha256": VISION_PROTOCOL,
-        "recovery_plan_sha256": merged["recovery_plan_sha256"],
+        "recovery_plan_sha256": multi["recovery_plan_sha256"]
+        if multi is not None
+        else merged["recovery_plan_sha256"],
+        "source_equivalence_proof_sha256": EQUIVALENCE_SHA
+        if multi is not None
+        else None,
         "acquisition": acquisition,
         "acquisition_status": "bound",
         "audit_progress_sha256": [
-            row["sha256"] for row in merged["source_audit_progress"]
+            row["sha256"]
+            for row in merged["source_audit_progress"]
+            if row["sha256"] is not None
         ],
     }, contexts
 
@@ -878,6 +1202,7 @@ def select_media(
                 "label": task_label(key),
                 "reset_id": reset,
                 "instruction": benchmark_text(context["summary"]["instruction"]),
+                "producer_identity": context["producer_identity"],
                 "selection": "first_audited_identity"
                 if baseline is selected[0]
                 else "first_native_failure",
@@ -967,10 +1292,14 @@ def public_scan(value):
         )
 
 
-def monitored_input(ops, state, family, explicit, fallback):
+def monitored_input(ops, state, family, explicit, fallback, recovery_state=None):
     if explicit is not None:
         return explicit.resolve(), None
-    if family == "frs":
+    recovery_entry = (recovery_state or {}).get("merges", {}).get(family, {})
+    if recovery_entry.get("report_path"):
+        entry = recovery_entry
+        path_key, sha_key = "report_path", "report_sha256"
+    elif family == "frs":
         entry = state.get("families", {}).get("frs_full", {})
         path_key, sha_key = "audit_progress_path", "audit_progress_sha256"
     else:
@@ -998,12 +1327,23 @@ def build(args):
             state.get("schema_version") == "codex-private-postprocessing-1.0",
             "Unsupported monitor state schema",
         )
+    recovery_state, recovery_state_sha = {}, None
+    if (ops / "recovery_postprocess_state.json").is_file():
+        recovery_state, recovery_state_sha = read_json(
+            ops / "recovery_postprocess_state.json"
+        )
+        require(
+            recovery_state.get("schema_version")
+            == "codex-routing-recovery-monitor-1.0",
+            "Unsupported recovery monitor state schema",
+        )
     progress, progress_sha = monitored_input(
         ops,
         state,
         "frs",
-        args.frs_progress,
+        getattr(args, "frs_merge", None) or args.frs_progress,
         ops / "frs_full/offline_frs_audits/progress.json",
+        recovery_state,
     )
     merge, merge_sha = monitored_input(
         ops,
@@ -1011,6 +1351,7 @@ def build(args):
         "vision",
         args.vision_merge,
         ops / "vision_recovery1/merged_vision/provisional.json",
+        recovery_state,
     )
     acquisition = (
         args.frs_acquisition or ops / "frs_full/acquisition_cost.json"
@@ -1025,8 +1366,48 @@ def build(args):
         0 <= args.examples_per_cohort <= 2 and 0 <= args.max_media_mib <= 256,
         "Media limits out of bounds",
     )
-    frs, frs_contexts = load_frs(progress, campaign, acquisition, progress_sha)
-    vision, vision_contexts = load_vision(merge, ops, merge_sha)
+    equivalence = source_equivalence(ops)
+    frs, frs_contexts = load_frs(
+        progress, campaign, acquisition, progress_sha, ops=ops, equivalence=equivalence
+    )
+    vision, vision_contexts = load_vision(
+        merge, ops, merge_sha, equivalence=equivalence
+    )
+    inventory = task_inventory()
+    by_identity = {identity(row): row for row in inventory["tasks"]}
+    for cohort, contexts in ((frs, frs_contexts), (vision, vision_contexts)):
+        for task in cohort["tasks"]:
+            key = identity(task)
+            require(
+                task["instruction"] == by_identity[key]["instruction"],
+                "Audited instruction differs from committed task inventory",
+            )
+            require(
+                all(
+                    row["reset_audit"]["bddl_sha256"] == by_identity[key]["bddl_sha256"]
+                    for row in contexts[key]["summary"]["physical_rollouts"]
+                ),
+                "Audited task BDDL differs from committed task inventory",
+            )
+        for row in cohort["coverage"]:
+            row["instruction"] = by_identity[identity(row)]["instruction"]
+    producers = [
+        {
+            "label": label,
+            "identity": producer,
+            "frs_audited_tasks": sum(
+                task["producer_identity"] == producer for task in frs["tasks"]
+            ),
+            "vision_audited_tasks": sum(
+                task["producer_identity"] == producer for task in vision["tasks"]
+            ),
+        }
+        for label, producer in (
+            ("Original producer", SOURCE),
+            ("Routing/transport recovery producer", RECOVERY_SOURCE),
+        )
+        if producer == SOURCE or equivalence is not None
+    ]
     media = Media(output, int(args.max_media_mib * 1024 * 1024))
     galleries = select_media(
         frs,
@@ -1039,9 +1420,11 @@ def build(args):
         not args.no_videos,
     )
     report = {
-        "schema_version": "codex-full-evaluation-public-1.0",
+        "schema_version": "codex-full-evaluation-public-1.1",
         "built_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "producer_identity": SOURCE,
+        "producer_identities": producers,
+        "source_equivalence": equivalence,
+        "task_inventory": inventory,
         "frozen_weight_sha256": WEIGHTS,
         "configured_model": "gpt-6-astra",
         "reasoning_effort": "medium",
@@ -1054,6 +1437,7 @@ def build(args):
         "media_inventory": media.inventory,
         "builder_sha256": file_sha(Path(__file__)),
         "monitor_state_sha256": state_sha,
+        "recovery_monitor_state_sha256": recovery_state_sha,
     }
     public_scan(report)
     encoded = (
@@ -1097,7 +1481,9 @@ def build(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ops-root", type=Path, default=DEFAULT_OPS)
-    parser.add_argument("--frs-progress", type=Path)
+    frs_input = parser.add_mutually_exclusive_group()
+    frs_input.add_argument("--frs-progress", type=Path)
+    frs_input.add_argument("--frs-merge", type=Path)
     parser.add_argument("--frs-campaign", type=Path)
     parser.add_argument("--frs-acquisition", type=Path)
     parser.add_argument("--vision-merge", type=Path)

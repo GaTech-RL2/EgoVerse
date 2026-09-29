@@ -1,7 +1,7 @@
 {
   "backend": "Codex CLI",
-  "builder_sha256": "6f2ca4e67304a069f65e9da163c44a69838a3885dbd8d0d5d26fe351baff8767",
-  "built_utc": "2026-09-29T00:59:04+00:00",
+  "builder_sha256": "31a5465b4e96538ffec6a916b54f81fe57b2abd8a41cce2f27155f9019454148",
+  "built_utc": "2026-09-29T01:50:50+00:00",
   "configured_model": "gpt-6-astra",
   "frozen_weight_sha256": "c0c8d17e2c875a7f60c919e3c8f4545c29ed97f20570ff4d75bad5b184e244d6",
   "frs": {
@@ -145,131 +145,152 @@
         "unknown_launch_claims": 6
       }
     },
-    "acquisition_receipt_sha256": "cb2f39b2e47eb57ca8c2af61bffe0b3633a8cb7d6bd352fc57c2d7d6b86db80c",
+    "acquisition_receipt_sha256": "50bbd1a67e03951a4514f390cc32d5155150d83ceec6c9eedc785cfa8d5733db",
     "acquisition_status": "bound",
     "audited_tasks": 5,
     "coverage": [
       {
+        "instruction": "put the cream cheese in the basket",
         "label": "Goal-OOD 0",
         "status": "awaiting_audit",
         "suite": "libero_goal_ood",
         "task_id": 0
       },
       {
+        "instruction": "put the orange juice on the stove",
         "label": "Goal-OOD 1",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 1
       },
       {
+        "instruction": "put the bbq source on the plate",
         "label": "Goal-OOD 2",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 2
       },
       {
+        "instruction": "put the tomato sauce on top of the cabinet",
         "label": "Goal-OOD 3",
         "status": "awaiting_audit",
         "suite": "libero_goal_ood",
         "task_id": 3
       },
       {
+        "instruction": "put the wine bottle on the stove",
         "label": "Goal-OOD 4",
         "status": "awaiting_audit",
         "suite": "libero_goal_ood",
         "task_id": 4
       },
       {
+        "instruction": "put the wine bottle on the plate",
         "label": "Goal-OOD 5",
         "status": "awaiting_audit",
         "suite": "libero_goal_ood",
         "task_id": 5
       },
       {
+        "instruction": "put the wine bottle in the bowl",
         "label": "Goal-OOD 6",
         "status": "awaiting_audit",
         "suite": "libero_goal_ood",
         "task_id": 6
       },
       {
+        "instruction": "put the cream cheese on the plate",
         "label": "Goal-OOD 7",
         "status": "awaiting_audit",
         "suite": "libero_goal_ood",
         "task_id": 7
       },
       {
+        "instruction": "put the cream cheese on the stove",
         "label": "Goal-OOD 8",
         "status": "awaiting_audit",
         "suite": "libero_goal_ood",
         "task_id": 8
       },
       {
+        "instruction": "put the cream cheese on top of the cabinet",
         "label": "Goal-OOD 9",
         "status": "awaiting_audit",
         "suite": "libero_goal_ood",
         "task_id": 9
       },
       {
+        "instruction": "put the butter on the plate",
         "label": "Spatial-OOD 0",
         "status": "audited",
         "suite": "libero_spatial_ood",
         "task_id": 0
       },
       {
+        "instruction": "put the chocolate pudding on the plate",
         "label": "Spatial-OOD 1",
         "status": "audited",
         "suite": "libero_spatial_ood",
         "task_id": 1
       },
       {
+        "instruction": "put the milk on the plate",
         "label": "Spatial-OOD 2",
         "status": "awaiting_audit",
         "suite": "libero_spatial_ood",
         "task_id": 2
       },
       {
+        "instruction": "put the orange juice on the plate",
         "label": "Spatial-OOD 3",
         "status": "audited",
         "suite": "libero_spatial_ood",
         "task_id": 3
       },
       {
+        "instruction": "put the bowl on cookie box on the stove",
         "label": "Spatial-OOD 4",
         "status": "awaiting_audit",
         "suite": "libero_spatial_ood",
         "task_id": 4
       },
       {
+        "instruction": "put the bowl on cookie box on the cabinet",
         "label": "Spatial-OOD 5",
         "status": "awaiting_audit",
         "suite": "libero_spatial_ood",
         "task_id": 5
       },
       {
+        "instruction": "put the bowl next to the plate on the cabinet",
         "label": "Spatial-OOD 6",
         "status": "awaiting_audit",
         "suite": "libero_spatial_ood",
         "task_id": 6
       },
       {
+        "instruction": "put the bowl next to the plate on the stove",
         "label": "Spatial-OOD 7",
         "status": "awaiting_audit",
         "suite": "libero_spatial_ood",
         "task_id": 7
       },
       {
+        "instruction": "put the bowl at table center on the cabinet",
         "label": "Spatial-OOD 8",
         "status": "awaiting_audit",
         "suite": "libero_spatial_ood",
         "task_id": 8
       },
       {
+        "instruction": "put the bowl at table center on the stove",
         "label": "Spatial-OOD 9",
         "status": "awaiting_audit",
         "suite": "libero_spatial_ood",
         "task_id": 9
       }
     ],
+    "evidence_kind": "recovery_merge",
     "expected_tasks": 20,
     "full_campaign_complete": false,
     "methods": [
@@ -416,8 +437,9 @@
       }
     ],
     "physical_rollouts": 150,
-    "progress_sha256": "bcfac32b6f571ab7230ef8d28b5d8d4f536f699b64ff48157774eef29123834c",
+    "progress_sha256": "50bbd1a67e03951a4514f390cc32d5155150d83ceec6c9eedc785cfa8d5733db",
     "protocol_sha256": "56cf1cf89fe8503417f5f3e5a86a8f723ddc0877d273fe4d9696eb87dec89947",
+    "recovery_plan_sha256": "f919278c12618412c6affdc4c959f28f6d786dea511e38f788341d9e0a998654",
     "rollouts": [
       {
         "actions": 78,
@@ -5970,6 +5992,10 @@
         }
       }
     ],
+    "source_audit_progress_sha256": [
+      "bcfac32b6f571ab7230ef8d28b5d8d4f536f699b64ff48157774eef29123834c"
+    ],
+    "source_equivalence_proof_sha256": "5ce1a0580f872efcbc8eee921bef8eadc9693d32068dc29821b1689e73e1e537",
     "tasks": [
       {
         "archive_audit_sha256": "53c382fc2ea41e56096759b424a6902a2d7b790e4605a226ca942b91d7eb7e66",
@@ -5993,6 +6019,11 @@
             "successes": 10
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "scientific_audit_sha256": "aa24d850086d3685382e95a8924105f917331667af8483f98d4692c78f5ece0b",
         "suite": "libero_goal_ood",
         "summary_sha256": "a0f95c2bb03d4a947cee94be5defebf47d7e5f74aef1993f21b3e2b3253b73ee",
@@ -6020,6 +6051,11 @@
             "successes": 8
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "scientific_audit_sha256": "f00aa37c15e6da8f01c689f66b9b061add30ff28851faa1bdaba41d613d78a8e",
         "suite": "libero_goal_ood",
         "summary_sha256": "e1e9e1c231c3a1187c99ce0847690e45d0835ed232842a12ecdb10d0871b636d",
@@ -6047,6 +6083,11 @@
             "successes": 10
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "scientific_audit_sha256": "41076ab56b585e113de817b63bd715223fa98c2d6be1d8c1c65129da15e0e019",
         "suite": "libero_spatial_ood",
         "summary_sha256": "122ceed8358cbb435213880fd7ff473ec2a91f1b5914fdc805528631b0a9c9af",
@@ -6074,6 +6115,11 @@
             "successes": 10
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "scientific_audit_sha256": "49c399fd728de913d0571d6df4fc75d3b6d84a363ee17cd67a2113c78f182075",
         "suite": "libero_spatial_ood",
         "summary_sha256": "319a339bcc2b7f50e9c05099835c1316d5dc0d7c5a830fe7fd9bd11ea99f5e50",
@@ -6101,6 +6147,11 @@
             "successes": 10
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "scientific_audit_sha256": "489630827b2143658247471d78cf10fccd19c45ea92232977185a81d4b8644ee",
         "suite": "libero_spatial_ood",
         "summary_sha256": "ca62e3048c369f20812b76060f0404f7f7374db0702b9c0bca7b6f4b6f45513d",
@@ -6122,6 +6173,11 @@
         },
         "instruction": "put the orange juice on the stove",
         "label": "Goal-OOD 1",
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "reset_id": 1,
         "selection": "first_audited_identity",
         "suite": "libero_goal_ood",
@@ -6172,6 +6228,11 @@
         },
         "instruction": "put the orange juice on the stove",
         "label": "Goal-OOD 1",
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "reset_id": 2,
         "selection": "first_native_failure",
         "suite": "libero_goal_ood",
@@ -6224,6 +6285,11 @@
         },
         "instruction": "put the cream cheese in the basket",
         "label": "Goal-OOD 0",
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "reset_id": 0,
         "selection": "first_audited_identity",
         "suite": "libero_goal_ood",
@@ -6258,6 +6324,11 @@
         },
         "instruction": "put the orange juice on the stove",
         "label": "Goal-OOD 1",
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "reset_id": 0,
         "selection": "first_native_failure",
         "suite": "libero_goal_ood",
@@ -6447,13 +6518,213 @@
     }
   },
   "monitor_state_sha256": "3056930ef2308f981f616864ba274c19b0263e7156dac218ffb53cd905a1b8ef",
-  "producer_identity": {
-    "payload_bytes": 50202537,
-    "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
-    "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
-  },
+  "producer_identities": [
+    {
+      "frs_audited_tasks": 5,
+      "identity": {
+        "payload_bytes": 50202537,
+        "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+        "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+      },
+      "label": "Original producer",
+      "vision_audited_tasks": 17
+    },
+    {
+      "frs_audited_tasks": 0,
+      "identity": {
+        "payload_bytes": 51637817,
+        "payload_sha256": "5c0a8715d44c9b16a48483476c417244b12b035af983d3d4f67b1c488d7df170",
+        "source_revision": "9ab4cb57120c2ad0dd8919a6dcb32f3f0dad4064"
+      },
+      "label": "Routing/transport recovery producer",
+      "vision_audited_tasks": 0
+    }
+  ],
   "reasoning_effort": "medium",
-  "schema_version": "codex-full-evaluation-public-1.0",
+  "recovery_monitor_state_sha256": "53f6d398a807c0925a51219e213fc371efea8162283a7704109e270cddec73f9",
+  "schema_version": "codex-full-evaluation-public-1.1",
+  "source_equivalence": {
+    "baseline_source_identity": {
+      "payload_bytes": 50202537,
+      "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+      "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+    },
+    "changed_runtime_files": [
+      "astra_reversal/codex_relay.py",
+      "astra_reversal/osmo/frs_policy_improvement.py",
+      "astra_reversal/osmo/representation_steering.py",
+      "astra_reversal/osmo/task_selection.py"
+    ],
+    "proof_sha256": "5ce1a0580f872efcbc8eee921bef8eadc9693d32068dc29821b1689e73e1e537",
+    "recovery_source_identity": {
+      "payload_bytes": 51637817,
+      "payload_sha256": "5c0a8715d44c9b16a48483476c417244b12b035af983d3d4f67b1c488d7df170",
+      "source_revision": "9ab4cb57120c2ad0dd8919a6dcb32f3f0dad4064"
+    },
+    "reviewed_transition_policy_sha256": "018d6e4981368e309413fe9e8d63a567bcbda264f63e00fbf9a7eb32376ff537",
+    "unchanged_payload_file_count": 1069,
+    "unchanged_scientific_sources_sha256": {
+      "astra_reversal/codex_executor.py": "246a9aa8313f704be0844915b1f1d1caf6f7f6f8ab1c7cb785c2875e21776979",
+      "astra_reversal/configs/frs_codex_frozen_evaluation_v1.json": "2368305da060f7c7781c7b27e1c7fbeea4988d96df382b6eda8adc335ae918dd",
+      "astra_reversal/configs/vision_codex_representation_screen_v1.json": "733341498a7d5e2a1578e777f6a19547784a10c479e3893383410e92e7edb2d8",
+      "astra_reversal/frs_agent.py": "7d6b87587915b132f4c73370c3d81b1c5deae7cd93ba46882f51350a3b112567",
+      "astra_reversal/frs_experiment.py": "e7627c276f3f2bb7dce5b24821947b7d984a06f06b736a420bec43ac37d41565",
+      "astra_reversal/frs_guide.py": "1ae7542368cd9d273dff6622541c6ebc1319f898046fcc0bfdf60fa1274ae1c8",
+      "astra_reversal/frs_noise_policy.py": "560d985387629f07826daa5a3b6b25d8718360ad80c9bd54a6de57cb86445c1e",
+      "astra_reversal/frs_operators.py": "46f0e8a46676d59562235c4e2be1cb8c5626f07e4d532ed6a281f098e8359cee",
+      "astra_reversal/representation_agent.py": "d530e59d2ba3e2f98572e37e531118554f2640374d5908c7e9e479bfcf59364b",
+      "astra_reversal/representation_search.py": "b6e7a9620747966d177d6e6c1f17c63a4f4624a39ef8e5ccbb450c8f1019e8d6"
+    },
+    "unchanged_source_file_count": 965
+  },
+  "task_inventory": {
+    "file_sha256": "99bd8640be6dabe68fc534147490b2086ebcd4c073257e44a0cf1ec33ec4bbeb",
+    "release_revision": "587a6cbf64f16c7b87fa5805dc0ed934192239a4",
+    "repository_file": "astra_reversal/reports/smart_system2_results/tasks.json",
+    "repository_revision": "9ab4cb57120c2ad0dd8919a6dcb32f3f0dad4064",
+    "tasks": [
+      {
+        "bddl_sha256": "0852791a76d851542f5ed08b682d3440bd6255ab54ea987545b34924561dcf7d",
+        "instruction": "put the cream cheese in the basket",
+        "label": "Goal-OOD 0",
+        "suite": "libero_goal_ood",
+        "task_id": 0
+      },
+      {
+        "bddl_sha256": "1cd35dbf657c8ef14efadb934d58b15433414464575192795680832c8ff198ca",
+        "instruction": "put the orange juice on the stove",
+        "label": "Goal-OOD 1",
+        "suite": "libero_goal_ood",
+        "task_id": 1
+      },
+      {
+        "bddl_sha256": "35bdf9391b2d4f2c8eb58903f4c688069b712e1568d313ce1d19cb4a41c9aa41",
+        "instruction": "put the bbq source on the plate",
+        "label": "Goal-OOD 2",
+        "suite": "libero_goal_ood",
+        "task_id": 2
+      },
+      {
+        "bddl_sha256": "4c13c3b6246262cb2e55b92444914a83096d8dbee5309db12957c692cb4dfdea",
+        "instruction": "put the tomato sauce on top of the cabinet",
+        "label": "Goal-OOD 3",
+        "suite": "libero_goal_ood",
+        "task_id": 3
+      },
+      {
+        "bddl_sha256": "f6aff68b9087f11e296f89edc8c782e9c711a9cecfb228a427715df3f4ab539a",
+        "instruction": "put the wine bottle on the stove",
+        "label": "Goal-OOD 4",
+        "suite": "libero_goal_ood",
+        "task_id": 4
+      },
+      {
+        "bddl_sha256": "40f6782391d290b485530c5fbaa30a5042997ab8e221c347d8be59a7666c640b",
+        "instruction": "put the wine bottle on the plate",
+        "label": "Goal-OOD 5",
+        "suite": "libero_goal_ood",
+        "task_id": 5
+      },
+      {
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9",
+        "instruction": "put the wine bottle in the bowl",
+        "label": "Goal-OOD 6",
+        "suite": "libero_goal_ood",
+        "task_id": 6
+      },
+      {
+        "bddl_sha256": "62dc454bfdd4a3162632da51fb3300f3e08ca342ca0ff5ea8839a474993fcda9",
+        "instruction": "put the cream cheese on the plate",
+        "label": "Goal-OOD 7",
+        "suite": "libero_goal_ood",
+        "task_id": 7
+      },
+      {
+        "bddl_sha256": "588acae456143a44edde1c3cc63c5ae24dd5c741bdcf367457070436f1397de4",
+        "instruction": "put the cream cheese on the stove",
+        "label": "Goal-OOD 8",
+        "suite": "libero_goal_ood",
+        "task_id": 8
+      },
+      {
+        "bddl_sha256": "bf05ee22714fe070fee420ccb7a697f65d64ab320b347448f99f90989d23fe6e",
+        "instruction": "put the cream cheese on top of the cabinet",
+        "label": "Goal-OOD 9",
+        "suite": "libero_goal_ood",
+        "task_id": 9
+      },
+      {
+        "bddl_sha256": "7de1c0ab2f2fd5a875d815149fe505319537f6e5f1189ac787c040b25aab5285",
+        "instruction": "put the butter on the plate",
+        "label": "Spatial-OOD 0",
+        "suite": "libero_spatial_ood",
+        "task_id": 0
+      },
+      {
+        "bddl_sha256": "7c5220fd359c1a04bab18a1849bf957e06fe8705cca920a0bbae706e82635cd0",
+        "instruction": "put the chocolate pudding on the plate",
+        "label": "Spatial-OOD 1",
+        "suite": "libero_spatial_ood",
+        "task_id": 1
+      },
+      {
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "instruction": "put the milk on the plate",
+        "label": "Spatial-OOD 2",
+        "suite": "libero_spatial_ood",
+        "task_id": 2
+      },
+      {
+        "bddl_sha256": "6dee489e91acb1739abb1d7e480a5e7358987cb61400f80a70bc3b724f542429",
+        "instruction": "put the orange juice on the plate",
+        "label": "Spatial-OOD 3",
+        "suite": "libero_spatial_ood",
+        "task_id": 3
+      },
+      {
+        "bddl_sha256": "6ac72af7b417189a8b6d6ccbc1936791324bdf59285d8cda250dd08c04632630",
+        "instruction": "put the bowl on cookie box on the stove",
+        "label": "Spatial-OOD 4",
+        "suite": "libero_spatial_ood",
+        "task_id": 4
+      },
+      {
+        "bddl_sha256": "a9fc6c11e3da8dfb35bef98011f99390b3fcb655e0d90f7f9a6ab38826f890b6",
+        "instruction": "put the bowl on cookie box on the cabinet",
+        "label": "Spatial-OOD 5",
+        "suite": "libero_spatial_ood",
+        "task_id": 5
+      },
+      {
+        "bddl_sha256": "946fa9bda652173f768bd988d2a26bc0fb002aa92cf32eedeea37660c8ec1818",
+        "instruction": "put the bowl next to the plate on the cabinet",
+        "label": "Spatial-OOD 6",
+        "suite": "libero_spatial_ood",
+        "task_id": 6
+      },
+      {
+        "bddl_sha256": "fb63f416148fb899ec93bcae989c8c694b92cc17840ed15dce400b10ca22dcd9",
+        "instruction": "put the bowl next to the plate on the stove",
+        "label": "Spatial-OOD 7",
+        "suite": "libero_spatial_ood",
+        "task_id": 7
+      },
+      {
+        "bddl_sha256": "9c9127a7737533425abf5dc8bd166cd5ff00ea6e5f0c1aa49159058c199d883c",
+        "instruction": "put the bowl at table center on the cabinet",
+        "label": "Spatial-OOD 8",
+        "suite": "libero_spatial_ood",
+        "task_id": 8
+      },
+      {
+        "bddl_sha256": "299bc09902a8b1d7877db4baf949141cea99debe289f2d600a4a7303da272e26",
+        "instruction": "put the bowl at table center on the stove",
+        "label": "Spatial-OOD 9",
+        "suite": "libero_spatial_ood",
+        "task_id": 9
+      }
+    ]
+  },
   "vision": {
     "acquisition": {
       "all": {
@@ -10379,120 +10650,140 @@
     ],
     "coverage": [
       {
+        "instruction": "put the cream cheese in the basket",
         "label": "Goal-OOD 0",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 0
       },
       {
+        "instruction": "put the orange juice on the stove",
         "label": "Goal-OOD 1",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 1
       },
       {
+        "instruction": "put the bbq source on the plate",
         "label": "Goal-OOD 2",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 2
       },
       {
+        "instruction": "put the tomato sauce on top of the cabinet",
         "label": "Goal-OOD 3",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 3
       },
       {
+        "instruction": "put the wine bottle on the stove",
         "label": "Goal-OOD 4",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 4
       },
       {
+        "instruction": "put the wine bottle on the plate",
         "label": "Goal-OOD 5",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 5
       },
       {
+        "instruction": "put the wine bottle in the bowl",
         "label": "Goal-OOD 6",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 6
       },
       {
+        "instruction": "put the cream cheese on the plate",
         "label": "Goal-OOD 7",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 7
       },
       {
+        "instruction": "put the cream cheese on the stove",
         "label": "Goal-OOD 8",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 8
       },
       {
+        "instruction": "put the cream cheese on top of the cabinet",
         "label": "Goal-OOD 9",
         "status": "audited",
         "suite": "libero_goal_ood",
         "task_id": 9
       },
       {
+        "instruction": "put the butter on the plate",
         "label": "Spatial-OOD 0",
         "status": "audited",
         "suite": "libero_spatial_ood",
         "task_id": 0
       },
       {
+        "instruction": "put the chocolate pudding on the plate",
         "label": "Spatial-OOD 1",
         "status": "audited",
         "suite": "libero_spatial_ood",
         "task_id": 1
       },
       {
+        "instruction": "put the milk on the plate",
         "label": "Spatial-OOD 2",
         "status": "audited",
         "suite": "libero_spatial_ood",
         "task_id": 2
       },
       {
+        "instruction": "put the orange juice on the plate",
         "label": "Spatial-OOD 3",
         "status": "audited",
         "suite": "libero_spatial_ood",
         "task_id": 3
       },
       {
+        "instruction": "put the bowl on cookie box on the stove",
         "label": "Spatial-OOD 4",
         "status": "audited",
         "suite": "libero_spatial_ood",
         "task_id": 4
       },
       {
+        "instruction": "put the bowl on cookie box on the cabinet",
         "label": "Spatial-OOD 5",
         "status": "audited",
         "suite": "libero_spatial_ood",
         "task_id": 5
       },
       {
+        "instruction": "put the bowl next to the plate on the cabinet",
         "label": "Spatial-OOD 6",
         "status": "awaiting_audit",
         "suite": "libero_spatial_ood",
         "task_id": 6
       },
       {
+        "instruction": "put the bowl next to the plate on the stove",
         "label": "Spatial-OOD 7",
         "status": "audited",
         "suite": "libero_spatial_ood",
         "task_id": 7
       },
       {
+        "instruction": "put the bowl at table center on the cabinet",
         "label": "Spatial-OOD 8",
         "status": "awaiting_audit",
         "suite": "libero_spatial_ood",
         "task_id": 8
       },
       {
+        "instruction": "put the bowl at table center on the stove",
         "label": "Spatial-OOD 9",
         "status": "awaiting_audit",
         "suite": "libero_spatial_ood",
@@ -10501,7 +10792,7 @@
     ],
     "expected_tasks": 20,
     "full_campaign_complete": false,
-    "merge_sha256": "11051eafe15086336752b5e8aa326b819d94f7d396e8b16af2765ef82156bb1d",
+    "merge_sha256": "b73a19dffd251be0311a2becb1ffa79370be5b629625b11b96d9dfbf8f9fc6cc",
     "methods": [
       {
         "actions": 3325,
@@ -10788,7 +11079,8 @@
     ],
     "physical_rollouts": 92,
     "protocol_sha256": "4a9a478d90b03d25ae72fc65ceb76a470a2958cffe5ee9216d7e1c8ef325fd81",
-    "recovery_plan_sha256": "5bef5bf220f09f4986a64e3426ce2eafb08a93663c11fe3726fc43e7a4e183a1",
+    "recovery_plan_sha256": "6a4a8eb2ee3fe78b11b3165f11c509b0e4c1f86ff81df264ba7981d86e968f5c",
+    "source_equivalence_proof_sha256": "5ce1a0580f872efcbc8eee921bef8eadc9693d32068dc29821b1689e73e1e537",
     "tasks": [
       {
         "archive_sha256": "eac9dd789593172f7eab9c447f266d7b657ab316e9da2068a263e98455844025",
@@ -10835,6 +11127,11 @@
             "successes": 1
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_goal_ood",
         "summary_sha256": "d02dc9618339ccab6b1ef2890378c312419497cebd533013d1090317cedf2273",
         "task_id": 0
@@ -10884,6 +11181,11 @@
             "successes": 0
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_goal_ood",
         "summary_sha256": "88a4aa38840f46347894e65016fa70e005625204f2b706228af2db93c7259c7b",
         "task_id": 1
@@ -10933,6 +11235,11 @@
             "successes": 0
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_goal_ood",
         "summary_sha256": "86f575e436099d7541b05f74f2946ef4e9c00e6105e5c30399600ded79194321",
         "task_id": 2
@@ -10982,6 +11289,11 @@
             "successes": 0
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_goal_ood",
         "summary_sha256": "4b1ae2bd73baadd91da938c027127147c30b0038b90d3b693611a4b4121d47af",
         "task_id": 3
@@ -11031,6 +11343,11 @@
             "successes": 1
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_goal_ood",
         "summary_sha256": "61035ade715c1b76851e18e2dd4bd2419e027c96591254bfc63ec8ef378b7e9d",
         "task_id": 4
@@ -11080,6 +11397,11 @@
             "successes": 1
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_goal_ood",
         "summary_sha256": "58d93bac492649223d92038c529219c15d78e784cda8357c19857cc79f7f39f6",
         "task_id": 5
@@ -11129,6 +11451,11 @@
             "successes": 1
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_goal_ood",
         "summary_sha256": "a6ce045d6b16d11f64cf681c8c8fb0b92e54c2897ccc1c09634f27ac59f312df",
         "task_id": 6
@@ -11178,6 +11505,11 @@
             "successes": 1
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_goal_ood",
         "summary_sha256": "d827a982788eb58e04a49480a280b07252ea0babd64463db1f5318d8416deb2c",
         "task_id": 7
@@ -11227,6 +11559,11 @@
             "successes": 0
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_goal_ood",
         "summary_sha256": "412c588877958a5f9e6878293298e2043a4471cca618ab5b8b0730b3c622b9a0",
         "task_id": 8
@@ -11276,6 +11613,11 @@
             "successes": 1
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_goal_ood",
         "summary_sha256": "d91a40602b8e32fd2b98430ca544ba2c6799c9974bc9c12346b64d3c9fc079de",
         "task_id": 9
@@ -11325,6 +11667,11 @@
             "successes": 1
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_spatial_ood",
         "summary_sha256": "be4923bde7a708109582172b2d5d37c1a6173804cb21b0fd9e084aeb13172afd",
         "task_id": 0
@@ -11374,6 +11721,11 @@
             "successes": 1
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_spatial_ood",
         "summary_sha256": "e1c15c9b8ca629839f1899d8da0039bb94b80114f0df4df0e8b54afbecb04cbb",
         "task_id": 1
@@ -11423,6 +11775,11 @@
             "successes": 0
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_spatial_ood",
         "summary_sha256": "a139e9cee4bc520fe06e614e8698e211de7361a41630bda4571cceac29d92fc7",
         "task_id": 2
@@ -11472,6 +11829,11 @@
             "successes": 1
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_spatial_ood",
         "summary_sha256": "6930d52a98e0775de4d12b22c9227100adaeb13de297fd8ad86ab81dfae2edf5",
         "task_id": 3
@@ -11521,6 +11883,11 @@
             "successes": 0
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_spatial_ood",
         "summary_sha256": "785e64c414e54b0014bac74c849934f9c84d5585aa0abce6dd59daacc098743e",
         "task_id": 4
@@ -11570,6 +11937,11 @@
             "successes": 0
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_spatial_ood",
         "summary_sha256": "496574269e2869b000eba4a4b06acaa8530f74eb9b21f530772a501eff38eda3",
         "task_id": 5
@@ -11619,6 +11991,11 @@
             "successes": 0
           }
         ],
+        "producer_identity": {
+          "payload_bytes": 50202537,
+          "payload_sha256": "2c341508a6a3845a4991cd6cda9a4ed789c6df75da7a60cfd8f66d9e5c6e56ac",
+          "source_revision": "64bb16495cad3315185965c44f77ef430f3f4cc6"
+        },
         "suite": "libero_spatial_ood",
         "summary_sha256": "161567ecb6b19973b8916c566b0142e73b29662b47ae80639aabcca06850db9a",
         "task_id": 7
