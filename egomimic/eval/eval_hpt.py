@@ -105,6 +105,10 @@ class HPTEvalVideo(EvalVideo):
 
             if not do_viz:
                 continue
+            if self.viz_func is not None and embodiment_name not in self.viz_func:
+                # No overlay for this embodiment (e.g. joint-space actions,
+                # which have no image projection): metrics only.
+                continue
 
             transform_list = self.transform_lists.get(embodiment_name)
             main_pred_key = f"{embodiment_name}_{ac_key}"

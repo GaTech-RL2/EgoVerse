@@ -1,7 +1,8 @@
 """Convert ABC sim_224 teleop episodes (amazon-far/abc) to EgoVerse zarrs.
 
 ABC's ``prepare.py --sim-data <task>`` downloads a task tar and extracts every
-episode into ``$ABC_CACHE/{train,val}_sim/<episode>/``: ``states_actions.bin``
+episode into ``$ABC_CACHE/{train,val}_sim/<episode>/`` (a plain ``tar -x`` of
+the same tar gives ``{train,val}/<episode>/``; both are read): ``states_actions.bin``
 ((T, 28) float64: 14 recorded + 14 commanded dofs, [left j1..j6, left grip,
 right j1..j6, right grip]), ``combined_camera-images-rgb.mp4`` (the cameras
 stacked vertically, 224x168 each, 30 fps) and ``episode_metadata.json``. All
@@ -202,9 +203,10 @@ def convert_episode(ep_dir: Path, split: str, out_dir: Path, overwrite: bool = F
 def find_episodes(src: Path, task: str, splits: list[str]) -> list[tuple[Path, str]]:
     found = []
     for split in splits:
-        root = src / f"{split}_sim"
-        if not root.is_dir():
-            log.warning("no %s", root)
+        # prepare.py extracts into {split}_sim/; a plain `tar -x` leaves {split}/
+        root = next((src / d for d in (f"{split}_sim", split) if (src / d).is_dir()), None)
+        if root is None:
+            log.warning("no %s_sim/ or %s/ under %s", split, split, src)
             continue
         for bin_path in sorted(root.glob("*/states_actions.bin")):
             ep_dir = bin_path.parent

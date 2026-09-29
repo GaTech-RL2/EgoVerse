@@ -1,0 +1,39 @@
+# ABC sim fine-tune: RDT-1B in the ABC station's joint space on ONE abc_sim
+# task's teleop data, initialised (weights only) from a pretrained RDT-1B --
+# the per-base step of the "rank pretraining runs by ABC sim rollouts"
+# pipeline (egomimic/scripts/abc_sim/README.md). Rolled out afterwards with
+# egomimic/scripts/abc_sim/rollout_sim.sbatch.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_abc_sim_rdt_ft \
+#     init_weights_ckpt=<base.ckpt> name=abc_sim_ft description=<base>_put_bottles
+#
+# init_weights_ckpt=null trains the same arm from scratch (the no-pretrain
+# floor every base is compared against). Every arm of a comparison must share
+# data, steps and batch; only the init changes. Norm stats are computed at
+# startup on the ABC data (eva only: the human base's stats play no part).
+defaults:
+  - train_zarr_cartesian
+  - override model: rdt_1b_abc_joints_dinov3_vitb
+  - override data: abc_sim_joints
+  - override evaluator: eval_hpt_abc_joints
+  - _self_
+
+model:
+  robomimic_model:
+    domains: ["eva_bimanual"]
+
+# the train_viz head would need its own evaluator wiring; the sim rollout is
+# this pipeline's check
+train_viz: false
+
+trainer:
+  gradient_clip_val: 1.0
+  max_epochs: 300
+  min_epochs: 300
+  limit_train_batches: 100
+  limit_val_batches: 20
+  check_val_every_n_epoch: 25
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1

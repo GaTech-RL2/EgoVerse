@@ -23,6 +23,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     NumpyToTensor,
     PoseCoordinateFrameTransform,
     QuaternionPoseToYPR,
+    ResizeImages,
     SplitKeys,
     Transform,
     XYZWXYZ_to_XYZYPR,
@@ -75,14 +76,31 @@ class Eva(Embodiment):
             "joints",
         ],
         allow_legacy_rotation: bool = False,
+        image_hw: tuple[int, int] | None = None,
     ) -> list[Transform]:
-        """Transform pipeline for the requested mode.
+        """Transform pipeline for the requested mode, then (``image_hw``) every
+        camera resized to ``(H, W)`` -- for sources mixing resolutions.
 
         ``allow_legacy_rotation`` opts out of the continuous-rotation rule for
         the modes in ``LEGACY_ROTATION_MODES``; only the data/rollout boundary
         (viz, a checkpoint that predates the 6D conversion) may set it.
         """
         _reject_legacy_rotation(cls, mode, allow_legacy_rotation)
+        transforms = cls._mode_transform_list(mode)
+        if image_hw is not None:
+            transforms = [ResizeImages(cls.CAMERA_KEYS_ALL, tuple(image_hw))] + transforms
+        return transforms
+
+    # Every camera entry the keymaps can emit, incl. the image-history twin.
+    CAMERA_KEYS_ALL = [
+        "observations.images.front_img_1",
+        "observations.images.front_img_1_hist",
+        "observations.images.left_wrist_img",
+        "observations.images.right_wrist_img",
+    ]
+
+    @classmethod
+    def _mode_transform_list(cls, mode: str) -> list[Transform]:
         if mode == "cartesian":
             return _build_eva_bimanual_transform_list(is_quat=True)
         if mode == "cartesian_6d":
@@ -141,6 +159,12 @@ class Eva(Embodiment):
         keymap_mode = _strip_pi_keymap_mode(cls, keymap_mode)
         if keymap_mode == JOINT_MODE:
             return cls._get_joint_keymap()
+        if keymap_mode == f"{JOINT_MODE}_front":
+            # front camera only: skip decoding wrist frames the model never reads
+            key_map = cls._get_joint_keymap()
+            for key in ("left_wrist_img", "right_wrist_img"):
+                del key_map[f"observations.images.{key}"]
+            return key_map
         front_key = cls.VIZ_IMAGE_KEY
         right_wrist_key = "observations.images.right_wrist_img"
         left_wrist_key = "observations.images.left_wrist_img"

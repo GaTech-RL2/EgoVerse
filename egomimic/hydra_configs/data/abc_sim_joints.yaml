@@ -1,0 +1,56 @@
+# ABC_SIM_JOINTS: one abc_sim task's teleop episodes (amazon-far/abc sim_224),
+# converted by egomimic/scripts/abc_sim/convert_sim_to_zarr.py into
+# $ABC_SIM_ZARR_ROOT/<task>/ (default task put_bottles; another task is
+# data.train_datasets.eva_bimanual.resolver.folder_path=<root>/turn_mug -- the
+# valid set interpolates the resolver). JOINT space (Eva mode "joints"): the
+# 14-D ABC state and a (100, 14) actions_joints chunk from 45 raw 30 Hz steps.
+# Train / valid follow ABC's own split (zarr metadata `split`).
+#
+# The front camera (sim `top`) is the only one decoded (keymap joints_front);
+# image_history_gap_s pairs with the RDT trunk's image_history: 2.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:ABC_SIM_ZARR_ROOT,/workspace/users/agao81/datasets/abc_sim/zarr}/put_bottles
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: joints_front
+        annotation_key: annotations
+        image_history_gap_s: 0.1
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: joints
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')) == 'abc_sim'"
+        - "lambda row: str(row.get('split', '')) == 'train'"
+    mode: total
+
+valid_datasets:
+  eva_bimanual:
+    _target_: ${data.train_datasets.eva_bimanual._target_}
+    resolver: ${data.train_datasets.eva_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')) == 'abc_sim'"
+        - "lambda row: str(row.get('split', '')) == 'val'"
+    mode: total
+
+
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 8
+
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 4
+    shuffle: false

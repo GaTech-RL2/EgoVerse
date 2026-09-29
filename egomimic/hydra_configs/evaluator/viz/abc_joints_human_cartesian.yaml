@@ -1,0 +1,10 @@
+# Overlay viz for the ABC joint-space cotrain: human only. The robot predicts
+# joint angles, which have no image projection without forward kinematics, so
+# eva_bimanual is left out and HPTEvalVideo logs its metrics without a video.
+human_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
+  _partial_: true
+  image_key: observations.images.front_img_1
+  action_key: actions_cartesian
+  annotation_key: sampled_prompt
+  mode: traj
