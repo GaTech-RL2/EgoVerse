@@ -10,7 +10,7 @@ _target_: egomimic.eval.eval_pi.PIEvalVideo
 # run.
 viz_every_n_epochs: 100
 # On viz epochs, render only the first N val batches per rank; metrics still
-# run on every batch. The train_viz wrapper inherits this cap.
+# run on every batch. The train_viz head inherits this cap.
 viz_max_batches: 10
 
 # All-cartesian cam-frame evaluator: use when every embodiment expresses its

@@ -91,7 +91,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             train_dataloader_params: dictionary of train dataloader parameters
             valid_dataloader_params: dictionary of valid dataloader parameters
             train_viz_datasets: optional dict of datasets iterated like a
-                second val loader. Used by TrainVizEvalVideo to visualize the
+                second val loader. Used by the train_viz evaluator head to visualize the
                 policy on training data alongside the canonical validation.
             train_viz_dataloader_params: dict of per-dataset DataLoader kwargs
                 for the train_viz loader.
@@ -191,7 +191,7 @@ class MultiDataModuleWrapper(LightningDataModule):
 
         Open only on rank 0 and only on a viz pass. Elsewhere the loader's whole
         output -- decode, eval forward, render -- is discarded: the val loaders
-        carry no ``DistributedSampler`` (see ``EvalVideo._video_fps``), so every
+        carry no ``DistributedSampler`` (see ``EvalVideo._write_video``), so every
         rank was producing the same frames and only rank 0 ever wrote them.
 
         Ranks therefore iterate different numbers of val batches. That is safe

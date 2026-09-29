@@ -80,7 +80,7 @@ class ModelWrapper(LightningModule):
         self.evaluator = evaluator
         # Optional second evaluator that runs against a train-sampled
         # dataloader during the same validation pass (dataloader_idx=1).
-        # See egomimic/eval/eval_train_viz.py.
+        # trainHydra builds it as instantiate(cfg.evaluator, prefix="train_viz").
         self.train_viz_evaluator = None
         # Optional third evaluator for the unseen_op_valid loader (held-out
         # operators in the opsplit data configs).
