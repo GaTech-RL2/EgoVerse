@@ -26,8 +26,9 @@ TASK=${TASK:-sim_put_the_plastic_bottles_in_the_bin}
 : "${OUT:?set OUT}"
 POLICY=${POLICY:-served}
 [ "$POLICY" = hold ] || : "${CKPT:?set CKPT}"
+CKPT=${CKPT:-}  # hold needs none; set -u would trip on it below
 PORT=${PORT:-$(( 8700 + SLURM_JOB_ID % 200 ))}  # set PORT per step when several share a job
-mkdir -p "$OUT"
+mkdir -p "$OUT" && OUT=$(cd "$OUT" && pwd)  # absolute: the client runs from $ABC
 echo "=== abc_rollout job=$SLURM_JOB_ID node=$(hostname) task=$TASK ckpt=${CKPT:-none} policy=$POLICY out=$OUT"
 srun --exact --overlap --ntasks=1 --gres=gpu:h100:1 --cpus-per-task=${CPUS_PER_TASK:-16} --mem=120G --container-image="$IMAGE" --container-mounts=/workspace:/workspace:rw --container-workdir="$SRC" \
   bash -c "set -euo pipefail
