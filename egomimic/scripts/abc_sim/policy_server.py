@@ -105,12 +105,14 @@ class JointPolicy:
         self.lock = threading.Lock()
 
     def _past_frame(self, episode: str, t: float, frame: np.ndarray) -> np.ndarray:
-        """The front frame >= gap_s before t, else the oldest one this episode
-        (an episode start: the current frame), as ZarrDataset clamps to frame 0."""
-        hist = self.history.setdefault(episode, deque(maxlen=int(FPS * 5)))
-        hist.append((t, frame))
-        past = [f for (tt, f) in hist if tt <= t - self.gap_s]
-        return past[-1] if past else hist[0][1]
+        """The front frame round(gap_s * fps) frames before t -- the dataset's
+        _seconds_to_frames lag, in frames not seconds -- clamped to the oldest
+        frame this episode (an episode start: the current frame)."""
+        lag = max(1, int(round(self.gap_s * FPS)))
+        hist = self.history.setdefault(episode, deque(maxlen=lag + 1))
+        hist.append((int(round(t * FPS)), frame))
+        idx = hist[-1][0] - lag
+        return next((f for (i, f) in hist if i == idx), hist[0][1])
 
     def build_sample(self, episode: str, t: float, state, images: dict[str, np.ndarray]) -> dict:
         """One un-normalized sample with the dataset's keys (the 45-step cmd
