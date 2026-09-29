@@ -38,7 +38,7 @@ seed: 42
 val_at_start: false
 
 # Second eval head on TRAIN data at every validation (metrics `train_viz/`,
-# videos under `videos_train_viz/`). Wraps the canonical evaluator and reuses
+# videos under `videos_train_viz/`). A copy of the canonical evaluator; reuses
 # the train split unless the data config declares `train_viz_datasets` /
 # the top-level config a `train_viz_evaluator`. `train_viz=false` turns it off.
 train_viz: true

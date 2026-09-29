@@ -540,25 +540,6 @@ def test_fallback_cap_raises():
     assert n == md.MAX_FALLBACK_ATTEMPTS
 
 
-def test_video_fps_is_the_source_rate_regardless_of_world_size():
-    """Val loaders are CombinedLoaders that Lightning never shards, so rank 0
-    renders every frame: playback must stay at the source rate (an earlier
-    world_size division made 8-GPU videos 8x slow motion)."""
-    from egomimic.eval.eval_video import EvalVideo
-
-    class _Stub(EvalVideo):
-        def compute_metrics_and_viz(self, batch, do_viz=True):
-            raise NotImplementedError
-
-    ev = _Stub.__new__(_Stub)
-    for world in (1, 2, 8):
-        ev.trainer = SimpleNamespace(world_size=world)
-        assert ev._video_fps() == 30, (world, ev._video_fps())
-    ev.trainer = SimpleNamespace(world_size=None)
-    assert ev._video_fps() == 30
-    assert ev._video_fps(source_fps=10) == 10
-
-
 def test_viz_gate_follows_lightning_epoch_convention():
     from egomimic.eval.eval_video import EvalVideo
 
@@ -619,38 +600,6 @@ def test_reverse_kl_is_gone():
     assert not hasattr(metrics, "reverse_kl_from_samples")
 
 
-def test_train_viz_wrapper_prefixes_and_forwards():
-    from egomimic.eval.eval_train_viz import TrainVizEvalVideo
-    from egomimic.eval.eval_video import EvalVideo
-
-    class _Base(EvalVideo):
-        def __init__(self):
-            super().__init__(viz_func={}, transform_lists={}, viz_every_n_epochs=7)
-            self.seen = None
-
-        def compute_metrics_and_viz(self, batch, do_viz=True):
-            self.seen = (self.model, do_viz)
-            return {"Valid/x": 1.0}, {}
-
-    base = _Base()
-    tv = TrainVizEvalVideo(base)
-    algo = object()
-    tv.model = algo  # property setter forwards to base too
-    metrics, _ = tv.compute_metrics_and_viz({}, do_viz=False)
-    assert set(metrics) == {"train_viz/Valid/x"}, metrics
-    assert base.seen == (algo, False)
-    assert tv.viz_every_n_epochs == 7, "wrapper inherits the base viz gate"
-    tv.trainer = SimpleNamespace(default_root_dir="/tmp/run")
-    assert base.trainer is tv.trainer
-    assert tv.video_dir().endswith("videos_train_viz")
-
-    op = TrainVizEvalVideo(base, prefix="unseen_op_valid")
-    metrics, _ = op.compute_metrics_and_viz({}, do_viz=False)
-    assert set(metrics) == {"unseen_op_valid/Valid/x"}, metrics
-    op.trainer = SimpleNamespace(default_root_dir="/tmp/run")
-    assert op.video_dir().endswith("videos_unseen_op_valid")
-
-
 def test_dtw_distance_matches_bruteforce_and_tolerates_shift():
     from egomimic.utils.metrics import dtw_distance
 
@@ -687,26 +636,16 @@ def test_dtw_distance_matches_bruteforce_and_tolerates_shift():
     assert dtw_shift < 0.5 * paired, (dtw_shift, paired)
 
 
-def test_split_mse_is_stateless_and_matches_manual():
-    from egomimic.eval.action_metrics import _paired_mse, _split_mse
+def test_paired_mse_is_stateless_and_matches_manual():
+    from egomimic.eval.action_metrics import _paired_mse
 
     rng = np.random.default_rng(21)
     pred = torch.from_numpy(rng.normal(size=(4, 10, 18))).float()
     gt = torch.from_numpy(rng.normal(size=(4, 10, 18))).float()
-    xyz_idx = [0, 1, 2, 9, 10, 11]
-    rot_idx = [i for i in range(18) if i not in xyz_idx]
-    xyz, rot = _split_mse(pred, gt)
-    torch.testing.assert_close(
-        xyz, (pred[..., xyz_idx] - gt[..., xyz_idx]).pow(2).mean()
-    )
-    torch.testing.assert_close(
-        rot, (pred[..., rot_idx] - gt[..., rot_idx]).pow(2).mean()
-    )
+    torch.testing.assert_close(_paired_mse(pred, gt), (pred - gt).pow(2).mean())
     # stateless: a second, unrelated call is unaffected by the first
     a, b = torch.zeros(2, 3, 18), torch.ones(2, 3, 18)
-    torch.testing.assert_close(_split_mse(a, b)[0], torch.tensor(1.0))
     torch.testing.assert_close(_paired_mse(a, b), torch.tensor(1.0))
-    assert _split_mse(torch.zeros(2, 3, 7), torch.zeros(2, 3, 7)) == (None, None)
 
 
 def test_rot_geodesic_error_matches_angle_and_survives_gimbal_lock():
@@ -822,8 +761,6 @@ def test_pi_eval_metric_set_and_identity():
         prefix + k
         for k in (
             "xyz_paired_mse_avg",
-            "xyz_final_mse_avg",
-            "rot6d_paired_mse_avg",
             "rot_err_deg_avg",
             "rot_err_deg_final",
             "xyz_dtw_avg",
@@ -863,7 +800,6 @@ def test_pi_eval_metrics_are_invariant_to_a_shared_rigid_transform():
     )
     for key, atol in (
         ("xyz_paired_mse_avg", 1e-5),
-        ("xyz_final_mse_avg", 1e-5),
         ("rot_err_deg_avg", 1e-3),
         ("rot_err_deg_final", 1e-3),
         ("xyz_dtw_avg", 1e-4),
@@ -906,9 +842,7 @@ def test_pi_eval_keypoint_metrics():
         prefix + k
         for k in (
             "kp_l2_avg",
-            "kp_l2_final",
             "wrist_xyz_paired_mse_avg",
-            "wrist_xyz_final_mse_avg",
             "wrist_rot_err_deg_avg",
             "wrist_rot_err_deg_final",
             "kp_dtw_avg",

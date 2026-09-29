@@ -16,7 +16,7 @@ _target_: egomimic.eval.eval_hpt.HPTEvalVideo
 # Render the val viz video only when (current_epoch + 1) is a multiple of this.
 viz_every_n_epochs: 100
 # On viz epochs, render only the first N val batches per rank; metrics still
-# run on every batch. The train_viz wrapper inherits this cap.
+# run on every batch. The train_viz head inherits this cap.
 viz_max_batches: 10
 
 transform_lists:
