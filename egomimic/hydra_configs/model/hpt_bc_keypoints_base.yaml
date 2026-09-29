@@ -2,6 +2,10 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hpt.HPT
   camera_transforms: {}
+
+  dims:
+    human_bimanual: {proprio: 138, action: 138}
+
   ac_keys:
     human_bimanual: "actions_keypoints"
 
@@ -34,13 +38,13 @@ robomimic_model:
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        human_bimanual: 138
+        human_bimanual: ${model.robomimic_model.dims.human_bimanual.action}
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 138
+        act_dim: ${model.robomimic_model.dims.human_bimanual.action}
         act_seq: 100
         n_heads: 4
         dropout: 0.1
@@ -66,7 +70,7 @@ robomimic_model:
     human_bimanual:
       state_keypoints: 
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
-        input_dim: 138
+        input_dim: ${model.robomimic_model.dims.human_bimanual.proprio}
         output_dim: 256
         widths: [256]
         specs:
