@@ -99,3 +99,23 @@ def test_submitit_launcher_config_resolves(launcher, compose_resolve):
     launcher_cfg = OmegaConf.to_container(cfg.hydra.launcher, resolve=True)
     if launcher.startswith("submitit"):
         assert launcher_cfg["timeout_min"] > 0
+
+
+@pytest.mark.parametrize(
+    "config_name,overrides,clip",
+    [
+        ("train_zarr_cartesian", ["model=pi0.5_base"], 1.0),
+        (
+            "train_zarr_cartesian",
+            ["model=pi0.5_base", "trainer.gradient_clip_val=0.5"],
+            0.5,
+        ),
+        ("train_zarr_cartesian", [], None),
+        ("train_zarr_fold_ladder_rdt1b", [], 1.0),
+    ],
+)
+def test_model_supplies_the_gradient_clip_unless_the_trainer_sets_it(
+    config_name, overrides, clip, compose_resolve
+):
+    cfg = compose_resolve(config_name, overrides)
+    assert cfg.trainer.gradient_clip_val == clip

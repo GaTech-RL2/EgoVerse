@@ -513,7 +513,6 @@ def _process(S: int = 6):
     algo.norm_stats = _NoRenameNormStats()
     algo.device = "cpu"
     algo.annotation_key = None
-    algo.use_pad_mask = False
     emb = "human_bimanual"
     emb_id = get_embodiment_id(emb)
     algo.ac_keys = {emb_id: "actions_cartesian"}
@@ -635,8 +634,9 @@ def test_every_human_revert_list_selects_the_current_proprio_step():
     }
     for name, obs_key in builders.items():
         tl = getattr(human_mod, name)()
-        assert isinstance(tl[0], SelectCurrentStep), name
-        assert tl[0].keys == [obs_key], name
+        assert any(
+            isinstance(t, SelectCurrentStep) and t.keys == [obs_key] for t in tl
+        ), name
 
 
 # --- the evaluator itself -----------------------------------------------

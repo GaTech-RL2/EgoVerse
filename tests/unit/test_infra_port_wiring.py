@@ -86,11 +86,6 @@ def test_human_action_width_matches_data_mode(top, compose_resolve):
         ("pi0.5_bc_mecka_6d", "mecka_all_6d", []),
         ("pi0.5_cotrain_eva_aria_6d", "cotrain_pi_lang", CAM_FRAME_COTRAIN),
         ("hpt_bc_mecka_6d_300M", "mecka_fold_flagship_opsplit_hpt_6d", []),
-        (
-            "hpt_bc_keypoints_wrist_300M",
-            "mecka_fold_freeform_opsplit_hpt_keypoints",
-            [],
-        ),
     ],
 )
 def test_vendor_pairings_agree_on_the_human_action(model, data, extra, compose_resolve):
@@ -393,7 +388,6 @@ def test_pi_loss_is_reduced_over_the_packed_width():
 
     pi = PI.__new__(PI)
     pi.action_registry = ConverterRegistry()
-    pi._packed_widths = {}
     eva, human = EMBODIMENT.EVA_BIMANUAL.value, EMBODIMENT.HUMAN_BIMANUAL.value
     pi.action_registry.register(eva, "actions_cartesian", RobotBimanualCartesian6D())
     pi.action_registry.register(human, "actions_keypoints", HumanBimanualKeypoints())

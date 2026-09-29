@@ -221,7 +221,7 @@ class Human(Embodiment):
 
         ``proprio_history`` (K) makes the proprio keys the model consumes read
         the last K frames instead of one: the dataset emits ``(K, D)`` with the
-        current frame last, plus a ``proprio_history_mask``. K = 1 (the
+        current frame last. K = 1 (the
         default) leaves the keymap exactly as it was. ``history_stride`` (s)
         spaces that window out -- the steps are ``idx - s*(K-1) ... idx`` --
         because at 30 fps consecutive frames are nearly a duplicate of the
@@ -800,8 +800,9 @@ def _build_human_keypoints_eef_frame_transform_list(
                 output_key=right_keypoints_obs_headframe,
                 shape=(21, 3),
             ),
-            # per_step_target: with proprio_history K, step k's keypoints go
-            # into step k's OWN wrist frame, not the current step's. Otherwise
+            # PoseCoordinateFrameTransform with target_history: with
+            # proprio_history K, step k's keypoints go into step k's OWN
+            # wrist frame, not the current step's. Otherwise
             # a past hand is measured from today's wrist, which smears wrist
             # motion into the articulation channels -- the palm-rigid knuckles
             # (MANO 1/5/13/17) have a very tight legitimate range and land far
