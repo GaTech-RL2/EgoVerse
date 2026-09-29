@@ -1,11 +1,8 @@
 import numpy as np
 import scipy
-import torch
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation, Slerp
 from scipy.spatial.transform import Rotation as R
-
-from egomimic.utils.action_utils import _reconstruct_R_from_cols
 
 
 def xyzw_to_wxyz(xyzw):
@@ -170,6 +167,11 @@ def _rot6d_to_ypr(six: np.ndarray) -> np.ndarray:
     angles, so a non-orthonormal model prediction still yields a valid pose
     and ``_rot6d_to_ypr(_ypr_to_rot6d(ypr)) == ypr``.
     """
+    # Lazy: the dataset browser imports this module in a torch-free viz venv.
+    import torch
+
+    from egomimic.utils.action_utils import _reconstruct_R_from_cols
+
     six = np.asarray(six)
     if six.shape[-1] != 6:
         raise ValueError(f"Expected (..., 6) rot6d, got shape {six.shape}")

@@ -42,7 +42,7 @@ subprocess.run([sys.executable, "-c", worker], env=env, check=True)
 """
 
 
-def _launch(user_value=None):
+def _launch(user_value=None, code=_LAUNCHER):
     """A process in Slurm job 100 sets the cache dir, then starts job 200 with
     its environment (what sbatch does). Returns (launcher dir, worker dir)."""
     env = {k: v for k, v in os.environ.items() if not k.endswith(KEY)}
@@ -50,7 +50,7 @@ def _launch(user_value=None):
     if user_value is not None:
         env[KEY] = user_value
     res = subprocess.run(
-        [sys.executable, "-c", _LAUNCHER],
+        [sys.executable, "-c", code],
         capture_output=True,
         text=True,
         env=env,
@@ -69,3 +69,10 @@ def test_worker_does_not_inherit_the_launchers_job_dir():
 
 def test_worker_keeps_a_user_value_from_the_launchers_shell():
     assert _launch("/scratch/ind") == ["/scratch/ind", "/scratch/ind"]
+
+
+def test_importing_trainhydra_leaves_it_alone():
+    """A `-m` launcher imports trainHydra but never runs main(); setting it at
+    import would key every job of a sweep on the launcher."""
+    code = f"import os, egomimic.trainHydra; print(os.environ.get({KEY!r}))"
+    assert _launch(code=code)[-1] == "None"

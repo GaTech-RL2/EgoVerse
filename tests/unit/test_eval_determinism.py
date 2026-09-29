@@ -289,3 +289,8 @@ def test_flagged_steps_are_appended_to_the_history():
     ModelWrapper.on_after_backward(stub)
     assert len(stub.grad_norm_history) == n_before + 1
     assert stub.grad_norm_history[-1] == pytest.approx(50.0, rel=1e-5)
+
+
+def test_lightning_module_does_not_override_gradient_clipping():
+    """Nothing in ModelWrapper may intercept Lightning's clipping hook."""
+    assert "configure_gradient_clipping" not in vars(ModelWrapper)
