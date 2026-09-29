@@ -2,11 +2,8 @@
 # Find (and optionally kill) your own dataloader workers that outlived a cancelled
 # job and are still pinning GPU memory.
 #
-# A worker forked after CUDA init holds its rank's /dev/nvidia* fds, so the rank's
-# whole context stays resident even after the rank is gone -- nvidia-smi then
-# reports memory against a PID that is no longer in /proc. ProctrackType on this
-# cluster is proctrack/linuxproc, which tracks the PPID tree, so workers that got
-# reparented to init are never swept.
+# The probe is `python -m egomimic.utils.gpu_orphans` (see there for why workers
+# leak); run this with the venv active, srun hands the step this shell's PATH.
 #
 #   ./reap_gpu_orphans.sh gpu19            # report only
 #   ./reap_gpu_orphans.sh --kill gpu19     # reclaim
@@ -15,45 +12,17 @@
 # Only processes that are yours, orphaned (PPID 1) and holding an nvidia fd are
 # ever signalled, so this is safe to run against a node with live jobs on it.
 set -uo pipefail
+cd "$(dirname "$0")"  # srun keeps the cwd, so `python -m` finds egomimic
 
-KILL=0
-[[ ${1:-} == --kill ]] && { KILL=1; shift; }
+KILL=
+[[ ${1:-} == --kill ]] && { KILL=--kill; shift; }
 if [[ $# -eq 0 ]]; then
   echo "usage: $0 [--kill] <node> [node...]" >&2
   exit 2
 fi
 
-PROBE='
-ME=$(id -u); victims=()
-for d in /proc/[0-9]*; do
-  p=${d#/proc/}
-  [[ $(stat -c %u "$d" 2>/dev/null) == "$ME" ]] || continue
-  # PPid from status, as gpu_orphans._ppid reads it: in stat, field 2 is comm,
-  # which may contain spaces and shift every field after it.
-  [[ $(awk "/^PPid:/{print \$2}" "$d/status" 2>/dev/null) == 1 ]] || continue
-  ls -l "$d/fd" 2>/dev/null | grep -q /dev/nvidia || continue
-  victims+=("$p")
-done
-echo "node=$(hostname -s) orphans=${#victims[@]}"
-[[ ${#victims[@]} -eq 0 ]] && exit 0
-for p in "${victims[@]}"; do
-  echo "  $p $(cat /proc/$p/comm 2>/dev/null) rss=$(awk "/VmRSS/{print \$2}" /proc/$p/status 2>/dev/null)kB age=$(ps -o etime= -p $p 2>/dev/null | tr -d " ")"
-done
-echo "before: $(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader | tr "\n" " ")"
-if [[ $KILL == 1 ]]; then
-  kill -9 "${victims[@]}" 2>/dev/null
-  for i in 1 2 3 4 5 6; do
-    sleep 4
-    n=$(nvidia-smi --query-compute-apps=pid --format=csv,noheader | wc -l)
-    [[ $n -eq 0 ]] && break
-  done
-  echo "after:  $(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader | tr "\n" " ")"
-  echo "compute apps left: $n"
-fi
-'
-
 probe() {  # probe <srun args...>; returns srun's status, not grep's
-  "$@" bash -c "KILL=$KILL; $PROBE" 2>&1 | grep -v '^srun: job'
+  "$@" python -m egomimic.utils.gpu_orphans $KILL 2>&1 | grep -v '^srun: job'
   return "${PIPESTATUS[0]}"
 }
 
