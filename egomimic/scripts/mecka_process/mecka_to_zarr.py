@@ -205,7 +205,7 @@ def _unrelabeled_hand_frame(keypoints: np.ndarray) -> Optional[np.ndarray]:
     return np.column_stack([forward, right, up])
 
 
-def compute_hand_pose_xyzquat(keypoints: np.ndarray, hand_index: int) -> np.ndarray:
+def compute_hand_pose_xyzquat(keypoints: np.ndarray) -> np.ndarray:
     """
     Compute 7DOF pose from 21 hand keypoints in camera frame.
 
@@ -224,7 +224,6 @@ def compute_hand_pose_xyzquat(keypoints: np.ndarray, hand_index: int) -> np.ndar
     # Identity quaternion in WXYZ for degenerate cases
     quat_wxyz_identity = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
 
-    rot_left = ROT_RELABEL_PRE_FIX_LEFT
     rot_right = ROT_RELABEL_POST_FIX
 
     if np.allclose(keypoints, 0):
@@ -252,7 +251,6 @@ def compute_hand_pose_xyzquat(keypoints: np.ndarray, hand_index: int) -> np.ndar
     # spatial convention. Data converted with the old code is corrected at
     # train time by RotateLocalFrame (Rz(180 deg) right-multiply on the left
     # pose); see Human.get_transform_list(fix_left_wrist_convention=True).
-    del rot_left, hand_index  # convention no longer differs per hand
     rot_matrix = rot_matrix @ rot_right
 
     quat_xyzw = Rotation.from_matrix(rot_matrix).as_quat()  # SciPy returns (x, y, z, w)
@@ -589,9 +587,7 @@ class MeckaExtractor:
                     hand_keypoints[frame_idx, hand_index] = kp_world
 
                     # Hand pose in camera frame -> transform to world via wTc
-                    pose_xyzquat, wrist_xyzquat = compute_hand_pose_xyzquat(
-                        kp, hand_index
-                    )
+                    pose_xyzquat, wrist_xyzquat = compute_hand_pose_xyzquat(kp)
 
                     T_hand_cam = pose_to_transform(pose_xyzquat)
                     T_wrist_cam = pose_to_transform(wrist_xyzquat)

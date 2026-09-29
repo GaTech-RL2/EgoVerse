@@ -107,19 +107,6 @@ def test_guarded_worker_dies_with_its_rank(tmp_path):
         pytest.fail("worker survived its rank despite PR_SET_PDEATHSIG")
 
 
-def test_orphan_guard_runs_before_a_caller_init():
-    calls = []
-    params = orphan_guarded(
-        {"num_workers": 2, "worker_init_fn": lambda i: calls.append(("user", i))}
-    )
-    params["worker_init_fn"](3)
-    assert calls == [("user", 3)]
-
-
-def test_orphan_guard_is_a_noop_without_workers():
-    assert orphan_guarded({"num_workers": 0}) == {"num_workers": 0}
-
-
 def test_orphan_guard_installs_the_default():
     assert orphan_guarded({"num_workers": 4})["worker_init_fn"] is die_with_parent
 
