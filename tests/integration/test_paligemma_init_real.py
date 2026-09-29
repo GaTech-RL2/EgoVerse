@@ -71,7 +71,7 @@ PRETRAINED = {
 def checkpoint_dir() -> str:
     try:
         return resolve_paligemma_dir(CANONICAL_REPO)
-    except Exception as exc:  # gated and offline, or no verified mirror reachable
+    except Exception as exc:  # gated without a token, or offline
         pytest.skip(f"cannot resolve {CANONICAL_REPO}: {type(exc).__name__}: {exc}")
 
 

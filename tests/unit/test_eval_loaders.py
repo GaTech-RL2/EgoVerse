@@ -485,6 +485,17 @@ def test_video_loader_yields_nothing_when_the_gate_is_closed():
     assert len(video) == 2
 
 
+def test_opening_the_val_loaders_leaves_the_training_rng_alone():
+    """Lightning opens the val iterators before on_validation_start snapshots
+    the training RNG, so their seed draws must not come from the global one."""
+    import torch
+
+    metric, _ = _dm().val_dataloader()
+    state = torch.get_rng_state()
+    next(iter(metric))
+    assert torch.equal(torch.get_rng_state(), state)
+
+
 def test_gate_is_open_without_a_trainer_or_an_evaluator():
     dm = _dm()
     _, video = dm.val_dataloader()

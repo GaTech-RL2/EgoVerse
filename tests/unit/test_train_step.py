@@ -211,3 +211,39 @@ def test_pi_train_step(tmp_path, monkeypatch, vendor):
     assert (
         expected <= seen
     ), f"{vendor}/pi missing {expected - seen}; saw {sorted(seen)}"
+
+
+def test_val_heads_are_wired_from_the_evaluator(tmp_path, monkeypatch):
+    """train() builds the canonical head (renamed by data.valid_prefix) and a
+    train_viz head, both from cfg.evaluator, and hands each the pipeline's
+    action stride. Every other train() test drops the evaluator."""
+    hermetic_env(monkeypatch)
+    recipe = RECIPES[("mecka", "hpt")]
+    data, out, hashes = write_fixtures(tmp_path, "mecka")
+    overrides = common_overrides(
+        recipe.embodiment,
+        data,
+        out,
+        batch_size=2,
+        num_workers=0,
+        episode_hashes=hashes,
+    )
+    overrides += cpu_trainer_overrides(STEPS) + hpt_small_overrides(recipe.embodiment)
+    overrides = [
+        o for o in overrides if o not in ("~evaluator", "trainer.limit_val_batches=0")
+    ] + [
+        "trainer.limit_val_batches=1",
+        "evaluator.viz_every_n_epochs=0",
+        "+data.valid_prefix=seen_op_valid",
+    ]
+    metrics, objects = train_hydra.train(compose_recipe(recipe, overrides, out))
+    model = objects["model"]
+    heads = (model.evaluator, model.train_viz_evaluator)
+    assert [ev.prefix for ev in heads] == ["seen_op_valid", "train_viz"]
+    for ev in heads:
+        assert ev.viz_every_n_epochs == 0  # follows cfg.evaluator
+        assert ev.action_stride == {"human_bimanual": 29 / 99}
+    val_keys = [k for k in metrics if "Valid/" in k]
+    assert val_keys and all(
+        k.startswith(("seen_op_valid/Valid/", "train_viz/Valid/")) for k in val_keys
+    ), val_keys

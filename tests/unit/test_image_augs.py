@@ -141,3 +141,21 @@ def test_apply_image_augs_eval_mode_equals_batched_normalize(images):
     torch.testing.assert_close(
         algo._apply_image_augs(images, "front_img_1"), eval_augs(images), rtol=0, atol=0
     )
+
+
+def test_per_sample_augs_preserves_shape_dtype_device_and_grad():
+    images = torch.rand(4, 3, 16, 16, dtype=torch.float32, requires_grad=True)
+    out = PerSampleAugs(T.Compose([IMAGENET]))(images)
+
+    assert out.shape == images.shape
+    assert out.dtype == images.dtype
+    assert out.device == images.device
+    out.sum().backward()
+    assert images.grad is not None and torch.isfinite(images.grad).all()
+
+
+def test_missing_train_augs_pass_through():
+    """__init__ allows train_image_augs=None; the helper must not call it."""
+    algo = _hpt_stub(train_image_augs=None, eval_image_augs=None, training=True)
+    images = torch.rand(2, 3, 8, 8)
+    assert algo._apply_image_augs(images, "front_img_1") is images

@@ -111,6 +111,7 @@ def test_submitit_launcher_config_resolves(launcher, compose_resolve):
             0.5,
         ),
         ("train_zarr_cartesian", [], None),
+        ("train_zarr_cartesian_pi", [], 1.0),  # trainer=ddp_pi
         ("train_zarr_fold_ladder_rdt1b", [], 1.0),
     ],
 )

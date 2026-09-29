@@ -338,10 +338,14 @@ def test_flagship_opsplit_val_heads(compose_resolve):
     """Flagship opsplit: valid (prefixed seen_op_valid) = seen operators'
     held-out episodes (complement of train), train_viz = the train split (no
     explicit datasets), unseen_op_valid = the held-out operators. The topop
-    twin inherits the same layout."""
+    and top3 twins inherit the same layout."""
     for data, train_op in (
         ("mecka_fold_flagship_opsplit_hpt_6d", "not in"),
         ("mecka_fold_flagship_topop_hpt_6d", "== '6903686e0e94ce070afd1f24'"),
+        (
+            "mecka_fold_flagship_top3_hpt_6d",
+            "in ['6903686e0e94ce070afd1f24', '690366b20e94ce070afd1e8a', '683785ac01ca734152093448']",
+        ),
     ):
         cfg = compose_resolve("train_zarr_mecka_flagship_6d_hpt", [f"data={data}"])
         d = cfg.data

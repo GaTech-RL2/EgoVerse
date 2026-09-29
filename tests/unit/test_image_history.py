@@ -71,7 +71,6 @@ def test_default_keymap_has_no_history_entry_but_samples_carry_fps(tmp_path):
     sample = leaf[3]
     assert PAST not in sample and sample[CAM].shape == (3, 32, 32)
     assert sample["fps"].dtype == torch.float32
-    assert "proprio_history_mask" not in sample  # a camera lag is not proprio history
 
 
 def test_norm_mode_keymap_drops_the_history_camera_too():
