@@ -12,6 +12,8 @@
 #   TABLE=...            EGOVERSE_EPISODE_TABLE pickle (default: the one in DATA_SRC)
 #   RUN_ROOT=...         default /workspace/users/$USER/runs_abc
 #   EXTRA="..."          appended to every run (smokes: trainer.max_epochs=1 ...)
+# Onto a RUNNING job's spare GPUs: SLURM_JOB_ID=<job> bash egomimic/scripts/abc_sim/lambda_pack.sbatch
+# (steps --overlap its CPUs; they die with that job, so queue an afterany follow-up to resume).
 #SBATCH --job-name=abc_pack
 #SBATCH --account=loaner
 #SBATCH --partition=loaner
@@ -35,7 +37,8 @@ read -r -a runs <<< "${RUNS:?set RUNS to space-separated run names, each with an
 CPUS=${CPUS_PER_TASK:-$(( 192 / (${#runs[@]} * G) ))}
 test -s "$IMAGE" && test -s "$SRC/.venv/pyvenv.cfg" && test -s "$TABLE"
 echo "=== abc_pack job=$SLURM_JOB_ID node=$(hostname) restart=${SLURM_RESTART_COUNT:-0} commit=$(git -C "$SRC" rev-parse --short HEAD) runs=${runs[*]}"
-mkdir -p "$DATA" && rsync -a --exclude _sync "$DATA_SRC/" "$DATA/" && echo "staged $(du -sh "$DATA" | cut -f1) to $DATA"
+# a step, so the copy lands on the compute node's /ephemeral also when this file is run with bash
+srun --overlap --gres=none --ntasks=1 bash -c "mkdir -p $DATA && rsync -a --exclude _sync $DATA_SRC/ $DATA/ && echo staged \$(du -sh $DATA | cut -f1) to $DATA"
 
 i=0
 for name in "${runs[@]}"; do
@@ -44,7 +47,7 @@ for name in "${runs[@]}"; do
   run="$RUN_ROOT/$name"; mkdir -p "$run"
   resume=""; [ -s "$run/checkpoints/last.ckpt" ] && resume="ckpt_path=$run/checkpoints/last.ckpt"
   echo "--- $name -> $run ${resume:+(resuming)}: $args"
-  srun --exact --ntasks=$G --ntasks-per-node=$G --gres=gpu:h100:$G --gpu-bind=none --cpus-per-task=$CPUS --mem=200G \
+  srun --exact --overlap --ntasks=$G --ntasks-per-node=$G --gres=gpu:h100:$G --gpu-bind=none --cpus-per-task=$CPUS --mem=200G \
     --container-image="$IMAGE" --container-mounts=/workspace:/workspace:rw,/ephemeral:/ephemeral:rw --container-workdir="$SRC" \
     --output="$run/train-%j.log" \
     bash -c "set -euo pipefail
