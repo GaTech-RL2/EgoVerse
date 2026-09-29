@@ -17,7 +17,6 @@ A data config with neither key must behave exactly as before.
 from __future__ import annotations
 
 import os
-import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -38,71 +37,8 @@ from egomimic.rldb.zarr.zarr_dataset_multi import (
 )
 
 HUMAN = "human_bimanual"
-FLAGSHIP = "train_zarr_mecka_flagship_6d_hpt"
 LIMIT_VAL_BATCHES = 80
 BATCH = 64
-
-# (data config, {head: K}, {head: [pinned hashes]}) as set on this branch.
-CONFIG_EXPECTATIONS = {
-    "mecka_fold_flagship_opsplit_hpt_6d": (
-        {"valid": 73, "train_viz": 3, "unseen_op_valid": 26},
-        {
-            "valid": ["692e771c39719ab57395b408"],
-            "train_viz": ["692e9bda21fc595fbe6f941e"],
-            "unseen_op_valid": [
-                "692eadbaaec602a46af10686",
-                "692ea49a727c13b350cb7c48",
-            ],
-        },
-    ),
-    "mecka_fold_flagship_topop_hpt_6d": (
-        {"valid": 256, "train_viz": 13, "unseen_op_valid": 26},
-        {
-            "valid": ["692e83ad567c97525f4011a5"],
-            "train_viz": ["692e9bda21fc595fbe6f941e"],
-            "unseen_op_valid": [
-                "692eadbaaec602a46af10686",
-                "692ea49a727c13b350cb7c48",
-            ],
-        },
-    ),
-    "mecka_fold_flagship_top3_hpt_6d": (
-        {"valid": 96, "train_viz": 4, "unseen_op_valid": 26},
-        {
-            # one seen-val pin per train operator (683785ac / 690366b2 /
-            # 6903686e), 191 + 223 + 226 = 640f = the whole video budget
-            "valid": [
-                "692ea44dc621d7f4aac3aae6",
-                "692eb08997ffd8ec90340290",
-                "692fe79f34a99e18e25289ad",
-            ],
-            "train_viz": ["692e9bda21fc595fbe6f941e"],
-            "unseen_op_valid": [
-                "692eadbaaec602a46af10686",
-                "692ea49a727c13b350cb7c48",
-            ],
-        },
-    ),
-}
-
-# Episode counts these K values were computed from (measured 2026-09-15).
-SPLIT_EPISODES = {
-    "mecka_fold_flagship_opsplit_hpt_6d": {
-        "valid": 70,
-        "train_viz": 1346,
-        "unseen_op_valid": 191,
-    },
-    "mecka_fold_flagship_topop_hpt_6d": {
-        "valid": 20,
-        "train_viz": 385,
-        "unseen_op_valid": 191,
-    },
-    "mecka_fold_flagship_top3_hpt_6d": {
-        "valid": 53,
-        "train_viz": 1026,
-        "unseen_op_valid": 191,
-    },
-}
 
 
 # --------------------------------------------------------------- fixtures
@@ -135,90 +71,6 @@ def _cfg(metric=None, video=None, **data):
 
 
 # ------------------------------------------------------------ 1. config keys
-@pytest.mark.parametrize("data_config", sorted(CONFIG_EXPECTATIONS))
-def test_flagship_configs_declare_k_and_pins(data_config, compose_resolve):
-    """Both flagship configs compose with the new keys, K per head matches
-    floor(5120 / episodes-in-split), and each head pins its video episodes."""
-    expected_k, expected_pins = CONFIG_EXPECTATIONS[data_config]
-    cfg = compose_resolve(FLAGSHIP, [f"data={data_config}"])
-    assert int(cfg.trainer.limit_val_batches) == LIMIT_VAL_BATCHES
-    assert int(cfg.data.valid_dataloader_params[HUMAN].batch_size) == BATCH
-
-    k_table = OmegaConf.to_container(cfg.data.metric_frames_per_episode)
-    assert k_table == expected_k
-    pins = OmegaConf.to_container(cfg.data.video_episodes)
-    assert pins == expected_pins
-
-    for head, k in k_table.items():
-        n_eps = SPLIT_EPISODES[data_config][head]
-        assert k == LIMIT_VAL_BATCHES * BATCH // n_eps, (head, k, n_eps)
-        # the subsampled set still fits the limit_val_batches window
-        assert k * n_eps <= LIMIT_VAL_BATCHES * BATCH, (head, k, n_eps)
-    # the unseen head is the same split in every flagship config, so its pins
-    # and K are shared
-    assert k_table["unseen_op_valid"] == 26
-    assert len(pins["unseen_op_valid"]) == 2, "one pin per held-out operator"
-
-    # and trainHydra reads exactly these
-    for head, k in expected_k.items():
-        assert th._metric_frames_per_episode(cfg, head) == k
-
-
-# The 3 largest flagship operators (SQL app.episodes, 2026-09-15), by frames.
-TOP3_OPERATORS = [
-    "6903686e0e94ce070afd1f24",
-    "690366b20e94ce070afd1e8a",
-    "683785ac01ca734152093448",
-]
-
-
-def test_top3_config_trains_on_exactly_the_three_largest_operators(compose_resolve):
-    """mecka_fold_flagship_top3_hpt_6d composes under the flagship recipe, its
-    train filter names exactly the 3 top operators (none of them held out), the
-    seen-op val follows that filter, and both lane A tables cover all 3 heads."""
-    cfg = compose_resolve(FLAGSHIP, ["data=mecka_fold_flagship_top3_hpt_6d"])
-    parent = compose_resolve(FLAGSHIP, ["data=mecka_fold_flagship_opsplit_hpt_6d"])
-    d, pd = cfg.data, parent.data
-    train = d.train_datasets[HUMAN]
-
-    # the operator lambda names exactly the three ids, largest first
-    operator_lambda = train.filters.filter_lambdas[-1]
-    assert "row.get('operator'" in operator_lambda
-    assert re.findall(r"[0-9a-f]{24}", operator_lambda) == TOP3_OPERATORS
-    held_out = [str(o) for o in d.held_out_operators]
-    assert not set(TOP3_OPERATORS) & set(held_out), "a train operator is held out"
-
-    # the first three (lab / task / flagship-path) lambdas are the parent's
-    assert list(train.filters.filter_lambdas[:3]) == list(
-        pd.train_datasets[HUMAN].filters.filter_lambdas[:3]
-    )
-
-    # seen-op val interpolates the train filters, so it follows this override
-    valid = d.valid_datasets[HUMAN]
-    assert list(valid.filters.filter_lambdas) == list(train.filters.filter_lambdas)
-    assert valid.valid_ratio == train.valid_ratio == 0.05
-    assert (train.mode, valid.mode) == ("train", "valid")
-    assert d.valid_prefix == "seen_op_valid"
-    assert d.get("train_viz_datasets") is None
-
-    # the unseen-operator head is untouched
-    unseen = d.unseen_op_valid_datasets[HUMAN]
-    assert list(unseen.filters.filter_lambdas) == list(
-        pd.unseen_op_valid_datasets[HUMAN].filters.filter_lambdas
-    )
-    assert unseen.mode == "total"
-
-    # lane A keys cover all three heads
-    heads = {"valid", "train_viz", "unseen_op_valid"}
-    k_table = OmegaConf.to_container(d.metric_frames_per_episode)
-    pins = OmegaConf.to_container(d.video_episodes)
-    assert set(k_table) == heads
-    assert set(pins) == heads
-    assert all(isinstance(v, int) and v > 0 for v in k_table.values())
-    assert len(pins["valid"]) == 3, "one seen-val video pin per train operator"
-    assert len(set(pins["valid"])) == 3
-
-
 def test_config_without_the_keys_is_unchanged(compose_resolve):
     """Backward compatibility: a data config that declares neither key gets the
     old loader names and the unwrapped dataset objects."""

@@ -8,8 +8,7 @@
 # OPERATOR SPLIT: validation = 31 operators held out ENTIRELY, so no val
 # episode shares an operator with training. The list lives ONCE, in
 # `held_out_operators` below; the train and valid filter lambdas both
-# interpolate it, so the two sides cannot drift apart. The HPT keypoint twin
-# (mecka_fold_freeform_opsplit_hpt_keypoints) inherit this file.
+# interpolate it, so the two sides cannot drift apart.
 #
 # Chosen deterministically on 2026-09-01 from SQL app.episodes (462 freeform
 # fold eps / 178 operators): skip the 10 largest operators (their data stays in
@@ -26,30 +25,19 @@
 # this split; the opscale ladder (mecka_fold_freeform_opscale4_6d) reuses only
 # its held-out OPERATOR list and filters to annotated episodes.
 #
-# WRIST-frame CARTESIAN actions with the continuous 6D rotation (18D =
-# xyz+6D per arm, no gripper): each arm's 100-step chunk is expressed
-# relative to that wrist's current pose; the head-frame proprio ee_pose is
-# 6D-encoded too. Pairs with model=pi0.5_bc_mecka_6d.
-#
-# Shared pipeline knobs (same as mecka_all_6d): fix_left_wrist_convention
-# (processed_v3 mecka zarrs have the LEFT wrist frame double-mirrored;
-# Rz(180)-corrected before any frame math), pad_proprio_gripper (18 -> 20-dim
-# proprio so the State: prompt bins align with the robot layout), stride 1,
-# prompts from the `annotations` track. Pairs with evaluator=eval_pi_wristframe_6d
-# (the train_viz head wraps it automatically). For CAM (head)-frame actions add
+# Pipeline and loader params: mecka_all_6d (wrist-frame 6D cartesian; pairs
+# with model=pi0.5_bc_mecka_6d, evaluator=eval_pi_wristframe_6d). For CAM
+# (head)-frame actions add
 #   data.train_datasets.human_bimanual.resolver.transform_list.mode=cartesian_6d
-# with evaluator=eval_pi_camframe_6d.
-#
-# Norm stats: precompute on a CPU node
+# with evaluator=eval_pi_camframe_6d. Norm stats: precompute on a CPU node
 # (egomimic/scripts/precompute_norm_stats.py) and point training at
 # norm_stats.precomputed_norm_path=<out>/norm_stats.
-
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+defaults:
+  - mecka_all_6d
+  - _self_
 
 # The 31 held-out operator ids (SQL app.episodes.operator), sorted. See the
-# OPERATOR SPLIT note above. Referenced by the filter lambdas via the mounted
-# path `data.held_out_operators`. MultiDataModuleWrapper accepts this key
-# (config-only).
+# OPERATOR SPLIT note above; the filter lambdas read `data.held_out_operators`.
 held_out_operators:
   - 68a8e70d1ffcf0417e08f0e5
   - 68e2fc680b158ea94ab4f5bc
@@ -85,34 +73,18 @@ held_out_operators:
 
 train_datasets:
   human_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: ${paths.dataset_dir}
-      key_map:
-        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
-        annotation_key: annotations
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian_wristframe_6d
-        stride: 1
-        fix_left_wrist_convention: true
-        pad_proprio_gripper: true
     filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
         - "lambda row: str(row.get('task', '')).lower() in ('folding_clothes', 'fold_clothes')"
         - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
         # OPERATOR SPLIT: train = every operator NOT in the held-out list.
         - "lambda row: str(row.get('operator', '')) not in ${data.held_out_operators}"
+      exclude_hashes: null
     mode: total
 
 valid_datasets:
   human_bimanual:
-    _target_: ${data.train_datasets.human_bimanual._target_}
-    resolver: ${data.train_datasets.human_bimanual.resolver}
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -122,30 +94,3 @@ valid_datasets:
         # OPERATOR SPLIT: valid = the held-out operators only.
         - "lambda row: str(row.get('operator', '')) in ${data.held_out_operators}"
     mode: total
-
-# Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
-# videos_train_viz/): same operators as train, no shuffle -> same slice every val
-# (the head is on by default, train_viz=true; `train_viz=false` skips it).
-train_viz_datasets:
-  human_bimanual:
-    _target_: ${data.train_datasets.human_bimanual._target_}
-    resolver: ${data.train_datasets.human_bimanual.resolver}
-    filters: ${data.train_datasets.human_bimanual.filters}
-    mode: total
-
-train_viz_dataloader_params:
-  human_bimanual:
-    batch_size: 32
-    num_workers: 2
-    shuffle: false
-
-train_dataloader_params:
-  human_bimanual:
-    batch_size: 64
-    num_workers: 8
-
-valid_dataloader_params:
-  human_bimanual:
-    batch_size: 64
-    num_workers: 8
-    shuffle: false

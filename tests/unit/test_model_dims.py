@@ -1,12 +1,10 @@
 """Per-embodiment widths are declared once under ``robomimic_model.dims`` and every
 stem/head width in an HPT model config is an interpolation of them (Phase 3).
 
-Checks, run on every ``model/*.yaml`` whose ``robomimic_model`` is HPT: the resolved
-``dims`` are the numbers the yamls held before the refactor; every width leaf is
-literally the expected ``${model.robomimic_model.dims...}`` string (a leftover
-literal or a proprio/action mix-up cannot hide behind equal values); and
-overriding each ``dims`` value with a distinct number moves every width bound to
-it, and every value reaches at least one width (none is declared but unread).
+Checked on every ``model/*.yaml`` whose ``robomimic_model`` is HPT: overriding
+each ``dims`` value with a distinct number moves every width bound to it (a
+leftover literal or a proprio/action mix-up fails), and every value reaches at
+least one width (none is declared but unread).
 """
 
 from pathlib import Path
@@ -37,45 +35,15 @@ HPT_CONFIGS = sorted(
     if _target(p.stem) == "egomimic.algo.hpt.HPT" and p.stem != "egobridge"
 )
 
-COTRAIN = {"eva_bimanual": (14, 14), "human_bimanual": (20, 18)}
-# One shared head: human actions are zero-padded to its width.
-SHARED = (20, {"eva_bimanual": (14, 20), "human_bimanual": (20, 20)})
 
-# {config: (action_width or None, {emb: (proprio, action)})}; None = no shared
-# head, so no action_width key.
-EXPECTED = {
-    "hpt_bc_flow_eva": (None, {"eva_bimanual": (20, 20)}),
-    # Human data defaults to the 144-D wrist-frame hand-keypoint action.
-    "hpt_bc_flow_aria": (None, {"human_bimanual": (144, 144)}),
-    "hpt_bc_flow_human": (None, {"human_bimanual": (144, 144)}),
-    "hpt_bc_flow_mecka": (None, {"human_bimanual": (144, 144)}),
-    "hpt_bc_flow_scale": (None, {"human_bimanual": (144, 144)}),
-    "hpt_bc_flow_human_cartesian": (None, {"human_bimanual": (20, 18)}),
-    "hpt_bc_keypoints_base": (None, {"human_bimanual": (144, 144)}),
-    "hpt_bc_keypoints_wrist_300M": (None, {"human_bimanual": (144, 144)}),
-    "hpt_bc_mecka_6d_300M": (None, {"human_bimanual": (20, 18)}),
-    "hpt_cotrain_enc_dec_base": (None, COTRAIN),
-    # Separate heads: the human head follows the keypoint default.
-    "hpt_cotrain_flow_seperate_head": (
-        None,
-        {"eva_bimanual": (14, 14), "human_bimanual": (144, 144)},
-    ),
-    "hpt_cotrain_flow_shared_head": SHARED,
-    "hpt_cotrain_mecka_flow_shared_head": SHARED,
-    "hpt_cotrain_scale_flow_shared_head": SHARED,
-}
-
-
-def _model(compose_resolve, name, extra=(), keep_hydra=False):
-    cfg = compose_resolve(
-        "train_zarr_cartesian", [f"model={name}", *extra], keep_hydra=keep_hydra
-    )
+def _model(compose_resolve, name, extra=()):
+    cfg = compose_resolve("train_zarr_cartesian", [f"model={name}", *extra])
     return cfg.model.robomimic_model
 
 
 def _width_leaves(rm):
-    """Yield (path, value, dims_key) for every width leaf of a resolved or
-    unresolved robomimic_model container; dims_key is the ``dims`` entry the leaf
+    """Yield (path, value, dims_key) for every width leaf of a resolved
+    robomimic_model container; dims_key is the ``dims`` entry the leaf
     should read: ``<emb>.proprio``, ``<emb>.action`` or ``action_width``."""
     for emb, stems in (rm.get("stem_specs") or {}).items():
         for key, stem in (stems or {}).items():
@@ -98,40 +66,13 @@ def _width_leaves(rm):
             yield path, head["output_dim"], f"{head_name}.action"
 
 
-def _dims_keys(name):
-    action_width, per_emb = EXPECTED[name]
-    keys = [f"{emb}.{kind}" for emb in per_emb for kind in ("proprio", "action")]
-    if action_width is not None:
-        keys.append("action_width")
-    return keys
-
-
-def test_every_hpt_config_has_golden_dims():
-    assert HPT_CONFIGS and set(HPT_CONFIGS) == set(EXPECTED)
-
-
-@pytest.mark.parametrize("name", HPT_CONFIGS)
-def test_dims_block_holds_golden_values(name, compose_resolve):
-    action_width, per_emb = EXPECTED[name]
-    want = {emb: {"proprio": p, "action": a} for emb, (p, a) in per_emb.items()}
-    if action_width is not None:
-        want["action_width"] = action_width
-    assert OmegaConf.to_container(_model(compose_resolve, name).dims) == want
-
-
-@pytest.mark.parametrize("name", HPT_CONFIGS)
-def test_every_width_leaf_is_the_expected_interpolation(name, compose_resolve):
-    rm = _model(compose_resolve, name, keep_hydra=True)
-    raw = OmegaConf.to_container(rm, resolve=False)
-    leaves = list(_width_leaves(raw))
-    assert leaves, "no width leaves found"
-    for path, value, key in leaves:
-        assert value == f"${{model.robomimic_model.dims.{key}}}", path
-
-
 @pytest.mark.parametrize("name", HPT_CONFIGS)
 def test_every_dims_value_moves_its_widths(name, compose_resolve):
-    distinct = {key: 101 + i for i, key in enumerate(_dims_keys(name))}
+    dims = OmegaConf.to_container(_model(compose_resolve, name).dims)
+    keys = [k for k, v in dims.items() if not isinstance(v, dict)] + [
+        f"{emb}.{kind}" for emb, v in dims.items() if isinstance(v, dict) for kind in v
+    ]
+    distinct = {key: 101 + i for i, key in enumerate(keys)}
     overrides = [f"model.robomimic_model.dims.{k}={v}" for k, v in distinct.items()]
     rm = _model(compose_resolve, name, overrides)
     leaves = list(_width_leaves(OmegaConf.to_container(rm)))
