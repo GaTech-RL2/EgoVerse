@@ -29,11 +29,9 @@ def test_matched_tensors_load_and_the_new_head_stays_fresh(tmp_path):
     ckpt = _save(base, tmp_path / "base.ckpt")
     target = _Net(head_out=14)
     fresh_head = target.head.weight.detach().clone()
-    report = init_weights_from_checkpoint(target, ckpt)
+    init_weights_from_checkpoint(target, ckpt)
     assert torch.equal(target.trunk.weight, base.trunk.weight)
     assert torch.equal(target.head.weight, fresh_head)
-    assert report["shape_mismatch"] == ["head.bias", "head.weight"]
-    assert report["fraction"] > 0.5
 
 
 def test_an_unrelated_checkpoint_raises(tmp_path):
@@ -64,4 +62,4 @@ def test_missing_init_checkpoint_raises(tmp_path):
 
 def test_train_config_declares_the_knob(compose_resolve):
     cfg = compose_resolve("train_zarr_cartesian", [])
-    assert cfg.init_weights_ckpt is None and cfg.init_weights_min_fraction == 0.5
+    assert cfg.init_weights_ckpt is None

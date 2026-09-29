@@ -1,11 +1,7 @@
-# ABC_REAL_JOINTS: one REAL ABC task (lab=abc on the Phoenix mirror) in the
-# same joint space as abc_sim_joints -- the "real" side of the sim-real check.
-# The SQL rows were relabelled eva_bimanual -> yam_bimanual on 2026-09-01 but
-# the mirror zarrs still say eva_bimanual, so the filter keys on lab + task +
-# the /abc/ path, never the embodiment. The paper's three sim-real tasks exist
-# here: "put the plastic bottles in the bin" (100 eps, the default below), "load
-# the mixed dishes into the dish rack" (88), "turn the mug right side up" (65);
-# another task restates the train filter_lambdas list with its name.
+# ABC_REAL_JOINTS: one REAL ABC task (lab=abc) in the same joint space. The SQL
+# embodiment was relabelled to yam_bimanual on 2026-09-01 but the zarrs say
+# eva_bimanual, so the filter keys on lab + task + the /abc/ path. Another task:
+# restate the filter_lambdas with its name.
 defaults:
   - abc_sim_joints
   - _self_

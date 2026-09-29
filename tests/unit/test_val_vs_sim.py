@@ -19,10 +19,3 @@ def test_report_from_manifest(tmp_path):
     assert rep["correlations"]["spearman_success_rate"]["r"] == -1.0  # lower val mse, higher success
     assert rep["loglinear_val_vs_hours"]["r2"] > 0.95 and rep["loglinear_val_vs_hours"]["slope"] < 0
     assert (tmp_path / "out" / "report.md").read_text().count("| r") >= 4
-
-
-def test_corr_helpers():
-    assert vs.corr([1, 2, 3], [3, 2, 1], "spearman") == -1.0
-    assert vs.corr([1, 1, 1], [1, 2, 3], "pearson") != vs.corr([1, 1, 1], [1, 2, 3], "pearson")  # nan
-    lo, hi = vs.bootstrap([1, 2, 3, 4], [1, 2, 3, 4], "pearson", n=50)
-    assert lo <= 1.0 <= hi

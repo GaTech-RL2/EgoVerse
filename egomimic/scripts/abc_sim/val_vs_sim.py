@@ -20,10 +20,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
+import warnings
 from pathlib import Path
 
 import numpy as np
+from scipy import stats
+
+# constant inputs inside a bootstrap resample give nan by design
+warnings.filterwarnings("ignore", category=stats.ConstantInputWarning)
 
 
 def wandb_metric(run_path: str, metric: str, epoch: int) -> float:
@@ -38,42 +42,22 @@ def wandb_metric(run_path: str, metric: str, epoch: int) -> float:
     return float(at[-1][metric])
 
 
-def _rank(x):
-    order = np.argsort(x)
-    r = np.empty(len(x))
-    r[order] = np.arange(len(x))
-    return r
-
-
 def corr(x, y, kind: str) -> float:
-    x, y = np.asarray(x, float), np.asarray(y, float)
-    if kind == "spearman":
-        x, y = _rank(x), _rank(y)
-    if x.std() == 0 or y.std() == 0:
-        return float("nan")
-    return float(np.corrcoef(x, y)[0, 1])
+    return float((stats.spearmanr if kind == "spearman" else stats.pearsonr)(x, y)[0])
 
 
 def bootstrap(x, y, kind: str, n: int = 2000, seed: int = 0) -> tuple[float, float]:
+    """95% percentile interval of ``corr`` over resampled checkpoints."""
     rng = np.random.default_rng(seed)
     x, y = np.asarray(x, float), np.asarray(y, float)
-    vals = []
-    for _ in range(n):
-        i = rng.integers(0, len(x), len(x))
-        vals.append(corr(x[i], y[i], kind))
-    vals = np.array([v for v in vals if not math.isnan(v)])
-    return (float(np.percentile(vals, 2.5)), float(np.percentile(vals, 97.5))) if len(vals) else (float("nan"),) * 2
+    vals = [corr(x[i], y[i], kind) for i in (rng.integers(0, len(x), len(x)) for _ in range(n))]
+    return float(np.nanpercentile(vals, 2.5)), float(np.nanpercentile(vals, 97.5))
 
 
 def loglinear(hours, metric) -> dict:
-    """metric = a + b * log10(hours): slope, intercept, R^2."""
-    x, y = np.log10(np.asarray(hours, float)), np.asarray(metric, float)
-    if len(x) < 2:
-        return {"slope": float("nan"), "intercept": float("nan"), "r2": float("nan")}
-    b, a = np.polyfit(x, y, 1)
-    pred = a + b * x
-    ss_res, ss_tot = float(((y - pred) ** 2).sum()), float(((y - y.mean()) ** 2).sum())
-    return {"slope": float(b), "intercept": float(a), "r2": 1 - ss_res / ss_tot if ss_tot else float("nan")}
+    """metric = intercept + slope * log10(hours)."""
+    f = stats.linregress(np.log10(hours), metric)
+    return {"slope": float(f.slope), "intercept": float(f.intercept), "r2": float(f.rvalue**2)}
 
 
 def main(argv=None) -> int:

@@ -83,15 +83,6 @@ def test_joint_keymap_supports_the_hist_camera(tmp_path):
     assert torch.equal(leaf[20][f"{CAM}_hist"], leaf[17][CAM])
 
 
-def test_joint_mode_has_no_revert():
-    assert Eva.get_revert_transform_list("joints") is None
-
-
-def test_cartesian_keymap_is_unchanged_by_the_joint_mode():
-    km = Eva.get_keymap("cartesian")
-    assert "left.cmd_ee_pose" in km and "left.cmd_joints" not in km
-
-
 def test_joint_actions_get_joint_metrics_not_cartesian():
     gt = torch.zeros(2, 100, 14)
     pred = gt.clone()

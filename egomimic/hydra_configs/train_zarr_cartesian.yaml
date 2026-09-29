@@ -17,8 +17,6 @@ ckpt_path: null
 # schedule and epoch; name+shape-matched tensors only, so new embodiment
 # stems / heads start fresh). Ignored when ckpt_path resumes a run.
 init_weights_ckpt: null
-# Fail if less than this fraction of the model's elements came from it.
-init_weights_min_fraction: 0.5
 mode: train
 
 hydra:

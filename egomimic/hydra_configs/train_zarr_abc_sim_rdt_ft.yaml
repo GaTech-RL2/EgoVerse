@@ -1,16 +1,9 @@
-# ABC sim fine-tune: RDT-1B in the ABC station's joint space on ONE abc_sim
-# task's teleop data, initialised (weights only) from a pretrained RDT-1B --
-# the per-base step of the "rank pretraining runs by ABC sim rollouts"
-# pipeline (egomimic/scripts/abc_sim/README.md). Rolled out afterwards with
-# egomimic/scripts/abc_sim/rollout_sim.sbatch.
+# ABC sim fine-tune: RDT-1B, joint space, one abc_sim task, weights-only init
+# from a base; init_weights_ckpt=null is the from-scratch floor. Pipeline:
+# egomimic/scripts/abc_sim/README.md.
 #
 #   python egomimic/trainHydra.py --config-name=train_zarr_abc_sim_rdt_ft \
 #     init_weights_ckpt=<base.ckpt> name=abc_sim_ft description=<base>_put_bottles
-#
-# init_weights_ckpt=null trains the same arm from scratch (the no-pretrain
-# floor every base is compared against). Every arm of a comparison must share
-# data, steps and batch; only the init changes. Norm stats are computed at
-# startup on the ABC data (eva only: the human base's stats play no part).
 defaults:
   - train_zarr_cartesian
   - override model: rdt_1b_abc_joints_dinov3_vitb

@@ -65,11 +65,11 @@ def test_prompt_rule_matches_abc():
         },
         10,
     )
-    assert spans == [("sim find the cup", 0, 4), ("sim find the ball", 4, 10)]
+    assert spans == [("find the cup", 0, 4), ("find the ball", 4, 10)]
     spans = conv.prompt_spans(
         {"task_name": "put_relative", "instruction": "put the cube left of the mug"}, 5
     )
-    assert spans == [("sim put the cube left of the mug", 0, 5)]
+    assert spans == [("put the cube left of the mug", 0, 5)]
 
 
 def test_intrinsics_are_the_sim_pinhole():
@@ -83,9 +83,10 @@ def test_convert_and_read_back(tmp_path):
     _write_abc_episode(src, "train", "episode_0001")
     _write_abc_episode(src, "val", "episode_0002")
     _write_abc_episode(src, "train", "episode_0003", {"task_name": "sim_pouring_beads"})
+    _write_abc_episode(src, "train", "episode_0004", {"prompt_source": {"status": "excluded"}})
     assert conv.main(["--src", str(src), "--task", TASK, "--out", str(out), "--workers", "1"]) == 0
     report = json.loads((out / "conversion_report.json").read_text())
-    assert report["written"] == 2 and not report["failed"]
+    assert report["written"] == 2 and report["skipped_unlabelled"] == 1 and not report["failed"]
     # Idempotent: a rerun skips both.
     conv.main(["--src", str(src), "--task", TASK, "--out", str(out), "--workers", "1"])
     assert json.loads((out / "conversion_report.json").read_text())["skipped"] == 2

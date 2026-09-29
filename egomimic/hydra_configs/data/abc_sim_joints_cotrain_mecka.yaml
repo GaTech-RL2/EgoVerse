@@ -1,58 +1,28 @@
-# ABC_SIM_JOINTS_COTRAIN_MECKA: single-task cotrain -- one abc_sim task (the
-# robot, joint space) + one mecka task (human, wrist-frame 6D cartesian),
-# one batch of each per step (CombinedLoader max_size_cycle), so the mix is
-# set by the two batch sizes. Pairs with model=rdt_1b_abc_joints_dinov3_vitb.
-#
-# Default pairing put_bottles <- mecka cup_on_saucer (the largest mecka task);
-# another human task restates the human filter_lambdas list (dishrack <-
-# dishwashing, put_bottles <- packaging_items are the nearest by motion).
+# ABC_SIM_JOINTS_COTRAIN_MECKA: single-task cotrain -- the abc_sim task (robot,
+# joint space, abc_sim_joints) + one mecka task (human, mecka_all_6d's
+# wrist-frame 6D pipeline), one batch of each per step (CombinedLoader
+# max_size_cycle). Default human task cup_on_saucer (the largest mecka task);
+# another one restates the human filter_lambdas. See egomimic/scripts/abc_sim/README.md.
 defaults:
   - abc_sim_joints
+  - mecka_all_6d
   - _self_
 
 train_datasets:
   human_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: ${paths.dataset_dir}
       key_map:
-        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
-        annotation_key: annotations
+        # RDT's 2-frame image history, as on the robot side
         image_history_gap_s: 0.1
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian_wristframe_6d
-        stride: 1
-        fix_left_wrist_convention: true
-        pad_proprio_gripper: true
     filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
         - "lambda row: str(row.get('task', '')) == 'cup_on_saucer'"
-      exclude_hashes: mecka_bad_egomotion
-    mode: train
-    valid_ratio: 0.05
-
-valid_datasets:
-  human_bimanual:
-    _target_: ${data.train_datasets.human_bimanual._target_}
-    resolver: ${data.train_datasets.human_bimanual.resolver}
-    filters: ${data.train_datasets.human_bimanual.filters}
-    mode: valid
-    valid_ratio: ${data.train_datasets.human_bimanual.valid_ratio}
-
-
 
 train_dataloader_params:
   human_bimanual:
     batch_size: 32
-    num_workers: 8
 
 valid_dataloader_params:
   human_bimanual:
     batch_size: 32
-    num_workers: 4
-    shuffle: false

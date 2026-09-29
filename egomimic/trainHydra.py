@@ -59,7 +59,23 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
         and "norm_stats" in model_cfg.robomimic_model
     ):
         model_cfg.robomimic_model.norm_stats = None
-    tree = OmegaConf.create({"model": model_cfg})
+    # Each dataset's keymap + transform list, resolved: what a rollout needs to
+    # rebuild the training inputs (robot/rollout.py, scripts/abc_sim/policy_server.py
+    # read data.train_datasets.<embodiment>.resolver.*). Nothing else of `data`.
+    pipelines = {
+        name: {
+            "resolver": {
+                k: OmegaConf.to_container(ds.resolver[k], resolve=True)
+                for k in ("key_map", "transform_list")
+                if ds.resolver.get(k) is not None
+            }
+        }
+        for name, ds in (cfg.get("data") or {}).get("train_datasets", {}).items()
+        if ds is not None and ds.get("resolver") is not None
+    }
+    tree = OmegaConf.create(
+        {"model": model_cfg, "data": {"train_datasets": pipelines}}
+    )
     has_weights = OmegaConf.select(tree, _PI_WEIGHT_KEY, default=None) is not None
     if has_weights and _weights_from_checkpoint(cfg):
         log.info(
@@ -152,7 +168,7 @@ def _weights_from_checkpoint(cfg: DictConfig) -> bool:
     return bool(ckpt_path) and os.path.isfile(ckpt_path) and not cfg.get("pretrained")
 
 
-def _apply_init_weights(cfg: DictConfig, model) -> Optional[dict]:
+def _apply_init_weights(cfg: DictConfig, model) -> Optional[str]:
     """``init_weights_ckpt``: weights-only fine-tune init (see
     ``init_weights_from_checkpoint``). Skipped when ``ckpt_path`` is set -- a
     resume (including a Slurm requeue, folded into ``ckpt_path`` by
@@ -169,11 +185,8 @@ def _apply_init_weights(cfg: DictConfig, model) -> Optional[dict]:
         return None
     if not os.path.isfile(init_ckpt):
         raise FileNotFoundError(f"init_weights_ckpt {init_ckpt} does not exist")
-    return init_weights_from_checkpoint(
-        model,
-        init_ckpt,
-        min_fraction=float(cfg.get("init_weights_min_fraction", 0.5)),
-    )
+    init_weights_from_checkpoint(model, init_ckpt)
+    return init_ckpt
 
 
 def _log_dataset_frame_counts(

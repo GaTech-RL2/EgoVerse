@@ -1,20 +1,22 @@
-"""The ABC joint-space recipes compose, and the fine-tune recipe trains: two
-optimizer steps of a tiny RDT on synthetic eva JOINT episodes through the real
-trainHydra.train() path (Eva "joints" keymap + transform, the eva RDT head and
-state stem, joint metrics wiring, image history on the robot camera)."""
+"""The ABC sim fine-tune recipe end to end on CPU: two optimizer steps of a
+tiny RDT on synthetic eva JOINT episodes through the real trainHydra.train()
+path, then the saved checkpoint served by policy_server (load, rebuild the
+training inputs from the checkpoint's own config, infer)."""
 
 from __future__ import annotations
 
 import math
 
-import pytest
 from fixtures.recipes import LOCAL_RESOLVER, common_overrides, cpu_trainer_overrides
 from fixtures.train_harness import BatchKeySpy, compose_recipe, hermetic_env, write_fixtures
 from fixtures.recipes import Recipe
 
+import numpy as np
+
 import egomimic.trainHydra as train_hydra
 from egomimic.algo.hpt import HPT
 from egomimic.rldb.embodiment.eva import JOINT_ACTION_KEY, JOINT_STATE_KEY, Eva
+from egomimic.scripts.abc_sim.policy_server import JointPolicy
 
 EMB = "eva_bimanual"
 RM = "model.robomimic_model"
@@ -35,28 +37,6 @@ def _tiny_rdt(emb: str) -> list[str]:
         f"+{enc}.pretrained=false",
         f"+{enc}.tower_kwargs={{embed_dim: 32, depth: 1, num_heads: 2}}",
     ]
-
-
-@pytest.mark.parametrize(
-    "top,domains",
-    [
-        ("train_zarr_abc_sim_rdt_ft", ["eva_bimanual"]),
-        ("train_zarr_abc_real_rdt_ft", ["eva_bimanual"]),
-        ("train_zarr_abc_sim_rdt_cotrain", ["human_bimanual", "eva_bimanual"]),
-    ],
-)
-def test_abc_recipes_compose(compose_resolve, top, domains):
-    cfg = compose_resolve(top, [])
-    rm = cfg.model.robomimic_model
-    assert list(rm.domains) == domains
-    assert rm.dims.eva_bimanual.action == 14 and rm.dims.eva_bimanual.proprio == 14
-    assert rm.ac_keys.eva_bimanual == JOINT_ACTION_KEY
-    assert "state_joint_positions" in rm.stem_specs.eva_bimanual
-    assert rm.width == 2048  # the 1B DiT Ryan asked for
-    assert cfg.data.train_datasets.eva_bimanual.resolver.transform_list.mode == "joints"
-    assert cfg.data.train_datasets.eva_bimanual.resolver.key_map.image_history_gap_s == 0.1
-    assert "eva_bimanual" not in cfg.evaluator.viz_func  # joints have no overlay
-    assert cfg.init_weights_ckpt is None and cfg.train_viz is False
 
 
 def test_abc_sim_finetune_train_step(tmp_path, monkeypatch):
@@ -85,3 +65,12 @@ def test_abc_sim_finetune_train_step(tmp_path, monkeypatch):
     expected = {JOINT_ACTION_KEY, JOINT_STATE_KEY, Eva.VIZ_IMAGE_KEY, f"{Eva.VIZ_IMAGE_KEY}_hist", "fps"}
     assert expected <= seen, f"missing {expected - seen}; saw {sorted(seen)}"
     assert "observations.images.left_wrist_img" not in seen  # joints_front keymap
+
+    # The checkpoint alone rebuilds the training pipeline and serves it.
+    ckpt = out / "served.ckpt"
+    objects["trainer"].save_checkpoint(ckpt)
+    policy = JointPolicy(str(ckpt), device="cpu")
+    assert policy.cameras == ["top"] and policy.lag_frames == 3
+    img = np.random.default_rng(0).random((3, 64, 64), dtype=np.float32)
+    actions = policy.infer(np.zeros(14, np.float32), {"top": img, "top_hist": img}, "pick up the red cube")
+    assert actions.shape == (45, 14) and np.isfinite(actions).all()

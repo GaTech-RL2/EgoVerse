@@ -1,25 +1,7 @@
-# RDT_1B_ABC_JOINTS_DINOV3_VITB: RDT-1B (width 2048 x 28 x 32 heads) with a
-# second embodiment, the ABC YAM station in JOINT space, beside the mecka
-# human head -- the fine-tune / single-task cotrain model for the ABC sim
-# rollout pipeline (egomimic/scripts/abc_sim/README.md).
-#
-# eva_bimanual here is the ABC station (real ABC zarrs and the converted
-# sim_224 episodes both register as eva_bimanual): 14-D proprio
-# (observations.state.joint_positions) and a (100, 14) actions_joints chunk,
-# [left j1..j6, left grip, right j1..j6, right grip], exactly abc_sim's
-# action space, so a rollout needs no IK. The DiT trunk, the DINOv3 front
-# camera tower and the Qwen text stem are shared with human_bimanual; the
-# robot gets its own state adaptor and denoiser head (RDT's per-embodiment
-# adaptors at native width).
-#
-# Fine-tuning from a human-only RDT-1B (model=rdt_1b_bc_mecka_6d_dinov3_vitb):
-# init_weights_ckpt=<its ckpt> loads the trunk, towers and the human stems;
-# the eva stem / head start fresh. ABC-only fine-tunes set
-# model.robomimic_model.domains=[eva_bimanual] (the train configs do).
-#
-# Known gaps, deliberately left for later: the front camera only (the human
-# pretrain has one camera; ABC's own policies use top + both wrists), and
-# ABC's 4:3 frames go through the tower at the human 16:9 size [224, 400].
+# RDT_1B_ABC_JOINTS_DINOV3_VITB: RDT-1B with a second head, eva_bimanual = the
+# ABC YAM station in JOINT space (14-D state, (100, 14) actions_joints, abc_sim's
+# action space), beside the mecka human head; trunk, front tower and text stem
+# shared. Front camera only, at the human tower size [224, 400].
 defaults:
   - rdt_1b_bc_mecka_6d_dinov3_vitb
   - _self_

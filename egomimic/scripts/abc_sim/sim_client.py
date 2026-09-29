@@ -1,19 +1,18 @@
-"""Roll a served EgoVerse policy out in abc_sim (amazon-far/abc) and score it
-with ABC's own task evaluators. Runs in ABC's venv: stdlib + numpy + abc_minimal
-only (no egomimic import; the policy lives behind policy_server.py).
+"""Roll a served EgoVerse policy out in abc_sim (amazon-far/abc) through ABC's
+own eval loop and summary (abc_minimal.eval_policy.rollout_worlds /
+build_summary). Runs in ABC's venv; the policy lives behind policy_server.py.
 
     <abc venv>/bin/python egomimic/scripts/abc_sim/sim_client.py \
-        --task put_plastic_bottles_in_bin --server http://127.0.0.1:8765 \
+        --task sim_put_the_plastic_bottles_in_the_bin --server http://127.0.0.1:8765 \
         --num-worlds 50 --out <dir>
 
-Protocol = ABC's SimEvalConfig defaults without RTC: worlds seeded seed+i,
-one inference per 15 executed steps (execute_chunk_dim) out of the policy's
-100-step chunk, 236 chunks max (~118 s at 30 Hz), early stop on success
-(rollout_over), cameras top/left/right at 168x224. summary.json carries the
-same fields ABC's build_summary writes (success_rate, num_success,
-mean_reward, mean_max_progress, worlds[]) so the two are comparable side by
-side. ``--policy hold`` needs no server: it repeats the current state (the
-no-motion floor and a protocol smoke).
+ABC's SimEvalConfig defaults (seeded worlds seed+i with its unplaceable-seed
+retry, 15 executed steps per inference, 236 chunks, early stop on success,
+top/left/right at 168x224) with RTC off. ``--task`` is any abc_sim name or
+alias -- the sim_224 task_name works. The prompt defaults to the one the
+converter trained on (the task name with _ -> space); ``--prompt env`` keeps
+the env's own (the prompt-randomized tasks). ``--policy hold`` needs no
+server: it repeats the current state, the no-motion floor.
 """
 
 from __future__ import annotations
@@ -21,152 +20,99 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import time
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 
-from abc_minimal.eval_policy import jsonable, rollout_over, video_frame
+from abc_minimal.config import SimEvalConfig
+from abc_minimal.dit import task_name_to_prompt
+from abc_minimal.eval_policy import build_summary, resolved_physics, rollout_worlds
 from abc_minimal.sim_env import SimTaskEnv, task_prompt
 
 CAMERAS = ("top", "left", "right")
+HORIZON = 45  # the served chunk: 1.5 s of 30 Hz commands
+
+
+class HistEnv(SimTaskEnv):
+    """Renders the frame ``lag`` steps before each re-plan (ABC's loop only
+    renders at the re-plan itself), for the policy's 2-frame image history."""
+
+    def __init__(self, *args, lag: int, execute: int, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.capture_at, self.hist, self._since_obs = execute - lag, None, 0
+
+    def reset(self, seed, options=None):
+        self.hist, self._since_obs = None, 0
+        return super().reset(seed, options)
+
+    def obs(self):
+        self._since_obs = 0
+        return super().obs()
+
+    def step_one(self, action):
+        super().step_one(action)
+        self._since_obs += 1
+        if self.capture_at > 0 and self._since_obs == self.capture_at:
+            self.hist = self.render_cameras()
 
 
 class ServedPolicy:
-    def __init__(self, server: str):
-        self.server = server.rstrip("/")
+    """abc_minimal's SimPolicy.infer surface over HTTP (noise and prefix unused)."""
+
+    def __init__(self, server: str, env: HistEnv | None = None):
+        self.server, self.env = server.rstrip("/"), env
         with urllib.request.urlopen(f"{self.server}/health", timeout=30) as r:
             self.health = json.load(r)
 
-    def _post(self, path: str, payload: dict) -> dict:
-        req = urllib.request.Request(
-            f"{self.server}{path}", data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"}, method="POST",
-        )
+    def infer(self, obs, noise=None, action_prefix=None, prefix_length=0) -> np.ndarray:
+        images = {c: obs["images"][c] for c in self.health["cameras"]}
+        if self.env is not None and self.env.hist is not None:
+            images.update({f"{c}_hist": self.env.hist[c] for c in self.health["cameras"]})
+        payload = {"state": np.asarray(obs["state"], np.float32).tolist(), "prompt": obs["prompt"], "images": {
+            k: {"shape": list(hwc.shape), "b64": base64.b64encode(hwc.tobytes()).decode()}
+            for k, hwc in ((k, np.ascontiguousarray(np.moveaxis(np.asarray(v, np.uint8), 0, -1))) for k, v in images.items())}}
+        req = urllib.request.Request(f"{self.server}/infer", data=json.dumps(payload).encode(),
+                                     headers={"Content-Type": "application/json"}, method="POST")
         with urllib.request.urlopen(req, timeout=120) as r:
-            return json.load(r)
-
-    def reset(self, episode: str) -> None:
-        self._post("/reset", {"episode": episode})
-
-    def infer(self, episode: str, t: float, obs: dict) -> np.ndarray:
-        images = {}
-        for cam, img in obs["images"].items():
-            hwc = np.ascontiguousarray(np.moveaxis(np.asarray(img, dtype=np.uint8), 0, -1))  # (3,H,W)->(H,W,3)
-            images[cam] = {"shape": list(hwc.shape), "b64": base64.b64encode(hwc.tobytes()).decode()}
-        out = self._post("/infer", {
-            "episode": episode, "t": t, "state": np.asarray(obs["state"], dtype=np.float32).tolist(),
-            "prompt": obs["prompt"], "images": images,
-        })
-        return np.asarray(out["actions"], dtype=np.float32)
+            return np.asarray(json.load(r)["actions"], dtype=np.float32)
 
 
 class HoldPolicy:
-    health = {"ckpt": "hold", "mode": "hold"}
+    health = {"ckpt": "hold", "cameras": [], "lag_frames": 0}
 
-    def reset(self, episode: str) -> None:
-        pass
-
-    def infer(self, episode: str, t: float, obs: dict) -> np.ndarray:
-        return np.tile(np.asarray(obs["state"], dtype=np.float32)[None], (100, 1))
-
-
-def rollout(env: SimTaskEnv, policy, *, seed: int, num_chunks: int, execute: int, video_path=None) -> dict:
-    episode = f"seed{seed}"
-    policy.reset(episode)
-    obs = env.reset(seed=seed)
-    video = None
-    if video_path is not None:
-        import imageio.v2 as imageio
-
-        video = imageio.get_writer(str(video_path), fps=30, macro_block_size=1)
-        video.append_data(video_frame(obs["images"], CAMERAS))
-    result = env.evaluate()
-    max_reward = float(result.get("reward", 0.0))
-    steps, infer_s, t0 = 0, [], time.perf_counter()
-    try:
-        for _ in range(num_chunks):
-            t_inf = time.perf_counter()
-            actions = policy.infer(episode, steps / 30.0, obs)
-            infer_s.append(time.perf_counter() - t_inf)
-            for action in actions[:execute]:
-                env.step_one(action)
-                result = env.evaluate()
-                max_reward = max(max_reward, float(result.get("reward", 0.0)))
-                steps += 1
-                if video is not None:
-                    video.append_data(video_frame(env.render_cameras(), CAMERAS))
-                if rollout_over(result):
-                    break
-            if rollout_over(result):
-                break
-            obs = env.obs()
-    finally:
-        if video is not None:
-            video.close()
-    return {
-        "world_seed": seed,
-        "success": bool(result["ever_success"]),
-        "final_success": bool(result["success"]),
-        "reward": float(result["reward"]),
-        "max_reward": max_reward,
-        "steps": steps,
-        "wall_s": time.perf_counter() - t0,
-        "infer_s_mean": float(np.mean(infer_s)) if infer_s else None,
-        "randomization": env.randomization,
-        "final_task_eval": result,
-        "video_path": str(video_path) if video_path is not None else None,
-    }
+    def infer(self, obs, noise=None, action_prefix=None, prefix_length=0) -> np.ndarray:
+        return np.tile(np.asarray(obs["state"], np.float32)[None], (HORIZON, 1))
 
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--task", required=True, help="abc_sim task name / alias (e.g. put_plastic_bottles_in_bin)")
+    p.add_argument("--task", required=True)
     p.add_argument("--server", default="http://127.0.0.1:8765")
     p.add_argument("--policy", choices=["served", "hold"], default="served")
+    p.add_argument("--prompt", default=None, help="default: the training prompt; 'env' = the env's own")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--num-worlds", type=int, default=50)
-    p.add_argument("--seed", type=int, default=20260511, help="ABC's SimEvalConfig default")
-    p.add_argument("--num-chunks", type=int, default=236)
-    p.add_argument("--execute", type=int, default=15, help="steps executed per inference (ABC's execute_chunk_dim)")
+    p.add_argument("--save-video", action="store_true")
     p.add_argument("--camera-backend", default="mjwarp")
     p.add_argument("--gpu-id", type=int, default=None)
-    p.add_argument("--save-videos", type=int, default=2, help="record the first N worlds")
     a = p.parse_args(argv)
     a.out.mkdir(parents=True, exist_ok=True)
+
     policy = HoldPolicy() if a.policy == "hold" else ServedPolicy(a.server)
-    env = SimTaskEnv(task=a.task, height=168, width=224, camera_keys=CAMERAS, prompt=task_prompt(a.task),
-                     camera_backend=a.camera_backend, gpu_id=a.gpu_id)
-    worlds = []
-    try:
-        for i in range(a.num_worlds):
-            video = a.out / f"world_{i:03d}.mp4" if i < a.save_videos else None
-            w = rollout(env, policy, seed=a.seed + i, num_chunks=a.num_chunks, execute=a.execute, video_path=video)
-            w["world_index"] = i
-            worlds.append(w)
-            print(f"world={i:03d} success={w['success']} max_progress={w['max_reward']:.3f} steps={w['steps']} "
-                  f"infer={1000 * (w['infer_s_mean'] or 0):.0f}ms", flush=True)
-            (a.out / "worlds.jsonl").open("a").write(json.dumps(jsonable(w)) + "\n")
-    finally:
-        env.close()
-    succ = np.array([w["success"] for w in worlds], dtype=bool)
-    summary = {
-        "format": "egoverse_abc_sim_rollout/v1",
-        "policy": policy.health,
-        "task": env.spec.name,
-        "prompt": env.prompt,
-        "config": {k: (str(v) if isinstance(v, Path) else v) for k, v in vars(a).items()},
-        "success_rate": float(succ.mean()) if len(succ) else None,
-        "num_success": int(succ.sum()),
-        "num_worlds": len(worlds),
-        "mean_reward": float(np.mean([w["reward"] for w in worlds])) if worlds else None,
-        "mean_max_progress": float(np.mean([w["max_reward"] for w in worlds])) if worlds else None,
-        "worlds": worlds,
-    }
-    (a.out / "summary.json").write_text(json.dumps(jsonable(summary), indent=2, sort_keys=True))
-    print(f"summary: success_rate={summary['success_rate']} num_success={summary['num_success']}/{len(worlds)} "
-          f"mean_max_progress={summary['mean_max_progress']}", flush=True)
+    prompt = task_prompt(a.task) if a.prompt == "env" else (a.prompt or task_name_to_prompt(a.task))
+    cfg = SimEvalConfig(checkpoint=str(policy.health["ckpt"]), task=a.task, num_worlds=a.num_worlds,
+                        rtc=False, fast_inference=False, prefix_length=0, save_video=a.save_video,
+                        camera_backend=a.camera_backend, gpu_id=a.gpu_id, output_dir=str(a.out), prompt=prompt)
+    model_config = replace(cfg.model, chunk_length=HORIZON, action_dim=14, camera_keys=CAMERAS)
+    env = HistEnv(task=a.task, height=cfg.camera_height, width=cfg.camera_width, camera_keys=CAMERAS,
+                  prompt=prompt, camera_backend=cfg.camera_backend, gpu_id=cfg.gpu_id,
+                  lag=int(policy.health["lag_frames"]), execute=cfg.execute_chunk_dim)
+    policy.env = env
+    physics = resolved_physics(env)
+    worlds = rollout_worlds(cfg, policy, env, 0, None, a.out, model_config)
+    build_summary(config=cfg, ckpt_path=Path(cfg.checkpoint), device="served", worlds=worlds, out_dir=a.out, physics=physics)
     return 0
 
 

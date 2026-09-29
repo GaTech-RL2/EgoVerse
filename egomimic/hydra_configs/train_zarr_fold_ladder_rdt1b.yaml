@@ -1,17 +1,10 @@
-# Freeform fold-clothes OPERATOR ladder, RDT-1B: train_zarr_mecka_flagship_6d_rdt
-# (RDT recipe: 2-frame image history, grad clip 1.0, seen/unseen-op heads) at the
-# 1B DiT on one rung of data/mecka_fold_freeform_opscale{1,2,4}_6d. Pick the
-# rung on the command line; everything else is identical across the ladder:
+# Freeform fold-clothes OPERATOR ladder, RDT-1B: the RDT recipe at 1B on one
+# rung of data/mecka_fold_freeform_opscale{1,2,4}_6d; 1000 x 100 steps at global
+# batch 64 (32 x 2 GPUs), val every 25 epochs, a checkpoint every 100 (the bases
+# the ABC-sim fine-tunes start from). Norm stats per rung, at startup.
 #
 #   python egomimic/trainHydra.py --config-name=train_zarr_fold_ladder_rdt1b \
 #     data=mecka_fold_freeform_opscale1_6d name=fold_ladder description=k1
-#
-# Budget per rung (the RDT memory ablation's): 1000 epochs x 100 steps at a
-# global batch of 64 (32 x 2 GPUs), val every 25 epochs, a full checkpoint every
-# 100 epochs (10 kept: the step ladder the ABC-sim fine-tunes start from). Norm
-# stats are computed at startup per rung (each rung is its own distribution)
-# and cached under paths.cache_dir. Runs on Lambda via
-# egomimic/scripts/abc_sim/lambda_pack.sbatch, three rungs packed on one node.
 defaults:
   - train_zarr_mecka_flagship_6d_rdt
   - override model: rdt_1b_bc_mecka_6d_dinov3_vitb

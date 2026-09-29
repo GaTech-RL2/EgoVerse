@@ -16,11 +16,11 @@ ABC zarrs on the Phoenix mirror (``{left,right}.{obs,cmd}_{joints,gripper}``,
 top -> front_1, left -> left_wrist, right -> right_wrist. Extra metadata:
 ``lab: abc_sim``, ``split`` (ABC's own train/val), ``abc_episode``, ``prompt``.
 
-Prompts follow ABC's training rule (``abc_minimal.dataloader``): the episode's
-``prompt_timeline`` if it has one, else its ``instruction`` when that differs
-from the task name, else the task name with ``_`` -> `` ``; ``sim `` is
-prefixed when missing, as ABC's mixture prompts sim episodes and as
-``abc_sim`` prompts the env at eval time.
+Prompts follow ABC's training rule (``abc_minimal.dataloader``) verbatim: the
+episode's ``prompt_timeline`` if it has one, else its ``instruction`` when that
+differs from the task name, else the task name with ``_`` -> `` `` (the sim
+tasks' names start with ``sim_``). Episodes ABC's loader drops as unlabelled
+are skipped.
 
     python -m egomimic.scripts.abc_sim.convert_sim_to_zarr \
         --src $ABC_CACHE --task sim_put_the_plastic_bottles_in_the_bin \
@@ -53,18 +53,12 @@ CAMERA_TO_ZARR = {
 }
 # abc_sim scenes: every policy camera is a fovy=58 deg pinhole.
 CAMERA_FOVY_DEG = 58.0
-SIM_PROMPT_PREFIX = "sim "
 DONE_MARKER = ".abc_sim_done"
 
 
 def task_name_to_prompt(task_name: str) -> str:
     """abc_minimal.dit.task_name_to_prompt."""
     return " ".join(task_name.replace("-", " ").replace("_", " ").split())
-
-
-def with_sim_prefix(prompt: str) -> str:
-    prompt = prompt.strip()
-    return prompt if prompt.startswith(SIM_PROMPT_PREFIX) else SIM_PROMPT_PREFIX + prompt
 
 
 def prompt_spans(meta: dict, num_steps: int) -> list[tuple[str, int, int]]:
@@ -91,7 +85,7 @@ def prompt_spans(meta: dict, num_steps: int) -> list[tuple[str, int, int]]:
         if i == 0:
             start = 0  # the first directive holds from the episode start
         if end > start:
-            spans.append((with_sim_prefix(text), start, end))
+            spans.append((text, start, end))
     return spans
 
 
@@ -116,26 +110,12 @@ def decode_cameras(ep_dir: Path, cameras: tuple[str, ...]) -> dict[str, np.ndarr
     """``{camera: (T, H, W, 3) uint8}`` from the vertically stacked mp4."""
     import av
 
-    frames = []
     with av.open(str(ep_dir / "combined_camera-images-rgb.mp4")) as container:
-        for frame in container.decode(video=0):
-            frames.append(frame.to_ndarray(format="rgb24"))
-    if not frames:
-        raise ValueError("video has no frames")
-    stack = np.stack(frames)  # (T, n * H, W, 3)
+        stack = np.stack([f.to_ndarray(format="rgb24") for f in container.decode(video=0)])
     h = stack.shape[1] // len(cameras)
     if h * len(cameras) != stack.shape[1]:
-        raise ValueError(
-            f"video height {stack.shape[1]} is not {len(cameras)} stacked cameras"
-        )
-    out = {cam: stack[:, i * h : (i + 1) * h] for i, cam in enumerate(cameras)}
-    if "top" not in out and "top_left" in out and "top_right" in out:
-        # abc_minimal.dataloader: stereo episodes alias one eye to "top".
-        import hashlib
-
-        digest = hashlib.sha1(ep_dir.name.encode("utf-8")).digest()[0]
-        out["top"] = out["top_left" if digest % 2 == 0 else "top_right"]
-    return out
+        raise ValueError(f"video height {stack.shape[1]} is not {len(cameras)} stacked cameras")
+    return {cam: stack[:, i * h : (i + 1) * h] for i, cam in enumerate(cameras)}
 
 
 def split_arms(x: np.ndarray, kind: str) -> dict[str, np.ndarray]:
@@ -161,8 +141,12 @@ def convert_episode(ep_dir: Path, split: str, out_dir: Path, overwrite: bool = F
     if (dst / DONE_MARKER).exists() and not overwrite:
         return {"episode": name, "status": "skipped"}
     meta = json.loads((ep_dir / "episode_metadata.json").read_text())
+    if not meta.get("prompt_timeline") and (meta.get("prompt_source") or {}).get("status") == "excluded":
+        return {"episode": name, "status": "skipped_unlabelled"}  # abc_minimal.dataloader drops these
     states, actions = load_states_actions(ep_dir)
     num_steps = len(states)
+    if meta.get("num_steps") is not None and int(meta["num_steps"]) != num_steps:
+        raise ValueError(f"states_actions.bin has {num_steps} rows, metadata says {meta['num_steps']}")
     cameras = tuple(meta.get("cameras") or DEFAULT_CAMERAS)
     images = decode_cameras(ep_dir, cameras)
     n_frames = min(len(v) for v in images.values())
@@ -224,18 +208,12 @@ def main(argv=None) -> int:
     p.add_argument("--task", required=True, help="dataset task_name, e.g. sim_pouring_beads")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--splits", nargs="+", default=["train", "val"])
-    p.add_argument("--limit", type=int, default=None, help="per split, for smokes")
     p.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) // 2))
     p.add_argument("--overwrite", action="store_true")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
     episodes = find_episodes(args.src, args.task, args.splits)
-    if args.limit is not None:
-        by_split: dict[str, list] = {}
-        for ep in episodes:
-            by_split.setdefault(ep[1], []).append(ep)
-        episodes = [ep for eps in by_split.values() for ep in eps[: args.limit]]
     if not episodes:
         log.error("no %s episodes under %s/{%s}_sim", args.task, args.src, ",".join(args.splits))
         return 1
@@ -263,6 +241,7 @@ def main(argv=None) -> int:
         "src": str(args.src),
         "written": sum(r["status"] == "written" for r in rows),
         "skipped": sum(r["status"] == "skipped" for r in rows),
+        "skipped_unlabelled": sum(r["status"] == "skipped_unlabelled" for r in rows),
         "failed": failures,
         "frames_written": int(sum(r.get("frames", 0) for r in rows)),
     }

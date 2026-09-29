@@ -1,22 +1,25 @@
 """Serve an EgoVerse joint-space checkpoint over HTTP for the abc_sim client.
 
 The simulator's Python (amazon-far/abc: py3.12, MuJoCo 3.8, torch 2.11) cannot
-share the training venv, so the policy runs here, in the training venv, and
-the sim talks to it over plain HTTP + JSON (stdlib on both ends).
+share the training venv, so the policy runs here and the sim talks to it over
+plain HTTP + JSON (stdlib on both ends).
 
     python -m egomimic.scripts.abc_sim.policy_server --ckpt <epoch_N.ckpt> --port 8765
 
-POST /infer  {"episode": str, "t": float seconds, "state": [14], "prompt": str,
-              "images": {"top": {"shape": [H, W, 3], "b64": <raw uint8 bytes>}, ...}}
-         ->  {"actions": [[14] x 100], "dt": 1/30}
-GET  /health ->  {"ok": true, "ckpt": ..., "mode": "joints"}
+POST /infer  {"state": [14], "prompt": str,
+              "images": {"top": {"shape": [H, W, 3], "b64": <raw uint8 RGB>},
+                         "top_hist": {...}}}      # optional: the frame lag_frames back
+         ->  {"actions": [[14] x 45], "dt": 1/30}
+GET  /health ->  {"ok": true, "ckpt", "cameras", "lag_frames", "horizon"}
 
-The inputs are built EXACTLY as ZarrDataset builds a training sample for the
-checkpoint's data config -- the same Eva keymap and transform list, then the
-checkpoint's own norm stats (the dataset normalizes samples in __getitem__;
-``process_batch_for_training`` does not, which the old robot rollout missed).
-The ``_hist`` camera is the frame ``image_history_gap_s`` earlier, kept per
-episode; at an episode start it is the current frame, as in training.
+The input is built exactly as ZarrDataset builds a training sample for the
+checkpoint's data config (keymap, transform list, fps) and normalized with
+the checkpoint's norm stats: the dataset normalizes in __getitem__, and
+process_batch_for_training does not. ``top_hist`` is the frame
+``image_history_gap_s`` earlier; without it the current frame stands in, which
+is what an episode start looks like in training. The model's 100-step chunk
+spans 45 raw 30 Hz frames, so it is resampled back onto that grid: action k
+is the command k frames ahead.
 """
 
 from __future__ import annotations
@@ -25,9 +28,7 @@ import argparse
 import base64
 import json
 import logging
-import threading
-from collections import deque
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import numpy as np
 import torch
@@ -35,37 +36,21 @@ from omegaconf import OmegaConf
 from torch.utils.data import default_collate
 
 from egomimic.rldb.embodiment.embodiment import IMAGE_HISTORY_SUFFIX, get_embodiment_id
-from egomimic.rldb.embodiment.eva import (
-    JOINT_ACTION_KEY,
-    JOINT_MODE,
-    JOINT_RAW_HORIZON,
-    Eva,
-)
+from egomimic.rldb.embodiment.eva import JOINT_ACTION_KEY, JOINT_MODE, JOINT_RAW_HORIZON, Eva
+from egomimic.scripts.abc_sim.convert_sim_to_zarr import CAMERA_TO_ZARR, split_arms
+from egomimic.utils.pose_utils import _interpolate_linear
 
 log = logging.getLogger("abc_sim.policy_server")
 
 EMB = "eva_bimanual"
 FPS = 30.0
-# abc_sim camera -> the zarr key the converter wrote it to
-CAMERA_ZARR = {"top": "images.front_1", "left": "images.left_wrist", "right": "images.right_wrist"}
+ZARR_TO_CAMERA = {z: c for c, z in CAMERA_TO_ZARR.items()}
 
 
 def decode_image(spec: dict) -> np.ndarray:
-    """{"shape": [H, W, 3], "b64": raw uint8} -> (3, H, W) float32 in [0, 1], RGB."""
-    h, w, c = spec["shape"]
-    raw = np.frombuffer(base64.b64decode(spec["b64"]), dtype=np.uint8).reshape(h, w, c)
+    """{"shape": [H, W, 3], "b64": raw uint8} -> (3, H, W) float32 in [0, 1]."""
+    raw = np.frombuffer(base64.b64decode(spec["b64"]), dtype=np.uint8).reshape(spec["shape"])
     return np.moveaxis(raw, -1, -3).astype(np.float32) / np.float32(255.0)
-
-
-def split_state(state) -> dict[str, np.ndarray]:
-    """ABC 14-D state -> the zarr proprio keys of Eva's joint keymap."""
-    s = np.asarray(state, dtype=np.float32).reshape(14)
-    return {
-        "left.obs_joints": s[0:6],
-        "left.obs_gripper": s[6:7],
-        "right.obs_joints": s[7:13],
-        "right.obs_gripper": s[13:14],
-    }
 
 
 class JointPolicy:
@@ -75,12 +60,13 @@ class JointPolicy:
         from egomimic.pl_utils.pl_model import ModelWrapper
 
         self.ckpt_path = ckpt_path
-        self.device = torch.device(device if torch.cuda.is_available() else "cpu")
-        wrapper = ModelWrapper.load_from_checkpoint(ckpt_path, weights_only=False, map_location="cpu")
-        self.algo = wrapper.model.to(self.device).eval()
-        self.algo.device = self.device
-        cfg = wrapper._as_config(getattr(wrapper.hparams, "config_tree", None))
-        self.configure(cfg)
+        device = torch.device(device if torch.cuda.is_available() else "cpu")
+        # The algo is a plain object; the Lightning wrapper owns (and moves) its nets.
+        self.wrapper = ModelWrapper.load_from_checkpoint(ckpt_path, weights_only=False, map_location="cpu")
+        self.wrapper.to(device).eval()
+        self.algo = self.wrapper.model
+        self.algo.device = device
+        self.configure(self.wrapper._as_config(self.wrapper.hparams.config_tree))
 
     def configure(self, cfg) -> None:
         """Keymap + transform list from the checkpoint's data config."""
@@ -91,71 +77,44 @@ class JointPolicy:
         tl = {k: v for k, v in OmegaConf.to_container(resolver.transform_list, resolve=True).items() if k != "_target_"}
         if tl.get("mode") != JOINT_MODE:
             raise ValueError(f"policy_server serves Eva mode '{JOINT_MODE}', checkpoint has {tl.get('mode')!r}")
-        self.key_map = Eva.get_keymap(**{k: v for k, v in km.items() if k != "annotation_key"})
-        self.annotation_key = km.get("annotation_key")
+        self.annotation_key = km.pop("annotation_key", None)
+        self.key_map = Eva.get_keymap(**km)
         self.transforms = Eva.get_transform_list(**tl)
-        self.gap_s = km.get("image_history_gap_s")
-        self.cameras = {
-            k: v["zarr_key"]
-            for k, v in self.key_map.items()
-            if v.get("key_type") == "camera_keys" and not k.endswith(IMAGE_HISTORY_SUFFIX)
-        }
+        self.lag_frames = max(1, round(km["image_history_gap_s"] * FPS)) if km.get("image_history_gap_s") else 0
+        self.cameras = sorted({ZARR_TO_CAMERA[v["zarr_key"]] for v in self.key_map.values() if v.get("key_type") == "camera_keys"})
         self.emb_id = get_embodiment_id(EMB)
-        self.history: dict[str, deque] = {}
-        self.lock = threading.Lock()
 
-    def _past_frame(self, episode: str, t: float, frame: np.ndarray) -> np.ndarray:
-        """The front frame round(gap_s * fps) frames before t -- the dataset's
-        _seconds_to_frames lag, in frames not seconds -- clamped to the oldest
-        frame this episode (an episode start: the current frame)."""
-        lag = max(1, int(round(self.gap_s * FPS)))
-        hist = self.history.setdefault(episode, deque(maxlen=lag + 1))
-        hist.append((int(round(t * FPS)), frame))
-        idx = hist[-1][0] - lag
-        return next((f for (i, f) in hist if i == idx), hist[0][1])
-
-    def build_sample(self, episode: str, t: float, state, images: dict[str, np.ndarray]) -> dict:
-        """One un-normalized sample with the dataset's keys (the 45-step cmd
-        chunk is faked from the current pose: only its shape reaches the model)."""
-        raw = split_state(state)
-        raw.update({f"{arm}.cmd_{part}": np.tile(raw[f"{arm}.obs_{part}"], (JOINT_RAW_HORIZON, 1))
-                    for arm in ("left", "right") for part in ("joints", "gripper")})
+    def build_sample(self, state, images: dict[str, np.ndarray]) -> dict:
+        """One un-normalized sample with the dataset's keys. The 45-step cmd
+        chunk is the current pose tiled: only its shape reaches the model."""
+        raw = {k: v[0] for k, v in split_arms(np.asarray(state, np.float32).reshape(1, 14), "obs").items()}
+        raw.update({k.replace("obs_", "cmd_"): np.tile(v, (JOINT_RAW_HORIZON, 1)) for k, v in list(raw.items())})
         sample = {}
         for key, spec in self.key_map.items():
-            zk = spec["zarr_key"]
             if spec.get("key_type") == "camera_keys":
-                cam = next(c for c, z in CAMERA_ZARR.items() if z == zk)
+                cam = ZARR_TO_CAMERA[spec["zarr_key"]]
                 if cam not in images:
                     raise ValueError(f"camera '{cam}' missing from the request (have {sorted(images)})")
-                frame = images[cam]
-                if key.endswith(IMAGE_HISTORY_SUFFIX):
-                    frame = self._past_frame(episode, t, images[cam])
-                sample[key] = frame
+                past = images.get(cam + IMAGE_HISTORY_SUFFIX, images[cam])
+                sample[key] = past if key.endswith(IMAGE_HISTORY_SUFFIX) else images[cam]
             elif spec.get("key_type") in ("proprio_keys", "action_keys"):
-                sample[key] = raw[zk]
+                sample[key] = raw[spec["zarr_key"]]
         for tf in self.transforms:
             sample = tf.transform(sample)
-        for k, v in sample.items():
-            if isinstance(v, np.ndarray):
-                sample[k] = torch.from_numpy(v).to(torch.float32)
-        sample["fps"] = torch.tensor(FPS, dtype=torch.float32)
+        sample = {k: torch.as_tensor(v, dtype=torch.float32) for k, v in sample.items() if isinstance(v, (np.ndarray, torch.Tensor))}
+        sample["fps"] = torch.tensor(FPS)
         return sample
 
     @torch.no_grad()
-    def infer(self, episode: str, t: float, state, images: dict[str, np.ndarray], prompt: str) -> np.ndarray:
-        with self.lock:
-            sample = self.build_sample(episode, t, state, images)
-            sample = self.algo.norm_stats.normalize(sample, self.emb_id)
-            batch = default_collate([{k: v for k, v in sample.items() if isinstance(v, torch.Tensor)}])
-            if self.annotation_key:
-                batch[self.annotation_key] = [[prompt]]
-            processed = self.algo.process_batch_for_training({EMB: batch})
-            preds = self.algo.forward_eval(processed)
-        return preds[f"{EMB}_{JOINT_ACTION_KEY}"][0].float().cpu().numpy()
-
-    def reset(self, episode: str) -> None:
-        with self.lock:
-            self.history.pop(episode, None)
+    def infer(self, state, images: dict[str, np.ndarray], prompt: str) -> np.ndarray:
+        """(45, 14) absolute joint + gripper commands, one per 30 Hz step."""
+        sample = self.algo.norm_stats.normalize(self.build_sample(state, images), self.emb_id)
+        batch = default_collate([sample])
+        if self.annotation_key:
+            batch[self.annotation_key] = [[prompt]]
+        preds = self.algo.forward_eval(self.algo.process_batch_for_training({EMB: batch}))
+        chunk = preds[f"{EMB}_{JOINT_ACTION_KEY}"][0].float().cpu().numpy()
+        return _interpolate_linear(chunk, JOINT_RAW_HORIZON)
 
 
 def make_handler(policy: JointPolicy):
@@ -169,37 +128,27 @@ def make_handler(policy: JointPolicy):
             self.wfile.write(body)
 
         def do_GET(self):
-            if self.path == "/health":
-                self._send(200, {"ok": True, "ckpt": policy.ckpt_path, "mode": JOINT_MODE})
-            else:
-                self._send(404, {"error": self.path})
+            if self.path != "/health":
+                return self._send(404, {"error": self.path})
+            self._send(200, {"ok": True, "ckpt": policy.ckpt_path, "cameras": policy.cameras,
+                             "lag_frames": policy.lag_frames, "horizon": JOINT_RAW_HORIZON})
 
         def do_POST(self):
-            req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+            if self.path != "/infer":
+                return self._send(404, {"error": self.path})
             try:
-                if self.path == "/reset":
-                    policy.reset(req["episode"])
-                    self._send(200, {"ok": True})
-                elif self.path == "/infer":
-                    images = {k: decode_image(v) for k, v in req["images"].items()}
-                    actions = policy.infer(req["episode"], float(req["t"]), req["state"], images, req.get("prompt", ""))
-                    self._send(200, {"actions": actions.tolist(), "dt": 1.0 / FPS})
-                else:
-                    self._send(404, {"error": self.path})
+                req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+                images = {k: decode_image(v) for k, v in req["images"].items()}
+                actions = policy.infer(req["state"], images, req.get("prompt", ""))
+                self._send(200, {"actions": actions.tolist(), "dt": 1.0 / FPS})
             except Exception as e:  # the client must see the reason, not a hang
                 log.exception("request failed")
                 self._send(500, {"error": f"{type(e).__name__}: {e}"})
 
-        def log_message(self, *a):  # quiet
+        def log_message(self, *a):
             pass
 
     return Handler
-
-
-def serve(policy: JointPolicy, host: str, port: int) -> ThreadingHTTPServer:
-    server = ThreadingHTTPServer((host, port), make_handler(policy))
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server
 
 
 def main(argv=None) -> int:
@@ -211,12 +160,8 @@ def main(argv=None) -> int:
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     policy = JointPolicy(a.ckpt, a.device)
-    server = serve(policy, a.host, a.port)
-    log.info("serving %s on http://%s:%d (cameras %s, gap %s s)", a.ckpt, a.host, a.port, sorted(policy.cameras), policy.gap_s)
-    try:
-        threading.Event().wait()
-    except KeyboardInterrupt:
-        server.shutdown()
+    log.info("serving %s on http://%s:%d (cameras %s, lag %d frames)", a.ckpt, a.host, a.port, policy.cameras, policy.lag_frames)
+    HTTPServer((a.host, a.port), make_handler(policy)).serve_forever()
     return 0
 
 

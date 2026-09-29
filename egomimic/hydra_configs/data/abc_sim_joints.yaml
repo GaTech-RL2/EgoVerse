@@ -1,13 +1,7 @@
-# ABC_SIM_JOINTS: one abc_sim task's teleop episodes (amazon-far/abc sim_224),
-# converted by egomimic/scripts/abc_sim/convert_sim_to_zarr.py into
-# $ABC_SIM_ZARR_ROOT/<task>/ (default task put_bottles; another task is
-# data.train_datasets.eva_bimanual.resolver.folder_path=<root>/turn_mug -- the
-# valid set interpolates the resolver). JOINT space (Eva mode "joints"): the
-# 14-D ABC state and a (100, 14) actions_joints chunk from 45 raw 30 Hz steps.
-# Train / valid follow ABC's own split (zarr metadata `split`).
-#
-# The front camera (sim `top`) is the only one decoded (keymap joints_front);
-# image_history_gap_s pairs with the RDT trunk's image_history: 2.
+# ABC_SIM_JOINTS: one abc_sim task's sim_224 teleop episodes, converted by
+# egomimic/scripts/abc_sim/convert_sim_to_zarr.py to $ABC_SIM_ZARR_ROOT/put_bottles
+# (another task: override the resolver folder_path). Eva "joints" mode, front
+# camera + its 0.1 s history frame; train/valid = ABC's own `split`.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
