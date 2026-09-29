@@ -61,8 +61,8 @@ class HistEnv(SimTaskEnv):
 class ServedPolicy:
     """abc_minimal's SimPolicy.infer surface over HTTP (noise and prefix unused)."""
 
-    def __init__(self, server: str, env: HistEnv | None = None):
-        self.server, self.env = server.rstrip("/"), env
+    def __init__(self, server: str):
+        self.server, self.env = server.rstrip("/"), None
         with urllib.request.urlopen(f"{self.server}/health", timeout=30) as r:
             self.health = json.load(r)
 
@@ -95,8 +95,6 @@ def main(argv=None) -> int:
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--num-worlds", type=int, default=50)
     p.add_argument("--save-video", action="store_true")
-    p.add_argument("--camera-backend", default="mjwarp")
-    p.add_argument("--gpu-id", type=int, default=None)
     a = p.parse_args(argv)
     a.out.mkdir(parents=True, exist_ok=True)
 
@@ -104,7 +102,7 @@ def main(argv=None) -> int:
     prompt = task_prompt(a.task) if a.prompt == "env" else (a.prompt or task_name_to_prompt(a.task))
     cfg = SimEvalConfig(checkpoint=str(policy.health["ckpt"]), task=a.task, num_worlds=a.num_worlds,
                         rtc=False, fast_inference=False, prefix_length=0, save_video=a.save_video,
-                        camera_backend=a.camera_backend, gpu_id=a.gpu_id, output_dir=str(a.out), prompt=prompt)
+                        output_dir=str(a.out), prompt=prompt)
     model_config = replace(cfg.model, chunk_length=HORIZON, action_dim=14, camera_keys=CAMERAS)
     env = HistEnv(task=a.task, height=cfg.camera_height, width=cfg.camera_width, camera_keys=CAMERAS,
                   prompt=prompt, camera_backend=cfg.camera_backend, gpu_id=cfg.gpu_id,

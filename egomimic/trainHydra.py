@@ -168,7 +168,7 @@ def _weights_from_checkpoint(cfg: DictConfig) -> bool:
     return bool(ckpt_path) and os.path.isfile(ckpt_path) and not cfg.get("pretrained")
 
 
-def _apply_init_weights(cfg: DictConfig, model) -> Optional[str]:
+def _apply_init_weights(cfg: DictConfig, model) -> None:
     """``init_weights_ckpt``: weights-only fine-tune init (see
     ``init_weights_from_checkpoint``). Skipped when ``ckpt_path`` is set -- a
     resume (including a Slurm requeue, folded into ``ckpt_path`` by
@@ -176,17 +176,14 @@ def _apply_init_weights(cfg: DictConfig, model) -> Optional[str]:
     must not be replaced by the base checkpoint's."""
     init_ckpt = cfg.get("init_weights_ckpt")
     if not init_ckpt:
-        return None
+        return
     if cfg.get("ckpt_path"):
         log.info(
             f"init_weights_ckpt={init_ckpt} ignored: resuming from "
             f"ckpt_path={cfg.ckpt_path}"
         )
-        return None
-    if not os.path.isfile(init_ckpt):
-        raise FileNotFoundError(f"init_weights_ckpt {init_ckpt} does not exist")
+        return
     init_weights_from_checkpoint(model, init_ckpt)
-    return init_ckpt
 
 
 def _log_dataset_frame_counts(

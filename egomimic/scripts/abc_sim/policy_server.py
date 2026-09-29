@@ -9,8 +9,8 @@ plain HTTP + JSON (stdlib on both ends).
 POST /infer  {"state": [14], "prompt": str,
               "images": {"top": {"shape": [H, W, 3], "b64": <raw uint8 RGB>},
                          "top_hist": {...}}}      # optional: the frame lag_frames back
-         ->  {"actions": [[14] x 45], "dt": 1/30}
-GET  /health ->  {"ok": true, "ckpt", "cameras", "lag_frames", "horizon"}
+         ->  {"actions": [[14] x 45]}
+GET  /health ->  {"ckpt", "cameras", "lag_frames"}
 
 The input is built exactly as ZarrDataset builds a training sample for the
 checkpoint's data config (keymap, transform list, fps) and normalized with
@@ -130,8 +130,7 @@ def make_handler(policy: JointPolicy):
         def do_GET(self):
             if self.path != "/health":
                 return self._send(404, {"error": self.path})
-            self._send(200, {"ok": True, "ckpt": policy.ckpt_path, "cameras": policy.cameras,
-                             "lag_frames": policy.lag_frames, "horizon": JOINT_RAW_HORIZON})
+            self._send(200, {"ckpt": policy.ckpt_path, "cameras": policy.cameras, "lag_frames": policy.lag_frames})
 
         def do_POST(self):
             if self.path != "/infer":
@@ -140,7 +139,7 @@ def make_handler(policy: JointPolicy):
                 req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
                 images = {k: decode_image(v) for k, v in req["images"].items()}
                 actions = policy.infer(req["state"], images, req.get("prompt", ""))
-                self._send(200, {"actions": actions.tolist(), "dt": 1.0 / FPS})
+                self._send(200, {"actions": actions.tolist()})
             except Exception as e:  # the client must see the reason, not a hang
                 log.exception("request failed")
                 self._send(500, {"error": f"{type(e).__name__}: {e}"})
@@ -154,14 +153,12 @@ def make_handler(policy: JointPolicy):
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--ckpt", required=True)
-    p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8765)
-    p.add_argument("--device", default="cuda")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-    policy = JointPolicy(a.ckpt, a.device)
-    log.info("serving %s on http://%s:%d (cameras %s, lag %d frames)", a.ckpt, a.host, a.port, policy.cameras, policy.lag_frames)
-    HTTPServer((a.host, a.port), make_handler(policy)).serve_forever()
+    policy = JointPolicy(a.ckpt)
+    log.info("serving %s on port %d (cameras %s, lag %d frames)", a.ckpt, a.port, policy.cameras, policy.lag_frames)
+    HTTPServer(("127.0.0.1", a.port), make_handler(policy)).serve_forever()
     return 0
 
 

@@ -14,7 +14,7 @@ ABC zarrs on the Phoenix mirror (``{left,right}.{obs,cmd}_{joints,gripper}``,
 ``images.{front_1,left_wrist,right_wrist}``, ``annotations``), so
 ``Eva.get_keymap("joints")`` reads real and sim ABC data alike. Camera map:
 top -> front_1, left -> left_wrist, right -> right_wrist. Extra metadata:
-``lab: abc_sim``, ``split`` (ABC's own train/val), ``abc_episode``, ``prompt``.
+``lab: abc_sim`` and ``split`` (ABC's own train/val).
 
 Prompts follow ABC's training rule (``abc_minimal.dataloader``) verbatim: the
 episode's ``prompt_timeline`` if it has one, else its ``instruction`` when that
@@ -128,17 +128,13 @@ def split_arms(x: np.ndarray, kind: str) -> dict[str, np.ndarray]:
     }
 
 
-def episode_hash(split: str, ep_dir: Path) -> str:
-    return f"abcsim_{split}_{ep_dir.name}"
-
-
-def convert_episode(ep_dir: Path, split: str, out_dir: Path, overwrite: bool = False) -> dict:
+def convert_episode(ep_dir: Path, split: str, out_dir: Path) -> dict:
     """Write one zarr; returns a report row. Idempotent via a done marker."""
     from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
-    name = episode_hash(split, ep_dir)
+    name = f"abcsim_{split}_{ep_dir.name}"
     dst = out_dir / f"{name}.zarr"
-    if (dst / DONE_MARKER).exists() and not overwrite:
+    if (dst / DONE_MARKER).exists():
         return {"episode": name, "status": "skipped"}
     meta = json.loads((ep_dir / "episode_metadata.json").read_text())
     if not meta.get("prompt_timeline") and (meta.get("prompt_source") or {}).get("status") == "excluded":
@@ -170,13 +166,7 @@ def convert_episode(ep_dir: Path, split: str, out_dir: Path, overwrite: bool = F
         task_description=spans[0][0] if spans else "",
         annotations=spans,
         intrinsics={"front_1": pinhole_intrinsics(h, w)},
-        metadata_override={
-            "lab": "abc_sim",
-            "split": split,
-            "abc_episode": ep_dir.name,
-            "prompt": spans[0][0] if spans else "",
-            "source": "abc sim_224",
-        },
+        metadata_override={"lab": "abc_sim", "split": split},
     )
     (tmp / DONE_MARKER).write_text("ok\n")
     shutil.rmtree(dst, ignore_errors=True)
@@ -207,15 +197,13 @@ def main(argv=None) -> int:
     p.add_argument("--src", type=Path, required=True, help="ABC cache dir ($ABC_CACHE)")
     p.add_argument("--task", required=True, help="dataset task_name, e.g. sim_pouring_beads")
     p.add_argument("--out", type=Path, required=True)
-    p.add_argument("--splits", nargs="+", default=["train", "val"])
     p.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) // 2))
-    p.add_argument("--overwrite", action="store_true")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
-    episodes = find_episodes(args.src, args.task, args.splits)
+    episodes = find_episodes(args.src, args.task, ["train", "val"])
     if not episodes:
-        log.error("no %s episodes under %s/{%s}_sim", args.task, args.src, ",".join(args.splits))
+        log.error("no %s episodes under %s", args.task, args.src)
         return 1
     args.out.mkdir(parents=True, exist_ok=True)
     log.info("converting %d episodes of %s -> %s", len(episodes), args.task, args.out)
@@ -223,7 +211,7 @@ def main(argv=None) -> int:
     rows, failures = [], []
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         futures = {
-            pool.submit(convert_episode, ep, split, args.out, args.overwrite): ep
+            pool.submit(convert_episode, ep, split, args.out): ep
             for ep, split in episodes
         }
         for i, fut in enumerate(as_completed(futures), 1):

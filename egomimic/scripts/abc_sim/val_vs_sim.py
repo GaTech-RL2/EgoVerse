@@ -65,11 +65,10 @@ def main(argv=None) -> int:
     p.add_argument("manifest", type=Path)
     p.add_argument("--metric", required=True)
     p.add_argument("--out", type=Path, required=True)
-    p.add_argument("--no-wandb", action="store_true", help="manifest rows already carry 'val'")
     a = p.parse_args(argv)
     rows = json.loads(a.manifest.read_text())
     for r in rows:
-        if "val" not in r or not a.no_wandb:
+        if "val" not in r:  # a row may carry its val metric already
             r["val"] = wandb_metric(r["wandb"], a.metric, int(r["epoch"]))
         s = json.loads(Path(r["summary"]).read_text())
         r["success_rate"], r["mean_max_progress"], r["num_worlds"] = s["success_rate"], s.get("mean_max_progress"), s["num_worlds"]

@@ -692,32 +692,17 @@ def _build_eva_bimanual_transform_list(
     return transform_list
 
 
-def _build_eva_bimanual_joint_transform_list(
-    *,
-    actions_key: str = JOINT_ACTION_KEY,
-    obs_key: str = JOINT_STATE_KEY,
-    chunk_length: int = 100,
-    stride: int = 1,
-) -> list[Transform]:
+def _build_eva_bimanual_joint_transform_list() -> list[Transform]:
     """Joint-space pipeline: resample each commanded joint / gripper chunk to
-    ``chunk_length`` (as the cartesian modes do), then concatenate both arms in
-    ABC order into ``actions_joints`` (T, 14) and the observed joints into
+    100 steps (as the cartesian modes do), then concatenate both arms in ABC
+    order into ``actions_joints`` (T, 14) and the observed joints into
     ``observations.state.joint_positions`` (14,)."""
     cmd_keys = [k.format("cmd") for k in JOINT_ORDER]
     obs_keys = [k.format("obs") for k in JOINT_ORDER]
-    transform_list: list[Transform] = [
-        InterpolateLinear(
-            new_chunk_length=chunk_length,
-            action_key=key,
-            output_action_key=key,
-            stride=stride,
-        )
-        for key in cmd_keys
+    return [
+        *(InterpolateLinear(new_chunk_length=100, action_key=k, output_action_key=k) for k in cmd_keys),
+        InterpolatePadMask(new_chunk_length=100),
+        ConcatKeys(key_list=cmd_keys, new_key_name=JOINT_ACTION_KEY, delete_old_keys=True),
+        ConcatKeys(key_list=obs_keys, new_key_name=JOINT_STATE_KEY, delete_old_keys=True),
+        NumpyToTensor(keys=[JOINT_ACTION_KEY, JOINT_STATE_KEY]),
     ]
-    transform_list += [
-        InterpolatePadMask(new_chunk_length=chunk_length, stride=stride),
-        ConcatKeys(key_list=cmd_keys, new_key_name=actions_key, delete_old_keys=True),
-        ConcatKeys(key_list=obs_keys, new_key_name=obs_key, delete_old_keys=True),
-        NumpyToTensor(keys=[actions_key, obs_key]),
-    ]
-    return transform_list

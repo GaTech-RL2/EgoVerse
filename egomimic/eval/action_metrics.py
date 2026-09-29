@@ -202,11 +202,6 @@ def keypoint_metrics(pred: torch.Tensor, gt: torch.Tensor, prefix: str) -> dict:
     return metrics
 
 
-# Bimanual joint layout (ABC YAM / abc_sim): [left j1..j6, left grip,
-# right j1..j6, right grip].
-JOINT_LAYOUT_14 = {"joints": (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12), "grip": (6, 13)}
-
-
 def joint_metrics(pred: torch.Tensor, gt: torch.Tensor, prefix: str) -> dict:
     """Metrics for a bimanual joint-space chunk ``(B, T, 14)``; ``{}`` for
     other widths. Joint errors are in degrees (mean absolute), the gripper in
@@ -214,8 +209,8 @@ def joint_metrics(pred: torch.Tensor, gt: torch.Tensor, prefix: str) -> dict:
     pred_cpu, gt_cpu = pred.detach().cpu().float(), gt.detach().cpu().float()
     if pred_cpu.shape[-1] != 14:
         return {}
-    j = list(JOINT_LAYOUT_14["joints"])
-    g = list(JOINT_LAYOUT_14["grip"])
+    # [left j1..j6, left grip, right j1..j6, right grip] (ABC YAM / abc_sim)
+    j, g = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12], [6, 13]
     err = (pred_cpu[..., j] - gt_cpu[..., j]).abs() * _RAD2DEG
     return {
         f"{prefix}_joint_abs_err_deg_avg": err.mean(),

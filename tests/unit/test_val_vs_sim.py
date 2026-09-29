@@ -14,7 +14,7 @@ def test_report_from_manifest(tmp_path):
         rows.append({"name": f"r{i}", "epoch": ep, "hours": h, "val": val, "summary": str(s)})
     m = tmp_path / "m.json"
     m.write_text(json.dumps(rows))
-    assert vs.main([str(m), "--metric", "x", "--out", str(tmp_path / "out"), "--no-wandb"]) == 0
+    assert vs.main([str(m), "--metric", "x", "--out", str(tmp_path / "out")]) == 0
     rep = json.loads((tmp_path / "out" / "report.json").read_text())
     assert rep["correlations"]["spearman_success_rate"]["r"] == -1.0  # lower val mse, higher success
     assert rep["loglinear_val_vs_hours"]["r2"] > 0.95 and rep["loglinear_val_vs_hours"]["slope"] < 0

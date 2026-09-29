@@ -58,8 +58,3 @@ def test_missing_init_checkpoint_raises(tmp_path):
     )
     with pytest.raises(FileNotFoundError):
         train_hydra._apply_init_weights(cfg, _Net(14))
-
-
-def test_train_config_declares_the_knob(compose_resolve):
-    cfg = compose_resolve("train_zarr_cartesian", [])
-    assert cfg.init_weights_ckpt is None

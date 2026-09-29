@@ -110,11 +110,11 @@ def test_http_protocol_round_trip():
     try:
         with urllib.request.urlopen(f"{url}/health") as r:
             health = json.load(r)
-        assert health["cameras"] == ["top"] and health["lag_frames"] == 3 and health["horizon"] == 45
+        assert health["cameras"] == ["top"] and health["lag_frames"] == 3
         hwc = np.random.default_rng(0).integers(0, 255, (16, 24, 3), np.uint8)
         out = post({"state": list(range(14)), "prompt": "sim x",
                     "images": {"top": {"shape": [16, 24, 3], "b64": base64.b64encode(hwc.tobytes()).decode()}}})
-        assert np.asarray(out["actions"]).shape == (45, 14) and out["dt"] == 1 / 30
+        assert np.asarray(out["actions"]).shape == (45, 14)
         assert torch.allclose(pol.algo.seen[CAM][0], torch.from_numpy(_chw(hwc)))
         try:
             post({"state": [0], "images": {}})
