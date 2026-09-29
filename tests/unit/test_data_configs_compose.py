@@ -37,12 +37,16 @@ def _params(known_broken: dict[str, str]):
     ]
 
 
-def compose_data(name: str, overrides: list[str] | None = None):
+def compose_data(
+    name: str,
+    overrides: list[str] | None = None,
+    config_name: str = "train_zarr_cartesian",
+):
     with initialize_config_module(
         config_module="egomimic.hydra_configs", version_base=None
     ):
         cfg = compose(
-            config_name="train_zarr_cartesian",
+            config_name=config_name,
             overrides=[f"data={name}", *(overrides or [])],
         )
     # hydra.utils.instantiate (and so trainHydra) resolves with allow_objects;
@@ -138,8 +142,6 @@ def test_no_data_config_uses_a_pi_keymap_mode(name):
             assert not str(mode).endswith("_pi"), (name, split, emb, mode)
 
 
-# Aliases kept so configs saved by earlier runs still rebuild.
-KNOWN_MODE_ONLY_CHILDREN = {"cotrain_pi_lang_wrist"}
 MODE_KEYS = {"keymap_mode", "mode", "include_ee_pose"}
 
 
@@ -160,11 +162,7 @@ def test_no_data_config_only_swaps_the_action_mode(name):
     if not raw.get("defaults") or not body:
         return
     leaves = list(_leaf_paths(body))
-    mode_only = all(path[-1] in MODE_KEYS for path in leaves)
-    if name in KNOWN_MODE_ONLY_CHILDREN:
-        assert mode_only, f"{name} is no longer mode-only; drop it from the allowlist"
-    else:
-        assert not mode_only, (name, leaves)
+    assert not all(path[-1] in MODE_KEYS for path in leaves), (name, leaves)
 
 
 def test_pi_train_config_defaults_to_all_eva_with_annotations():

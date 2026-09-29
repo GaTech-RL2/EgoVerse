@@ -31,9 +31,7 @@ defaults:
 # The other 15 operators are unused.
 #
 # Hydra replaces lists wholesale, so the train filter_lambdas are restated in
-# full; only the last (operator) lambda differs from the parent. The operator
-# ids are inlined rather than put in a config key: MultiDataModuleWrapper
-# rejects root keys it does not declare.
+# full; only the last (operator) lambda differs from the parent.
 #
 # NORMALIZATION: the train distribution differs from the parent's and from
 # topop's, so precompute stats on THIS config:
@@ -52,25 +50,6 @@ train_datasets:
         - "lambda row: '/mecka/flagship/' in str(row.get('zarr_processed_path', ''))"
         # TOP-3 OPERATOR TRAIN: the three largest flagship operators only.
         - "lambda row: str(row.get('operator', '')) in ['6903686e0e94ce070afd1f24', '690366b20e94ce070afd1e8a', '683785ac01ca734152093448']"
-
-# ---------------------------------------------------------------------------
-# METRIC / VIDEO LOADERS: only the SEEN-op and train_viz entries differ from
-# the parent (this config trains on 3 of the 18 operators, so those two splits
-# are smaller); the unseen head is identical, so its K and pins are inherited.
-# ---------------------------------------------------------------------------
-# K is the SINGLE-RANK value, floor(5120 / episodes-in-that-split), 5120 =
-# limit_val_batches (80) x batch_size (64); trainHydra scales it by the world
-# size. Episode counts measured from the real splits 2026-09-15:
-#   valid        53 eps /   9,826 frames -> K = floor(5120/53)   = 96. The
-#                shortest seen-val episode is 127f > 96, so every episode
-#                contributes exactly 96: 53 x 96 = 5,088 f = 79.5 batches.
-#   train_viz 1,026 eps / 196,450 frames -> K = floor(5120/1026) =  4
-#                -> 1026 x 4 = 4,104 f = 64.1 batches.
-# `unseen_op_valid: 26` is inherited unchanged (191 eps, same split as the
-# parent), and hydra merges dicts, so only the two changed keys are restated.
-metric_frames_per_episode:
-  valid: 96
-  train_viz: 4
 
 # The parent's seen-val pin belongs to operator 690364170e94ce070afd1da5,
 # which is not in this config's 3-operator split, so `valid` is replaced
