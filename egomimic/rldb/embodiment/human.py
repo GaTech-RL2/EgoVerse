@@ -21,6 +21,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     PoseCoordinateFrameTransform,
     QuaternionPoseToYPR,
     Reshape,
+    RotateLocalFrame,
     SplitKeys,
     Transform,
     UnpadGripperZeros,
@@ -373,6 +374,7 @@ class Human(Embodiment):
             "keypoints_wristframe_quat",
         ],
         stride: int = 3,
+        fix_left_wrist_convention: bool = False,
         pad_proprio_gripper: bool = False,
         allow_legacy_rotation: bool = False,
     ) -> list[Transform]:
@@ -383,12 +385,37 @@ class Human(Embodiment):
         the modes in ``LEGACY_ROTATION_MODES``; only the data/rollout boundary
         (viz, a checkpoint that predates the 6D conversion) may set it.
 
+        ``fix_left_wrist_convention`` retroactively corrects the LEFT
+        wrist-frame convention of zarrs written before the ``rot_left`` fix in
+        ``mecka_to_zarr.compute_hand_pose_xyzquat`` (which double-mirrored the
+        left hand onto the right hand's spatial convention): the raw left
+        pose keys (ee_pose in cartesian modes, wrist_pose in keypoints modes;
+        the converter writes the same rotation into both) are right-multiplied
+        by Rz(180 deg) before any frame math, exactly equivalent to
+        reconverting. It is a property of the DATA, not of the vendor: enable
+        it for any zarr written by the pre-fix hand-pose converter (measured:
+        every mecka and scale episode in the production set), and disable it
+        for data reconverted after the fix, which would double-flip. Aria and
+        LightWheel are not covered by that measurement -- no such episodes are
+        in the production set -- so leave them unset.
+        ``left_wrist_convention`` re-derives the verdict from a zarr's own
+        keypoints when a setting has to be checked.
+
         ``pad_proprio_gripper`` pads the cartesian proprio
         ``observations.state.ee_pose`` 18 -> 20 (zero grip slots at 9/19) so
         the pi0.5 ``State:`` prompt bins align positionally with the robot
         20D layout. 6D modes only.
         """
         _reject_legacy_rotation(cls, mode, allow_legacy_rotation)
+        is_keypoints = mode.startswith("keypoints")
+        prefix: list[Transform] = []
+        if fix_left_wrist_convention:
+            fix_keys = (
+                ["left.action_wrist_pose", "left.obs_wrist_pose"]
+                if is_keypoints
+                else ["left.action_ee_pose", "left.obs_ee_pose"]
+            )
+            prefix = [RotateLocalFrame(keys=fix_keys)]
         if pad_proprio_gripper and not mode.endswith("_6d"):
             raise ValueError(
                 "pad_proprio_gripper needs a 6D-encoded ee_pose proprio: a "
@@ -402,7 +429,9 @@ class Human(Embodiment):
             proprio_6d.append(PadGripperZeros(action_key="observations.state.ee_pose"))
 
         if mode == "cartesian":
-            return _build_human_cartesian_bimanual_transform_list(stride=stride)
+            return prefix + _build_human_cartesian_bimanual_transform_list(
+                stride=stride
+            )
         if mode == "cartesian_6d":
             # Head/camera-frame cartesian (12D xyz+ypr per arm pair) with the
             # rotation re-expressed as the continuous 6D representation (18D)
@@ -410,39 +439,45 @@ class Human(Embodiment):
             # saturates yaw/roll at +-pi, so per-dim normalization needs the
             # continuous representation.
             return (
-                _build_human_cartesian_bimanual_transform_list(stride=stride)
+                prefix
+                + _build_human_cartesian_bimanual_transform_list(stride=stride)
                 + [CartesianYPRToRot6D(action_key="actions_cartesian")]
                 + proprio_6d
             )
         if mode == "cartesian_padded":
-            return _build_human_cartesian_bimanual_transform_list(stride=stride) + [
-                PadGripperZeros(action_key="actions_cartesian")
-            ]
+            return (
+                prefix
+                + _build_human_cartesian_bimanual_transform_list(stride=stride)
+                + [PadGripperZeros(action_key="actions_cartesian")]
+            )
         if mode == "cartesian_wristframe_ypr":
-            return _build_human_cartesian_eef_frame_transform_list(stride=stride)
+            return prefix + _build_human_cartesian_eef_frame_transform_list(
+                stride=stride
+            )
         if mode == "cartesian_wristframe_6d":
             # Wrist-frame cartesian with the 6D rotation (18D). The head-frame
             # proprio ee_pose is 6D-encoded too (see cartesian_6d); it is the
             # only head-frame signal the model sees with wrist-relative targets.
             return (
-                _build_human_cartesian_eef_frame_transform_list(stride=stride)
+                prefix
+                + _build_human_cartesian_eef_frame_transform_list(stride=stride)
                 + [CartesianYPRToRot6D(action_key="actions_cartesian")]
                 + proprio_6d
             )
         if mode == "keypoints_headframe_ypr":
-            return _build_human_keypoints_bimanual_transform_list(
+            return prefix + _build_human_keypoints_bimanual_transform_list(
                 stride=stride, is_quat=False
             )
         if mode == "keypoints_headframe_quat":
-            return _build_human_keypoints_bimanual_transform_list(
+            return prefix + _build_human_keypoints_bimanual_transform_list(
                 stride=stride, is_quat=True
             )
         if mode == "keypoints_wristframe_ypr":
-            return _build_human_keypoints_eef_frame_transform_list(
+            return prefix + _build_human_keypoints_eef_frame_transform_list(
                 stride=stride, is_quat=False
             )
         if mode == "keypoints_wristframe_quat":
-            return _build_human_keypoints_eef_frame_transform_list(
+            return prefix + _build_human_keypoints_eef_frame_transform_list(
                 stride=stride, is_quat=True
             )
         raise ValueError(f"Unsupported transform_list mode '{mode}' for {cls.__name__}")

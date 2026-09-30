@@ -492,6 +492,50 @@ class CartesianRot6DToYPR(Transform):
         return batch
 
 
+class RotateLocalFrame(Transform):
+    """Right-multiply listed xyz+quat(wxyz) pose keys by a constant LOCAL
+    rotation: ``R_new = R_old @ R_fix``. Relabels the pose's own axes without
+    moving its origin. Handles ``(7,)`` poses and ``(T, 7)`` chunks.
+
+    Used to retroactively fix the mecka LEFT wrist-frame convention without
+    reconverting the zarrs: ``compute_hand_pose_xyzquat`` built the palm
+    normal as ``cross(thumb_dir, pinky_dir)``, which already mirrors chirality
+    between hands, and then ``rot_left`` flipped x/y again, double-mirroring
+    the left hand onto the right hand's spatial convention. Since
+    ``rot_left == rot_right @ diag(-1, -1, 1)``, right-multiplying the stored
+    left pose by Rz(180 deg) (the default ``quat_wxyz``) is exactly equivalent
+    to reconverting with ``rot_right`` for both hands.
+    """
+
+    def __init__(
+        self,
+        keys: list[str],
+        quat_wxyz: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
+    ):
+        self.keys = list(keys)
+        self.quat_wxyz = tuple(float(v) for v in quat_wxyz)
+        w, x, y, z = self.quat_wxyz
+        self._fix = R.from_quat([x, y, z, w])  # scipy xyzw
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            pose = np.asarray(batch[key])
+            if pose.shape[-1] != 7:
+                raise ValueError(
+                    f"RotateLocalFrame expects xyz+quat(wxyz) with last dim 7, "
+                    f"got {pose.shape} for '{key}'"
+                )
+            flat = pose.reshape(-1, 7).astype(np.float64, copy=True)
+            # Zero-norm quats mark padded/invalid frames; leave them alone.
+            valid = np.linalg.norm(flat[:, 3:7], axis=-1) > 1e-6
+            if valid.any():
+                q_xyzw = flat[valid][:, [4, 5, 6, 3]]
+                rotated = (R.from_quat(q_xyzw) * self._fix).as_quat()  # xyzw
+                flat[np.flatnonzero(valid), 3:7] = rotated[:, [3, 0, 1, 2]]
+            batch[key] = flat.reshape(pose.shape)
+        return batch
+
+
 class CartesianWithGripperCoordinateTransform(Transform):
     def __init__(
         self,
