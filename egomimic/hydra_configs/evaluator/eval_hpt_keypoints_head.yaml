@@ -1,0 +1,17 @@
+# HPT head-frame keypoint evaluator: use with a data config that applies the
+# `keypoints_headframe_6d` transform mode (e.g. data=aria_keypoints). The
+# keypoints are already in head frame; the revert only converts the wrist
+# rotation rot6d -> ypr (144 -> 138) so the overlay's keypoint splitter sees
+# the ypr layout.
+defaults:
+  - viz@viz_func: keypoints
+  - _self_
+
+_target_: egomimic.eval.eval_hpt.HPTEvalVideo
+
+viz_every_n_epochs: 100
+viz_max_batches: 10
+
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_6d_transform_list

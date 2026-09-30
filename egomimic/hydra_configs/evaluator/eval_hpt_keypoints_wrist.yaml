@@ -1,0 +1,27 @@
+# HPT wrist-frame keypoint evaluator: use with a data config that applies the
+# `keypoints_wristframe_6d` transform mode (e.g.
+# mecka_fold_freeform_opsplit_hpt_keypoints, or the per-vendor defaults). The
+# model predicts the 144-D wrist-first action [wrist xyz+rot6d (9) | 21
+# keypoints (63)] x 2 in each hand's wrist frame; the revert converts the
+# wrist rotation back to ypr and projects the two 63-D keypoint chunks back to
+# head (camera) frame via the head-frame wrist pose in
+# `observations.state.keypoints`, giving a 126-D head-frame
+# `actions_keypoints` for the cam-frame keypoint MSE
+# (Valid/human_bimanual_actions_keypoints_cam_{paired,final}_mse_avg) and the
+# overlay video. Native-frame metrics (paired/final MSE, Frechet, the
+# keypoint layout metrics) run on the full 144-D.
+defaults:
+  - viz@viz_func: keypoints_wrist
+  - _self_
+
+_target_: egomimic.eval.eval_hpt.HPTEvalVideo
+
+# Render the val viz video only when (current_epoch + 1) is a multiple of this.
+viz_every_n_epochs: 100
+# On viz epochs, render only the first N val batches per rank; metrics still
+# run on every batch. The train_viz wrapper inherits this cap.
+viz_max_batches: 10
+
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_6d_wristframe_transform_list

@@ -1,0 +1,17 @@
+# Wrist-frame twin of eval_pi (data=cotrain_pi_lang_wrist): eva on the
+# wrist-frame cartesian 6D action (reverted 6D -> ypr, then wrist -> cam frame
+# via the proprio ee_pose), human on the wrist-frame keypoint action.
+defaults:
+  - viz@viz_func: pi_keypoints_lang_wrist
+  - _self_
+
+_target_: egomimic.eval.eval_pi.PIEvalVideo
+
+viz_every_n_epochs: 100
+viz_max_batches: 10
+
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_6d_wristframe_transform_list

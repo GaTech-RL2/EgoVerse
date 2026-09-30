@@ -31,13 +31,20 @@ TOP_LEVEL = sorted(p.stem for p in CONFIG_DIR.glob("*.yaml"))
 TRAIN_TOP_LEVEL = [c for c in TOP_LEVEL if c.startswith("train_")]
 
 
-@pytest.mark.parametrize("config_name", TOP_LEVEL)
+# train_* configs are composed (with more checks) by
+# test_infra_port_wiring.py::test_human_action_width_matches_data_mode.
+@pytest.mark.parametrize(
+    "config_name", [c for c in TOP_LEVEL if c not in TRAIN_TOP_LEVEL]
+)
 def test_top_level_config_resolves(config_name, compose_resolve):
     compose_resolve(config_name, [])
 
 
 @pytest.mark.parametrize("data", _options("data"))
-@pytest.mark.parametrize("top", TRAIN_TOP_LEVEL)
+# train_zarr_cartesian x data is composed by test_data_filters_instantiate_to_dataset_filter.
+@pytest.mark.parametrize(
+    "top", [t for t in TRAIN_TOP_LEVEL if t != "train_zarr_cartesian"]
+)
 def test_data_option_resolves_under_every_train_config(top, data, compose_resolve):
     compose_resolve(top, [f"data={data}"])
 
