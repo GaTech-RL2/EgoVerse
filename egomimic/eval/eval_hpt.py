@@ -139,10 +139,3 @@ class HPTEvalVideo(EvalVideo):
             metrics["Valid/action_loss"] = total_loss / n_loss_embodiments
 
         return metrics, images_dict
-
-    def _visualize_preds(self, predictions, batch):
-        if self.viz_func is None:
-            raise ValueError("viz_func is not set")
-        embodiment_id = batch["embodiment"][0].item()
-        embodiment_name = get_embodiment(embodiment_id).lower()
-        return self.viz_func[embodiment_name](predictions, batch)
