@@ -64,3 +64,6 @@ sort_annotations/
 build/
 dist/
 docs/
+
+# per-worktree venv for the Pi benchmarks (the shared emimic/ venv is off-pin)
+.venv-pi/
