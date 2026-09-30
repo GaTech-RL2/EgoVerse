@@ -84,7 +84,7 @@ where = ["."]
 include = ["egomimic*"]
 
 [tool.setuptools.package-data]
-egomimic = ["hydra_configs/**/*.yaml", "resources/*"]
+egomimic = ["hydra_configs/**/*.yaml", "resources/*", "resources/blocklists/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

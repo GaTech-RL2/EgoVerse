@@ -47,6 +47,9 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+      # Failed vendor egomotion (constant or jumping head pose) corrupts the
+      # head-frame action chunks; see scan_egomotion.py.
+      exclude_hashes: mecka_bad_egomotion
     mode: train
     valid_ratio: 0.05
 
