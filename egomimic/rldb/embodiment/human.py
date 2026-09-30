@@ -5,6 +5,7 @@ from typing import Literal
 import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import (
+    IMAGE_HISTORY_SUFFIX,
     Embodiment,
     _reject_legacy_rotation,
     _strip_pi_keymap_mode,
@@ -203,6 +204,7 @@ class Human(Embodiment):
         annotation_key: str = None,
         proprio_history: int = 1,
         history_stride: int = 1,
+        image_history_gap_s: float | None = None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (False only for contributors that truly omit
@@ -221,6 +223,13 @@ class Human(Embodiment):
         because at 30 fps consecutive frames are nearly a duplicate of the
         current pose (median wrist translation 6.8 mm at lag 1 against 42.9 mm
         at lag 5), so s = 1 spends tokens on sensor noise.
+
+        ``image_history_gap_s`` adds a second front-camera entry,
+        ``<front key>_hist``: the frame that many seconds before the current
+        one (frames = gap x the episode's fps; frame 0 at an episode start).
+        The algo must consume it explicitly: HPT has no stem for it and skips
+        augs and normalization on cameras outside its encoders, so under plain
+        HPT it is decoded and dropped.
         """
         key_map = cls._get_keymap(
             keymap_mode,
@@ -230,6 +239,12 @@ class Human(Embodiment):
             proprio_history=proprio_history,
             history_stride=history_stride,
         )
+        if image_history_gap_s is not None:
+            front = key_map[cls.VIZ_IMAGE_KEY]
+            key_map[f"{cls.VIZ_IMAGE_KEY}{IMAGE_HISTORY_SUFFIX}"] = {
+                **front,
+                "lag_s": float(image_history_gap_s),
+            }
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
                 "key_type": "annotation_keys",
