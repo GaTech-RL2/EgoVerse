@@ -2,17 +2,24 @@ defaults:
   - pi0.5_base
   - _self_
 
+# pi0.5 BC on human data (mecka, stored as human_bimanual) with the 144-D
+# wrist-frame hand-keypoint action (data/mecka.yaml, `keypoints_wristframe_6d`).
+# The action vector is widened to 144: PI re-initializes openpi's two action
+# projections at that width, everything else loads from pi05_base. The prompt
+# state is the cartesian head-frame ee_pose (proprio_keys_for_prompt default).
 robomimic_model:
   camera_transforms: {}
+  config:
+    model:
+      action_dim: 144
   ac_keys:
-    human_bimanual: "actions_cartesian"
+    human_bimanual: "actions_keypoints"
   domains: ["human_bimanual"]
 
   action_converters:
     rules:
       HUMAN_BIMANUAL:
-        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+        _target_: egomimic.utils.action_utils.HumanBimanualKeypoints
     # optional fallback if no match is found
     fallback:
       _target_: egomimic.utils.action_utils.BaseActionConverter
-
