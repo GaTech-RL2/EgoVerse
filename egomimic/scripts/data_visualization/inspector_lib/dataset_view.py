@@ -429,7 +429,7 @@ def _world_keypoints_to_cam(seq, T_world_head):
 _2D_DOT_COLORS_BGR = {
     "left": (0, 120, 255),
     "right": (255, 80, 0),
-}  # mirrors _viz_keypoints
+}  # the inspector's own per-arm dot colours; the 2D overlay is the horizon trace
 _ARM_COLORS = {
     arm: f"rgb({bgr[2]},{bgr[1]},{bgr[0]})"  # BGR -> RGB
     for arm, bgr in _2D_DOT_COLORS_BGR.items()
@@ -491,9 +491,10 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
         emb_cls, "FINGER_EDGE_RANGES", Human.FINGER_EDGE_RANGES if Human else []
     )
     # Map each edge index -> finger color (via FINGER_EDGE_RANGES), fall back gray.
-    # FINGER_COLORS are BGR tuples (they're handed to cv2 in the 2D skeleton draw
-    # in `_viz_keypoints`), so reverse BGR -> RGB to make the 3D edges render the
-    # SAME color cv2 paints in 2D.
+    # FINGER_COLORS are BGR tuples because cv2 consumes them in the 2D overlay, so
+    # reverse BGR -> RGB here. The 2D overlay is the horizon trace, which paints
+    # only the fingertips, so the colours agree at the tips and the 3D view is the
+    # only place a whole finger takes its finger's colour.
     edge_color_css = ["rgb(180,180,180)"] * len(edges)
     for name, lo, hi in edge_ranges:
         col = finger_colors.get(name)
@@ -805,8 +806,9 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16):
             if all(np.allclose(p, 0) for p in parts):
                 return _badge(img_rgb.copy(), "keypoint: no pts"), False, "off"
             # canonical keypoints (wrist_in_data=False) layout: [L 63, R 63];
-            # <EmbClass>.viz(mode="keypoints") supplies the MANO edges/colors/
-            # edge_ranges. Only Human supports keypoints; if the resolved class
+            # <EmbClass>.viz(mode="keypoints") draws the horizon trace: for this
+            # single frame that is the per-slot start markers, not a posed
+            # skeleton. Only Human supports keypoints; if the resolved class
             # doesn't, report via badge rather than reintroducing a low-level draw call.
             kp = np.concatenate(parts).reshape(1, -1)
             try:

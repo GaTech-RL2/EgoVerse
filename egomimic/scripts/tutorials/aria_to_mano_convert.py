@@ -9,8 +9,8 @@ Pipeline:
 4. Permute MANO's otaheri joint order (wrist, index*3, middle*3, pinky*3,
    ring*3, thumb*3, then 5 tips) to the canonical MANO ordering used by
    Human.FINGER_EDGES (wrist, thumb*4, index*4, middle*4, ring*4, pinky*4).
-5. Render side-by-side: left half = Aria viz with Aria.FINGER_EDGES; right
-   half = fitted MANO viz with Human (=Mecka) FINGER_EDGES.
+5. Render side-by-side: raw Aria keypoints on the left, the fitted MANO on
+   the right, both through Human.viz(mode="keypoints").
 6. Write mp4 to scratch/aria_to_mano.mp4.
 
 Prerequisites (not checked in):
@@ -37,11 +37,7 @@ import mediapy as mpy
 import numpy as np
 import torch
 
-from egomimic.rldb.embodiment.human import (
-    ARIA_FINGER_EDGE_RANGES,
-    ARIA_FINGER_EDGES,
-    Human,
-)
+from egomimic.rldb.embodiment.human import Human
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, S3EpisodeResolver
 from egomimic.scripts.aria_process.aria_utils import fit_mano_to_aria_batched
@@ -189,8 +185,6 @@ def render_side_by_side(rows, mano_left_canonical, mano_right_canonical):
             batch,
             mode="keypoints",
             viz_batch_key="actions_keypoints",
-            finger_edges=ARIA_FINGER_EDGES,
-            finger_edge_ranges=ARIA_FINGER_EDGE_RANGES,
         )
         left_flat = mano_left_canonical[i].reshape(-1).numpy()
         right_flat = mano_right_canonical[i].reshape(-1).numpy()
