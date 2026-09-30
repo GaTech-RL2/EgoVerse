@@ -4,11 +4,17 @@ from typing import Literal
 
 import numpy as np
 
-from egomimic.rldb.embodiment.embodiment import Embodiment, _strip_pi_keymap_mode
+from egomimic.rldb.embodiment.embodiment import (
+    Embodiment,
+    _reject_legacy_rotation,
+    _strip_pi_keymap_mode,
+)
 from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
+    CartesianRot6DToYPR,
+    CartesianYPRToRot6D,
     ConcatKeys,
     DeleteKeys,
     InterpolateLinear,
@@ -46,18 +52,67 @@ class Eva(Embodiment):
         ),
     }
 
-    @staticmethod
+    @classmethod
     def get_transform_list(
+        cls,
         mode: Literal[
-            "cartesian", "cartesian_wristframe_ypr", "cartesian_wristframe_quat"
+            "cartesian",
+            "cartesian_6d",
+            "cartesian_wristframe_ypr",
+            "cartesian_wristframe_6d",
+            "cartesian_wristframe_quat",
         ],
+        allow_legacy_rotation: bool = False,
     ) -> list[Transform]:
+        """Transform pipeline for the requested mode.
+
+        ``allow_legacy_rotation`` opts out of the continuous-rotation rule for
+        the modes in ``LEGACY_ROTATION_MODES``; only the data/rollout boundary
+        (viz, a checkpoint that predates the 6D conversion) may set it.
+        """
+        _reject_legacy_rotation(cls, mode, allow_legacy_rotation)
         if mode == "cartesian":
             return _build_eva_bimanual_transform_list(is_quat=True)
-        elif mode == "cartesian_wristframe_ypr":
+        if mode == "cartesian_6d":
+            # Camera-frame cartesian (14D xyz+ypr+gripper per arm pair) with
+            # the rotation re-expressed as the continuous 6D representation
+            # (20D) for pi0.5. The proprio ee_pose is 6D-encoded too:
+            # normalized YPR proprio saturates yaw/roll at +-pi (wraparound),
+            # so per-dim normalization is only meaningful on the continuous
+            # representation, same as for the actions.
+            return _build_eva_bimanual_transform_list(is_quat=True) + [
+                CartesianYPRToRot6D(action_key="actions_cartesian"),
+                CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
+            ]
+        if mode == "cartesian_wristframe_ypr":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
-        elif mode == "cartesian_wristframe_quat":
+        if mode == "cartesian_wristframe_6d":
+            # Wrist-frame cartesian with the 6D rotation (20D). The cam-frame
+            # proprio ee_pose is 6D-encoded too (see cartesian_6d); it is the
+            # only cam-frame signal the model sees with wrist-relative targets.
+            return _build_eva_bimanual_eef_frame_transform_list(is_quat=False) + [
+                CartesianYPRToRot6D(action_key="actions_cartesian"),
+                CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
+            ]
+        if mode == "cartesian_wristframe_quat":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
+        raise ValueError(f"Unsupported transform_list mode '{mode}' for Eva")
+
+    @staticmethod
+    def get_revert_transform_list(mode: str) -> list[Transform] | None:
+        """Transforms that map a (unnormalized) prediction batch of a model
+        trained with ``get_transform_list(mode)`` back to camera-frame
+        xyz+ypr+gripper (7/arm), given the batch's proprio
+        ``observations.state.ee_pose``. ``None``: already in that layout."""
+        if mode == "cartesian":
+            return None
+        if mode == "cartesian_6d":
+            return _build_eva_cartesian_revert_6d_transform_list()
+        if mode == "cartesian_wristframe_ypr":
+            return _build_eva_bimanual_revert_eef_frame_transform_list(is_quat=False)
+        if mode == "cartesian_wristframe_6d":
+            return _build_eva_cartesian_revert_6d_wristframe_transform_list()
+        raise ValueError(f"No camera-frame revert for Eva transform_list mode '{mode}'")
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
@@ -142,6 +197,46 @@ class Eva(Embodiment):
                 "zarr_key": "annotations",
             },
         }
+
+
+def _build_eva_cartesian_revert_6d_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert camera-frame 6D-rotation EVA cartesian actions back to ypr.
+
+    For the cam-frame 6D evaluator: the action chunk is already in camera
+    frame (``cartesian_6d`` mode), so only the rotation representation is
+    converted from xyz+6D(+gripper, 10/arm) back to xyz+ypr(+gripper, 7/arm)
+    so the viz overlay sees the same layout as the plain ``cartesian`` mode.
+    The proprio ee_pose is reverted the same way.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+    ]
+
+
+def _build_eva_cartesian_revert_6d_wristframe_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert wrist-frame 6D-rotation EVA actions back to camera-frame ypr.
+
+    (1) ``CartesianRot6DToYPR`` converts the action rotation xyz+6D -> xyz+ypr
+    (Gram-Schmidt re-orthonormalizes the model prediction); (2) the proprio
+    ``observations.state.ee_pose`` (6D-encoded by ``cartesian_wristframe_6d``)
+    is reverted to ypr the same way; (3) the standard eef-frame revert
+    projects the wrist-frame ypr actions back into camera frame using that
+    ypr proprio to define the frame.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+        *_build_eva_bimanual_revert_eef_frame_transform_list(is_quat=False),
+    ]
 
 
 def _build_eva_bimanual_revert_eef_frame_transform_list(
