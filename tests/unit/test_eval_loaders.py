@@ -16,6 +16,7 @@ A data config with neither key must behave exactly as before.
 
 from __future__ import annotations
 
+import re
 from types import SimpleNamespace
 
 import numpy as np
@@ -62,6 +63,23 @@ CONFIG_EXPECTATIONS = {
             ],
         },
     ),
+    "mecka_fold_flagship_top3_hpt_6d": (
+        {"valid": 96, "train_viz": 4, "unseen_op_valid": 26},
+        {
+            # one seen-val pin per train operator (683785ac / 690366b2 /
+            # 6903686e), 191 + 223 + 226 = 640f = the whole video budget
+            "valid": [
+                "692ea44dc621d7f4aac3aae6",
+                "692eb08997ffd8ec90340290",
+                "692fe79f34a99e18e25289ad",
+            ],
+            "train_viz": ["692e9bda21fc595fbe6f941e"],
+            "unseen_op_valid": [
+                "692eadbaaec602a46af10686",
+                "692ea49a727c13b350cb7c48",
+            ],
+        },
+    ),
 }
 
 # Episode counts these K values were computed from (measured 2026-09-15).
@@ -74,6 +92,11 @@ SPLIT_EPISODES = {
     "mecka_fold_flagship_topop_hpt_6d": {
         "valid": 20,
         "train_viz": 385,
+        "unseen_op_valid": 191,
+    },
+    "mecka_fold_flagship_top3_hpt_6d": {
+        "valid": 53,
+        "train_viz": 1026,
         "unseen_op_valid": 191,
     },
 }
@@ -136,6 +159,61 @@ def test_flagship_configs_declare_k_and_pins(data_config, compose_resolve):
     # and trainHydra reads exactly these
     for head, k in expected_k.items():
         assert th._metric_frames_per_episode(cfg, head) == k
+
+
+# The 3 largest flagship operators (SQL app.episodes, 2026-09-15), by frames.
+TOP3_OPERATORS = [
+    "6903686e0e94ce070afd1f24",
+    "690366b20e94ce070afd1e8a",
+    "683785ac01ca734152093448",
+]
+
+
+def test_top3_config_trains_on_exactly_the_three_largest_operators(compose_resolve):
+    """mecka_fold_flagship_top3_hpt_6d composes under the flagship recipe, its
+    train filter names exactly the 3 top operators (none of them held out), the
+    seen-op val follows that filter, and both lane A tables cover all 3 heads."""
+    cfg = compose_resolve(FLAGSHIP, ["data=mecka_fold_flagship_top3_hpt_6d"])
+    parent = compose_resolve(FLAGSHIP, ["data=mecka_fold_flagship_opsplit_hpt_6d"])
+    d, pd = cfg.data, parent.data
+    train = d.train_datasets[HUMAN]
+
+    # the operator lambda names exactly the three ids, largest first
+    operator_lambda = train.filters.filter_lambdas[-1]
+    assert "row.get('operator'" in operator_lambda
+    assert re.findall(r"[0-9a-f]{24}", operator_lambda) == TOP3_OPERATORS
+    held_out = [str(o) for o in d.held_out_operators]
+    assert not set(TOP3_OPERATORS) & set(held_out), "a train operator is held out"
+
+    # the first three (lab / task / flagship-path) lambdas are the parent's
+    assert list(train.filters.filter_lambdas[:3]) == list(
+        pd.train_datasets[HUMAN].filters.filter_lambdas[:3]
+    )
+
+    # seen-op val interpolates the train filters, so it follows this override
+    valid = d.valid_datasets[HUMAN]
+    assert list(valid.filters.filter_lambdas) == list(train.filters.filter_lambdas)
+    assert valid.valid_ratio == train.valid_ratio == 0.05
+    assert (train.mode, valid.mode) == ("train", "valid")
+    assert d.valid_prefix == "seen_op_valid"
+    assert d.get("train_viz_datasets") is None
+
+    # the unseen-operator head is untouched
+    unseen = d.unseen_op_valid_datasets[HUMAN]
+    assert list(unseen.filters.filter_lambdas) == list(
+        pd.unseen_op_valid_datasets[HUMAN].filters.filter_lambdas
+    )
+    assert unseen.mode == "total"
+
+    # lane A keys cover all three heads
+    heads = {"valid", "train_viz", "unseen_op_valid"}
+    k_table = OmegaConf.to_container(d.metric_frames_per_episode)
+    pins = OmegaConf.to_container(d.video_episodes)
+    assert set(k_table) == heads
+    assert set(pins) == heads
+    assert all(isinstance(v, int) and v > 0 for v in k_table.values())
+    assert len(pins["valid"]) == 3, "one seen-val video pin per train operator"
+    assert len(set(pins["valid"])) == 3
 
 
 def test_config_without_the_keys_is_unchanged(compose_resolve):
