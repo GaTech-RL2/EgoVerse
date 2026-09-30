@@ -201,6 +201,7 @@ class ActionChunkCoordinateFrameTransform(Transform):
         extra_batch_key: dict = None,
         mode: Literal["xyz", "xyzwxyz", "xyzypr"] = "xyzwxyz",
         inverse: bool = True,
+        target_history: bool = False,
     ):
         """
         args:
@@ -208,6 +209,10 @@ class ActionChunkCoordinateFrameTransform(Transform):
             chunk_world:
             transformed_key_name:
             is_quat: if True, inputs are xyz + quat(wxyz); otherwise xyz + ypr.
+            target_history: the target frame is a PROPRIO key that may be read
+                with history, ``(K, D)`` with the current frame last. Take that
+                current frame; without this flag a 2-D target is an error (a
+                target frame is a single pose).
         """
         self.target_world = target_world
         self.chunk_world = chunk_world
@@ -215,6 +220,7 @@ class ActionChunkCoordinateFrameTransform(Transform):
         self.extra_batch_key = extra_batch_key
         self.mode = mode
         self.inverse = inverse
+        self.target_history = target_history
 
     def transform(self, batch):
         """
@@ -236,6 +242,11 @@ class ActionChunkCoordinateFrameTransform(Transform):
         target_world = np.asarray(batch[self.target_world])
         chunk_world = np.asarray(batch[self.chunk_world])
         chunk_world_shape = None
+
+        if self.target_history and target_world.ndim > 1:
+            # Proprio read with history: (K, D), current frame last. The chunk
+            # is always expressed in the CURRENT step's frame.
+            target_world = target_world[-1]
 
         if chunk_world.ndim > 2:
             chunk_world_shape = chunk_world.shape
@@ -288,7 +299,11 @@ class ActionChunkCoordinateFrameTransform(Transform):
 
 
 class QuaternionPoseToYPR(Transform):
-    """Convert a single pose from xyz + quat(x,y,z,w) to xyz + ypr."""
+    """Convert a single pose from xyz + quat(x,y,z,w) to xyz + ypr.
+
+    A leading time axis (``(K, 7)``, a proprio key read with history) is
+    treated as a batch axis and comes back as ``(K, 6)``.
+    """
 
     def __init__(self, pose_key: str, output_key: str):
         self.pose_key = pose_key
@@ -296,15 +311,17 @@ class QuaternionPoseToYPR(Transform):
 
     def transform(self, batch: dict) -> dict:
         pose = np.asarray(batch[self.pose_key])
-        if pose.shape != (7,):
+        if pose.ndim > 2 or pose.shape[-1] != 7:
             raise ValueError(
-                f"QuaternionPoseToYPR expects shape (7,), got {pose.shape} for key "
-                f"'{self.pose_key}'"
+                f"QuaternionPoseToYPR expects shape (7,) or (K, 7), got "
+                f"{pose.shape} for key '{self.pose_key}'"
             )
-        xyz = pose[:3]
-        xyzw = wxyz_to_xyzw(pose[3:7])
+        flat = pose.reshape(-1, 7)
+        xyz = flat[:, :3]
+        xyzw = wxyz_to_xyzw(flat[:, 3:7])
         ypr = R.from_quat(xyzw).as_euler("ZYX", degrees=False)
-        batch[self.output_key] = np.concatenate([xyz, ypr], axis=0)
+        out = np.concatenate([xyz, ypr], axis=-1)
+        batch[self.output_key] = out.reshape(*pose.shape[:-1], 6)
         return batch
 
 
@@ -380,6 +397,7 @@ class PoseCoordinateFrameTransform(Transform):
         pose_world: str,
         transformed_key_name: str,
         mode: Literal["xyzwxyz", "xyzypr", "xyz"] = "xyzwxyz",
+        target_history: bool = False,
     ):
         self.target_world = target_world
         self.pose_world = pose_world
@@ -390,6 +408,7 @@ class PoseCoordinateFrameTransform(Transform):
             chunk_world=pose_world,
             transformed_key_name=transformed_key_name,
             mode=mode,
+            target_history=target_history,
         )
 
     def transform(self, batch: dict) -> dict:
@@ -769,6 +788,32 @@ class SplitKeys(Transform):
         return batch
 
 
+class SelectCurrentStep(Transform):
+    """Drop a proprio key's observation-history axis, keeping the CURRENT step.
+
+    A proprio key read with ``proprio_history`` K > 1 is ``(K, D)`` per sample
+    with the current frame last. The revert / viz pipelines want the single
+    current pose the forward pipeline used as the frame, so they start by
+    collapsing it. ``ndim`` is the flat per-sample rank of the key (1 for a
+    ``(D,)`` pose vector); a value already at that rank is left alone, so the
+    K = 1 path is bit-for-bit unchanged and the transform is idempotent.
+    """
+
+    def __init__(self, keys: list[str], ndim: int = 1):
+        self.keys = list(keys)
+        self.ndim = ndim
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            value = batch.get(key)
+            if value is None or not hasattr(value, "ndim"):
+                continue
+            while value.ndim > self.ndim:
+                value = value[..., -1, :]
+            batch[key] = value
+        return batch
+
+
 class ConcatKeys(Transform):
     def __init__(self, key_list, new_key_name, delete_old_keys=False):
         self.key_list = list(key_list)
@@ -850,13 +895,22 @@ class UnpadGripperZeros(Transform):
 
 
 class Reshape(Transform):
+    """Reshape a key to ``shape``. A value holding a whole multiple of
+    ``shape`` (a proprio key read with history, ``(K, ...)``) keeps its leading
+    time axis and is reshaped per step.
+    """
+
     def __init__(self, input_key: str, output_key: str, shape: tuple):
         self.input_key = input_key
         self.output_key = output_key
         self.shape = shape
 
     def transform(self, batch: dict) -> dict:
-        batch[self.output_key] = batch[self.input_key].reshape(*self.shape)
+        value = batch[self.input_key]
+        n = value.numel() if isinstance(value, torch.Tensor) else np.asarray(value).size
+        target = int(np.prod(self.shape))
+        shape = self.shape if n == target else (-1, *self.shape)
+        batch[self.output_key] = value.reshape(*shape)
         return batch
 
 
