@@ -43,7 +43,7 @@ def test_rigid_fit_ignores_invalid_points_and_degenerates_to_identity():
 
 def test_render_replays_each_complete_chunk_twice():
     horizon = 10
-    frames, used = render_replay(_clip(25, horizon), Human, mode="keypoints")
+    frames, used = render_replay(_clip(25, horizon), Human, mode="keypoints", stride=1)
     # Two complete chunks (anchors 0 and 10); frames 20-24 wait for the next clip.
     assert used == 2 * horizon
     assert frames.shape == (2 * 2 * horizon, 90, 160, 3)
@@ -60,7 +60,7 @@ def test_render_with_stride_spans_stride_frames_per_step():
 
 
 def test_short_clip_renders_nothing_and_consumes_nothing():
-    frames, used = render_replay(_clip(9, 10), Human, mode="keypoints")
+    frames, used = render_replay(_clip(9, 10), Human, mode="keypoints", stride=1)
     assert used == 0
     assert len(frames) == 0
 
@@ -99,6 +99,52 @@ def _moving_camera_clip(stride, n=60, horizon=12, seed=0):
 def test_infer_stride_recovers_the_frames_per_step():
     for stride in (1, 2, 3):
         assert infer_stride(_moving_camera_clip(stride)) == stride
+
+
+def _resampled_clip(stride, n=60, horizon=100, seed=0):
+    """As _moving_camera_clip, but with a hand and camera that move
+    continuously, so a chunk step can fall between frames."""
+    rng = np.random.default_rng(seed)
+    base = rng.normal(scale=0.05, size=(42, 3)) + [0.0, 0.0, 0.5]
+    amp, freq, phase = rng.normal(scale=0.05, size=(3, 42, 3))
+    rot_amp = rng.normal(scale=0.2, size=3)
+
+    def world(t):
+        return base + amp * np.sin(0.2 * t * (1 + freq) + phase)
+
+    def cam(t):
+        return Rotation.from_rotvec(rot_amp * np.sin(0.05 * t))
+
+    gt = np.stack(
+        [
+            np.stack(
+                [
+                    cam(t).inv().apply(world(t + k * stride)).reshape(-1)
+                    for k in range(horizon)
+                ]
+            )
+            for t in range(n)
+        ]
+    ).astype(np.float32)
+    return ReplayClip(np.zeros((n, 90, 160, 3), np.uint8), gt, gt, [None] * n)
+
+
+def test_infer_stride_recovers_a_resampled_chunk():
+    # 30 raw frames resampled to 100 steps (mecka, action stride 1).
+    assert infer_stride(_resampled_clip(29 / 99)) == 29 / 99
+
+
+def test_render_with_fractional_stride_plays_in_real_time():
+    stride, horizon = 29 / 99, 100
+    frames, used = render_replay(
+        _resampled_clip(stride, n=70, horizon=horizon),
+        Human,
+        mode="keypoints",
+        stride=stride,
+    )
+    # Anchors 0 and 30: each chunk covers frames a..a+29, once as GT, once as pred.
+    assert used == 60
+    assert len(frames) == 2 * 2 * 30
 
 
 def test_infer_stride_needs_keypoints():
