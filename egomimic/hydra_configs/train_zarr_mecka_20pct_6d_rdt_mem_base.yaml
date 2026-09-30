@@ -1,0 +1,41 @@
+# RDT memory-representation ablation, BASELINE arm: RDT-300M (model/
+# rdt_bc_mecka_6d_dinov3_vitb) on the pinned 20% mecka subset (data/
+# mecka_20pct_6d), with the short image pair (current + 0.1 s back) and the
+# current proprio only. The other arms change one thing each (2x2):
+#   _proprio  + proprio history: 11 steps 1 s apart (t-10 s .. t)
+#   _vision   + long-range visual memory: 10 frames 1 s apart (t-9 s .. t),
+#               one CLS token each from a second fine-tuned DINOv3, in the
+#               DiT's self-attention prefix; the short pair is dropped for 30 %
+#               of training samples
+#   _both     both, each memory token fused with that step's proprio
+#
+# One 8xH100 node per arm, the same budget everywhere: global batch 256
+# (32 / GPU x 8), 1000 epochs x 100 steps, RDT's AdamW 1e-4 / 1k-step warmup,
+# DINOv3 at 0.1x, grad clip 1.0, val every 25 epochs. Every arm shares one set
+# of norm stats (proprio stats are current-step, cameras are not normalized):
+#   python egomimic/trainHydra.py -m --config-name=train_zarr_mecka_20pct_6d_rdt_mem_base \
+#     name=rdt_mem description=base norm_stats.precomputed_norm_path=<out>/norm_stats
+defaults:
+  - train_zarr_mecka_flagship_6d_rdt
+  - override data: mecka_20pct_6d
+  - override hydra/launcher: submitit_loaner
+  - _self_
+
+launch_params:
+  gpus_per_node: 8
+  nodes: 1
+
+data:
+  train_dataloader_params:
+    human_bimanual:
+      batch_size: 32
+      num_workers: 12
+  valid_dataloader_params:
+    human_bimanual:
+      batch_size: 32
+
+trainer:
+  max_epochs: 1000
+  min_epochs: 1000
+  check_val_every_n_epoch: 25
+  limit_train_batches: 100

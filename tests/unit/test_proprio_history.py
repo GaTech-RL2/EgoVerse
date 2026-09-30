@@ -579,6 +579,22 @@ def test_history_len_is_read_from_the_domain_not_by_suffix():
     assert data["state_ee_pose"].shape == (3, 3, 20)
 
 
+def test_history_len_is_read_from_a_built_policys_module_dict():
+    """A built policy holds its stems in an nn.ModuleDict, which has no .get."""
+    import types
+
+    algo = _hpt_with_stem(3)
+    algo.nets["policy"] = types.SimpleNamespace(
+        stems=torch.nn.ModuleDict(
+            {"human_bimanual_state_ee_pose": MLPPolicyStem(20, 8, history_len=3)}
+        )
+    )
+    data = _to_hpt(algo, torch.randn(3, 3, 20))
+    assert data["state_ee_pose"].shape == (3, 3, 20)
+    with pytest.raises(ValueError, match="state_ee_pose"):
+        _to_hpt(algo, torch.randn(3, 4, 20))
+
+
 def test_history_length_mismatch_raises_naming_both():
     algo = _hpt_with_stem(2)
     with pytest.raises(ValueError, match="state_ee_pose"):
