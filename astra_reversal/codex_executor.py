@@ -79,9 +79,9 @@ def generation_schema(value):
 
 
 def _module(request):
-    from . import frs_agent, representation_agent
+    from . import demo_skill_agent, frs_agent, representation_agent
 
-    for module in (frs_agent, representation_agent):
+    for module in (frs_agent, representation_agent, demo_skill_agent):
         if request.get("schema_version") == module.SCHEMA_VERSION:
             return module
     raise ValueError("Unsupported request schema_version")

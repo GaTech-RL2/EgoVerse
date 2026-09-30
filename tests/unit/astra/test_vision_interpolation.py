@@ -157,8 +157,8 @@ def adapter(monkeypatch):
     constants.OBS_LANGUAGE_TOKENS = TOKENS
     constants.OBS_LANGUAGE_ATTENTION_MASK = MASK
     modeling = ModuleType("lerobot.policies.pi05.modeling_pi05")
-    modeling.make_att_2d_masks = (
-        lambda padding, attention: padding[:, None, :] & padding[:, :, None]
+    modeling.make_att_2d_masks = lambda padding, attention: (
+        padding[:, None, :] & padding[:, :, None]
     )
     monkeypatch.setitem(sys.modules, constants.__name__, constants)
     monkeypatch.setitem(sys.modules, modeling.__name__, modeling)
@@ -210,6 +210,33 @@ def model_hash(adapter):
     return digest(
         {name: to_numpy(value) for name, value in adapter.policy.state_dict().items()}
     )
+
+
+@pytest.mark.parametrize("operator", ["vei", "vli"])
+def test_input_skill_sequence_compiles_through_visual_hooks(
+    adapter, observation, operator
+):
+    from astra_reversal.demo_skill_conditioning import InputSkillConditioner
+
+    from .test_demo_skills import Bank, stage
+
+    bank = Bank()
+    bank.sources = copy.deepcopy(bank.sources)
+    for source in bank.sources.values():
+        source["episode_index"] = 0
+    compiler = InputSkillConditioner(adapter, bank, {})
+    choice = {**stage(vision_operator=operator, alpha=0.6), "frame": 12}
+    raw_hash, weights = digest(observation), model_hash(adapter)
+    native, _, _ = compiler.prepare(observation, "target", {**choice, "alpha": 0})
+    edited, receipt, effective = compiler.prepare(observation, "target", choice)
+    assert not np.allclose(run(adapter, native), run(adapter, edited))
+    assert digest(effective) == raw_hash == digest(observation)
+    assert model_hash(adapter) == weights
+    assert receipt["setting"]["frame"] == 12 and compiler.capture_count == 1
+    compiler.prepare(observation, "target", choice)
+    assert compiler.capture_count == 1
+    compiler.prepare(observation, "target", {**choice, "frame": 13})
+    assert compiler.capture_count == 2
 
 
 def test_selected_camera_patch_endpoint_and_protected_values():

@@ -24,6 +24,7 @@ def main():
     parser.add_argument("--include-interpolation-banks", action="store_true")
     parser.add_argument("--include-image-donors", action="store_true")
     parser.add_argument("--include-recipe-corpus", action="store_true")
+    parser.add_argument("--demo-source-cache", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = Path("astra_reversal")
@@ -74,6 +75,30 @@ def main():
             path = root / ".deps/recipe-inputs/corpus"
             load_corpus(path)
             archive.add(path.resolve(), arcname=str(path))
+        if args.demo_source_cache:
+            from astra_reversal.demo_segments import source_plan
+
+            cache = args.demo_source_cache.resolve()
+            plan = source_plan(cache)
+            destination = Path("astra_reversal/.deps/demo-skill-inputs/source_cache")
+            for relative in (
+                "file_index.json",
+                "meta/info.json",
+                "meta/tasks.jsonl",
+                "meta/episodes.jsonl",
+            ):
+                archive.add(cache / relative, arcname=str(destination / relative))
+            for item in plan:
+                path = cache / item["relative_path"]
+                if path.is_file():
+                    if (
+                        hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]
+                        or path.stat().st_size != item["bytes"]
+                    ):
+                        raise ValueError(
+                            "Cached demo source differs from published bytes"
+                        )
+                    archive.add(path, arcname=str(destination / item["relative_path"]))
         if args.include_image_donors:
             from astra_reversal.image_donor_bank import load_library
 
