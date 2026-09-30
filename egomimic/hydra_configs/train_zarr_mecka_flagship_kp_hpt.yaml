@@ -1,0 +1,23 @@
+# Composed recipe: HPT 300M flow-matching BC on the 144-D wrist-frame MANO
+# keypoint action, mecka FLAGSHIP fold-clothes, seen/unseen operator split.
+# The keypoint counterpart of train_zarr_mecka_flagship_6d_hpt, and the
+# reference arm any other architecture on this split is compared against
+# (the same recipe with `override model:` swapped).
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_kp_hpt \
+#     data=mecka_fold_flagship_top3_hpt_keypoints \
+#     norm_stats.precomputed_norm_path=<out>/norm_stats
+#
+# The flagship annotations are empty, so every prompt is the default one
+# ("fold clothes"), so a comparison arm has to set the same string.
+defaults:
+  - train_zarr_cartesian
+  - evaluator@train_viz_evaluator: train_viz_hpt_keypoints_wrist
+  - override model: hpt_bc_keypoints_wrist_300M
+  - override data: mecka_fold_flagship_opsplit_hpt_keypoints
+  - override evaluator: eval_hpt_keypoints_wrist
+  - _self_
+
+model:
+  robomimic_model:
+    default_prompt: "fold clothes"
