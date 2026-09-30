@@ -22,10 +22,13 @@ is mixed into; the algo is responsible for setting them.
 
 from __future__ import annotations
 
+import logging
 import os
 import random
 
 import torch
+
+logger = logging.getLogger(__name__)
 
 EVAL_BASE_SEED = 0
 EVAL_RANK_STRIDE = 1_000_003
@@ -114,6 +117,8 @@ class DeterministicEvalMixin:
         prompts = []
         for sample in _batch[self.annotation_key]:
             if not sample:
+                if not self.default_prompt:
+                    self._warn_empty_prompt_once()
                 prompts.append(self.default_prompt)
             elif eval_rng is not None:
                 prompts.append(sample[eval_rng.randint(0, len(sample) - 1)])
@@ -122,3 +127,14 @@ class DeterministicEvalMixin:
             else:  # "first"
                 prompts.append(sample[0])
         return prompts
+
+    def _warn_empty_prompt_once(self) -> None:
+        if getattr(self, "_empty_prompt_warned", False):
+            return
+        self._empty_prompt_warned = True
+        logger.warning(
+            "prompt fallback: a sample has no %r annotation and default_prompt "
+            "is empty, so the text stem sees ''. Filter unannotated episodes or "
+            "set model.robomimic_model.default_prompt.",
+            self.annotation_key,
+        )
