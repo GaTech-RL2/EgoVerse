@@ -1,0 +1,30 @@
+# OVERLAY, not a runnable model config. Compose it AFTER any pi0.5_* config to
+# swap the pi0.5 base checkpoint for a PaliGemma-only init: the VLM prefix comes
+# from the public paligemma-3b-pt-224 release and the action expert, the action
+# in/out projections and the adaRMS time MLPs start from their PyTorch init.
+#
+#   defaults:
+#     - pi0.5_bc_mecka_6d
+#     - pi0.5_paligemma_init
+#     - _self_
+#
+# It sets only the two init keys, so it never clobbers the config it is layered
+# on (action_dim, ac_keys, domains, the prompt flags all survive). Per-run,
+# without a new file:
+#   model.robomimic_model.config.pytorch_weight_path=null \
+#   model.robomimic_model.config.paligemma_weight_path=google/paligemma-3b-pt-224
+#
+# The optimizer is left at pi0.5_base's fine-tuning recipe (constant 3e-5 after
+# 2000 warmup steps). A randomly initialized action expert may well want a
+# higher peak and a longer warmup; that is a per-run decision, e.g.
+#   model.optimizer.lr=1e-4 model.scheduler.num_warmup_steps=5000
+#
+# Multi-rank runs should pre-fetch the checkpoint once, or every rank races on
+# the same Hugging Face download lock:
+#   python -c "from egomimic.models.paligemma_init import resolve_paligemma_dir as r; print(r('google/paligemma-3b-pt-224'))"
+robomimic_model:
+  config:
+    pytorch_weight_path: null
+    # $EGOVERSE_PALIGEMMA_WEIGHTS overrides: point it at a local snapshot dir to
+    # skip the Hub entirely.
+    paligemma_weight_path: ${oc.env:EGOVERSE_PALIGEMMA_WEIGHTS,google/paligemma-3b-pt-224}
