@@ -28,9 +28,11 @@ from egomimic.utils.pose_utils import (
     _matrix_to_xyz,
     _matrix_to_xyzwxyz,
     _matrix_to_xyzypr,
+    _rot6d_to_ypr,
     _xyz_to_matrix,
     _xyzwxyz_to_matrix,
     _xyzypr_to_matrix,
+    _ypr_to_rot6d,
     wxyz_to_xyzw,
     xyzw_to_wxyz,
 )
@@ -384,6 +386,109 @@ class XYZWXYZ_to_XYZYPR(Transform):
                     f"XYZWXYZ_to_XYZYPR expects key '{key}' to have shape (7,) "
                     f"or (T, 7), got {value.shape}"
                 )
+        return batch
+
+
+def _as_array(value):
+    """(numpy array, was_tensor) for a batch value; tensors are copied to numpy."""
+    is_tensor = isinstance(value, torch.Tensor)
+    arr = value.detach().cpu().numpy() if is_tensor else np.asarray(value)
+    return arr, is_tensor
+
+
+def _like_input(out: np.ndarray, is_tensor: bool):
+    return torch.from_numpy(out) if is_tensor else out
+
+
+class CartesianYPRToRot6D(Transform):
+    """Convert a bimanual cartesian vector from per-arm xyz+ypr(+gripper) to
+    per-arm xyz+rot6d(+gripper).
+
+    ``rot6d`` is the continuous 6D rotation representation = the first two
+    columns of the rotation matrix, packed as [col0(3), col1(3)] (see
+    :func:`egomimic.utils.pose_utils._ypr_to_rot6d`). This matches the column
+    convention of the pi0.5 32D action blocks, so the resulting per-arm layout
+    packs into them with no rotation math in the model.
+
+    Input layouts (last dim), for action chunks ``(T, D)`` and single proprio
+    poses ``(D,)`` alike:
+      12 -> [L xyz ypr, R xyz ypr]       -> 18 [L xyz 6d, R xyz 6d]
+      14 -> [L xyz ypr g, R xyz ypr g]   -> 20 [L xyz 6d g, R xyz 6d g]
+
+    Preserves the numpy/tensor type of the input.
+    """
+
+    def __init__(
+        self, action_key: str = "actions_cartesian", output_key: str | None = None
+    ):
+        self.action_key = action_key
+        self.output_key = output_key or action_key
+
+    def transform(self, batch: dict) -> dict:
+        arr, is_tensor = _as_array(batch[self.action_key])
+        D = arr.shape[-1]
+        if D == 14:
+            l_xyz, l_ypr, l_g = arr[..., 0:3], arr[..., 3:6], arr[..., 6:7]
+            r_xyz, r_ypr, r_g = arr[..., 7:10], arr[..., 10:13], arr[..., 13:14]
+            out = np.concatenate(
+                [l_xyz, _ypr_to_rot6d(l_ypr), l_g, r_xyz, _ypr_to_rot6d(r_ypr), r_g],
+                axis=-1,
+            )
+        elif D == 12:
+            l_xyz, l_ypr = arr[..., 0:3], arr[..., 3:6]
+            r_xyz, r_ypr = arr[..., 6:9], arr[..., 9:12]
+            out = np.concatenate(
+                [l_xyz, _ypr_to_rot6d(l_ypr), r_xyz, _ypr_to_rot6d(r_ypr)],
+                axis=-1,
+            )
+        else:
+            raise ValueError(
+                f"CartesianYPRToRot6D expects last-dim 12 or 14, got {arr.shape} "
+                f"for '{self.action_key}'"
+            )
+        batch[self.output_key] = _like_input(out, is_tensor)
+        return batch
+
+
+class CartesianRot6DToYPR(Transform):
+    """Inverse of :class:`CartesianYPRToRot6D`: per-arm xyz+rot6d(+gripper) ->
+    xyz+ypr(+gripper). Gram-Schmidt re-orthonormalizes the two columns, so a
+    non-orthonormal model prediction still yields a proper rotation.
+
+    Input layouts (last dim):
+      18 -> [L xyz 6d, R xyz 6d]         -> 12 [L xyz ypr, R xyz ypr]
+      20 -> [L xyz 6d g, R xyz 6d g]     -> 14 [L xyz ypr g, R xyz ypr g]
+    """
+
+    def __init__(
+        self, action_key: str = "actions_cartesian", output_key: str | None = None
+    ):
+        self.action_key = action_key
+        self.output_key = output_key or action_key
+
+    def transform(self, batch: dict) -> dict:
+        arr, is_tensor = _as_array(batch[self.action_key])
+        D = arr.shape[-1]
+        if D == 20:
+            l_xyz, l_6d, l_g = arr[..., 0:3], arr[..., 3:9], arr[..., 9:10]
+            r_xyz, r_6d, r_g = arr[..., 10:13], arr[..., 13:19], arr[..., 19:20]
+            out = np.concatenate(
+                [l_xyz, _rot6d_to_ypr(l_6d), l_g, r_xyz, _rot6d_to_ypr(r_6d), r_g],
+                axis=-1,
+            )
+        elif D == 18:
+            l_xyz, l_6d = arr[..., 0:3], arr[..., 3:9]
+            r_xyz, r_6d = arr[..., 9:12], arr[..., 12:18]
+            out = np.concatenate(
+                [l_xyz, _rot6d_to_ypr(l_6d), r_xyz, _rot6d_to_ypr(r_6d)],
+                axis=-1,
+            )
+        else:
+            raise ValueError(
+                f"CartesianRot6DToYPR expects last-dim 18 or 20, got {arr.shape} "
+                f"for '{self.action_key}'"
+            )
+        batch[self.output_key] = _like_input(out, is_tensor)
         return batch
 
 
