@@ -105,6 +105,12 @@ robomimic_model:
       max_length: 128
       freeze: true
       dtype: "float16"
+      # The frozen encoder's per-token features are cached per unique prompt
+      # string (LRU, in memory), so the 600M-parameter forward runs once per
+      # annotation instead of once per training step. Ignored when
+      # `freeze: false` - a trainable encoder must stay online.
+      cache_text_features: true
+      text_cache_max_entries: 8192
       output_dim: 840
       specs:
         random_horizon_masking: false
