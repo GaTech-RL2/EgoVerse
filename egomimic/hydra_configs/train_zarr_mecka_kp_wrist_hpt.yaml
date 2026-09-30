@@ -1,0 +1,17 @@
+# Composed recipe: ~300M HPT (+ Qwen text stem) BC on the 144-D wrist-frame
+# MANO keypoint action, mecka freeform fold-clothes, held-out-operator split.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_kp_wrist_hpt \
+#     norm_stats.precomputed_norm_path=<out>/norm_stats
+#
+# The norm stats must come from data=mecka_fold_freeform_opsplit_hpt_keypoints
+# (see that file for the precompute command).
+defaults:
+  - train_zarr_cartesian
+  # Second eval head: metrics + videos on TRAIN data each val (train_viz/).
+  # (A plain entry, so it must precede the overrides.)
+  - evaluator@train_viz_evaluator: train_viz_hpt_keypoints_wrist
+  - override model: hpt_bc_keypoints_wrist_300M
+  - override data: mecka_fold_freeform_opsplit_hpt_keypoints
+  - override evaluator: eval_hpt_keypoints_wrist
+  - _self_

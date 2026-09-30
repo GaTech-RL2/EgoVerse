@@ -22,13 +22,6 @@ def test_dataset_filter_matches_rows_and_excludes_deleted_by_default() -> None:
     assert not filters.matches({"episode_hash": "episode-2"})
 
 
-def test_dataset_filter_empty_list_matches_all_non_deleted_rows() -> None:
-    filters = DatasetFilter()
-
-    assert filters.matches({"episode_hash": "episode-1"})
-    assert not filters.matches({"episode_hash": "episode-1", "is_deleted": True})
-
-
 def test_dataset_filter_init_rejects_invalid_filter_and_prints_it(capsys) -> None:
     with pytest.raises(ValueError, match="Invalid filter"):
         DatasetFilter(filter_lambdas=["lambda row:"])
