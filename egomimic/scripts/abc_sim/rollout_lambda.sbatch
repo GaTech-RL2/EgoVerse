@@ -34,6 +34,7 @@ srun --exact --overlap --ntasks=1 --gres=gpu:h100:1 --cpus-per-task=${CPUS_PER_T
   bash -c "set -euo pipefail
     export HOME=/workspace/users/$USER HF_HOME=/workspace/users/$USER/.cache/huggingface HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
     export PYTHONPATH=$SRC PYTHONUNBUFFERED=1 OMP_NUM_THREADS=4
+    trap 'kill \$(jobs -p) 2>/dev/null' EXIT  # the step's cleanup does not reap the backgrounded server on the loaner
     if [ '$POLICY' = served ]; then
       $SRC/.venv/bin/python -m egomimic.scripts.abc_sim.policy_server --ckpt '$CKPT' --port $PORT > '$OUT/server.log' 2>&1 &
       for i in \$(seq 1 120); do curl -fsS http://127.0.0.1:$PORT/health > /dev/null 2>&1 && break; sleep 5; done
