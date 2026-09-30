@@ -337,6 +337,34 @@ def test_k_scales_with_the_world_size():
     assert len(th._subsample_val_datasets(cfg, "valid", split)[HUMAN]) == 20
 
 
+def test_eval_mode_is_single_rank():
+    """Eval runs are forced onto one device after the loaders are built, so
+    their val split must be subsampled for one rank, not the training W."""
+    cfg = _cfg(metric={"valid": 7})
+    cfg.trainer = {"devices": 4, "num_nodes": 2}
+    assert th._metric_frames_per_episode(cfg, "valid") == 56
+    cfg.mode = "eval"
+    assert th._metric_frames_per_episode(cfg, "valid") == 7
+    del cfg["mode"]
+    cfg.eval = True
+    assert th._metric_frames_per_episode(cfg, "valid") == 7
+
+
+@pytest.mark.parametrize("trainer_cfg", ["ddp", "ddp_pi"])
+def test_ddp_devices_are_per_node(trainer_cfg, compose_resolve):
+    """Lightning reads devices per node; devices * num_nodes is the world."""
+    cfg = compose_resolve(
+        "train_zarr_cartesian",
+        [
+            f"trainer={trainer_cfg}",
+            "launch_params.gpus_per_node=8",
+            "launch_params.nodes=2",
+        ],
+    )
+    assert cfg.trainer.devices == 8 and cfg.trainer.num_nodes == 2
+    assert th._trainer_world_size(cfg) == 16
+
+
 def test_auto_k_is_derived_from_the_resolved_split():
     """`auto` = floor(limit_val_batches * batch_size / episodes), per dataset,
     from the head's own loader batch size, then scaled by the world size."""
