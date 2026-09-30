@@ -607,9 +607,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         )
         norm_stats.populate_from_datasets(datamodule.train_datasets)
 
-        from egomimic.rldb.zarr import norm_cache
+        from egomimic.rldb.zarr import episode_norm_samples, norm_cache
 
         sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
+        max_samples = OmegaConf.select(cfg, "norm_stats.max_samples", default=None)
         pool_horizon = bool(
             OmegaConf.select(cfg, "norm_stats.pool_horizon", default=False)
         )
@@ -644,8 +645,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             )
 
             emb = get_embodiment_id(dataset_name)
-            key = inputs = cached = None
+            key = inputs = cached = episode_cache = None
             if explicit_path is None and use_cache and cache_dir:
+                episode_cache = episode_norm_samples.cache_root(
+                    cache_dir, dataset_name, cfg.data.train_datasets[dataset_name]
+                )
                 episodes = {
                     h: norm_cache.episode_fingerprint(getattr(ds, "episode_path", None))
                     for h, ds in dataset.datasets.items()
@@ -656,6 +660,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                     cfg.data.train_datasets[dataset_name],
                     sample_frac,
                     pool_horizon,
+                    max_samples,
                 )
                 key = norm_cache.norm_cache_key(inputs)
                 cached = norm_cache.find_cached(cache_dir, dataset_name, key, emb)
@@ -667,11 +672,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 norm_dataset,
                 dataset_name,
                 sample_frac=sample_frac,
+                max_samples=max_samples,
                 num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
                 precomputed_norm_path=explicit_path
                 if explicit_path is not None
                 else cached,
                 pool_horizon=pool_horizon,
+                episode_cache=episode_cache,
             )
             if key is not None and cached is None:
                 if norm_stats.norm_stats.get(emb):
