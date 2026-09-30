@@ -12,7 +12,7 @@ from .demo_skill_program import ARMS, validate_program
 from .records import digest
 
 SCHEMA_VERSION = "demo-skill-agent-1"
-PROMPT_TEMPLATE_VERSION = "astra-demo-skill-library-1"
+PROMPT_TEMPLATE_VERSION = "astra-demo-skill-library-2"
 _IDENTITY_FIELDS = (
     "schema_version",
     "role",
@@ -39,6 +39,9 @@ contract. A hypothesis in a card is not a verified transferable skill.
 
 action_composition: select ordered recorded action segments. At each five-action
 replan, reference=(1-alpha)*native_action_chunk + alpha*recorded_demo_chunk.
+This spans the checkpoint's full 50-action prediction horizon; only the first
+five actions execute before replanning. The ten Euler solver steps below are a
+different count from either the prediction horizon or executed-action count.
 The reference is encoded in the policy's native coordinates, reversed with ten
 Euler steps and generated forward with ten Euler steps under CURRENT raw cameras,
 CURRENT proprioception and the ORIGINAL task. Only pi0.5-generated actions execute.

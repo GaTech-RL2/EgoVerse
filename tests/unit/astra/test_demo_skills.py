@@ -2,6 +2,8 @@
 
 import copy
 import json
+from dataclasses import replace
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -332,14 +334,24 @@ def test_full_protocol_preserves_all_tasks_and_disjoint_splits(tmp_path):
         load_protocol(path)
 
 
+@pytest.mark.parametrize("checkpoint_horizon", [False, True])
 def test_full_action_path_uses_current_conditioning_and_neutral_identity(
-    tmp_path, monkeypatch, spec
+    tmp_path, monkeypatch, spec, checkpoint_horizon
 ):
     from astra_reversal import demo_skill_experiment as experiment_module
 
     from .conftest import SyntheticPolicy
 
     policy = SyntheticPolicy()
+    if checkpoint_horizon:
+        config = json.loads(
+            (
+                Path(__file__).parents[2] / "fixtures/astra/lerobot_pi05/config.json"
+            ).read_text()
+        )
+        policy.horizon = config["chunk_size"]
+        assert policy.horizon == 50 and config["n_action_steps"] == 10
+        spec = replace(spec, horizon=policy.horizon)
     observed = []
     raw = live()
     original = digest(raw)
@@ -382,8 +394,9 @@ def test_full_action_path_uses_current_conditioning_and_neutral_identity(
     assert not policy.inverse_inputs
     experiment.run_program(entry, program(stage()), "edited", "development")
     # Constant synthetic flow is invertible analytically; it must recover recorded deltas.
+    indexes = np.minimum(np.arange(policy.horizon), 19)
     np.testing.assert_allclose(
-        observed[2], Bank().arrays("10")["actions"][:10], atol=1e-6
+        observed[2], Bank().arrays("10")["actions"][indexes], atol=1e-6
     )
     assert len(policy.inverse_inputs) == 1
     np.testing.assert_array_equal(policy.inverse_inputs[0][1][..., 7:], 0)

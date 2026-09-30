@@ -217,10 +217,18 @@ class ProgramExecutor:
 def composed_reference(bank, choice, native_actions):
     """Mix actual recorded deltas with native predictions; preserve source order."""
     native = np.asarray(native_actions, dtype=np.float32)
-    if native.shape != (10, 7) or not np.isfinite(native).all():
-        raise ValueError("Expected a finite native ten-action chunk")
+    if (
+        native.ndim != 2
+        or native.shape[0] < 1
+        or native.shape[1] != 7
+        or not np.isfinite(native).all()
+    ):
+        raise ValueError("Expected a finite native full-horizon [H, 7] chunk")
+    horizon = native.shape[0]
     advance = (
-        np.arange(10) if choice["playback"] == "advance" else np.zeros(10, dtype=int)
+        np.arange(horizon)
+        if choice["playback"] == "advance"
+        else np.zeros(horizon, dtype=int)
     )
     indexes = np.minimum(choice["frame"] + advance, choice["end_frame"] - 1)
     donor = bank.arrays(choice["source_id"])["actions"][indexes].copy()

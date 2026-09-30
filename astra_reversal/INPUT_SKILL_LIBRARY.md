@@ -1,9 +1,8 @@
 # ASPIRE-inspired libraries of π0.5 input settings
 
-Status: implemented locally; the new GPU experiments have **not run**. On
-2026-09-30 the local OSMO client could not resolve its service hostname. Previous
-FRS/TEI/TLI/VEI/VLI results are separate experiments and are not evidence for this
-library method.
+Status: experimental implementation; new GPU success-rate results are not yet
+available. Previous FRS/TEI/TLI/VEI/VLI results are separate experiments and are
+not evidence for this library method.
 
 The proposed extension is to make a robot skill an executable configuration of a
 frozen policy: source representations or demonstration frames, interpolation
@@ -44,7 +43,9 @@ flowchart LR
 Each arm owns a separate knowledge library. The native baseline uses exactly the
 same five-action execution cadence, action budget, reset and keyed noise stream
 as its paired evaluation. Old studies with different cadences are not substituted
-for this baseline. Finite-step reversal is a heuristic; it does not guarantee that
+for this baseline. References span the checkpoint's full **50-action prediction
+horizon**; the executor consumes five actions before replanning. The ten Euler
+solver steps are independent of both of these counts. Finite-step reversal is a heuristic; it does not guarantee that
 a rough reference becomes physically appropriate or more successful.
 
 ## Input-setting primitives
