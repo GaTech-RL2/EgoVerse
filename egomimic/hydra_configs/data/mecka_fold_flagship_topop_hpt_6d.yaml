@@ -43,3 +43,32 @@ train_datasets:
         - "lambda row: '/mecka/flagship/' in str(row.get('zarr_processed_path', ''))"
         # SINGLE-OPERATOR TRAIN: the largest flagship operator only.
         - "lambda row: str(row.get('operator', '')) == '6903686e0e94ce070afd1f24'"
+
+# ---------------------------------------------------------------------------
+# METRIC / VIDEO LOADERS: only the SEEN-op and train_viz entries differ from the
+# parent (this config trains on one operator, so those two splits are smaller).
+# ---------------------------------------------------------------------------
+# K is the SINGLE-RANK value, floor(5120 / episodes-in-that-split); trainHydra
+# scales it by the world size. Episode counts measured 2026-09-15:
+#   valid      20 eps / 3,731 frames  -> K = floor(5120/20)  = 256. Every
+#              episode here is shorter than 256 (longest 239f), so this keeps
+#              the WHOLE seen-val split: 3,731 frames = 58.3 of the 80 batches.
+#   train_viz 385 eps / 72,282 frames -> K = floor(5120/385) =  13
+#              -> 385 x 13 = 5,005 frames = 78.2 batches.
+# `unseen_op_valid: 26` is inherited unchanged (same split as the parent), and
+# hydra merges dicts, so only the two changed keys are restated.
+metric_frames_per_episode:
+  valid: 256
+  train_viz: 13
+
+# The parent's seen-val pin belongs to operator 690364170e94ce070afd1da5, which
+# is not in this config's single-operator split, so it is replaced (hydra
+# replaces lists wholesale). The train_viz pin 692e9bda21fc595fbe6f941e IS an
+# episode of operator 6903686e..., hence in this train split too, and the
+# unseen pins are the same split as the parent's -- both inherited.
+#   valid  692e83ad567c97525f4011a5 (6903686e0e94ce070afd1f24, 239f)
+#          the longest episode in this 20-episode seen-val split: 3.7 of the 10
+#          video batches. No longer contiguous episode exists here.
+video_episodes:
+  valid:
+    - 692e83ad567c97525f4011a5
