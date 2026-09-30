@@ -956,6 +956,124 @@ def _local_snapshot_if_offline(model_name: str) -> str:
     return snapshot_download(model_name, local_files_only=True)
 
 
+class DINOv3Stem(PretrainedWeights, PolicyStem):
+    """Pretrained DINOv3 ViT (timm), a drop-in replacement for ``ResNet``:
+    ``(B, T, N, 3, H, W)`` images in [0, 1] in, ``(B, patches, output_dim)`` out.
+    The stem owns the resize and the checkpoint's mean / std, so the config
+    must NOT normalize these images in its augs.
+
+    Loaded through timm rather than transformers: the ``timm/*_dinov3`` hub
+    repos are not gated (``facebook/dinov3-*`` is), and DINOv3 in transformers
+    needs >= 4.56, above our pin.
+
+    Args:
+        model_name: timm model id, e.g. ``vit_base_patch16_dinov3.lvd1689m``
+            (86M) or ``vit_large_patch16_dinov3.lvd1689m`` (300M).
+        output_dim: width of the projected tokens.
+        freeze_backbone: freeze the tower, keep it in eval mode and run it
+            under ``no_grad``.
+        image_size: ``S`` or ``[H, W]``, multiples of the patch size. DINOv3 is
+            RoPE-based, so non-square inputs need no position interpolation.
+        pretrained: ``False`` builds a randomly initialised tower (tests).
+        tower_kwargs: timm architecture overrides (tests).
+    """
+
+    DEFAULT_MODEL = "vit_base_patch16_dinov3.lvd1689m"
+    _hpt_pretrained_attrs = ("tower",)
+
+    def __init__(
+        self,
+        model_name: str = DEFAULT_MODEL,
+        output_dim: int = 10,
+        freeze_backbone: bool = True,
+        image_size=256,
+        pretrained: bool = True,
+        tower_kwargs: Optional[dict] = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        import timm
+
+        self.model_name = model_name
+        self.pretrained = pretrained
+        self.tower = timm.create_model(
+            model_name, pretrained=pretrained, num_classes=0, **dict(tower_kwargs or {})
+        )
+        self.hidden_size = int(self.tower.embed_dim)
+        self.num_prefix_tokens = int(self.tower.num_prefix_tokens)
+        size = [image_size] * 2 if isinstance(image_size, int) else list(image_size)
+        patch = self.tower.patch_embed.patch_size[0]
+        if any(s % patch for s in size):
+            raise ValueError(
+                f"DINOv3Stem image_size {size} is not a multiple of {patch}"
+            )
+        self.image_size = tuple(int(s) for s in size)
+        self.grid_size = tuple(s // patch for s in self.image_size)
+        cfg = self.tower.pretrained_cfg
+        self.register_buffer(
+            "image_mean", torch.tensor(cfg["mean"]).view(1, 3, 1, 1), persistent=False
+        )
+        self.register_buffer(
+            "image_std", torch.tensor(cfg["std"]).view(1, 3, 1, 1), persistent=False
+        )
+
+        self.out_dim = output_dim
+        self.proj = nn.Linear(self.hidden_size, output_dim)
+
+        self.freeze_backbone = freeze_backbone
+        if freeze_backbone:
+            for param in self.tower.parameters():
+                param.requires_grad = False
+
+    def train(self, mode: bool = True):
+        """Keep a frozen tower in eval mode regardless of the outer flag."""
+        super().train(mode)
+        if self.freeze_backbone:
+            self.tower.eval()
+        return self
+
+    def backbone_parameters(self):
+        """Pretrained-tower parameters (``proj`` stays in the main group)."""
+        return list(self.tower.parameters())
+
+    def pretrained_reference_state_dict(self) -> Optional[dict]:
+        """The cached timm checkpoint, keyed ``tower.*``. ``None`` for a random
+        tower, or when the file is not in the local HF cache."""
+        if not self.pretrained:
+            return None
+        from huggingface_hub import hf_hub_download
+        from safetensors.torch import load_file
+
+        try:
+            path = hf_hub_download(
+                self.tower.pretrained_cfg["hf_hub_id"],
+                "model.safetensors",
+                local_files_only=True,
+            )
+        except Exception:  # not cached, or not an HF-hosted timm model
+            return None
+        return {f"tower.{k}": v for k, v in load_file(path).items()}
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, *_, H, W = x.shape
+        x = x.reshape(-1, 3, H, W)
+        x = F.interpolate(
+            x,
+            size=self.image_size,
+            mode="bilinear",
+            align_corners=False,
+            antialias=True,
+        )
+        x = (x - self.image_mean) / self.image_std
+        with torch.set_grad_enabled(
+            not self.freeze_backbone and torch.is_grad_enabled()
+        ):
+            feat = self.tower.forward_features(x)
+        # drop CLS + register tokens; RDT conditions on patch tokens only
+        feat = feat[:, self.num_prefix_tokens :]
+        return self.proj(feat.reshape(B, -1, self.hidden_size))
+
+
 class _Qwen3BaseEncoder(PretrainedWeights, PolicyStem):
     """Shared base for Qwen3-Embedding stems used by HPT.
 
