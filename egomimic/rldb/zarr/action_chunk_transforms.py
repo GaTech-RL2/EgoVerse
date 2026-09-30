@@ -140,6 +140,53 @@ class InterpolateLinear(Transform):
         return batch
 
 
+class InterpolatePadMask(Transform):
+    """Carry the dataset's action pad mask through the action interpolation.
+
+    The interpolators resample a (T, D) chunk from ``np.linspace(0, 1, T)``
+    onto ``np.linspace(0, 1, new_chunk_length)``; an output step is real only
+    if BOTH source frames it interpolates between are real (a step landing
+    exactly on a source frame inherits that frame). No-op when the mask key is
+    absent, and idempotent, so a mode that chains two builders
+    (``include_ee_pose``) still upsamples the mask once.
+    """
+
+    def __init__(
+        self,
+        new_chunk_length: int,
+        mask_key: str = "action_pad_mask",
+        stride: int = 1,
+    ):
+        if stride <= 0:
+            raise ValueError(f"stride must be positive, got {stride}")
+        self.new_chunk_length = new_chunk_length
+        self.mask_key = mask_key
+        self.stride = int(stride)
+
+    def transform(self, batch: dict) -> dict:
+        mask = batch.get(self.mask_key)
+        if mask is None:
+            return batch
+        mask = np.asarray(mask, dtype=np.float32).reshape(-1)
+        if mask.shape[0] == self.new_chunk_length:
+            return batch  # already at the model horizon
+        mask = mask[:: self.stride]
+        T = mask.shape[0]
+        if T < 2:
+            batch[self.mask_key] = np.full(
+                self.new_chunk_length, mask[0] if T else 0.0, dtype=np.float32
+            )
+            return batch
+        # Position of each output sample in source-frame index units.
+        pos = np.linspace(0, 1, self.new_chunk_length) * (T - 1)
+        nearest = np.rint(pos)
+        on_frame = np.abs(pos - nearest) < 1e-9
+        lo = np.where(on_frame, nearest, np.floor(pos)).astype(int)
+        hi = np.where(on_frame, nearest, np.ceil(pos)).astype(int)
+        batch[self.mask_key] = ((mask[lo] > 0) & (mask[hi] > 0)).astype(np.float32)
+        return batch
+
+
 # ---------------------------------------------------------------------------
 # Coordinate Transforms
 # ---------------------------------------------------------------------------

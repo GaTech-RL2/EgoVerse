@@ -18,6 +18,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     ConcatKeys,
     DeleteKeys,
     InterpolateLinear,
+    InterpolatePadMask,
     InterpolatePose,
     NumpyToTensor,
     PoseCoordinateFrameTransform,
@@ -396,6 +397,7 @@ def _build_eva_bimanual_eef_frame_transform_list(
             output_action_key=right_cmd_gripper,
             stride=stride,
         ),
+        InterpolatePadMask(new_chunk_length=chunk_length, stride=stride),
         # Step 2: transform camera-frame actions into EEF-relative (wrist) frame
         ActionChunkCoordinateFrameTransform(
             target_world=left_obs_camframe,
@@ -559,6 +561,7 @@ def _build_eva_bimanual_transform_list(
             output_action_key=right_cmd_gripper,
             stride=stride,
         ),
+        InterpolatePadMask(new_chunk_length=chunk_length, stride=stride),
     ]
 
     if is_quat:
