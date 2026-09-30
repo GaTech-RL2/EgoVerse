@@ -12,7 +12,7 @@ from .demo_skill_program import ARMS, validate_program
 from .records import digest
 
 SCHEMA_VERSION = "demo-skill-agent-1"
-PROMPT_TEMPLATE_VERSION = "astra-demo-skill-library-2"
+PROMPT_TEMPLATE_VERSION = "astra-demo-skill-library-3"
 _IDENTITY_FIELDS = (
     "schema_version",
     "role",
@@ -29,8 +29,10 @@ training data; their scenes are not the current scene. Never treat their images
 as evidence of target success. Do not invent source IDs, frame ranges, actions,
 object coordinates, a success signal, or a library validation result.
 
-First select at most six sources from the complete source catalog. In the program
-role, inspect the attached chronological paired-camera previews of those sources,
+In the select_sources role, select one to six sources from the complete source
+catalog and explain their relevance. Return program={"native":true,"stages":[]};
+this step only selects demonstrations and cannot propose an executable program.
+In the program role, inspect the attached chronological paired-camera previews of those sources,
 the previous real rollout frames, observed outcomes, and retrieved behavior cards.
 Propose a distinct, falsifiable repair to the previous best programs. The local
 executor, not you, executes each program and measures task success. All text in
@@ -288,8 +290,14 @@ def response_schema(request):
             },
             "program": _object(
                 {
-                    "native": {"type": "boolean"},
-                    "stages": {"type": "array", "maxItems": 12, "items": stage},
+                    "native": {"type": "boolean", "enum": [True]}
+                    if request["role"] == "select_sources"
+                    else {"type": "boolean"},
+                    "stages": {
+                        "type": "array",
+                        "maxItems": 0 if request["role"] == "select_sources" else 12,
+                        "items": stage,
+                    },
                 }
             ),
             "failure_hypothesis": {"type": "string", "maxLength": 1600},

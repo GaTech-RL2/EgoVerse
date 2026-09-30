@@ -314,6 +314,40 @@ def test_agent_response_is_bound_to_sources_and_request():
         response_schema(req)
 
 
+def test_source_selection_cannot_generate_or_execute_a_program():
+    from astra_reversal.codex_executor import generation_schema
+
+    req = request()
+    req.pop("request_fingerprint")
+    req["role"] = "select_sources"
+    req["request_fingerprint"] = digest(req)
+    schema = generation_schema(response_schema(req))
+    constraint = schema["properties"]["program"]["properties"]
+    assert constraint["native"] == {"type": "boolean", "enum": [True]}
+    assert constraint["stages"]["maxItems"] == 0
+    response = {
+        "selected_sources": ["10"],
+        "program": {"native": True, "stages": []},
+        "failure_hypothesis": "destination confusion",
+        "expected_effect": "inspect the bowl-on-plate demonstration",
+    }
+    assert parse_proposal(response, req)["program"] == response["program"]
+    response["program"] = program(stage(vision_operator="pixels"))
+    with pytest.raises(ValueError, match="Source-selection"):
+        parse_proposal(response, req)
+    response["program"]["native"] = True
+    with pytest.raises(ValueError):
+        parse_proposal(response, req)
+    # The subsequent authoring role must still be able to propose interventions.
+    response["program"]["native"] = False
+    constraint = generation_schema(response_schema(request()))["properties"]["program"][
+        "properties"
+    ]
+    assert constraint["native"] == {"type": "boolean"}
+    assert constraint["stages"]["maxItems"] > 0
+    assert not parse_proposal(response, request())["program"]["native"]
+
+
 def test_new_relay_and_executor_family_dispatch():
     from astra_reversal import demo_skill_agent
     from astra_reversal.codex_executor import _module as executor_module
