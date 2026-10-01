@@ -113,6 +113,7 @@ class DemoSkillExperiment:
         client,
         progress=None,
         text_banks=None,
+        recovery=None,
     ):
         self.policy, self.create_env, self.benchmark = policy, create_env, benchmark
         self.bank, self.protocol, self.arm, self.client = bank, protocol, arm, client
@@ -122,6 +123,7 @@ class DemoSkillExperiment:
         self.progress = progress or (lambda: None)
         self.reset_audits, self.selected, self.request_index = {}, {}, 0
         self.parity_checked = False
+        self.recovery = recovery
         self.conditioner = InputSkillConditioner(policy, bank, text_banks or {})
         self.report = {
             "schema_version": "demo-skill-experiment-1",
@@ -133,12 +135,21 @@ class DemoSkillExperiment:
             "tasks": {},
             "frozen_policy": True,
         }
+        if recovery is not None:
+            from .demo_skill_recovery import RecoveryClient
+
+            self.client = RecoveryClient(client, recovery)
+            self.report["recovery"] = copy.deepcopy(recovery.receipt)
         self.save()
 
     def save(self):
         self.report["provider_records"] = copy.deepcopy(self.client.records)
         write_json(self.directory / "summary.json", self.report)
-        self.progress()
+        # Recovered bytes already have an immutable remote archive. Publish the
+        # reconstructed state once before fresh work, rather than re-uploading
+        # its growing prefix after every historical event.
+        if self.recovery is None or not self.recovery.replaying:
+            self.progress()
 
     def run_program(self, entry, program, attempt_id, split):
         if split == "evaluation" and not self.library.data["frozen"]:
@@ -148,6 +159,17 @@ class DemoSkillExperiment:
             raise FileExistsError(
                 "Physical attempt IDs cannot be replayed or overwritten"
             )
+        if self.recovery is not None:
+            recovered = self.recovery.rollout(entry, program, attempt_id, split, path)
+            if recovered is not None:
+                self.reset_audits.setdefault(
+                    entry["episode_id"], recovered["reset_audit"]
+                )
+                self.report["physical_rollouts"].append(
+                    {k: v for k, v in recovered.items() if k != "snapshots"}
+                )
+                self.save()
+                return recovered
         recorder = Recorder(path)
         executor = ProgramExecutor(program, self.bank, self.arm)
         env, task, _ = self.create_env(entry["task_id"], entry["seed"])
@@ -292,12 +314,15 @@ class DemoSkillExperiment:
 
     def propose(self, entry, initial, history, role, selected=()):
         self.request_index += 1
+        attempt_id = f"{entry['suite']}_{entry['task_id']}_request{self.request_index}"
+        if self.recovery is not None:
+            attempt_id = self.recovery.attempt_name(self.request_index, attempt_id)
         request = build_request(
             role=role,
             arm=self.arm,
             task=entry["instruction"],
             episode_id=entry["episode_id"],
-            attempt_id=f"{entry['suite']}_{entry['task_id']}_request{self.request_index}",
+            attempt_id=attempt_id,
             request_index=self.request_index,
             bank=self.bank,
             initial_snapshot=initial,
@@ -306,6 +331,8 @@ class DemoSkillExperiment:
             selected_sources=selected,
             text_bank_sources=list(self.conditioner.text_banks),
         )
+        if self.recovery is not None:
+            request = self.recovery.bind_request(request)
         write_json(
             self.directory / "requests" / f"{self.request_index:05d}.json", request
         )
@@ -482,5 +509,7 @@ class DemoSkillExperiment:
             raise ValueError(
                 "Cannot complete a study with missing or extra paired evaluation rollouts"
             )
+        if self.recovery is not None:
+            self.recovery.exhausted()
         self.report["status"] = "complete"
         self.save()

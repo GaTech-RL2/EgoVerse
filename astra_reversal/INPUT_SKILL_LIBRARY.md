@@ -180,15 +180,46 @@ osmo workflow submit /path/to/private-launch/workflow.yaml \
   --pool groot-l40s-01 --priority NORMAL --format-type json
 ```
 
-Keep the returned exact workflow name and query that workflow. Once its two
-workers report `RUNNING`, run each worker's generated `connect.sh WORKFLOW_NAME`
-in a separate terminal with the environment activated. Each transfers the
-checksum-bound payload, opens its own authenticated local relay, and preserves
-Codex job journals. Stop these local connectors when their workers terminate;
-they do not supervise or restart a failed job. Results upload under the workflow's
-owned R2 prefix through the existing worker archive.
+Save the returned JSON as `private-launch/submission.json`. Run
+`python -m astra_reversal.osmo.supervise_demo_skills /path/to/private-launch`
+with the environment activated. The supervisor transfers the checksum-bound
+payload and starts each authenticated relay from a source snapshot. It checks
+transport health every cycle, renews port forwards after three failed checks
+following a healthy connection, and renews them every 15 minutes. Only the
+transport restarts; Codex processes and job journals remain intact. Individual
+`connect.sh WORKFLOW_NAME` scripts remain available for manual diagnostics.
+Results upload under the workflow's owned R2 prefix through the existing archive.
 
 For the full study, prepare a **new** launch directory without `--pilot`; keep
 pilot evidence separate. No launch has been submitted by merely rendering a
 workflow. Submission, worker startup, provider availability, actual trial counts
 and completion must each be verified before reporting a run as finished.
+
+## Continuing an interrupted search
+
+The launch preparer accepts `--recovery-manifest /path/to/manifest.json`.
+The manifest pins both prior worker archives by exact owned key, byte count and
+SHA256. Each worker verifies and extracts its own archive, verifies the standard
+demo bank, recaptures the reset manifest, and checks that every frozen policy
+tensor matches the previous worker. The protocol and arm must match exactly.
+
+Continuation reconstructs the search and library from the beginning using
+verified recorded evidence. Completed physical attempts are imported once;
+they do not execute again. All trace files and observation arrays are checked.
+Each accepted Astra decision is reused only if the complete reconstructed
+request matches, including decoded image pixels, library context, model,
+reasoning effort and prompt. PNG compression may differ between platforms;
+when pixels match, the original encoded request and fingerprint are retained.
+
+Every old provider ledger row is retained, including unknown usage from the
+interrupted request. The next new request receives a continuation-specific
+identity; an old invocation is never silently retried. The continued summary
+identifies its ancestor archive and imported attempts, so aggregation must not
+sum the interrupted and continued copies as independent experiments. Primary
+metrics still require all declared paired evaluation rollouts to complete.
+
+An offline audit of the interrupted `full-2` archives reconstructed 56 and 64
+physical attempts, 29 accepted decisions per arm, and both complete partial
+libraries without any model or simulator execution. These are recovery checks,
+not additional performance measurements. The interrupted study has no final
+held-out-reset evaluation results yet.

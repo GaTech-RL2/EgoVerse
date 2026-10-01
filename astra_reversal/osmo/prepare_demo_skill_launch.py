@@ -10,10 +10,13 @@ from pathlib import Path
 import yaml
 
 from astra_reversal.demo_segments import write_json
+from astra_reversal.osmo.demo_skill_recovery import validate_manifest
 from astra_reversal.records import file_sha256
 
 
-def prepare(bundle, destination, *, pilot=False, port_base=19930):
+def prepare(
+    bundle, destination, *, pilot=False, port_base=19930, recovery_manifest=None
+):
     repo = Path(__file__).resolve().parents[2]
     bundle, destination = Path(bundle).resolve(), Path(destination).resolve()
     identity = json.loads((bundle / "source_identity.json").read_text())
@@ -42,6 +45,11 @@ def prepare(bundle, destination, *, pilot=False, port_base=19930):
     if len(spec["workflow"]["tasks"]) != 2:
         raise ValueError("Expected one worker for each separate experiment arm")
     destination.mkdir(parents=True, mode=0o700, exist_ok=False)
+    if recovery_manifest is not None:
+        recovery_manifest = validate_manifest(
+            json.loads(Path(recovery_manifest).read_text())
+        )
+        write_json(destination / "recovery_manifest.json", recovery_manifest)
     spec["workflow"]["name"] += "-pilot" if pilot else "-full"
     workers = []
     for index, task in enumerate(spec["workflow"]["tasks"]):
@@ -67,6 +75,18 @@ def prepare(bundle, destination, *, pilot=False, port_base=19930):
                 raise ValueError("Unexpected task upload")
         if file_sha256(bundle / "bootstrap.sh") != identity["bootstrap_sha256"]:
             raise ValueError("Bootstrap differs from the immutable bundle")
+        if recovery_manifest is not None:
+            manifest_path = destination / "recovery_manifest.json"
+            task["files"].append(
+                {
+                    "localpath": str(manifest_path),
+                    "path": "/tmp/astra-demo-recovery.json",
+                }
+            )
+            task["environment"].update(
+                ASTRA_DEMO_RECOVERY_FILE="/tmp/astra-demo-recovery.json",
+                ASTRA_DEMO_RECOVERY_SHA256=file_sha256(manifest_path),
+            )
         workers.append(
             {
                 "task": task["name"],
@@ -86,6 +106,7 @@ def prepare(bundle, destination, *, pilot=False, port_base=19930):
             "payload": str(payload),
             "automatic_model_or_rollout_retries": False,
             "status": "prepared_not_submitted",
+            "recovery_manifest": recovery_manifest,
         },
     )
     # One operator-owned terminal per worker. It connects only after OSMO reports
@@ -121,6 +142,7 @@ def main():
     parser.add_argument("destination", type=Path)
     parser.add_argument("--pilot", action="store_true")
     parser.add_argument("--port-base", type=int, default=19930)
+    parser.add_argument("--recovery-manifest", type=Path)
     args = parser.parse_args()
     print(
         json.dumps(
@@ -129,6 +151,7 @@ def main():
                 args.destination,
                 pilot=args.pilot,
                 port_base=args.port_base,
+                recovery_manifest=args.recovery_manifest,
             )
         )
     )

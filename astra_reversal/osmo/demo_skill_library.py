@@ -1,14 +1,19 @@
 """Two owned L40S workers: demo-action composition and reusable input skills."""
 
+import json
 import os
+import shutil
+from pathlib import Path
 
 from astra_reversal.codex_relay import CodexRelayClient, ensure_server
 from astra_reversal.config import BenchmarkConfig
 from astra_reversal.demo_segments import DemoBank, build_bank, write_json
 from astra_reversal.demo_skill_experiment import DemoSkillExperiment, load_protocol
 from astra_reversal.demo_skill_metrics import write_metrics
+from astra_reversal.demo_skill_recovery import RecoveryArchive
 from astra_reversal.intervention_rollout import capture_reset_manifest
 from astra_reversal.libero_runner import configure_libero
+from astra_reversal.osmo.demo_skill_recovery import fetch_archive
 from astra_reversal.osmo.experiment import RESULTS, ROOT
 from astra_reversal.osmo.frs_policy_improvement import frozen_parameter_receipt
 from astra_reversal.osmo.interpolation import (
@@ -17,7 +22,7 @@ from astra_reversal.osmo.interpolation import (
     native_preflight,
 )
 from astra_reversal.osmo.ood_distributed import WorkerArchive
-from astra_reversal.records import digest
+from astra_reversal.records import digest, file_sha256
 
 
 def main():
@@ -54,9 +59,28 @@ def main():
     archive.sync()
     try:
         native_preflight(archive)
+        prior = None
+        recovery_manifest = None
+        if os.environ.get("ASTRA_DEMO_RECOVERY_FILE"):
+            source = Path(os.environ["ASTRA_DEMO_RECOVERY_FILE"])
+            if file_sha256(source) != os.environ["ASTRA_DEMO_RECOVERY_SHA256"]:
+                raise ValueError("Recovery manifest bytes changed after submission")
+            recovery_manifest = json.loads(source.read_text())
+            prior = fetch_archive(
+                archive.client,
+                recovery_manifest,
+                worker,
+                ROOT / "astra_reversal/.deps/demo-recovery",
+            )
+            if json.loads((prior / "runtime.json").read_text())["pilot"] != pilot:
+                raise ValueError("Cannot change pilot/full scope during recovery")
+            write_json(RESULTS / "recovery_manifest.json", recovery_manifest)
         root = ROOT / "astra_reversal/.deps/demo-skill-inputs/source_cache"
         bank_path = RESULTS / "demo_bank"
-        build_bank(root, bank_path, cached_only=pilot)
+        if prior is None:
+            build_bank(root, bank_path, cached_only=pilot)
+        else:
+            shutil.copytree(prior / "demo_bank", bank_path)
         bank = DemoBank(bank_path)
         if not pilot and not bank.metadata["complete_standard_catalog"]:
             raise RuntimeError("The full study cannot silently use a partial demo bank")
@@ -92,9 +116,26 @@ def main():
                 output=RESULTS / f"{suite}_resets.json",
                 split="followup_adaptation",
             )
+            if prior is not None:
+                old = json.loads((prior / f"{suite}_resets.json").read_text())
+                if old["episodes"] != manifests[suite]["episodes"]:
+                    raise ValueError("Recovered environment reset manifest changed")
         policy = load_frozen_policy()
         before = frozen_parameter_receipt(policy)
         write_json(RESULTS / "frozen_weights_before.json", before)
+        recovery = None
+        if prior is not None:
+            if json.loads((prior / "frozen_weights_before.json").read_text()) != before:
+                raise ValueError("Recovered policy parameter bytes changed")
+            recovery = RecoveryArchive(
+                prior,
+                arm=arm,
+                bank_id=bank.bank_id,
+                protocol=protocol,
+                namespace=os.environ["ASTRA_RUN_ID"],
+            )
+            recovery.receipt["source_archive"] = recovery_manifest["workers"][worker]
+            write_json(RESULTS / "recovery.json", recovery.receipt)
         client = CodexRelayClient(
             family="demo_skills",
             response_log=RESULTS / "provider.jsonl",
@@ -117,6 +158,7 @@ def main():
             client,
             progress=archive.sync,
             text_banks=text_banks,
+            recovery=recovery,
         )
         experiment.report.update(
             pilot=pilot,
