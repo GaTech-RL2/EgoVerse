@@ -59,6 +59,10 @@ def _module(family):
         from . import representation_agent
 
         return representation_agent
+    if family == "demo_skills":
+        from . import demo_skill_agent
+
+        return demo_skill_agent
     raise ClientError("Unknown Codex relay request family")
 
 
@@ -409,7 +413,7 @@ def _proposal(value, request, module, family):
     if not isinstance(value, dict):
         raise ClientError("Codex proposal must be an object")
     bound_fields = {"request_fingerprint": request["request_fingerprint"]}
-    if family == "representation":
+    if family in ("representation", "demo_skills"):
         bound_fields.update(
             {
                 key: request[key]
