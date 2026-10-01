@@ -1,0 +1,52 @@
+{
+  "repo_id": "google/paligemma-3b-pt-224",
+  "revision": "35e4f46485b4d07967e7e9935bc3786aad50687c",
+  "source_url": "https://huggingface.co/google/paligemma-3b-pt-224/tree/35e4f46485b4d07967e7e9935bc3786aad50687c",
+  "local_directory": "astra_reversal/.deps/tokenizers/paligemma-3b-pt-224",
+  "downloaded_at_utc": "2026-09-24T00:13:13.841519+00:00",
+  "files": [
+    {
+      "path": "added_tokens.json",
+      "size_bytes": 24,
+      "sha256": "7d0bad90030d638a4bf89a82e91206e25f1fbe0012f14bca21666a64b643bc49",
+      "published_object_id": "ff9246e420971b10c510b39a0de289132c2bf23f",
+      "verified_against": "hugging_face_git_blob_sha1"
+    },
+    {
+      "path": "config.json",
+      "size_bytes": 1027,
+      "sha256": "e00c72cdff16296bf1229c3267b99f5247d8c740cae84336866338d64fa7918f",
+      "published_object_id": "b89393ba09b432265173f688b8a41a2c3c9e3e4c",
+      "verified_against": "hugging_face_git_blob_sha1"
+    },
+    {
+      "path": "special_tokens_map.json",
+      "size_bytes": 607,
+      "sha256": "5ef37093ae4236587b6e8266acb815b46e2db8ce656c66552bfa574d32880405",
+      "published_object_id": "0c18fdd94629ea652e2ef36ed9a422474ad0a8e8",
+      "verified_against": "hugging_face_git_blob_sha1"
+    },
+    {
+      "path": "tokenizer.json",
+      "size_bytes": 17549604,
+      "sha256": "ef6773c135b77b834de1d13c75a4c98ab7a3684ffd602d1831e1f1bf5467c563",
+      "published_object_id": "ef6773c135b77b834de1d13c75a4c98ab7a3684ffd602d1831e1f1bf5467c563",
+      "verified_against": "hugging_face_lfs_sha256"
+    },
+    {
+      "path": "tokenizer.model",
+      "size_bytes": 4264023,
+      "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6",
+      "published_object_id": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6",
+      "verified_against": "hugging_face_lfs_sha256"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "size_bytes": 39968,
+      "sha256": "3259402b1d1802e02417d7bff75a889ec61d359d15be6050a957b307c48edbbe",
+      "published_object_id": "960dcec0bccc6e594d865eceb63c8078e164cfb2",
+      "verified_against": "hugging_face_git_blob_sha1"
+    }
+  ],
+  "all_selected_files_verified": true
+}
