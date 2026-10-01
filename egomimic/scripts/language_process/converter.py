@@ -40,6 +40,7 @@ class PickPlaceLLMConverter(LLMConverter):
         scale_annotation_dir: str,
         prompt_filepath: str,
         augment_prompt_filepath: str | None = None,
+        link_prompt_filepath: str | None = None,
     ):
         super().__init__(scale_annotation_dir, prompt_filepath)
         if augment_prompt_filepath is not None:
@@ -47,10 +48,16 @@ class PickPlaceLLMConverter(LLMConverter):
                 self.augment_prompt_template = f.read()
         else:
             self.augment_prompt_template = None
+        if link_prompt_filepath is not None:
+            with open(link_prompt_filepath, "r") as f:
+                self.link_prompt_template = f.read()
+        else:
+            self.link_prompt_template = None
 
     def scale_to_str_format(self, annotation_dict: dict) -> dict:
         annotations = annotation_dict["annotations"]
         zarr_annotations_list = []
+        clip_records: list[dict] = []
         for annotation in annotations:
             if "label" not in annotation:
                 continue
@@ -79,7 +86,63 @@ class PickPlaceLLMConverter(LLMConverter):
                 end_idx = timestamp + duration
                 for instruction in instructions:
                     zarr_annotations_list.append((instruction, start_idx, end_idx))
+                clip_records.append(
+                    {
+                        "action": attr_dict["Action"],
+                        "arm": arm,
+                        "start_idx": start_idx,
+                        "end_idx": end_idx,
+                        "base_instruction": base_instruction,
+                        "prompt_dict": prompt_dict,
+                    }
+                )
+
+        if self.link_prompt_template is not None:
+            zarr_annotations_list.extend(
+                self._build_linked_pick_place_annotations(clip_records)
+            )
         return zarr_annotations_list
+
+    def _build_linked_pick_place_annotations(
+        self, clip_records: list[dict]
+    ) -> list[tuple]:
+        """Pair each Pick with the next Put on the same arm and emit a
+        linked instruction spanning pick.start → place.end."""
+        sorted_records = sorted(clip_records, key=lambda r: r["start_idx"])
+        linked: list[tuple] = []
+        for i, rec in enumerate(sorted_records):
+            if rec["action"] != "Pick up":
+                continue
+            for j in range(i + 1, len(sorted_records)):
+                other = sorted_records[j]
+                if other["arm"] != rec["arm"]:
+                    continue
+                if other["action"] in ("Put", "Dump"):
+                    combined = self._combine_pick_place(rec, other)
+                    merged_metadata = {
+                        **rec["prompt_dict"],
+                        **other["prompt_dict"],
+                        "arm": rec["arm"],
+                    }
+                    instructions = self.augment_instruction(
+                        combined,
+                        merged_metadata,
+                    )
+                    for instruction in instructions:
+                        linked.append((instruction, rec["start_idx"], other["end_idx"]))
+                break
+        return linked
+
+    def _combine_pick_place(self, pick_record: dict, place_record: dict) -> str:
+        payload = {
+            "pick_instruction": pick_record["base_instruction"],
+            "place_instruction": place_record["base_instruction"],
+            "pick_metadata": pick_record["prompt_dict"],
+            "place_metadata": place_record["prompt_dict"],
+        }
+        model_prompt = self.link_prompt_template + "\n" + json.dumps(payload)
+        response = self.client.responses.create(model=self.model, input=model_prompt)
+        return response.output_text
 
     def scale_annotation_to_str(self, scale_annotation_dict: dict) -> str:
         model_prompt = self.prompt_template + "\n" + json.dumps(scale_annotation_dict)

@@ -1,0 +1,36 @@
+You are generating a single natural-language instruction that combines an adjacent pick and place-or-dump action into one coherent step for a language-conditioned robot bimanual manipulation policy. The robot will execute the full pick-then-place or pick-then-dump motion as one instruction.
+
+You will be given a JSON object with four fields:
+- "pick_instruction": the standalone instruction for the pick action.
+- "place_instruction": the standalone instruction for the place or dump action that immediately follows. The "Action" field in "place_metadata" indicates which of the two it is ("Put" for place, "Dump" for dump).
+- "pick_metadata": the raw metadata used to produce the pick instruction (may include "arm", "Grabbing Method", "description", etc.).
+- "place_metadata": the raw metadata used to produce the place or dump instruction (may include "Action", "arm", "Placed Object Orientation", "Orientation Reference Point", "Facing Part", "description", etc.).
+
+Output exactly one instruction sentence in the imperative mood that joins both actions. Keep it under 35 words. Do not include punctuation other than a period at the end.
+- For a Put follow-up, use a place verb (e.g. "Pick up the red cup with the left hand and place it upright on the shelf.").
+- For a Dump follow-up, use "dump" as the second verb (e.g. "Pick up the red cup with the left hand and dump it into the bin."). Do not substitute "dump" for "place" when the Action is "Put", and do not substitute a place verb when the Action is "Dump".
+
+Rules:
+- The two actions are performed by the same arm. Mention the arm exactly once.
+- Connect the two actions naturally with a connector such as "and", "and then", "then", or by using a participial form. Do not produce two independent sentences.
+- Preserve all action-relevant metadata from both pick and place: object identity, grabbing method (if present), placed object orientation, orientation reference point, and facing part (when applicable).
+- Do not invent details that are not present in either instruction or metadata.
+- Do not use "lift" as a synonym for pick, grab, or take.
+- Do not include any "Mistake" field information.
+- Do not include adverbs that describe the style in which the robot performs the task (e.g. "carefully", "precisely").
+- Use concrete, action-oriented language a robot can execute directly.
+- Refer to the picked object with a pronoun ("it") in the place portion when the same object is being placed, to avoid awkward repetition — unless the place instruction specifies a different object identity.
+
+Respect the same per-action exclusions used when producing the place or dump instruction:
+- When the Action is "Put":
+  - When "Facing Part" is N/A in place_metadata, do not include orientation or reference metadata. If the place_instruction already contains orientation information, leave it.
+  - "Placed Object Orientation" and "Orientation Reference Point" refer to the object being manipulated, not the container.
+  - When the manipulated item is a bag of chips or a toy, exclude "Orientation Reference Point".
+  - When the manipulated item is a type of can or a bowl, do not include orientation.
+- When the Action is "Dump":
+  - Include what is being dumped and the destination container or surface.
+  - Do not include placed-object orientation or reference metadata.
+
+Output only the single combined instruction sentence with no surrounding prose, markdown, or code fences.
+
+Input:
