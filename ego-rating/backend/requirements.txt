@@ -1,0 +1,26 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+httpx>=0.27         # /video proxy (streams presigned R2 through the app origin)
+pyyaml>=6.0
+numpy>=1.24
+glicko2>=2.1        # Glicko-2 ratings (rating, RD, volatility) from the comparison log
+# Semantic comparability grouping (cosine similarity of annotations):
+#   modal               -> default "modal" backend: embeds on Modal (deploy
+#                          backend/modal_embed.py once); the local box can't load
+#                          torch in-process.
+#   scikit-learn        -> TF-IDF fallback (backend "tfidf", or any failure).
+#   sentence-transformers -> only for the in-process "local" backend.
+modal>=0.63
+scikit-learn>=1.2
+sentence-transformers>=2.2   # optional; only for similarity.backend: local
+# Streaming videos from R2/S3 (only needed for remote `video` refs):
+#   boto3  -> presign R2 GET URLs
+#   pymongo -> resolve an episode_hash to its video_1 storage key
+boto3>=1.28
+pymongo>=4.5
+# Dataset-config (filter-based) episode selection from app.episodes:
+#   sqlalchemy + psycopg -> query the episode table
+#   pandas -> support DataFrame-level filter_lambdas
+sqlalchemy>=2.0
+psycopg[binary]>=3.1
+pandas>=2.0
