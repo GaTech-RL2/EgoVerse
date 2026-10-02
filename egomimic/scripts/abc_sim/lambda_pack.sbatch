@@ -20,6 +20,7 @@
 #SBATCH --partition=loaner
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:h100:8
+#SBATCH --mem-per-gpu=225G  # the partition's DefMemPerGPU (256000 MB) x 8 exceeds a node
 #SBATCH --cpus-per-task=224
 #SBATCH --exclusive
 #SBATCH --time=2-00:00:00
