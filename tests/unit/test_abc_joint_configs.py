@@ -39,6 +39,50 @@ def _tiny_rdt(emb: str) -> list[str]:
     ]
 
 
+def test_yam_robot_label_is_eva():
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+    assert get_embodiment_id("yam_bimanual") == get_embodiment_id("eva_bimanual")
+
+
+def test_abc_real_recipe_serves_with_a_fixed_prompt_and_no_history(tmp_path, monkeypatch):
+    hermetic_env(monkeypatch)
+    data, out, hashes = write_fixtures(tmp_path, "eva")
+    recipe = Recipe("train_zarr_abc_real_rdt", "abc_real_joints", "rdt_abc_joints_dinov3_vitb", EMB)
+    tiny = [o for o in _tiny_rdt(EMB) if not o.startswith(f"{RM}.annotation_key")]
+    cfg = compose_recipe(
+        recipe,
+        common_overrides(EMB, data, out, batch_size=2, num_workers=0, episode_hashes=hashes)
+        + cpu_trainer_overrides(2)
+        + tiny
+        + [
+            # abc_real_joints resolves through the SQL table; read the fixtures locally
+            f"data.train_datasets.{EMB}.resolver._target_={LOCAL_RESOLVER}",
+            f"data.train_datasets.{EMB}.resolver.folder_path={data}",
+            f"data.train_datasets.{EMB}.mode=total",
+            f"data.valid_datasets.{EMB}.filters=null",
+            f"data.valid_datasets.{EMB}.mode=total",
+        ],
+        out,
+    )
+    assert cfg.model.robomimic_model.width == 32 and cfg.launch_params.gpus_per_node == 4
+    spy = BatchKeySpy(monkeypatch, HPT)
+    metrics, objects = train_hydra.train(cfg)
+    assert math.isfinite(float(metrics["Train/action_loss"]))
+    seen = spy.keys[EMB]
+    assert {JOINT_ACTION_KEY, JOINT_STATE_KEY, Eva.VIZ_IMAGE_KEY, "fps"} <= seen
+    assert f"{Eva.VIZ_IMAGE_KEY}_hist" not in seen and "annotations" not in seen
+
+    ckpt = out / "served.ckpt"
+    objects["trainer"].save_checkpoint(ckpt)
+    policy = JointPolicy(str(ckpt), device="cpu")
+    assert policy.cameras == ["top"] and policy.lag_frames == 0 and policy.annotation_key is None
+    assert policy.algo.default_prompt == "put the plastic bottles in the bin"
+    img = np.random.default_rng(0).random((3, 64, 64), dtype=np.float32)
+    actions = policy.infer(np.zeros(14, np.float32), {"top": img}, "any prompt; the model's own is used")
+    assert actions.shape == (45, 14) and np.isfinite(actions).all()
+
+
 def test_abc_sim_finetune_train_step(tmp_path, monkeypatch):
     hermetic_env(monkeypatch)
     data, out, hashes = write_fixtures(tmp_path, "eva")

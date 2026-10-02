@@ -63,17 +63,22 @@ def get_embodiment(index):
 # embodiment metadata (e.g. MECKA_BIMANUAL, SCALE_LEFT_ARM). Locally all human
 # demonstration data is ONE embodiment (see the EMBODIMENT docstring; the
 # source lives only in the SQL `lab` field), so those names collapse to
-# HUMAN_*. Robot names (EVA_*) are never aliased.
+# HUMAN_*. The one robot is Eva: YAM_* (the ABC station's label since the
+# 2026-09-01 SQL relabel, also in the zarrs re-exported to R2) collapses to EVA_*.
 HUMAN_VENDOR_PREFIXES = ("MECKA", "SCALE", "ARIA", "LIGHTWHEEL")
+ROBOT_VENDOR_PREFIXES = ("YAM",)
 
 
 def canonical_embodiment_name(embodiment_name: str) -> str:
     """Upper-case EMBODIMENT member name, with legacy vendor prefixes
-    (``MECKA_BIMANUAL`` ...) collapsed onto ``HUMAN_*``. Does not validate."""
+    (``MECKA_BIMANUAL`` ...) collapsed onto ``HUMAN_*`` and ``YAM_*`` onto
+    ``EVA_*``. Does not validate."""
     name = embodiment_name.upper()
     vendor, _, suffix = name.partition("_")
     if vendor in HUMAN_VENDOR_PREFIXES and suffix:
         return f"HUMAN_{suffix}"
+    if vendor in ROBOT_VENDOR_PREFIXES and suffix:
+        return f"EVA_{suffix}"
     return name
 
 

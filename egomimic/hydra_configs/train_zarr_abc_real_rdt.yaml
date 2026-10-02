@@ -1,0 +1,38 @@
+# ABC REAL bottles: the base RDT (width 1024) trained on the real ABC episodes only
+# (data=abc_real_joints, 90/10 episode split) and evaluated in abc_sim. Built to run
+# unchanged on an ABC-replica YAM station: the prompt is fixed in the model
+# (default_prompt; no annotation track is read) and there is no image history, so a
+# client that sends the current camera frames + the 14-D joint state is enough
+# (scripts/abc_sim/sim_client.py, ABC's deploy client through policy_server).
+#
+#   from scratch:  python egomimic/trainHydra.py --config-name=train_zarr_abc_real_rdt
+#   from Ryan's all-mecka base:  ... init_weights_ckpt=<rdt_mem_all .../epoch_epoch=899.ckpt>
+defaults:
+  - train_zarr_abc_real_rdt_ft
+  - override model: rdt_abc_joints_dinov3_vitb
+  - _self_
+
+model:
+  robomimic_model:
+    default_prompt: "put the plastic bottles in the bin"
+    trunk:
+      image_history: 1
+
+data:
+  train_datasets:
+    eva_bimanual:
+      resolver:
+        key_map:
+          annotation_key: null
+          image_history_gap_s: null
+
+# 1000 x 100 steps at 32 per GPU x 4 GPUs; a checkpoint every 50 epochs (5k steps)
+trainer:
+  max_epochs: 1000
+  min_epochs: 1000
+
+launch_params:
+  gpus_per_node: 4
+
+norm_stats:
+  max_samples: 200000
