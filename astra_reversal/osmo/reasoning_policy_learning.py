@@ -33,7 +33,7 @@ from astra_reversal.records import digest
 
 def load_protocol(path=None, *, version=None):
     version = version or os.environ.get("ASTRA_LEARNING_PROTOCOL_VERSION", "v1")
-    if version not in ("v1", "v2"):
+    if version not in ("v1", "v2", "v3"):
         raise ValueError("Unknown learning protocol version")
     path = path or (
         Path(__file__).parents[1] / f"configs/reasoning_policy_learning_{version}.json"
@@ -242,6 +242,9 @@ def main():
                         RESULTS / f"evaluation_{iteration}" / f"reset_{reset_id}",
                         version=learner.version,
                         seed=seed * 1000 + reset_id,
+                        retain_step_observations=protocol["pilot"].get(
+                            "record_all_evaluation_observations", True
+                        ),
                         progress=archive.sync,
                     )
                     evaluation_steps += result["total_control_steps"]
@@ -282,6 +285,9 @@ def main():
                 ),
                 collection_history=collection_history,
                 temporal_diagnosis=protocol["teacher"].get("temporal_diagnosis", False),
+                controller_delta_limits=protocol["teacher"].get(
+                    "controller_delta_limits"
+                ),
                 max_episodes=protocol["teacher"]["soft_correction_episodes"],
                 max_active_actions=protocol["teacher"]["max_actions_per_active_plan"],
                 monitor_every=protocol["teacher"]["monitor_every_actions"],

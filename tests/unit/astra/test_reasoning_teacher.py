@@ -7,7 +7,7 @@ from astra_reversal.codex_relay import _proposal
 from astra_reversal.reasoning_learning import teacher
 
 
-def request(role="diagnose"):
+def request(role="diagnose", **context):
     observation = {
         "observation/state": np.zeros(8),
         "observation/image": np.zeros((8, 8, 3), dtype=np.uint8),
@@ -22,6 +22,7 @@ def request(role="diagnose"):
         context={
             "native": np.zeros((10, 7)).tolist(),
             "candidates": {"g0": np.zeros((10, 7)).tolist()},
+            **context,
         },
     )
 
@@ -86,3 +87,29 @@ def test_controller_target_has_only_declared_edits_and_rejects_out_of_bounds():
     native[:, 2] = 0.9
     with pytest.raises(ValueError, match="bounds"):
         teacher.controller_target(native, diagnosis()["edits"], spec)
+
+
+def test_gripper_revision_can_close_without_relaxing_motion_or_hardware_bounds():
+    limits = [0.5] * 6 + [2.0]
+    spec = ActionSpec("test", 10, 32, 0.05, (-1,) * 7, (1,) * 7, {})
+    d = diagnosis()
+    d["edits"] = [{"start": 0, "end": 5, "channel": 6, "delta": 1.5}]
+    teacher.parse_proposal(d, request(controller_delta_limits=limits))
+    native = np.zeros((10, 7))
+    native[:, 6] = -1
+    target, mask = teacher.controller_target(
+        native, d["edits"], spec, delta_limits=limits
+    )
+    np.testing.assert_array_equal(target[:5, 6], 0.5)
+    np.testing.assert_array_equal(target[5:, 6], -1)
+    assert np.count_nonzero(mask) == 5
+    with pytest.raises(ValueError, match="Accumulated"):
+        teacher.controller_target(native, d["edits"] * 2, spec, delta_limits=limits)
+    d["edits"][0]["channel"] = 2
+    with pytest.raises(ValueError, match="channel bound"):
+        teacher.parse_proposal(d, request(controller_delta_limits=limits))
+    d["edits"][0]["channel"] = 6
+    with pytest.raises(ValueError, match="bounds"):
+        teacher.controller_target(
+            np.zeros((10, 7)), d["edits"], spec, delta_limits=limits
+        )

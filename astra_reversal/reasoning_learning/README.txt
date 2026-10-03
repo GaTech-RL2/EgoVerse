@@ -189,3 +189,19 @@ The initial v1 Goal OOD6 / seed173 autonomous evaluation scored 5/10. During its
 first collection Astra rejected very weak lift candidates as ties. This motivates
 the weighting revision; it is not evidence that learning has improved autonomy.
 DSRL is running; PPO still requires its GPU preflight. Research objective unmet.
+
+Prospective v3: express a gripper correction
+The saved v1 trajectory reveals a second limitation. At step175 Astra tried
+three overlapping +0.5 gripper edits, which the cumulative bound rejected. At
+step210 it explicitly reported that +0.5 could not change the native opening
+commands (approximately -1) into closing. The v3 protocol keeps six motion
+channels at a maximum additive change of 0.5, but permits up to 2 on the gripper.
+Final teacher targets must still satisfy exactly the original controller bounds;
+invalid targets are rejected, not clipped. This makes an ordinary grasp/hold
+request expressible without increasing motion bounds. Its rollout effect remains
+untested. The system prompt and all v1/v2 response schemas remain unchanged.
+
+V3 autonomous evaluation records videos, every actual command/reset audit and
+the initial observation, avoiding redundant per-step image uploads when no
+training data is collected. Collection still retains all pre-action observations.
+This affects artifact I/O only, not observations supplied to the policy or actions.

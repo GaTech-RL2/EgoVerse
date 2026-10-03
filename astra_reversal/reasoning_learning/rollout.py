@@ -37,6 +37,8 @@ class LearningRollout:
         candidate_configurations=None,
         collection_history=None,
         temporal_diagnosis=False,
+        controller_delta_limits=None,
+        retain_step_observations=True,
         max_episodes=3,
         monitor_every=25,
         max_active_actions=50,
@@ -62,6 +64,11 @@ class LearningRollout:
         )
         self.collection_history = copy.deepcopy(collection_history or [])
         self.temporal_diagnosis = temporal_diagnosis
+        self.delta_limits = controller_delta_limits
+        self.retain_step_observations = retain_step_observations
+        if client is not None and not retain_step_observations:
+            raise ValueError("Collection must retain all real pre-action observations")
+        teacher.controller_delta_limits(controller_delta_limits)
         self.reviews = []
         self.previous_monitor = None
         self.monitor_every, self.max_active_actions = monitor_every, max_active_actions
@@ -85,6 +92,11 @@ class LearningRollout:
                 "instruction": self.instruction,
                 "action_spec": self.spec.as_dict(),
                 "policy_version": self.version,
+                **(
+                    {"controller_delta_limits": self.delta_limits}
+                    if self.delta_limits is not None
+                    else {}
+                ),
                 **context,
             },
         )
@@ -272,7 +284,10 @@ class LearningRollout:
         if rule["kind"] == "target_guidance":
             try:
                 target, mask = teacher.controller_target(
-                    reference, diagnosis["edits"], self.spec
+                    reference,
+                    diagnosis["edits"],
+                    self.spec,
+                    delta_limits=self.delta_limits,
                 )
                 self.active.pop("last_target_error", None)
                 encoded = self.adapter.encode(target, raw)
@@ -382,8 +397,10 @@ class LearningRollout:
     def observed_step(self, before, action, step, after, success, terminated):
         raw = {**copy.deepcopy(before), "prompt": self.instruction}
         oid = digest(raw)
-        self.observations[oid] = raw
-        np.savez_compressed(self.directory / (oid + ".npz"), **raw)
+        if self.retain_step_observations:
+            self.observations[oid] = raw
+        if self.retain_step_observations or step == 0:
+            np.savez_compressed(self.directory / (oid + ".npz"), **raw)
         pending = self.pending
         row = {
             "episode_id": self.episode_id,

@@ -203,3 +203,24 @@ def test_revised_candidates_receive_temporal_collection_evidence(tmp_path, monke
     assert all(r["schedule"] == "rtc_pigdm" for r in receipts)
     assert [r["project_gradient"] for r in receipts] == [True, False]
     assert len(loop.steps) == 5  # Replanning/search added no real samples.
+
+
+def test_autonomous_evaluation_can_omit_redundant_per_step_image_files(tmp_path):
+    loop = LearningRollout(
+        SmallPolicy(),
+        None,
+        ActionSpec("test", 10, 32, 0.05, (-1,) * 7, (1,) * 7, {}),
+        tmp_path / "evaluation",
+        episode_id="e",
+        instruction="lift object",
+        policy_version=0,
+        seed=1,
+        retain_step_observations=False,
+    )
+    commands = loop.action(observation(0), 0)
+    for j in range(5):
+        loop.observed_step(
+            observation(j), commands[j], j, observation(j + 1), False, False
+        )
+    assert len(loop.steps) == 5 and not loop.observations
+    assert len(list((tmp_path / "evaluation").glob("*.npz"))) == 1

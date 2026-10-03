@@ -74,6 +74,9 @@ def response_schema(request):
     text = {"type": "string", "minLength": 1, "maxLength": 800}
     if request["role"] == "diagnose":
         horizon = len(request["context"]["native"])
+        maximum_delta = max(
+            controller_delta_limits(request["context"].get("controller_delta_limits"))
+        )
         return _object(
             {
                 "intervene": {"type": "boolean"},
@@ -99,8 +102,8 @@ def response_schema(request):
                             "channel": {"type": "integer", "minimum": 0, "maximum": 6},
                             "delta": {
                                 "type": "number",
-                                "minimum": -0.5,
-                                "maximum": 0.5,
+                                "minimum": -maximum_delta,
+                                "maximum": maximum_delta,
                             },
                         }
                     ),
@@ -230,6 +233,11 @@ def parse_proposal(raw, request):
         for edit in value["edits"]:
             if edit["start"] >= edit["end"] or edit["delta"] == 0:
                 raise ValueError("Correction must have nonzero extent")
+            limits = controller_delta_limits(
+                request["context"].get("controller_delta_limits")
+            )
+            if abs(edit["delta"]) > limits[edit["channel"]]:
+                raise ValueError("Correction magnitude exceeds its channel bound")
     elif request["role"] == "compare":
         judgments = {row["candidate_id"]: row for row in value["judgments"]}
         if set(judgments) != set(request["context"]["candidates"]):
@@ -247,19 +255,36 @@ def parse_proposal(raw, request):
     }
 
 
-def controller_target(native, edits, spec):
+def controller_delta_limits(values=None):
+    """Allow gripper sign changes without expanding translation/rotation edits."""
+    limits = np.asarray([0.5] * 7 if values is None else values, dtype=float)
+    if (
+        limits.shape != (7,)
+        or not np.isfinite(limits).all()
+        or np.any(limits <= 0)
+        or np.any(limits > [0.5] * 6 + [2.0])
+    ):
+        raise ValueError("Invalid per-channel controller edit limits")
+    return limits.tolist()
+
+
+def controller_target(native, edits, spec, *, delta_limits=None):
+    limits = np.asarray(controller_delta_limits(delta_limits))
     target = np.asarray(native, dtype=np.float32).copy()
     mask = np.zeros_like(target)
     for edit in edits:
         start, end, channel = edit["start"], edit["end"], edit["channel"]
         if not 0 <= start < end <= spec.horizon or not 0 <= channel < 7:
             raise ValueError("Correction extent outside action interface")
-        if not math.isfinite(edit["delta"]) or not 0 < abs(edit["delta"]) <= 0.5:
+        if (
+            not math.isfinite(edit["delta"])
+            or not 0 < abs(edit["delta"]) <= limits[channel]
+        ):
             raise ValueError("Correction magnitude outside pilot bounds")
         target[start:end, channel] += edit["delta"]
         mask[start:end, channel] = 1
-    # Overlapping edits cannot accumulate beyond the declared .5 bound.
-    if np.max(np.abs(target - native)) > 0.500001:
+    # Overlapping edits cannot accumulate beyond the declared channel bound.
+    if np.any(np.abs(target - native) > limits + 1e-6):
         raise ValueError("Accumulated correction exceeds pilot bound")
     return spec.validate_actions(target), mask
 
