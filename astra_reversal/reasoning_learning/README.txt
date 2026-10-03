@@ -77,10 +77,9 @@ repository unit suite: 1700 passed, 6 optional skips. The new opt-in action-VJP
 integration test passed in the pinned LeRobot runtime. These are synthetic/small
 model checks, not full-checkpoint GPU or robot success results.
 
-No new robot SR or sample-efficiency result exists yet. The MD's handoff requires
-the authorized experiment budget before experiments. A budget question is pending;
-the suggested 12 L40S GPU-hours has not been treated as authorization. The config
-therefore has launch_allowed=false. Strong-baseline parity, full-weight GPU
+No new robot SR or sample-efficiency result exists yet. The user authorized a
+total of 24 L40S GPU-hours on 2026-10-03, including setup, failures and all methods.
+The config now has launch_allowed=true. Strong-baseline parity, full-weight GPU
 preflight, data collection, learning curves and confirmation remain outstanding.
 
 Launching after the budget is resolved

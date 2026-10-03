@@ -71,8 +71,9 @@
     "Equal development tuning budget, repeated seeds, same autonomous evaluation schedule.",
     "Report threshold crossings as right-censored if not reached; no sample-efficiency win from assisted success alone."
   ],
-  "compute": {"platform": "OSMO L40S", "maximum_simultaneous_gpus": 2, "authorized_gpu_hours": null,
-              "status": "awaiting_requested_budget_preference", "suggested_pilot_gpu_hours": 12,
-              "launch_allowed": false},
+  "compute": {"platform": "OSMO L40S", "maximum_simultaneous_gpus": 2, "authorized_gpu_hours": 24,
+              "status": "authorized_by_user_20261003", "authorization": "yes take 24 if you want",
+              "accounting": "Sum allocated GPU task durations including bootstrap, failures and all compared methods; never exceed 24 GPU-hours.",
+              "launch_allowed": true},
   "research_objective_met": false
 }
