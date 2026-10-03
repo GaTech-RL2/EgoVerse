@@ -205,3 +205,21 @@ V3 autonomous evaluation records videos, every actual command/reset audit and
 the initial observation, avoiding redundant per-step image uploads when no
 training data is collected. Collection still retains all pre-action observations.
 This affects artifact I/O only, not observations supplied to the policy or actions.
+
+Shared native evaluation and reporting
+Repeated revisions of the same unmodified native policy can reuse the measured
+Goal6/seed173 initial evaluation. The guard requires matching weight, tokenizer,
+processor, model/adapter source, runtime, protocol, task, seed, reset-state,
+reset-model and BDDL identities, plus exactly zero adapter/guidance parity error.
+It records the original workflow and checksum and counts zero new interactions
+or independent evaluation replicates. Updated policy checkpoints always run fresh
+autonomous evaluation. Other task/seed combinations still run their initial
+evaluation. A requested early stop now finishes any due scheduled evaluation
+before starting another collection rollout.
+
+study_report.py builds a local HTML dashboard with a method diagram, completed
+autonomous curves, Wilson intervals, token accounting, retained partial samples,
+videos, the teacher prompt, CSV and JSON. Missing evaluations never become zero
+success. Local completed CLI calls count even if the worker was cancelled before
+receiving the response. The report deliberately does not declare the research
+objective met; that requires a separate supported comparative conclusion.

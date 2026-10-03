@@ -196,5 +196,12 @@
     "v1_rollout_evidence": "Astra rejected weak v1 lift candidates as ties; source and results are retained separately.",
     "unchanged": "Checkpoint, observations, bounds, resets, update objective, evaluation schedule; no FRS guidance.",
     "v3_gripper": "In v1 Goal6/reset0 at step175, Astra proposed three overlapping +0.5 gripper edits, correctly rejected by the cumulative limit; at step210 it explicitly declined intervention because +0.5 could not reverse the approximately -1 opening command. Widen only this channel to its full representable change. This prospective revision has no success-rate result yet."
+  },
+  "teacher_native_evaluation_references": {
+    "libero_goal_ood:6:173": {
+      "file": "native_goal6_seed173.json",
+      "sha256": "924d0c3325458fc8c77e9360e10397105a78bb306b0cb1cdf1de6191f60c04b5",
+      "scope": "Reuse the already-measured native baseline only if checkpoint, processors, deployment and reset hashes match; count no new interactions or independent evaluation replicate."
+    }
   }
 }

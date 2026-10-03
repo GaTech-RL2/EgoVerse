@@ -27,6 +27,7 @@ from astra_reversal.reasoning_learning.guidance import (
     generate,
 )
 from astra_reversal.reasoning_learning.learning import NativeLearner
+from astra_reversal.reasoning_learning.native_reference import reuse_native_evaluation
 from astra_reversal.reasoning_learning.rollout import collect
 from astra_reversal.records import digest
 
@@ -227,8 +228,32 @@ def main():
         collection, evaluations, updates = [], [], []
         collection_history = []
         stopped = False
+        reference_key = f"{task['suite']}:{task['task_id']}:{seed}"
+        reference_config = protocol.get("teacher_native_evaluation_references", {}).get(
+            reference_key
+        )
+        if reference_config:
+            filename = reference_config["file"]
+            if Path(filename).name != filename:
+                raise ValueError("Native reference must be a bundled basename")
+            reference = reuse_native_evaluation(
+                Path(__file__).parents[1] / "reasoning_learning" / filename,
+                reference_config["sha256"],
+                protocol=protocol,
+                metadata=policy.metadata,
+                preflight=receipt,
+                task=task,
+                seed=seed,
+                manifest=manifest,
+            )
+            evaluations.append(reference)
+            write_json(RESULTS / "native_evaluation_reference.json", reference)
+            write_json(RESULTS / "learning_curve.json", evaluations)
+            archive.sync()
         for iteration in range(len(resets) + 1):
-            if iteration in protocol["pilot"]["evaluation_after_collection_rollouts"]:
+            if iteration in protocol["pilot"][
+                "evaluation_after_collection_rollouts"
+            ] and not (iteration == 0 and reference_config):
                 rows = []
                 for reset_id in eval_resets:
                     entry = by_reset[reset_id]
@@ -263,6 +288,11 @@ def main():
                 )
                 write_json(RESULTS / "learning_curve.json", evaluations)
             if iteration == len(resets):
+                break
+            # If the previous collection completed a scheduled checkpoint,
+            # finish that evaluation before honoring an early-stop request.
+            if Path("/tmp/astra-stop-after-rollout").exists():
+                stopped = True
                 break
             # Workflow timeout provides the hard cap; this bounds starting more
             # collection when its allocation has already expired.
@@ -309,9 +339,6 @@ def main():
             write_json(RESULTS / "collection.json", collection)
             write_json(RESULTS / "updates.json", updates)
             archive.sync()
-            if Path("/tmp/astra-stop-after-rollout").exists():
-                stopped = True
-                break
         write_json(
             RESULTS / "completion.json",
             {
