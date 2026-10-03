@@ -114,9 +114,9 @@ class BatchedColorJitter(nn.Module):
 _DETERMINISTIC = (T.Normalize, T.Resize, T.CenterCrop, T.ConvertImageDtype)
 
 
-def _vectorize(augs) -> Optional[List[nn.Module]]:
-    """The batched equivalent of ``augs``, or None if any member has no batched
-    form (then the caller keeps the per-image loop)."""
+def _vectorize(augs) -> List[nn.Module]:
+    """The batched equivalent of ``augs``; raises on a member with no batched
+    form."""
     members = augs.transforms if isinstance(augs, T.Compose) else [augs]
     out: List[nn.Module] = []
     for t in members:
@@ -125,16 +125,19 @@ def _vectorize(augs) -> Optional[List[nn.Module]]:
         elif isinstance(t, _DETERMINISTIC):
             out.append(t)
         else:
-            return None
+            raise ValueError(
+                f"train_image_augs: {type(t).__name__} has no per-sample batched "
+                f"form; use ColorJitter or one of {[c.__name__ for c in _DETERMINISTIC]}"
+            )
     return out
 
 
 class PerSampleAugs(nn.Module):
     """Apply ``augs`` to each image of a (B, C, H, W) batch independently.
 
-    ``augs`` is the configured callable (typically a
-    ``torchvision.transforms.Compose``); a deterministic one is unaffected by
-    the wrapping, so this is safe for any existing aug list.
+    ``augs`` is the configured ``torchvision.transforms.Compose`` (or a single
+    transform) of ColorJitter and deterministic transforms; a deterministic
+    one is unaffected by the wrapping.
 
     ``frames`` > 1 takes (B * frames, C, H, W), each sample's frames adjacent:
     the frames of a sample share one parameter draw, and every transform still
@@ -145,15 +148,9 @@ class PerSampleAugs(nn.Module):
     def __init__(self, augs):
         super().__init__()
         self.augs = augs
-        vectorized = _vectorize(augs)
-        self.vectorized = nn.ModuleList(vectorized) if vectorized is not None else None
+        self.vectorized = nn.ModuleList(_vectorize(augs))
 
     def forward(self, images, frames: int = 1):
-        if self.vectorized is None:
-            if frames == 1:
-                return torch.stack([self.augs(image) for image in images])
-            # torchvision draws once per call and works per image of a stack
-            return torch.cat([self.augs(clip) for clip in images.split(frames)])
         for t in self.vectorized:
             images = (
                 t(images, frames=frames)

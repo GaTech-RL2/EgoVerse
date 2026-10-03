@@ -121,6 +121,3 @@ def test_proprio_history_stride_in_seconds_follows_the_episode_fps(tmp_path, fps
         [np.asarray(leaf[idx - step * j]["right.obs_ee_pose"])[-1] for j in (2, 1, 0)]
     )
     np.testing.assert_array_equal(got, want)
-    np.testing.assert_array_equal(
-        np.asarray(leaf[step]["proprio_history_mask"]), [0, 1, 1]
-    )

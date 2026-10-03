@@ -36,8 +36,7 @@ class RDTModel(HPTModel):
 
     ``cond_drop`` (RDT's ``cond_mask_prob``, per stream, training only): the
     state is replaced by a learned null token; the prompt by ``""``, i.e. the
-    no-prompt deployment condition; a camera by a learned null token, never
-    every camera of a sample, so ``img`` is inert with a single camera.
+    no-prompt deployment condition.
 
     ``image_history`` is the number of frames per camera (axis 1 of the image
     input, current frame last); ``image_history_dropout`` replaces the past
@@ -69,7 +68,7 @@ class RDTModel(HPTModel):
         self.trunk = nn.ModuleDict(
             {"trunk": RDTBackbone(embed_dim, depth, num_heads, mlp_ratio)}
         )
-        self.cond_drop = {"state": 0.0, "lang": 0.0, "img": 0.0, **(cond_drop or {})}
+        self.cond_drop = {"state": 0.0, "lang": 0.0, **(cond_drop or {})}
         self.image_history = int(image_history)
         self.image_history_dropout = float(image_history_dropout)
         self.stem_modality = {}
@@ -114,8 +113,6 @@ class RDTModel(HPTModel):
         # Only what can be used: an unused parameter crashes plain DDP.
         if self.cond_drop["state"] > 0 and "state" in streams.values():
             self.null_state = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
-        if self.cond_drop["img"] > 0 and len(cameras) > 1:
-            self.null_img = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
         if self.short_dropout > 0:
             self.null_short = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
         self.trunk["trunk"].initialize_weights()
@@ -154,20 +151,6 @@ class RDTModel(HPTModel):
         tokens = tokens + pos.to(tokens) + self.frame_embed + self.camera_embed[name]
         return tokens.reshape(B, -1, tokens.shape[-1])
 
-    def _drop_cameras(self, img: list) -> list:
-        """Per-camera dropout that never blinds a sample completely."""
-        if len(img) < 2 or not (self.training and self.cond_drop["img"] > 0):
-            return img
-        B, device = len(img[0]), img[0].device
-        drop = torch.rand(B, len(img), device=device) < self.cond_drop["img"]
-        keep = torch.randint(len(img), (B,), device=device)
-        blind = drop.all(dim=1)
-        drop[blind, keep[blind]] = False
-        return [
-            torch.where(drop[:, i, None, None], self.null_img.to(tokens), tokens)
-            for i, tokens in enumerate(img)
-        ]
-
     def forward_features(self, domain, data):
         if "fps" not in data:
             raise ValueError("RDT needs the per-sample 'fps' (ZarrDataset emits it)")
@@ -204,7 +187,7 @@ class RDTModel(HPTModel):
                 "set together (model memory: "
                 f"{self.long_memory is not None}, batch memory: {'memory' in data})"
             )
-        img = torch.cat(self._drop_cameras(img), dim=1)
+        img = torch.cat(img, dim=1)
         drop = self._drop(self.short_dropout, len(img), img.device)
         if drop is not None:
             img = torch.where(drop[:, None, None], self.null_short.to(img), img)

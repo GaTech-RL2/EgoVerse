@@ -17,7 +17,6 @@ A data config with neither key must behave exactly as before.
 from __future__ import annotations
 
 import os
-import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -38,71 +37,8 @@ from egomimic.rldb.zarr.zarr_dataset_multi import (
 )
 
 HUMAN = "human_bimanual"
-FLAGSHIP = "train_zarr_mecka_flagship_6d_hpt"
 LIMIT_VAL_BATCHES = 80
 BATCH = 64
-
-# (data config, {head: K}, {head: [pinned hashes]}) as set on this branch.
-CONFIG_EXPECTATIONS = {
-    "mecka_fold_flagship_opsplit_hpt_6d": (
-        {"valid": 73, "train_viz": 3, "unseen_op_valid": 26},
-        {
-            "valid": ["692e771c39719ab57395b408"],
-            "train_viz": ["692e9bda21fc595fbe6f941e"],
-            "unseen_op_valid": [
-                "692eadbaaec602a46af10686",
-                "692ea49a727c13b350cb7c48",
-            ],
-        },
-    ),
-    "mecka_fold_flagship_topop_hpt_6d": (
-        {"valid": 256, "train_viz": 13, "unseen_op_valid": 26},
-        {
-            "valid": ["692e83ad567c97525f4011a5"],
-            "train_viz": ["692e9bda21fc595fbe6f941e"],
-            "unseen_op_valid": [
-                "692eadbaaec602a46af10686",
-                "692ea49a727c13b350cb7c48",
-            ],
-        },
-    ),
-    "mecka_fold_flagship_top3_hpt_6d": (
-        {"valid": 96, "train_viz": 4, "unseen_op_valid": 26},
-        {
-            # one seen-val pin per train operator (683785ac / 690366b2 /
-            # 6903686e), 191 + 223 + 226 = 640f = the whole video budget
-            "valid": [
-                "692ea44dc621d7f4aac3aae6",
-                "692eb08997ffd8ec90340290",
-                "692fe79f34a99e18e25289ad",
-            ],
-            "train_viz": ["692e9bda21fc595fbe6f941e"],
-            "unseen_op_valid": [
-                "692eadbaaec602a46af10686",
-                "692ea49a727c13b350cb7c48",
-            ],
-        },
-    ),
-}
-
-# Episode counts these K values were computed from (measured 2026-09-15).
-SPLIT_EPISODES = {
-    "mecka_fold_flagship_opsplit_hpt_6d": {
-        "valid": 70,
-        "train_viz": 1346,
-        "unseen_op_valid": 191,
-    },
-    "mecka_fold_flagship_topop_hpt_6d": {
-        "valid": 20,
-        "train_viz": 385,
-        "unseen_op_valid": 191,
-    },
-    "mecka_fold_flagship_top3_hpt_6d": {
-        "valid": 53,
-        "train_viz": 1026,
-        "unseen_op_valid": 191,
-    },
-}
 
 
 # --------------------------------------------------------------- fixtures
@@ -135,90 +71,6 @@ def _cfg(metric=None, video=None, **data):
 
 
 # ------------------------------------------------------------ 1. config keys
-@pytest.mark.parametrize("data_config", sorted(CONFIG_EXPECTATIONS))
-def test_flagship_configs_declare_k_and_pins(data_config, compose_resolve):
-    """Both flagship configs compose with the new keys, K per head matches
-    floor(5120 / episodes-in-split), and each head pins its video episodes."""
-    expected_k, expected_pins = CONFIG_EXPECTATIONS[data_config]
-    cfg = compose_resolve(FLAGSHIP, [f"data={data_config}"])
-    assert int(cfg.trainer.limit_val_batches) == LIMIT_VAL_BATCHES
-    assert int(cfg.data.valid_dataloader_params[HUMAN].batch_size) == BATCH
-
-    k_table = OmegaConf.to_container(cfg.data.metric_frames_per_episode)
-    assert k_table == expected_k
-    pins = OmegaConf.to_container(cfg.data.video_episodes)
-    assert pins == expected_pins
-
-    for head, k in k_table.items():
-        n_eps = SPLIT_EPISODES[data_config][head]
-        assert k == LIMIT_VAL_BATCHES * BATCH // n_eps, (head, k, n_eps)
-        # the subsampled set still fits the limit_val_batches window
-        assert k * n_eps <= LIMIT_VAL_BATCHES * BATCH, (head, k, n_eps)
-    # the unseen head is the same split in every flagship config, so its pins
-    # and K are shared
-    assert k_table["unseen_op_valid"] == 26
-    assert len(pins["unseen_op_valid"]) == 2, "one pin per held-out operator"
-
-    # and trainHydra reads exactly these
-    for head, k in expected_k.items():
-        assert th._metric_frames_per_episode(cfg, head) == k
-
-
-# The 3 largest flagship operators (SQL app.episodes, 2026-09-15), by frames.
-TOP3_OPERATORS = [
-    "6903686e0e94ce070afd1f24",
-    "690366b20e94ce070afd1e8a",
-    "683785ac01ca734152093448",
-]
-
-
-def test_top3_config_trains_on_exactly_the_three_largest_operators(compose_resolve):
-    """mecka_fold_flagship_top3_hpt_6d composes under the flagship recipe, its
-    train filter names exactly the 3 top operators (none of them held out), the
-    seen-op val follows that filter, and both lane A tables cover all 3 heads."""
-    cfg = compose_resolve(FLAGSHIP, ["data=mecka_fold_flagship_top3_hpt_6d"])
-    parent = compose_resolve(FLAGSHIP, ["data=mecka_fold_flagship_opsplit_hpt_6d"])
-    d, pd = cfg.data, parent.data
-    train = d.train_datasets[HUMAN]
-
-    # the operator lambda names exactly the three ids, largest first
-    operator_lambda = train.filters.filter_lambdas[-1]
-    assert "row.get('operator'" in operator_lambda
-    assert re.findall(r"[0-9a-f]{24}", operator_lambda) == TOP3_OPERATORS
-    held_out = [str(o) for o in d.held_out_operators]
-    assert not set(TOP3_OPERATORS) & set(held_out), "a train operator is held out"
-
-    # the first three (lab / task / flagship-path) lambdas are the parent's
-    assert list(train.filters.filter_lambdas[:3]) == list(
-        pd.train_datasets[HUMAN].filters.filter_lambdas[:3]
-    )
-
-    # seen-op val interpolates the train filters, so it follows this override
-    valid = d.valid_datasets[HUMAN]
-    assert list(valid.filters.filter_lambdas) == list(train.filters.filter_lambdas)
-    assert valid.valid_ratio == train.valid_ratio == 0.05
-    assert (train.mode, valid.mode) == ("train", "valid")
-    assert d.valid_prefix == "seen_op_valid"
-    assert d.get("train_viz_datasets") is None
-
-    # the unseen-operator head is untouched
-    unseen = d.unseen_op_valid_datasets[HUMAN]
-    assert list(unseen.filters.filter_lambdas) == list(
-        pd.unseen_op_valid_datasets[HUMAN].filters.filter_lambdas
-    )
-    assert unseen.mode == "total"
-
-    # lane A keys cover all three heads
-    heads = {"valid", "train_viz", "unseen_op_valid"}
-    k_table = OmegaConf.to_container(d.metric_frames_per_episode)
-    pins = OmegaConf.to_container(d.video_episodes)
-    assert set(k_table) == heads
-    assert set(pins) == heads
-    assert all(isinstance(v, int) and v > 0 for v in k_table.values())
-    assert len(pins["valid"]) == 3, "one seen-val video pin per train operator"
-    assert len(set(pins["valid"])) == 3
-
-
 def test_config_without_the_keys_is_unchanged(compose_resolve):
     """Backward compatibility: a data config that declares neither key gets the
     old loader names and the unwrapped dataset objects."""
@@ -353,7 +205,7 @@ def test_auto_k_is_derived_from_the_resolved_split():
         cfg.trainer.limit_val_batches = limit
         with pytest.raises(ValueError, match="auto"):
             th._subsample_val_datasets(cfg, "valid", split, params)
-    cfg.trainer.limit_val_batches = 0  # validation off, as the bench scripts run
+    cfg.trainer.limit_val_batches = 0  # validation off
     assert th._subsample_val_datasets(cfg, "valid", split, params) == split
     cfg.trainer.limit_val_batches = 4
     with pytest.raises(ValueError, match="batch_size"):
@@ -633,6 +485,17 @@ def test_video_loader_yields_nothing_when_the_gate_is_closed():
     assert len(video) == 2
 
 
+def test_opening_the_val_loaders_leaves_the_training_rng_alone():
+    """Lightning opens the val iterators before on_validation_start snapshots
+    the training RNG, so their seed draws must not come from the global one."""
+    import torch
+
+    metric, _ = _dm().val_dataloader()
+    state = torch.get_rng_state()
+    next(iter(metric))
+    assert torch.equal(torch.get_rng_state(), state)
+
+
 def test_gate_is_open_without_a_trainer_or_an_evaluator():
     dm = _dm()
     _, video = dm.val_dataloader()
@@ -643,16 +506,6 @@ def test_gate_is_open_without_a_trainer_or_an_evaluator():
 
     dm.trainer = _GateTrainer({"valid": object()})
     assert len(list(iter(video))) == 2, "evaluator without _should_viz -> gate open"
-
-
-def test_gated_loader_length_survives_a_closed_gate_at_setup():
-    """Lightning reads len() once, in setup_data, which can land on a non-viz
-    epoch: CombinedLoader.__len__ needs a live iterator the gate never made."""
-    dm = _dm()
-    _, video = dm.val_dataloader()
-    dm.trainer = _GateTrainer({"valid": _StubEval(should_viz=False)})
-    assert list(iter(video)) == []
-    assert len(video) == 2
 
 
 def test_gated_loader_length_is_lightnings_own_and_opens_no_iterator():
@@ -682,88 +535,6 @@ def test_video_head_without_a_viz_cap_is_rejected():
     _run({"valid": no_viz}, {"valid": {HUMAN: object()}})
     with pytest.raises(ValueError, match="viz_max_batches"):
         _run({"valid": capped, "train_viz": uncapped}, {"train_viz": {HUMAN: object()}})
-
-
-# sanity steps on: the loaders (and their len()) are set up on a pass whose gate
-# is already closed, which is what a real run does -- trainer/default.yaml sets no
-# num_sanity_val_steps, so lightning's default of 2 applies.
-@pytest.mark.parametrize("sanity_steps", [0, 2])
-def test_a_real_fit_builds_video_batches_only_on_viz_passes(tmp_path, sanity_steps):
-    """The gate against the real Lightning evaluation loop: a val dataloader
-    that yields nothing mid-sequence must not derail the pass, and the pinned
-    episode must not be touched at all on a non-viz epoch."""
-    import torch
-    from lightning import Trainer
-
-    class _Counting(_Episode):
-        def __init__(self, n):
-            super().__init__(n)
-            self.reads = 0
-
-        def __getitem__(self, i):
-            self.reads += 1
-            return super().__getitem__(i)
-
-    pinned, metric = _Counting(4), _Counting(4)
-    params = {HUMAN: {"batch_size": 2, "num_workers": 0, "shuffle": False}}
-    dm = MultiDataModuleWrapper(
-        train_datasets={HUMAN: _split({"ep0": 4})},
-        valid_datasets={HUMAN: MultiDataset(datasets={"ep0": metric}, mode="total")},
-        train_dataloader_params={HUMAN: {"batch_size": 2, "num_workers": 0}},
-        valid_dataloader_params=params,
-        video_datasets={
-            "valid": {HUMAN: MultiDataset(datasets={"pin": pinned}, mode="total")}
-        },
-    )
-
-    class _Module(LightningModule):
-        def __init__(self):
-            super().__init__()
-            self.layer = torch.nn.Linear(1, 1)
-            self.val_loaders_seen: list[tuple[int, int]] = []
-            self.pinned_reads: dict[int, int] = {}
-
-        # viz only on the second validation pass
-        def _val_heads(self):
-            return {
-                "valid": SimpleNamespace(_should_viz=lambda: self.current_epoch == 1)
-            }
-
-        def training_step(self, batch, batch_idx):
-            return self.layer(batch[HUMAN]["frame"].reshape(-1, 1)).sum()
-
-        def validation_step(self, batch, batch_idx, dataloader_idx=0):
-            if not self.trainer.sanity_checking:
-                self.val_loaders_seen.append((self.current_epoch, dataloader_idx))
-
-        def on_validation_epoch_end(self):
-            self.pinned_reads[self.current_epoch] = pinned.reads
-
-        def configure_optimizers(self):
-            return torch.optim.SGD(self.parameters(), lr=0.0)
-
-    model = _Module()
-    Trainer(
-        max_epochs=2,
-        accelerator="cpu",
-        devices=1,
-        limit_train_batches=2,
-        limit_val_batches=2,
-        check_val_every_n_epoch=1,
-        num_sanity_val_steps=sanity_steps,
-        logger=False,
-        enable_checkpointing=False,
-        enable_progress_bar=False,
-        enable_model_summary=False,
-        default_root_dir=str(tmp_path),
-    ).fit(model, datamodule=dm)
-
-    assert model.pinned_reads[0] == 0, "non-viz pass never touched the pinned episode"
-    assert model.pinned_reads[1] > 0, "viz pass still reads it"
-    # the metric loader is unaffected, and dataloader_idx stays stable
-    by_epoch = {e: [i for ep, i in model.val_loaders_seen if ep == e] for e in (0, 1)}
-    assert by_epoch[0] == [0, 0], "epoch 0: metric loader only"
-    assert by_epoch[1] == [0, 0, 1, 1], "epoch 1: metric loader then video loader"
 
 
 def test_video_loader_is_closed_off_rank_zero():

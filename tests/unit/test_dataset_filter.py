@@ -174,6 +174,12 @@ def test_dataset_filter_single_string_pin_is_one_hash() -> None:
     assert filters.episode_hashes == {"2026-04-30-09-41-51-255837"}
 
 
+def test_dataset_filter_pins_from_a_hash_list_file(tmp_path) -> None:
+    path = tmp_path / "pins.txt"
+    path.write_text("# header\na\nb  # note\n")
+    assert DatasetFilter(episode_hashes=str(path)).episode_hashes == {"a", "b"}
+
+
 def test_dataset_filter_exclude_hashes_never_match(tmp_path) -> None:
     listed = DatasetFilter(exclude_hashes=["bad"])
     assert not listed.matches({"episode_hash": "bad"})

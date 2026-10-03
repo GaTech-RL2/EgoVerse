@@ -15,10 +15,7 @@ it denser than it was ever cached.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
-import os
-import uuid
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -47,8 +44,7 @@ def recipe_key(dataset_name: str, dataset_cfg) -> str:
         "resolver": norm_cache.recipe_inputs(resolver)["resolver"],
         "code": norm_cache.code_hash(resolver),
     }
-    blob = json.dumps(inputs, sort_keys=True, default=str)
-    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+    return norm_cache.norm_cache_key(inputs)
 
 
 def cache_root(cache_dir, dataset_name: str, dataset_cfg) -> Path:
@@ -98,17 +94,12 @@ def _write(path: Path, idx: list[int], rows: dict[str, list[np.ndarray]]) -> Non
     arrays = {"idx": np.asarray(idx, dtype=np.int64), "keys": np.asarray(keys)}
     for i, k in enumerate(keys):
         arrays[f"k{i}"] = np.stack(rows[k])
-    # Several jobs (and every DDP rank) can share the cache, so each writer
-    # gets its own tmp file.
-    tmp = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(tmp, "wb") as f:
+
+    def write(tmp):
+        with open(tmp, "wb") as f:  # a path would get ".npz" appended
             np.savez(f, **arrays)
-        os.replace(tmp, path)
-    except OSError as e:
-        logger.warning("episode norm cache write failed (%s): %s", path, e)
-        tmp.unlink(missing_ok=True)
+
+    norm_cache._atomic_write(path, write)
 
 
 def _read(path: Path, rows: np.ndarray) -> dict[str, np.ndarray]:

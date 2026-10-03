@@ -42,10 +42,6 @@ robomimic_model:
   annotation_modality: "annotation"
   default_prompt: ""
 
-  # Mask the repeat-last padding at every episode / annotation tail out of
-  # the action loss (the dataset's `action_pad_mask`).
-  use_pad_mask: false
-
   trunk:
     embed_dim: 840
     num_blocks: 23
@@ -107,10 +103,8 @@ robomimic_model:
       dtype: "float16"
       # The frozen encoder's per-token features are cached per unique prompt
       # string (LRU, in memory), so the 600M-parameter forward runs once per
-      # annotation instead of once per training step. Ignored when
-      # `freeze: false` - a trainable encoder must stay online.
-      cache_text_features: true
-      text_cache_max_entries: 8192
+      # annotation instead of once per training step. A trainable encoder
+      # (`freeze: false`) stays online.
       output_dim: 840
       specs:
         random_horizon_masking: false
@@ -186,7 +180,7 @@ scheduler: null
 
 # torch.compile for the training step: ModelWrapper._maybe_compile hands the
 # trunk, the flow head's denoiser and the image encoders to torch.compile
-# (HPT.compile_for_training) before DDP wraps anything. Measured on one H100 at
+# (HPT.compile_targets) before DDP wraps anything. Measured on one H100 at
 # batch 64 and the 360x640 frames mecka decodes to (2026-09-19): 173 ms/step ->
 # 109 ms (1.58x), for ~40 s of compile at the first batch. mode="reduce-overhead"
 # is worth a further ~5% for roughly double that compile, but CUDA-graph modes

@@ -1,5 +1,6 @@
 import logging
 
+import torch
 from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader, _MaxSizeCycle
 from torch.utils.data import DataLoader, default_collate
@@ -81,11 +82,8 @@ class MultiDataModuleWrapper(LightningDataModule):
         train_viz_dataloader_params: dict | None = None,
         unseen_op_valid_datasets: dict | None = None,
         unseen_op_valid_dataloader_params: dict | None = None,
-        valid_prefix: str | None = None,
-        held_out_operators: list | None = None,
         video_datasets: dict | None = None,
-        metric_frames_per_episode: dict | None = None,
-        video_episodes: dict | None = None,
+        **_config_only,
     ):
         """
         Args:
@@ -94,7 +92,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             train_dataloader_params: dictionary of train dataloader parameters
             valid_dataloader_params: dictionary of valid dataloader parameters
             train_viz_datasets: optional dict of datasets iterated like a
-                second val loader. Used by TrainVizEvalVideo to visualize the
+                second val loader. Used by the train_viz evaluator head to visualize the
                 policy on training data alongside the canonical validation.
             train_viz_dataloader_params: dict of per-dataset DataLoader kwargs
                 for the train_viz loader.
@@ -105,15 +103,6 @@ class MultiDataModuleWrapper(LightningDataModule):
                 operators' held-out episodes and ``train_viz`` the train split.
             unseen_op_valid_dataloader_params: dict of per-dataset DataLoader
                 kwargs for the unseen_op_valid loader.
-            valid_prefix: config-only. When set, trainHydra wraps the canonical
-                evaluator so the valid loader logs ``<prefix>/...`` and writes
-                ``videos_<prefix>/`` (``seen_op_valid`` in the opsplit configs).
-            held_out_operators: config-only. The held-out-operator split
-                configs (data/mecka_fold_*_opsplit_*.yaml) keep the operator
-                id list once at the data-config root and interpolate it from
-                the train/valid filter lambdas; hydra.instantiate(cfg.data)
-                forwards every root key here, so it must be accepted. Kept as
-                an attribute for provenance only.
             video_datasets: optional ``{head: {dataset_name: dataset}}`` for the
                 video-ONLY companion loaders (``<head>_video``). Built by
                 trainHydra from ``data.video_episodes``: the head's own split
@@ -122,15 +111,10 @@ class MultiDataModuleWrapper(LightningDataModule):
                 metric loader is per-episode subsampled. A head with no pins
                 gets no video loader (today's behaviour). The video loader
                 reuses that head's ``*_dataloader_params`` (unshuffled).
-            metric_frames_per_episode: config-only ``{head: K}``. trainHydra
-                wraps each val head's dataset in ``EvenStrideDataset(base,
-                frames_per_episode=K)`` so the ``limit_val_batches`` window
-                covers every episode of the split instead of the leading
-                hash-sorted slice. Forwarded here by hydra.instantiate (it
-                rejects undeclared root keys); kept for provenance only.
-            video_episodes: config-only ``{head: [episode_hash, ...]}`` -- the
-                pinned video episodes, one per operator per head. Provenance
-                only; trainHydra is what reads it.
+            **_config_only: the data config's other root keys (valid_prefix,
+                held_out_operators, train_operators, metric_frames_per_episode,
+                video_episodes, ...), which trainHydra reads off cfg.data;
+                hydra.instantiate(cfg.data) forwards them here. Ignored.
 
         Tokenization (sampling a prompt from per-sample annotation lists,
         splicing in embodiment / control-mode / proprio blocks, and running
@@ -155,8 +139,6 @@ class MultiDataModuleWrapper(LightningDataModule):
             k: v for k, v in (unseen_op_valid_datasets or {}).items() if v is not None
         }
         self.unseen_op_valid_dataloader_params = unseen_op_valid_dataloader_params or {}
-        self.valid_prefix = valid_prefix
-        self.held_out_operators = list(held_out_operators or [])
         # {head: {dataset_name: dataset}}; heads with no pinned episodes are
         # dropped so `val_loader_names()` only grows for configs that ask for it.
         self.video_datasets = {
@@ -164,8 +146,6 @@ class MultiDataModuleWrapper(LightningDataModule):
             for head, datasets in (video_datasets or {}).items()
         }
         self.video_datasets = {h: d for h, d in self.video_datasets.items() if d}
-        self.metric_frames_per_episode = dict(metric_frames_per_episode or {})
-        self.video_episodes = dict(video_episodes or {})
         self.collate_fn = annotation_collate
 
     def train_dataloader(self):
@@ -201,6 +181,10 @@ class MultiDataModuleWrapper(LightningDataModule):
                 dataset,
                 shuffle=shuffle,
                 collate_fn=self.collate_fn,
+                # Lightning builds the val iterators (worker/shuffle seeds)
+                # before on_validation_start snapshots the training RNG, so
+                # they draw from their own run-seeded generator, not the global.
+                generator=torch.Generator().manual_seed(torch.initial_seed()),
                 **dataset_params,
             )
         if gate is None:
@@ -212,7 +196,7 @@ class MultiDataModuleWrapper(LightningDataModule):
 
         Open only on rank 0 and only on a viz pass. Elsewhere the loader's whole
         output -- decode, eval forward, render -- is discarded: the val loaders
-        carry no ``DistributedSampler`` (see ``EvalVideo._video_fps``), so every
+        carry no ``DistributedSampler`` (see ``EvalVideo._write_video``), so every
         rank was producing the same frames and only rank 0 ever wrote them.
 
         Ranks therefore iterate different numbers of val batches. That is safe

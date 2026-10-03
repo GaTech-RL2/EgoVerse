@@ -33,7 +33,6 @@ from egomimic.utils.pose_utils import (
     _xyzwxyz_to_matrix,
     _xyzypr_to_matrix,
     _ypr_to_rot6d,
-    bimanual_keypoint_layout,
     wxyz_to_xyzw,
     xyzw_to_wxyz,
 )
@@ -146,44 +145,29 @@ class InterpolatePadMask(Transform):
     The interpolators resample a (T, D) chunk from ``np.linspace(0, 1, T)``
     onto ``np.linspace(0, 1, new_chunk_length)``; an output step is real only
     if BOTH source frames it interpolates between are real (a step landing
-    exactly on a source frame inherits that frame). No-op when the mask key is
-    absent, and idempotent, so a mode that chains two builders
-    (``include_ee_pose``) still upsamples the mask once.
+    exactly on a source frame inherits that frame), i.e. the interpolated mask
+    is 1. No-op when the mask is absent, and idempotent, so a mode that chains
+    two builders (``include_ee_pose``) still upsamples the mask once.
     """
 
-    def __init__(
-        self,
-        new_chunk_length: int,
-        mask_key: str = "action_pad_mask",
-        stride: int = 1,
-    ):
+    def __init__(self, new_chunk_length: int, stride: int = 1):
         if stride <= 0:
             raise ValueError(f"stride must be positive, got {stride}")
         self.new_chunk_length = new_chunk_length
-        self.mask_key = mask_key
         self.stride = int(stride)
 
     def transform(self, batch: dict) -> dict:
-        mask = batch.get(self.mask_key)
+        mask = batch.get("action_pad_mask")
         if mask is None:
             return batch
         mask = np.asarray(mask, dtype=np.float32).reshape(-1)
         if mask.shape[0] == self.new_chunk_length:
             return batch  # already at the model horizon
-        mask = mask[:: self.stride]
+        mask = mask[:: self.stride] > 0
         T = mask.shape[0]
-        if T < 2:
-            batch[self.mask_key] = np.full(
-                self.new_chunk_length, mask[0] if T else 0.0, dtype=np.float32
-            )
-            return batch
-        # Position of each output sample in source-frame index units.
-        pos = np.linspace(0, 1, self.new_chunk_length) * (T - 1)
-        nearest = np.rint(pos)
-        on_frame = np.abs(pos - nearest) < 1e-9
-        lo = np.where(on_frame, nearest, np.floor(pos)).astype(int)
-        hi = np.where(on_frame, nearest, np.ceil(pos)).astype(int)
-        batch[self.mask_key] = ((mask[lo] > 0) & (mask[hi] > 0)).astype(np.float32)
+        pos = np.linspace(0, T - 1, self.new_chunk_length)
+        real = np.interp(pos, np.arange(T), mask) > 1 - 1e-6
+        batch["action_pad_mask"] = real.astype(np.float32)
         return batch
 
 
@@ -398,31 +382,19 @@ class PoseCoordinateFrameTransform(Transform):
         transformed_key_name: str,
         mode: Literal["xyzwxyz", "xyzypr", "xyz"] = "xyzwxyz",
         target_history: bool = False,
-        per_step_target: bool = True,
     ):
-        """
-        args:
-            per_step_target: put step k's pose in step k's OWN target frame
-                rather than every step in the current step's frame. On by
-                default, and inert unless the target itself was read with
-                history and the pose carries the matching axis -- which is the
-                only shape for which the other answer is wrong, not merely
-                different.
-
-                For wrist-frame keypoints this is the difference between "where
-                the hand was, measured from today's wrist" and "what shape the
-                hand was in" -- only the latter is a state the norm stats
-                describe, and only it keeps keypoint 0 at the origin on every
-                step. Pass False to force the single-frame path; the ACTION
-                chunk does not come through here at all, since its leading axis
-                is the forward horizon and belongs in one current frame.
+        """A target read with history (``target_history``, ``(K, D)``) and a
+        pose with the matching leading axis put step k's pose in step k's OWN
+        target frame: for wrist-frame keypoints that is "what shape the hand
+        was in", the state the norm stats describe, with keypoint 0 at the
+        origin on every step. The ACTION chunk never comes through here: its
+        leading axis is the forward horizon and belongs in one current frame.
         """
         self.target_world = target_world
         self.pose_world = pose_world
         self.transformed_key_name = transformed_key_name
         self.mode = mode
         self.target_history = target_history
-        self.per_step_target = per_step_target
         self._chunk_transform = ActionChunkCoordinateFrameTransform(
             target_world=target_world,
             chunk_world=pose_world,
@@ -445,8 +417,7 @@ class PoseCoordinateFrameTransform(Transform):
         pose_world = np.asarray(batch[self.pose_world])
         target_world = np.asarray(batch[self.target_world])
         per_step = (
-            self.per_step_target
-            and self.target_history
+            self.target_history
             and target_world.ndim > 1
             and pose_world.ndim == target_world.ndim + 1
             and pose_world.shape[0] == target_world.shape[0]
@@ -507,168 +478,69 @@ def _like_input(out: np.ndarray, is_tensor: bool):
     return torch.from_numpy(out) if is_tensor else out
 
 
-class CartesianYPRToRot6D(Transform):
-    """Convert a bimanual cartesian vector from per-arm xyz+ypr(+gripper) to
-    per-arm xyz+rot6d(+gripper).
+class _PerArmRotation(Transform):
+    """Convert the rotation block of a bimanual vector, per arm
+    ``[xyz (3) | rot | rest] x {left, right}`` (rest = gripper, nothing, or 21
+    hand keypoints), between euler ypr and the continuous 6D representation =
+    the first two rotation-matrix columns [col0(3), col1(3)] (see
+    :func:`egomimic.utils.pose_utils._ypr_to_rot6d`), the column convention of
+    the pi0.5 32D action blocks. 6D -> ypr re-orthonormalizes via Gram-Schmidt,
+    so a non-orthonormal model prediction still yields a proper rotation.
 
-    ``rot6d`` is the continuous 6D rotation representation = the first two
-    columns of the rotation matrix, packed as [col0(3), col1(3)] (see
-    :func:`egomimic.utils.pose_utils._ypr_to_rot6d`). This matches the column
-    convention of the pi0.5 32D action blocks, so the resulting per-arm layout
-    packs into them with no rotation math in the model.
-
-    Apply it to the proprio ee_pose as well as the actions: normalized YPR
-    saturates yaw/roll at +-pi, so per-dim normalization is only meaningful on
-    the continuous representation.
-
-    Input layouts (last dim), for action chunks ``(T, D)`` and single proprio
-    poses ``(D,)`` alike:
-      12 -> [L xyz ypr, R xyz ypr]       -> 18 [L xyz 6d, R xyz 6d]
-      14 -> [L xyz ypr g, R xyz ypr g]   -> 20 [L xyz 6d g, R xyz 6d g]
-
-    Preserves the numpy/tensor type of the input.
+    Apply it to the proprio as well as the actions: normalized YPR saturates
+    yaw/roll at +-pi, so per-dim normalization is only meaningful on the
+    continuous representation. Works on chunks ``(T, D)`` and single vectors
+    ``(D,)``, in place under ``action_key``, and preserves numpy/tensor type.
     """
 
-    def __init__(
-        self, action_key: str = "actions_cartesian", output_key: str | None = None
-    ):
-        self.action_key = action_key
-        self.output_key = output_key or action_key
+    to_6d: bool
+    widths: tuple[int, ...]
+    default_key: str
+
+    def __init__(self, action_key: str | None = None):
+        self.action_key = action_key or self.default_key
 
     def transform(self, batch: dict) -> dict:
         arr, is_tensor = _as_array(batch[self.action_key])
-        D = arr.shape[-1]
-        if D == 14:
-            l_xyz, l_ypr, l_g = arr[..., 0:3], arr[..., 3:6], arr[..., 6:7]
-            r_xyz, r_ypr, r_g = arr[..., 7:10], arr[..., 10:13], arr[..., 13:14]
-            out = np.concatenate(
-                [l_xyz, _ypr_to_rot6d(l_ypr), l_g, r_xyz, _ypr_to_rot6d(r_ypr), r_g],
-                axis=-1,
-            )
-        elif D == 12:
-            l_xyz, l_ypr = arr[..., 0:3], arr[..., 3:6]
-            r_xyz, r_ypr = arr[..., 6:9], arr[..., 9:12]
-            out = np.concatenate(
-                [l_xyz, _ypr_to_rot6d(l_ypr), r_xyz, _ypr_to_rot6d(r_ypr)],
-                axis=-1,
-            )
-        else:
+        if arr.shape[-1] not in self.widths:
             raise ValueError(
-                f"CartesianYPRToRot6D expects last-dim 12 or 14, got {arr.shape} "
-                f"for '{self.action_key}'"
-            )
-        batch[self.output_key] = _like_input(out, is_tensor)
-        return batch
-
-
-class CartesianRot6DToYPR(Transform):
-    """Inverse of :class:`CartesianYPRToRot6D`: per-arm xyz+rot6d(+gripper) ->
-    xyz+ypr(+gripper). Gram-Schmidt re-orthonormalizes the two columns, so a
-    non-orthonormal model prediction still yields a proper rotation.
-
-    Input layouts (last dim):
-      18 -> [L xyz 6d, R xyz 6d]         -> 12 [L xyz ypr, R xyz ypr]
-      20 -> [L xyz 6d g, R xyz 6d g]     -> 14 [L xyz ypr g, R xyz ypr g]
-    """
-
-    def __init__(
-        self, action_key: str = "actions_cartesian", output_key: str | None = None
-    ):
-        self.action_key = action_key
-        self.output_key = output_key or action_key
-
-    def transform(self, batch: dict) -> dict:
-        arr, is_tensor = _as_array(batch[self.action_key])
-        D = arr.shape[-1]
-        if D == 20:
-            l_xyz, l_6d, l_g = arr[..., 0:3], arr[..., 3:9], arr[..., 9:10]
-            r_xyz, r_6d, r_g = arr[..., 10:13], arr[..., 13:19], arr[..., 19:20]
-            out = np.concatenate(
-                [l_xyz, _rot6d_to_ypr(l_6d), l_g, r_xyz, _rot6d_to_ypr(r_6d), r_g],
-                axis=-1,
-            )
-        elif D == 18:
-            l_xyz, l_6d = arr[..., 0:3], arr[..., 3:9]
-            r_xyz, r_6d = arr[..., 9:12], arr[..., 12:18]
-            out = np.concatenate(
-                [l_xyz, _rot6d_to_ypr(l_6d), r_xyz, _rot6d_to_ypr(r_6d)],
-                axis=-1,
-            )
-        else:
-            raise ValueError(
-                f"CartesianRot6DToYPR expects last-dim 18 or 20, got {arr.shape} "
-                f"for '{self.action_key}'"
-            )
-        batch[self.output_key] = _like_input(out, is_tensor)
-        return batch
-
-
-class KeypointsYPRToRot6D(Transform):
-    """Convert a wrist-first bimanual keypoint vector from a ypr wrist rotation
-    to the continuous 6D one: per hand
-    ``[wrist xyz (3) | wrist ypr (3) | 21 keypoints (63)]`` (138 total) ->
-    ``[wrist xyz (3) | wrist rot6d (6) | 21 keypoints (63)]`` (144 total).
-    The keypoint blocks are copied through untouched. Works on action chunks
-    ``(T, 138)`` and single proprio vectors ``(138,)``.
-    """
-
-    def __init__(
-        self, action_key: str = "actions_keypoints", output_key: str | None = None
-    ):
-        self.action_key = action_key
-        self.output_key = output_key or action_key
-
-    def transform(self, batch: dict) -> dict:
-        arr, is_tensor = _as_array(batch[self.action_key])
-        if arr.shape[-1] != 138:
-            raise ValueError(
-                f"KeypointsYPRToRot6D expects last-dim 138, got {arr.shape} for "
+                f"{type(self).__name__} expects last-dim "
+                f"{' or '.join(map(str, self.widths))}, got {arr.shape} for "
                 f"'{self.action_key}'"
             )
-        layout = bimanual_keypoint_layout(138)
-        per_hand, n_rot = layout["per_hand"], len(layout["rot"]) // 2
-        blocks = []
-        for hand in range(2):
-            o = hand * per_hand
-            xyz = len(layout["wrist_xyz"]) // 2
-            blocks += [
-                arr[..., o : o + xyz],
-                _ypr_to_rot6d(arr[..., o + xyz : o + xyz + n_rot]),
-                arr[..., o + xyz + n_rot : o + per_hand],
-            ]
-        batch[self.output_key] = _like_input(np.concatenate(blocks, axis=-1), is_tensor)
-        return batch
-
-
-class KeypointsRot6DToYPR(Transform):
-    """Inverse of :class:`KeypointsYPRToRot6D`: 144 -> 138 (wrist rot6d ->
-    ypr via Gram-Schmidt, keypoints untouched)."""
-
-    def __init__(
-        self, action_key: str = "actions_keypoints", output_key: str | None = None
-    ):
-        self.action_key = action_key
-        self.output_key = output_key or action_key
-
-    def transform(self, batch: dict) -> dict:
-        arr, is_tensor = _as_array(batch[self.action_key])
-        layout = bimanual_keypoint_layout(arr.shape[-1])
-        if layout is None or arr.shape[-1] != 144:
-            raise ValueError(
-                f"KeypointsRot6DToYPR expects last-dim 144, got {arr.shape} for "
-                f"'{self.action_key}'"
+        r, convert = (3, _ypr_to_rot6d) if self.to_6d else (6, _rot6d_to_ypr)
+        arms = [
+            np.concatenate(
+                [a[..., :3], convert(a[..., 3 : 3 + r]), a[..., 3 + r :]], -1
             )
-        per_hand = layout["per_hand"]
-        blocks = []
-        for hand in range(2):
-            o = hand * per_hand
-            blocks += [
-                arr[..., o : o + 3],
-                _rot6d_to_ypr(arr[..., o + 3 : o + 9]),
-                arr[..., o + 9 : o + per_hand],
-            ]
-        batch[self.output_key] = _like_input(np.concatenate(blocks, axis=-1), is_tensor)
+            for a in np.split(arr, 2, axis=-1)
+        ]
+        batch[self.action_key] = _like_input(np.concatenate(arms, -1), is_tensor)
         return batch
+
+
+class CartesianYPRToRot6D(_PerArmRotation):
+    """[L xyz ypr (g) | R xyz ypr (g)] 12/14 -> [L xyz 6d (g) | R xyz 6d (g)] 18/20."""
+
+    to_6d, widths, default_key = True, (12, 14), "actions_cartesian"
+
+
+class CartesianRot6DToYPR(_PerArmRotation):
+    """Inverse of :class:`CartesianYPRToRot6D`: 18/20 -> 12/14."""
+
+    to_6d, widths, default_key = False, (18, 20), "actions_cartesian"
+
+
+class KeypointsYPRToRot6D(_PerArmRotation):
+    """Wrist-first keypoints [wrist xyz | wrist ypr | 21 kp (63)] x 2, 138 -> 144."""
+
+    to_6d, widths, default_key = True, (138,), "actions_keypoints"
+
+
+class KeypointsRot6DToYPR(_PerArmRotation):
+    """Inverse of :class:`KeypointsYPRToRot6D`: 144 -> 138."""
+
+    to_6d, widths, default_key = False, (144,), "actions_keypoints"
 
 
 class RotateLocalFrame(Transform):
@@ -897,16 +769,13 @@ class PadGripperZeros(Transform):
 
     def transform(self, batch: dict) -> dict:
         arr, is_tensor = _as_array(batch[self.action_key])
-        pad = np.zeros((*arr.shape[:-1], 1), dtype=arr.dtype)
-        if arr.shape[-1] == 12:
-            out = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
-        elif arr.shape[-1] == 18:
-            out = np.concatenate((arr[..., :9], pad, arr[..., 9:], pad), axis=-1)
-        else:
+        D = arr.shape[-1]
+        if D not in (12, 18):
             raise ValueError(
                 f"PadGripperZeros expects last-dim 12 or 18, got {arr.shape} for "
                 f"'{self.action_key}'"
             )
+        out = np.insert(arr, [D // 2, D], 0, axis=-1)
         batch[self.action_key] = _like_input(out, is_tensor)
         return batch
 
@@ -925,16 +794,13 @@ class UnpadGripperZeros(Transform):
         D = arr.shape[-1]
         if D in (12, 18):
             return batch
-        if D == 14:
-            keep = [i for i in range(14) if i not in (6, 13)]
-        elif D == 20:
-            keep = [i for i in range(20) if i not in (9, 19)]
-        else:
+        if D not in (14, 20):
             raise ValueError(
                 f"UnpadGripperZeros expects last-dim 12/14/18/20, got {arr.shape} "
                 f"for '{self.action_key}'"
             )
-        batch[self.action_key] = _like_input(arr[..., keep], is_tensor)
+        out = np.delete(arr, [D // 2 - 1, D - 1], axis=-1)
+        batch[self.action_key] = _like_input(out, is_tensor)
         return batch
 
 

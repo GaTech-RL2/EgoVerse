@@ -221,7 +221,7 @@ class Human(Embodiment):
 
         ``proprio_history`` (K) makes the proprio keys the model consumes read
         the last K frames instead of one: the dataset emits ``(K, D)`` with the
-        current frame last, plus a ``proprio_history_mask``. K = 1 (the
+        current frame last. K = 1 (the
         default) leaves the keymap exactly as it was. ``history_stride`` (s)
         spaces that window out -- the steps are ``idx - s*(K-1) ... idx`` --
         because at 30 fps consecutive frames are nearly a duplicate of the
@@ -454,7 +454,7 @@ class Human(Embodiment):
         ],
         stride: int = 3,
         fix_left_wrist_convention: bool = False,
-        pad_proprio_gripper: bool = False,
+        pad_proprio_gripper: bool | None = None,
         include_ee_pose: bool = False,
         allow_legacy_rotation: bool = False,
     ) -> list[Transform]:
@@ -484,7 +484,7 @@ class Human(Embodiment):
         ``pad_proprio_gripper`` pads the cartesian proprio
         ``observations.state.ee_pose`` 18 -> 20 (zero grip slots at 9/19) so
         the pi0.5 ``State:`` prompt bins align positionally with the robot
-        20D layout. 6D modes only.
+        20D layout. None (default): on whenever that 6D proprio is built.
 
         ``include_ee_pose`` (keypoints modes only; pair with
         ``get_keymap(include_ee_pose=True)``) additionally builds the
@@ -506,6 +506,8 @@ class Human(Embodiment):
         if include_ee_pose and not is_keypoints:
             raise ValueError("include_ee_pose only applies to the keypoints modes")
         has_6d_ee_pose = (not is_keypoints and mode.endswith("_6d")) or include_ee_pose
+        if pad_proprio_gripper is None:
+            pad_proprio_gripper = has_6d_ee_pose
         if pad_proprio_gripper and not has_6d_ee_pose:
             raise ValueError(
                 "pad_proprio_gripper needs a 6D-encoded ee_pose proprio: a "
@@ -798,8 +800,9 @@ def _build_human_keypoints_eef_frame_transform_list(
                 output_key=right_keypoints_obs_headframe,
                 shape=(21, 3),
             ),
-            # per_step_target: with proprio_history K, step k's keypoints go
-            # into step k's OWN wrist frame, not the current step's. Otherwise
+            # PoseCoordinateFrameTransform with target_history: with
+            # proprio_history K, step k's keypoints go into step k's OWN
+            # wrist frame, not the current step's. Otherwise
             # a past hand is measured from today's wrist, which smears wrist
             # motion into the articulation channels -- the palm-rigid knuckles
             # (MANO 1/5/13/17) have a very tight legitimate range and land far
@@ -1181,11 +1184,7 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
     return transform_list
 
 
-def _build_human_cartesian_revert_6d_transform_list(
-    *,
-    action_key: str = "actions_cartesian",
-    obs_key: str = "observations.state.ee_pose",
-) -> list[Transform]:
+def _build_human_cartesian_revert_6d_transform_list() -> list[Transform]:
     """Revert head/camera-frame 6D-rotation cartesian actions back to ypr.
 
     For the cam-frame 6D evaluator: the action chunk is already in head frame
@@ -1196,18 +1195,15 @@ def _build_human_cartesian_revert_6d_transform_list(
     grip-padded 18 -> 20) is reverted the same way.
     """
     return [
-        SelectCurrentStep(keys=[obs_key]),  # proprio_history: keep the current step
-        CartesianRot6DToYPR(action_key=action_key),
-        CartesianRot6DToYPR(action_key=obs_key),
-        UnpadGripperZeros(action_key=obs_key),
+        # proprio_history: keep the current step
+        SelectCurrentStep(keys=["observations.state.ee_pose"]),
+        CartesianRot6DToYPR(action_key="actions_cartesian"),
+        CartesianRot6DToYPR(action_key="observations.state.ee_pose"),
+        UnpadGripperZeros(action_key="observations.state.ee_pose"),
     ]
 
 
-def _build_human_cartesian_revert_6d_wristframe_transform_list(
-    *,
-    action_key: str = "actions_cartesian",
-    obs_key: str = "observations.state.ee_pose",
-) -> list[Transform]:
+def _build_human_cartesian_revert_6d_wristframe_transform_list() -> list[Transform]:
     """Revert wrist-frame 6D-rotation human actions back to head-frame ypr.
 
     (1) ``CartesianRot6DToYPR`` converts the action rotation xyz+6D -> xyz+ypr
@@ -1218,36 +1214,29 @@ def _build_human_cartesian_revert_6d_wristframe_transform_list(
     actions back into head frame using that ypr proprio to define the frame.
     """
     return [
-        SelectCurrentStep(keys=[obs_key]),  # proprio_history: keep the current step
-        CartesianRot6DToYPR(action_key=action_key),
-        CartesianRot6DToYPR(action_key=obs_key),
-        UnpadGripperZeros(action_key=obs_key),
+        CartesianRot6DToYPR(action_key="actions_cartesian"),
+        CartesianRot6DToYPR(action_key="observations.state.ee_pose"),
+        UnpadGripperZeros(action_key="observations.state.ee_pose"),
+        # starts with SelectCurrentStep (proprio_history: the current step)
         *_build_human_cartesian_revert_eef_frame_transform_list(is_quat=False),
     ]
 
 
-def _build_human_keypoints_revert_6d_transform_list(
-    *,
-    action_key: str = "actions_keypoints",
-    obs_key: str = "observations.state.keypoints",
-) -> list[Transform]:
+def _build_human_keypoints_revert_6d_transform_list() -> list[Transform]:
     """Revert head-frame 144-D keypoint actions (``keypoints_headframe_6d``)
     to the 138-D ypr layout the keypoint overlay draws (the keypoint blocks
     are already in head frame; only the wrist rotation representation
     changes). The proprio is reverted the same way.
     """
     return [
-        SelectCurrentStep(keys=[obs_key]),  # proprio_history: keep the current step
-        KeypointsRot6DToYPR(action_key=action_key),
-        KeypointsRot6DToYPR(action_key=obs_key),
+        # proprio_history: keep the current step
+        SelectCurrentStep(keys=["observations.state.keypoints"]),
+        KeypointsRot6DToYPR(action_key="actions_keypoints"),
+        KeypointsRot6DToYPR(action_key="observations.state.keypoints"),
     ]
 
 
-def _build_human_keypoints_revert_6d_wristframe_transform_list(
-    *,
-    action_key: str = "actions_keypoints",
-    obs_key: str = "observations.state.keypoints",
-) -> list[Transform]:
+def _build_human_keypoints_revert_6d_wristframe_transform_list() -> list[Transform]:
     """Revert wrist-frame 144-D keypoint actions (``keypoints_wristframe_6d``)
     to head-frame keypoints for the overlay: (1) wrist rot6d -> ypr on the
     action and the proprio (144 -> 138 each); (2) the standard keypoint eef
@@ -1256,12 +1245,10 @@ def _build_human_keypoints_revert_6d_wristframe_transform_list(
     ``actions_keypoints`` (the wrist-pose slices are consumed by the revert).
     """
     return [
-        SelectCurrentStep(keys=[obs_key]),  # proprio_history: keep the current step
-        KeypointsRot6DToYPR(action_key=action_key),
-        KeypointsRot6DToYPR(action_key=obs_key),
-        *_build_human_keypoints_revert_eef_frame_transform_list(
-            action_key=action_key, obs_key=obs_key, is_quat=False
-        ),
+        KeypointsRot6DToYPR(action_key="actions_keypoints"),
+        KeypointsRot6DToYPR(action_key="observations.state.keypoints"),
+        # starts with SelectCurrentStep (proprio_history: the current step)
+        *_build_human_keypoints_revert_eef_frame_transform_list(is_quat=False),
     ]
 
 

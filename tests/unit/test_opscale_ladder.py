@@ -10,20 +10,15 @@ The train split is an OPERATOR FILTER, not an episode pin, so these tests drive
 the real DatasetFilter with synthetic rows rather than counting hashes.
 """
 
-from pathlib import Path
-
 import hydra
 import pytest
-import yaml
-from hydra import compose, initialize_config_module
-from omegaconf import OmegaConf
+from test_data_configs_compose import compose_data
 
-import egomimic.hydra_configs as _cfg_pkg
 from egomimic.rldb.filters import DatasetFilter
 
-DATA_DIR = Path(_cfg_pkg.__file__).parent / "data"
 ARMS = (1, 2, 4)
-VARIANTS = ("6d", "hpt_keypoints")
+# 6d: the rung's data config; kp: the keypoint recipe over the same rung.
+VARIANTS = {"6d": "train_zarr_cartesian", "kp": "train_zarr_mecka_kp_wrist_hpt"}
 
 # The 4 train operators, ranked by ANNOTATED hours (SQL app.episodes, 2026-09-17).
 # Arm k trains on the first k of these. NOT the same order as raw hours.
@@ -39,12 +34,6 @@ SEEN_VAL = [
     "696bcbe86377d0871b6a9253",
     "696bcc71ed8ed158122ec794",
 ]
-# Episodes per arm as measured 2026-09-17. The filter is LIVE, so these are
-# documentation, not a guarantee; the metric budget is derived from the resolved
-# split at runtime (`auto`), so nothing has to be kept in step with them.
-TRAIN_EPISODES = {1: 9, 2: 24, 4: 48}
-SEEN_VAL_EPISODES = 3
-UNSEEN_OPERATORS = 31
 SPLITS = ("train_datasets", "valid_datasets", "unseen_op_valid_datasets")
 
 # A row that clears every non-operator lambda: mecka, freeform, fold-clothes,
@@ -58,20 +47,6 @@ BASE_ROW = {
 }
 
 
-def _data(name: str):
-    with initialize_config_module(
-        config_module="egomimic.hydra_configs", version_base=None
-    ):
-        cfg = compose(config_name="train_zarr_cartesian", overrides=[f"data={name}"])
-    cfg._set_flag("allow_objects", True)
-    OmegaConf.resolve(cfg.data)
-    return cfg.data
-
-
-def _name(k: int, variant: str) -> str:
-    return f"mecka_fold_freeform_opscale{k}_{variant}"
-
-
 def _filter(data, split: str) -> DatasetFilter:
     node = data[split].human_bimanual
     return DatasetFilter(
@@ -82,7 +57,11 @@ def _filter(data, split: str) -> DatasetFilter:
 
 @pytest.fixture(scope="module")
 def ladder():
-    return {(k, v): _data(_name(k, v)) for k in ARMS for v in VARIANTS}
+    return {
+        (k, v): compose_data(f"mecka_fold_freeform_opscale{k}_6d", config_name=top).data
+        for k in ARMS
+        for v, top in VARIANTS.items()
+    }
 
 
 @pytest.mark.parametrize("k", ARMS)
@@ -99,25 +78,12 @@ def test_train_accepts_exactly_the_first_k_operators(ladder, k, variant):
 
 @pytest.mark.parametrize("k", ARMS)
 @pytest.mark.parametrize("variant", VARIANTS)
-def test_train_withholds_the_seen_val_episodes(ladder, k, variant):
-    """The seen-op val is the ONLY thing kept out of training, so the exclusion
-    must be present in every arm -- including k=1, whose single operator owns
-    all three of those episodes."""
-    f = _filter(ladder[(k, variant)], "train_datasets")
-    for h in SEEN_VAL:
-        row = {**BASE_ROW, "operator": OPERATORS[0], "episode_hash": h}
-        assert not f.matches(row), f"k={k}: train accepted seen-val episode {h}"
-
-
-@pytest.mark.parametrize("k", ARMS)
-@pytest.mark.parametrize("variant", VARIANTS)
 def test_seen_val_pin_matches_what_train_excludes(ladder, k, variant):
     """The val pin and the train exclusion are written separately; if they drift,
     an episode is either trained on AND validated, or dropped entirely."""
     data = ladder[(k, variant)]
     pin = list(data.valid_datasets.human_bimanual.filters.episode_hashes)
     assert sorted(pin) == sorted(SEEN_VAL)
-    assert len(pin) == SEEN_VAL_EPISODES
     train = _filter(data, "train_datasets")
     # every pinned episode is refused by train, and a non-pinned one is not
     assert all(
@@ -144,24 +110,11 @@ def test_val_sets_are_identical_across_the_ladder(ladder, variant):
 @pytest.mark.parametrize("variant", VARIANTS)
 def test_train_operators_are_never_in_the_unseen_split(ladder, k, variant):
     data = ladder[(k, variant)]
-    assert len(data.held_out_operators) == UNSEEN_OPERATORS
     assert not (set(OPERATORS) & set(data.held_out_operators))
     # and the unseen filter refuses a train operator outright
     unseen = _filter(data, "unseen_op_valid_datasets")
     assert not unseen.matches({**BASE_ROW, "operator": OPERATORS[0]})
     assert unseen.matches({**BASE_ROW, "operator": data.held_out_operators[0]})
-
-
-def test_unseen_operators_match_the_opsplit_config():
-    """Reusing mecka_fold_freeform_opsplit_6d's held-out list verbatim is what
-    keeps this ladder's unseen_op_valid/ numbers comparable with the existing
-    freeform opsplit checkpoints. Do not re-cut it."""
-    raw = yaml.safe_load(
-        (DATA_DIR / "mecka_fold_freeform_opsplit_6d.yaml").read_text(encoding="utf-8")
-    )
-    assert sorted(_data(_name(4, "6d")).held_out_operators) == sorted(
-        raw["held_out_operators"]
-    )
 
 
 # --- language annotations -------------------------------------------------
@@ -192,93 +145,17 @@ def test_every_split_requires_language_annotations(ladder, k, variant, split):
     assert f.matches(good), f"{split}: guard rejects an annotated row"
 
 
-@pytest.mark.parametrize("k", ARMS)
-@pytest.mark.parametrize("variant", VARIANTS)
-def test_annotation_key_is_wired(ladder, k, variant):
-    """Without annotation_key the keymap emits no annotation entry at all, and
-    the prompt is `default_prompt` everywhere regardless of the guard."""
-    km = ladder[(k, variant)].train_datasets.human_bimanual.resolver.key_map
-    assert km.annotation_key == "annotations"
-
-
-@pytest.mark.parametrize("k", ARMS)
-@pytest.mark.parametrize("variant", VARIANTS)
-def test_no_rung_asks_for_proprio_history_alone(ladder, k, variant):
-    """proprio_history is half a setting: the keymap decides how many steps a
-    sample carries and the model's stem how many tokens consume them, and
-    HPTModel.stem_process raises when they disagree. Every model in the repo is
-    history_len 1, so a rung shipping K > 1 is a rung nothing can train -- which
-    is what happened when the ladder outlived the one model that wanted K=4."""
-    km = ladder[(k, variant)].train_datasets.human_bimanual.resolver.key_map
-    assert km.get("proprio_history", 1) == 1
-
-
 # --- pipeline and loaders -------------------------------------------------
 
 
 @pytest.mark.parametrize("k", ARMS)
-def test_keypoint_twin_shares_its_parents_split(ladder, k):
-    """The HPT twin may change only the keymap/transform; if its filters drift
-    from the 6d parent the two model families stop being comparable."""
+def test_keypoint_recipe_shares_the_rungs_split(ladder, k):
+    """The keypoint recipe may change only the keymap/transform; if its filters
+    drift from the 6d rung the two model families stop being comparable."""
     for split in SPLITS:
         assert list(
-            ladder[(k, "hpt_keypoints")][split].human_bimanual.filters.filter_lambdas
+            ladder[(k, "kp")][split].human_bimanual.filters.filter_lambdas
         ) == list(ladder[(k, "6d")][split].human_bimanual.filters.filter_lambdas), split
-
-
-@pytest.mark.parametrize("k", ARMS)
-def test_pipeline_per_variant(ladder, k):
-    for variant, keymap, mode, pad in (
-        ("6d", "cartesian", "cartesian_wristframe_6d", True),
-        ("hpt_keypoints", "keypoints", "keypoints_wristframe_6d", False),
-    ):
-        res = ladder[(k, variant)].train_datasets.human_bimanual.resolver
-        assert res.key_map.keymap_mode == keymap
-        assert res.transform_list.mode == mode
-        assert res.transform_list.pad_proprio_gripper is pad
-        # processed_v3 mecka zarrs have the LEFT wrist frame double-mirrored.
-        # Instantiated, not just read off the node: a renamed kwarg would keep
-        # the assertion green while the config could no longer be built.
-        assert res.transform_list.fix_left_wrist_convention is True
-        assert hydra.utils.instantiate(res.transform_list)
-
-
-@pytest.mark.parametrize("k", ARMS)
-@pytest.mark.parametrize("variant", VARIANTS)
-def test_filters_are_the_whole_split(ladder, k, variant):
-    """`mode: total` everywhere: the filters ARE the split, so no seeded episode
-    split may run on top of them and quietly drop a fraction of the data."""
-    data = ladder[(k, variant)]
-    for split in SPLITS:
-        assert data[split].human_bimanual.mode == "total", split
-    assert data.valid_prefix == "seen_op_valid"
-
-
-@pytest.mark.parametrize("k", ARMS)
-@pytest.mark.parametrize("variant", VARIANTS)
-def test_metric_budget_is_derived_from_the_resolved_split(ladder, k, variant):
-    """Every head is `auto`, so K follows the live filters; a hard-coded K would
-    push K x episodes past the limit_val_batches window as SQL grows. At the
-    documented counts `auto` reproduces floor(5120 / episodes)."""
-    from egomimic import trainHydra as th
-
-    data = ladder[(k, variant)]
-    assert dict(data.metric_frames_per_episode) == {
-        "valid": "auto",
-        "unseen_op_valid": "auto",
-        "train_viz": "auto",
-    }
-    cfg = OmegaConf.create(
-        {
-            "data": {"metric_frames_per_episode": dict(data.metric_frames_per_episode)},
-            "trainer": {"limit_val_batches": 80, "devices": 1},
-        }
-    )
-    bs = data.valid_dataloader_params.human_bimanual.batch_size
-    for head, n in (("train_viz", TRAIN_EPISODES[k]), ("valid", SEEN_VAL_EPISODES)):
-        kk = th._metric_frames_per_episode(cfg, head, n_episodes=n, batch_size=bs)
-        assert kk == 80 * bs // n
-        assert kk * n <= 80 * bs
 
 
 @pytest.mark.parametrize("k", ARMS)
@@ -297,3 +174,25 @@ def test_video_pins_belong_to_their_own_split(ladder, k, variant):
     assert train.matches(
         {**BASE_ROW, "operator": OPERATORS[0], "episode_hash": vids.train_viz[0]}
     ), f"k={k}: the inherited train_viz video pin is not in this arm's split"
+
+
+@pytest.mark.parametrize("k", ARMS)
+@pytest.mark.parametrize("variant", VARIANTS)
+def test_rung_pipeline_and_whole_split(ladder, k, variant):
+    """`mode: total` everywhere: the filters ARE the split, so no seeded episode
+    split may run on top of them (mecka_all_6d's train split is mode: train).
+    The resolver is instantiated, not just read: a misspelled kwarg in the kp
+    recipe's `data:` block would otherwise only fail at training startup."""
+    data = ladder[(k, variant)]
+    for split in SPLITS:
+        assert data[split].human_bimanual.mode == "total", split
+    assert data.valid_prefix == "seen_op_valid"
+    res = data.train_datasets.human_bimanual.resolver
+    # without annotation_key every prompt is `default_prompt`
+    assert res.key_map.annotation_key == "annotations"
+    # HPTModel.stem_process raises unless K matches the stem's history_len (1)
+    assert res.key_map.get("proprio_history", 1) == 1
+    # processed_v3 mecka zarrs have the LEFT wrist frame double-mirrored.
+    assert res.transform_list.fix_left_wrist_convention is True
+    assert hydra.utils.instantiate(res.key_map)
+    assert hydra.utils.instantiate(res.transform_list)

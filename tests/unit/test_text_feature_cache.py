@@ -12,34 +12,18 @@ stay online (its outputs change every step and need a graph).
 
 from __future__ import annotations
 
-import glob
 import os
-import time
+from collections import OrderedDict
 
 import pytest
 import torch
 import torch.nn as nn
-from omegaconf import OmegaConf
+from fixtures.text_stems import EMBED_DIM, QWEN_SNAPSHOT, requires_qwen
+from fixtures.text_stems import cross_attn_specs as _cross_attn_specs
 
 from egomimic.models.hpt_nets import PolicyStem, QwenPerTokenEncoder
 
-EMBED_DIM = 32
 HIDDEN_DIM = 16
-
-
-def _cross_attn_specs(latent: int = 4) -> OmegaConf:
-    return OmegaConf.create(
-        {
-            "random_horizon_masking": False,
-            "cross_attn": {
-                "crossattn_latent": latent,
-                "crossattn_heads": 2,
-                "crossattn_dim_head": 8,
-                "crossattn_modality_dropout": 0.0,
-                "modality_embed_dim": EMBED_DIM,
-            },
-        }
-    )
 
 
 # --------------------------------------------------------------------------
@@ -59,24 +43,22 @@ class CountingStubEncoder(QwenPerTokenEncoder):
         self,
         specs,
         freeze: bool = True,
-        cache_text_features: bool = True,
-        text_cache_max_entries: int = 8192,
-        lengths: dict | None = None,
+        max_entries: int | None = None,
     ) -> None:
         PolicyStem.__init__(self, specs=specs)
+        self._text_feature_cache = OrderedDict()
+        if max_entries is not None:
+            self.TEXT_CACHE_MAX_ENTRIES = max_entries
         self.hidden_size = HIDDEN_DIM
         self.output_dim = EMBED_DIM
         self.freeze_encoder = freeze
-        self._snapshot_dir = ""
-        self._load_dtype = torch.float32
         self.proj = nn.Linear(HIDDEN_DIM, EMBED_DIM)
         self.encoder = nn.Identity()  # never called; `train()` keeps it in eval
-        self._init_text_feature_cache(cache_text_features, text_cache_max_entries)
 
         generator = torch.Generator().manual_seed(0)
         self._table = {
             prompt: torch.randn(length, HIDDEN_DIM, generator=generator)
-            for prompt, length in (lengths or PROMPT_LENGTHS).items()
+            for prompt, length in PROMPT_LENGTHS.items()
         }
         self.calls = []  # one entry per _encode_online call: the prompt list
 
@@ -118,16 +100,13 @@ def test_cache_encodes_each_unique_prompt_exactly_once():
 
     # one call per batch that had misses, each carrying only the unique misses
     assert stem.calls == [[A, B], [C]], stem.calls
-    stats = stem.text_feature_cache_stats()
-    assert stats["entries"] == 3
-    assert stats["misses"] == 3
-    assert stats["hits"] == 2 + 3 + 1 + 4 - 3  # every prompt seen, minus misses
+    assert len(stem._text_feature_cache) == 3
 
 
 def test_cached_output_equals_the_uncached_output():
     """Bit-identical, since the stub features do not depend on the batch."""
     batches = [[A, B], [B, C, A], [C], [A, A, C]]
-    cached, online = _stub(), _stub(cache_text_features=False)
+    cached, online = _stub(), _stub(freeze=False)  # trainable: always online
     online.load_state_dict(cached.state_dict())  # same proj / cross-attn weights
     with torch.no_grad():
         for prompts in batches:
@@ -190,26 +169,18 @@ def test_trainable_encoder_bypasses_the_cache():
     stem._encode([A, B])
     stem._encode([A, B])
     assert stem.calls == [[A, B], [A, B]]
-    assert stem.text_feature_cache_stats()["entries"] == 0
+    assert len(stem._text_feature_cache) == 0
 
 
-def test_cache_text_features_false_bypasses_the_cache():
-    stem = _stub(cache_text_features=False)
-    with torch.no_grad():
-        stem._encode([A, B])
-        stem._encode([A, B])
-    assert stem.calls == [[A, B], [A, B]]
-    assert stem.text_feature_cache_stats()["entries"] == 0
-
-
-def test_clear_text_feature_cache():
+def test_moving_the_stem_clears_the_cache():
+    """The cached rows belong to the old device / dtype."""
     stem = _stub()
     with torch.no_grad():
         stem._encode([A, B])
-        stem.clear_text_feature_cache()
+        stem.float()
+        assert len(stem._text_feature_cache) == 0
         stem._encode([A, B])
     assert stem.calls == [[A, B], [A, B]]
-    assert stem.text_feature_cache_stats() == {"entries": 2, "hits": 0, "misses": 4}
 
 
 # --------------------------------------------------------------------------
@@ -218,7 +189,7 @@ def test_clear_text_feature_cache():
 
 
 def test_lru_eviction_at_max_entries():
-    stem = _stub(text_cache_max_entries=2)
+    stem = _stub(max_entries=2)
     with torch.no_grad():
         stem._encode([A, B])  # cache: A, B
         stem._encode([A])  # hit; A becomes most-recent, B is the LRU victim
@@ -228,39 +199,13 @@ def test_lru_eviction_at_max_entries():
         assert stem.calls == [[A, B], [C]]
         stem._encode([B])  # B was evicted -> re-encoded
     assert stem.calls == [[A, B], [C], [B]]
-    assert stem.text_feature_cache_stats()["entries"] == 2
-
-
-def test_cache_never_exceeds_max_entries():
-    lengths = {f"prompt {i}": 1 + (i % 4) for i in range(20)}
-    stem = _stub(text_cache_max_entries=5, lengths=lengths)
-    with torch.no_grad():
-        for prompt in lengths:
-            stem._encode([prompt])
-            assert len(stem._text_feature_cache) <= 5
+    assert len(stem._text_feature_cache) == 2
 
 
 # --------------------------------------------------------------------------
 # 5. the real Qwen encoder (skipped when the snapshot is absent)
 # --------------------------------------------------------------------------
 
-
-def _qwen_snapshot() -> str | None:
-    cache = os.environ.get("HF_HUB_CACHE") or os.path.join(
-        os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface")), "hub"
-    )
-    hits = sorted(
-        glob.glob(
-            os.path.join(cache, "models--Qwen--Qwen3-Embedding-0.6B", "snapshots", "*")
-        )
-    )
-    return hits[-1] if hits else None
-
-
-QWEN_SNAPSHOT = _qwen_snapshot()
-requires_qwen = pytest.mark.skipif(
-    QWEN_SNAPSHOT is None, reason="Qwen3-Embedding-0.6B snapshot not in the HF cache"
-)
 
 QWEN_PROMPTS = [
     "fold the towel",
@@ -270,20 +215,21 @@ QWEN_PROMPTS = [
 ]
 
 
-def _build_qwen_stems(dtype: str = "float16"):
-    """Two stems off the same snapshot: one cached, one always online."""
+@pytest.fixture(scope="module")
+def qwen_stems():
+    """Two stems off the same snapshot: one cached (frozen), one always online
+    (trainable; the tests run it under no_grad in eval mode)."""
     if QWEN_SNAPSHOT is None:
         pytest.skip("Qwen3-Embedding-0.6B snapshot not in the HF cache")
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     specs = _cross_attn_specs()
     built = []
-    for cache_text_features in (True, False):
+    for freeze in (True, False):
         stem = QwenPerTokenEncoder(
             model_name=QWEN_SNAPSHOT,
             max_length=32,
             output_dim=EMBED_DIM,
-            dtype=dtype,
-            cache_text_features=cache_text_features,
+            freeze=freeze,
             specs=specs,
         )
         stem.init_cross_attn(specs.cross_attn)
@@ -292,16 +238,6 @@ def _build_qwen_stems(dtype: str = "float16"):
     # identical cross-attention / projection weights on both stems
     built[1].load_state_dict(built[0].state_dict())
     return tuple(built)
-
-
-@pytest.fixture(scope="module")
-def qwen_stems():
-    return _build_qwen_stems("float16")
-
-
-@pytest.fixture(scope="module")
-def qwen_stems_fp32():
-    return _build_qwen_stems("float32")
 
 
 @requires_qwen
@@ -321,7 +257,7 @@ def test_real_qwen_cached_matches_online(qwen_stems):
         # Warm one prompt on its own first, so the batch below is a mix of a
         # hit (encoded with NO padding) and misses (encoded padded to each
         # other) - the case where cached and online padding really differ.
-        cached.clear_text_feature_cache()
+        cached._text_feature_cache.clear()
         cached._encode([QWEN_PROMPTS[0]])
         cached._encode_online = counting.__get__(cached, type(cached))
         hid_c1, mask_c1 = cached._encode(QWEN_PROMPTS)
@@ -347,7 +283,7 @@ def test_real_qwen_cached_matches_online(qwen_stems):
     latent_diff = (lat_c1 - lat_on).abs().max().item()
     print(
         f"\n[qwen-cache] max|cached - online| hidden {hidden_diff:.3e} "
-        f"latent {latent_diff:.3e} (entries {cached.text_feature_cache_stats()})"
+        f"latent {latent_diff:.3e} (entries {len(cached._text_feature_cache)})"
     )
     # The cache encodes a miss with different left padding than the online
     # batch would, and Qwen's RoPE positions are absolute, so fp16 rounding
@@ -365,50 +301,11 @@ def test_real_qwen_cached_matches_online(qwen_stems):
     assert latent_diff < 5e-3, latent_diff
 
 
-@requires_qwen
-def test_real_qwen_cached_matches_online_in_fp32(qwen_stems_fp32):
-    """The same comparison without fp16 rounding: the cache is then exact to
-    within ordinary float noise (the brief's 1e-2 / 1e-3 bounds)."""
-    cached, online = qwen_stems_fp32
-    with torch.no_grad():
-        hid_on, mask_on = online._encode(QWEN_PROMPTS)
-        lat_on = online.compute_latent(QWEN_PROMPTS)
-        cached.clear_text_feature_cache()
-        cached._encode([QWEN_PROMPTS[0]])  # mixed hit / miss padding again
-        hid_c, _ = cached._encode(QWEN_PROMPTS)
-        lat_c = cached.compute_latent(QWEN_PROMPTS)
-    real = mask_on.bool()
-    hidden_diff = (hid_c[real] - hid_on[real]).abs().max().item()
-    latent_diff = (lat_c - lat_on).abs().max().item()
-    print(
-        f"\n[qwen-cache-fp32] max|cached - online| hidden {hidden_diff:.3e} "
-        f"latent {latent_diff:.3e}"
-    )
-    assert hidden_diff < 1e-2, hidden_diff
-    assert latent_diff < 1e-3, latent_diff
-
-
-@requires_qwen
-def test_real_qwen_cache_is_faster_when_warm(qwen_stems):
-    cached, online = qwen_stems
-    cached.clear_text_feature_cache()
-    with torch.no_grad():
-        cached.compute_latent(QWEN_PROMPTS)  # warm
-        start = time.perf_counter()
-        cached.compute_latent(QWEN_PROMPTS)
-        warm = time.perf_counter() - start
-        start = time.perf_counter()
-        online.compute_latent(QWEN_PROMPTS)
-        live = time.perf_counter() - start
-    print(f"\n[qwen-cache] warm {warm * 1e3:.1f} ms vs online {live * 1e3:.1f} ms")
-    assert warm < live
-
-
 def test_a_batch_wider_than_the_cache_still_serves_every_prompt():
     """The LRU trim runs after the miss pass, so a batch with more unique
     prompts than the capacity evicts its own earliest entries; reading them
     back must not KeyError."""
-    stem = _stub(text_cache_max_entries=2)
+    stem = _stub(max_entries=2)
     with torch.no_grad():
         hidden, mask = stem._encode([A, B, C])
         online_hidden, online_mask = stem._encode_online([A, B, C])

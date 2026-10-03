@@ -40,9 +40,6 @@ train_datasets:
         # spatial convention. Rz(180)-corrects the raw left pose keys before
         # any frame math (exactly equivalent to reconverting).
         fix_left_wrist_convention: true
-        # 18 -> 20-dim proprio (zero grip slots at 9/19): State: prompt bins
-        # align positionally with the robot 20-dim layout.
-        pad_proprio_gripper: true
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -60,27 +57,6 @@ valid_datasets:
     filters: ${data.train_datasets.human_bimanual.filters}
     mode: valid
     valid_ratio: ${data.train_datasets.human_bimanual.valid_ratio}
-
-# Train-set spot check: a second val-style loader over the TRAIN split,
-# consumed by the TrainVizEvalVideo wrapper on every validation epoch
-# (metrics prefixed `train_viz/`, videos under `videos_train_viz/`). No
-# shuffle -> the same leading slice every val, so the curves are comparable
-# across time. Declared here only to set its loader params; without it the
-# default train_viz head reuses the train split with the valid loader params
-# (the head is on by default, train_viz=true; `train_viz=false` skips it).
-train_viz_datasets:
-  human_bimanual:
-    _target_: ${data.train_datasets.human_bimanual._target_}
-    resolver: ${data.train_datasets.human_bimanual.resolver}
-    filters: ${data.train_datasets.human_bimanual.filters}
-    mode: train
-    valid_ratio: ${data.train_datasets.human_bimanual.valid_ratio}
-
-train_viz_dataloader_params:
-  human_bimanual:
-    batch_size: 32
-    num_workers: 2
-    shuffle: false
 
 train_dataloader_params:
   human_bimanual:

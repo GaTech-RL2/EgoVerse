@@ -44,8 +44,11 @@ class DatasetFilter:
         exclude_hashes: str | Sequence[str] | None = None,
     ) -> None:
         self.filter_lambdas = list(filter_lambdas or [])
-        if isinstance(episode_hashes, str):  # `filters.episode_hashes=abc` override
-            episode_hashes = [episode_hashes]
+        if isinstance(episode_hashes, str):  # a hash-list file/name (load_hash_list)
+            try:
+                episode_hashes = load_hash_list(episode_hashes)
+            except FileNotFoundError:  # `filters.episode_hashes=abc` override
+                episode_hashes = [episode_hashes]
         pins = frozenset(str(h) for h in (episode_hashes or []))
         # Episodes that never match, e.g. known-bad data (see load_hash_list).
         self.exclude_hashes = load_hash_list(exclude_hashes)

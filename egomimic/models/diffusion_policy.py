@@ -35,7 +35,7 @@ class DiffusionPolicy(DenoisingPolicy):
         self.noise_scheduler = noise_scheduler
 
     @override
-    def inference(self, noise, global_cond, generator=None) -> torch.Tensor:
+    def inference(self, noise, global_cond) -> torch.Tensor:
         self.noise_scheduler.set_timesteps(
             self.num_inference_steps, device=global_cond.device
         )
@@ -45,9 +45,7 @@ class DiffusionPolicy(DenoisingPolicy):
                 torch.tensor([t], device=global_cond.device) if len(t.shape) != 1 else t
             )
             model_output = self.model(actions, t_model, global_cond)
-            actions = self.noise_scheduler.step(
-                model_output, t, actions, generator=generator
-            ).prev_sample
+            actions = self.noise_scheduler.step(model_output, t, actions).prev_sample
         return actions
 
     @override

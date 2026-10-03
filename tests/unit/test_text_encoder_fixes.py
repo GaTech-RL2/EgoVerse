@@ -1,58 +1,33 @@
 """Lane C: the HPT text-encoder fixes.
 
-Three defects, one test file:
+Two defects, one test file:
 
 1. ``HPTModel.finalize_modules`` used ``self.apply(self._init_weights)``, which
    xavier-randomised the *pretrained* HF encoders inside the text stems (and
    would do the same to any future pretrained stem). It now skips anything a
    module declares through ``PretrainedWeights``.
-2. ``HPT.__init__`` called ``finalize_modules`` twice.
-3. ``QwenPerTokenEncoder.compute_latent`` never passed the tokenizer attention
+2. ``QwenPerTokenEncoder.compute_latent`` never passed the tokenizer attention
    mask to its cross-attention, so padded positions - which are the learned
    constant ``proj.bias``, not zero, because the zeroing happens before the
    biased ``proj`` - got real attention weight.
-
-Plus the new guard rail: the pretrained weights are hashed against their
-on-disk snapshot once the model is built, and a mismatch fails the run.
 """
 
 from __future__ import annotations
 
-import glob
-import inspect
 import os
 
 import pytest
 import torch
 import torch.nn as nn
-from omegaconf import OmegaConf
+from fixtures.text_stems import EMBED_DIM, QWEN_SNAPSHOT, requires_qwen
+from fixtures.text_stems import cross_attn_specs as _cross_attn_specs
 
 from egomimic.models.hpt_nets import (
     PolicyStem,
     PretrainedWeights,
     QwenPerTokenEncoder,
     apply_skipping_pretrained,
-    hash_state_dict,
-    verify_pretrained_weights,
 )
-
-EMBED_DIM = 32
-
-
-def _cross_attn_specs(latent: int = 4) -> OmegaConf:
-    return OmegaConf.create(
-        {
-            "random_horizon_masking": False,
-            "cross_attn": {
-                "crossattn_latent": latent,
-                "crossattn_heads": 2,
-                "crossattn_dim_head": 8,
-                "crossattn_modality_dropout": 0.0,
-                "modality_embed_dim": EMBED_DIM,
-            },
-        }
-    )
-
 
 # --------------------------------------------------------------------------
 # a tiny stand-in for a pretrained stem
@@ -72,13 +47,6 @@ class FakePretrainedStem(PretrainedWeights, nn.Module):
         with torch.no_grad():  # distinctive "checkpoint" values, no default zeros
             for param in self.encoder.parameters():
                 param.normal_(mean=1.0, std=1.0)
-        # pretend these came off disk
-        self._reference = {
-            k: v.detach().clone() for k, v in self.pretrained_state_dict().items()
-        }
-
-    def pretrained_reference_state_dict(self):
-        return {k: v.clone() for k, v in self._reference.items()}
 
 
 def _small_hpt_model(stems: dict):
@@ -134,14 +102,14 @@ def test_finalize_modules_leaves_pretrained_weights_untouched():
     torch.manual_seed(0)
     stem = FakePretrainedStem()
     before_pretrained = {
-        k: v.detach().clone() for k, v in stem.pretrained_state_dict().items()
+        k: v.detach().clone() for k, v in stem.encoder.state_dict().items()
     }
     before_proj = stem.proj.weight.detach().clone()
 
     model = _small_hpt_model({"annotation": stem})
     model.finalize_modules()
 
-    after = stem.pretrained_state_dict()
+    after = stem.encoder.state_dict()
     for key, value in before_pretrained.items():
         assert torch.equal(value, after[key]), f"pretrained tensor {key} was modified"
 
@@ -178,62 +146,7 @@ def test_finalize_modules_initialises_everything_hpt_builds():
 
 
 # --------------------------------------------------------------------------
-# 3. finalize_modules is called once per HPT.__init__
-# --------------------------------------------------------------------------
-
-
-def test_finalize_modules_called_once_in_hpt_init():
-    """Counted by walking HPT.__init__'s AST, not its source text: a comment
-    mentioning the call would satisfy a substring count."""
-    import ast
-    import textwrap
-
-    from egomimic.algo.hpt import HPT
-
-    tree = ast.parse(textwrap.dedent(inspect.getsource(HPT.__init__)))
-    calls = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "finalize_modules"
-    ]
-    assert len(calls) == 1, (
-        "HPT.__init__ must call finalize_modules exactly once; a second call "
-        "re-runs the init pass and re-draws the shared action tokens"
-    )
-
-
-# --------------------------------------------------------------------------
-# 4. the weight hash check
-# --------------------------------------------------------------------------
-
-
-def test_verify_pretrained_weights_passes_on_a_clean_model():
-    torch.manual_seed(0)
-    stem = FakePretrainedStem()
-    model = _small_hpt_model({"annotation": stem})
-    model.finalize_modules()
-    checked = verify_pretrained_weights(model, verbose=False)
-    assert checked, "the marked stem should have been hashed"
-    ((name, digest),) = checked.items()
-    assert "annotation" in name
-    assert digest == hash_state_dict(stem.pretrained_reference_state_dict())
-
-
-def test_verify_pretrained_weights_raises_when_a_weight_is_perturbed():
-    torch.manual_seed(0)
-    stem = FakePretrainedStem()
-    model = _small_hpt_model({"annotation": stem})
-    model.finalize_modules()
-    with torch.no_grad():
-        stem.encoder[0].weight[0, 0] += 1e-3
-    with pytest.raises(RuntimeError, match="do not match their checkpoint"):
-        verify_pretrained_weights(model, verbose=False)
-
-
-# --------------------------------------------------------------------------
-# 5. the per-token text stem passes the attention mask
+# 2. the per-token text stem passes the attention mask
 # --------------------------------------------------------------------------
 
 
@@ -246,8 +159,6 @@ class StubPerTokenEncoder(QwenPerTokenEncoder):
         self.hidden_size = hidden.shape[-1]
         self.output_dim = EMBED_DIM
         self.freeze_encoder = False  # no HF encoder to keep in eval mode
-        self._snapshot_dir = ""
-        self._load_dtype = torch.float32
         self.proj = nn.Linear(self.hidden_size, EMBED_DIM)
         self.stub = (hidden, mask)
 
@@ -301,24 +212,6 @@ def test_per_token_stem_masks_padding():
 # --------------------------------------------------------------------------
 
 
-def _qwen_snapshot() -> str | None:
-    cache = os.environ.get("HF_HUB_CACHE") or os.path.join(
-        os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface")), "hub"
-    )
-    hits = sorted(
-        glob.glob(
-            os.path.join(cache, "models--Qwen--Qwen3-Embedding-0.6B", "snapshots", "*")
-        )
-    )
-    return hits[-1] if hits else None
-
-
-QWEN_SNAPSHOT = _qwen_snapshot()
-requires_qwen = pytest.mark.skipif(
-    QWEN_SNAPSHOT is None, reason="Qwen3-Embedding-0.6B snapshot not in the HF cache"
-)
-
-
 @pytest.fixture(scope="module")
 def qwen_stem():
     if QWEN_SNAPSHOT is None:
@@ -334,33 +227,11 @@ def qwen_stem():
 
 @requires_qwen
 def test_finalize_modules_keeps_the_real_qwen_encoder_bit_identical(qwen_stem):
-    before = hash_state_dict(qwen_stem.pretrained_state_dict())
+    before = {k: v.clone() for k, v in qwen_stem.encoder.state_dict().items()}
     model = _small_hpt_model({"annotation": qwen_stem})
     model.finalize_modules()
-    after = hash_state_dict(qwen_stem.pretrained_state_dict())
-    reference = hash_state_dict(qwen_stem.pretrained_reference_state_dict())
-    print(
-        f"\n[qwen] sha256 after finalize_modules: {after}\n[qwen] snapshot: {reference}"
-    )
-    assert after == before
-    assert after == reference
-    # and the check that runs at train start agrees, including after the upcast
-    model.float()
-    verify_pretrained_weights(model, verbose=False)
-
-
-@requires_qwen
-def test_verify_pretrained_weights_catches_a_perturbed_qwen_weight(qwen_stem):
-    param = next(iter(qwen_stem.encoder.parameters()))
-    original = param.detach().clone()
-    try:
-        with torch.no_grad():
-            param[0, 0] += 1.0
-        with pytest.raises(RuntimeError, match="do not match their checkpoint"):
-            verify_pretrained_weights(qwen_stem, verbose=False)
-    finally:
-        with torch.no_grad():
-            param.copy_(original)
+    after = qwen_stem.encoder.state_dict()
+    assert all(torch.equal(before[k], after[k]) for k in before)
 
 
 @requires_qwen

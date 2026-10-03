@@ -1,4 +1,6 @@
+import logging
 import os
+import random
 from collections import OrderedDict
 from functools import partial
 from typing import Literal, Union
@@ -13,22 +15,17 @@ from termcolor import cprint
 from tslearn.metrics import SoftDTWLossPyTorch
 
 from egomimic.algo.algo import Algo
-from egomimic.algo.eval_determinism import (
-    EVAL_BASE_SEED,
-    EVAL_LOSS_STRIDE,
-    DeterministicEvalMixin,
-)
 from egomimic.models.hpt_nets import (
     MultiheadAttention,
     SimpleTransformer,
     apply_skipping_pretrained,
-    verify_pretrained_weights,
 )
 from egomimic.models.image_augs import PerSampleAugs
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.utils.compile_utils import compile_modules
 from egomimic.utils.hf_utils import download_from_huggingface
 from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
+
+logger = logging.getLogger(__name__)
 
 # Init scale for the HPT action tokens (was a shared constant in utils.py;
 # it has exactly one consumer, below).
@@ -683,7 +680,7 @@ class HPTModel(nn.Module):
         total_loss = action_loss + shared_action_loss + auxiliary_action_loss
         return total_loss
 
-    def forward(self, domain, data, generator=None):
+    def forward(self, domain, data):
         """
         Forward pass of the HPTModel to compute actions.
 
@@ -693,10 +690,6 @@ class HPTModel(nn.Module):
             The domain corresponding to the input data.
         data : dict
             Dictionary containing input data for various modalities.
-        generator : torch.Generator, optional
-            RNG handed to the denoising heads' sampler so that evaluation is
-            reproducible (see ``HPT.forward_eval``). ``None`` (the default)
-            keeps the global RNG, so every other caller is unchanged.
 
         Returns
         -------
@@ -706,23 +699,19 @@ class HPTModel(nn.Module):
         features, block_outputs = self.forward_features(domain, data)
         action = {}
 
-        # Only the denoising (diffusion / flow matching) heads sample noise and
-        # accept a generator; the plain MLP heads take the features alone.
-        head_kwargs = {"generator": generator} if self.diffusion else {}
-
         if self.diffusion:
             features = (features, domain)
 
         if domain in self.heads:
-            action[domain] = self.heads[domain](features, **head_kwargs)
+            action[domain] = self.heads[domain](features)
 
         if self.shared_action:
-            action["shared"] = self.heads["shared"](features, **head_kwargs)
+            action["shared"] = self.heads["shared"](features)
 
         if domain in self.auxiliary_ac_keys:
             for key in self.auxiliary_ac_keys[domain]:
                 if f"{domain}_{key}" in self.heads:
-                    action[key] = self.heads[f"{domain}_{key}"](features, **head_kwargs)
+                    action[key] = self.heads[f"{domain}_{key}"](features)
 
         return action
 
@@ -816,7 +805,7 @@ class HPTModel(nn.Module):
         self.load_trunk(os.path.join(checkpoint_path, "trunk.pth"))
 
 
-class HPT(DeterministicEvalMixin, Algo):
+class HPT(Algo):
     """ """
 
     @property
@@ -874,12 +863,6 @@ class HPT(DeterministicEvalMixin, Algo):
         annotation_modality: str = "annotation",
         default_prompt: str = "",
         # ---------------------------
-        # Loss masking: supervise only the real action steps of a chunk
-        # (the dataset's ``action_pad_mask``) instead of the repeat-last
-        # padding at every episode / annotation tail.
-        # ---------------------------
-        use_pad_mask: bool = False,
-        # ---------------------------
         # Catch-all kwargs
         # ---------------------------
         **kwargs,
@@ -890,7 +873,6 @@ class HPT(DeterministicEvalMixin, Algo):
         self.annotation_sampling_mode = annotation_sampling_mode
         self.annotation_modality = annotation_modality
         self.default_prompt = default_prompt
-        self.use_pad_mask = use_pad_mask
 
         # Per-sample so every image draws its own jitter parameters; torchvision
         # samples once per call, i.e. once for the whole stacked batch.
@@ -917,7 +899,6 @@ class HPT(DeterministicEvalMixin, Algo):
         model = self._build_policy(trunk)
         model.auxiliary_ac_keys = self.auxiliary_ac_keys
 
-        self.eval_base_seed = int(kwargs.get("eval_base_seed", EVAL_BASE_SEED))
         self.multitask = kwargs.get("multitask", False)
         self.device = None
         model.device = self.device
@@ -1013,40 +994,30 @@ class HPT(DeterministicEvalMixin, Algo):
         self.nets["policy"] = model
         self.nets = self.nets.float()
 
-        # Every pretrained submodule must still hold its checkpoint's weights
-        # once the model is fully built, moved and upcast. Raises on mismatch.
-        # It costs a second full copy of the encoder (~1.1 GB fp16 for 0.6B)
-        # and ~3 s of hashing per rank, so it is skippable -- but on by
-        # default: a silently re-initialised encoder trains to a plausible,
-        # wrong result.
-        self.verify_pretrained = bool(kwargs.get("verify_pretrained", True))
-        if self.verify_pretrained:
-            verify_pretrained_weights(self.nets["policy"])
-
         self.training_step = 0
 
     def _build_policy(self, trunk: dict) -> HPTModel:
         """The policy network; subclasses (``RDT``) swap in their own."""
         return HPTModel(**trunk)
 
-    @override
-    def compile_for_training(self, mode=None, dynamic=False):
-        """Compile the trunk, the flow head's denoiser and the image encoders.
+    def compile_targets(self) -> list:
+        """What ``model.compile.enabled`` compiles: the trunk, each head's
+        denoiser and the image encoders.
 
-        Only these three are invoked through ``__call__``; the stems run via
+        Only these are invoked through ``__call__``; the stems run via
         ``compute_latent`` and the heads via ``compute_loss``, which
         ``Module.compile`` does not route (and which measured no gain anyway).
         """
         policy = self.nets["policy"]
         # no_trunk: HPT's forward does not call it. RDT's heads do, so its DiT
         # is traced into each head's graph without an entry of its own.
-        targets = [("trunk", policy.trunk["trunk"] if not policy.no_trunk else None)]
+        targets = [] if policy.no_trunk else [policy.trunk["trunk"]]
         targets += [
-            (f"head[{name}].model", getattr(head, "model", None))
-            for name, head in policy.heads.items()
+            head.model
+            for head in policy.heads.values()
+            if isinstance(getattr(head, "model", None), nn.Module)
         ]
-        targets += [(f"encoder[{name}]", enc) for name, enc in policy.encoders.items()]
-        return compile_modules(targets, mode=mode, dynamic=dynamic)
+        return targets + list(policy.encoders.values())
 
     @override
     def process_batch_for_training(self, batch):
@@ -1083,27 +1054,11 @@ class HPT(DeterministicEvalMixin, Algo):
 
             B, S, _ = processed_batch[embodiment_id][ac_key].shape
             device = processed_batch[embodiment_id][ac_key].device
-            # Dropped either way: downstream sees the same keys as before.
-            action_pad_mask = processed_batch[embodiment_id].pop(
-                "action_pad_mask", None
+            # The dataset still emits it; nothing here supervises by it.
+            processed_batch[embodiment_id].pop("action_pad_mask", None)
+            processed_batch[embodiment_id]["pad_mask"] = torch.ones(
+                B, S, 1, device=device
             )
-            # Front-padded history steps are copies of the first real frame --
-            # exactly a history-dropout sample -- so the stem needs nothing
-            # extra and downstream keys stay as they were.
-            processed_batch[embodiment_id].pop("proprio_history_mask", None)
-            if self.use_pad_mask and action_pad_mask is not None:
-                if action_pad_mask.shape[-1] != S:
-                    raise ValueError(
-                        f"action_pad_mask length {action_pad_mask.shape[-1]} does "
-                        f"not match the action horizon {S}"
-                    )
-                processed_batch[embodiment_id]["pad_mask"] = action_pad_mask[
-                    ..., None
-                ].to(device)
-            else:
-                processed_batch[embodiment_id]["pad_mask"] = torch.ones(
-                    B, S, 1, device=device
-                )
 
             # Sample one annotation per item (random/first, default fallback for
             # empty). Stays as list[str]; the Qwen stem owns tokenization.
@@ -1208,12 +1163,6 @@ class HPT(DeterministicEvalMixin, Algo):
             }
         """
         unnorm_preds = {}
-        # One seeded generator per pass/batch: the flow-matching noise below and
-        # the prompts picked in ``process_batch_for_training`` share this pass's
-        # seed, so replaying the pass replays every draw.
-        generator = self._eval_generator()
-        pass_seed = self._eval_pass_seed()
-        fork_devices = self._eval_fork_devices()
         for embodiment_id, _batch in batch.items():
             embodiment_name = get_embodiment(embodiment_id).lower()
             cam_keys = self.camera_keys[embodiment_id]
@@ -1238,24 +1187,16 @@ class HPT(DeterministicEvalMixin, Algo):
             # so keep a fresh copy for the forward() call below.
             forward_data = self._clone_batch(hpt_batch["data"])
 
-            # BC val loss — same call as forward_training. The training loss
-            # draws its own noise / timestep from the global RNG deep inside the
-            # head (``DenoisingPolicy.predict``), which no generator kwarg
-            # reaches; fork and seed the global RNG around the call instead so
-            # the reported val loss is reproducible too.
-            with torch.random.fork_rng(devices=fork_devices):
-                torch.manual_seed(pass_seed + EVAL_LOSS_STRIDE)
-                if self.freeze_repr:
-                    val_loss = self.nets["policy"].compute_loss_depth(
-                        hpt_batch, depth=self.freeze_depth
-                    )
-                else:
-                    val_loss = self.nets["policy"].compute_loss(hpt_batch)
+            # BC val loss — same call as forward_training.
+            if self.freeze_repr:
+                val_loss = self.nets["policy"].compute_loss_depth(
+                    hpt_batch, depth=self.freeze_depth
+                )
+            else:
+                val_loss = self.nets["policy"].compute_loss(hpt_batch)
             unnorm_preds[f"{embodiment_name}_loss"] = val_loss
 
-            actions = self.nets["policy"].forward(
-                hpt_batch["domain"], forward_data, generator=generator
-            )
+            actions = self.nets["policy"].forward(hpt_batch["domain"], forward_data)
             predictions = OrderedDict()
 
             for key in actions:
@@ -1280,10 +1221,6 @@ class HPT(DeterministicEvalMixin, Algo):
             for key in unnorm_actions:
                 unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
 
-        # Advance the pass counter once per forward_eval call (after the batch,
-        # so the prompts built for this batch and the noise drawn for it share a
-        # seed). ``reset_eval_pass_counter`` rewinds it at on_validation_start.
-        self._eval_pass_counter = int(getattr(self, "_eval_pass_counter", 0)) + 1
         return unnorm_preds
 
     @override
@@ -1349,6 +1286,34 @@ class HPT(DeterministicEvalMixin, Algo):
             hpt_batch_2,
             supervised=self.supervised,
         )
+
+    def _build_prompts(self, _batch, batch_size: int) -> list[str]:
+        """Sample one annotation per batch item ("random" or "first"), falling
+        back to default_prompt on empty / missing annotations. Mirrors the Pi
+        algo flow. Validation reproduces its draws because
+        ``ModelWrapper.on_validation_start`` seeds the global RNGs."""
+        if self.annotation_key is None or self.annotation_key not in _batch:
+            return [self.default_prompt] * batch_size
+        prompts = []
+        for sample in _batch[self.annotation_key]:
+            if not sample:
+                if not self.default_prompt and not getattr(
+                    self, "_empty_prompt_warned", False
+                ):
+                    self._empty_prompt_warned = True
+                    logger.warning(
+                        "prompt fallback: a sample has no %r annotation and "
+                        "default_prompt is empty, so the text stem sees ''. Filter "
+                        "unannotated episodes or set "
+                        "model.robomimic_model.default_prompt.",
+                        self.annotation_key,
+                    )
+                prompts.append(self.default_prompt)
+            elif self.annotation_sampling_mode == "random":
+                prompts.append(sample[random.randint(0, len(sample) - 1)])
+            else:  # "first"
+                prompts.append(sample[0])
+        return prompts
 
     def _apply_image_augs(self, images, short, frames: int = 1):
         """

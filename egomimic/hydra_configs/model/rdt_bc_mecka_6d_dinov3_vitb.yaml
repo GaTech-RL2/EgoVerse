@@ -56,17 +56,14 @@ robomimic_model:
   annotation_modality: "annotation"
   default_prompt: ""
 
-  use_pad_mask: false
-
   trunk:
     embed_dim: ${model.robomimic_model.width}
     depth: 28
     num_heads: 16
     mlp_ratio: 1.0
     # RDT's cond_mask_prob, per stream (train only). A dropped prompt becomes
-    # "", the no-prompt deployment condition; `img` is per camera and never
-    # blinds a sample, so it is inert with one camera.
-    cond_drop: {state: 0.1, lang: 0.1, img: 0.0}
+    # "", the no-prompt deployment condition.
+    cond_drop: {state: 0.1, lang: 0.1}
     # frames per camera (current last); 2 <-> key_map.image_history_gap_s set
     image_history: 2
     # past frame := current frame, per sample (what an episode start looks like)
@@ -111,8 +108,6 @@ robomimic_model:
       max_length: 128
       freeze: true
       dtype: "float16"
-      cache_text_features: true
-      text_cache_max_entries: 8192
       output_dim: ${model.robomimic_model.width}
 
   stem_specs:
