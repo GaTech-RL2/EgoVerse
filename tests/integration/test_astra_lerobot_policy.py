@@ -178,6 +178,28 @@ def test_condition_changes_do_not_overwrite_prior_prefix(adapter, observation):
     torch.testing.assert_close(before, first.velocity(noise, 0.5))
 
 
+def test_native_velocity_allows_action_gradients_only_when_requested(
+    adapter, observation
+):
+    from astra_reversal.lerobot_policy import prepare_velocity
+    from astra_reversal.reasoning_learning.guidance import endpoint_gradient
+
+    batch = adapter._preprocess({**observation, "prompt": "move cup"})
+    velocity = prepare_velocity(adapter.policy, batch, differentiable=True)
+    x = adapter.noise(np.random.default_rng(2))
+    target, mask = torch.zeros_like(x), torch.ones_like(x)
+    v, gradient, _ = endpoint_gradient(velocity, x, 0.4, target, mask)
+    # TinyFlow is affine in x with dv/dx=.1. This detects a detached denoiser
+    # even though the direct x term alone would still have a valid gradient.
+    torch.testing.assert_close(gradient, (x - 0.4 * v) * 0.96)
+    assert adapter.model.calls[-1][2]
+    assert all(
+        not p.requires_grad and p.grad is None for p in adapter.policy.parameters()
+    )
+    default = prepare_velocity(adapter.policy, batch)
+    assert not default(x.requires_grad_(True), 0.4).requires_grad
+
+
 def test_prompt_budget_includes_state_tokens(adapter, observation):
     length = adapter.prompt_length("move cup", observation)
     assert length > 32

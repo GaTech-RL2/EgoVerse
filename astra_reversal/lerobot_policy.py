@@ -98,7 +98,7 @@ def load_native_model(checkpoint, device="cpu"):
     return policy
 
 
-def prepare_velocity(policy, batch, *, prefix_transform=None):
+def prepare_velocity(policy, batch, *, prefix_transform=None, differentiable=False):
     """Prepare the upstream prefix, then expose its existing denoise_step."""
     import torch
     from lerobot.policies.pi05.modeling_pi05 import make_att_2d_masks
@@ -131,7 +131,9 @@ def prepare_velocity(policy, batch, *, prefix_transform=None):
         to_numpy(padding)  # Include device synchronization in preparation time.
 
     def velocity(x, t):
-        with torch.no_grad():
+        # Target guidance needs the derivative with respect to noisy actions.
+        # The prefix remains detached; callers must freeze weights for sampling.
+        with torch.enable_grad() if differentiable else torch.no_grad():
             times = torch.full((x.shape[0],), t, dtype=torch.float32, device=x.device)
             return model.denoise_step(
                 prefix_pad_masks=padding,

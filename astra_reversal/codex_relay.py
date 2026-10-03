@@ -63,6 +63,10 @@ def _module(family):
         from . import demo_skill_agent
 
         return demo_skill_agent
+    if family == "reasoning_learning":
+        from .reasoning_learning import teacher
+
+        return teacher
     raise ClientError("Unknown Codex relay request family")
 
 
@@ -413,7 +417,7 @@ def _proposal(value, request, module, family):
     if not isinstance(value, dict):
         raise ClientError("Codex proposal must be an object")
     bound_fields = {"request_fingerprint": request["request_fingerprint"]}
-    if family in ("representation", "demo_skills"):
+    if family in ("representation", "demo_skills", "reasoning_learning"):
         bound_fields.update(
             {
                 key: request[key]

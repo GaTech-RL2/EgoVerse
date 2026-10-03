@@ -1,0 +1,131 @@
+"""Prepare one immutable, time-limited OSMO worker; never submit on import."""
+
+import argparse
+import json
+import math
+import secrets
+import shlex
+import subprocess
+from pathlib import Path
+
+import yaml
+
+from astra_reversal.osmo.reasoning_policy_learning import load_protocol
+from astra_reversal.records import file_sha256
+
+
+def prepare(
+    bundle, destination, *, phase, gpu_hours, task_index=0, seed_index=0, port=19943
+):
+    protocol = load_protocol()
+    if (
+        phase not in ("preflight", "pilot")
+        or not math.isfinite(gpu_hours)
+        or not (1 / 60) <= gpu_hours <= protocol["compute"]["authorized_gpu_hours"]
+    ):
+        raise ValueError("Choose a valid phase within the recorded study budget")
+    if not 0 <= task_index < len(
+        protocol["pilot"]["development_tasks"]
+    ) or not 0 <= seed_index < len(protocol["pilot"]["seeds"]):
+        raise ValueError("Task/seed outside the preregistered pilot")
+    if not 1024 <= port <= 65535:
+        raise ValueError("Unprivileged local relay port required")
+    repo = Path(__file__).resolve().parents[2]
+    bundle, destination = Path(bundle).resolve(), Path(destination).resolve()
+    identity = json.loads((bundle / "source_identity.json").read_text())
+    revision = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=repo, text=True
+    ).strip()
+    if revision != identity["source_revision"]:
+        raise ValueError("Bundle source revision differs from this checkout")
+    if subprocess.check_output(
+        ["git", "status", "--porcelain", "--", "astra_reversal", "tests"],
+        cwd=repo,
+        text=True,
+    ).strip():
+        raise ValueError("Commit source and tests before preparing an experiment")
+    for filename, field in (
+        ("payload.tar.gz", "payload_sha256"),
+        ("bootstrap.sh", "bootstrap_sha256"),
+    ):
+        if file_sha256(bundle / filename) != identity[field]:
+            raise ValueError("Immutable bundle checksum differs")
+    destination.mkdir(mode=0o700, parents=True, exist_ok=False)
+    token = destination / "relay.token"
+    token.write_text(secrets.token_urlsafe(32))
+    token.chmod(0o600)
+    spec = yaml.safe_load(
+        (repo / "astra_reversal/osmo/demo_skill_library_l40s.yaml").read_text()
+    )
+    workflow = spec["workflow"]
+    workflow["name"] = f"astra-pi05-reasoning-learning-20261003-{phase}"
+    workflow["timeout"]["exec_timeout"] = f"{max(1, math.floor(gpu_hours * 60))}m"
+    workflow["tasks"] = workflow["tasks"][:1]
+    task = workflow["tasks"][0]
+    task["environment"].pop("ASTRA_DEMO_PILOT", None)
+    task["environment"].update(
+        PAYLOAD_SHA256=identity["payload_sha256"],
+        ASTRA_SOURCE_REVISION=revision,
+        ASTRA_ENTRY_MODULE="astra_reversal.osmo.reasoning_policy_learning",
+        ASTRA_LEARNING_PHASE=phase,
+        ASTRA_WORKER_GPU_HOURS=str(gpu_hours),
+        ASTRA_LEARNING_TASK_INDEX=str(task_index),
+        ASTRA_LEARNING_SEED_INDEX=str(seed_index),
+    )
+    task["files"] = [
+        {"localpath": str(bundle / "bootstrap.sh"), "path": "/tmp/astra-bootstrap.sh"},
+        {"localpath": str(token), "path": "/tmp/astra-relay.token"},
+    ]
+    (destination / "workflow.yaml").write_text(yaml.safe_dump(spec, sort_keys=False))
+    plan = {
+        "status": "prepared_not_submitted",
+        "phase": phase,
+        "pool": "groot-l40s-01",
+        "gpu_count": 1,
+        "allocated_gpu_hours": gpu_hours,
+        "task_index": task_index,
+        "seed_index": seed_index,
+        "source_revision": revision,
+        "payload_sha256": identity["payload_sha256"],
+        "automatic_experiment_retries": False,
+        "baselines_included": False,
+    }
+    (destination / "launch_plan.json").write_text(json.dumps(plan, indent=2) + "\n")
+    upload = f'osmo workflow rsync "$workflow" worker0 {shlex.quote(str(bundle / "payload.tar.gz") + ":/osmo/run/workspace")} --once --timeout 180\n'
+    script = '#!/usr/bin/env bash\nset -euo pipefail\ntest "$#" = 1\nworkflow="$1"\ncase "$workflow" in astra-pi05-reasoning-learning-20261003-*) ;; *) exit 2;; esac\n'
+    script += "cd " + shlex.quote(str(repo)) + "\n"
+    if phase == "pilot":
+        script += f'osmo workflow port-forward "$workflow" worker0 --port {port}:8769 --connect-timeout 60 > {shlex.quote(str(destination / "port-forward.log"))} 2>&1 &\nforward_pid=$!\ntrap \'kill "$forward_pid" 2>/dev/null || true\' EXIT\n'
+    script += upload
+    if phase == "pilot":
+        script += f"python -m astra_reversal.codex_relay --url http://127.0.0.1:{port} --token-file {shlex.quote(str(token))} --directory {shlex.quote(str(destination / 'jobs'))} --idle-timeout {math.ceil(gpu_hours * 3600)}\n"
+    (destination / "connect.sh").write_text(script)
+    (destination / "connect.sh").chmod(0o700)
+    return plan
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("bundle", type=Path)
+    parser.add_argument("destination", type=Path)
+    parser.add_argument("--phase", choices=("preflight", "pilot"), default="preflight")
+    parser.add_argument("--gpu-hours", type=float, required=True)
+    parser.add_argument("--task-index", type=int, default=0)
+    parser.add_argument("--seed-index", type=int, default=0)
+    args = parser.parse_args()
+    print(
+        json.dumps(
+            prepare(
+                args.bundle,
+                args.destination,
+                phase=args.phase,
+                gpu_hours=args.gpu_hours,
+                task_index=args.task_index,
+                seed_index=args.seed_index,
+            )
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()
