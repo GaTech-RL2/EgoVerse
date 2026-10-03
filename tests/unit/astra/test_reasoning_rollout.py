@@ -154,3 +154,52 @@ def test_rejected_proposals_do_not_count_as_intervention_episodes(
     command = loop.action(observation(0), 0)
     assert not command.any()
     assert loop.events == loop.assisted_chunks == 0
+
+
+def test_revised_candidates_receive_temporal_collection_evidence(tmp_path, monkeypatch):
+    import json
+
+    from astra_reversal.reasoning_learning import rollout
+
+    monkeypatch.setattr(rollout, "prepare_velocity", lambda *a, **k: lambda x, t: x * 0)
+    teacher = Teacher()
+    prior = [
+        {"episode_id": "earlier_reset", "success": False, "evidence": "Missed grasp"}
+    ]
+    loop = LearningRollout(
+        SmallPolicy(),
+        teacher,
+        ActionSpec("test", 10, 32, 0.05, (-1,) * 7, (1,) * 7, {}),
+        tmp_path / "trial",
+        episode_id="e",
+        instruction="lift object",
+        policy_version=0,
+        seed=1,
+        collection_history=prior,
+        temporal_diagnosis=True,
+        candidate_configurations=[
+            {"strength": 5, "schedule": "rtc_pigdm", "project_gradient": True},
+            {"strength": 10, "schedule": "rtc_pigdm", "project_gradient": False},
+        ],
+    )
+    commands = loop.action(observation(0), 0)
+    for j in range(5):
+        loop.observed_step(
+            observation(j), commands[j], j, observation(j + 1), False, False
+        )
+    loop.action(observation(5), 5)
+    diagnosis = [r for r in teacher.requests if r["role"] == "diagnose"][-1]
+    assert [r["step"] for r in diagnosis["snapshots"]] == [0, 5]
+    assert diagnosis["context"]["previous_collection_attempts"] == prior
+    assert (
+        diagnosis["context"]["recent_observed_evidence"][0]["evidence"]
+        == "Actual upward motion observed"
+    )
+    decision = json.loads(
+        (tmp_path / "trial/decisions.jsonl").read_text().splitlines()[0]
+    )
+    receipts = [r["receipt"] for r in decision["generation"]]
+    assert [r["strength"] for r in receipts] == [5, 10]
+    assert all(r["schedule"] == "rtc_pigdm" for r in receipts)
+    assert [r["project_gradient"] for r in receipts] == [True, False]
+    assert len(loop.steps) == 5  # Replanning/search added no real samples.

@@ -151,19 +151,28 @@ class PPOLearner:
             current = self.recompute(receipt["ppo"])
             loss = -current["logprobs"].mean() + current["values"].square().mean()
             loss.backward()
+            actor_norm = (
+                sum(
+                    float(p.grad.float().square().sum())
+                    for name, p in self.parameters.items()
+                    if not name.startswith("value_head.") and p.grad is not None
+                )
+                ** 0.5
+            )
             norm = float(
                 torch.nn.utils.clip_grad_norm_(
                     self.parameters.values(), 1, error_if_nonfinite=True
                 )
             )
-            if norm <= 0:
-                raise RuntimeError("PPO backward has no gradient")
+            if norm <= 0 or not np.isfinite(actor_norm) or actor_norm <= 0:
+                raise RuntimeError("PPO backward has no finite actor gradient")
         finally:
             self.optimizer.zero_grad(set_to_none=True)
             self.model.requires_grad_(False)
         return {
             "logprob_max_abs": error,
             "gradient_norm": norm,
+            "actor_gradient_norm": actor_norm,
             "policy_updates": 0,
             "environment_actions": 0,
             "trainable_parameters": sum(p.numel() for p in self.parameters.values()),

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import torch
 
 from astra_reversal.action_adapter import ActionAdapter, ActionSpec
 from astra_reversal.intervention_rollout import run_rollout
@@ -67,6 +68,9 @@ class RLRollout:
             },
         )
         if not self.evaluation:
+            if row.get("ppo") is not None:
+                path = self.directory / f"ppo_transition_{row['step']}.pt"
+                torch.save(row["ppo"], path)
             self.transitions.append(row)
         self.pending = None
         if self.progress:

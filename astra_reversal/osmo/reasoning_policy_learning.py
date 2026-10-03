@@ -31,9 +31,12 @@ from astra_reversal.reasoning_learning.rollout import collect
 from astra_reversal.records import digest
 
 
-def load_protocol(path=None):
-    path = (
-        path or Path(__file__).parents[1] / "configs/reasoning_policy_learning_v1.json"
+def load_protocol(path=None, *, version=None):
+    version = version or os.environ.get("ASTRA_LEARNING_PROTOCOL_VERSION", "v1")
+    if version not in ("v1", "v2"):
+        raise ValueError("Unknown learning protocol version")
+    path = path or (
+        Path(__file__).parents[1] / f"configs/reasoning_policy_learning_{version}.json"
     )
     protocol = json.loads(Path(path).read_text())
     compute = protocol["compute"]
@@ -222,6 +225,8 @@ def main():
         by_reset = {row["initial_state_id"]: row for row in manifest["episodes"]}
         collection_steps, evaluation_steps = 0, 0
         collection, evaluations, updates = [], [], []
+        collection_history = []
+        stopped = False
         for iteration in range(len(resets) + 1):
             if iteration in protocol["pilot"]["evaluation_after_collection_rollouts"]:
                 rows = []
@@ -272,12 +277,18 @@ def main():
                 version=learner.version,
                 seed=seed * 1000 + resets[iteration],
                 strengths=protocol["teacher"]["independent_candidate_strengths"],
+                candidate_configurations=protocol["teacher"].get(
+                    "candidate_configurations"
+                ),
+                collection_history=collection_history,
+                temporal_diagnosis=protocol["teacher"].get("temporal_diagnosis", False),
                 max_episodes=protocol["teacher"]["soft_correction_episodes"],
                 max_active_actions=protocol["teacher"]["max_actions_per_active_plan"],
                 monitor_every=protocol["teacher"]["monitor_every_actions"],
                 progress=archive.sync,
             )
             collection.append(result)
+            collection_history.append(result["collection_summary"])
             collection_steps += result["total_control_steps"]
             if windows:
                 update = learner.update(
@@ -292,10 +303,15 @@ def main():
             write_json(RESULTS / "collection.json", collection)
             write_json(RESULTS / "updates.json", updates)
             archive.sync()
+            if Path("/tmp/astra-stop-after-rollout").exists():
+                stopped = True
+                break
         write_json(
             RESULTS / "completion.json",
             {
-                "status": "pilot_complete",
+                "status": "stopped_after_saved_rollout"
+                if stopped
+                else "pilot_complete",
                 "collection_steps": collection_steps,
                 "evaluation_steps": evaluation_steps,
                 "policy_updates": learner.version,

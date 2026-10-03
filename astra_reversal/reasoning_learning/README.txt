@@ -163,3 +163,29 @@ log-probability objective. Full action-expert parameters are saved at evaluation
 milestones; these deployment checkpoints omit optimizer state. Each GPU job must
 pass initial native parity and rollout-versus-recompute log-probability agreement
 and backward checks before collecting any environment data.
+
+2026-10-03 guidance probe and collection v2
+The 13-configuration zero-action probe completed in 0.1059 L40S GPU-hours
+including setup (workflow astra-pi05-reasoning-learning-20261003-guidance-probe-1).
+At strength10, RTC weighting with the extra latent projection reduced the masked
+target error 68.10%, versus 0.758% for the original taper. Removing the projection
+raised this to 71.51%, but the maximum unmasked output change grew from 0.000071
+to 0.08544. These are diagnostics on one archived real observation, not robot SR.
+Full records: guidance_v2_effect_size.json.
+
+The v2 protocol retains v1 source/results and offers three computational candidates:
+RTC strength5 projected, RTC strength10 projected, RTC strength10 full gradient.
+All share the fixed native proposal's observation/noise and still need Astra's
+clear predicted win before any execution. Bounds and evidence gates are unchanged.
+Diagnosis now receives the preceding actual monitor images and the current images,
+short observed-outcome evidence, and summaries of up to three previous collection
+attempts. Autonomous evaluation results are never supplied to Astra. The teacher
+system prompt/schema is unchanged; the additional context is explicitly labeled.
+Use prepare_learning_launch --protocol-version v2 --phase pilot to select this
+recipe. A /tmp/astra-stop-after-rollout marker ends new workers only after the
+current collection and update are saved, with an explicit completion status.
+
+The initial v1 Goal OOD6 / seed173 autonomous evaluation scored 5/10. During its
+first collection Astra rejected very weak lift candidates as ties. This motivates
+the weighting revision; it is not evidence that learning has improved autonomy.
+DSRL is running; PPO still requires its GPU preflight. Research objective unmet.

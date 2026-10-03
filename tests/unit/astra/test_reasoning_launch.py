@@ -22,7 +22,7 @@ def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(tmp_path, monke
         "compute": {"authorized_gpu_hours": 2},
         "pilot": {"development_tasks": [{}], "seeds": [173]},
     }
-    monkeypatch.setattr(launch, "load_protocol", lambda: protocol)
+    monkeypatch.setattr(launch, "load_protocol", lambda **kwargs: protocol)
     monkeypatch.setattr(
         launch.subprocess,
         "check_output",

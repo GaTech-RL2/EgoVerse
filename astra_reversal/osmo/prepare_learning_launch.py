@@ -15,9 +15,17 @@ from astra_reversal.records import file_sha256
 
 
 def prepare(
-    bundle, destination, *, phase, gpu_hours, task_index=0, seed_index=0, port=19943
+    bundle,
+    destination,
+    *,
+    phase,
+    gpu_hours,
+    task_index=0,
+    seed_index=0,
+    port=19943,
+    protocol_version="v1",
 ):
-    protocol = load_protocol()
+    protocol = load_protocol(version=protocol_version)
     if (
         phase
         not in (
@@ -79,6 +87,7 @@ def prepare(
         ASTRA_WORKER_GPU_HOURS=str(gpu_hours),
         ASTRA_LEARNING_TASK_INDEX=str(task_index),
         ASTRA_LEARNING_SEED_INDEX=str(seed_index),
+        ASTRA_LEARNING_PROTOCOL_VERSION=protocol_version,
     )
     if phase == "baseline-preflight":
         task["environment"].update(
@@ -109,6 +118,7 @@ def prepare(
         "allocated_gpu_hours": gpu_hours,
         "task_index": task_index,
         "seed_index": seed_index,
+        "protocol_version": protocol_version,
         "source_revision": revision,
         "payload_sha256": identity["payload_sha256"],
         "automatic_experiment_retries": False,
@@ -147,6 +157,8 @@ def main():
     parser.add_argument("--gpu-hours", type=float, required=True)
     parser.add_argument("--task-index", type=int, default=0)
     parser.add_argument("--seed-index", type=int, default=0)
+    parser.add_argument("--protocol-version", choices=("v1", "v2"), default="v1")
+    parser.add_argument("--port", type=int, default=19943)
     args = parser.parse_args()
     print(
         json.dumps(
@@ -157,6 +169,8 @@ def main():
                 gpu_hours=args.gpu_hours,
                 task_index=args.task_index,
                 seed_index=args.seed_index,
+                protocol_version=args.protocol_version,
+                port=args.port,
             )
         )
     )

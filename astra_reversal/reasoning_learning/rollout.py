@@ -34,6 +34,9 @@ class LearningRollout:
         policy_version,
         seed,
         strengths=(0.25, 1.0),
+        candidate_configurations=None,
+        collection_history=None,
+        temporal_diagnosis=False,
         max_episodes=3,
         monitor_every=25,
         max_active_actions=50,
@@ -52,6 +55,15 @@ class LearningRollout:
         )
         self.rng = np.random.default_rng(seed)
         self.strengths, self.max_episodes = tuple(strengths), max_episodes
+        self.candidate_configurations = (
+            [GuidanceConfig(**row) for row in candidate_configurations]
+            if candidate_configurations is not None
+            else [GuidanceConfig(strength=value) for value in self.strengths]
+        )
+        self.collection_history = copy.deepcopy(collection_history or [])
+        self.temporal_diagnosis = temporal_diagnosis
+        self.reviews = []
+        self.previous_monitor = None
         self.monitor_every, self.max_active_actions = monitor_every, max_active_actions
         self.steps, self.observations, self.decisions = [], {}, []
         self.request_index = 0
@@ -125,6 +137,15 @@ class LearningRollout:
             self.directory / "outcomes.jsonl",
             {"start_step": old["start_step"], "end_step": step, "review": response},
         )
+        self.reviews.append(
+            {
+                "start_step": old["start_step"],
+                "end_step": step,
+                "selected": old["selected"],
+                "rule": old["rule"],
+                **response,
+            }
+        )
         if response["plan_complete"] and self.active is not None:
             append_record(
                 self.directory / "events.jsonl",
@@ -169,10 +190,21 @@ class LearningRollout:
         if self.client is not None and (
             self.active is not None or step % self.monitor_every == 0
         ):
+            snapshots = [{"step": step, "observation": observation}]
+            history_context = {}
+            if self.temporal_diagnosis:
+                if self.previous_monitor is not None:
+                    snapshots.insert(0, self.previous_monitor)
+                snapshots[-1]["label"] = "CURRENT pre-action observation"
+                history_context = {
+                    "recent_observed_evidence": self.reviews[-5:],
+                    "previous_collection_attempts": self.collection_history[-3:],
+                    "history_scope": "Earlier real collection only; different resets. No autonomous evaluation feedback is available.",
+                }
             diagnosis = self._ask(
                 "diagnose",
                 step,
-                [{"step": step, "observation": observation}],
+                snapshots,
                 {
                     "native": reference.tolist(),
                     "active_plan": self.active,
@@ -182,8 +214,14 @@ class LearningRollout:
                     ],
                     "correction_episodes_used": self.events,
                     "soft_episode_budget": self.max_episodes,
+                    **history_context,
                 },
             )
+            self.previous_monitor = {
+                "step": step,
+                "observation": copy.deepcopy(observation),
+                "label": "EARLIER real observation in this attempt; actions since then actually executed",
+            }
             if diagnosis["plan_complete"] and self.active is not None:
                 append_record(
                     self.directory / "events.jsonl",
@@ -245,13 +283,13 @@ class LearningRollout:
                     self.policy._preprocess(raw),
                     differentiable=True,
                 )
-                for i, strength in enumerate(self.strengths):
+                for i, configuration in enumerate(self.candidate_configurations):
                     candidate, receipt = generate(
                         velocity,
                         noise,
                         self.policy.tensor(encoded),
                         self.policy.tensor(model_mask),
-                        GuidanceConfig(strength=strength),
+                        configuration,
                     )
                     commands, clipping = self.adapter.decode(candidate, condition.state)
                     batch.add(f"guided{i}", commands)
@@ -436,5 +474,18 @@ def collect(
         initialization_steps=benchmark.stabilization_steps,
         total_control_steps=len(loop.steps) + benchmark.stabilization_steps,
     )
+    if client is not None:
+        result["collection_summary"] = {
+            "episode_id": loop.episode_id,
+            "success": bool(result["success"]),
+            "actions_executed": len(loop.steps),
+            "correction_episodes": loop.events,
+            "assisted_chunks": loop.assisted_chunks,
+            "correction_reviews": [
+                row for row in loop.reviews if row["selected"] != "native"
+            ][-4:],
+            "final_observed_reviews": loop.reviews[-3:],
+            "source": "Real collection trajectory; no autonomous evaluation results",
+        }
     (Path(directory) / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     return result, windows, loop.observations

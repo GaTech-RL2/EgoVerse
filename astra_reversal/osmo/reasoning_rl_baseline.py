@@ -54,17 +54,25 @@ def main():
     write_json(
         RESULTS / "runtime.json",
         {
-            "method": "DSRL",
+            "method": method.upper(),
+            "status": "initializing_before_preflight",
             "workflow": os.environ["ASTRA_RUN_ID"],
             "source_revision": os.environ["ASTRA_SOURCE_REVISION"],
             "payload_sha256": os.environ["PAYLOAD_SHA256"],
             "rlinf_revision": REVISION,
             "task": task,
             "seed": seed,
-            "harness": "RLinf DSRL networks and SAC objectives, serial common OOD driver",
-            "decoder": "strict native LeRobot checkpoint, no conversion, frozen",
-            "initial_noise_policy": "released tanh Gaussian repeated across the horizon; eval uses its mean",
-            "comparison_note": "The decoder weights are identical; DSRL's initial noise distribution differs from the native Gaussian sampler.",
+            "harness": "RLinf networks with serial common OOD driver",
+            "decoder": (
+                "strict native LeRobot checkpoint, no conversion, frozen"
+                if method == "dsrl"
+                else "strict conversion with explicit tanh GELU compatibility; parity and backward pending"
+            ),
+            "initial_noise_policy": (
+                "released tanh Gaussian repeated across the horizon; eval uses its mean"
+                if method == "dsrl"
+                else "native Gaussian for evaluation; released flow-SDE exploration for training"
+            ),
             "overrides": {
                 "generation_steps": 10,
                 "action_horizon": 10,
@@ -72,9 +80,13 @@ def main():
                 "max_actions": 300,
                 "train_envs": 1,
                 "batch_size": 64,
-                "updates_per_rollout": 200,
+                "updates_per_rollout": 200 if method == "dsrl" else "one PPO epoch",
                 "fp32_master_parameters": True,
-                "reward": "duration-discounted -1+success over actual prefix",
+                "reward": (
+                    "duration-discounted -1+success over actual prefix"
+                    if method == "dsrl"
+                    else "binary success over actual prefix"
+                ),
                 "finite_horizon_terminal": True,
             },
         },
