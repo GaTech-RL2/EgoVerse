@@ -1,0 +1,32 @@
+# ABC_REAL_JOINTS: one REAL ABC task (lab=abc) in the same joint space. The SQL
+# embodiment was relabelled to yam_bimanual on 2026-09-01 but the zarrs say
+# eva_bimanual, so the filter keys on lab + task + the /abc/ path. Another task:
+# restate the filter_lambdas with its name.
+defaults:
+  - abc_sim_joints
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      transform_list:
+        # ABC mixes 640x480 and 1280x720 front frames; one size so they collate
+        image_hw: [240, 320]
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'abc'"
+        - "lambda row: str(row.get('task', '')) == 'put the plastic bottles in the bin'"
+        - "lambda row: '/abc/' in str(row.get('zarr_processed_path', ''))"
+        - "lambda row: not bool(row.get('is_deleted', False))"
+    mode: train
+    valid_ratio: 0.1
+
+valid_datasets:
+  eva_bimanual:
+    filters: ${data.train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: ${data.train_datasets.eva_bimanual.valid_ratio}
+

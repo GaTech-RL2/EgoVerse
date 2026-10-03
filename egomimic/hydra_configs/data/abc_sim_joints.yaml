@@ -1,0 +1,50 @@
+# ABC_SIM_JOINTS: one abc_sim task's sim_224 teleop episodes, converted by
+# egomimic/scripts/abc_sim/convert_sim_to_zarr.py to $ABC_SIM_ZARR_ROOT/put_bottles
+# (another task: override the resolver folder_path). Eva "joints" mode, front
+# camera + its 0.1 s history frame; train/valid = ABC's own `split`.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:ABC_SIM_ZARR_ROOT,/workspace/users/agao81/datasets/abc_sim/zarr}/put_bottles
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: joints_front
+        annotation_key: annotations
+        image_history_gap_s: 0.1
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: joints
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')) == 'abc_sim'"
+        - "lambda row: str(row.get('split', '')) == 'train'"
+    mode: total
+
+valid_datasets:
+  eva_bimanual:
+    _target_: ${data.train_datasets.eva_bimanual._target_}
+    resolver: ${data.train_datasets.eva_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')) == 'abc_sim'"
+        - "lambda row: str(row.get('split', '')) == 'val'"
+    mode: total
+
+
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 8
+
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 4
+    shuffle: false

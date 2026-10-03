@@ -63,17 +63,22 @@ def get_embodiment(index):
 # embodiment metadata (e.g. MECKA_BIMANUAL, SCALE_LEFT_ARM). Locally all human
 # demonstration data is ONE embodiment (see the EMBODIMENT docstring; the
 # source lives only in the SQL `lab` field), so those names collapse to
-# HUMAN_*. Robot names (EVA_*) are never aliased.
+# HUMAN_*. The one robot is Eva: YAM_* (the ABC station's label since the
+# 2026-09-01 SQL relabel, also in the zarrs re-exported to R2) collapses to EVA_*.
 HUMAN_VENDOR_PREFIXES = ("MECKA", "SCALE", "ARIA", "LIGHTWHEEL")
+ROBOT_VENDOR_PREFIXES = ("YAM",)
 
 
 def canonical_embodiment_name(embodiment_name: str) -> str:
     """Upper-case EMBODIMENT member name, with legacy vendor prefixes
-    (``MECKA_BIMANUAL`` ...) collapsed onto ``HUMAN_*``. Does not validate."""
+    (``MECKA_BIMANUAL`` ...) collapsed onto ``HUMAN_*`` and ``YAM_*`` onto
+    ``EVA_*``. Does not validate."""
     name = embodiment_name.upper()
     vendor, _, suffix = name.partition("_")
     if vendor in HUMAN_VENDOR_PREFIXES and suffix:
         return f"HUMAN_{suffix}"
+    if vendor in ROBOT_VENDOR_PREFIXES and suffix:
+        return f"EVA_{suffix}"
     return name
 
 
@@ -224,9 +229,26 @@ class Embodiment(ABC):
         )
 
     @classmethod
-    def get_keymap(cls, keymap_mode: str, norm_mode: bool = False, annotation_key=None):
-        """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model."""
+    def get_keymap(
+        cls,
+        keymap_mode: str,
+        norm_mode: bool = False,
+        annotation_key=None,
+        image_history_gap_s: float | None = None,
+    ):
+        """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model.
+
+        ``image_history_gap_s`` adds ``<front key>_hist``, the front frame that
+        many seconds earlier (RDT's ``trunk.image_history: 2``); the same knob
+        as ``Human.get_keymap``, so a robot domain can share an RDT trunk with
+        a human one."""
         key_map = cls._get_keymap(keymap_mode)
+        if image_history_gap_s is not None:
+            front = key_map[cls.VIZ_IMAGE_KEY]
+            key_map[f"{cls.VIZ_IMAGE_KEY}{IMAGE_HISTORY_SUFFIX}"] = {
+                **front,
+                "lag_s": float(image_history_gap_s),
+            }
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
                 "key_type": "annotation_keys",

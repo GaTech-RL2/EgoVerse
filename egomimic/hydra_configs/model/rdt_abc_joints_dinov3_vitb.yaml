@@ -1,0 +1,44 @@
+# RDT_ABC_JOINTS_DINOV3_VITB: the base RDT (width 1024, depth 28: the architecture of
+# Ryan's all-mecka rdt_mem_all checkpoints) with a second head, eva_bimanual = the ABC
+# YAM station in JOINT space (14-D state, (100, 14) actions_joints, abc_sim's action
+# space), beside the mecka human head; trunk, front tower and text stem shared. Front
+# camera only, at the human tower size [224, 400]. rdt_1b_abc_joints is this at width 2048.
+defaults:
+  - rdt_bc_mecka_6d_dinov3_vitb
+  - _self_
+
+robomimic_model:
+  domains: ["human_bimanual", "eva_bimanual"]
+  dims:
+    eva_bimanual: {proprio: 14, action: 14}
+  ac_keys:
+    eva_bimanual: "actions_joints"
+
+  head_specs:
+    eva_bimanual:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 100
+      num_inference_steps: 10
+      pooling: null
+      time_dist: "beta"
+      infer_ac_dims:
+        eva_bimanual: ${model.robomimic_model.dims.eva_bimanual.action}
+      model:
+        _target_: egomimic.models.rdt_nets.RDTDenoiser
+        act_dim: ${model.robomimic_model.dims.eva_bimanual.action}
+        act_seq: 100
+        hidden_dim: ${model.robomimic_model.width}
+        n_state_tokens: 1
+        time_scale: 1000.0
+
+  stem_specs:
+    eva_bimanual:
+      state_joint_positions:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: ${model.robomimic_model.dims.eva_bimanual.proprio}
+        output_dim: ${model.robomimic_model.width}
+        widths:
+          - ${model.robomimic_model.width}
+          - ${model.robomimic_model.width}
+        history_len: 1
+        history_dropout: 0.2

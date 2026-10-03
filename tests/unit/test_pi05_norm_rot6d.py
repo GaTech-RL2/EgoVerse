@@ -454,8 +454,8 @@ def test_vendor_embodiment_names_collapse_to_human():
     assert get_embodiment_id("human_bimanual") == EMBODIMENT.HUMAN_BIMANUAL.value
     assert get_embodiment_id("eva_bimanual") == EMBODIMENT.EVA_BIMANUAL.value
     assert not is_legacy_vendor_embodiment("human_bimanual")
-    with pytest.raises(KeyError):
-        get_embodiment_id("yam_bimanual")  # robot names are never aliased
+    # the one robot is Eva: YAM_* (the ABC station after the 2026-09-01 relabel) is Eva
+    assert get_embodiment_id("yam_bimanual") == EMBODIMENT.EVA_BIMANUAL.value
 
 
 def test_base_converter_rejects_norm_6d_encoding():

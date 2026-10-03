@@ -28,7 +28,10 @@ from egomimic.rldb.zarr.zarr_dataset_multi import (
     PinError,
     pinned_episode_subset,
 )
-from egomimic.utils.checkpoint_utils import load_checkpoint_weights
+from egomimic.utils.checkpoint_utils import (
+    init_weights_from_checkpoint,
+    load_checkpoint_weights,
+)
 from egomimic.utils.compile_cache import set_per_job_compile_cache_dir
 from egomimic.utils.env import load_env
 from egomimic.utils.gpu_orphans import arm_rank_pdeathsig, reap_orphans
@@ -56,7 +59,23 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
         and "norm_stats" in model_cfg.robomimic_model
     ):
         model_cfg.robomimic_model.norm_stats = None
-    tree = OmegaConf.create({"model": model_cfg})
+    # Each dataset's keymap + transform list, resolved: what a rollout needs to
+    # rebuild the training inputs (robot/rollout.py, scripts/abc_sim/policy_server.py
+    # read data.train_datasets.<embodiment>.resolver.*). Nothing else of `data`.
+    pipelines = {
+        name: {
+            "resolver": {
+                k: OmegaConf.to_container(ds.resolver[k], resolve=True)
+                for k in ("key_map", "transform_list")
+                if ds.resolver.get(k) is not None
+            }
+        }
+        for name, ds in (cfg.get("data") or {}).get("train_datasets", {}).items()
+        if ds is not None and ds.get("resolver") is not None
+    }
+    tree = OmegaConf.create(
+        {"model": model_cfg, "data": {"train_datasets": pipelines}}
+    )
     has_weights = OmegaConf.select(tree, _PI_WEIGHT_KEY, default=None) is not None
     if has_weights and _weights_from_checkpoint(cfg):
         log.info(
@@ -147,6 +166,24 @@ def _weights_from_checkpoint(cfg: DictConfig) -> bool:
     under evaluation (elsewhere the flag is unused and just keeps them)."""
     ckpt_path = cfg.get("ckpt_path")
     return bool(ckpt_path) and os.path.isfile(ckpt_path) and not cfg.get("pretrained")
+
+
+def _apply_init_weights(cfg: DictConfig, model) -> None:
+    """``init_weights_ckpt``: weights-only fine-tune init (see
+    ``init_weights_from_checkpoint``). Skipped when ``ckpt_path`` is set -- a
+    resume (including a Slurm requeue, folded into ``ckpt_path`` by
+    ``_prepare_checkpoint_resume``) restores this run's own weights, which
+    must not be replaced by the base checkpoint's."""
+    init_ckpt = cfg.get("init_weights_ckpt")
+    if not init_ckpt:
+        return
+    if cfg.get("ckpt_path"):
+        log.info(
+            f"init_weights_ckpt={init_ckpt} ignored: resuming from "
+            f"ckpt_path={cfg.ckpt_path}"
+        )
+        return
+    init_weights_from_checkpoint(model, init_ckpt)
 
 
 def _log_dataset_frame_counts(
@@ -306,32 +343,6 @@ def _unseen_op_valid_datasets(cfg: DictConfig, instantiate) -> dict:
     }
 
 
-def _trainer_world_size(cfg: DictConfig) -> int:
-    """``devices * num_nodes`` as the config declares it, 1 if it cannot say.
-
-    DistributedSampler strides rather than chunks, so W ranks between them walk
-    the WHOLE split; the per-rank ``limit_val_batches`` window is therefore W
-    times wider than it looks from one rank. Eval mode runs on one device
-    (``train`` forces ``devices=1`` after the loaders are built), so it is 1.
-    """
-    legacy = "train" if cfg.get("train") else "eval" if cfg.get("eval") else None
-    if (cfg.get("mode") or legacy) == "eval":  # _resolve_mode, minus its raise
-        return 1
-    devices = cfg.get("trainer", {}).get("devices", 1)
-    if isinstance(devices, (list, ListConfig)):
-        n = len(devices)
-    elif isinstance(devices, int) and devices > 0:
-        n = devices
-    else:  # "auto", -1: resolved by lightning at runtime, unknown here
-        log.warning(
-            f"trainer.devices={devices!r} is not a count; treating the metric "
-            "loaders as single-rank, which under-scores the val split."
-        )
-        n = 1
-    nodes = cfg.get("trainer", {}).get("num_nodes", 1)
-    return n * (int(nodes) if isinstance(nodes, int) and nodes > 0 else 1)
-
-
 def _metric_frames_per_episode(
     cfg: DictConfig,
     head: str,
@@ -340,14 +351,14 @@ def _metric_frames_per_episode(
 ) -> int | None:
     """Frames per episode to keep on this val head, or None for no subsampling.
 
-    ``data.metric_frames_per_episode[head]`` is written for ONE rank -- it is
-    ``floor(limit_val_batches * batch_size / n_episodes)`` -- so it is scaled by
-    the world size here: the ranks stride through the subsampled set together
-    and each still reads at most ``limit_val_batches`` batches. Without this a
-    4-GPU run scores a quarter of the frames the same config scores on 1 GPU,
-    which on the seen-val head is fewer than it scored before subsampling
-    existed at all. EvenStrideDataset keeps a whole episode when K exceeds its
-    length, so a split that fits entirely is not subsampled.
+    ``data.metric_frames_per_episode[head]`` is ``floor(limit_val_batches *
+    batch_size / n_episodes)``, the SAME on every rank: the val heads come back
+    inside CombinedLoaders, which Lightning does not wrap in a
+    DistributedSampler (every rank runs every val batch, measured 2026-09-16;
+    see EvalVideo._video_fps), so a K scaled by the world size only made each
+    rank score the first 1/W of a W-times-denser subsample. EvenStrideDataset
+    keeps a whole episode when K exceeds its length, so a split that fits
+    entirely is not subsampled.
 
     ``auto`` computes that formula from the resolved split (``n_episodes``) and
     the head's loader ``batch_size``, for splits defined by live SQL filters
@@ -385,7 +396,7 @@ def _metric_frames_per_episode(
                 f"data.metric_frames_per_episode.{head} must be a positive int "
                 f"or 'auto', got {k}"
             )
-    return k * _trainer_world_size(cfg)
+    return k
 
 
 def _subsample_val_datasets(
@@ -788,6 +799,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
     if mode == "train":
+        _apply_init_weights(cfg, model)
         if cfg.get("evaluator") is not None:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             # data.valid_prefix (e.g. seen_op_valid in the opsplit configs)

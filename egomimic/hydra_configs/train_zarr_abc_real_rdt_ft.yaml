@@ -1,0 +1,10 @@
+# ABC REAL fine-tune: the train_zarr_abc_sim_rdt_ft arm on the matching REAL
+# ABC task (data=abc_real_joints, lab=abc), for the real-robot side of the
+# sim-real rank check. Same model, init, steps and batch as the sim arm.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_abc_real_rdt_ft \
+#     init_weights_ckpt=<base.ckpt>
+defaults:
+  - train_zarr_abc_sim_rdt_ft
+  - override data: abc_real_joints
+  - _self_

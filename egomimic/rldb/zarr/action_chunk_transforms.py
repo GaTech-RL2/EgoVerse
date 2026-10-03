@@ -963,6 +963,43 @@ class Reshape(Transform):
 # ---------------------------------------------------------------------------
 
 
+class ResizeImages(Transform):
+    """Resize every camera frame in ``keys`` to ``(H, W)``. Frames are the
+    decoded ``(3, H, W)`` float arrays ZarrDataset emits (or ``(K, 3, H, W)``
+    windows); absent keys are skipped. For sources that mix resolutions (real
+    ABC: 640x480 and 1280x720 front frames), which default_collate cannot
+    stack; a model's own stem still resizes afterwards."""
+
+    def __init__(self, keys: list[str], hw: tuple[int, int]):
+        self.keys = list(keys)
+        self.hw = (int(hw[0]), int(hw[1]))
+
+    def _resize(self, chw: np.ndarray) -> np.ndarray:
+        import cv2
+
+        if tuple(chw.shape[-2:]) == self.hw:
+            return chw
+        hwc = np.moveaxis(np.asarray(chw, dtype=np.float32), 0, -1)
+        out = cv2.resize(hwc, (self.hw[1], self.hw[0]), interpolation=cv2.INTER_AREA)
+        return np.moveaxis(out, -1, 0)
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if key not in batch:
+                continue
+            x = batch[key]
+            if isinstance(x, torch.Tensor):
+                x = x.numpy()
+            x = np.asarray(x)
+            if x.ndim == 3:
+                batch[key] = self._resize(x)
+            elif x.ndim == 4:
+                batch[key] = np.stack([self._resize(f) for f in x])
+            else:
+                raise ValueError(f"ResizeImages: '{key}' has shape {x.shape}")
+        return batch
+
+
 class NumpyToTensor(Transform):
     def __init__(self, keys: list[str]):
         self.keys = keys

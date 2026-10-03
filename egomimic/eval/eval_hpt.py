@@ -59,7 +59,9 @@ class HPTEvalVideo(EvalVideo):
                 metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
                 metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
                 metrics.update(
-                    layout_metrics(preds[pred_key], _batch[ac_key], f"Valid/{pred_key}")
+                    layout_metrics(
+                        preds[pred_key], _batch[ac_key], f"Valid/{pred_key}", ac_key
+                    )
                 )
 
             if embodiment_name in algo.auxiliary_ac_keys:
@@ -102,6 +104,10 @@ class HPTEvalVideo(EvalVideo):
                 metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
 
             if not do_viz:
+                continue
+            if self.viz_func is not None and embodiment_name not in self.viz_func:
+                # No overlay for this embodiment (e.g. joint-space actions,
+                # which have no image projection): metrics only.
                 continue
 
             transform_list = self.transform_lists.get(embodiment_name)

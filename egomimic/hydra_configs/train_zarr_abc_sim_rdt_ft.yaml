@@ -1,0 +1,32 @@
+# ABC sim fine-tune: RDT-1B, joint space, one abc_sim task, weights-only init
+# from a base; init_weights_ckpt=null is the from-scratch floor. Pipeline:
+# egomimic/scripts/abc_sim/README.md.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_abc_sim_rdt_ft \
+#     init_weights_ckpt=<base.ckpt> name=abc_sim_ft description=<base>_put_bottles
+defaults:
+  - train_zarr_cartesian
+  - override model: rdt_1b_abc_joints_dinov3_vitb
+  - override data: abc_sim_joints
+  - override evaluator: eval_hpt_abc_joints
+  - _self_
+
+model:
+  robomimic_model:
+    domains: ["eva_bimanual"]
+
+# the train_viz head would need its own evaluator wiring; the sim rollout is
+# this pipeline's check
+train_viz: false
+
+trainer:
+  gradient_clip_val: 1.0
+  max_epochs: 300
+  min_epochs: 300
+  limit_train_batches: 100
+  limit_val_batches: 20
+  check_val_every_n_epoch: 25
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
