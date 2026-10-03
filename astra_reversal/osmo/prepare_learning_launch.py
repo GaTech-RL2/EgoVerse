@@ -20,7 +20,14 @@ def prepare(
     protocol = load_protocol()
     if (
         phase
-        not in ("preflight", "pilot", "baseline-preflight", "dsrl", "guidance-probe")
+        not in (
+            "preflight",
+            "pilot",
+            "baseline-preflight",
+            "dsrl",
+            "guidance-probe",
+            "ppo",
+        )
         or not math.isfinite(gpu_hours)
         or not (1 / 60) <= gpu_hours <= protocol["compute"]["authorized_gpu_hours"]
     ):
@@ -78,10 +85,11 @@ def prepare(
             ASTRA_INCLUDE_RLINF="1",
             ASTRA_ENTRY_MODULE="astra_reversal.osmo.reasoning_baseline_preflight",
         )
-    if phase == "dsrl":
+    if phase in ("dsrl", "ppo"):
         task["environment"].update(
             ASTRA_INCLUDE_RLINF="1",
             ASTRA_ENTRY_MODULE="astra_reversal.osmo.reasoning_rl_baseline",
+            ASTRA_LEARNING_METHOD=phase,
         )
     if phase == "guidance-probe":
         task["environment"].update(
@@ -104,7 +112,7 @@ def prepare(
         "source_revision": revision,
         "payload_sha256": identity["payload_sha256"],
         "automatic_experiment_retries": False,
-        "baselines_included": phase == "dsrl",
+        "baselines_included": phase in ("dsrl", "ppo"),
     }
     (destination / "launch_plan.json").write_text(json.dumps(plan, indent=2) + "\n")
     upload = f'osmo workflow rsync "$workflow" worker0 {shlex.quote(str(bundle / "payload.tar.gz") + ":/osmo/run/workspace")} --once --timeout 180\n'
@@ -126,7 +134,14 @@ def main():
     parser.add_argument("destination", type=Path)
     parser.add_argument(
         "--phase",
-        choices=("preflight", "pilot", "baseline-preflight", "dsrl", "guidance-probe"),
+        choices=(
+            "preflight",
+            "pilot",
+            "baseline-preflight",
+            "dsrl",
+            "guidance-probe",
+            "ppo",
+        ),
         default="preflight",
     )
     parser.add_argument("--gpu-hours", type=float, required=True)

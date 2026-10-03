@@ -76,16 +76,25 @@ class RLRollout:
         self.finish_prefix(observation)
         raw = {**copy.deepcopy(observation), "prompt": self.instruction}
         oid = digest(raw)
-        condition = self.policy.prepare(observation, oid, self.instruction)
-        noise = self.learner.noise(observation, evaluation=self.evaluation)
-        model_actions = self.policy.sample(condition, noise, steps=10).value
-        commands, clipping = self.adapter.decode(model_actions, condition.state)
+        if hasattr(self.learner, "proposal"):
+            model_actions, extra = self.learner.proposal(
+                observation, self.instruction, evaluation=self.evaluation, rng=self.rng
+            )
+            noise = extra["noise"]
+            state = self.policy._preprocess(raw)["observation.state"]
+        else:
+            condition = self.policy.prepare(observation, oid, self.instruction)
+            noise = self.learner.noise(observation, evaluation=self.evaluation)
+            model_actions = self.policy.sample(condition, noise, steps=10).value
+            state, extra = condition.state, {}
+        commands, clipping = self.adapter.decode(model_actions, state)
         np.savez_compressed(
             self.directory / f"observation_{step}.npz",
             **raw,
             noise=noise.detach().cpu().numpy(),
         )
         self.pending = {
+            **extra,
             "step": step,
             "observation": copy.deepcopy(observation),
             "observation_id": oid,

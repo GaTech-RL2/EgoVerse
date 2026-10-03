@@ -147,3 +147,19 @@ probe will compare these choices before changing the collection recipe.
 Source: https://arxiv.org/html/2506.07339v1#S4.SS1, equations 2--4. Binary masks
 make our squared-mask energy match RTC's weighted correction; soft masks differ.
 No FRS, physical candidate retry, or unexecuted synthetic training is added.
+
+PPO integration (GPU backward/recompute check pending)
+The second baseline uses RLinf's released Pi0RL stochastic flow sampler and
+log-probability recomputation on the strict converted checkpoint. Its flow-SDE
+noise level is .5, with one selected stochastic denoising step and native ODE
+elsewhere, as in the released configuration. The full action expert (including
+AdaRMS and action/time projections) and the upstream VLM-pooled value head train;
+the VLM stays frozen. Serial PPO uses chunk-summed log probabilities, GAE .99/.95,
+clip .2, value clip .2, Huber delta10, AdamW actor lr5e-6/value lr1e-4, betas .9/.95,
+weight decay .01, grad clip1, one epoch per rollout, microbatch1 accumulated over
+8 transitions. These serial batch/horizon/float32 choices are explicit overrides
+of the released distributed configuration. Only the executed prefix enters its
+log-probability objective. Full action-expert parameters are saved at evaluation
+milestones; these deployment checkpoints omit optimizer state. Each GPU job must
+pass initial native parity and rollout-versus-recompute log-probability agreement
+and backward checks before collecting any environment data.
