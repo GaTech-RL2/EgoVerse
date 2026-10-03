@@ -109,3 +109,26 @@ audit compares unmodified RLinf, then explicitly changes Gemma and SigLIP GELU
 approximations to match the source checkpoint, restoring them afterward. Shared
 native preprocessing avoids attributing processor changes to checkpoint errors.
 Neither shape parity nor activation harmonization alone qualifies an RL result.
+
+2026-10-03 RLinf weighted parity
+Activation matching reduced maximum velocity error from 0.00268 to 2.39e-6,
+and maximum normalized/controller action error from 0.00162 to 4.18e-7.
+This passes the declared tolerances on one real observation and two noise draws;
+it is not exhaustive task equivalence. Source weights load strictly. The explicit
+activation compatibility change is necessary before PPO uses this checkpoint.
+
+DSRL integration
+The new serial harness reuses RLinf's released DSRL actor, encoders and ten-Q-head
+network/methods directly, with the exact frozen native LeRobot decoder. It uses
+SAC with mean Q aggregation, gamma=.999 per control step, tau=.005, no backup
+entropy, softplus temperature initialized to 1 with target entropy -16, actor
+lr1e-4, critic/temperature lr3e-4, 200 updates per collected rollout, and a
+10-update critic warmup. Float32 master parameters use bf16 autocast. Serial
+collection, batch64, and duration-discounted -1+success over each actual prefix
+are explicit integration choices. No demonstrations are supplied to the baseline.
+The 300-action finite horizon is terminal. DSRL's released noise actor repeats
+one 32-D tanh-Gaussian sample across the horizon; evaluation uses its mean.
+Consequently its pre-update policy has the same decoder weights but a different
+noise distribution from the native sampler. Report both initial scores; do not
+call these identical initial action distributions. OOD resets/evaluation cadence
+and counted physical control steps match the teacher study.

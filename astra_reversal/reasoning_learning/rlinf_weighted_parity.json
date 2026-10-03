@@ -1,0 +1,239 @@
+{
+  "source_tensors": 812,
+  "converted_tensors": 667,
+  "unmodified_rlinf": {
+    "cases": [
+      {
+        "seed": 173,
+        "velocities": [
+          {
+            "t": 1.0,
+            "max_abs": 0.0016101375222206116,
+            "rms": 0.00022935305605642498,
+            "reference_rms": 1.0805836915969849,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": false
+          },
+          {
+            "t": 0.5,
+            "max_abs": 0.0021031200885772705,
+            "rms": 0.00034604014945216477,
+            "reference_rms": 2.0941364765167236,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": false
+          },
+          {
+            "t": 0.1,
+            "max_abs": 0.0013437271118164062,
+            "rms": 0.0002651861577760428,
+            "reference_rms": 4.149916648864746,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": false
+          }
+        ],
+        "normalized_actions": {
+          "max_abs": 0.0015286430716514587,
+          "rms": 0.0002186484052799642,
+          "reference_rms": 0.19938933849334717,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": false
+        },
+        "controller_actions": {
+          "max_abs": 0.0015286430716514587,
+          "rms": 0.0004658936813939363,
+          "reference_rms": 0.4263102412223816,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": false
+        },
+        "passed": false
+      },
+      {
+        "seed": 179,
+        "velocities": [
+          {
+            "t": 1.0,
+            "max_abs": 0.0016075670719146729,
+            "rms": 0.00022012213594280183,
+            "reference_rms": 0.9653801321983337,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": false
+          },
+          {
+            "t": 0.5,
+            "max_abs": 0.002675652503967285,
+            "rms": 0.0003890680382028222,
+            "reference_rms": 1.8878278732299805,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": false
+          },
+          {
+            "t": 0.1,
+            "max_abs": 0.0011081695556640625,
+            "rms": 0.0002572260855231434,
+            "reference_rms": 4.0438714027404785,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": false
+          }
+        ],
+        "normalized_actions": {
+          "max_abs": 0.0016160085797309875,
+          "rms": 0.00022115335741546005,
+          "reference_rms": 0.20456095039844513,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": false
+        },
+        "controller_actions": {
+          "max_abs": 0.0016160085797309875,
+          "rms": 0.0004714155802503228,
+          "reference_rms": 0.43736594915390015,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": false
+        },
+        "passed": false
+      }
+    ],
+    "passed": false
+  },
+  "activation_compatibility": {
+    "text_activation": "gelu_pytorch_tanh",
+    "vision_activation": "gelu_pytorch_tanh"
+  },
+  "gelu_matched_rlinf": {
+    "cases": [
+      {
+        "seed": 173,
+        "velocities": [
+          {
+            "t": 1.0,
+            "max_abs": 8.344650268554688e-07,
+            "rms": 2.363155573448239e-07,
+            "reference_rms": 1.0805836915969849,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          },
+          {
+            "t": 0.5,
+            "max_abs": 1.430511474609375e-06,
+            "rms": 3.030968400707934e-07,
+            "reference_rms": 2.0941364765167236,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          },
+          {
+            "t": 0.1,
+            "max_abs": 2.384185791015625e-06,
+            "rms": 6.514642336696852e-07,
+            "reference_rms": 4.149916648864746,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          }
+        ],
+        "normalized_actions": {
+          "max_abs": 4.172325134277344e-07,
+          "rms": 5.3305480918197645e-08,
+          "reference_rms": 0.19938933849334717,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": true
+        },
+        "controller_actions": {
+          "max_abs": 4.172325134277344e-07,
+          "rms": 1.0484705370572556e-07,
+          "reference_rms": 0.4263102412223816,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": true
+        },
+        "passed": true
+      },
+      {
+        "seed": 179,
+        "velocities": [
+          {
+            "t": 1.0,
+            "max_abs": 9.5367431640625e-07,
+            "rms": 2.1687519335955585e-07,
+            "reference_rms": 0.9653801321983337,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          },
+          {
+            "t": 0.5,
+            "max_abs": 1.9073486328125e-06,
+            "rms": 3.974629123604245e-07,
+            "reference_rms": 1.8878278732299805,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          },
+          {
+            "t": 0.1,
+            "max_abs": 2.384185791015625e-06,
+            "rms": 6.473859457400977e-07,
+            "reference_rms": 4.0438714027404785,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          }
+        ],
+        "normalized_actions": {
+          "max_abs": 4.172325134277344e-07,
+          "rms": 5.109058420771362e-08,
+          "reference_rms": 0.20456095039844513,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": true
+        },
+        "controller_actions": {
+          "max_abs": 4.172325134277344e-07,
+          "rms": 9.979751069977283e-08,
+          "reference_rms": 0.43736594915390015,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": true
+        },
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "peak_gpu_bytes": 28321190912,
+  "workflow": "astra-pi05-reasoning-learning-20261003-baseline-preflight-1",
+  "source_revision": "664c301d0aec9effb44976a203b7a6af189fc530",
+  "gpu_hours_including_bootstrap": 0.060935385555555555,
+  "scope": "one real recorded observation, two independent noise draws, three velocity times and two full 10-step samples; not an exhaustive equivalence proof"
+}
