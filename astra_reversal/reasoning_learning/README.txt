@@ -79,8 +79,7 @@ model checks, not full-checkpoint GPU or robot success results.
 
 No new robot SR or sample-efficiency result exists yet. The user authorized a
 total of 24 L40S GPU-hours on 2026-10-03, including setup, failures and all methods.
-The config now has launch_allowed=true. Strong-baseline parity, full-weight GPU
-preflight, data collection, learning curves and confirmation remain outstanding.
+The config now has launch_allowed=true. Strong-baseline parity, data collection, learning curves and confirmation remain outstanding.
 
 Launching after the budget is resolved
 Use the existing immutable payload/source_identity.json/bootstrap.sh bundle
@@ -92,3 +91,21 @@ The preparer verifies committed source and bundle hashes; it does not submit.
 Use phase=pilot only after weighted preflight succeeds. A pilot worker handles
 one task and seed. Sum all worker allocations against the study budget. OSMO task
 start/end times count bootstrap cost; the internal cost file labels its exclusion.
+
+2026-10-03 full-weight preflight
+One OSMO L40S completed the native parity and gradient gates. Zero guidance and
+zero adapters both have max absolute error 0. Input gradient norm 0.01508;
+adapter-loss gradient norm 0.0009536; peak allocation 14.92 GB; guided sampling
+0.476 seconds. Total allocation including bootstrap: 0.1586 GPU-hours. See
+full_checkpoint_preflight.json. No environment actions or optimizer updates
+were performed by this diagnostic. Strength-1 guidance reduced this particular
+probe target error by only 0.076%, so an effect-size sweep is the next check.
+
+RLinf compatibility audit
+The official converter maps 812 source tensors to all 667 expected tensors with
+matching shapes. Weighted parity is pending. The standalone core loader bypasses
+Ray/robot factory initializers but does not alter the pinned math modules. The
+audit compares unmodified RLinf, then explicitly changes Gemma and SigLIP GELU
+approximations to match the source checkpoint, restoring them afterward. Shared
+native preprocessing avoids attributing processor changes to checkpoint errors.
+Neither shape parity nor activation harmonization alone qualifies an RL result.
