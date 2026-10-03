@@ -233,11 +233,6 @@ def parse_proposal(raw, request):
         for edit in value["edits"]:
             if edit["start"] >= edit["end"] or edit["delta"] == 0:
                 raise ValueError("Correction must have nonzero extent")
-            limits = controller_delta_limits(
-                request["context"].get("controller_delta_limits")
-            )
-            if abs(edit["delta"]) > limits[edit["channel"]]:
-                raise ValueError("Correction magnitude exceeds its channel bound")
     elif request["role"] == "compare":
         judgments = {row["candidate_id"]: row for row in value["judgments"]}
         if set(judgments) != set(request["context"]["candidates"]):
@@ -269,6 +264,9 @@ def controller_delta_limits(values=None):
 
 
 def controller_target(native, edits, spec, *, delta_limits=None):
+    # Check channel and cumulative bounds here so invalid numeric suggestions
+    # follow the rollout's recorded target-rejection/revision path. The shared
+    # JSON numeric range accommodates the gripper, not a larger arm edit.
     limits = np.asarray(controller_delta_limits(delta_limits))
     target = np.asarray(native, dtype=np.float32).copy()
     mask = np.zeros_like(target)

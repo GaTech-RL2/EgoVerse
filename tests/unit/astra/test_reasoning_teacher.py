@@ -106,8 +106,9 @@ def test_gripper_revision_can_close_without_relaxing_motion_or_hardware_bounds()
     with pytest.raises(ValueError, match="Accumulated"):
         teacher.controller_target(native, d["edits"] * 2, spec, delta_limits=limits)
     d["edits"][0]["channel"] = 2
-    with pytest.raises(ValueError, match="channel bound"):
-        teacher.parse_proposal(d, request(controller_delta_limits=limits))
+    teacher.parse_proposal(d, request(controller_delta_limits=limits))
+    with pytest.raises(ValueError, match="pilot bounds"):
+        teacher.controller_target(native, d["edits"], spec, delta_limits=limits)
     d["edits"][0]["channel"] = 6
     with pytest.raises(ValueError, match="bounds"):
         teacher.controller_target(
