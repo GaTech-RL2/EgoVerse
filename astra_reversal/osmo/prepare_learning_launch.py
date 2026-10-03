@@ -19,7 +19,8 @@ def prepare(
 ):
     protocol = load_protocol()
     if (
-        phase not in ("preflight", "pilot", "baseline-preflight", "dsrl")
+        phase
+        not in ("preflight", "pilot", "baseline-preflight", "dsrl", "guidance-probe")
         or not math.isfinite(gpu_hours)
         or not (1 / 60) <= gpu_hours <= protocol["compute"]["authorized_gpu_hours"]
     ):
@@ -82,6 +83,11 @@ def prepare(
             ASTRA_INCLUDE_RLINF="1",
             ASTRA_ENTRY_MODULE="astra_reversal.osmo.reasoning_rl_baseline",
         )
+    if phase == "guidance-probe":
+        task["environment"].update(
+            ASTRA_GUIDANCE_PROBE="1",
+            ASTRA_ENTRY_MODULE="astra_reversal.osmo.reasoning_baseline_preflight",
+        )
     task["files"] = [
         {"localpath": str(bundle / "bootstrap.sh"), "path": "/tmp/astra-bootstrap.sh"},
         {"localpath": str(token), "path": "/tmp/astra-relay.token"},
@@ -120,7 +126,7 @@ def main():
     parser.add_argument("destination", type=Path)
     parser.add_argument(
         "--phase",
-        choices=("preflight", "pilot", "baseline-preflight", "dsrl"),
+        choices=("preflight", "pilot", "baseline-preflight", "dsrl", "guidance-probe"),
         default="preflight",
     )
     parser.add_argument("--gpu-hours", type=float, required=True)

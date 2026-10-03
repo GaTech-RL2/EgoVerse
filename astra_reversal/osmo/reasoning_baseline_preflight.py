@@ -16,7 +16,7 @@ from astra_reversal.reasoning_learning import rlinf_bridge as bridge
 from astra_reversal.reasoning_learning.guidance import GuidanceConfig, generate
 
 
-def guidance_sweep(native, observation, prompt):
+def guidance_sweep(native, observation, prompt, *, compare_schedules=False):
     from astra_reversal.lerobot_policy import prepare_velocity
 
     batch = native._preprocess({**observation, "prompt": prompt})
@@ -30,14 +30,35 @@ def guidance_sweep(native, observation, prompt):
     mask[:, :5, 2] = 1
     initial_error = float(((reference - target) * mask).norm())
     rows = []
-    for strength in (0.25, 1, 5, 10):
+    configurations = [
+        ("taper_to_zero", True, strength) for strength in (0.25, 1, 5, 10)
+    ]
+    if compare_schedules:
+        configurations += [
+            (schedule, projection, strength)
+            for schedule, projection in (
+                ("taper_to_zero", False),
+                ("rtc_pigdm", True),
+                ("rtc_pigdm", False),
+            )
+            for strength in (1, 5, 10)
+        ]
+    for schedule, projection, strength in configurations:
         candidate, trace = generate(
-            velocity, noise, target, mask, GuidanceConfig(strength=strength)
+            velocity,
+            noise,
+            target,
+            mask,
+            GuidanceConfig(
+                strength=strength, schedule=schedule, project_gradient=projection
+            ),
         )
         error = float(((candidate - target) * mask).norm())
         rows.append(
             {
                 "strength": strength,
+                "schedule": schedule,
+                "project_gradient": projection,
                 "initial_error": initial_error,
                 "endpoint_error": error,
                 "fraction_error_reduction": 1 - error / initial_error,
@@ -100,9 +121,25 @@ def main():
             }
             prompt = str(data["prompt"].item())
         write_json(
-            RESULTS / "guidance_sweep.json", guidance_sweep(native, observation, prompt)
+            RESULTS / "guidance_sweep.json",
+            guidance_sweep(
+                native,
+                observation,
+                prompt,
+                compare_schedules=os.environ.get("ASTRA_GUIDANCE_PROBE") == "1",
+            ),
         )
         archive.sync()
+        if os.environ.get("ASTRA_GUIDANCE_PROBE") == "1":
+            write_json(
+                RESULTS / "completion.json",
+                {
+                    "status": "guidance_probe_complete",
+                    "environment_actions": 0,
+                    "research_objective_met": False,
+                },
+            )
+            return
         core = bridge.import_core(ROOT / "astra_reversal/.deps/RLinf")
         converted, receipt = bridge.load_converted(
             core,

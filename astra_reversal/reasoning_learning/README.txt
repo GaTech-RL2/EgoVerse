@@ -132,3 +132,18 @@ Consequently its pre-update policy has the same decoder weights but a different
 noise distribution from the native sampler. Report both initial scores; do not
 call these identical initial action distributions. OOD resets/evaluation cadence
 and counted physical control steps match the teacher study.
+
+Guidance revision under test
+The v1 sweep (guidance_v1_effect_size.json) reduced a normalized +0.1 z target
+error by only 0.019%, 0.076%, 0.379%, 0.758% at strengths .25/1/5/10. This is
+insufficient evidence of a usable intervention. Two implementation choices are
+now separate ablations: (1) tapering the coefficient to zero near the action
+endpoint, and (2) projecting the already-masked loss gradient onto the same
+latent coordinates, which discards coupling directions. The optional RTC
+coefficient is min(100, strength*((1-t)^2+t^2)/(t*(1-t))) in native noise=1 time;
+the full VJP option masks the endpoint error without a second latent projection.
+The original settings remain defaults for reproducibility. A zero-action GPU
+probe will compare these choices before changing the collection recipe.
+Source: https://arxiv.org/html/2506.07339v1#S4.SS1, equations 2--4. Binary masks
+make our squared-mask energy match RTC's weighted correction; soft masks differ.
+No FRS, physical candidate retry, or unexecuted synthetic training is added.

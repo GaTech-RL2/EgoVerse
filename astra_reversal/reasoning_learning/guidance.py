@@ -18,6 +18,9 @@ class GuidanceConfig:
     steps: int = 10
     strength: float = 1.0
     max_gradient_norm: float = 5.0
+    schedule: str = "taper_to_zero"
+    project_gradient: bool = True
+    max_guidance_weight: float = 100.0
 
     def __post_init__(self):
         if type(self.steps) is not int or self.steps < 1:
@@ -26,6 +29,27 @@ class GuidanceConfig:
             raise ValueError("Guidance strength must be in [0,10]")
         if not math.isfinite(self.max_gradient_norm) or self.max_gradient_norm <= 0:
             raise ValueError("Positive finite gradient bound required")
+        if self.schedule not in ("taper_to_zero", "rtc_pigdm"):
+            raise ValueError("Unknown guidance schedule")
+        if type(self.project_gradient) is not bool:
+            raise ValueError("Gradient projection must be boolean")
+        if (
+            not math.isfinite(self.max_guidance_weight)
+            or not 0 < self.max_guidance_weight <= 100
+        ):
+            raise ValueError("Guidance coefficient cap must be in (0,100]")
+
+    def coefficient(self, t):
+        if not math.isfinite(t) or not 0 <= t <= 1:
+            raise ValueError("Native flow time must be in [0,1]")
+        if self.schedule == "taper_to_zero":
+            return self.strength * t
+        # RTC equations 2--4, tau=1-t: ((1-t)^2+t^2)/(t*(1-t)).
+        # The limiting coefficient is capped at either endpoint.
+        if self.strength == 0:
+            return 0.0
+        ratio = math.inf if t in (0, 1) else ((1 - t) ** 2 + t**2) / (t * (1 - t))
+        return min(self.max_guidance_weight, self.strength * ratio)
 
 
 def _validate(x, target, mask):
@@ -62,10 +86,10 @@ def endpoint_gradient(velocity, x, t, target, mask):
 def generate(velocity, noise, target, mask, config=GuidanceConfig()):
     """Generate from the supplied *independent* noise, without action inversion.
 
-    lambda(t)=strength*t is bounded and tapers to zero at the action endpoint.
-    An additional binary projection limits direct latent edits to mask support;
-    model coupling can still change other endpoint components. This projection
-    and gradient clipping are pragmatic constraints, not exact RTC reproduction.
+    The original taper/projection is retained for reproducibility. The optional
+    RTC schedule uses the paper's clipped coefficient in native time; disabling
+    the extra projection preserves the full VJP. The mask always gates endpoint
+    error. Off-mask latent changes can help correct a coupled output channel.
     """
     _validate(noise, target, mask)
     clock = time.perf_counter()
@@ -76,16 +100,19 @@ def generate(velocity, noise, target, mask, config=GuidanceConfig()):
         t = 1.0 - i / config.steps
         if enabled:
             v, gradient, energy = endpoint_gradient(velocity, x, t, target, mask)
-            gradient *= mask != 0
+            if config.project_gradient:
+                gradient *= mask != 0
             norm = gradient.flatten(1).norm(dim=1).reshape(-1, 1, 1)
             scale = (config.max_gradient_norm / norm.clamp_min(1e-12)).clamp(max=1)
-            guidance = config.strength * t * gradient * scale
+            coefficient = config.coefficient(t)
+            guidance = coefficient * gradient * scale
             trace.append(
                 {
                     "t": t,
                     "energy": energy,
                     "gradient_norm": norm.flatten().tolist(),
                     "clipped": bool(torch.any(scale < 1)),
+                    "guidance_coefficient": coefficient,
                 }
             )
         else:
@@ -102,7 +129,9 @@ def generate(velocity, noise, target, mask, config=GuidanceConfig()):
     return x, {
         "operator": "masked_endpoint_gradient",
         "sampling_direction": "1_to_0",
-        "schedule": "strength*t",
+        "schedule": config.schedule,
+        "project_gradient": config.project_gradient,
+        "max_guidance_weight": config.max_guidance_weight,
         "strength": config.strength,
         "steps": config.steps,
         "velocity_evaluations": config.steps,
