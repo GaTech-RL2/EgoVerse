@@ -14,7 +14,10 @@ def test_step_cost_counts_failed_steps_and_terminal_success():
         discounted_step_cost([])
 
 
-def test_rl_transition_contains_only_executed_prefix_and_own_observation(tmp_path):
+@pytest.mark.parametrize("evaluation", [False, True])
+def test_rl_transition_contains_only_executed_prefix_and_own_observation(
+    tmp_path, evaluation
+):
     policy = SimpleNamespace(
         input_transform=lambda raw: {
             "actions": np.pad(raw["actions"], ((0, 0), (0, 25)))
@@ -33,8 +36,9 @@ def test_rl_transition_contains_only_executed_prefix_and_own_observation(tmp_pat
         spec,
         tmp_path / "episode",
         instruction="lift",
-        evaluation=False,
+        evaluation=evaluation,
         seed=1,
+        retain_evaluation_observations=False,
     )
     before = {
         "observation/image": np.zeros((8, 8, 3), np.uint8),
@@ -46,6 +50,11 @@ def test_rl_transition_contains_only_executed_prefix_and_own_observation(tmp_pat
     for step in range(3):
         loop.observed_step(before, commands[step], step, after, step == 2, False)
     loop.finish_prefix(after, end=True)
+    if evaluation:
+        loop.action(after, 3)
+        assert not loop.transitions
+        assert len(list((tmp_path / "episode").glob("observation_*.npz"))) == 1
+        return
     row = loop.transitions[0]
     assert len(row["executed_actions"]) == 3
     assert row["terminal"] and row["ppo_reward"] == 1
@@ -56,3 +65,5 @@ def test_rl_transition_contains_only_executed_prefix_and_own_observation(tmp_pat
     assert np.array_equal(
         row["next_observation"]["observation/state"], after["observation/state"]
     )
+    loop.action(after, 3)
+    assert len(list((tmp_path / "episode").glob("observation_*.npz"))) == 2

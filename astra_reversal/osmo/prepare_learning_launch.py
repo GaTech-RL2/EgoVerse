@@ -38,8 +38,13 @@ def prepare(
     seed_index=0,
     port=19943,
     protocol_version="v1",
+    rl_recipe="standard",
 ):
     protocol = load_protocol(version=protocol_version)
+    if rl_recipe not in ("standard", "more_reuse") or (
+        rl_recipe != "standard" and phase not in ("dsrl", "ppo")
+    ):
+        raise ValueError("RL tuning applies only to a recorded baseline recipe")
     if (
         phase
         not in (
@@ -102,6 +107,7 @@ def prepare(
         ASTRA_LEARNING_TASK_INDEX=str(task_index),
         ASTRA_LEARNING_SEED_INDEX=str(seed_index),
         ASTRA_LEARNING_PROTOCOL_VERSION=protocol_version,
+        ASTRA_RL_RECIPE=rl_recipe,
     )
     if phase == "baseline-preflight":
         task["environment"].update(
@@ -137,6 +143,7 @@ def prepare(
         "payload_sha256": identity["payload_sha256"],
         "automatic_experiment_retries": False,
         "baselines_included": phase in ("dsrl", "ppo"),
+        "rl_recipe": rl_recipe if phase in ("dsrl", "ppo") else None,
     }
     (destination / "launch_plan.json").write_text(json.dumps(plan, indent=2) + "\n")
     (destination / "connect.sh").write_text(
@@ -171,6 +178,9 @@ def main():
         "--protocol-version", choices=("v1", "v2", "v3", "v4"), default="v1"
     )
     parser.add_argument("--port", type=int, default=19943)
+    parser.add_argument(
+        "--rl-recipe", choices=("standard", "more_reuse"), default="standard"
+    )
     args = parser.parse_args()
     print(
         json.dumps(
@@ -183,6 +193,7 @@ def main():
                 seed_index=args.seed_index,
                 protocol_version=args.protocol_version,
                 port=args.port,
+                rl_recipe=args.rl_recipe,
             )
         )
     )

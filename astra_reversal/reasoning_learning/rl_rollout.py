@@ -32,6 +32,7 @@ class RLRollout:
         evaluation,
         seed,
         progress=None,
+        retain_evaluation_observations=True,
     ):
         self.policy, self.learner, self.spec = policy, learner, spec
         self.adapter = ActionAdapter(
@@ -40,6 +41,7 @@ class RLRollout:
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=False)
         self.instruction, self.evaluation = instruction, evaluation
+        self.retain_observations = not evaluation or retain_evaluation_observations
         self.rng = np.random.default_rng(seed)
         self.progress, self.transitions, self.pending = progress, [], None
         self.steps, self.last_observation = 0, None
@@ -92,11 +94,12 @@ class RLRollout:
             model_actions = self.policy.sample(condition, noise, steps=10).value
             state, extra = condition.state, {}
         commands, clipping = self.adapter.decode(model_actions, state)
-        np.savez_compressed(
-            self.directory / f"observation_{step}.npz",
-            **raw,
-            noise=noise.detach().cpu().numpy(),
-        )
+        if self.retain_observations or step == 0:
+            np.savez_compressed(
+                self.directory / f"observation_{step}.npz",
+                **raw,
+                noise=noise.detach().cpu().numpy(),
+            )
         self.pending = {
             **extra,
             "step": step,
@@ -141,6 +144,7 @@ def collect_rl(
     evaluation,
     seed,
     progress=None,
+    retain_evaluation_observations=True,
 ):
     loop = RLRollout(
         policy,
@@ -151,6 +155,7 @@ def collect_rl(
         evaluation=evaluation,
         seed=seed,
         progress=progress,
+        retain_evaluation_observations=retain_evaluation_observations,
     )
     result = run_rollout(
         env,

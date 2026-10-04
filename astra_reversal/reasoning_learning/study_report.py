@@ -14,7 +14,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .teacher import SYSTEM_PROMPT
+from .teacher import SEMANTIC_EXTENSION, SYSTEM_PROMPT
 
 
 def read_json(path, default=None):
@@ -214,7 +214,7 @@ def summarize_run(spec):
         "evaluation_steps_may_be_lower_bound": partial_evaluation,
         "completed_collection_rollouts": len(collection),
         "collected_successes": sum(bool(r["success"]) for r in collection),
-        "policy_updates": len(updates),
+        "policy_updates": sum(bool(r.get("updated", True)) for r in updates),
         "latest_evaluated_policy_version": latest_evaluated,
         "latest_updated_policy_version": latest_updated,
         "latest_update_has_autonomous_evaluation": bool(
@@ -386,6 +386,7 @@ def build(manifest, budget, output):
         "budget": ledger,
         "runs": runs,
         "teacher_system_prompt": SYSTEM_PROMPT,
+        "teacher_semantic_prompt_extension": SEMANTIC_EXTENSION,
         "notes": [
             "Success is the simulator's binary task predicate. Each scheduled autonomous score uses ten separate reset states; Astra supplies no inference input in these evaluations.",
             "The 80% threshold means at least 8/10 at a scheduled checkpoint. Wilson intervals are descriptive; a single crossing on development data does not prove superiority.",

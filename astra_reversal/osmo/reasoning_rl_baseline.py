@@ -16,6 +16,7 @@ from astra_reversal.osmo.experiment import RESULTS, ROOT
 from astra_reversal.osmo.interpolation import load_frozen_policy
 from astra_reversal.osmo.ood_distributed import WorkerArchive
 from astra_reversal.osmo.reasoning_policy_learning import load_protocol
+from astra_reversal.reasoning_learning.rl_recipes import collect_on_policy, settings
 from astra_reversal.reasoning_learning.rl_rollout import collect_rl
 from astra_reversal.reasoning_learning.rlinf_bridge import (
     REVISION,
@@ -33,6 +34,14 @@ def main():
     method = os.environ.get("ASTRA_LEARNING_METHOD", "dsrl")
     if method not in ("dsrl", "ppo"):
         raise ValueError("Unknown RL baseline")
+    recipe = os.environ.get("ASTRA_RL_RECIPE", "standard")
+    options = settings(
+        recipe,
+        method,
+        collection_rollouts=len(protocol["pilot"]["collection_reset_indices"]),
+        evaluation_schedule=protocol["pilot"]["evaluation_after_collection_rollouts"],
+    )
+    update_period = options.get("collection_rollouts_per_update", 1)
     allocation = float(os.environ["ASTRA_WORKER_GPU_HOURS"])
     if not 0 < allocation <= protocol["compute"]["authorized_gpu_hours"]:
         raise ValueError("Worker allocation exceeds study budget")
@@ -55,6 +64,8 @@ def main():
         RESULTS / "runtime.json",
         {
             "method": method.upper(),
+            "tuning_recipe": recipe,
+            "tuning_settings": options,
             "status": "initializing_before_preflight",
             "workflow": os.environ["ASTRA_RUN_ID"],
             "source_revision": os.environ["ASTRA_SOURCE_REVISION"],
@@ -80,7 +91,7 @@ def main():
                 "max_actions": 300,
                 "train_envs": 1,
                 "batch_size": 64,
-                "updates_per_rollout": 200 if method == "dsrl" else "one PPO epoch",
+                "updates_per_rollout": options["updates"] if method == "dsrl" else None,
                 "fp32_master_parameters": True,
                 "reward": (
                     "duration-discounted -1+success over actual prefix"
@@ -96,7 +107,7 @@ def main():
         core = import_core(ROOT / "astra_reversal/.deps/RLinf")
         policy = load_frozen_policy()
         if method == "dsrl":
-            learner = DSRLLearner(policy, seed=seed)
+            learner = DSRLLearner(policy, seed=seed, **options)
         else:
             inventory = json.loads(
                 (
@@ -128,13 +139,25 @@ def main():
             receipt["parity"] = measure(core, converted, policy, observation, prompt)
             if not receipt["parity"]["passed"]:
                 raise RuntimeError("Converted PPO initial policy failed native parity")
-            learner = PPOLearner(core, converted, policy, seed=seed)
+            learner = PPOLearner(
+                core,
+                converted,
+                policy,
+                seed=seed,
+                **{
+                    k: v
+                    for k, v in options.items()
+                    if k != "collection_rollouts_per_update"
+                },
+            )
             receipt["ppo"] = learner.preflight(observation, prompt)
             write_json(RESULTS / "ppo_preflight.json", receipt)
             write_json(
                 RESULTS / "runtime.json",
                 {
                     "method": "PPO",
+                    "tuning_recipe": recipe,
+                    "tuning_settings": options,
                     "workflow": os.environ["ASTRA_RUN_ID"],
                     "source_revision": os.environ["ASTRA_SOURCE_REVISION"],
                     "payload_sha256": os.environ["PAYLOAD_SHA256"],
@@ -150,8 +173,9 @@ def main():
                         "max_actions": 300,
                         "train_envs": 1,
                         "micro_batch": 1,
-                        "optimizer_batch": 8,
-                        "epochs_per_rollout": 1,
+                        "optimizer_batch": options["optimizer_batch"],
+                        "epochs_per_update": options["epochs"],
+                        "collection_rollouts_per_update": update_period,
                         "parameters": "full action expert and value head; frozen VLM",
                         "precision": "float32",
                         "reward": "binary success summed over actual prefix",
@@ -176,8 +200,13 @@ def main():
         by_reset = {row["initial_state_id"]: row for row in manifest["episodes"]}
         collection, evaluations, updates = [], [], []
         collection_steps, evaluation_steps = 0, 0
+        pending_transitions = []
         for iteration in range(len(resets) + 1):
             if iteration in protocol["pilot"]["evaluation_after_collection_rollouts"]:
+                if pending_transitions:
+                    raise RuntimeError(
+                        "Autonomous evaluation encountered an unfinished PPO batch"
+                    )
                 rows = []
                 for reset_id in eval_resets:
                     env, _, _ = create(task["task_id"], seed)
@@ -191,6 +220,9 @@ def main():
                         evaluation=True,
                         seed=seed * 1000 + reset_id,
                         progress=archive.sync,
+                        retain_evaluation_observations=protocol["pilot"].get(
+                            "record_all_evaluation_observations", True
+                        ),
                     )
                     evaluation_steps += result["total_control_steps"]
                     rows.append(result)
@@ -225,9 +257,18 @@ def main():
             )
             collection.append(result)
             collection_steps += result["total_control_steps"]
-            update = learner.update(transitions)
-            updates.append(update)
-            if (
+            if method == "ppo":
+                pending_transitions = collect_on_policy(
+                    pending_transitions, transitions, learner.version
+                )
+            due = (iteration + 1) % update_period == 0
+            if due:
+                update = learner.update(
+                    pending_transitions if method == "ppo" else transitions
+                )
+                updates.append(update)
+                pending_transitions = []
+            if due and (
                 method == "dsrl"
                 or iteration + 1
                 in protocol["pilot"]["evaluation_after_collection_rollouts"]

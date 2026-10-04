@@ -282,3 +282,30 @@ retain identical schemas and complete payloads. Full-weight launch preflight wil
 exercise all three new conditioning paths and require exact native restoration
 afterward. V4 is prepared for testing, not a demonstrated improvement. It keeps
 the same eight-rollout collection and 0/2/4/8 autonomous evaluation schedule.
+
+Baseline development tuning
+The standard baseline setting is retained. A separately named more_reuse recipe
+raises DSRL replay updates from 200 to 600 per collected rollout, with the same
+batch64 and other SAC settings. PPO gathers two complete episodes from one fixed
+policy version before an update, then trains for four epochs with optimizer
+batch8. Terminal masks prevent GAE from leaking a following episode's reward
+into the preceding episode. The original recipe uses one episode and one epoch.
+Every scheduled evaluation still follows completed batches at 0/2/4/8 collected
+episodes. This is additional development tuning, not a demonstrated advantage.
+
+RL evaluations can use the same reduced artifact recording as teacher v3/v4:
+all commands/reset audits and video, plus the initial raw observation. Collection
+always retains every raw pre-action observation and exact PPO training records.
+This changes artifact I/O only. Older immutable workers retain their original
+recording behavior. All allocated wall time, including uploads, counts in the
+compute ledger.
+
+2026-10-04 completed standard PPO development run
+Goal OOD6 / seed173 autonomous SR was 5/10 at collection0, 5/10 at2, 4/10 at4,
+and 3/10 at8. The eight real collection rollouts used 1,864 controls including
+stabilization, with three successes (resets4,6,7). Evaluation used 8,685 controls.
+Eight policy updates completed; allocated runtime including bootstrap was
+0.9251 L40S GPU-hours. The 8/10 threshold was not reached. This setting degraded
+autonomous performance on the measured resets; it supplies no advantage claim.
+See ppo_goal6_seed173_result.json and ppo_weighted_preflight.json. The development
+tuning recipe was prepared before its first rollout and remains a separate run.

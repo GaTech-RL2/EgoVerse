@@ -1,0 +1,125 @@
+{
+  "source_tensors": 812,
+  "converted_tensors": 667,
+  "parity": {
+    "cases": [
+      {
+        "seed": 173,
+        "velocities": [
+          {
+            "t": 1.0,
+            "max_abs": 8.344650268554688e-07,
+            "rms": 2.363155573448239e-07,
+            "reference_rms": 1.0805836915969849,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          },
+          {
+            "t": 0.5,
+            "max_abs": 1.430511474609375e-06,
+            "rms": 3.030968400707934e-07,
+            "reference_rms": 2.0941364765167236,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          },
+          {
+            "t": 0.1,
+            "max_abs": 2.384185791015625e-06,
+            "rms": 6.514642336696852e-07,
+            "reference_rms": 4.149916648864746,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          }
+        ],
+        "normalized_actions": {
+          "max_abs": 4.172325134277344e-07,
+          "rms": 5.3305480918197645e-08,
+          "reference_rms": 0.19938933849334717,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": true
+        },
+        "controller_actions": {
+          "max_abs": 4.172325134277344e-07,
+          "rms": 1.0484705370572556e-07,
+          "reference_rms": 0.4263102412223816,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": true
+        },
+        "passed": true
+      },
+      {
+        "seed": 179,
+        "velocities": [
+          {
+            "t": 1.0,
+            "max_abs": 9.5367431640625e-07,
+            "rms": 2.1687519335955585e-07,
+            "reference_rms": 0.9653801321983337,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          },
+          {
+            "t": 0.5,
+            "max_abs": 1.9073486328125e-06,
+            "rms": 3.974629123604245e-07,
+            "reference_rms": 1.8878278732299805,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          },
+          {
+            "t": 0.1,
+            "max_abs": 2.384185791015625e-06,
+            "rms": 6.473859457400977e-07,
+            "reference_rms": 4.0438714027404785,
+            "finite": true,
+            "atol": 0.0001,
+            "rtol": 0.0001,
+            "passed": true
+          }
+        ],
+        "normalized_actions": {
+          "max_abs": 4.172325134277344e-07,
+          "rms": 5.109058420771362e-08,
+          "reference_rms": 0.20456095039844513,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": true
+        },
+        "controller_actions": {
+          "max_abs": 4.172325134277344e-07,
+          "rms": 9.979751069977283e-08,
+          "reference_rms": 0.43736594915390015,
+          "finite": true,
+          "atol": 0.0005,
+          "rtol": 0.0001,
+          "passed": true
+        },
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "ppo": {
+    "logprob_max_abs": 0.0,
+    "gradient_norm": 1.9887802600860596,
+    "actor_gradient_norm": 1.6245790075074513,
+    "policy_updates": 0,
+    "environment_actions": 0,
+    "trainable_parameters": 432853025
+  }
+}
