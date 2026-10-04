@@ -1,0 +1,34 @@
+{
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-7",
+  "source_revision": "fcc061aa09bdbdd8d311fc7edc778ebdfd0bba69",
+  "full_receipt_sha256": "30427b0d58b7bcbe261b44e3536c4359159a1657869846cd454e2c2cb0b101dc",
+  "probe_is_archived_diagnostic_observation": true,
+  "scope": "Full checkpoint, no environment actions or policy updates. Measures operator identity and action effects, not task success.",
+  "native_restoration_max_abs": 0.0,
+  "zero_tli_max_abs": 0.0,
+  "environment_actions": 0,
+  "policy_updates": 0,
+  "synthetic_diagnostic_not_training_data": true,
+  "candidates": [
+    {
+      "candidate_id": "subgoal_prompt",
+      "max_controller_difference": 0.24660739302635193
+    },
+    {
+      "candidate_id": "subgoal_tei_1",
+      "max_controller_difference": 0.027174025774002075
+    },
+    {
+      "candidate_id": "subgoal_tei_2",
+      "max_controller_difference": 0.11591836810112
+    },
+    {
+      "candidate_id": "subgoal_tli_1",
+      "max_controller_difference": 0.5291225910186768
+    },
+    {
+      "candidate_id": "subgoal_tli_2",
+      "max_controller_difference": 0.6758604049682617
+    }
+  ]
+}

@@ -34,7 +34,7 @@ from astra_reversal.records import digest
 
 def load_protocol(path=None, *, version=None):
     version = version or os.environ.get("ASTRA_LEARNING_PROTOCOL_VERSION", "v1")
-    if version not in ("v1", "v2", "v3", "v4", "v5", "v6"):
+    if version not in ("v1", "v2", "v3", "v4", "v5", "v6", "v7"):
         raise ValueError("Unknown learning protocol version")
     path = path or (
         Path(__file__).parents[1] / f"configs/reasoning_policy_learning_{version}.json"
@@ -402,6 +402,9 @@ def main():
                 ),
                 comparison_feedback=protocol["teacher"].get(
                     "comparison_feedback", False
+                ),
+                bounded_target_candidate=protocol["teacher"].get(
+                    "bounded_target_candidate", False
                 ),
                 controller_delta_limits=protocol["teacher"].get(
                     "controller_delta_limits"

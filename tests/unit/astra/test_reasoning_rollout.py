@@ -37,9 +37,10 @@ class SmallPolicy:
 
 
 class Teacher:
-    def __init__(self, preference="win"):
+    def __init__(self, preference="win", selected="guided0"):
         self.roles, self.requests = [], []
         self.preference = preference
+        self.selected = selected
 
     def propose(self, request):
         from astra_reversal.reasoning_learning.teacher import parse_proposal
@@ -57,7 +58,7 @@ class Teacher:
             }
         elif request["role"] == "compare":
             response = {
-                "selected": "guided0" if self.preference == "win" else "native",
+                "selected": self.selected if self.preference == "win" else "native",
                 "judgments": [
                     {
                         "candidate_id": c,
@@ -133,6 +134,63 @@ def test_search_never_executes_candidates_and_only_real_prefixes_train(
         "compare",
         "assess",
     ]
+    comparison = next(r for r in teacher.requests if r["role"] == "compare")
+    assert "bounded_target" not in comparison["context"]["candidates"]
+
+
+@pytest.mark.parametrize("preference", ["win", "uncertain"])
+def test_exact_bounded_targets_need_a_win_and_real_evidence(
+    tmp_path, monkeypatch, preference
+):
+    import json
+
+    from astra_reversal.reasoning_learning import rollout
+
+    monkeypatch.setattr(rollout, "prepare_velocity", lambda *a, **k: lambda x, t: x * 0)
+    judge = Teacher(preference, selected="bounded_target")
+    loop = LearningRollout(
+        SmallPolicy(),
+        judge,
+        ActionSpec("test", 10, 32, 0.05, (-1,) * 7, (1,) * 7, {}),
+        tmp_path / "trial",
+        episode_id="e",
+        instruction="lift",
+        policy_version=0,
+        seed=1,
+        explicit_execution_prefix=True,
+        bounded_target_candidate=True,
+    )
+    for start in (0, 5):
+        commands = loop.action(observation(start), start)
+        assert len(loop.steps) == start  # Computational proposals execute nothing.
+        expected = np.zeros((10, 7), dtype=np.float32)
+        if preference == "win":
+            expected[:5, 2] = 0.2
+        np.testing.assert_array_equal(commands, expected)
+        for j in range(5):
+            loop.observed_step(
+                observation(start + j),
+                commands[j],
+                start + j,
+                observation(start + j + 1),
+                False,
+                False,
+            )
+    windows = loop.finalize()
+    assert len(windows) == 1
+    np.testing.assert_array_equal(
+        windows[0]["actions"], [r["action"] for r in loop.steps]
+    )
+    assert loop.assisted_chunks == (2 if preference == "win" else 0)
+    decision = json.loads(
+        (tmp_path / "trial/decisions.jsonl").read_text().splitlines()[0]
+    )
+    receipt = next(
+        r for r in decision["generation"] if r["candidate_id"] == "bounded_target"
+    )
+    assert receipt["policy_generated"] is False
+    assert receipt["clipping"]["count"] == 0
+    assert all(r["context"]["bounded_target_candidate"] for r in judge.requests)
 
 
 def test_rejected_proposals_do_not_count_as_intervention_episodes(

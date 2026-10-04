@@ -42,6 +42,7 @@ class LearningRollout:
         explicit_execution_prefix=False,
         text_latent_candidates=False,
         comparison_feedback=False,
+        bounded_target_candidate=False,
         controller_delta_limits=None,
         retain_step_observations=True,
         max_episodes=3,
@@ -73,6 +74,11 @@ class LearningRollout:
         self.explicit_execution_prefix = explicit_execution_prefix
         self.text_latent_candidates = text_latent_candidates
         self.comparison_feedback = comparison_feedback
+        self.bounded_target_candidate = bounded_target_candidate
+        if bounded_target_candidate and not explicit_execution_prefix:
+            raise ValueError(
+                "Bounded target candidates require the five-action edit contract"
+            )
         self.comparison_history = []
         self.delta_limits = controller_delta_limits
         self.retain_step_observations = retain_step_observations
@@ -123,6 +129,11 @@ class LearningRollout:
                     else {}
                 ),
                 **({"comparison_feedback": True} if self.comparison_feedback else {}),
+                **(
+                    {"bounded_target_candidate": True}
+                    if self.bounded_target_candidate
+                    else {}
+                ),
                 **context,
             },
         )
@@ -353,6 +364,22 @@ class LearningRollout:
                 )
                 self.active.pop("last_target_error", None)
                 encoded = self.adapter.encode(target, raw)
+                if self.bounded_target_candidate:
+                    # The existing validator checks cumulative edit limits and
+                    # hardware bounds without clipping. This alternative is the
+                    # exact controller target, not a sample from the policy.
+                    batch.add("bounded_target", target)
+                    generation.append(
+                        {
+                            "candidate_id": "bounded_target",
+                            "source": "astra_bounded_controller_target",
+                            "target_sha256": digest(target),
+                            "mask_sha256": digest(mask),
+                            "policy_generated": False,
+                            "unexecuted": True,
+                            "clipping": {"count": 0, "max_abs": 0.0},
+                        }
+                    )
                 model_mask = np.zeros_like(encoded)
                 model_mask[0, :, :7] = mask
                 velocity = prepare_velocity(

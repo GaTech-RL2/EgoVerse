@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .teacher import (
+    BOUNDED_TARGET_EXTENSION,
     COMPARISON_FEEDBACK_EXTENSION,
     PREFIX_EXTENSION,
     SEMANTIC_EXTENSION,
@@ -123,6 +124,7 @@ def usage_by_episode(directory, jobs=None, *, receipt_files=()):
 def teacher_decisions(directory):
     """Count retained judgments separately from execution and training evidence."""
     roles, preferences, outcomes, methods = Counter(), Counter(), Counter(), Counter()
+    selected_candidates = Counter()
     seen = {}
     requested, selected = 0, 0
     for path in sorted(Path(directory).glob("collection/*/teacher_responses.jsonl")):
@@ -142,6 +144,8 @@ def teacher_decisions(directory):
             elif role == "compare":
                 preferences.update(j["preference"] for j in row["judgments"])
                 selected += row["selected"] != "native"
+                if row["selected"] != "native":
+                    selected_candidates[row["selected"]] += 1
             elif role == "assess":
                 outcomes[row["outcome"]] += 1
     return {
@@ -150,6 +154,7 @@ def teacher_decisions(directory):
         "requested_methods": dict(methods),
         "candidate_preferences": dict(preferences),
         "selected_non_native_proposals": selected,
+        "selected_candidates": dict(selected_candidates),
         "observed_prefix_outcomes": dict(outcomes),
         "scope": "Retained parsed responses, including partial attempts. A requested intervention, predicted win, selected proposal, executed prefix and admitted training window are distinct counts.",
     }
@@ -589,6 +594,7 @@ def build(manifest, budget, output):
         "teacher_execution_prefix_prompt_extension": PREFIX_EXTENSION,
         "teacher_tli_prompt_extension": TLI_EXTENSION,
         "teacher_comparison_feedback_prompt_extension": COMPARISON_FEEDBACK_EXTENSION,
+        "teacher_bounded_target_prompt_extension": BOUNDED_TARGET_EXTENSION,
         "notes": [
             "Success is the simulator's binary task predicate. Each scheduled autonomous score uses ten separate reset states; Astra supplies no inference input in these evaluations.",
             "The 80% threshold means at least 8/10 at a scheduled checkpoint. Wilson intervals are descriptive; a single crossing on development data does not prove superiority.",
@@ -600,6 +606,7 @@ def build(manifest, budget, output):
             "A marked shared native baseline reuses the same previously measured episodes after deployment and reset identity checks. It contributes no new evaluation interactions or independent statistical replicate. Updated policies always receive fresh evaluations.",
             "An initial-policy score does not evaluate a later update. Runs stopped between scheduled checkpoints explicitly mark their latest policy update as unevaluated.",
             "Candidate preference is predicted improvement. Only selected commands execute; full observed-useful action windows train. No FRS action steering, physical candidate retries, privileged object poses, or default synthetic training.",
+            "V7 also offers the exact bounded additive target as a controller candidate, alongside RTC candidates. It is not a policy sample or evidence of policy support. The same fixed-reference clear-win and observed-useful training gates apply; it must be reported separately from flow guidance.",
             "This study generates ten actions and executes five before replanning. The published checkpoint config specifies chunk_size=50 and n_action_steps=10; native parity here refers to the common study runtime, not stock deployment settings.",
             "Teacher V1–V4 averaged flow loss over all 32 internal channels, including padding. This differs from LeRobot's policy-level loss over seven actual action channels. V5 corrects this and requires a weighted native-loss parity check; earlier runs keep their original objective and results.",
             "A fixed-data learner ablation adds no collection actions or teacher calls. Its trained checkpoints retain the original dataset's collection and teacher-token costs on the curves; global totals count those source costs only once. Reusing the same windows does not create independent experience or confirmation.",

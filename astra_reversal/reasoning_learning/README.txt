@@ -457,3 +457,37 @@ Package this ablation with --reasoning-replay-cache <audited-input-directory>.
 Prepare --phase replay-learning --protocol-version v5. The worker checks the
 same checkpoint/input/control identity, native-loss parity and reset identity
 before training. This phase is not a new independent collection replicate.
+
+V6 weighted TLI and offline geometry checks
+Full-checkpoint TLI preflight restored native actions exactly after removing
+hooks, and zero-factor TLI matched native exactly. The two nonzero TLI edits
+changed controller outputs by up to 0.529 and 0.676 on the archived diagnostic
+observation. See tli_weighted_preflight.json. These are effect-size checks, not
+rollout success. The live V6 rollout initially executed useful retention/lift
+corrections but later lost its grasp; a useful local prefix is not task completion.
+
+The original eight-frame pixel probe remains a negative result. A second probe
+sampled twelve earlier actual V5 images while retaining the same confidence,
+conditioning and cross-validation thresholds. It admitted six labels and fitted
+a local affine map with condition 17.01 and 1.92-pixel leave-one-out RMS error.
+This is consistency with VLM labels, not independent camera calibration. No
+depth, destination waypoint or controller was inferred or deployed; see
+early_visual_grounding_probe.json.
+
+V7 prospective revision: exact bounded correction candidate
+At V6's saved collection steps240 and245, RTC candidates overshot Astra's modest
+downward target. Two offline comparison calls added the exact bounded target to
+the existing candidate pools, preserving each original observation, reference
+and rule. Astra selected it in both cases; bounded_target_probe.json retains the
+outputs and usage. The cases were selected for observed guidance overshoot, so
+they do not estimate general verifier reliability or physical success.
+
+V7 offers this alternative alongside the RTC candidates. It preserves every
+unedited native component and checks the same cumulative delta limits and
+controller bounds, without clipping. It is an expert controller proposal, not a
+sample from the policy or a claim about policy support. The proposal permits a
+bounded controller alternative when guidance fails; FRS remains excluded.
+The same clear-win comparison authorizes at most one executed five-action
+prefix. Complete observed-useful windows alone train the native policy using
+the original instruction. V1–V6 candidate pools/prompts remain unchanged. GPU
+rollout and autonomous-learning results for V7 are pending.

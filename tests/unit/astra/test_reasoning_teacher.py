@@ -55,6 +55,34 @@ def test_both_real_cameras_are_forwarded_with_labels():
     assert "No simulator lookahead" in payload["messages"][0]["content"]
 
 
+def test_bounded_target_protocol_preserves_the_same_uncertainty_gate():
+    r = request(
+        "compare",
+        bounded_target_candidate=True,
+        candidates={"bounded_target": np.zeros((10, 7)).tolist()},
+    )
+    response = {
+        "selected": "bounded_target",
+        "judgments": [
+            {
+                "candidate_id": "bounded_target",
+                "preference": "uncertain",
+                "evidence": "Occluded",
+            }
+        ],
+    }
+    with pytest.raises(ValueError, match="clear predicted win"):
+        teacher.parse_proposal(response, r)
+    response["judgments"][0]["preference"] = "win"
+    assert teacher.parse_proposal(response, r)["selected"] == "bounded_target"
+    payload = teacher.build_payload(r, "gpt-6-astra")
+    assert teacher.BOUNDED_TARGET_EXTENSION in payload["messages"][0]["content"]
+    assert (
+        teacher.BOUNDED_TARGET_EXTENSION
+        not in teacher.build_payload(request(), "gpt-6-astra")["messages"][0]["content"]
+    )
+
+
 @pytest.mark.parametrize("delta", [True, float("nan"), 0.6, 0])
 def test_malformed_corrections_are_rejected(delta):
     d = diagnosis()

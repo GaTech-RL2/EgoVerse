@@ -1,0 +1,333 @@
+{
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-6",
+  "source_episode": "libero_goal_ood:seed173:task6:state0",
+  "selected_steps": [
+    0,
+    10,
+    20,
+    30,
+    40,
+    50,
+    60,
+    70,
+    80,
+    90,
+    100,
+    110
+  ],
+  "environment_actions": 0,
+  "used_for_training": false,
+  "source_revision": "7b47ed361bbb5071e528b55e936ff672d6c66938",
+  "module_sha256": "7d38581472eb0cfc4b2d6cbd150048523823b65a9a014d4016f732e0b6eb0570",
+  "labeler_inputs": "Unaltered real external-camera images and instruction only; no proprioception, depth, camera parameters or object poses.",
+  "fit_inputs": "VLM visible pixel labels paired with recorded robot XYZ after labeling.",
+  "thresholds": {
+    "minimum_confidence": 0.6,
+    "minimum_labels": 6,
+    "maximum_loo_rms_pixels": 8.0,
+    "maximum_design_condition": 100.0
+  },
+  "rationale": "The earlier eight-frame probe mostly contained late occluded grasps and admitted only three labels. Sample twelve earlier actual frames while retaining the same fit gates. This is an offline diagnostic, not a deployed controller.",
+  "proposal": {
+    "destination": {
+      "confidence": 0.95,
+      "evidence": "The bowl's inner opening is visible above the plate, centered within its gray rim.",
+      "uv": [
+        0.518,
+        0.57
+      ],
+      "visible": true
+    },
+    "frames": [
+      {
+        "confidence": 0.66,
+        "evidence": "Two downward fingertip ends are visible beneath the horizontal gripper; midpoint lies between them.",
+        "step": 0,
+        "uv": [
+          0.498,
+          0.263
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.61,
+        "evidence": "The fingertip ends beneath the gripper are visible against the dark robot base.",
+        "step": 10,
+        "uv": [
+          0.487,
+          0.283
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0,
+        "evidence": "The angled gripper overlaps the robot base, preventing reliable identification of both contact surfaces.",
+        "step": 20,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0,
+        "evidence": "The gripper housing obscures the paired fingertip contact surfaces.",
+        "step": 30,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0,
+        "evidence": "Both fingertip contact surfaces cannot be distinguished reliably around the angled housing.",
+        "step": 40,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0.72,
+        "evidence": "Two short fingers project rightward from the housing; the point is midway between their ends.",
+        "step": 50,
+        "uv": [
+          0.469,
+          0.384
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.76,
+        "evidence": "Upper and lower fingertip ends are visible to the right of the gripper housing.",
+        "step": 60,
+        "uv": [
+          0.496,
+          0.413
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.69,
+        "evidence": "The projecting fingertip ends border a narrow gap beside the bottle neck.",
+        "step": 70,
+        "uv": [
+          0.531,
+          0.424
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.65,
+        "evidence": "Visible finger ends lie above and below the gap beside the bottle; their midpoint is estimated.",
+        "step": 80,
+        "uv": [
+          0.54,
+          0.435
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0,
+        "evidence": "The bottle and gripper overlap, obscuring the paired contact surfaces needed for a midpoint.",
+        "step": 90,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0,
+        "evidence": "Both fingertip contact surfaces are obscured by the bottle and gripper housing.",
+        "step": 100,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0,
+        "evidence": "The bottle and housing obscure the fingertip contact surfaces; the grasp midpoint is not directly supported.",
+        "step": 110,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      }
+    ],
+    "request_fingerprint": "a620b6ca71dc9573a2213fa82ef762a37c3eccd9d7e3ff463915460932127e50"
+  },
+  "receipt": {
+    "backend": "codex_exec",
+    "requested_model": "gpt-6-astra",
+    "configured_model": "gpt-6-astra",
+    "returned_model": null,
+    "reasoning_effort": "medium",
+    "request_fingerprint": "a620b6ca71dc9573a2213fa82ef762a37c3eccd9d7e3ff463915460932127e50",
+    "request_sha256": "5a1790ed21632046889b8776c4c278341765dde6238bd959840befab425a7c88",
+    "request_time": 1791085451.4080892,
+    "provider_call": true,
+    "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+    "internal_retry_count": null,
+    "internal_turn_count": null,
+    "accepted": true,
+    "provider_unavailable": false,
+    "status": "accepted",
+    "token_usage": {
+      "input_tokens": 17736,
+      "output_tokens": 884,
+      "reasoning_tokens": 339,
+      "total_tokens": 18620
+    },
+    "raw_usage": {
+      "input_tokens": 17736,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 884,
+      "reasoning_output_tokens": 339
+    },
+    "tool_items": [],
+    "cli_version": "codex-cli 0.159.3",
+    "schema_sha256": "7ed5cfe1d02baa66e6fdc7cbfb90001f4730156157c49edd98d9eb4b98df87d9",
+    "original_schema_sha256": "7ed5cfe1d02baa66e6fdc7cbfb90001f4730156157c49edd98d9eb4b98df87d9",
+    "prompt_template_version": "reasoning-visible-pixel-labels-1",
+    "prompt_sha256": "ec3106e725e89a6caaa56d9cf0fb7f2d393590739930f5f3e2371b855ea57043",
+    "system_prompt_sha256": "5bed26577f660e5d31ac9b246ba658025299f2ff55f9ec523b3c040f9f4a72b6",
+    "image_hashes": [
+      {
+        "image_index": 0,
+        "file": "image_0.png",
+        "label": "REAL external-camera frame at control step 0",
+        "sha256": "ddc1002e8eb49997357c9b45b8f0952e076dabffed4815e9a56b6e977155ad45"
+      },
+      {
+        "image_index": 1,
+        "file": "image_1.png",
+        "label": "REAL external-camera frame at control step 10",
+        "sha256": "a10d10194dcf36a14798256ce0a0ce23eab3419e79b9b2a5c2e7d3f92d00f35b"
+      },
+      {
+        "image_index": 2,
+        "file": "image_2.png",
+        "label": "REAL external-camera frame at control step 20",
+        "sha256": "3eb50a1eb3d75eed5dc43dca187e93ef3b313c6836f92fcb522b7c7e2c9f5648"
+      },
+      {
+        "image_index": 3,
+        "file": "image_3.png",
+        "label": "REAL external-camera frame at control step 30",
+        "sha256": "5bd26a0e252f2fbc0b66b99818890d9b5a47c559b3a7353f52a4c20fa4bd3ba0"
+      },
+      {
+        "image_index": 4,
+        "file": "image_4.png",
+        "label": "REAL external-camera frame at control step 40",
+        "sha256": "e4939f452285e3c5b9b10ea7b9fb9400536bea5f786cfb4a538836575c7c48ac"
+      },
+      {
+        "image_index": 5,
+        "file": "image_5.png",
+        "label": "REAL external-camera frame at control step 50",
+        "sha256": "5fda5442aeb1ecc79f9923e54ca69b5bbecc8d5385e4306b97a446b586d4c3af"
+      },
+      {
+        "image_index": 6,
+        "file": "image_6.png",
+        "label": "REAL external-camera frame at control step 60",
+        "sha256": "93adb34ff4a104d1894bb5a7b209f0605a711cb608f0e2e513ffe235e74e0326"
+      },
+      {
+        "image_index": 7,
+        "file": "image_7.png",
+        "label": "REAL external-camera frame at control step 70",
+        "sha256": "1168bcd523d032860ffd927b1a1463ffd5a917ce90d49378cf75590941182b8e"
+      },
+      {
+        "image_index": 8,
+        "file": "image_8.png",
+        "label": "REAL external-camera frame at control step 80",
+        "sha256": "6734ac5f858fe72af530d641f0f0d046e08a08acbb2d70af50feffa8456c63f2"
+      },
+      {
+        "image_index": 9,
+        "file": "image_9.png",
+        "label": "REAL external-camera frame at control step 90",
+        "sha256": "4d7a2b51a53f3ae646509986593dd96ac3e1cbe208aa6db88137fe7f6686dec1"
+      },
+      {
+        "image_index": 10,
+        "file": "image_10.png",
+        "label": "REAL external-camera frame at control step 100",
+        "sha256": "eb751dc2e021fb581232344fdf6d1a298b94419fe9b96cdb6eda67277d2e6c38"
+      },
+      {
+        "image_index": 11,
+        "file": "image_11.png",
+        "label": "REAL external-camera frame at control step 110",
+        "sha256": "5481c04a768c4338de135625c8228f4d49e9108d8f3c2121ebdb32afb5250e33"
+      }
+    ],
+    "exit_code": 0,
+    "observed_completed_turns": 1,
+    "raw_usage_events": [
+      {
+        "input_tokens": 17736,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 884,
+        "reasoning_output_tokens": 339
+      }
+    ],
+    "total_tokens_derived": true,
+    "token_usage_is_lower_bound": false,
+    "final_sha256": "a049b8f13b9e4701fdff58d0f758ea106b8a38ff9a031f03ebd8929ef542b6c7",
+    "response_time": 1791085491.599235,
+    "latency_seconds": 40.1912674579944
+  },
+  "retained_label_steps": [
+    0,
+    10,
+    50,
+    60,
+    70,
+    80
+  ],
+  "projection": {
+    "accepted": true,
+    "reason": "passed",
+    "observations": 6,
+    "condition": 17.008044512069315,
+    "loo_rms_pixels": 1.9165039741418488,
+    "loo_errors_pixels": [
+      3.5054678783072695,
+      2.868298680530124,
+      0.3639274615227737,
+      0.21458005240877062,
+      0.7326403887597165,
+      0.8984613488903868
+    ],
+    "maximum_loo_pixels": 8.0,
+    "jacobian_pixels_per_meter": [
+      [
+        71.51364171606801,
+        -257.32327841380817,
+        20.01336881531433
+      ],
+      [
+        -27.26428280837965,
+        117.64237546223988,
+        -251.09169768852013
+      ]
+    ],
+    "offset_pixels": [
+      102.54455182037684,
+      347.6383579446
+    ],
+    "claim": "Local geometry fit to VLM pixel labels; not independently verified camera calibration or action-outcome prediction."
+  }
+}
