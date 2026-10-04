@@ -830,3 +830,43 @@ adds two offline reviews and 83,532 tokens. The screen adds no collection
 actions or live teacher calls; its 30 autonomous evaluations cost 6,345 controls
 and the worker uses 0.503822 L40S hours including initialization. Source data
 and teacher costs count once in study totals. See credit_v5_results.json.
+
+Completed tuned PPO transfer to Spatial OOD2, seed173
+----------------------------------------------------
+Native pi0.5 scores 3/10. PPO scores 3/10 initially, 1/10 after two
+collections (620 controls), 1/10 after four (1,240 controls), and 2/10
+after eight (2,480 controls). All eight exploratory collections fail.
+The final checkpoint preserves two native wins and loses reset25, with no
+newly successful reset. Exact scene hashes support this paired comparison.
+Forty autonomous evaluations cost 10,923 controls; total allocated-worker
+usage including startup is 0.922187 L40S hours. See
+ppo_more_spatial2_seed173_result.json.
+
+At the common two-collection boundary, V7 teacher learning is 5/10 and PPO
+is 1/10, both after 620 controls. Tuned DSRL is 2/10 after 439 controls
+and ends its eight-collection run at 3/10 after 2,299 controls. The teacher
+point is promising but is one development seed below the 8/10 criterion;
+it is not a confirmed sample-efficiency advantage over strong RL.
+
+Best-supported next comparisons (proposed, not measured)
+-------------------------------------------------------
+If the seed179 Spatial gain repeats, freeze the two-collection V7 recipe and
+compare its saved checkpoint with native and the final tuned RL checkpoints
+on untouched reset indices. This separates development selection from a
+fresh evaluation; the 8/10 criterion and interaction accounting must stay fixed.
+
+The hindsight ablation changes both the successful episode's admitted windows
+and the inclusion of useful-looking setup from the failed episode. A success-
+episode-only hindsight branch would separate those effects under the same
+100-update budget. The observed regression does not establish that all useful
+segments from failed rollouts should be discarded.
+
+A larger method revision should first obtain coherent, task-correct behavior
+that the native policy is missing. Phase-dependent text/input skills are one
+candidate teaching mechanism already implemented elsewhere in this project.
+Their successful use as teachers for this learning protocol remains untested.
+Any such collection must preserve the current original observation for each
+actually executed target, disclose access to prior demonstration-derived
+skills, retain relative comparisons and actual outcome checks, and evaluate
+the student without the teacher settings. Cloning more isolated prefixes or
+simply increasing gradient steps is not supported by the current results.
