@@ -1,0 +1,21 @@
+{
+  "upstream_commit": "981483dca0fd9acba698fea00aa6e52d56a66c58",
+  "source_file": "src/openpi/training/config.py",
+  "source_file_sha256": "c34231f888dba5dc981d808765b3d98775ab845b04313bf53fcecd567c520b0d",
+  "source_url": "https://github.com/Physical-Intelligence/openpi/blob/981483dca0fd9acba698fea00aa6e52d56a66c58/src/openpi/training/config.py#L744",
+  "upstream_pi05_libero": {
+    "action_horizon": 10,
+    "discrete_state_input": false
+  },
+  "lerobot_export_config": {
+    "chunk_size": 50,
+    "n_action_steps": 10
+  },
+  "study": {
+    "generated_actions": 10,
+    "executed_actions": 5,
+    "input_profile": "openpi_libero"
+  },
+  "environment_actions": 0,
+  "interpretation": "Different published configuration conventions are recorded explicitly. The study horizon matches pinned OpenPI; execute-five is a study choice. No stock SR reproduction is claimed."
+}

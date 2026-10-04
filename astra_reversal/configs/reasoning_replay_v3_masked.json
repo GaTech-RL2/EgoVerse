@@ -1,0 +1,30 @@
+{
+  "schema": "reasoning-executed-masked-replay-ablation-1",
+  "status": "prepared_for_development_test",
+  "manifest_sha256": "12df65efece3e4cea844960718a260e31187c71d1c440a2de6c1b6ed39194ba5",
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-4",
+  "source_collection_control_steps": 620,
+  "source_teacher_total_tokens": 4152587,
+  "source_collection_episodes": 2,
+  "admitted_windows": 47,
+  "correction_containing_windows": 8,
+  "native_only_windows": 39,
+  "initial_updates_per_source_episode": 20,
+  "optimizer_step_checkpoints": [
+    40,
+    100,
+    200
+  ],
+  "loss_action_dimensions": 7,
+  "first_checkpoint": "Same recorded V3 episodes and original 20+20 update order, with loss only on useful steps in complete real windows. This changes evidence admission and its loss weighting; source experience is unchanged.",
+  "later_checkpoints": "Test 100 and 200 total updates over the same recorded data, with the existing event/stage balancing and 2x correction-group weight.",
+  "original_demonstration_replay_beta": 0,
+  "synthetic_training_windows": 0,
+  "new_collection_actions": 0,
+  "new_teacher_calls": 0,
+  "interpretation": "All ten actions and their pre-action observation are real. Only evidence-supported steps enter the seven-channel flow loss; failed/ambiguous actions remain known noisy input context, not loss targets. No unexecuted tails, new collection actions or new teacher calls. Development learner ablation; retain the source 620 controls and 4,152,587 tokens without duplicating global charges. Cross-step denoising attention still sees the noised known actions at unsupervised steps; this is an explicit limitation to test.",
+  "admission_rule": "mask_loss_by_evidence",
+  "unique_supervised_steps": 175,
+  "unique_supervised_correction_steps": 20,
+  "original_strict_unique_supervised_correction_steps": 5
+}

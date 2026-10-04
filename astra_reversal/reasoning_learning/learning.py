@@ -19,7 +19,9 @@ from astra_reversal.records import digest, file_sha256, to_numpy
 from .evidence import balanced_window_indices
 
 
-def flow_matching_loss(prediction, noise_minus_actions, action_dimensions=None):
+def flow_matching_loss(
+    prediction, noise_minus_actions, action_dimensions=None, *, step_mask=None
+):
     """LeRobot's policy loss excludes padding; None retains the legacy ablation."""
     if prediction.shape != noise_minus_actions.shape or prediction.ndim != 3:
         raise ValueError("Flow loss requires matching [B,H,D] tensors")
@@ -28,11 +30,17 @@ def flow_matching_loss(prediction, noise_minus_actions, action_dimensions=None):
     )
     if type(dimensions) is not int or not 1 <= dimensions <= prediction.shape[-1]:
         raise ValueError("Invalid supervised action dimensions")
-    return (
-        (prediction[..., :dimensions] - noise_minus_actions[..., :dimensions])
-        .square()
-        .mean()
-    )
+    errors = (
+        prediction[..., :dimensions] - noise_minus_actions[..., :dimensions]
+    ).square()
+    if step_mask is None:
+        return errors.mean()
+    mask = torch.as_tensor(step_mask, device=prediction.device, dtype=prediction.dtype)
+    if mask.shape != prediction.shape[:2] or not torch.all((mask == 0) | (mask == 1)):
+        raise ValueError("A binary evidence mask must cover every complete action step")
+    if not mask.sum() > 0:
+        raise ValueError("An evidence mask must supervise at least one useful step")
+    return (errors * mask[..., None]).sum() / (mask.sum() * dimensions)
 
 
 class LoRALinear(nn.Module):
@@ -138,12 +146,17 @@ class NativeLearner:
 
     def update(self, windows, observations, *, updates=20):
         """Train at rollout boundaries. Complete executed windows only (beta=0)."""
-        if any(
-            row.get("source") != "executed_commands"
-            or row.get("evidence") != "observed_useful"
-            for row in windows
-        ):
-            raise ValueError("Default learner admits only observed-useful real windows")
+        for row in windows:
+            masked = "step_loss_mask" in row
+            if (
+                row.get("source") != "executed_commands"
+                or row.get("evidence")
+                != ("observed_useful_masked" if masked else "observed_useful")
+                or (masked and self.loss_action_dimensions != 7)
+            ):
+                raise ValueError(
+                    "Learner admits only complete real windows with useful evidence"
+                )
         indices = balanced_window_indices(windows, updates, self.rng)
         before = digest({name: to_numpy(p) for name, p in self.parameters.items()})
         history = []
@@ -177,7 +190,12 @@ class NativeLearner:
                 x_t = t * noise + (1 - t) * target
                 prediction = velocity(x_t, t)
                 loss = flow_matching_loss(
-                    prediction, noise - target, self.loss_action_dimensions
+                    prediction,
+                    noise - target,
+                    self.loss_action_dimensions,
+                    step_mask=[row["step_loss_mask"]]
+                    if "step_loss_mask" in row
+                    else None,
                 )
                 if not torch.isfinite(loss):
                     raise FloatingPointError("Non-finite native flow-matching loss")
@@ -193,6 +211,9 @@ class NativeLearner:
                         "flow_time": t,
                         "loss": float(loss.detach()),
                         "gradient_norm": float(norm),
+                        "supervised_steps": sum(
+                            row.get("step_loss_mask", [True] * self.policy.horizon)
+                        ),
                     }
                 )
         finally:
@@ -213,6 +234,7 @@ class NativeLearner:
             "objective": "native_flow_matching_noise_minus_actions",
             "loss_action_dimensions": self.loss_action_dimensions or target.shape[-1],
             "padding_loss_excluded": self.loss_action_dimensions is not None,
+            "evidence_masked_loss": any("step_loss_mask" in row for row in windows),
             "replay_beta": 0,
             "history": history,
         }

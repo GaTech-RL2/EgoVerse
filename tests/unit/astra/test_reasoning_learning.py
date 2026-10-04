@@ -44,6 +44,28 @@ def test_native_action_loss_ignores_errors_in_padding_channels():
     )  # Recorded legacy objective differs.
 
 
+def test_evidence_mask_loss_ignores_unsupported_steps_and_preserves_full_loss():
+    prediction = torch.ones(1, 10, 32, requires_grad=True)
+    target = torch.zeros_like(prediction)
+    target[:, 5:, :] = 100
+    mask = [[True] * 5 + [False] * 5]
+    loss = flow_matching_loss(prediction, target, 7, step_mask=mask)
+    assert loss.item() == 1
+    loss.backward()
+    assert prediction.grad[:, :5, :7].abs().min() > 0
+    assert prediction.grad[:, 5:, :].count_nonzero() == 0
+    assert prediction.grad[:, :, 7:].count_nonzero() == 0
+    torch.testing.assert_close(
+        flow_matching_loss(prediction, target, 7, step_mask=[[True] * 10]),
+        flow_matching_loss(prediction, target, 7),
+        rtol=0,
+        atol=0,
+    )
+    for invalid in ([[False] * 10], [[True] * 5], [[float("nan")] * 10], [[0.5] * 10]):
+        with pytest.raises(ValueError, match="evidence mask"):
+            flow_matching_loss(prediction, target, 7, step_mask=invalid)
+
+
 class SmallPolicy:
     """Exercise learner wiring and real updates; not a π0.5 performance test."""
 
@@ -71,7 +93,10 @@ class SmallPolicy:
         return raw
 
 
-def test_native_learner_uses_fresh_times_updates_weights_then_freezes(monkeypatch):
+@pytest.mark.parametrize("masked", [False, True])
+def test_native_learner_uses_fresh_times_updates_weights_then_freezes(
+    monkeypatch, masked
+):
     from astra_reversal.reasoning_learning import learning
 
     monkeypatch.setattr(
@@ -82,7 +107,7 @@ def test_native_learner_uses_fresh_times_updates_weights_then_freezes(monkeypatc
         ),
     )
     p = SmallPolicy()
-    learner = NativeLearner(p, rank=2, learning_rate=0.01)
+    learner = NativeLearner(p, rank=2, learning_rate=0.01, loss_action_dimensions=7)
     raw = {"prompt": "lift", "observation/state": np.zeros(8)}
     oid = digest(raw)
     row = {
@@ -95,6 +120,10 @@ def test_native_learner_uses_fresh_times_updates_weights_then_freezes(monkeypatc
         "stages": ["correction"],
         "actions": np.ones((10, 7)).tolist(),
     }
+    if masked:
+        row.update(
+            evidence="observed_useful_masked", step_loss_mask=[True] * 5 + [False] * 5
+        )
     receipt = learner.update([row], {oid: raw}, updates=6)
     assert receipt["after_sha256"] != receipt["before_sha256"]
     assert len({r["flow_time"] for r in receipt["history"]}) == 6
@@ -102,6 +131,10 @@ def test_native_learner_uses_fresh_times_updates_weights_then_freezes(monkeypatc
         p.requires_grad or p.grad is not None for p in learner.policy.model.parameters()
     )
     assert receipt["replay_beta"] == 0
+    assert receipt["evidence_masked_loss"] is masked
+    assert all(
+        r["supervised_steps"] == (5 if masked else 10) for r in receipt["history"]
+    )
     row["source"] = "unexecuted_candidate"
     with pytest.raises(ValueError, match="real windows"):
         learner.update([row], {oid: raw}, updates=1)

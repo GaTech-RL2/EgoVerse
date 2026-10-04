@@ -491,3 +491,37 @@ The same clear-win comparison authorizes at most one executed five-action
 prefix. Complete observed-useful windows alone train the native policy using
 the original instruction. V1–V6 candidate pools/prompts remain unchanged. GPU
 rollout and autonomous-learning results for V7 are pending.
+
+Prospective evidence-masked replay ablation
+The original V3 admission retained five unique useful correction actions, even
+though its real outcome reviews marked twenty correction actions useful. The
+strict requirement that all ten steps be useful discarded isolated corrections
+beside ambiguous or failed continuation. reasoning_replay_v3_masked.json tests
+loss masking over the same two recorded episodes: 47 complete real windows,
+eight containing supervised corrections, covering 175 unique useful actions
+and all twenty useful correction actions. No new collection or teacher calls
+are added. The original 620 controls and 4,152,587 tokens remain attributed.
+
+All ten target actions really executed, and the window retains its own actual
+pre-action observation. A binary mask applies supervised flow loss only to
+observed-useful steps; corrected steps also need their recorded pre-execution
+win. Failed, ambiguous and unapproved steps receive zero loss. No missing tail
+is fabricated. The known, unsupervised actions still enter the noised action
+sequence seen by the denoising transformer; that cross-step context is a stated
+limitation of this objective, not a claim that those actions are useful.
+
+Compare the same 40/100/200 optimizer checkpoints with the strict-data ablation.
+The first forty updates preserve the original twenty-per-episode order; later
+updates use the union and the existing event/stage sampling. This is a changed
+admission/objective ablation on fixed development experience. It does not yet
+establish autonomous improvement. Package the masked input directory using
+--reasoning-replay-cache and prepare --phase replay-masked --protocol-version v5.
+
+Deployment provenance clarification
+The pinned OpenPI source, 981483dca0fd9acba698fea00aa6e52d56a66c58, explicitly
+sets pi05_libero action_horizon=10 and discrete_state_input=False. The common
+study input profile follows that source configuration. The LeRobot export's
+config declares chunk_size=50 and n_action_steps=10; these are different public
+deployment configurations. Executing five of the ten generated actions remains
+a study choice. This source check does not claim either publisher's stock SR.
+See deployment_configuration_provenance.json for the source path and hashes.

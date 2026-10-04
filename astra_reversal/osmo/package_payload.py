@@ -113,8 +113,21 @@ def main():
         if args.reasoning_replay_cache:
             from astra_reversal.reasoning_learning.replay_data import load
 
-            recipe = json.loads((root / "configs/reasoning_replay_v3.json").read_text())
             cache = args.reasoning_replay_cache.resolve()
+            admission_rule = json.loads((cache / "manifest.json").read_text()).get(
+                "admission_rule", "all_steps_observed_useful"
+            )
+            if admission_rule not in (
+                "all_steps_observed_useful",
+                "mask_loss_by_evidence",
+            ):
+                raise ValueError("Unknown replay admission rule")
+            name = (
+                "reasoning_replay_v3_masked.json"
+                if admission_rule == "mask_loss_by_evidence"
+                else "reasoning_replay_v3.json"
+            )
+            recipe = json.loads((root / "configs" / name).read_text())
             _, _, manifest = load(cache, recipe["manifest_sha256"])
             destination = root / ".deps/reasoning-replay-inputs"
             for relative in ("manifest.json", *manifest["files"]):

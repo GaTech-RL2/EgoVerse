@@ -129,3 +129,47 @@ def test_replay_requires_pinned_source_bytes_and_excludes_frs(tmp_path):
         load(tmp_path, original)
     with pytest.raises(ValueError, match="FRS"):
         load(tmp_path)
+
+
+def test_masked_replay_keeps_real_tail_but_does_not_supervise_failed_steps(tmp_path):
+    manifest, oid = make_replay(tmp_path)
+    directory = tmp_path / "rollout_0"
+    path = directory / "admission.jsonl"
+    admission = json.loads(path.read_text())
+    for step in admission["steps"][5:]:
+        step["evidence"] = "failed"
+    admission["windows"] = training_windows(admission["steps"], horizon=10)
+    assert admission["windows"] == []
+    path.write_text(json.dumps(admission))
+    result_path = directory / "result.json"
+    result = json.loads(result_path.read_text())
+    result["admitted_windows"] = 0
+    result_path.write_text(json.dumps(result))
+    manifest["admission_rule"] = "mask_loss_by_evidence"
+    refresh_manifest(tmp_path, manifest)
+    windows, observations, _ = load(tmp_path)
+    assert windows[0]["step_loss_mask"] == [True] * 5 + [False] * 5
+    assert windows[0]["evidence"] == "observed_useful_masked"
+    assert windows[0]["stages"] == ["correction"]
+    assert len(windows[0]["actions"]) == 10
+    assert digest(observations[oid]) == oid
+    # The new rule still refuses changes to a real command, even if unsupervised.
+    admission["steps"][-1]["action"][0] = 0.2
+    path.write_text(json.dumps(admission))
+    refresh_manifest(tmp_path, manifest)
+    with pytest.raises(ValueError, match="execution evidence"):
+        load(tmp_path)
+
+
+def test_masking_cannot_admit_unknown_tails_or_unapproved_corrections(tmp_path):
+    make_replay(tmp_path)
+    steps = json.loads((tmp_path / "rollout_0/admission.jsonl").read_text())["steps"]
+    assert training_windows(steps[:5], horizon=10, mask_loss_by_evidence=True) == []
+    steps[-1]["executed"] = False
+    assert training_windows(steps, horizon=10, mask_loss_by_evidence=True) == []
+    steps[-1]["executed"] = True
+    for step in steps[:5]:
+        step["preference"] = "uncertain"
+    windows = training_windows(steps, horizon=10, mask_loss_by_evidence=True)
+    assert windows[0]["step_loss_mask"] == [False] * 5 + [True] * 5
+    assert windows[0]["stages"] == ["continuation"]

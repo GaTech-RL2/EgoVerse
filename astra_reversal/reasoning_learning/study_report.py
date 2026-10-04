@@ -304,6 +304,23 @@ def summarize_run(spec):
     latest_evaluated = max((p["policy_version"] for p in points), default=None)
     latest_updated = max((r.get("policy_version", 0) for r in updates), default=0)
     reset_entries = read_json(directory / "resets.json", {}).get("episodes", [])
+    learner_configuration = protocol.get("learner")
+    configuration_source = "protocol.json:learner"
+    if spec["method"] in ("dsrl", "ppo"):
+        # Baseline workers share the task/evaluation protocol, whose learner
+        # section describes the teacher's LoRA learner, not the RL algorithm.
+        learner_configuration = {
+            key: runtime[key]
+            for key in ("method", "tuning_recipe", "tuning_settings", "overrides")
+            if key in runtime
+        }
+        configuration_source = "runtime.json:recorded_baseline_settings"
+    elif replay:
+        learner_configuration = {
+            "base_native_learner": learner_configuration,
+            "fixed_data_recipe": read_json(directory / "replay_recipe.json"),
+        }
+        configuration_source = "protocol.json:learner + replay_recipe.json"
     return {
         "label": spec["label"],
         "method": spec["method"],
@@ -315,7 +332,9 @@ def summarize_run(spec):
         "protocol_version": protocol.get("schema_version"),
         "checkpoint_configuration": protocol.get("checkpoint"),
         "environment_configuration": protocol.get("environment"),
-        "learner_configuration": protocol.get("learner"),
+        "learner_configuration": learner_configuration,
+        "learner_configuration_source": configuration_source,
+        "runtime_configuration": runtime,
         "task_instruction": reset_entries[0].get("instruction")
         if reset_entries
         else None,
@@ -375,7 +394,9 @@ def export_figures(data, output):
         "teacher_v4": "#75639c",
         "teacher_v5": "#aa3f57",
         "teacher_v6": "#914ea1",
+        "teacher_v7": "#365843",
         "teacher_replay": "#245941",
+        "teacher_replay_masked": "#aa783d",
         "dsrl": "#057a76",
         "ppo": "#4566ba",
     }
@@ -607,9 +628,10 @@ def build(manifest, budget, output):
             "An initial-policy score does not evaluate a later update. Runs stopped between scheduled checkpoints explicitly mark their latest policy update as unevaluated.",
             "Candidate preference is predicted improvement. Only selected commands execute; full observed-useful action windows train. No FRS action steering, physical candidate retries, privileged object poses, or default synthetic training.",
             "V7 also offers the exact bounded additive target as a controller candidate, alongside RTC candidates. It is not a policy sample or evidence of policy support. The same fixed-reference clear-win and observed-useful training gates apply; it must be reported separately from flow guidance.",
-            "This study generates ten actions and executes five before replanning. The published checkpoint config specifies chunk_size=50 and n_action_steps=10; native parity here refers to the common study runtime, not stock deployment settings.",
+            "This study generates ten actions, matching action_horizon=10 in the pinned upstream OpenPI pi05_libero configuration, and executes five before replanning. The LeRobot export config declares chunk_size=50 and n_action_steps=10. These public deployment configurations differ; native parity here refers to the common study runtime, not a stock success-rate reproduction.",
             "Teacher V1–V4 averaged flow loss over all 32 internal channels, including padding. This differs from LeRobot's policy-level loss over seven actual action channels. V5 corrects this and requires a weighted native-loss parity check; earlier runs keep their original objective and results.",
             "A fixed-data learner ablation adds no collection actions or teacher calls. Its trained checkpoints retain the original dataset's collection and teacher-token costs on the curves; global totals count those source costs only once. Reusing the same windows does not create independent experience or confirmation.",
+            "The evidence-masked replay variant uses complete real ten-action windows but applies loss only to useful steps; corrections also require their original predicted win. It fabricates no tails. Known unsupervised actions still enter the noised denoising input, an explicit modeling limitation. The 40/100/200-update checkpoints reuse one development dataset.",
         ],
     }
     data["figures"] = export_figures(data, output / "figures")
@@ -625,6 +647,7 @@ def build(manifest, budget, output):
         "seed",
         "collection_rollouts",
         "collection_steps",
+        "optimizer_steps_cumulative",
         "successes",
         "rollouts",
         "success_rate",

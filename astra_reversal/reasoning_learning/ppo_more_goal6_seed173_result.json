@@ -45,18 +45,28 @@
     "physical_candidate_retries": false
   },
   "learner_configuration": {
-    "objective": "native_flow_matching",
-    "parameters": "action_expert_attention_and_mlp_lora",
-    "rank": 8,
-    "learning_rate": 0.0001,
-    "update_steps_per_collection_rollout": 20,
-    "fresh_native_beta_distributed_times": true,
-    "fresh_noise": true,
-    "original_demonstration_replay_beta": 0,
-    "synthetic_candidate_training_weight": 0,
-    "complete_executed_action_windows_only": true,
-    "update_boundary": "end_of_collection_rollout",
-    "sampling": "event_and_stage_balanced_with_2x_correction_group_weight"
+    "method": "PPO",
+    "tuning_recipe": "more_reuse",
+    "tuning_settings": {
+      "epochs": 4,
+      "optimizer_batch": 8,
+      "collection_rollouts_per_update": 2
+    },
+    "overrides": {
+      "generation_steps": 10,
+      "action_horizon": 10,
+      "executed_prefix": 5,
+      "max_actions": 300,
+      "train_envs": 1,
+      "micro_batch": 1,
+      "optimizer_batch": 8,
+      "epochs_per_update": 4,
+      "collection_rollouts_per_update": 2,
+      "parameters": "full action expert and value head; frozen VLM",
+      "precision": "float32",
+      "reward": "binary success summed over actual prefix",
+      "finite_horizon_terminal": true
+    }
   },
   "task_instruction": "put the wine bottle in the bowl",
   "points": [
@@ -941,5 +951,42 @@
     "collection_rollouts_per_update": 2,
     "optimization_epochs": 4,
     "frozen_actor_within_each_collection_batch": true
-  }
+  },
+  "learner_configuration_source": "runtime.json:recorded_baseline_settings",
+  "runtime_configuration": {
+    "method": "PPO",
+    "tuning_recipe": "more_reuse",
+    "tuning_settings": {
+      "epochs": 4,
+      "optimizer_batch": 8,
+      "collection_rollouts_per_update": 2
+    },
+    "workflow": "astra-pi05-reasoning-learning-20261003-ppo-2",
+    "source_revision": "84b6cfb68cff33047b37173247ff9b319b23d82e",
+    "payload_sha256": "672e8e94c05dbe4ad1c8a9e820974f6da5958aebffb42f88be1768be3297a126",
+    "rlinf_revision": "c70606f08cdca259b8dec03d4430926b5b8fac9d",
+    "task": {
+      "suite": "libero_goal_ood",
+      "task_id": 6
+    },
+    "seed": 173,
+    "harness": "released RLinf Pi0RL sampler/recompute with serial clipped-PPO/GAE driver",
+    "decoder": "same checkpoint, strict conversion with explicit tanh GELU compatibility",
+    "overrides": {
+      "generation_steps": 10,
+      "action_horizon": 10,
+      "executed_prefix": 5,
+      "max_actions": 300,
+      "train_envs": 1,
+      "micro_batch": 1,
+      "optimizer_batch": 8,
+      "epochs_per_update": 4,
+      "collection_rollouts_per_update": 2,
+      "parameters": "full action expert and value head; frozen VLM",
+      "precision": "float32",
+      "reward": "binary success summed over actual prefix",
+      "finite_horizon_terminal": true
+    }
+  },
+  "analysis_metadata_correction": "Use actual recorded RL settings instead of the teacher learner section in the shared task protocol. No measured outcomes or costs changed."
 }

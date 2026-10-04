@@ -45,18 +45,24 @@
     "physical_candidate_retries": false
   },
   "learner_configuration": {
-    "objective": "native_flow_matching",
-    "parameters": "action_expert_attention_and_mlp_lora",
-    "rank": 8,
-    "learning_rate": 0.0001,
-    "update_steps_per_collection_rollout": 20,
-    "fresh_native_beta_distributed_times": true,
-    "fresh_noise": true,
-    "original_demonstration_replay_beta": 0,
-    "synthetic_candidate_training_weight": 0,
-    "complete_executed_action_windows_only": true,
-    "update_boundary": "end_of_collection_rollout",
-    "sampling": "event_and_stage_balanced_with_2x_correction_group_weight"
+    "method": "DSRL",
+    "tuning_recipe": "more_reuse",
+    "tuning_settings": {
+      "batch_size": 64,
+      "updates": 600
+    },
+    "overrides": {
+      "generation_steps": 10,
+      "action_horizon": 10,
+      "executed_prefix": 5,
+      "max_actions": 300,
+      "train_envs": 1,
+      "batch_size": 64,
+      "updates_per_rollout": 600,
+      "fp32_master_parameters": true,
+      "reward": "duration-discounted -1+success over actual prefix",
+      "finite_horizon_terminal": true
+    }
   },
   "task_instruction": "put the wine bottle in the bowl",
   "points": [
@@ -639,5 +645,40 @@
     "sac_updates_per_rollout": 600,
     "batch_size": 64,
     "total_optimizer_steps": 4800
-  }
+  },
+  "learner_configuration_source": "runtime.json:recorded_baseline_settings",
+  "runtime_configuration": {
+    "method": "DSRL",
+    "tuning_recipe": "more_reuse",
+    "tuning_settings": {
+      "batch_size": 64,
+      "updates": 600
+    },
+    "status": "initializing_before_preflight",
+    "workflow": "astra-pi05-reasoning-learning-20261003-dsrl-2",
+    "source_revision": "84b6cfb68cff33047b37173247ff9b319b23d82e",
+    "payload_sha256": "672e8e94c05dbe4ad1c8a9e820974f6da5958aebffb42f88be1768be3297a126",
+    "rlinf_revision": "c70606f08cdca259b8dec03d4430926b5b8fac9d",
+    "task": {
+      "suite": "libero_goal_ood",
+      "task_id": 6
+    },
+    "seed": 173,
+    "harness": "RLinf networks with serial common OOD driver",
+    "decoder": "strict native LeRobot checkpoint, no conversion, frozen",
+    "initial_noise_policy": "released tanh Gaussian repeated across the horizon; eval uses its mean",
+    "overrides": {
+      "generation_steps": 10,
+      "action_horizon": 10,
+      "executed_prefix": 5,
+      "max_actions": 300,
+      "train_envs": 1,
+      "batch_size": 64,
+      "updates_per_rollout": 600,
+      "fp32_master_parameters": true,
+      "reward": "duration-discounted -1+success over actual prefix",
+      "finite_horizon_terminal": true
+    }
+  },
+  "analysis_metadata_correction": "Use actual recorded RL settings instead of the teacher learner section in the shared task protocol. No measured outcomes or costs changed."
 }

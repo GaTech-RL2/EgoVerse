@@ -33,7 +33,7 @@ def json_lines(path):
     return [json.loads(line) for line in Path(path).read_text().splitlines()]
 
 
-def verify_episode(directory, *, horizon):
+def verify_episode(directory, *, horizon, mask_loss_by_evidence=False):
     directory = Path(directory)
     admissions = json_lines(directory / "admission.jsonl")
     if len(admissions) != 1:
@@ -56,6 +56,8 @@ def verify_episode(directory, *, horizon):
         raise ValueError("Recomputed complete windows differ from recorded admission")
     if result["total_control_steps"] != len(executed) + result["initialization_steps"]:
         raise ValueError("Source collection interaction accounting differs")
+    if mask_loss_by_evidence:
+        windows = training_windows(labels, horizon=horizon, mask_loss_by_evidence=True)
     return windows, result
 
 
@@ -70,6 +72,9 @@ def load(directory, expected_manifest_sha256=None):
         raise ValueError("Unknown executed replay schema")
     if manifest["source_protocol"]["teacher"]["frs_action_steering"]:
         raise ValueError("FRS steering data is excluded from this study")
+    admission_rule = manifest.get("admission_rule", "all_steps_observed_useful")
+    if admission_rule not in ("all_steps_observed_useful", "mask_loss_by_evidence"):
+        raise ValueError("Unknown replay evidence admission rule")
     for relative, expected in manifest["files"].items():
         part = Path(relative)
         if part.is_absolute() or ".." in part.parts:
@@ -86,7 +91,11 @@ def load(directory, expected_manifest_sha256=None):
         source = directory / folder
         for name in ("admission.jsonl", "executed_steps.jsonl", "result.json"):
             used.add(str(Path(folder) / name))
-        current, result = verify_episode(source, horizon=horizon)
+        current, result = verify_episode(
+            source,
+            horizon=horizon,
+            mask_loss_by_evidence=admission_rule == "mask_loss_by_evidence",
+        )
         if result["episode_id"] != episode["episode_id"]:
             raise ValueError("Replay episode identity differs")
         if result["episode_id"] in {r["episode_id"] for r in results}:

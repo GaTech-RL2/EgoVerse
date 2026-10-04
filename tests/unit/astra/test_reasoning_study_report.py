@@ -16,6 +16,27 @@ def write(path, value):
     path.write_text(json.dumps(value))
 
 
+def test_shared_teacher_protocol_cannot_mislabel_the_actual_rl_learner(tmp_path):
+    write(tmp_path / "protocol.json", {"learner": {"parameters": "teacher_lora"}})
+    runtime = {
+        "method": "PPO",
+        "tuning_recipe": "more_reuse",
+        "tuning_settings": {"epochs": 4},
+        "overrides": {"parameters": "full_expert"},
+    }
+    write(tmp_path / "runtime.json", runtime)
+    result = summarize_run(
+        {
+            "method": "ppo",
+            "directory": str(tmp_path),
+            "label": "PPO",
+            "workflow": "test",
+        }
+    )
+    assert result["learner_configuration"] == runtime
+    assert result["learner_configuration_source"].startswith("runtime.json")
+
+
 def test_predicted_wins_are_not_observed_success_or_training_admission(tmp_path):
     path = tmp_path / "collection/rollout_0/teacher_responses.jsonl"
     path.parent.mkdir(parents=True)

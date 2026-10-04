@@ -25,8 +25,16 @@ from astra_reversal.reasoning_learning.rollout import collect
 
 def main():
     protocol = load_protocol()
+    phase = os.environ.get("ASTRA_LEARNING_PHASE", "replay-learning")
+    if phase not in ("replay-learning", "replay-masked"):
+        raise ValueError("Unknown fixed-data learner ablation")
+    recipe_name = (
+        "reasoning_replay_v3_masked.json"
+        if phase == "replay-masked"
+        else "reasoning_replay_v3.json"
+    )
     recipe = json.loads(
-        (Path(__file__).parents[1] / "configs/reasoning_replay_v3.json").read_text()
+        (Path(__file__).parents[1] / "configs" / recipe_name).read_text()
     )
     if torch.cuda.device_count() != 1 or "L40S" not in torch.cuda.get_device_name(0):
         raise RuntimeError("Allocate exactly one OSMO L40S")
@@ -43,6 +51,12 @@ def main():
         ROOT / "astra_reversal/.deps/reasoning-replay-inputs",
         recipe["manifest_sha256"],
     )
+    if (source.get("admission_rule") == "mask_loss_by_evidence") != (
+        phase == "replay-masked"
+    ):
+        raise ValueError(
+            "Replay source evidence rule differs from the selected ablation"
+        )
     if source["source_task"] != task:
         raise ValueError("This fixed-data ablation must use the source task")
     for key in ("checkpoint", "environment"):
@@ -61,7 +75,7 @@ def main():
     write_json(
         RESULTS / "runtime.json",
         {
-            "phase": "replay-learning",
+            "phase": phase,
             "task": task,
             "seed": seed,
             "source_revision": os.environ["ASTRA_SOURCE_REVISION"],

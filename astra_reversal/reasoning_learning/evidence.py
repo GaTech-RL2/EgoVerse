@@ -112,7 +112,7 @@ class CandidateBatch:
         return self._candidates[candidate_id].copy(), record
 
 
-def training_windows(steps, *, horizon, stride=5):
+def training_windows(steps, *, horizon, stride=5, mask_loss_by_evidence=False):
     """Complete actual action windows only. Unknown tails are never zero-filled.
 
     Each step supplies its OWN pre-action observation ID. Admission requires
@@ -130,31 +130,40 @@ def training_windows(steps, *, horizon, stride=5):
             for i, row in enumerate(window)
         ):
             continue
-        if any(
-            row.get("evidence") != "observed_useful"
-            or not row.get("executed")
-            or row.get("stage") not in ("setup", "correction", "continuation")
-            or (row["stage"] == "correction" and row.get("preference") != "win")
+        if not all(row.get("executed") for row in window):
+            continue
+        useful = [
+            row.get("evidence") == "observed_useful"
+            and row.get("stage") in ("setup", "correction", "continuation")
+            and (row["stage"] != "correction" or row.get("preference") == "win")
             for row in window
-        ):
+        ]
+        if not (any(useful) if mask_loss_by_evidence else all(useful)):
             continue
         actions = np.asarray([row["action"] for row in window], dtype=np.float32)
         if actions.shape != (horizon, 7) or not np.isfinite(actions).all():
             raise ValueError("Malformed executed commands")
+        admitted = [row for row, good in zip(window, useful, strict=True) if good]
         record = {
             "episode_id": first["episode_id"],
             "observation_id": first["observation_id"],
             "start_step": first["step"],
             "end_step_exclusive": first["step"] + horizon,
             "event_ids": sorted(
-                {row["event_id"] for row in window if row.get("event_id")}
+                {row["event_id"] for row in admitted if row.get("event_id")}
             ),
-            "stages": sorted({row["stage"] for row in window}),
-            "evidence": "observed_useful",
+            "stages": sorted({row["stage"] for row in admitted}),
+            "evidence": "observed_useful_masked"
+            if mask_loss_by_evidence
+            else "observed_useful",
             "source": "executed_commands",
             "actions": actions.tolist(),
             "policy_versions": sorted({row["policy_version"] for row in window}),
         }
+        if mask_loss_by_evidence:
+            # All actions are real and known. Unknown/failed usefulness masks
+            # the supervised loss; it never fills an unexecuted future tail.
+            record["step_loss_mask"] = useful
         record["window_id"] = digest(record)
         result.append(record)
     return result
