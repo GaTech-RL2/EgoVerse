@@ -599,6 +599,69 @@ def export_figures(data, output):
             fig.savefig(path, dpi=180)
             paths.append(str(Path(output.name) / path.name))
         plt.close(fig)
+    audit = data.get("intervention_credit_audit") or {}
+    rows = audit.get("runs", [])
+    if rows:
+        fig, ax = plt.subplots(figsize=(11, max(4.5, 0.52 * len(rows) + 2)))
+        columns = (
+            ("assisted_actions_executed", "Assisted commands executed", "#cfdbde"),
+            ("assisted_actions_locally_useful", "Locally judged useful", "#cf9c59"),
+            (
+                "assisted_actions_in_complete_training_windows",
+                "Retained in complete training windows",
+                "#177e5b",
+            ),
+        )
+        for key, label, color in columns:
+            values = [r["total"][key] for r in rows]
+            ax.barh(range(len(rows)), values, label=label, color=color, height=0.64)
+        labels = [
+            f"{r['method'].removeprefix('teacher_').upper()} · "
+            f"{'Spatial' if 'spatial' in r['task']['suite'] else 'Goal'} {r['task']['task_id']}"
+            f" · seed{r['seed']} · {r['total']['collection_controls']} controls"
+            for r in rows
+        ]
+        ax.set_yticks(range(len(rows)), labels, fontsize=9)
+        ax.invert_yaxis()
+        for i, row in enumerate(rows):
+            total = row["total"]
+            ax.text(
+                total["assisted_actions_executed"] + 0.8,
+                i,
+                " / ".join(str(total[key]) for key, _, _ in columns),
+                va="center",
+                fontsize=9,
+            )
+        maximum = max(r["total"]["assisted_actions_executed"] for r in rows)
+        ax.set_xlim(0, max(10, maximum * 1.38))
+        ax.set_xlabel("Unique actual assisted controller commands")
+        ax.set_title(
+            "How much of the intervention reaches training?", loc="left", pad=14
+        )
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", alpha=0.12)
+        ax.set_axisbelow(True)
+        fig.legend(
+            loc="lower center",
+            ncol=1,
+            frameon=False,
+            fontsize=9,
+            bbox_to_anchor=(0.65, 0.035),
+        )
+        fig.text(
+            0.5,
+            0.012,
+            "Completed retained collections · Useful = Astra judgment · Nested counts; overlapping windows counted once",
+            ha="center",
+            fontsize=8,
+            color="#617378",
+        )
+        fig.tight_layout(rect=(0, 0.16, 1, 1))
+        for extension in ("png", "pdf"):
+            path = output / f"intervention_training_coverage.{extension}"
+            fig.savefig(path, dpi=180)
+            paths.append(str(Path(output.name) / path.name))
+        plt.close(fig)
     return paths
 
 
@@ -701,6 +764,17 @@ def build(manifest, budget, output):
         replay_video_audit = {**replay_video_audit, "image": str(target)}
     else:
         replay_video_audit = None
+    spatial_video_audit = read_json(
+        Path(__file__).with_name("spatial_video_audit.json")
+    )
+    spatial_image = Path(__file__).with_name("spatial_video_audit.png")
+    if spatial_video_audit and spatial_image.exists():
+        target = Path("images") / spatial_image.name
+        (output / target).parent.mkdir(exist_ok=True)
+        shutil.copy2(spatial_image, output / target)
+        spatial_video_audit = {**spatial_video_audit, "image": str(target)}
+    else:
+        spatial_video_audit = None
     ledger = read_json(budget)
     data = {
         "title": "Reasoning-guided policy learning",
@@ -712,6 +786,7 @@ def build(manifest, budget, output):
         "runs": runs,
         "offline_teacher_diagnostics": diagnostics,
         "replay_video_audit": replay_video_audit,
+        "spatial_video_audit": spatial_video_audit,
         "intervention_credit_audit": read_json(
             Path(__file__).with_name("intervention_credit_audit.json")
         ),

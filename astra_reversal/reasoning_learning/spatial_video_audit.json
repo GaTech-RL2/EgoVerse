@@ -1,0 +1,45 @@
+{
+  "scope": "Qualitative audit from recorded evaluation videos. No additional environment actions or teacher calls.",
+  "rows": [
+    {
+      "label": "Native policy",
+      "source": "pilot-v7-spatial-results/worker_0/evaluation_0/reset_23",
+      "source_video_sha256": "fd04022aa01ac2d8f5e52e379721a7333c985a2dbee4da19c2d2482e1b26fe9f",
+      "frame_indices": [
+        0,
+        60,
+        120,
+        299
+      ],
+      "video_frames": 300,
+      "success": false,
+      "actions_executed": 300,
+      "reset_identity": {
+        "reset_state_sha256": "e66588ee68d1d738fa0d56e8463b2c21784a5f510d03eb3b106298db08701d06",
+        "reset_model_sha256": "d21dff2fc4b8287b9c29ec8a0f32ed0229ba61a1c85aac777a0c561b40599d2b",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+      }
+    },
+    {
+      "label": "V7 \u00b7 2 collections / 40 updates",
+      "source": "pilot-v7-spatial-results/worker_0/evaluation_2/reset_23",
+      "source_video_sha256": "d05b091d07773b96a647452275601643c2d6cbe2b412f55c08b3b4395395c21a",
+      "frame_indices": [
+        0,
+        60,
+        120,
+        177
+      ],
+      "video_frames": 178,
+      "success": true,
+      "actions_executed": 178,
+      "reset_identity": {
+        "reset_state_sha256": "e66588ee68d1d738fa0d56e8463b2c21784a5f510d03eb3b106298db08701d06",
+        "reset_model_sha256": "d21dff2fc4b8287b9c29ec8a0f32ed0229ba61a1c85aac777a0c561b40599d2b",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+      }
+    }
+  ],
+  "caption": "On the same Spatial reset23, native leaves the milk carton in place and moves a bowl onto the plate. The V7 checkpoint after two collections instead grasps the milk and moves it to the plate; the simulator reports success after178 controls, versus native failure at300. This is one example of changed object selection, not proof of why learning helped. Original pre-action frames are shown; the last recorded frame precedes the final action. The autonomous checkpoint used11 useful native-action windows and no assisted command in its training windows.",
+  "selection": "Reset23 is the first gained evaluation success after the scheduled two-collection score was known. Selected for qualitative illustration, not independent confirmation or a representative random example. The complete ten-reset scores and later checkpoints remain reported."
+}
