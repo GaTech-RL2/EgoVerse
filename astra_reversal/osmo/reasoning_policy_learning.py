@@ -26,7 +26,7 @@ from astra_reversal.reasoning_learning.guidance import (
     endpoint_gradient,
     generate,
 )
-from astra_reversal.reasoning_learning.learning import NativeLearner
+from astra_reversal.reasoning_learning.learning import NativeLearner, flow_matching_loss
 from astra_reversal.reasoning_learning.native_reference import reuse_native_evaluation
 from astra_reversal.reasoning_learning.rollout import collect
 from astra_reversal.records import digest
@@ -34,7 +34,7 @@ from astra_reversal.records import digest
 
 def load_protocol(path=None, *, version=None):
     version = version or os.environ.get("ASTRA_LEARNING_PROTOCOL_VERSION", "v1")
-    if version not in ("v1", "v2", "v3", "v4"):
+    if version not in ("v1", "v2", "v3", "v4", "v5"):
         raise ValueError("Unknown learning protocol version")
     path = path or (
         Path(__file__).parents[1] / f"configs/reasoning_policy_learning_{version}.json"
@@ -59,7 +59,16 @@ def load_protocol(path=None, *, version=None):
     return protocol
 
 
-def preflight(policy, observation, prompt, *, seed=173, rank=8, learning_rate=1e-4):
+def preflight(
+    policy,
+    observation,
+    prompt,
+    *,
+    seed=173,
+    rank=8,
+    learning_rate=1e-4,
+    loss_action_dimensions=None,
+):
     """Weighted-model gradient and parity diagnostics; zero environment actions."""
     raw = {**observation, "prompt": prompt}
     condition = policy.prepare(observation, digest(raw), prompt)
@@ -85,7 +94,13 @@ def preflight(policy, observation, prompt, *, seed=173, rank=8, learning_rate=1e
     if not torch.isfinite(grad).all() or not grad.abs().max() > 0:
         raise RuntimeError("Weighted native action derivative is invalid")
     guided, timing = generate(velocity, noise, target, mask)
-    learner = NativeLearner(policy, rank=rank, learning_rate=learning_rate, seed=seed)
+    learner = NativeLearner(
+        policy,
+        rank=rank,
+        learning_rate=learning_rate,
+        seed=seed,
+        loss_action_dimensions=loss_action_dimensions,
+    )
     adapted = policy.prepare(observation, digest(raw), prompt)
     zero_adapter = policy.sample(adapted, noise, steps=10).value
     adapter_error = float((native - zero_adapter).abs().max())
@@ -98,7 +113,50 @@ def preflight(policy, observation, prompt, *, seed=173, rank=8, learning_rate=1e
     t = 0.5
     model_velocity = prepare_velocity(policy.policy, batch, differentiable=True)
     x_t = t * noise + (1 - t) * native.detach()
-    loss = (model_velocity(x_t, t) - (noise - native.detach())).square().mean()
+    loss = flow_matching_loss(
+        model_velocity(x_t, t), noise - native.detach(), loss_action_dimensions
+    )
+    loss_parity = None
+    if loss_action_dimensions is not None:
+        from lerobot.utils.constants import (
+            OBS_LANGUAGE_ATTENTION_MASK,
+            OBS_LANGUAGE_TOKENS,
+        )
+
+        expected_dimensions = policy.config.output_features["action"].shape[0]
+        if loss_action_dimensions != expected_dimensions:
+            raise ValueError(
+                "Supervised action dimensions differ from the checkpoint policy"
+            )
+        with torch.no_grad():
+            images, masks = policy.policy._preprocess_images(batch)
+            native_losses = policy.model.forward(
+                images,
+                masks,
+                batch[OBS_LANGUAGE_TOKENS],
+                batch[OBS_LANGUAGE_ATTENTION_MASK],
+                native.detach(),
+                noise=noise,
+                time=torch.full((1,), t, device=policy.device),
+            )
+            reference_loss = native_losses[..., :expected_dimensions].mean()
+        difference = float((loss.detach() - reference_loss).abs())
+        passed = bool(
+            torch.isclose(loss.detach(), reference_loss, atol=1e-4, rtol=1e-4)
+        )
+        loss_parity = {
+            "action_dimensions": expected_dimensions,
+            "learner_loss": float(loss.detach()),
+            "native_loss": float(reference_loss),
+            "absolute_difference": difference,
+            "atol": 1e-4,
+            "rtol": 1e-4,
+            "passed": passed,
+        }
+        if not passed:
+            raise RuntimeError(
+                "Action-expert loss differs from the native LeRobot training forward"
+            )
     loss.backward()
     grad_norm = (
         sum(
@@ -124,6 +182,7 @@ def preflight(policy, observation, prompt, *, seed=173, rank=8, learning_rate=1e
         "environment_actions": 0,
         "policy_updates": 0,
         "synthetic_diagnostic_not_training_data": True,
+        "training_loss_parity": loss_parity,
         "claim": "numerical and backward-path diagnostic only; not task success",
     }
     return learner, receipt
@@ -201,6 +260,7 @@ def main():
             seed=seed,
             rank=protocol["learner"]["rank"],
             learning_rate=protocol["learner"]["learning_rate"],
+            loss_action_dimensions=protocol["learner"].get("loss_action_dimensions"),
         )
         if protocol["teacher"].get("semantic_interventions", False):
             from astra_reversal.reasoning_learning.semantic import (
@@ -326,6 +386,9 @@ def main():
                 temporal_diagnosis=protocol["teacher"].get("temporal_diagnosis", False),
                 semantic_interventions=protocol["teacher"].get(
                     "semantic_interventions", False
+                ),
+                explicit_execution_prefix=protocol["teacher"].get(
+                    "explicit_execution_prefix", False
                 ),
                 controller_delta_limits=protocol["teacher"].get(
                     "controller_delta_limits"

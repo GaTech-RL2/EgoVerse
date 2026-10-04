@@ -19,6 +19,22 @@ from astra_reversal.records import digest, file_sha256, to_numpy
 from .evidence import balanced_window_indices
 
 
+def flow_matching_loss(prediction, noise_minus_actions, action_dimensions=None):
+    """LeRobot's policy loss excludes padding; None retains the legacy ablation."""
+    if prediction.shape != noise_minus_actions.shape or prediction.ndim != 3:
+        raise ValueError("Flow loss requires matching [B,H,D] tensors")
+    dimensions = (
+        prediction.shape[-1] if action_dimensions is None else action_dimensions
+    )
+    if type(dimensions) is not int or not 1 <= dimensions <= prediction.shape[-1]:
+        raise ValueError("Invalid supervised action dimensions")
+    return (
+        (prediction[..., :dimensions] - noise_minus_actions[..., :dimensions])
+        .square()
+        .mean()
+    )
+
+
 class LoRALinear(nn.Module):
     def __init__(self, base, rank=8):
         super().__init__()
@@ -87,7 +103,15 @@ def install_action_adapters(policy, rank=8):
 
 
 class NativeLearner:
-    def __init__(self, policy, *, rank=8, learning_rate=1e-4, seed=173):
+    def __init__(
+        self,
+        policy,
+        *,
+        rank=8,
+        learning_rate=1e-4,
+        seed=173,
+        loss_action_dimensions=None,
+    ):
         if not math.isfinite(learning_rate) or learning_rate <= 0:
             raise ValueError("Positive finite learning rate required")
         self.policy = policy
@@ -104,6 +128,13 @@ class NativeLearner:
         self.rng = np.random.default_rng(seed)
         self.version = 0
         self.seed, self.rank = seed, rank
+        if loss_action_dimensions not in (None, 7) or isinstance(
+            loss_action_dimensions, bool
+        ):
+            raise ValueError(
+                "Choose legacy padded loss or seven actual LIBERO action dimensions"
+            )
+        self.loss_action_dimensions = loss_action_dimensions
 
     def update(self, windows, observations, *, updates=20):
         """Train at rollout boundaries. Complete executed windows only (beta=0)."""
@@ -145,7 +176,9 @@ class NativeLearner:
                 t = float(times[0])
                 x_t = t * noise + (1 - t) * target
                 prediction = velocity(x_t, t)
-                loss = (prediction - (noise - target)).square().mean()
+                loss = flow_matching_loss(
+                    prediction, noise - target, self.loss_action_dimensions
+                )
                 if not torch.isfinite(loss):
                     raise FloatingPointError("Non-finite native flow-matching loss")
                 self.optimizer.zero_grad(set_to_none=True)
@@ -178,6 +211,8 @@ class NativeLearner:
             "after_sha256": after,
             "trainable_parameters": sum(p.numel() for p in self.parameters.values()),
             "objective": "native_flow_matching_noise_minus_actions",
+            "loss_action_dimensions": self.loss_action_dimensions or target.shape[-1],
+            "padding_loss_excluded": self.loss_action_dimensions is not None,
             "replay_beta": 0,
             "history": history,
         }
@@ -192,6 +227,7 @@ class NativeLearner:
                 "rank": self.rank,
                 "seed": self.seed,
                 "version": self.version,
+                "loss_action_dimensions": self.loss_action_dimensions,
                 "modules": self.modules,
                 "parameters": {
                     name: p.detach().cpu() for name, p in self.parameters.items()

@@ -39,6 +39,7 @@ class LearningRollout:
         collection_history=None,
         temporal_diagnosis=False,
         semantic_interventions=False,
+        explicit_execution_prefix=False,
         controller_delta_limits=None,
         retain_step_observations=True,
         max_episodes=3,
@@ -67,6 +68,7 @@ class LearningRollout:
         self.collection_history = copy.deepcopy(collection_history or [])
         self.temporal_diagnosis = temporal_diagnosis
         self.semantic_interventions = semantic_interventions
+        self.explicit_execution_prefix = explicit_execution_prefix
         self.delta_limits = controller_delta_limits
         self.retain_step_observations = retain_step_observations
         if client is not None and not retain_step_observations:
@@ -103,6 +105,11 @@ class LearningRollout:
                 **(
                     {"semantic_interventions": True}
                     if self.semantic_interventions
+                    else {}
+                ),
+                **(
+                    {"execution_prefix_steps": 5}
+                    if self.explicit_execution_prefix
                     else {}
                 ),
                 **context,

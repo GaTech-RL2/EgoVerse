@@ -84,6 +84,18 @@ instruction and real pre-action observations. It will not receive your subgoal
 instruction during autonomous evaluation.
 """
 
+PREFIX_EXTENSION = """
+EXECUTION TIMING FOR THIS PROTOCOL: although each proposal contains 10 actions,
+the robot will execute ONLY actions 0 through 4, then obtain real observations
+and replan. The unexecuted actions 5 through 9 will not be replayed or trained as
+observed behavior. Your motor edits must be confined to actions 0 through 4.
+Compare candidates primarily on that actual five-action prefix and preservation
+of the original task's necessary subgoals. A bad unexecuted tail alone is not a
+reason to reject an otherwise useful prefix. If failure begins within the first
+five actions, it remains relevant. Keep the overall completion rule finite, but
+do not try to constrain future commands that will be regenerated from new images.
+"""
+
 
 def _object(properties):
     return {
@@ -98,6 +110,8 @@ def response_schema(request):
     text = {"type": "string", "minLength": 1, "maxLength": 800}
     if request["role"] == "diagnose":
         horizon = len(request["context"]["native"])
+        if "execution_prefix_steps" in request["context"]:
+            horizon = min(horizon, request["context"]["execution_prefix_steps"])
         maximum_delta = max(
             controller_delta_limits(request["context"].get("controller_delta_limits"))
         )
@@ -214,6 +228,13 @@ def _validate_request(request):
         or not 1 <= len(value["snapshots"]) <= 4
     ):
         raise ValueError("Teacher requires a known role and one to four real frames")
+    if "execution_prefix_steps" in value["context"] and (
+        type(value["context"]["execution_prefix_steps"]) is not int
+        or value["context"]["execution_prefix_steps"] != 5
+    ):
+        raise ValueError(
+            "This collection driver executes exactly five actions per prefix"
+        )
     response_schema(request)
 
 
@@ -363,6 +384,11 @@ def build_payload(request, model, *, sampling=None):
                 + (
                     SEMANTIC_EXTENSION
                     if request["context"].get("semantic_interventions", False)
+                    else ""
+                )
+                + (
+                    PREFIX_EXTENSION
+                    if "execution_prefix_steps" in request["context"]
                     else ""
                 ),
             },

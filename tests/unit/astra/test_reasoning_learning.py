@@ -2,7 +2,11 @@ import numpy as np
 import pytest
 import torch
 
-from astra_reversal.reasoning_learning.learning import LoRALinear, NativeLearner
+from astra_reversal.reasoning_learning.learning import (
+    LoRALinear,
+    NativeLearner,
+    flow_matching_loss,
+)
 from astra_reversal.records import digest
 
 
@@ -24,6 +28,20 @@ def test_zero_adapter_exact_and_updates_do_not_change_base():
     assert losses[-1] < losses[0] / 2
     assert torch.equal(original, base.weight)
     assert base.weight.grad is None
+
+
+def test_native_action_loss_ignores_errors_in_padding_channels():
+    prediction = torch.ones(1, 10, 32, requires_grad=True)
+    target = torch.zeros_like(prediction)
+    target[..., 7:] = 100
+    loss = flow_matching_loss(prediction, target, 7)
+    assert loss.item() == 1
+    loss.backward()
+    assert prediction.grad[..., :7].abs().min() > 0
+    assert prediction.grad[..., 7:].count_nonzero() == 0
+    assert (
+        flow_matching_loss(prediction, target).item() > 1000
+    )  # Recorded legacy objective differs.
 
 
 class SmallPolicy:

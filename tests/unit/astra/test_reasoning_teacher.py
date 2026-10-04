@@ -114,3 +114,23 @@ def test_gripper_revision_can_close_without_relaxing_motion_or_hardware_bounds()
         teacher.controller_target(
             np.zeros((10, 7)), d["edits"], spec, delta_limits=limits
         )
+
+
+def test_explicit_execution_prefix_prevents_edits_to_unexecuted_tail():
+    r = request(execution_prefix_steps=5)
+    value = diagnosis()
+    teacher.parse_proposal(value, r)
+    value["edits"][0]["end"] = 6
+    with pytest.raises(ValueError, match="outside bounds"):
+        teacher.parse_proposal(value, r)
+    # Historical requests keep their original ten-action contract.
+    teacher.parse_proposal(value, request())
+    content = teacher.build_payload(r, "model")["messages"][0]["content"]
+    assert teacher.PREFIX_EXTENSION in content
+    assert (
+        teacher.PREFIX_EXTENSION
+        not in teacher.build_payload(request(), "model")["messages"][0]["content"]
+    )
+    for wrong in (True, 4, 6):
+        with pytest.raises(ValueError, match="exactly five"):
+            request(execution_prefix_steps=wrong)

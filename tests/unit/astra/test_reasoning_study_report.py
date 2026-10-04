@@ -2,7 +2,11 @@ import json
 
 import pytest
 
-from astra_reversal.reasoning_learning.study_report import summarize_run, wilson
+from astra_reversal.reasoning_learning.study_report import (
+    paired_native_comparison,
+    summarize_run,
+    wilson,
+)
 
 
 def write(path, value):
@@ -129,3 +133,36 @@ def test_initial_score_does_not_evaluate_a_later_update(tmp_path):
     assert result["latest_evaluated_policy_version"] == 0
     assert result["latest_updated_policy_version"] == 1
     assert not result["latest_update_has_autonomous_evaluation"]
+
+
+def test_native_comparison_distinguishes_equal_scores_with_different_successes():
+    reset = {
+        "reset_state_sha256": "state",
+        "reset_model_sha256": "scene",
+        "bddl_sha256": "task",
+    }
+    reference = {
+        "successes": 1,
+        "rollouts": 2,
+        "success_rate": 0.5,
+        "episode_results": [
+            {"episode_id": "a", "success": True, "reset_identity": reset},
+            {"episode_id": "b", "success": False, "reset_identity": reset},
+        ],
+    }
+    point = {
+        **reference,
+        "episode_results": [
+            {**r, "success": not r["success"]} for r in reference["episode_results"]
+        ],
+    }
+    result = paired_native_comparison(point, reference)
+    assert result["delta_success_rate"] == 0
+    assert result["gained_episode_ids"] == ["b"]
+    assert result["regressed_episode_ids"] == ["a"]
+    point["episode_results"][0]["reset_identity"] = {
+        **reset,
+        "bddl_sha256": "different task",
+    }
+    with pytest.raises(ValueError, match="reset scenes"):
+        paired_native_comparison(point, reference)

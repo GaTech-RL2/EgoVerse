@@ -309,3 +309,26 @@ Eight policy updates completed; allocated runtime including bootstrap was
 autonomous performance on the measured resets; it supplies no advantage claim.
 See ppo_goal6_seed173_result.json and ppo_weighted_preflight.json. The development
 tuning recipe was prepared before its first rollout and remains a separate run.
+
+Prospective v5: tell the teacher what will actually execute
+The driver has always executed five actions before replanning, but older teacher
+requests exposed the ten-action proposal horizon without explicitly stating that
+cutoff. Some saved comparisons penalized the unexecuted tail, and some target
+edits constrained it. V5 states that only actions0--4 execute and restricts the
+motor-edit schema to that prefix. Candidate judgments must still preserve necessary
+subgoals, but an unexecuted bad tail alone is not evidence against the real prefix.
+The complete ten-step training window requirement remains: those targets come
+from two actually executed prefixes, never from a predicted tail. V1--V4 payloads
+are preserved exactly. This revised interface is not yet a robot success result.
+
+Training loss audit and v5 correction
+The selected checkpoint declares output_features.action.shape=[7], while its
+internal action dimension is32. The pinned LeRobot PI05Policy.forward truncates
+per-dimension losses to7 before averaging (modeling_pi05.py lines1255--1257).
+V1--V4 used the native flow-matching residual but averaged all32 channels. Those
+runs therefore did not exactly match the LeRobot policy-level loss. Their results
+and source are preserved as the padded-loss variant; they are not silently relabeled.
+V5 excludes the25 padding outputs and adds a full-weight comparison between the
+cached-prefix learner loss and LeRobot's direct training forward at identical noise,
+time, observation and target. The native 32-dimensional sampling interface remains
+unchanged. Whether the corrected objective improves autonomous SR remains untested.

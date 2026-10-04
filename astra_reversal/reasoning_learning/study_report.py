@@ -14,7 +14,7 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .teacher import SEMANTIC_EXTENSION, SYSTEM_PROMPT
+from .teacher import PREFIX_EXTENSION, SEMANTIC_EXTENSION, SYSTEM_PROMPT
 
 
 def read_json(path, default=None):
@@ -31,6 +31,36 @@ def wilson(successes, count):
         z * math.sqrt(p * (1 - p) / count + z * z / (4 * count * count)) / denominator
     )
     return [max(0, center - radius), min(1, center + radius)]
+
+
+def paired_native_comparison(point, reference):
+    """Compare actual binary outcomes only when the exact reset scenes agree."""
+    native = {row["episode_id"]: row for row in reference["episode_results"]}
+    current = {row["episode_id"]: row for row in point["episode_results"]}
+    if current.keys() != native.keys():
+        raise ValueError("Native comparison requires the same reset episode IDs")
+    for key in native:
+        audit = native[key].get("reset_identity")
+        if not audit or current[key].get("reset_identity") != audit:
+            raise ValueError(
+                "Native comparison requires verified matching reset scenes"
+            )
+    return {
+        "native_successes": reference["successes"],
+        "rollouts": reference["rollouts"],
+        "delta_success_rate": point["success_rate"] - reference["success_rate"],
+        "gained_episode_ids": [
+            key
+            for key in native
+            if current[key]["success"] and not native[key]["success"]
+        ],
+        "regressed_episode_ids": [
+            key
+            for key in native
+            if native[key]["success"] and not current[key]["success"]
+        ],
+        "paired_reset_identities_verified": True,
+    }
 
 
 def usage_by_episode(directory, jobs=None):
@@ -115,13 +145,25 @@ def summarize_run(spec):
                 ),
                 "episode_results": [
                     {
-                        k: r[k]
-                        for k in (
-                            "episode_id",
-                            "success",
-                            "actions_executed",
-                            "total_control_steps",
-                        )
+                        **{
+                            k: r[k]
+                            for k in (
+                                "episode_id",
+                                "success",
+                                "actions_executed",
+                                "total_control_steps",
+                            )
+                        },
+                        "reset_identity": {
+                            k: r["reset_audit"][k]
+                            for k in (
+                                "reset_state_sha256",
+                                "reset_model_sha256",
+                                "bddl_sha256",
+                            )
+                        }
+                        if "reset_audit" in r
+                        else None,
                     }
                     for r in episodes
                 ],
@@ -202,6 +244,9 @@ def summarize_run(spec):
         "seed": runtime.get("seed", spec.get("seed")),
         "source_revision": runtime.get("source_revision"),
         "protocol_version": protocol.get("schema_version"),
+        "checkpoint_configuration": protocol.get("checkpoint"),
+        "environment_configuration": protocol.get("environment"),
+        "learner_configuration": protocol.get("learner"),
         "points": points,
         "collection": collection,
         "partial_collection": partial,
@@ -252,6 +297,7 @@ def export_figures(data, output):
         "teacher_v1": "#bf571d",
         "teacher_v2": "#d89122",
         "teacher_v3": "#83432a",
+        "teacher_v4": "#75639c",
         "dsrl": "#057a76",
         "ppo": "#4566ba",
     }
@@ -273,6 +319,23 @@ def export_figures(data, output):
             ("Collection control steps", "Cumulative teacher tokens (including cache)"),
             strict=True,
         ):
+            baseline = next(
+                (
+                    p["native_comparison"]
+                    for r in runs
+                    for p in r["points"]
+                    if p.get("native_comparison")
+                ),
+                None,
+            )
+            if baseline:
+                ax.axhline(
+                    baseline["native_successes"] / baseline["rollouts"],
+                    color="#879494",
+                    linestyle=":",
+                    linewidth=1,
+                    label=f"Native π0.5 ({baseline['native_successes']}/{baseline['rollouts']})",
+                )
             for i, run in enumerate(runs):
                 points = run["points"]
                 label = run["label"]
@@ -353,6 +416,29 @@ def build(manifest, budget, output):
     output.mkdir(parents=True, exist_ok=True)
     specs = read_json(manifest)["runs"]
     runs = [summarize_run(spec) for spec in specs]
+    native_runs = {}
+    for run in runs:
+        if (
+            run["method"].startswith("teacher")
+            and run["points"]
+            and run["points"][0]["policy_version"] == 0
+        ):
+            task = run["task"]
+            native_runs.setdefault((task["suite"], task["task_id"], run["seed"]), run)
+    for run in runs:
+        task = run["task"]
+        if not task:
+            continue
+        native_run = native_runs.get((task["suite"], task["task_id"], run["seed"]))
+        if native_run:
+            for key in ("checkpoint_configuration", "environment_configuration"):
+                if run[key] != native_run[key] and run["points"]:
+                    raise ValueError("Native comparison deployment protocol differs")
+            for point in run["points"]:
+                point["native_comparison"] = {
+                    **paired_native_comparison(point, native_run["points"][0]),
+                    "native_workflow": native_run["workflow"],
+                }
     for i, (spec, run) in enumerate(zip(specs, runs, strict=True)):
         directory = Path(spec["directory"])
         for path in sorted(directory.glob("**/rollout.mp4")):
@@ -387,6 +473,7 @@ def build(manifest, budget, output):
         "runs": runs,
         "teacher_system_prompt": SYSTEM_PROMPT,
         "teacher_semantic_prompt_extension": SEMANTIC_EXTENSION,
+        "teacher_execution_prefix_prompt_extension": PREFIX_EXTENSION,
         "notes": [
             "Success is the simulator's binary task predicate. Each scheduled autonomous score uses ten separate reset states; Astra supplies no inference input in these evaluations.",
             "The 80% threshold means at least 8/10 at a scheduled checkpoint. Wilson intervals are descriptive; a single crossing on development data does not prove superiority.",
@@ -397,6 +484,7 @@ def build(manifest, budget, output):
             "A marked shared native baseline reuses the same previously measured episodes after deployment and reset identity checks. It contributes no new evaluation interactions or independent statistical replicate. Updated policies always receive fresh evaluations.",
             "An initial-policy score does not evaluate a later update. Runs stopped between scheduled checkpoints explicitly mark their latest policy update as unevaluated.",
             "Candidate preference is predicted improvement. Only selected commands execute; full observed-useful action windows train. No FRS action steering, physical candidate retries, privileged object poses, or default synthetic training.",
+            "Teacher V1–V4 averaged flow loss over all 32 internal channels, including padding. This differs from LeRobot's policy-level loss over seven actual action channels. V5 corrects this and requires a weighted native-loss parity check; earlier runs keep their original objective and results.",
         ],
     }
     data["figures"] = export_figures(data, output / "figures")
@@ -418,11 +506,17 @@ def build(manifest, budget, output):
         "teacher_total_tokens",
         "evaluation_steps_cumulative",
         "reused_from_workflow",
+        "native_successes",
+        "native_rollouts",
+        "delta_vs_native",
+        "gained_resets",
+        "regressed_resets",
     ]
     writer = csv.DictWriter(stream, fieldnames=fields)
     writer.writeheader()
     for run in runs:
         for point in run["points"]:
+            comparison = point.get("native_comparison", {})
             writer.writerow(
                 {
                     "method": run["label"],
@@ -430,6 +524,15 @@ def build(manifest, budget, output):
                     **(run["task"] or {}),
                     "seed": run["seed"],
                     **{k: point[k] for k in fields if k in point},
+                    "native_successes": comparison.get("native_successes"),
+                    "native_rollouts": comparison.get("rollouts"),
+                    "delta_vs_native": comparison.get("delta_success_rate"),
+                    "gained_resets": len(comparison["gained_episode_ids"])
+                    if comparison
+                    else None,
+                    "regressed_resets": len(comparison["regressed_episode_ids"])
+                    if comparison
+                    else None,
                 }
             )
     (output / "learning_curves.csv").write_text(stream.getvalue())
