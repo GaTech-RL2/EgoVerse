@@ -525,3 +525,34 @@ config declares chunk_size=50 and n_action_steps=10; these are different public
 deployment configurations. Executing five of the ten generated actions remains
 a study choice. This source check does not claim either publisher's stock SR.
 See deployment_configuration_provenance.json for the source path and hashes.
+
+Spatial baseline transfer (OOD task 2, seed 173)
+The tuned DSRL configuration completed eight collection episodes and 2,299
+collection controls. Autonomous scores at 0/2/4/8 episodes were 2/10, 2/10,
+2/10 and 3/10. Relative to its initial noise-policy evaluation, the final
+checkpoint gained resets23 and25 and lost reset21. This initial DSRL score is
+not a native-pi0.5 score: its noise distribution differs. The native Spatial
+comparison is pending. Evaluation used 10,716 additional controls, separately
+accounted; see dsrl_more_spatial2_seed173_result.json. One development seed
+does not establish a generalization or sample-efficiency advantage.
+
+V6 interim checkpoint after two collection episodes
+Autonomous success remains 5/10 on exactly the same five reset scenes as native.
+Both collection episodes failed, using 620 controls including stabilization.
+Seven assisted prefixes executed (35 actions); all came from RTC candidates,
+and none came from prompt, TEI or TLI candidates. Ten admitted windows produced
+40 optimizer steps across two policy updates. The two collections used 223
+Astra calls and 4,596,685 reported tokens, including 2,393,344 cached input
+tokens. Local useful retention, lift and drift-arrest did not complete placement.
+The workflow continues; pilot_v6_goal6_seed173_after2.json is a fixed milestone
+receipt excluding subsequent collection and its costs. It is not a final result.
+
+Frozen projection check on separate frames
+The earlier six-label visual projection was frozen before a new Astra call
+labeled twelve interleaved frames at steps5,15,...115 of the same V5 trajectory.
+None was used in the original fit or label request. Seven labels met the same
+confidence threshold; projection error was 4.31 pixels RMS, below the declared
+eight-pixel threshold. No refit, action, policy update or controller deployment
+occurred. The reference labels still come from the VLM, so this is held-out
+frame consistency, not independent calibration or evidence of task success.
+See heldout_visual_grounding_probe.json.
