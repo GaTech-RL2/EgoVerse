@@ -733,3 +733,25 @@ immutable preference and execution batch identify assistance. Native recovery
 can be called a correction phase without an external action edit; phase labels
 alone must never inflate intervention counts. Unique action coverage, actual
 preference gates, source hashes and full-window admission are all checked.
+
+Prospective Spatial repeat, fixed before seed179 results
+------------------------------------------------------
+Repeat V7 unchanged on Spatial OOD2, seed179, and compare with tuned DSRL
+(600 updates per collection), both ending after two collection rollouts. Keep
+collection resets0,1 and autonomous evaluation resets20..29; do not choose a
+checkpoint based on its measured success. This repeats the promising seed173
+checkpoint, not the entire eight-collection learning curve. It remains a
+development comparison, not confirmation on fresh tasks or reset indices.
+
+prepare_learning_launch --collection-limit 2 freezes the stopping point in the
+hashed workflow before submission. The worker finishes its due evaluation and
+records a shortened-screen completion status. Validation permits only scheduled
+evaluation boundaries and complete PPO collection/update batches; default full
+protocol runs are unchanged. Use task-index1, seed-index1, protocol-version v7
+for the teacher and v3/more_reuse for DSRL. Intended execution ceilings are
+1.75 and0.5 GPU-hours, respectively, subject to the remaining study ceiling;
+startup, all failed work and both methods still count against24 GPU-hours.
+Preparation does not imply submission or a result. The existing queued credit
+and Spatial PPO tests are preserved; these repeats launch only if their actual
+budget reservations fit. Compare each updated score to the corresponding
+seed179 native evaluation and disclose DSRL's distinct initial noise policy.

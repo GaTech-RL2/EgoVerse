@@ -2,8 +2,25 @@ import numpy as np
 import pytest
 import torch
 
-from astra_reversal.reasoning_learning.rl_recipes import collect_on_policy, settings
+from astra_reversal.reasoning_learning.rl_recipes import (
+    collect_on_policy,
+    collection_screen,
+    settings,
+)
 from astra_reversal.reasoning_learning.rlinf_ppo import advantages_and_returns
+
+
+def test_collection_screen_keeps_order_and_scheduled_complete_updates():
+    resets = list(range(8))
+    schedule = [0, 2, 4, 8]
+    assert collection_screen(resets, schedule) == resets
+    assert collection_screen(resets, schedule, 2, update_period=2) == [0, 1]
+    assert resets == list(range(8))
+    for invalid in (0, 1, 3, 6, 9, True, 2.0):
+        with pytest.raises(ValueError, match="scheduled full-update evaluation"):
+            collection_screen(resets, schedule, invalid)
+    with pytest.raises(ValueError, match="scheduled full-update evaluation"):
+        collection_screen(resets, schedule, 2, update_period=4)
 
 
 def test_tuning_batches_cannot_cross_evaluation_or_policy_boundaries():

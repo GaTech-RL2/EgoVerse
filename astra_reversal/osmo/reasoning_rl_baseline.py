@@ -16,7 +16,11 @@ from astra_reversal.osmo.experiment import RESULTS, ROOT
 from astra_reversal.osmo.interpolation import load_frozen_policy
 from astra_reversal.osmo.ood_distributed import WorkerArchive
 from astra_reversal.osmo.reasoning_policy_learning import load_protocol
-from astra_reversal.reasoning_learning.rl_recipes import collect_on_policy, settings
+from astra_reversal.reasoning_learning.rl_recipes import (
+    collect_on_policy,
+    collection_screen,
+    settings,
+)
 from astra_reversal.reasoning_learning.rl_rollout import collect_rl
 from astra_reversal.reasoning_learning.rlinf_bridge import (
     REVISION,
@@ -42,6 +46,13 @@ def main():
         evaluation_schedule=protocol["pilot"]["evaluation_after_collection_rollouts"],
     )
     update_period = options.get("collection_rollouts_per_update", 1)
+    limit = os.environ.get("ASTRA_COLLECTION_LIMIT")
+    collection_resets = collection_screen(
+        protocol["pilot"]["collection_reset_indices"],
+        protocol["pilot"]["evaluation_after_collection_rollouts"],
+        int(limit) if limit is not None else None,
+        update_period=update_period,
+    )
     allocation = float(os.environ["ASTRA_WORKER_GPU_HOURS"])
     if not 0 < allocation <= protocol["compute"]["authorized_gpu_hours"]:
         raise ValueError("Worker allocation exceeds study budget")
@@ -73,6 +84,7 @@ def main():
             "rlinf_revision": REVISION,
             "task": task,
             "seed": seed,
+            "collection_limit": len(collection_resets),
             "harness": "RLinf networks with serial common OOD driver",
             "decoder": (
                 "strict native LeRobot checkpoint, no conversion, frozen"
@@ -164,6 +176,7 @@ def main():
                     "rlinf_revision": REVISION,
                     "task": task,
                     "seed": seed,
+                    "collection_limit": len(collection_resets),
                     "harness": "released RLinf Pi0RL sampler/recompute with serial clipped-PPO/GAE driver",
                     "decoder": "same checkpoint, strict conversion with explicit tanh GELU compatibility",
                     "overrides": {
@@ -186,7 +199,7 @@ def main():
             archive.sync()
         benchmark = BenchmarkConfig.preset(task["suite"])
         env_root = ROOT / "astra_reversal/.deps/libero-ood/third_party/modified_libero"
-        resets = protocol["pilot"]["collection_reset_indices"]
+        resets = collection_resets
         eval_resets = protocol["pilot"]["autonomous_evaluation_reset_indices"]
         manifest = capture_reset_manifest(
             env_root,
@@ -282,7 +295,10 @@ def main():
         write_json(
             RESULTS / "completion.json",
             {
-                "status": "baseline_complete",
+                "status": "baseline_screen_complete"
+                if len(resets) < len(protocol["pilot"]["collection_reset_indices"])
+                else "baseline_complete",
+                "collection_limit": len(resets),
                 "collection_steps": collection_steps,
                 "evaluation_steps": evaluation_steps,
                 "policy_updates": learner.version,

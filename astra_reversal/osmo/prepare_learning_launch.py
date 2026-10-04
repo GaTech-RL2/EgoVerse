@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml
 
 from astra_reversal.osmo.reasoning_policy_learning import load_protocol
+from astra_reversal.reasoning_learning.rl_recipes import collection_screen, settings
 from astra_reversal.records import file_sha256
 
 
@@ -39,6 +40,7 @@ def prepare(
     port=19943,
     protocol_version="v1",
     rl_recipe="standard",
+    collection_limit=None,
 ):
     protocol = load_protocol(version=protocol_version)
     if (
@@ -73,6 +75,27 @@ def prepare(
         raise ValueError("Task/seed outside the preregistered pilot")
     if not 1024 <= port <= 65535:
         raise ValueError("Unprivileged local relay port required")
+    if collection_limit is not None:
+        if phase not in ("pilot", "dsrl", "ppo"):
+            raise ValueError("Collection limits require a collecting study worker")
+        period = (
+            1
+            if phase == "pilot"
+            else settings(
+                rl_recipe,
+                phase,
+                collection_rollouts=len(protocol["pilot"]["collection_reset_indices"]),
+                evaluation_schedule=protocol["pilot"][
+                    "evaluation_after_collection_rollouts"
+                ],
+            ).get("collection_rollouts_per_update", 1)
+        )
+        collection_screen(
+            protocol["pilot"]["collection_reset_indices"],
+            protocol["pilot"]["evaluation_after_collection_rollouts"],
+            collection_limit,
+            update_period=period,
+        )
     repo = Path(__file__).resolve().parents[2]
     bundle, destination = Path(bundle).resolve(), Path(destination).resolve()
     identity = json.loads((bundle / "source_identity.json").read_text())
@@ -122,6 +145,8 @@ def prepare(
             ASTRA_INCLUDE_RLINF="1",
             ASTRA_ENTRY_MODULE="astra_reversal.osmo.reasoning_baseline_preflight",
         )
+    if collection_limit is not None:
+        task["environment"]["ASTRA_COLLECTION_LIMIT"] = str(collection_limit)
     if phase in ("dsrl", "ppo"):
         task["environment"].update(
             ASTRA_INCLUDE_RLINF="1",
@@ -160,6 +185,7 @@ def prepare(
         "automatic_experiment_retries": False,
         "baselines_included": phase in ("dsrl", "ppo"),
         "rl_recipe": rl_recipe if phase in ("dsrl", "ppo") else None,
+        "collection_limit": collection_limit,
     }
     (destination / "launch_plan.json").write_text(json.dumps(plan, indent=2) + "\n")
     (destination / "connect.sh").write_text(
@@ -199,6 +225,7 @@ def main():
         default="v1",
     )
     parser.add_argument("--port", type=int, default=19943)
+    parser.add_argument("--collection-limit", type=int)
     parser.add_argument(
         "--rl-recipe", choices=("standard", "more_reuse"), default="standard"
     )
@@ -215,6 +242,7 @@ def main():
                 protocol_version=args.protocol_version,
                 port=args.port,
                 rl_recipe=args.rl_recipe,
+                collection_limit=args.collection_limit,
             )
         )
     )

@@ -28,6 +28,7 @@ from astra_reversal.reasoning_learning.guidance import (
 )
 from astra_reversal.reasoning_learning.learning import NativeLearner, flow_matching_loss
 from astra_reversal.reasoning_learning.native_reference import reuse_native_evaluation
+from astra_reversal.reasoning_learning.rl_recipes import collection_screen
 from astra_reversal.reasoning_learning.rollout import collect
 from astra_reversal.records import digest
 
@@ -295,7 +296,19 @@ def main():
             return
         benchmark = BenchmarkConfig.preset(task["suite"])
         env_root = ROOT / "astra_reversal/.deps/libero-ood/third_party/modified_libero"
-        resets = protocol["pilot"]["collection_reset_indices"]
+        limit = os.environ.get("ASTRA_COLLECTION_LIMIT")
+        resets = collection_screen(
+            protocol["pilot"]["collection_reset_indices"],
+            protocol["pilot"]["evaluation_after_collection_rollouts"],
+            int(limit) if limit is not None else None,
+        )
+        write_json(
+            RESULTS / "collection_screen.json",
+            {
+                "collection_limit": len(resets),
+                "scope": "Fixed by launch environment before collection; finish the scheduled autonomous evaluation.",
+            },
+        )
         eval_resets = protocol["pilot"]["autonomous_evaluation_reset_indices"]
         manifest = capture_reset_manifest(
             env_root,
@@ -310,7 +323,7 @@ def main():
         collection_steps, evaluation_steps = 0, 0
         collection, evaluations, updates = [], [], []
         collection_history = []
-        stopped = False
+        stopped = len(resets) < len(protocol["pilot"]["collection_reset_indices"])
         reference_key = f"{task['suite']}:{task['task_id']}:{seed}"
         reference_config = protocol.get("teacher_native_evaluation_references", {}).get(
             reference_key

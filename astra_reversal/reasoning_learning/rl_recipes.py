@@ -37,3 +37,19 @@ def collect_on_policy(pending, transitions, version):
     if not transitions[-1]["terminal"]:
         raise ValueError("Each collected episode must end before batching PPO updates")
     return [*pending, *transitions]
+
+
+def collection_screen(resets, evaluation_schedule, limit=None, *, update_period=1):
+    """Fix a shorter run before collection, ending at a complete evaluation batch."""
+    if limit is None:
+        return list(resets)
+    if (
+        type(limit) is not int
+        or not 1 <= limit <= len(resets)
+        or limit not in evaluation_schedule
+        or limit % update_period
+    ):
+        raise ValueError(
+            "Collection screen must end at a scheduled full-update evaluation"
+        )
+    return list(resets[:limit])

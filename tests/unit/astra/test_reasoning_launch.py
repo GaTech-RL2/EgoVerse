@@ -19,13 +19,18 @@ def test_unresolved_budget_prevents_gpu_experiment(tmp_path):
         load_protocol(path)
 
 
-@pytest.mark.parametrize("phase", ["preflight", "replay-credit"])
+@pytest.mark.parametrize("phase", ["preflight", "replay-credit", "dsrl"])
 def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(
     tmp_path, monkeypatch, phase
 ):
     protocol = {
         "compute": {"authorized_gpu_hours": 2},
-        "pilot": {"development_tasks": [{}], "seeds": [173]},
+        "pilot": {
+            "development_tasks": [{}],
+            "seeds": [173],
+            "collection_reset_indices": list(range(8)),
+            "evaluation_after_collection_rollouts": [0, 2, 4, 8],
+        },
         "learner": {"loss_action_dimensions": 7},
     }
     monkeypatch.setattr(launch, "load_protocol", lambda **kwargs: protocol)
@@ -47,7 +52,13 @@ def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(
     }
     (bundle / "source_identity.json").write_text(json.dumps(identity))
     output = tmp_path / "launch"
-    receipt = launch.prepare(bundle, output, phase=phase, gpu_hours=0.5)
+    receipt = launch.prepare(
+        bundle,
+        output,
+        phase=phase,
+        gpu_hours=0.5,
+        collection_limit=2 if phase == "dsrl" else None,
+    )
     spec = yaml.safe_load((output / "workflow.yaml").read_text())["workflow"]
     assert len(spec["tasks"]) == spec["resources"]["default"]["gpu"] == 1
     assert spec["timeout"]["exec_timeout"] == "30m"
@@ -57,6 +68,9 @@ def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(
         assert spec["tasks"][0]["environment"]["ASTRA_ENTRY_MODULE"].endswith(
             "reasoning_credit_learning"
         )
+    if phase == "dsrl":
+        assert spec["tasks"][0]["environment"]["ASTRA_COLLECTION_LIMIT"] == "2"
+        assert receipt["collection_limit"] == 2
     assert (output / "relay.token").stat().st_mode & 0o777 == 0o600
     (bundle / "payload.tar.gz").write_bytes(b"altered")
     with pytest.raises(ValueError, match="checksum"):
