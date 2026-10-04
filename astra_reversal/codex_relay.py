@@ -67,6 +67,10 @@ def _module(family):
         from .reasoning_learning import teacher
 
         return teacher
+    if family == "visual_grounding":
+        from .reasoning_learning import visual_grounding
+
+        return visual_grounding
     raise ClientError("Unknown Codex relay request family")
 
 
@@ -417,7 +421,12 @@ def _proposal(value, request, module, family):
     if not isinstance(value, dict):
         raise ClientError("Codex proposal must be an object")
     bound_fields = {"request_fingerprint": request["request_fingerprint"]}
-    if family in ("representation", "demo_skills", "reasoning_learning"):
+    if family in (
+        "representation",
+        "demo_skills",
+        "reasoning_learning",
+        "visual_grounding",
+    ):
         bound_fields.update(
             {
                 key: request[key]

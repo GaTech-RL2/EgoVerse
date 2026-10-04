@@ -19,6 +19,7 @@ from pathlib import Path
 from .teacher import (
     BOUNDED_TARGET_EXTENSION,
     COMPARISON_FEEDBACK_EXTENSION,
+    GROUNDING_EXTENSION,
     PREFIX_EXTENSION,
     SEMANTIC_EXTENSION,
     SYSTEM_PROMPT,
@@ -395,6 +396,7 @@ def export_figures(data, output):
         "teacher_v5": "#aa3f57",
         "teacher_v6": "#914ea1",
         "teacher_v7": "#365843",
+        "teacher_v8": "#327a93",
         "teacher_replay": "#245941",
         "teacher_replay_masked": "#aa783d",
         "dsrl": "#057a76",
@@ -507,6 +509,67 @@ def export_figures(data, output):
             fig.savefig(path, dpi=180)
             paths.append(str(Path(output.name) / path.name))
         plt.close(fig)
+    # A training-fit diagnostic explains a mechanism, not a held-out success gain.
+    for variant in ("strict", "masked"):
+        receipt = read_json(
+            Path(__file__).with_name(f"replay_{variant}_fit_probe.json")
+        )
+        if not receipt:
+            continue
+        run = next(
+            (r for r in data["runs"] if r["workflow"] == receipt["workflow"]), None
+        )
+        if not run:
+            continue
+        fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
+        for group, label, color in (
+            ("correction_containing", "Correction-containing windows", "#bf571d"),
+            ("native_only", "Native-only windows", "#057a76"),
+        ):
+            rows = [r for r in receipt["summary"] if r["group"] == group]
+            axes[0].plot(
+                [r["optimizer_steps"] for r in rows],
+                [r["controller_mse_useful_steps"] for r in rows],
+                "o-",
+                color=color,
+                label=label,
+            )
+        axes[0].set_yscale("log")
+        axes[0].set_ylabel("Controller MSE on supervised training steps")
+        axes[0].set_title("Fit to recorded behavior")
+        axes[0].legend(fontsize=8, frameon=False)
+        points = run["points"]
+        axes[1].plot(
+            [p.get("optimizer_steps_cumulative", 0) for p in points],
+            [p["success_rate"] for p in points],
+            "o-",
+            color="#4566ba",
+        )
+        axes[1].axhline(points[0]["success_rate"], color="#879494", linestyle=":")
+        axes[1].set_ylim(0, 1)
+        axes[1].yaxis.set_major_formatter(PercentFormatter(1))
+        axes[1].set_ylabel("Autonomous task success")
+        axes[1].set_title("Ten separate reset states per point")
+        for ax in axes:
+            ax.set_xlabel("Optimizer steps on the same recorded dataset")
+            ax.spines[["top", "right"]].set_visible(False)
+            ax.grid(axis="y", alpha=0.15)
+        fig.suptitle(
+            f"{variant.capitalize()} replay: training fit and autonomous success"
+        )
+        fig.text(
+            0.5,
+            0.015,
+            "Fixed probe noise · Training-set error, not validation · No new collection data · Development evidence",
+            ha="center",
+            fontsize=8,
+        )
+        fig.tight_layout(rect=(0, 0.04, 1, 0.94))
+        for extension in ("png", "pdf"):
+            path = output / f"replay_{variant}_fit.{extension}"
+            fig.savefig(path, dpi=180)
+            paths.append(str(Path(output.name) / path.name))
+        plt.close(fig)
     return paths
 
 
@@ -616,6 +679,7 @@ def build(manifest, budget, output):
         "teacher_tli_prompt_extension": TLI_EXTENSION,
         "teacher_comparison_feedback_prompt_extension": COMPARISON_FEEDBACK_EXTENSION,
         "teacher_bounded_target_prompt_extension": BOUNDED_TARGET_EXTENSION,
+        "teacher_grounding_prompt_extension": GROUNDING_EXTENSION,
         "notes": [
             "Success is the simulator's binary task predicate. Each scheduled autonomous score uses ten separate reset states; Astra supplies no inference input in these evaluations.",
             "The 80% threshold means at least 8/10 at a scheduled checkpoint. Wilson intervals are descriptive; a single crossing on development data does not prove superiority.",

@@ -556,3 +556,55 @@ eight-pixel threshold. No refit, action, policy update or controller deployment
 occurred. The reference labels still come from the VLM, so this is held-out
 frame consistency, not independent calibration or evidence of task success.
 See heldout_visual_grounding_probe.json.
+
+Strict replay completed: fitting a correction was not enough
+With the same 22 source windows and corrected seven-channel loss, autonomous
+scores after40/100/200 optimizer steps were5/10,5/10,4/10, versus native5/10.
+The final model lost reset29 and gained none. This added zero collection controls
+or teacher calls, while retaining the source620-control/4,152,587-token cost;
+new evaluation consumed6,360 controls. See replay_strict_goal6_seed173_result.json.
+
+A separate frozen-model diagnostic used the same fixed noise and times across
+checkpoints on all22 training windows. The single correction-containing window's
+controller MSE was0.4385 initially,0.4366 at40,0.2437 at100, and0.01893 at200.
+Its fixed-noise flow loss fell0.7836 to0.1165. These are training-set fit metrics,
+not validation or physical improvement. The learner can reproduce this correction,
+but stronger fitting alone worsened autonomy. Probe setup failures, the complete
+structured receipt and shared-allocation timing are retained in
+replay_strict_fit_probe.json. No probe changed the host learner or executed actions.
+
+Candidate diversity and camera-axis grounding diagnostics
+At saved V6 reset0 steps125 and135, four independent original-policy Gaussian
+samples were added to each fixed candidate pool. Astra selected native in both
+cases; all eight new samples were uncertain. The recorded judgments specifically
+could not map world-axis motion to the visible destination. These targeted cases
+do not estimate policy support or general verifier reliability. The 35.5-second
+sampling probe shared the running V6 allocation and executed no environment action;
+its earlier filename setup error is retained. See independent_native_candidates_probe.json.
+
+Adding the frozen camera-axis projection to exactly those pools left step125
+unchanged but selected the stronger TLI candidate at135. The predicted advantage
+was positive-world-y transport toward the visible bowl, with less descent and
+continued closing. All24 geometry input frames and robot states matched this
+V6 episode's earlier prefix exactly, despite having been labeled from the V5
+archive. Thus no future view or privileged object pose was introduced. The
+candidate remains unexecuted; this is a context diagnostic, not success evidence.
+See grounded_comparison_probe.json.
+
+V8 prospective revision: estimate a projection within each rollout
+At action120, label twelve earlier external-camera frames at0,10,...110 while
+withholding proprioception from the labeler. Fit a local affine camera projection
+afterward, then label/check separate frames at5,15,...115. Require six labels
+with confidence>=0.6 in each split, fit condition<=100, leave-one-out RMS<=8px,
+and separate-frame RMS<=8px. Failed checks supply no numeric hint. Reuse nothing
+from previous rollouts; all source actions already count in this rollout.
+
+An accepted projection is supplied only to later diagnosis and comparison, with
+its pose range, error and current extrapolation. It supplies approximate axes,
+not destination depth, object coordinates, collision clearance or future images.
+Actual-outcome assessment and autonomous policy inputs remain unchanged. The
+same clear-win gate, bounded target/RTC/text candidate pool and strict executed
+window admission apply. Keep20 optimizer steps per collection because stronger
+fixed-data fitting did not improve success. This tests better grounded collection,
+not a larger optimization budget. Geometry calls are bound to their rollout and
+included in its teacher-token accounting. GPU rollout results remain pending.

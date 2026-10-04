@@ -134,6 +134,19 @@ unexecuted target or tail is automatically admitted as training data.
 No FRS, action inversion, or geometric lookahead is involved.
 """
 
+GROUNDING_EXTENSION = """
+The measured_local_image_projection context was fitted to visible gripper-center
+labels and proprioception from this SAME rollout's already executed prefix, then
+checked against separate recorded frames. It supplies approximate camera-axis
+directions that may help interpret actual controller commands. The labeler saw
+images alone; this is not privileged simulator geometry or a future rendering.
+Respect its reported errors, supported pose range and current extrapolation.
+It does not determine receptacle depth, object-to-gripper offset, collision
+clearance or candidate outcomes. Use it when it supports a relative judgment;
+retain uncertainty where the missing quantities matter. Reduced projected error
+alone is not a grasp, task success, or permission to relax the clear-win gate.
+"""
+
 
 def _object(properties):
     return {
@@ -442,6 +455,11 @@ def build_payload(request, model, *, sampling=None):
                 + (
                     BOUNDED_TARGET_EXTENSION
                     if request["context"].get("bounded_target_candidate", False)
+                    else ""
+                )
+                + (
+                    GROUNDING_EXTENSION
+                    if "measured_local_image_projection" in request["context"]
                     else ""
                 ),
             },

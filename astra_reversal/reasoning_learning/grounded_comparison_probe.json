@@ -1,0 +1,316 @@
+{
+  "environment_actions": 0,
+  "used_for_training": false,
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-7",
+  "steps": [
+    125,
+    135
+  ],
+  "paired_context_change": "Add the frozen image projection and its measured limitations to exactly the previous independent-native candidate pools. The no-projection comparisons already exist; no candidate, reference or rule changes.",
+  "geometry_source": "Pixel labels were obtained on V5 frames; all 24 fitting/validation input frames and robot states match the earlier real prefix of this V6 episode exactly. No future frames or hidden object poses are used.",
+  "verified_matching_prefix_steps": [
+    0,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50,
+    55,
+    60,
+    65,
+    70,
+    75,
+    80,
+    85,
+    90,
+    95,
+    100,
+    105,
+    110,
+    115
+  ],
+  "geometry_label_token_cost_counted_separately": true,
+  "cases": [
+    {
+      "step": 125,
+      "without_projection": {
+        "judgments": [
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "The five-action prefix keeps closing the gripper, increases positive-x travel and reduces x-axis rotation relative to native. The images do not establish that these changes improve bottle-base alignment over the bowl.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The prefix closely matches native in translation, rotation and continuous grasp retention. Its slightly stronger negative-y motion and slightly smaller lift provide no distinguishable alignment advantage.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "The prefix is very similar to native, with slightly less positive-x travel and lift and slightly more negative-y travel. No meaningful improvement toward the visible bowl opening is supported.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tli_1",
+            "evidence": "The prefix retains the closing command while adding positive-x travel and elevation and reducing x-axis rotation. Extra elevation alone does not meet the rule, and improved horizontal alignment is unverified.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tli_2",
+            "evidence": "The prefix maintains closure but increases positive-x travel and substantially reduces x-axis rotation. The supplied views do not establish whether this better positions the bottle base over the opening.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native0",
+            "evidence": "Closure is preserved, but lift is smaller and descent starts at action 4, within the executed prefix. Alignment and clearance at that point are not established, so this is not a supported improvement.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native1",
+            "evidence": "The prefix retains closure and has similar total elevation, with somewhat more positive-x and less negative-y travel. The scene does not resolve whether that horizontal change improves bowl alignment.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native2",
+            "evidence": "The prefix maintains closure but reduces lift and begins descending at action 4. Its altered horizontal travel does not establish alignment before descent; the relative consequence remains uncertain.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native3",
+            "evidence": "The prefix maintains strong closure, increases positive-x travel and reduces negative-y travel while ending with almost no upward command. There is insufficient evidence that this places the bottle closer to alignment than native.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native"
+      },
+      "with_projection": {
+        "judgments": [
+          {
+            "candidate_id": "independent_native0",
+            "evidence": "Steps 0\u20134 retain closure but lift less than native and begin descending at step 4. Reduced negative-y motion may reduce projected rightward travel, but bottle-base alignment and clearance are unresolved; improvement is uncertain.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native1",
+            "evidence": "The prefix retains closure with somewhat more positive-x motion and elevation than native. The supplied projection does not establish that these changes bring the bottle base closer to the bowl opening.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native2",
+            "evidence": "The prefix closes the gripper throughout, lifts less, and starts descending at step 4. Neither sufficient alignment for that descent nor a clearance advantage is supported by the images.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native3",
+            "evidence": "More positive-x motion and slightly more elevation accompany maintained closure. These differences do not establish improved bowl alignment, especially with unresolved bottle-to-gripper geometry.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "The five commands closely resemble native, with modestly more positive-x translation and less x-axis rotation. Closure is preserved, but the effect on bottle-base alignment is not clear.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The executed prefix is nearly identical to native in translation, rotation, and sustained closure. The small changes provide no supported material advantage under the fixed alignment rule.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "The prefix makes only small translation and rotation changes while maintaining closure. No meaningful difference in likely alignment or grasp preservation is supported.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tli_1",
+            "evidence": "The prefix adds elevation and positive-x travel while maintaining closure. Additional elevation alone does not satisfy the rule; the local projection does not support a clear destination-alignment advantage.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tli_2",
+            "evidence": "The prefix substantially reduces x-axis rotation and increases positive-x travel while keeping the gripper closed. Without bottle-to-gripper geometry, the resulting base alignment cannot be ranked confidently against native.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:125:compare:70040",
+        "request_fingerprint": "d8e54f53f947eaef414dbe02d70cccb56766a2be499db6c7fb9465def13a909d",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 70040,
+        "observation_step": 125
+      },
+      "receipt": {
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "returned_model": null,
+        "reasoning_effort": "medium",
+        "request_sha256": "946c03d6872889549af1dd616b3a63794ac9e092d2355f5a01bda51f2336afe2",
+        "status": "accepted",
+        "token_usage": {
+          "input_tokens": 24851,
+          "output_tokens": 542,
+          "reasoning_tokens": 57,
+          "total_tokens": 25393
+        },
+        "raw_usage": {
+          "input_tokens": 24851,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 542,
+          "reasoning_output_tokens": 57
+        },
+        "cli_version": "codex-cli 0.159.3",
+        "schema_sha256": "88283c1762e9a80a71b02c5d9d940283f5f9f6ec2da6a2df5e3877df79a646bc",
+        "prompt_sha256": "f9cb1c58ac2e82092148984d558a35e4a285f3efa3d56c49acf08ce4a5e07e71",
+        "token_usage_is_lower_bound": false,
+        "final_sha256": "5df8222f7c592050ff881b285123fc32cf220eed8c250a76dc4fd9d2fd971fe4",
+        "latency_seconds": 17.67767962499056
+      }
+    },
+    {
+      "step": 135,
+      "without_projection": {
+        "judgments": [
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "Actions 0\u20134 maintain closing and reduce descent and x rotation relative to native, but still command substantial descent while the bottle is beside the rack. Changed horizontal motion does not establish transport above the bowl; improvement under the full rule is uncertain.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The executed prefix is nearly identical to native in descent, horizontal translation, rotation and closing. No meaningful improvement in clearance or bowl-directed transport is supported.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "The prefix closely follows native, with slightly reduced descent and x rotation and continued closing. These small differences do not establish a meaningful change in transport or clearance.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tli_1",
+            "evidence": "Closing is maintained and descent and rotation are reduced, but horizontal transport nearly disappears. The bottle is not visibly above the bowl, so descending mostly in place does not clearly improve the required transport.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tli_2",
+            "evidence": "The prefix reduces descent and substantially reduces rotation while maintaining closing, but initially reverses native's y direction. The supplied views do not establish that this altered transport approaches the bowl while preserving clearance.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native0",
+            "evidence": "The prefix maintains closing and commands stronger initial negative-y movement with roughly similar substantial descent. No supplied coordinate-to-image correspondence establishes that the changed horizontal motion improves bowl alignment.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native1",
+            "evidence": "Closing continues, with stronger negative-y motion and slightly greater descent than native. This offers no established clearance advantage, and improved transport toward the bowl cannot be inferred reliably.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native2",
+            "evidence": "The prefix retains closing but changes horizontal travel and slightly increases descent. Without established bowl-directed world axes, its transport advantage over native is uncertain.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native3",
+            "evidence": "The prefix commands substantially more negative-y travel, similar descent and somewhat more x rotation while maintaining closing. Whether that extra travel improves bowl alignment or clearance is unsupported by the supplied observation.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native"
+      },
+      "with_projection": {
+        "judgments": [
+          {
+            "candidate_id": "independent_native0",
+            "evidence": "The five-action prefix retains closing commands but descends about as strongly as native. Its more negative cumulative Y approximately moves farther right, away from the visible bowl. No clear improvement in clearance or transport.",
+            "preference": "loss"
+          },
+          {
+            "candidate_id": "independent_native1",
+            "evidence": "Closing commands persist, but descent is slightly stronger and cumulative negative Y is larger than native. The supplied approximate projection indicates additional rightward motion away from the bowl.",
+            "preference": "loss"
+          },
+          {
+            "candidate_id": "independent_native2",
+            "evidence": "The prefix maintains closing commands while descending slightly more than native, with greater negative Y motion. This offers no supported clearance benefit and approximately increases motion away from the bowl.",
+            "preference": "loss"
+          },
+          {
+            "candidate_id": "independent_native3",
+            "evidence": "Much greater negative Y commands approximately drive farther right, away from the bowl, while substantial descent continues throughout the executed prefix. Closing commands alone do not offset this transport disadvantage.",
+            "preference": "loss"
+          },
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "Closing commands persist and descent and X rotation are moderately reduced. However, negative Y still approximately carries the bottle away from the bowl; the overall transport improvement is unclear.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The executed prefix closely matches native in translation, descent, rotation and closing commands. Differences are too small to support a distinct practical consequence.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "The prefix slightly reduces descent and rotation but keeps essentially the same negative Y transport and closing commands. A meaningful improvement under the fixed rule is not established.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tli_1",
+            "evidence": "The prefix reduces descent and rotation and nearly eliminates native's negative Y motion, while maintaining closing commands. However, horizontal transport toward the bowl is minimal, leaving useful progress uncertain.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tli_2",
+            "evidence": "The bottle is visibly beside the rack, to the right of the bowl. Initial positive Y commands approximately move left toward the bowl, reversing native's unfavorable lateral direction. The prefix also reduces descent and X rotation while preserving strong closing commands. This supports relative improvement, although continued descent requires reobservation and neither clearance nor grasp success is proven.",
+            "preference": "win"
+          }
+        ],
+        "selected": "subgoal_tli_2",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:135:compare:70045",
+        "request_fingerprint": "8f555d36c023dd410962f86df646be0b3d3d6c4e90cabc555fa0041bfa76fa6c",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 70045,
+        "observation_step": 135
+      },
+      "receipt": {
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "returned_model": null,
+        "reasoning_effort": "medium",
+        "request_sha256": "499d8b3f76d72361dc709bcbce18f98d381a8a00d484a9f2a92cf87b7e361175",
+        "status": "accepted",
+        "token_usage": {
+          "input_tokens": 25129,
+          "output_tokens": 572,
+          "reasoning_tokens": 59,
+          "total_tokens": 25701
+        },
+        "raw_usage": {
+          "input_tokens": 25129,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 572,
+          "reasoning_output_tokens": 59
+        },
+        "cli_version": "codex-cli 0.159.3",
+        "schema_sha256": "88283c1762e9a80a71b02c5d9d940283f5f9f6ec2da6a2df5e3877df79a646bc",
+        "prompt_sha256": "56a1dcebc71f6a3e5f283cd11618a7078199499e9d8a88cdc1cecbc2e770be63",
+        "token_usage_is_lower_bound": false,
+        "final_sha256": "239d4b33269e0865a7447c88846011c0cc5cde3246553d8d6a2debbb7c731b33",
+        "latency_seconds": 28.082965792011237
+      }
+    }
+  ]
+}

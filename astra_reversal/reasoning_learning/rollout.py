@@ -16,7 +16,7 @@ from astra_reversal.intervention_rollout import run_rollout
 from astra_reversal.lerobot_policy import prepare_velocity
 from astra_reversal.records import digest, to_numpy
 
-from . import teacher
+from . import online_grounding, teacher, visual_grounding
 from .evidence import CandidateBatch, append_record, training_windows
 from .guidance import GuidanceConfig, generate
 from .semantic import candidates as semantic_candidates
@@ -43,6 +43,7 @@ class LearningRollout:
         text_latent_candidates=False,
         comparison_feedback=False,
         bounded_target_candidate=False,
+        visual_grounding_client=None,
         controller_delta_limits=None,
         retain_step_observations=True,
         max_episodes=3,
@@ -75,6 +76,11 @@ class LearningRollout:
         self.text_latent_candidates = text_latent_candidates
         self.comparison_feedback = comparison_feedback
         self.bounded_target_candidate = bounded_target_candidate
+        self.visual_grounding_client = visual_grounding_client
+        if visual_grounding_client is not None and client is None:
+            raise ValueError("Autonomous evaluation cannot use visual grounding")
+        self.projection_attempted = False
+        self.projection_receipt = None
         if bounded_target_candidate and not explicit_execution_prefix:
             raise ValueError(
                 "Bounded target candidates require the five-action edit contract"
@@ -98,6 +104,13 @@ class LearningRollout:
         self.progress = progress
 
     def _ask(self, role, step, snapshots, context):
+        if role in ("diagnose", "compare") and self.projection_receipt:
+            projection = online_grounding.context(
+                self.projection_receipt,
+                snapshots[-1]["observation"]["observation/state"],
+            )
+            if projection is not None:
+                context = {**context, "measured_local_image_projection": projection}
         request = teacher.build_request(
             role=role,
             episode_id=self.episode_id,
@@ -144,6 +157,52 @@ class LearningRollout:
         response = self.client.propose(request)
         append_record(self.directory / "teacher_responses.jsonl", response)
         return response
+
+    def _maybe_projection(self, step):
+        if (
+            self.visual_grounding_client is None
+            or self.projection_attempted
+            or step < online_grounding.AT_STEP
+        ):
+            return
+        self.projection_attempted = True
+        if any(
+            self.steps[s]["episode_id"] != self.episode_id
+            for s in online_grounding.FIT_STEPS + online_grounding.VALIDATION_STEPS
+        ):
+            raise ValueError("Projection history belongs to another episode")
+        history = {
+            s: self.observations[self.steps[s]["observation_id"]]
+            for s in online_grounding.FIT_STEPS + online_grounding.VALIDATION_STEPS
+        }
+
+        def ask_pixels(frames):
+            request = visual_grounding.build_request(
+                frames,
+                self.instruction,
+                identity={
+                    "episode_id": self.episode_id,
+                    "request_index": self.request_index,
+                    "observation_step": step,
+                },
+            )
+            self.request_index += 1
+            append_record(self.directory / "teacher_requests.jsonl", request)
+            if self.progress is not None:
+                self.progress()
+            response = self.visual_grounding_client.propose(request)
+            append_record(self.directory / "teacher_responses.jsonl", response)
+            return response
+
+        self.projection_receipt = {
+            **online_grounding.estimate(history, ask_pixels),
+            "episode_id": self.episode_id,
+            "available_at_step": step,
+            "policy_version": self.version,
+        }
+        (self.directory / "visual_projection.json").write_text(
+            json.dumps(self.projection_receipt, indent=2) + "\n"
+        )
 
     def _finish_prefix(self, observation, step):
         if self.pending is None or self.client is None:
@@ -214,6 +273,7 @@ class LearningRollout:
             raise ValueError("Policy weights must remain fixed throughout collection")
         self.last_observation = copy.deepcopy(observation)
         self._finish_prefix(observation, step)
+        self._maybe_projection(step)
         if (
             self.active is not None
             and step - self.active["start_step"] >= self.max_active_actions

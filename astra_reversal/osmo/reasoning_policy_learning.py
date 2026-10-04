@@ -34,7 +34,7 @@ from astra_reversal.records import digest
 
 def load_protocol(path=None, *, version=None):
     version = version or os.environ.get("ASTRA_LEARNING_PROTOCOL_VERSION", "v1")
-    if version not in ("v1", "v2", "v3", "v4", "v5", "v6", "v7"):
+    if version not in ("v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8"):
         raise ValueError("Unknown learning protocol version")
     path = path or (
         Path(__file__).parents[1] / f"configs/reasoning_policy_learning_{version}.json"
@@ -226,7 +226,7 @@ def main():
             "payload_sha256": os.environ["PAYLOAD_SHA256"],
         },
     )
-    client = None
+    client = visual_client = None
     if phase == "pilot":
         client = CodexRelayClient(
             model="gpt-6-astra",
@@ -235,6 +235,13 @@ def main():
             timeout=protocol["teacher"]["timeout_seconds_per_call"],
         )
         client.ensure_server()
+        if protocol["teacher"].get("online_visual_projection", False):
+            visual_client = CodexRelayClient(
+                model="gpt-6-astra",
+                family="visual_grounding",
+                response_log=str(RESULTS / "provider.jsonl"),
+                timeout=protocol["teacher"]["timeout_seconds_per_call"],
+            )
     try:
         policy = load_frozen_policy()
         if policy.horizon != protocol["checkpoint"]["runtime_action_horizon"]:
@@ -406,6 +413,7 @@ def main():
                 bounded_target_candidate=protocol["teacher"].get(
                     "bounded_target_candidate", False
                 ),
+                visual_grounding_client=visual_client,
                 controller_delta_limits=protocol["teacher"].get(
                     "controller_delta_limits"
                 ),

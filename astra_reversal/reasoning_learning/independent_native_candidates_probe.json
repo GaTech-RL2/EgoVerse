@@ -1,0 +1,1062 @@
+{
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-7",
+  "source_episode": "libero_goal_ood:seed173:task6:state0",
+  "steps": [
+    125,
+    135
+  ],
+  "independent_candidates_per_observation": 4,
+  "noise_seed_rule": "7771 + observation_step",
+  "prior_attempt": "The first shared-GPU diagnostic loaded the frozen model but used a step-based observation filename; actual records use observation hashes. It produced no candidates, calls, or environment actions. Log retained separately. No additional GPU allocation.",
+  "environment_actions": 0,
+  "used_for_training": false,
+  "selection": "Saved transport-phase observations where semantic proposals were rejected; targeted development diagnostic, not random task sampling.",
+  "scope": "Same original policy, real observation, original instruction and fixed native reference/rule. Independent Gaussian native samples are added to the saved pool. No inversion, modified observation, synthetic training or candidate execution.",
+  "generation": {
+    "cases": [
+      {
+        "step": 125,
+        "observation_id": "c870b62f1b430624f94ccc26b843c3bae2c84424ca1c6a546e587532bbbea883",
+        "candidates": [
+          {
+            "candidate_id": "independent_native0",
+            "commands": [
+              [
+                0.2397969514131546,
+                -0.49097344279289246,
+                0.41164225339889526,
+                0.23614665865898132,
+                0.0065215956419706345,
+                -0.0070298900827765465,
+                1.0
+              ],
+              [
+                0.19719287753105164,
+                -0.4898759424686432,
+                0.24219520390033722,
+                0.24578021466732025,
+                -0.0047637829557061195,
+                -0.016644515097141266,
+                1.0
+              ],
+              [
+                0.15068058669567108,
+                -0.5011348128318787,
+                0.11567617952823639,
+                0.2609476149082184,
+                -0.0067538125440478325,
+                -0.019794302061200142,
+                1.0
+              ],
+              [
+                0.1099962517619133,
+                -0.5142865180969238,
+                0.013308859430253506,
+                0.28108230233192444,
+                -0.003070947015658021,
+                -0.016958706080913544,
+                1.0
+              ],
+              [
+                0.07711903750896454,
+                -0.5133548378944397,
+                -0.10255230963230133,
+                0.3007216155529022,
+                -0.0011969998013228178,
+                -0.015487558208405972,
+                1.0
+              ],
+              [
+                0.06281536817550659,
+                -0.5073609352111816,
+                -0.2373473197221756,
+                0.31620314717292786,
+                0.0018903297604992986,
+                -0.013663443736732006,
+                1.0
+              ],
+              [
+                0.057129137217998505,
+                -0.4930715262889862,
+                -0.3475194275379181,
+                0.3251558542251587,
+                0.0011679321760311723,
+                -0.013237377628684044,
+                1.0
+              ],
+              [
+                0.054809700697660446,
+                -0.47586339712142944,
+                -0.4148721992969513,
+                0.3280344307422638,
+                0.002982167061418295,
+                -0.013257828541100025,
+                1.0
+              ],
+              [
+                0.05864107236266136,
+                -0.4563819468021393,
+                -0.47167277336120605,
+                0.3262309730052948,
+                0.00558379665017128,
+                -0.012717053294181824,
+                1.0
+              ],
+              [
+                0.045157406479120255,
+                -0.4322398900985718,
+                -0.48473796248435974,
+                0.3197306990623474,
+                0.008275533095002174,
+                -0.010931110009551048,
+                1.0
+              ]
+            ],
+            "noise_sha256": "aabdbe3e4635457b64373afb1636595394afae4e20015f4d50f464dc2122a865",
+            "clipping": {
+              "count": 10,
+              "max_abs": 0.009062409400939941
+            }
+          },
+          {
+            "candidate_id": "independent_native1",
+            "commands": [
+              [
+                0.2672979235649109,
+                -0.500480592250824,
+                0.48461318016052246,
+                0.2244955450296402,
+                0.0156693197786808,
+                -0.014968364499509335,
+                0.9964609146118164
+              ],
+              [
+                0.2307446151971817,
+                -0.5048542022705078,
+                0.35691097378730774,
+                0.23329351842403412,
+                0.005608916282653809,
+                -0.023375358432531357,
+                1.0
+              ],
+              [
+                0.18698137998580933,
+                -0.5227490067481995,
+                0.228072851896286,
+                0.24451714754104614,
+                -8.844055992085487e-05,
+                -0.026368992403149605,
+                1.0
+              ],
+              [
+                0.1459359973669052,
+                -0.5352680087089539,
+                0.1212942823767662,
+                0.2555006146430969,
+                -0.003564605489373207,
+                -0.025027137249708176,
+                1.0
+              ],
+              [
+                0.12452653050422668,
+                -0.5471481084823608,
+                0.06641259789466858,
+                0.2654187083244324,
+                -0.003535861847922206,
+                -0.022387463599443436,
+                1.0
+              ],
+              [
+                0.11067498475313187,
+                -0.5444603562355042,
+                -0.03344724327325821,
+                0.281564325094223,
+                -0.006076170597225428,
+                -0.020072780549526215,
+                1.0
+              ],
+              [
+                0.10176412016153336,
+                -0.5280689597129822,
+                -0.19398543238639832,
+                0.3081657588481903,
+                -0.008465856313705444,
+                -0.019440311938524246,
+                1.0
+              ],
+              [
+                0.10038236528635025,
+                -0.5131463408470154,
+                -0.3193413019180298,
+                0.33135363459587097,
+                -0.010598926804959774,
+                -0.018918011337518692,
+                1.0
+              ],
+              [
+                0.09552481025457382,
+                -0.49821266531944275,
+                -0.39240485429763794,
+                0.3472006916999817,
+                -0.00248755794018507,
+                -0.017096655443310738,
+                1.0
+              ],
+              [
+                0.08595309406518936,
+                -0.4929690957069397,
+                -0.4110700786113739,
+                0.35184723138809204,
+                0.006817013490945101,
+                -0.013810879550874233,
+                1.0
+              ]
+            ],
+            "noise_sha256": "2b057ade94dbdb43a79de78af2ad7ca2909d0d9cf8a65f8bddb6538cca03a72b",
+            "clipping": {
+              "count": 9,
+              "max_abs": 0.010847330093383789
+            }
+          },
+          {
+            "candidate_id": "independent_native2",
+            "commands": [
+              [
+                0.29478976130485535,
+                -0.47427335381507874,
+                0.40070629119873047,
+                0.21834969520568848,
+                0.006563249044120312,
+                -0.014327102340757847,
+                1.0
+              ],
+              [
+                0.24380728602409363,
+                -0.49072012305259705,
+                0.2308405488729477,
+                0.23315970599651337,
+                -0.0029060773085802794,
+                -0.01949431747198105,
+                1.0
+              ],
+              [
+                0.18428905308246613,
+                -0.5057556629180908,
+                0.10599086433649063,
+                0.24698573350906372,
+                -0.014212804846465588,
+                -0.020773660391569138,
+                1.0
+              ],
+              [
+                0.12526239454746246,
+                -0.5211589336395264,
+                0.017201868817210197,
+                0.2656996250152588,
+                -0.019218889996409416,
+                -0.020282035693526268,
+                1.0
+              ],
+              [
+                0.0989125445485115,
+                -0.5316524505615234,
+                -0.08653879910707474,
+                0.28815364837646484,
+                -0.009571146219968796,
+                -0.01698555052280426,
+                1.0
+              ],
+              [
+                0.10802863538265228,
+                -0.5326352119445801,
+                -0.22718869149684906,
+                0.31309425830841064,
+                -0.00020112848142161965,
+                -0.014116866514086723,
+                1.0
+              ],
+              [
+                0.1063275933265686,
+                -0.5169285535812378,
+                -0.338329553604126,
+                0.3292807638645172,
+                0.006557838525623083,
+                -0.012185870669782162,
+                1.0
+              ],
+              [
+                0.08251309394836426,
+                -0.5033566951751709,
+                -0.40469038486480713,
+                0.33739781379699707,
+                0.008079402148723602,
+                -0.012489278800785542,
+                1.0
+              ],
+              [
+                0.05922025442123413,
+                -0.48390111327171326,
+                -0.4589208662509918,
+                0.33798566460609436,
+                0.007625454571098089,
+                -0.01039262767881155,
+                1.0
+              ],
+              [
+                0.04658540338277817,
+                -0.46503588557243347,
+                -0.48665523529052734,
+                0.3381217122077942,
+                0.008470389991998672,
+                -0.007701692637056112,
+                1.0
+              ]
+            ],
+            "noise_sha256": "9117eab71c7189edf7cf6ae89232e3fbbeaa9010c3f887dc522ac687f8a4ce7f",
+            "clipping": {
+              "count": 10,
+              "max_abs": 0.010988950729370117
+            }
+          },
+          {
+            "candidate_id": "independent_native3",
+            "commands": [
+              [
+                0.2663196921348572,
+                -0.49829185009002686,
+                0.4639323353767395,
+                0.24184703826904297,
+                0.015999017283320427,
+                -0.006296630948781967,
+                0.9927241206169128
+              ],
+              [
+                0.2627410888671875,
+                -0.48857322335243225,
+                0.3701190948486328,
+                0.2471558004617691,
+                0.010426870547235012,
+                -0.013309708796441555,
+                0.9937294721603394
+              ],
+              [
+                0.2301824539899826,
+                -0.4926357567310333,
+                0.27485397458076477,
+                0.25171396136283875,
+                0.0007662705611437559,
+                -0.01772431470453739,
+                0.9958994388580322
+              ],
+              [
+                0.17769411206245422,
+                -0.5091037750244141,
+                0.14270488917827606,
+                0.263347327709198,
+                -0.0021058458369225264,
+                -0.017530037090182304,
+                0.9943715929985046
+              ],
+              [
+                0.13870620727539062,
+                -0.5326013565063477,
+                0.019152339547872543,
+                0.2829809784889221,
+                0.0005011421744711697,
+                -0.013881641440093517,
+                0.9953097105026245
+              ],
+              [
+                0.12502102553844452,
+                -0.5493027567863464,
+                -0.1457090526819229,
+                0.3091740012168884,
+                -0.003195855300873518,
+                -0.012146658264100552,
+                0.9993943572044373
+              ],
+              [
+                0.14986692368984222,
+                -0.5346213579177856,
+                -0.312276691198349,
+                0.3303236961364746,
+                0.0005970036727376282,
+                -0.008762264624238014,
+                1.0
+              ],
+              [
+                0.17349611222743988,
+                -0.5087570548057556,
+                -0.415530800819397,
+                0.33957207202911377,
+                0.0035098751541227102,
+                -0.008889582008123398,
+                1.0
+              ],
+              [
+                0.15626175701618195,
+                -0.47239023447036743,
+                -0.4594210982322693,
+                0.33849644660949707,
+                0.0011304460931569338,
+                -0.007761400192975998,
+                0.999703049659729
+              ],
+              [
+                0.12755712866783142,
+                -0.458271324634552,
+                -0.45940980315208435,
+                0.3326660692691803,
+                -0.004364043474197388,
+                -0.0077470578253269196,
+                1.0
+              ]
+            ],
+            "noise_sha256": "f654e11aa778ffadd90b66e7c672eea538910d5a2ebf23a1d4d8227218fce962",
+            "clipping": {
+              "count": 3,
+              "max_abs": 0.0027937889099121094
+            }
+          }
+        ]
+      },
+      {
+        "step": 135,
+        "observation_id": "bef15ec59fc19bb585c715609098415702754523436cd8725371d9e9ca618ebc",
+        "candidates": [
+          {
+            "candidate_id": "independent_native0",
+            "commands": [
+              [
+                0.04066608101129532,
+                -0.42595407366752625,
+                -0.46992626786231995,
+                0.31410089135169983,
+                0.020270943641662598,
+                -0.010255658067762852,
+                1.0
+              ],
+              [
+                0.0086743775755167,
+                -0.33384960889816284,
+                -0.5230720043182373,
+                0.2963453233242035,
+                0.011549676768481731,
+                -0.00885205902159214,
+                0.9986212849617004
+              ],
+              [
+                -0.00011082957644248381,
+                -0.20976606011390686,
+                -0.5600140690803528,
+                0.2707763612270355,
+                0.00321012269705534,
+                -0.005104111973196268,
+                1.0
+              ],
+              [
+                -0.00687334593385458,
+                -0.049555640667676926,
+                -0.5702999830245972,
+                0.23543375730514526,
+                -0.008904336020350456,
+                -0.0013784096809104085,
+                0.9990622997283936
+              ],
+              [
+                -0.020650291815400124,
+                0.013622794300317764,
+                -0.548146665096283,
+                0.20610001683235168,
+                -0.004098027013242245,
+                0.003242888255044818,
+                0.9970803260803223
+              ],
+              [
+                -0.04054762050509453,
+                0.056394077837467194,
+                -0.5306943655014038,
+                0.18263939023017883,
+                0.0008489403990097344,
+                0.009501713328063488,
+                0.9975292086601257
+              ],
+              [
+                -0.08674825727939606,
+                0.05877263471484184,
+                -0.519997775554657,
+                0.1675785630941391,
+                0.00798602681607008,
+                0.016843369230628014,
+                0.9971147775650024
+              ],
+              [
+                -0.09335936605930328,
+                0.044639550149440765,
+                -0.5107816457748413,
+                0.1600884050130844,
+                0.02009904384613037,
+                0.020833298563957214,
+                0.9957751631736755
+              ],
+              [
+                -0.06534898281097412,
+                0.021995503455400467,
+                -0.4715641736984253,
+                0.15510252118110657,
+                0.04717065393924713,
+                0.024309463798999786,
+                0.9954032897949219
+              ],
+              [
+                -0.014467258006334305,
+                0.012646622024476528,
+                -0.36717063188552856,
+                0.14278236031532288,
+                0.06943308562040329,
+                0.019764205440878868,
+                0.9959762096405029
+              ]
+            ],
+            "noise_sha256": "8f181b2ffc6a2dc808b8495dc146685488ef4f976901bef3b9174b0f2731b542",
+            "clipping": {
+              "count": 2,
+              "max_abs": 0.007481098175048828
+            }
+          },
+          {
+            "candidate_id": "independent_native1",
+            "commands": [
+              [
+                0.04007866606116295,
+                -0.4429582953453064,
+                -0.4939069151878357,
+                0.3228781819343567,
+                -0.0030057826079428196,
+                -0.012636699713766575,
+                1.0
+              ],
+              [
+                0.0279233455657959,
+                -0.371615469455719,
+                -0.5452741384506226,
+                0.30686530470848083,
+                -0.002212559338659048,
+                -0.009840436279773712,
+                1.0
+              ],
+              [
+                0.009358379989862442,
+                -0.2457900494337082,
+                -0.5751082301139832,
+                0.281491219997406,
+                -0.0022643546108156443,
+                -0.004290151875466108,
+                1.0
+              ],
+              [
+                0.0082243662327528,
+                -0.09956374764442444,
+                -0.5855793356895447,
+                0.2487216591835022,
+                -0.0009928162908181548,
+                -0.0004586232244037092,
+                1.0
+              ],
+              [
+                0.00457447674125433,
+                -0.04082091152667999,
+                -0.5737528800964355,
+                0.22127856314182281,
+                0.005396283231675625,
+                0.004393541254103184,
+                1.0
+              ],
+              [
+                -0.01994575746357441,
+                -0.017223093658685684,
+                -0.5653629302978516,
+                0.20197492837905884,
+                0.014789540320634842,
+                0.014362398535013199,
+                0.9993595480918884
+              ],
+              [
+                -0.05147484689950943,
+                -0.021439079195261,
+                -0.5507195591926575,
+                0.18758679926395416,
+                0.032770998775959015,
+                0.02309955656528473,
+                0.9976170659065247
+              ],
+              [
+                -0.07491663843393326,
+                -0.044077351689338684,
+                -0.5321754813194275,
+                0.17938561737537384,
+                0.056815650314092636,
+                0.028538433834910393,
+                0.9956384301185608
+              ],
+              [
+                -0.0630946159362793,
+                -0.06174703687429428,
+                -0.5033290982246399,
+                0.17097587883472443,
+                0.07349350303411484,
+                0.028315091505646706,
+                0.9950979351997375
+              ],
+              [
+                -0.028159964829683304,
+                -0.05901006609201431,
+                -0.42240527272224426,
+                0.15713050961494446,
+                0.08145247399806976,
+                0.022313149645924568,
+                0.9952962398529053
+              ]
+            ],
+            "noise_sha256": "eb89aecbad78332e239063dd88f73b080b4841eac490b992f9efd71caf267536",
+            "clipping": {
+              "count": 5,
+              "max_abs": 0.010728120803833008
+            }
+          },
+          {
+            "candidate_id": "independent_native2",
+            "commands": [
+              [
+                0.024352023378014565,
+                -0.38699057698249817,
+                -0.5012575387954712,
+                0.3131917417049408,
+                -0.002472799737006426,
+                -0.016773175448179245,
+                1.0
+              ],
+              [
+                0.0074194264598190784,
+                -0.3059580624103546,
+                -0.5532432794570923,
+                0.2979119122028351,
+                -0.000788434233982116,
+                -0.011960795149207115,
+                1.0
+              ],
+              [
+                0.008776839822530746,
+                -0.22089360654354095,
+                -0.5729871392250061,
+                0.2800453305244446,
+                0.002921002684161067,
+                -0.00792468711733818,
+                1.0
+              ],
+              [
+                -0.0008545226301066577,
+                -0.12119051814079285,
+                -0.5767824649810791,
+                0.2512928247451782,
+                0.0015463647432625294,
+                -0.00456089386716485,
+                0.998702347278595
+              ],
+              [
+                -0.01624581590294838,
+                -0.013657973147928715,
+                -0.5681383609771729,
+                0.20766685903072357,
+                -0.0005477882223203778,
+                0.0020428888965398073,
+                0.9982969760894775
+              ],
+              [
+                -0.03035730868577957,
+                0.00611464586108923,
+                -0.5603573322296143,
+                0.1913248598575592,
+                0.0072761420160532,
+                0.007562346290796995,
+                0.9973171949386597
+              ],
+              [
+                -0.03757445514202118,
+                0.003925610333681107,
+                -0.5519893765449524,
+                0.1782153993844986,
+                0.025682803243398666,
+                0.014793215319514275,
+                0.9970096945762634
+              ],
+              [
+                -0.029959406703710556,
+                0.0072167376056313515,
+                -0.5224096179008484,
+                0.16069941222667694,
+                0.048733390867710114,
+                0.01913113333284855,
+                0.9971053600311279
+              ],
+              [
+                -0.02088167332112789,
+                -0.003130865516141057,
+                -0.4673032760620117,
+                0.1437670886516571,
+                0.07492624968290329,
+                0.019832449033856392,
+                0.9939091801643372
+              ],
+              [
+                -0.011955449357628822,
+                -0.008354008197784424,
+                -0.353167861700058,
+                0.12286530435085297,
+                0.08424367755651474,
+                0.015277238562703133,
+                0.9990770816802979
+              ]
+            ],
+            "noise_sha256": "3a4b7285bc9e0be2444fca01bdea1df3d8c5b1730c301e156b06126152a77477",
+            "clipping": {
+              "count": 3,
+              "max_abs": 0.010862112045288086
+            }
+          },
+          {
+            "candidate_id": "independent_native3",
+            "commands": [
+              [
+                0.04633770510554314,
+                -0.45013007521629333,
+                -0.4629143178462982,
+                0.3155907988548279,
+                0.005962323397397995,
+                -0.014127001166343689,
+                1.0
+              ],
+              [
+                0.054207127541303635,
+                -0.408523827791214,
+                -0.5077833533287048,
+                0.30735987424850464,
+                0.005859798286110163,
+                -0.014091741293668747,
+                1.0
+              ],
+              [
+                0.049098968505859375,
+                -0.37401360273361206,
+                -0.5367505550384521,
+                0.2984766960144043,
+                0.008642852306365967,
+                -0.012411126866936684,
+                1.0
+              ],
+              [
+                0.030301066115498543,
+                -0.3118540048599243,
+                -0.5595118403434753,
+                0.2853572368621826,
+                0.0076877884566783905,
+                -0.009378597140312195,
+                1.0
+              ],
+              [
+                0.00872548297047615,
+                -0.21474742889404297,
+                -0.5694453120231628,
+                0.2650394141674042,
+                0.010274733416736126,
+                -0.006027985364198685,
+                1.0
+              ],
+              [
+                -0.023582343012094498,
+                -0.11959008127450943,
+                -0.5682795643806458,
+                0.2391156107187271,
+                0.016635267063975334,
+                -0.0005875393399037421,
+                0.9980209469795227
+              ],
+              [
+                -0.07895941287279129,
+                -0.04328937083482742,
+                -0.5488842129707336,
+                0.20574408769607544,
+                0.026147635653614998,
+                0.009070535190403461,
+                0.9951344132423401
+              ],
+              [
+                -0.08935143798589706,
+                -0.01100493036210537,
+                -0.5224581360816956,
+                0.17883089184761047,
+                0.038699328899383545,
+                0.016666946932673454,
+                0.9949614405632019
+              ],
+              [
+                -0.06125500798225403,
+                0.003941893111914396,
+                -0.4829741418361664,
+                0.157255157828331,
+                0.05761337652802467,
+                0.01964801922440529,
+                0.993606686592102
+              ],
+              [
+                -0.013309900648891926,
+                0.011409975588321686,
+                -0.3874114453792572,
+                0.13701874017715454,
+                0.08087191730737686,
+                0.016576232388615608,
+                0.9946657419204712
+              ]
+            ],
+            "noise_sha256": "8b1794b5e5c1f8dc8e108197ebe2b1e2caaf00df59c5b717c997a78c107b1a5d",
+            "clipping": {
+              "count": 5,
+              "max_abs": 0.0107574462890625
+            }
+          }
+        ]
+      }
+    ],
+    "native_signature": {
+      "format": "lerobot_pi05",
+      "backend": "pytorch",
+      "horizon": 10,
+      "model_action_dim": 32,
+      "device": "cuda",
+      "dtype": "float32",
+      "artifact_sha256": {
+        "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+        "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+        "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+        "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+      },
+      "tokenizer_sha256": "c44a0503146efc99bbd748f05667ddfeb0ae5d1afb63019df2d4c020cfb6b928",
+      "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+      "adapter_source_sha256": "9700beba45fe9b740d04e3cf428479bbd5e899447eb395762cedf750833aba51",
+      "processor_source_sha256": {
+        "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+        "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+        "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+        "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+        "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+        "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+        "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+      },
+      "torch_version": "2.7.1+cu126",
+      "transformers_version": "4.53.3",
+      "transformers_source_sha256": {
+        "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+        "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+        "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+      },
+      "normalization": {
+        "type": "quantile",
+        "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+      },
+      "provenance": "lerobot/pi05_libero_base@a217bfd3b14673cf2ce597e69997ab21866438dd",
+      "input_profile": "openpi_libero",
+      "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+      "runtime_overrides": {
+        "chunk_size": 10,
+        "discrete_state_input": false,
+        "image_size": 224
+      }
+    },
+    "shares_existing_gpu_allocation": true,
+    "mutates_host_policy": false,
+    "environment_actions": 0,
+    "diagnostic_start_unix": 1791089691.9071968,
+    "diagnostic_end_unix": 1791089727.360088,
+    "free_gpu_bytes_before": 34092417024,
+    "peak_diagnostic_gpu_bytes": 14824546816,
+    "timing_note": "Concurrent diagnostic may affect host wall time; its interval is inside the host allocation, with no additional GPU reservation."
+  },
+  "comparisons": [
+    {
+      "step": 125,
+      "proposal": {
+        "judgments": [
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "The five-action prefix keeps closing the gripper, increases positive-x travel and reduces x-axis rotation relative to native. The images do not establish that these changes improve bottle-base alignment over the bowl.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The prefix closely matches native in translation, rotation and continuous grasp retention. Its slightly stronger negative-y motion and slightly smaller lift provide no distinguishable alignment advantage.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "The prefix is very similar to native, with slightly less positive-x travel and lift and slightly more negative-y travel. No meaningful improvement toward the visible bowl opening is supported.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tli_1",
+            "evidence": "The prefix retains the closing command while adding positive-x travel and elevation and reducing x-axis rotation. Extra elevation alone does not meet the rule, and improved horizontal alignment is unverified.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tli_2",
+            "evidence": "The prefix maintains closure but increases positive-x travel and substantially reduces x-axis rotation. The supplied views do not establish whether this better positions the bottle base over the opening.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native0",
+            "evidence": "Closure is preserved, but lift is smaller and descent starts at action 4, within the executed prefix. Alignment and clearance at that point are not established, so this is not a supported improvement.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native1",
+            "evidence": "The prefix retains closure and has similar total elevation, with somewhat more positive-x and less negative-y travel. The scene does not resolve whether that horizontal change improves bowl alignment.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native2",
+            "evidence": "The prefix maintains closure but reduces lift and begins descending at action 4. Its altered horizontal travel does not establish alignment before descent; the relative consequence remains uncertain.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native3",
+            "evidence": "The prefix maintains strong closure, increases positive-x travel and reduces negative-y travel while ending with almost no upward command. There is insufficient evidence that this places the bottle closer to alignment than native.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:125:compare:60040",
+        "request_fingerprint": "e1688484b4f31aee74157bcee9dbe0ec03fdaa32b4204c776f4f1db8326b3f4a",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 60040,
+        "observation_step": 125
+      },
+      "receipt": {
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "returned_model": null,
+        "reasoning_effort": "medium",
+        "request_sha256": "5eda65f248bba492083c3552b96f2467931d38db607ccfc42cf4d5c14be3aa24",
+        "status": "accepted",
+        "token_usage": {
+          "input_tokens": 24492,
+          "output_tokens": 494,
+          "reasoning_tokens": 0,
+          "total_tokens": 24986
+        },
+        "raw_usage": {
+          "input_tokens": 24492,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 494,
+          "reasoning_output_tokens": 0
+        },
+        "cli_version": "codex-cli 0.159.3",
+        "schema_sha256": "505528cd0bfad3a8bf5fee7831e55905f218b29161dc1def9135b3a50bf420cf",
+        "prompt_sha256": "cb1be4ec444773e736c77a29511db1e3d1c6da70b1a186b0eadb238b6ef18d7a",
+        "token_usage_is_lower_bound": false,
+        "final_sha256": "853bb1fac1d9f9bc2660db47edad28eac4a5e533193da2605f6f9bef6eeeccc4",
+        "latency_seconds": 24.184650541981682
+      }
+    },
+    {
+      "step": 135,
+      "proposal": {
+        "judgments": [
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "Actions 0\u20134 maintain closing and reduce descent and x rotation relative to native, but still command substantial descent while the bottle is beside the rack. Changed horizontal motion does not establish transport above the bowl; improvement under the full rule is uncertain.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The executed prefix is nearly identical to native in descent, horizontal translation, rotation and closing. No meaningful improvement in clearance or bowl-directed transport is supported.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "The prefix closely follows native, with slightly reduced descent and x rotation and continued closing. These small differences do not establish a meaningful change in transport or clearance.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tli_1",
+            "evidence": "Closing is maintained and descent and rotation are reduced, but horizontal transport nearly disappears. The bottle is not visibly above the bowl, so descending mostly in place does not clearly improve the required transport.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tli_2",
+            "evidence": "The prefix reduces descent and substantially reduces rotation while maintaining closing, but initially reverses native's y direction. The supplied views do not establish that this altered transport approaches the bowl while preserving clearance.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native0",
+            "evidence": "The prefix maintains closing and commands stronger initial negative-y movement with roughly similar substantial descent. No supplied coordinate-to-image correspondence establishes that the changed horizontal motion improves bowl alignment.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native1",
+            "evidence": "Closing continues, with stronger negative-y motion and slightly greater descent than native. This offers no established clearance advantage, and improved transport toward the bowl cannot be inferred reliably.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native2",
+            "evidence": "The prefix retains closing but changes horizontal travel and slightly increases descent. Without established bowl-directed world axes, its transport advantage over native is uncertain.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "independent_native3",
+            "evidence": "The prefix commands substantially more negative-y travel, similar descent and somewhat more x rotation while maintaining closing. Whether that extra travel improves bowl alignment or clearance is unsupported by the supplied observation.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:135:compare:60045",
+        "request_fingerprint": "817bda111291e69bb109c4c9e7e7516dda2a542cd98e49794f22b6b8569bb038",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 60045,
+        "observation_step": 135
+      },
+      "receipt": {
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "returned_model": null,
+        "reasoning_effort": "medium",
+        "request_sha256": "30ec597ccf6e5aea85deb25c71e5f2e131b105d35933cb5f663a7540eb9dcdc8",
+        "status": "accepted",
+        "token_usage": {
+          "input_tokens": 24762,
+          "output_tokens": 520,
+          "reasoning_tokens": 24,
+          "total_tokens": 25282
+        },
+        "raw_usage": {
+          "input_tokens": 24762,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 520,
+          "reasoning_output_tokens": 24
+        },
+        "cli_version": "codex-cli 0.159.3",
+        "schema_sha256": "505528cd0bfad3a8bf5fee7831e55905f218b29161dc1def9135b3a50bf420cf",
+        "prompt_sha256": "285123976c3e1dc855890bef99f93f40b82926169fac1afee2d9717ed2f6b3f4",
+        "token_usage_is_lower_bound": false,
+        "final_sha256": "95233633d3c54cc4be4de7de67f41ab5da58b3ebe337d766bf18ea12da77e665",
+        "latency_seconds": 27.48247425002046
+      }
+    }
+  ]
+}

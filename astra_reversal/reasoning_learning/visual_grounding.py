@@ -17,6 +17,15 @@ from .teacher import _check, _object
 
 SCHEMA_VERSION = "reasoning-visual-grounding-1"
 PROMPT_TEMPLATE_VERSION = "reasoning-visible-pixel-labels-1"
+_IDENTITY_FIELDS = (
+    "schema_version",
+    "role",
+    "episode_id",
+    "attempt_id",
+    "request_index",
+    "observation_step",
+    "request_id",
+)
 SYSTEM_PROMPT = """Label visible points in these real robot camera images.
 Use images only. Do not call tools, infer hidden coordinates, or invent motion.
 For each frame, locate the midpoint between the robot's two fingertip contact
@@ -32,13 +41,29 @@ camera calibration or simulated future is available to you. Return only JSON.
 """
 
 
-def build_request(frames, instruction):
+def build_request(frames, instruction, *, identity=None):
     request = {
         "schema_version": SCHEMA_VERSION,
         "role": "localize_visible_points",
         "instruction": instruction,
         "frames": copy.deepcopy(frames),
     }
+    if identity is not None:
+        if set(identity) != {"episode_id", "request_index", "observation_step"}:
+            raise ValueError("Online pixel labels require an explicit rollout identity")
+        episode = identity["episode_id"]
+        index, step = identity["request_index"], identity["observation_step"]
+        if (
+            not isinstance(episode, str)
+            or not episode
+            or any(type(x) is not int or x < 0 for x in (index, step))
+        ):
+            raise ValueError("Invalid online pixel-label identity")
+        request.update(
+            **identity,
+            attempt_id=episode,
+            request_id=f"{episode}:{step}:localize_visible_points:{index}",
+        )
     request["request_fingerprint"] = digest(request)
     validate_request(request)
     return request
@@ -49,6 +74,19 @@ def validate_request(request):
     fingerprint = value.pop("request_fingerprint", None)
     if fingerprint != digest(value) or value.get("schema_version") != SCHEMA_VERSION:
         raise ValueError("Visual grounding request identity differs")
+    base = {"schema_version", "role", "instruction", "frames"}
+    online = {
+        "episode_id",
+        "attempt_id",
+        "request_index",
+        "observation_step",
+        "request_id",
+    }
+    if (
+        set(value) not in (base, base | online)
+        or value["role"] != "localize_visible_points"
+    ):
+        raise ValueError("Unexpected visual grounding request fields or role")
     frames = value["frames"]
     if not 6 <= len(frames) <= 12:
         raise ValueError("Use six to twelve recorded frames")
@@ -57,6 +95,20 @@ def validate_request(request):
         set(steps)
     ):
         raise ValueError("Frame steps must be unique and chronological")
+    if "episode_id" in value:
+        if (
+            not isinstance(value["episode_id"], str)
+            or not value["episode_id"]
+            or any(
+                type(value[k]) is not int or value[k] < 0
+                for k in ("observation_step", "request_index")
+            )
+            or value["attempt_id"] != value["episode_id"]
+            or value["request_id"]
+            != f"{value['episode_id']}:{value['observation_step']}:localize_visible_points:{value['request_index']}"
+            or max(steps) >= value["observation_step"]
+        ):
+            raise ValueError("Online projection uses only its own earlier prefix")
     for row in frames:
         if set(row) != {"step", "image"}:
             raise ValueError("The pixel labeler receives no poses or other state")
@@ -64,6 +116,9 @@ def validate_request(request):
         if wire["encoding"] != "base64_png" or min(wire["width"], wire["height"]) < 1:
             raise ValueError("Real PNG frames required")
         base64.b64decode(wire["data"], validate=True)
+
+
+_validate_request = validate_request
 
 
 def response_schema(request):
@@ -110,7 +165,18 @@ def parse_proposal(raw, request):
     for row in [*value["frames"], value["destination"]]:
         if not row["visible"] and (row["confidence"] != 0 or row["uv"] != [0, 0]):
             raise ValueError("Invisible points cannot be numeric pseudo-labels")
-    return {**value, "request_fingerprint": request["request_fingerprint"]}
+    return {
+        **value,
+        "request_fingerprint": request["request_fingerprint"],
+        **(
+            {
+                **{k: request[k] for k in _IDENTITY_FIELDS if k != "request_id"},
+                "decision_id": request["request_id"],
+            }
+            if "episode_id" in request
+            else {}
+        ),
+    }
 
 
 def build_payload(request, model, *, sampling=None):
