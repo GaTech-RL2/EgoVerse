@@ -1,0 +1,176 @@
+{
+  "environment_actions": 0,
+  "used_for_training": false,
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-5",
+  "comparisons": [
+    {
+      "step": 130,
+      "mode": "prefix_only",
+      "status": "accepted",
+      "proposal": {
+        "judgments": [
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "Actions 0\u20134 retain closing commands and reduce cumulative commanded descent by about 0.006 m versus native, while reducing positive x translation and x rotation. They still descend before visible bowl alignment is established. The images do not establish that the altered lateral motion improves alignment or that this small clearance change is decisive.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The executed prefix closely resembles native: closing grip, negative y transport and increasing descent. Cumulative commanded descent is reduced by only about 0.003 m, with slightly less positive x motion. Visible evidence does not resolve whether these small differences improve transport above the bowl.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "Actions 0\u20134 preserve closing commands and largely reproduce native translation and rotation, reducing cumulative commanded descent by about 0.003 m. No visible alignment or calibrated image-to-world direction supports a clear benefit from its small lateral changes. The unexecuted tail does not establish improvement.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:130:compare:10045",
+        "request_fingerprint": "abbda5232eda85be57ca8c1fc9afdc7fdcc2a04c2c077b68b741104974778a37",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 10045,
+        "observation_step": 130
+      },
+      "usage": {
+        "input_tokens": 19995,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 248,
+        "reasoning_output_tokens": 0
+      },
+      "latency_seconds": 10.534548833005829,
+      "request_sha256": "cf01cb60dcb0f6eaab39ac54f5e1fef0582a2fb9aabecf2d6d969dd99820efee"
+    },
+    {
+      "step": 130,
+      "mode": "prefix_with_real_history",
+      "status": "accepted",
+      "proposal": {
+        "judgments": [
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "Actions 0\u20134 retain closure and reduce aggregate downward and positive-x rotation commands versus native, but still descend before bottle\u2013bowl centering is visibly established. The small lateral changes have no clearly supported alignment benefit in these views; reduced descent alone does not establish a clear win.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The executed prefix would closely resemble native: closed gripper, positive x, negative y, increasing descent and positive-x rotation. Slightly reduced descent and x translation do not visibly establish better transport toward the bowl. No clear improvement is supported.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "Actions 0\u20134 preserve closure and make only small translation and rotation changes relative to native, including slightly less descent. The real preceding lift does not establish that these lateral differences improve bowl alignment or maintain rim clearance during the proposed descent.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:130:compare:20045",
+        "request_fingerprint": "f773abd8ea125cfdd8f967f766fb83421a3a4a3ced5f35fc971c9f89380a3cfe",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 20045,
+        "observation_step": 130
+      },
+      "usage": {
+        "input_tokens": 21047,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 226,
+        "reasoning_output_tokens": 0
+      },
+      "latency_seconds": 13.5354027080175,
+      "request_sha256": "9c8ffdbbbe11a2749d19dabddff84010c04db68f30db32fe788239451e2d2be3"
+    },
+    {
+      "step": 140,
+      "mode": "prefix_only",
+      "status": "accepted",
+      "proposal": {
+        "judgments": [
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "Actions 0\u20134 retain closure but descend more and reduce negative-y translation relative to native. The bottle is not visibly centered over the gray bowl. These changes do not establish improved alignment or rim clearance; the image-to-world direction is not supplied.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The executed prefix retains closure and has nearly the same cumulative descent as native, with less negative-y translation and less x-axis rotation. The visible scene does not establish that these differences move the bottle closer to alignment above the bowl.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "The executed prefix retains closure and modestly reduces descent, which may preserve clearance, but also reduces negative-y translation. Without evidence connecting that translation to the bowl direction, improved transport and alignment are not established. Later opening commands are outside the executed prefix.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:140:compare:10051",
+        "request_fingerprint": "8390452792850ec71ae83236e9cd8ddaa90facd0a5da6b3c88c84e8a6ab0e7b3",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 10051,
+        "observation_step": 140
+      },
+      "usage": {
+        "input_tokens": 20119,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 329,
+        "reasoning_output_tokens": 108
+      },
+      "latency_seconds": 16.648674374999246,
+      "request_sha256": "798829dc3765511aa75aad8cb8748793d8538d2a2f1bf32e25ee01ad149178e0"
+    },
+    {
+      "step": 140,
+      "mode": "prefix_with_real_history",
+      "status": "accepted",
+      "proposal": {
+        "judgments": [
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "The bottle remains visibly displaced from the gray bowl. Actions 0\u20134 retain closing commands but descend more overall than native and substantially reduce negative-y transport. This does not establish better alignment before descent; the available observations do not resolve the lateral effect reliably.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "Actions 0\u20134 preserve closing commands and have nearly the same cumulative descent as native, with less negative-y translation and reduced x-axis rotation. Neither the images nor the preceding real motion establish that these differences improve transport toward the bowl.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "Actions 0\u20134 retain closing commands and reduce cumulative descent modestly, which could preserve clearance. However, they also reduce negative-y transport; improved bowl alignment is unsupported. All five actions still command descent before visible centering, so there is no clear win under the fixed rule.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:140:compare:20051",
+        "request_fingerprint": "de5f6faed0c5e6c30944e4f3bc8d458cef53d40752c42a3e151cf544983dc1f4",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 20051,
+        "observation_step": 140
+      },
+      "usage": {
+        "input_tokens": 22436,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 304,
+        "reasoning_output_tokens": 73
+      },
+      "latency_seconds": 17.095343541004695,
+      "request_sha256": "1e8debcb0095025f777294846de100fbc95c5c15578be5eaf3c0e47c44972fd6"
+    }
+  ],
+  "conclusion": "All four repeated comparisons selected native; all twelve candidate judgments were uncertain. Adding the preceding actual motion did not change acceptance in these two archived states. No task-success claim or environment execution follows from this offline check."
+}

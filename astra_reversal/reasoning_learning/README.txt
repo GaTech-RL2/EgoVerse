@@ -345,3 +345,32 @@ The run stopped under a two-collection screening decision made before updated
 evaluation outcomes were known. It used the historical 32-channel padded loss;
 this is a measured tie, not a sample-efficiency advantage. Full evidence is in
 pilot_v3_goal6_seed173_result.json.
+
+Saved-data checks of verifier grounding
+Four new comparisons on two archived V4 states tested explicit prefix timing
+with and without the preceding real motion. Every selection remained native;
+all twelve judgments were uncertain. The diagnostic executes no environment
+actions and supplies no training labels. See comparison_history_probe.json.
+
+visual_grounding.py introduces an OFFLINE feasibility check, not a deployed
+intervention. Astra labels the visible grasp-center pixels in unaltered recorded
+images without receiving robot poses. A separate local affine fit pairs those
+labels with recorded XYZ proprioception and checks leave-one-out pixel error and
+motion excitation. A good fit only measures consistency with VLM labels, not
+independent camera accuracy or predicted action outcomes. No depth or object
+poses are supplied. Any later live variant must derive its fit from its own
+counted collection data, not import a calibration from these development runs.
+
+Related primary sources: HAMSTER (https://arxiv.org/abs/2502.05485) uses coarse
+2D paths with a trained downstream controller; RoboPoint
+(https://arxiv.org/abs/2406.10721) trains image affordance prediction. Neither
+establishes that unfinetuned Astra pixel labels will work here. 3D HAMSTER
+(https://arxiv.org/abs/2606.31329) highlights the missing-depth problem in 2D
+guidance. A projected point alone is therefore not a valid 3D placement target.
+
+Deployment scope: the published checkpoint config specifies chunk_size=50 and
+n_action_steps=10. This development study consistently generates ten actions
+and executes five before replanning. Native/zero-guidance parity and all paired
+comparisons refer to this shared runtime, not the publisher's stock rollout
+settings. Both the runtime override and the serial RL integration must be
+considered before claiming a strong published-baseline reproduction.
