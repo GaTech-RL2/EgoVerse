@@ -1,0 +1,28 @@
+{
+  "schema": "reasoning-three-way-credit-ablation-1",
+  "status": "prepared_for_development_test",
+  "manifest_sha256": "749f7c5b50961c3d700cb6d57c6201359aa8344b98bf53dce153b8f804f32126",
+  "variant_order": [
+    "online_gate",
+    "hindsight_gate",
+    "successful_episode"
+  ],
+  "variant_window_counts": {
+    "online_gate": 12,
+    "hindsight_gate": 34,
+    "successful_episode": 20
+  },
+  "optimizer_steps_per_variant": 100,
+  "window_sampling": "uniform",
+  "loss_action_dimensions": 7,
+  "original_demonstration_replay_beta": 0,
+  "new_collection_actions": 0,
+  "new_online_teacher_calls": 0,
+  "source_collection_control_steps": 426,
+  "source_teacher_total_tokens": 3380126,
+  "additional_hindsight_tokens": 83532,
+  "hypothesis": "Retrospective outcome-aware credit can select more useful complete windows than local five-action assessment and can avoid indiscriminately copying a successful episode.",
+  "selection_before_results": "One 100-update endpoint per branch, fixed before any branch evaluation. No best-checkpoint selection.",
+  "shared_conditions": "Fresh identical original pi0.5, zero LoRA initialization, optimizer, seed and seven-channel flow loss in every branch. Uniform window sampling, 100 optimizer steps and ten autonomous development resets 20..29. All 426 source controls and original teacher tokens remain attributed, including the failed collection. Only hindsight carries the additional 83,532 retrospective-review tokens. No evaluation images reach the teacher.",
+  "interpretation": "This screen changes only data selection relative to the other two branches. Its uniform sampling and 100 updates differ from the original online V5 learner, so it is not an exact rerun of that learning trajectory. The whole-success control explicitly labels binary episode success without asserting every copied command was locally useful. Development only; superiority requires fresh confirmation and repeated comparisons."
+}

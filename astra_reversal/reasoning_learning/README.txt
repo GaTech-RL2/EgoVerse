@@ -658,3 +658,50 @@ the student's own pre-action input. Whole-episode success is not blanket credit.
 The closed request/response contract is in hindsight.py; it supplies no actions,
 policy update or GPU launch. Compare any later training against the same source
 data's original online gate before attributing an effect to hindsight selection.
+
+Three-way retrospective-credit screen (prepared 2026-10-04)
+---------------------------------------------------------
+The completed V7 bounded-target Goal screen remains 5/10, versus native 5/10,
+after 422 collection controls. The unchanged Spatial baseline is 3/10; tuned
+Spatial DSRL ends at 3/10, gaining reset23 and losing reset21. Its earlier 2/10
+was its own initial noise-policy result, not the native baseline.
+
+The V5 online gate retained only12 complete windows from426 controls (one
+failed300-action collection and one successful106-action collection, plus20
+stabilization controls). Both collections used policy version0 and contained no
+executed intervention. This motivates a data-selection test before spending
+more physical interactions. Hindsight reviewed ALL TWO completed collections;
+no autonomous-evaluation frames or outcomes were supplied. The two medium-effort
+Astra calls cost83,532 additional tokens and136.621 seconds. They retained34
+complete windows, including useful approach in the failed attempt, and rejected
+its wrong-rack transport. This is teacher judgment, not ground-truth local credit.
+
+configs/reasoning_credit_v5.json fixes three branches before GPU evaluation:
+  online_gate:12 original locally approved windows;
+  hindsight_gate:34 retrospectively approved windows;
+  successful_episode:20 windows from the unassisted successful episode.
+All receive100 optimizer steps with uniform window sampling, fresh original
+pi0.5 weights, identical seeded zero LoRA initialization, fresh optimizer/RNG,
+the corrected seven-channel native flow loss, and the same ten autonomous
+reset20..29 evaluations. Original demonstration replay and synthetic labels are
+zero. Binary episode success is a separate opt-in BC evidence type: it does not
+assert that every copied action was useful. Hindsight cannot override an actual
+correction's original pre-execution preference gate. Full ten-command labels
+and original pre-action observations are verified independently against actual
+execution ledgers; later observations inform credit only, never student inputs.
+
+credit_data.load verifies credit_v5_manifest.json, review/request binding, every
+reviewed RGB/state frame, commands and final outcome, all source hashes, exact
+file inventory, observation digests and total interaction accounting. Use the
+package_payload --reasoning-credit-cache flag and prepare_learning_launch
+--phase replay-credit --protocol-version v3. One worker loads a new student for
+each branch and retains separate checkpoints, videos, update records and curves.
+The source426 controls and3,380,126 online-teacher tokens are attributed to each
+branch without counting them again in the global study ledger; only hindsight
+adds83,532 review tokens. Thirty new evaluation episodes have separate costs.
+The100-update endpoint and branch order are fixed before results, with no best
+checkpoint selection. Uniform sampling and100 updates differ from original V5,
+so this tests selectors against one another, not an exact V5 training rerun.
+A development improvement still requires fresh confirmation and repeated RL
+comparisons; neither more admitted windows nor a single improved SR meets the
+research objective by itself.

@@ -93,9 +93,11 @@ class SmallPolicy:
         return raw
 
 
-@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize(
+    "masked, success_bc", [(False, False), (True, False), (False, True)]
+)
 def test_native_learner_uses_fresh_times_updates_weights_then_freezes(
-    monkeypatch, masked
+    monkeypatch, masked, success_bc
 ):
     from astra_reversal.reasoning_learning import learning
 
@@ -124,7 +126,17 @@ def test_native_learner_uses_fresh_times_updates_weights_then_freezes(
         row.update(
             evidence="observed_useful_masked", step_loss_mask=[True] * 5 + [False] * 5
         )
-    receipt = learner.update([row], {oid: raw}, updates=6)
+    if success_bc:
+        row.update(evidence="successful_episode", stages=["successful_episode"])
+        with pytest.raises(ValueError, match="configured evidence"):
+            learner.update([row], {oid: raw}, updates=6)
+    receipt = learner.update(
+        [row],
+        {oid: raw},
+        updates=6,
+        sampling="uniform" if success_bc else "event_stage_balanced",
+        allow_successful_episodes=success_bc,
+    )
     assert receipt["after_sha256"] != receipt["before_sha256"]
     assert len({r["flow_time"] for r in receipt["history"]}) == 6
     assert not any(
@@ -132,6 +144,10 @@ def test_native_learner_uses_fresh_times_updates_weights_then_freezes(
     )
     assert receipt["replay_beta"] == 0
     assert receipt["evidence_masked_loss"] is masked
+    assert receipt["successful_episode_evidence_enabled"] is success_bc
+    assert receipt["window_sampling"] == (
+        "uniform" if success_bc else "event_stage_balanced"
+    )
     assert all(
         r["supervised_steps"] == (5 if masked else 10) for r in receipt["history"]
     )

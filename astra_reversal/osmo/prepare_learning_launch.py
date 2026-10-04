@@ -42,7 +42,7 @@ def prepare(
 ):
     protocol = load_protocol(version=protocol_version)
     if (
-        phase in ("replay-learning", "replay-masked")
+        phase in ("replay-learning", "replay-masked", "replay-credit")
         and protocol.get("learner", {}).get("loss_action_dimensions") != 7
     ):
         raise ValueError("Executed replay ablation requires the corrected native loss")
@@ -61,6 +61,7 @@ def prepare(
             "ppo",
             "replay-learning",
             "replay-masked",
+            "replay-credit",
         )
         or not math.isfinite(gpu_hours)
         or not (1 / 60) <= gpu_hours <= protocol["compute"]["authorized_gpu_hours"]
@@ -136,6 +137,10 @@ def prepare(
         task["environment"]["ASTRA_ENTRY_MODULE"] = (
             "astra_reversal.osmo.reasoning_replay_learning"
         )
+    if phase == "replay-credit":
+        task["environment"]["ASTRA_ENTRY_MODULE"] = (
+            "astra_reversal.osmo.reasoning_credit_learning"
+        )
     task["files"] = [
         {"localpath": str(bundle / "bootstrap.sh"), "path": "/tmp/astra-bootstrap.sh"},
         {"localpath": str(token), "path": "/tmp/astra-relay.token"},
@@ -181,6 +186,7 @@ def main():
             "ppo",
             "replay-learning",
             "replay-masked",
+            "replay-credit",
         ),
         default="preflight",
     )

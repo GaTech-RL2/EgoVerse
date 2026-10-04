@@ -1,0 +1,986 @@
+{
+  "label": "DSRL \u00b7 tuned transfer to Spatial OOD 2",
+  "method": "dsrl",
+  "workflow": "astra-pi05-reasoning-learning-20261003-dsrl-3",
+  "status": "baseline_complete",
+  "task": {
+    "suite": "libero_spatial_ood",
+    "task_id": 2
+  },
+  "seed": 173,
+  "source_revision": "fcc061aa09bdbdd8d311fc7edc778ebdfd0bba69",
+  "protocol_version": "reasoning-policy-learning-3",
+  "checkpoint_configuration": {
+    "repo_id": "lerobot/pi05_libero_base",
+    "revision": "a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "input_profile": "openpi_libero",
+    "runtime_action_horizon": 10,
+    "internal_action_dim": 32,
+    "controller_action_dim": 7,
+    "native_flow_direction": "noise_1_to_action_0",
+    "generation_steps": 10,
+    "execute_steps": 5
+  },
+  "environment_configuration": {
+    "suites": [
+      "libero_goal_ood",
+      "libero_spatial_ood"
+    ],
+    "revision": "587a6cbf64f16c7b87fa5805dc0ed934192239a4",
+    "tasks_per_suite": 10,
+    "control_frequency_hz": 20,
+    "actions_per_rollout": 300,
+    "stabilization_steps_counted_separately": 10,
+    "observations": [
+      "external_camera",
+      "wrist_camera",
+      "robot_state8",
+      "original_instruction"
+    ],
+    "training_feedback": [
+      "binary_environment_success",
+      "real_observation_history"
+    ],
+    "privileged_object_poses": false,
+    "physical_candidate_retries": false
+  },
+  "learner_configuration": {
+    "method": "DSRL",
+    "tuning_recipe": "more_reuse",
+    "tuning_settings": {
+      "batch_size": 64,
+      "updates": 600
+    },
+    "overrides": {
+      "generation_steps": 10,
+      "action_horizon": 10,
+      "executed_prefix": 5,
+      "max_actions": 300,
+      "train_envs": 1,
+      "batch_size": 64,
+      "updates_per_rollout": 600,
+      "fp32_master_parameters": true,
+      "reward": "duration-discounted -1+success over actual prefix",
+      "finite_horizon_terminal": true
+    }
+  },
+  "learner_configuration_source": "runtime.json:recorded_baseline_settings",
+  "runtime_configuration": {
+    "method": "DSRL",
+    "tuning_recipe": "more_reuse",
+    "tuning_settings": {
+      "batch_size": 64,
+      "updates": 600
+    },
+    "status": "initializing_before_preflight",
+    "workflow": "astra-pi05-reasoning-learning-20261003-dsrl-3",
+    "source_revision": "fcc061aa09bdbdd8d311fc7edc778ebdfd0bba69",
+    "payload_sha256": "9e6fd8bc2045cce608ca4f5e57f3a98a81f897c30d33994c273e8bcc3bf651e4",
+    "rlinf_revision": "c70606f08cdca259b8dec03d4430926b5b8fac9d",
+    "task": {
+      "suite": "libero_spatial_ood",
+      "task_id": 2
+    },
+    "seed": 173,
+    "harness": "RLinf networks with serial common OOD driver",
+    "decoder": "strict native LeRobot checkpoint, no conversion, frozen",
+    "initial_noise_policy": "released tanh Gaussian repeated across the horizon; eval uses its mean",
+    "overrides": {
+      "generation_steps": 10,
+      "action_horizon": 10,
+      "executed_prefix": 5,
+      "max_actions": 300,
+      "train_envs": 1,
+      "batch_size": 64,
+      "updates_per_rollout": 600,
+      "fp32_master_parameters": true,
+      "reward": "duration-discounted -1+success over actual prefix",
+      "finite_horizon_terminal": true
+    }
+  },
+  "task_instruction": "put the milk on the plate",
+  "points": [
+    {
+      "collection_rollouts": 0,
+      "collection_steps": 0,
+      "evaluation_steps_cumulative": 2681,
+      "policy_version": 0,
+      "successes": 2,
+      "rollouts": 10,
+      "success_rate": 0.2,
+      "wilson_95": [
+        0.05668215145437519,
+        0.5098375284633583
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state20",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "faa4871374a2743603e5fc1f004079bb49602b584499cacb245e9e8043035f96",
+            "reset_model_sha256": "8dde04153fa5f08c620ed328fa6e800731d719561d7da46a8944350505566f58",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state21",
+          "success": true,
+          "actions_executed": 88,
+          "total_control_steps": 98,
+          "reset_identity": {
+            "reset_state_sha256": "f691e9e6ca6280023b6800aa9525689356a97a86494323d16180f01c1155b6da",
+            "reset_model_sha256": "1fe6e23dc77b50c34c1f29bfb5524dcf3957f4bd9993fd118b28da716e2bdd53",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state22",
+          "success": true,
+          "actions_executed": 93,
+          "total_control_steps": 103,
+          "reset_identity": {
+            "reset_state_sha256": "4074d376dc05401606c698dd7cc8c47c97d40a474fc60a8dc49f08b2c5a0978e",
+            "reset_model_sha256": "94b574803c6bd840447187807786287aa611cc33a650ae7477fb18cc3c1d2663",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state23",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "e66588ee68d1d738fa0d56e8463b2c21784a5f510d03eb3b106298db08701d06",
+            "reset_model_sha256": "d21dff2fc4b8287b9c29ec8a0f32ed0229ba61a1c85aac777a0c561b40599d2b",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "abc106cb3b9d1f925456226a58288110b200cb4c52b98b602853a0fb10301765",
+            "reset_model_sha256": "2686907504386f2a8c2a350e03c42a5190ca65922271d9f05603bf2039d10b51",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state25",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "02ada5bfa9d73cd39de1eed6d84639d2ff19e9be9be090295856341265b593aa",
+            "reset_model_sha256": "e52b031e9a0c5ca6c28f88a737517426a8243334ba5681ab42f572296f88b8af",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "4a733254eb5d6beea73d35ec6b7d2f74129690addd28c8f5f98715f5d1c8fccf",
+            "reset_model_sha256": "2e45c8ac41986658a8bc334fc38fe185516e2fa8d7b63c6a30821bf842e62592",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "01772c9fe13db05b7ad98da1d58f1561ecbe5bf85fc3be12cd58acf9714a92e4",
+            "reset_model_sha256": "6bdc616ee17a6d261eafc8e36dbd3584180a74eab552408e0b08ce82ced05638",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state28",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "15ae1c385d03cf4314ac8b51dff23cc30f28a7521ac87b9671097686a47087e8",
+            "reset_model_sha256": "851e1d01ca7077aac799208392b39423102ab2d9039ada2be5adfe1af0b1652f",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state29",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "58a5630e2af4cda49c40f889479d01080ab1c255804ae9689a7c0016ea63ae53",
+            "reset_model_sha256": "9bdc691043fadbc94e8d88f41430e60ee011fc7b746397c1a1aad2c39ff6be83",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 3,
+        "rollouts": 10,
+        "delta_success_rate": -0.09999999999999998,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [
+          "libero_spatial_ood:seed173:task2:state25"
+        ],
+        "paired_reset_identities_verified": true
+      }
+    },
+    {
+      "collection_rollouts": 2,
+      "collection_steps": 439,
+      "evaluation_steps_cumulative": 5366,
+      "policy_version": 2,
+      "successes": 2,
+      "rollouts": 10,
+      "success_rate": 0.2,
+      "wilson_95": [
+        0.05668215145437519,
+        0.5098375284633583
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state20",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "faa4871374a2743603e5fc1f004079bb49602b584499cacb245e9e8043035f96",
+            "reset_model_sha256": "8dde04153fa5f08c620ed328fa6e800731d719561d7da46a8944350505566f58",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state21",
+          "success": true,
+          "actions_executed": 92,
+          "total_control_steps": 102,
+          "reset_identity": {
+            "reset_state_sha256": "f691e9e6ca6280023b6800aa9525689356a97a86494323d16180f01c1155b6da",
+            "reset_model_sha256": "1fe6e23dc77b50c34c1f29bfb5524dcf3957f4bd9993fd118b28da716e2bdd53",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state22",
+          "success": true,
+          "actions_executed": 93,
+          "total_control_steps": 103,
+          "reset_identity": {
+            "reset_state_sha256": "4074d376dc05401606c698dd7cc8c47c97d40a474fc60a8dc49f08b2c5a0978e",
+            "reset_model_sha256": "94b574803c6bd840447187807786287aa611cc33a650ae7477fb18cc3c1d2663",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state23",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "e66588ee68d1d738fa0d56e8463b2c21784a5f510d03eb3b106298db08701d06",
+            "reset_model_sha256": "d21dff2fc4b8287b9c29ec8a0f32ed0229ba61a1c85aac777a0c561b40599d2b",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "abc106cb3b9d1f925456226a58288110b200cb4c52b98b602853a0fb10301765",
+            "reset_model_sha256": "2686907504386f2a8c2a350e03c42a5190ca65922271d9f05603bf2039d10b51",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state25",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "02ada5bfa9d73cd39de1eed6d84639d2ff19e9be9be090295856341265b593aa",
+            "reset_model_sha256": "e52b031e9a0c5ca6c28f88a737517426a8243334ba5681ab42f572296f88b8af",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "4a733254eb5d6beea73d35ec6b7d2f74129690addd28c8f5f98715f5d1c8fccf",
+            "reset_model_sha256": "2e45c8ac41986658a8bc334fc38fe185516e2fa8d7b63c6a30821bf842e62592",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "01772c9fe13db05b7ad98da1d58f1561ecbe5bf85fc3be12cd58acf9714a92e4",
+            "reset_model_sha256": "6bdc616ee17a6d261eafc8e36dbd3584180a74eab552408e0b08ce82ced05638",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state28",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "15ae1c385d03cf4314ac8b51dff23cc30f28a7521ac87b9671097686a47087e8",
+            "reset_model_sha256": "851e1d01ca7077aac799208392b39423102ab2d9039ada2be5adfe1af0b1652f",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state29",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "58a5630e2af4cda49c40f889479d01080ab1c255804ae9689a7c0016ea63ae53",
+            "reset_model_sha256": "9bdc691043fadbc94e8d88f41430e60ee011fc7b746397c1a1aad2c39ff6be83",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 3,
+        "rollouts": 10,
+        "delta_success_rate": -0.09999999999999998,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [
+          "libero_spatial_ood:seed173:task2:state25"
+        ],
+        "paired_reset_identities_verified": true
+      }
+    },
+    {
+      "collection_rollouts": 4,
+      "collection_steps": 1059,
+      "evaluation_steps_cumulative": 8095,
+      "policy_version": 4,
+      "successes": 2,
+      "rollouts": 10,
+      "success_rate": 0.2,
+      "wilson_95": [
+        0.05668215145437519,
+        0.5098375284633583
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state20",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "faa4871374a2743603e5fc1f004079bb49602b584499cacb245e9e8043035f96",
+            "reset_model_sha256": "8dde04153fa5f08c620ed328fa6e800731d719561d7da46a8944350505566f58",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state21",
+          "success": true,
+          "actions_executed": 137,
+          "total_control_steps": 147,
+          "reset_identity": {
+            "reset_state_sha256": "f691e9e6ca6280023b6800aa9525689356a97a86494323d16180f01c1155b6da",
+            "reset_model_sha256": "1fe6e23dc77b50c34c1f29bfb5524dcf3957f4bd9993fd118b28da716e2bdd53",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state22",
+          "success": true,
+          "actions_executed": 92,
+          "total_control_steps": 102,
+          "reset_identity": {
+            "reset_state_sha256": "4074d376dc05401606c698dd7cc8c47c97d40a474fc60a8dc49f08b2c5a0978e",
+            "reset_model_sha256": "94b574803c6bd840447187807786287aa611cc33a650ae7477fb18cc3c1d2663",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state23",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "e66588ee68d1d738fa0d56e8463b2c21784a5f510d03eb3b106298db08701d06",
+            "reset_model_sha256": "d21dff2fc4b8287b9c29ec8a0f32ed0229ba61a1c85aac777a0c561b40599d2b",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "abc106cb3b9d1f925456226a58288110b200cb4c52b98b602853a0fb10301765",
+            "reset_model_sha256": "2686907504386f2a8c2a350e03c42a5190ca65922271d9f05603bf2039d10b51",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state25",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "02ada5bfa9d73cd39de1eed6d84639d2ff19e9be9be090295856341265b593aa",
+            "reset_model_sha256": "e52b031e9a0c5ca6c28f88a737517426a8243334ba5681ab42f572296f88b8af",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "4a733254eb5d6beea73d35ec6b7d2f74129690addd28c8f5f98715f5d1c8fccf",
+            "reset_model_sha256": "2e45c8ac41986658a8bc334fc38fe185516e2fa8d7b63c6a30821bf842e62592",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "01772c9fe13db05b7ad98da1d58f1561ecbe5bf85fc3be12cd58acf9714a92e4",
+            "reset_model_sha256": "6bdc616ee17a6d261eafc8e36dbd3584180a74eab552408e0b08ce82ced05638",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state28",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "15ae1c385d03cf4314ac8b51dff23cc30f28a7521ac87b9671097686a47087e8",
+            "reset_model_sha256": "851e1d01ca7077aac799208392b39423102ab2d9039ada2be5adfe1af0b1652f",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state29",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "58a5630e2af4cda49c40f889479d01080ab1c255804ae9689a7c0016ea63ae53",
+            "reset_model_sha256": "9bdc691043fadbc94e8d88f41430e60ee011fc7b746397c1a1aad2c39ff6be83",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 3,
+        "rollouts": 10,
+        "delta_success_rate": -0.09999999999999998,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [
+          "libero_spatial_ood:seed173:task2:state25"
+        ],
+        "paired_reset_identities_verified": true
+      }
+    },
+    {
+      "collection_rollouts": 8,
+      "collection_steps": 2299,
+      "evaluation_steps_cumulative": 10716,
+      "policy_version": 8,
+      "successes": 3,
+      "rollouts": 10,
+      "success_rate": 0.3,
+      "wilson_95": [
+        0.10779126740630099,
+        0.6032218525388546
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state20",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "faa4871374a2743603e5fc1f004079bb49602b584499cacb245e9e8043035f96",
+            "reset_model_sha256": "8dde04153fa5f08c620ed328fa6e800731d719561d7da46a8944350505566f58",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "f691e9e6ca6280023b6800aa9525689356a97a86494323d16180f01c1155b6da",
+            "reset_model_sha256": "1fe6e23dc77b50c34c1f29bfb5524dcf3957f4bd9993fd118b28da716e2bdd53",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state22",
+          "success": true,
+          "actions_executed": 88,
+          "total_control_steps": 98,
+          "reset_identity": {
+            "reset_state_sha256": "4074d376dc05401606c698dd7cc8c47c97d40a474fc60a8dc49f08b2c5a0978e",
+            "reset_model_sha256": "94b574803c6bd840447187807786287aa611cc33a650ae7477fb18cc3c1d2663",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state23",
+          "success": true,
+          "actions_executed": 244,
+          "total_control_steps": 254,
+          "reset_identity": {
+            "reset_state_sha256": "e66588ee68d1d738fa0d56e8463b2c21784a5f510d03eb3b106298db08701d06",
+            "reset_model_sha256": "d21dff2fc4b8287b9c29ec8a0f32ed0229ba61a1c85aac777a0c561b40599d2b",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "abc106cb3b9d1f925456226a58288110b200cb4c52b98b602853a0fb10301765",
+            "reset_model_sha256": "2686907504386f2a8c2a350e03c42a5190ca65922271d9f05603bf2039d10b51",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state25",
+          "success": true,
+          "actions_executed": 89,
+          "total_control_steps": 99,
+          "reset_identity": {
+            "reset_state_sha256": "02ada5bfa9d73cd39de1eed6d84639d2ff19e9be9be090295856341265b593aa",
+            "reset_model_sha256": "e52b031e9a0c5ca6c28f88a737517426a8243334ba5681ab42f572296f88b8af",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "4a733254eb5d6beea73d35ec6b7d2f74129690addd28c8f5f98715f5d1c8fccf",
+            "reset_model_sha256": "2e45c8ac41986658a8bc334fc38fe185516e2fa8d7b63c6a30821bf842e62592",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "01772c9fe13db05b7ad98da1d58f1561ecbe5bf85fc3be12cd58acf9714a92e4",
+            "reset_model_sha256": "6bdc616ee17a6d261eafc8e36dbd3584180a74eab552408e0b08ce82ced05638",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state28",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "15ae1c385d03cf4314ac8b51dff23cc30f28a7521ac87b9671097686a47087e8",
+            "reset_model_sha256": "851e1d01ca7077aac799208392b39423102ab2d9039ada2be5adfe1af0b1652f",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state29",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "58a5630e2af4cda49c40f889479d01080ab1c255804ae9689a7c0016ea63ae53",
+            "reset_model_sha256": "9bdc691043fadbc94e8d88f41430e60ee011fc7b746397c1a1aad2c39ff6be83",
+            "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 3,
+        "rollouts": 10,
+        "delta_success_rate": 0.0,
+        "gained_episode_ids": [
+          "libero_spatial_ood:seed173:task2:state23"
+        ],
+        "regressed_episode_ids": [
+          "libero_spatial_ood:seed173:task2:state21"
+        ],
+        "paired_reset_identities_verified": true
+      }
+    }
+  ],
+  "collection": [
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state0",
+      "success": true,
+      "actions_executed": 119,
+      "policy_replans": 24,
+      "wall_seconds": 33.914368390105665,
+      "reset_seconds": 1.3683436210267246,
+      "policy_seconds": 27.664344385499135,
+      "environment_seconds": 3.981954528018832,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state0",
+        "seed": 173,
+        "reset_state_sha256": "ae6f623e62fa5a59156ec0598750f34792803b228ebf7557fabd9fccd94a3153",
+        "reset_model_sha256": "5f6a4cf1d8c5cc517948291b980ce9bb81421a36b831bf784233b60320fe80f7",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "post_stabilization_state_sha256": "046245d5202bed769b80bca0b7b9c73e3baef1879ebda4ba4ab4369442905885",
+        "post_stabilization_model_sha256": "5f6a4cf1d8c5cc517948291b980ce9bb81421a36b831bf784233b60320fe80f7",
+        "post_stabilization_observation_sha256": "021bbb99ed67da9a6017c0c2bd3dab48f3c7e870d6c4604663cba54bbdd350a3",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "f38b06dde50329399ba28795bc14c7e107b640f34369796806d4e86e8a17a0bc"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_0/rollout.mp4",
+      "autonomous": true,
+      "teacher_requests": 0,
+      "policy_version": 0,
+      "initialization_steps": 10,
+      "total_control_steps": 129,
+      "collection_transitions": 24
+    },
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state1",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 81.89615367306396,
+      "reset_seconds": 1.7791550990659744,
+      "policy_seconds": 69.15316157299094,
+      "environment_seconds": 9.791668579215184,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state1",
+        "seed": 173,
+        "reset_state_sha256": "492239b6a52ee8dcb46b83eaac927dc6b36580e763c4257060498abede343c7e",
+        "reset_model_sha256": "59073341a51fb9f1ee5f4932da3ea816027af149a3b53c5cfae85ab760046dd5",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "post_stabilization_state_sha256": "a12657e0394ffc3591199c868cca69cbb63725ebf7e751ee5185e4c65f386a30",
+        "post_stabilization_model_sha256": "59073341a51fb9f1ee5f4932da3ea816027af149a3b53c5cfae85ab760046dd5",
+        "post_stabilization_observation_sha256": "d9ebcbf1408ad3d3ce2988166c541c84d96a0475c73b75d79e070aaf1a48b162",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "25ea549748a9f4d8a2af0f591437d17278fd6b6f8a8aeb97f2e3e707d8260572"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_1/rollout.mp4",
+      "autonomous": true,
+      "teacher_requests": 0,
+      "policy_version": 1,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_transitions": 60
+    },
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state2",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 85.66239264584146,
+      "reset_seconds": 1.4397052279673517,
+      "policy_seconds": 73.60323291108944,
+      "environment_seconds": 9.468642956577241,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state2",
+        "seed": 173,
+        "reset_state_sha256": "1fdce4afdcda0ba1a82513df040f2eb0b593b2f37e6a74dc94d1c430c4fae967",
+        "reset_model_sha256": "222efd08c102aa010400c10c0ba6bf1670a42041bc9a28464e16e2bb016ea85d",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "post_stabilization_state_sha256": "89897eb8cd9bcf76ccbf885e91e9a08ca5d3b7c6d9d93c70f146deff4b7cf3c0",
+        "post_stabilization_model_sha256": "222efd08c102aa010400c10c0ba6bf1670a42041bc9a28464e16e2bb016ea85d",
+        "post_stabilization_observation_sha256": "aad9e6acbaae2235b4f9f4878fb7bace431e17a6208d4d0f37f8e87b7c740df3",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "637ad2a421d6160e7c535f092bf822405fe3b4cf3f742fb1b55b3eab5602c6f6"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_2/rollout.mp4",
+      "autonomous": true,
+      "teacher_requests": 0,
+      "policy_version": 2,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_transitions": 60
+    },
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state3",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 90.15366848395206,
+      "reset_seconds": 1.4972090260125697,
+      "policy_seconds": 78.34171555796638,
+      "environment_seconds": 9.098991621518508,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state3",
+        "seed": 173,
+        "reset_state_sha256": "fc69a0e018c03184a670464d27ee713ef47b5287fccd6f447f67ae8370d656bd",
+        "reset_model_sha256": "597e8ffab69e027ace16e04ff7e4b31f0747717ae83fa8fb524a64640a509efc",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "post_stabilization_state_sha256": "408f213605cf88ce99ac85c79d6ea4660b22330230a0eb726c5f95e05c84559f",
+        "post_stabilization_model_sha256": "597e8ffab69e027ace16e04ff7e4b31f0747717ae83fa8fb524a64640a509efc",
+        "post_stabilization_observation_sha256": "c51076aef1d50f09578c54b86556c5f16770f13a72bde9fc1b966af8de74b2cc",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "5b5cbf2404c3aed545c09025f043d9f98d605d874581dc5a46b4a30b2bfeefb1"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_3/rollout.mp4",
+      "autonomous": true,
+      "teacher_requests": 0,
+      "policy_version": 3,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_transitions": 60
+    },
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state4",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 81.49394394014962,
+      "reset_seconds": 1.4396627710666507,
+      "policy_seconds": 69.29850945924409,
+      "environment_seconds": 9.557092572329566,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state4",
+        "seed": 173,
+        "reset_state_sha256": "667ad2896c61b7750ab71114117a76c781d7f5f55e4519eda858d41590a100d3",
+        "reset_model_sha256": "ddb4c185a5f341c266acbf25d2fe753c0964d77b219f63789e8e16ef89fb40dc",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "post_stabilization_state_sha256": "8a25a00ce0311fdfdb004ab80964ec2194a2422c1e7012548ed90fcc11432d18",
+        "post_stabilization_model_sha256": "ddb4c185a5f341c266acbf25d2fe753c0964d77b219f63789e8e16ef89fb40dc",
+        "post_stabilization_observation_sha256": "b0426474c3e7e19ba322e0711496af17310a8b628055b95721bf55e21ab11c94",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "b31c985db8ad7428636f6958621f6063f7dbbc8fba45552abb22230454b48c53"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_4/rollout.mp4",
+      "autonomous": true,
+      "teacher_requests": 0,
+      "policy_version": 4,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_transitions": 60
+    },
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state5",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 78.99528973107226,
+      "reset_seconds": 1.4075333420187235,
+      "policy_seconds": 67.8891428259667,
+      "environment_seconds": 8.507594879018143,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state5",
+        "seed": 173,
+        "reset_state_sha256": "ae8fec30da8b372cb207baff96e03cf299ec65a560eec7d0a21ac836b757cf27",
+        "reset_model_sha256": "3e074c587007e51e4b5fd0dfe9c19507c11e41c38d9376bdb5f536cc9f8a1d29",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "post_stabilization_state_sha256": "d7c0b7d25660241f0b248c58fd700695162972d7f5d4ae47706e9642f99dfd9c",
+        "post_stabilization_model_sha256": "3e074c587007e51e4b5fd0dfe9c19507c11e41c38d9376bdb5f536cc9f8a1d29",
+        "post_stabilization_observation_sha256": "683a007acbdf7e017656120cd6a0724abe5b7710fd6cf31b51d4114799866da0",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "3f5aa58585777ecefce61e3202f0529d5f28f8bb37d376ca9e43df07b7559cf4"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_5/rollout.mp4",
+      "autonomous": true,
+      "teacher_requests": 0,
+      "policy_version": 5,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_transitions": 60
+    },
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state6",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 76.0189757749904,
+      "reset_seconds": 1.4473211020231247,
+      "policy_seconds": 64.32276523252949,
+      "environment_seconds": 9.063408201094717,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state6",
+        "seed": 173,
+        "reset_state_sha256": "2a4fbf589759956a107ccbaeb65a43a72b22ca5ef4f94a1a9a1c1c90aaf6fdef",
+        "reset_model_sha256": "0a30c4533a7d45d9071e84962f6e7eb1fc73ac8c7c98c216f69f6ed727be5572",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "post_stabilization_state_sha256": "267b9174973e5ad70c20c100147c497771b4aa6b44db52e5b8098e58c4c18d32",
+        "post_stabilization_model_sha256": "0a30c4533a7d45d9071e84962f6e7eb1fc73ac8c7c98c216f69f6ed727be5572",
+        "post_stabilization_observation_sha256": "7308e6dfa441bbdae83e0e5183a250531a8e132f6185346cec02826a15290531",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "0556b79bfbeb6ed632e4a7c7d60ffb82543991597f6d3628d7d8e4788527024c"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_6/rollout.mp4",
+      "autonomous": true,
+      "teacher_requests": 0,
+      "policy_version": 6,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_transitions": 60
+    },
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state7",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 81.12812944990583,
+      "reset_seconds": 1.3684638508129865,
+      "policy_seconds": 69.97411171719432,
+      "environment_seconds": 8.560055133420974,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state7",
+        "seed": 173,
+        "reset_state_sha256": "228bdc8a67caeacc38314fa0cdc5393f0390e3d3dfe1abfd3cf96196c4f9d69e",
+        "reset_model_sha256": "faf062853562c3486a7c516fd880d2815cc4efba5e98cee0a042f47febfe189c",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "post_stabilization_state_sha256": "64498530d0829f537556b793c4b97f69aa2bc005ab72e8efd21cf2e9d1bab42b",
+        "post_stabilization_model_sha256": "faf062853562c3486a7c516fd880d2815cc4efba5e98cee0a042f47febfe189c",
+        "post_stabilization_observation_sha256": "a5a0db270c9c2a63786723b3b2b86f4f60ba7ca1571115d8b4b5afc2cf957d79",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "f5b0150b2086b666c6b250c097f2fee0eb2d430e27d9a06c6275524531c93f51"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_7/rollout.mp4",
+      "autonomous": true,
+      "teacher_requests": 0,
+      "policy_version": 7,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_transitions": 60
+    }
+  ],
+  "replayed_training_data": null,
+  "partial_collection": [],
+  "collection_steps_retained": 2299,
+  "collection_steps_may_be_lower_bound": false,
+  "evaluation_steps_retained": 10716,
+  "evaluation_steps_may_be_lower_bound": false,
+  "completed_collection_rollouts": 8,
+  "collected_successes": 1,
+  "policy_updates": 8,
+  "latest_evaluated_policy_version": 8,
+  "latest_updated_policy_version": 8,
+  "latest_update_has_autonomous_evaluation": true,
+  "teacher_usage": {
+    "completed_calls": 0,
+    "failed_provider_calls": 0,
+    "input_tokens": 0,
+    "cached_input_tokens": 0,
+    "output_tokens": 0,
+    "total_tokens": 0,
+    "latency_seconds": 0,
+    "incomplete_usage_receipts": 0,
+    "uncached_input_tokens": 0
+  },
+  "teacher_decisions": {
+    "roles": {},
+    "requested_interventions": 0,
+    "requested_methods": {},
+    "candidate_preferences": {},
+    "selected_non_native_proposals": 0,
+    "selected_candidates": {},
+    "observed_prefix_outcomes": {},
+    "scope": "Retained parsed responses, including partial attempts. A requested intervention, predicted win, selected proposal, executed prefix and admitted training window are distinct counts."
+  },
+  "usage_by_episode": {},
+  "threshold_crossing": null,
+  "threshold_status": "not_reached_in_completed_evaluations",
+  "videos": [],
+  "starting_frame": null
+}

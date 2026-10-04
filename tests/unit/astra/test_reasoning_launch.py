@@ -19,10 +19,14 @@ def test_unresolved_budget_prevents_gpu_experiment(tmp_path):
         load_protocol(path)
 
 
-def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(tmp_path, monkeypatch):
+@pytest.mark.parametrize("phase", ["preflight", "replay-credit"])
+def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(
+    tmp_path, monkeypatch, phase
+):
     protocol = {
         "compute": {"authorized_gpu_hours": 2},
         "pilot": {"development_tasks": [{}], "seeds": [173]},
+        "learner": {"loss_action_dimensions": 7},
     }
     monkeypatch.setattr(launch, "load_protocol", lambda **kwargs: protocol)
     monkeypatch.setattr(
@@ -43,12 +47,16 @@ def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(tmp_path, monke
     }
     (bundle / "source_identity.json").write_text(json.dumps(identity))
     output = tmp_path / "launch"
-    receipt = launch.prepare(bundle, output, phase="preflight", gpu_hours=0.5)
+    receipt = launch.prepare(bundle, output, phase=phase, gpu_hours=0.5)
     spec = yaml.safe_load((output / "workflow.yaml").read_text())["workflow"]
     assert len(spec["tasks"]) == spec["resources"]["default"]["gpu"] == 1
     assert spec["timeout"]["exec_timeout"] == "30m"
     assert receipt["status"] == "prepared_not_submitted"
     assert "codex_relay" not in (output / "connect.sh").read_text()
+    if phase == "replay-credit":
+        assert spec["tasks"][0]["environment"]["ASTRA_ENTRY_MODULE"].endswith(
+            "reasoning_credit_learning"
+        )
     assert (output / "relay.token").stat().st_mode & 0o777 == 0o600
     (bundle / "payload.tar.gz").write_bytes(b"altered")
     with pytest.raises(ValueError, match="checksum"):

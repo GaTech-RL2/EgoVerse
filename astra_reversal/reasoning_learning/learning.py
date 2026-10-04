@@ -144,20 +144,44 @@ class NativeLearner:
             )
         self.loss_action_dimensions = loss_action_dimensions
 
-    def update(self, windows, observations, *, updates=20):
+    def update(
+        self,
+        windows,
+        observations,
+        *,
+        updates=20,
+        sampling="event_stage_balanced",
+        allow_successful_episodes=False,
+    ):
         """Train at rollout boundaries. Complete executed windows only (beta=0)."""
+        if (
+            sampling not in ("event_stage_balanced", "uniform")
+            or type(allow_successful_episodes) is not bool
+        ):
+            raise ValueError("Unknown data-selection ablation settings")
         for row in windows:
             masked = "step_loss_mask" in row
+            accepted_evidence = {
+                "observed_useful_masked" if masked else "observed_useful"
+            }
+            if allow_successful_episodes and not masked:
+                accepted_evidence.add("successful_episode")
             if (
                 row.get("source") != "executed_commands"
-                or row.get("evidence")
-                != ("observed_useful_masked" if masked else "observed_useful")
+                or row.get("evidence") not in accepted_evidence
                 or (masked and self.loss_action_dimensions != 7)
             ):
                 raise ValueError(
-                    "Learner admits only complete real windows with useful evidence"
+                    "Learner admits only complete real windows with configured evidence"
                 )
-        indices = balanced_window_indices(windows, updates, self.rng)
+        if sampling == "event_stage_balanced":
+            indices = balanced_window_indices(windows, updates, self.rng)
+        else:
+            if not windows or type(updates) is not int or updates < 1:
+                raise ValueError(
+                    "Uniform sampling requires windows and positive updates"
+                )
+            indices = self.rng.integers(len(windows), size=updates).tolist()
         before = digest({name: to_numpy(p) for name, p in self.parameters.items()})
         history = []
         try:
@@ -236,6 +260,8 @@ class NativeLearner:
             "padding_loss_excluded": self.loss_action_dimensions is not None,
             "evidence_masked_loss": any("step_loss_mask" in row for row in windows),
             "replay_beta": 0,
+            "window_sampling": sampling,
+            "successful_episode_evidence_enabled": allow_successful_episodes,
             "history": history,
         }
 

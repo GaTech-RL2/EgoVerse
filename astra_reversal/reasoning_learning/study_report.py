@@ -16,6 +16,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .hindsight import SYSTEM_PROMPT as HINDSIGHT_SYSTEM_PROMPT
 from .teacher import (
     BOUNDED_TARGET_EXTENSION,
     COMPARISON_FEEDBACK_EXTENSION,
@@ -399,6 +400,9 @@ def export_figures(data, output):
         "teacher_v8": "#327a93",
         "teacher_replay": "#245941",
         "teacher_replay_masked": "#aa783d",
+        "credit_online": "#6e8293",
+        "credit_hindsight": "#177e5b",
+        "credit_success": "#ad5670",
         "dsrl": "#057a76",
         "ppo": "#4566ba",
     }
@@ -659,7 +663,7 @@ def build(manifest, budget, output):
             {
                 "label": spec["label"],
                 "environment_actions": 0,
-                "used_for_training": False,
+                "used_for_training": spec.get("used_for_training", False),
                 "teacher_usage": usage,
             }
         )
@@ -690,6 +694,10 @@ def build(manifest, budget, output):
         "teacher_comparison_feedback_prompt_extension": COMPARISON_FEEDBACK_EXTENSION,
         "teacher_bounded_target_prompt_extension": BOUNDED_TARGET_EXTENSION,
         "teacher_grounding_prompt_extension": GROUNDING_EXTENSION,
+        "teacher_hindsight_system_prompt": HINDSIGHT_SYSTEM_PROMPT,
+        "hindsight_credit_recipe": read_json(
+            Path(__file__).parents[1] / "configs/reasoning_credit_v5.json"
+        ),
         "notes": [
             "Success is the simulator's binary task predicate. Each scheduled autonomous score uses ten separate reset states; Astra supplies no inference input in these evaluations.",
             "The 80% threshold means at least 8/10 at a scheduled checkpoint. Wilson intervals are descriptive; a single crossing on development data does not prove superiority.",
@@ -706,6 +714,7 @@ def build(manifest, budget, output):
             "Teacher V1–V4 averaged flow loss over all 32 internal channels, including padding. This differs from LeRobot's policy-level loss over seven actual action channels. V5 corrects this and requires a weighted native-loss parity check; earlier runs keep their original objective and results.",
             "A fixed-data learner ablation adds no collection actions or teacher calls. Its trained checkpoints retain the original dataset's collection and teacher-token costs on the curves; global totals count those source costs only once. Reusing the same windows does not create independent experience or confirmation.",
             "The evidence-masked replay variant uses complete real ten-action windows but applies loss only to useful steps; corrections also require their original predicted win. It fabricates no tails. Known unsupervised actions still enter the noised denoising input, an explicit modeling limitation. The 40/100/200-update checkpoints reuse one development dataset.",
+            "The three-way credit screen compares original local labels, completed-trajectory hindsight labels, and binary-success episode BC on the same two V5 collections. Each fresh student gets 100 uniformly sampled updates and ten autonomous resets. Hindsight's two reviews add 83,532 tokens, counted once globally and attributed to that branch; no evaluation data is reviewed. A successful episode is explicitly weaker than per-action observed-useful credit. Development selection differences are not a confirmed sample-efficiency result.",
         ],
     }
     data["figures"] = export_figures(data, output / "figures")
