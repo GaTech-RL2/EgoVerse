@@ -25,13 +25,34 @@ class SemanticPolicy(SmallPolicy):
         )
 
     def prepare_interpolated(
-        self, observation, oid, prompt, *, source_prompts, alpha, operator
+        self,
+        observation,
+        oid,
+        prompt,
+        *,
+        source_prompts,
+        alpha,
+        operator,
+        text_latents=None,
     ):
+        if operator == "tli":
+            assert prompt == source_prompts[1] == "original task"
+            assert source_prompts[0] == "carry bottle over bowl"
+            assert text_latents == {"a": source_prompts[0], "b": source_prompts[1]}
+            return SimpleNamespace(
+                state=torch.zeros(1, 8),
+                condition_id="tli" + str(alpha),
+                displacement=1 - 2 * alpha,
+            ), {"operator": "tli", "alpha": alpha}
         assert prompt == source_prompts[0] == "original task"
         assert source_prompts[1] == "carry bottle over bowl" and operator == "tei"
         return SimpleNamespace(
             state=torch.zeros(1, 8), condition_id=str(alpha), displacement=alpha
         ), {"operator": "tei", "alpha": alpha}
+
+    def capture_text_latents(self, observation, prompt, *, observation_id):
+        assert observation_id
+        return prompt
 
     def sample(self, condition, noise, steps):
         self.samples.append((condition.condition_id, noise.clone()))
@@ -166,3 +187,43 @@ def test_semantic_contract_is_version_gated_and_rejects_conflicting_fields():
     ):
         with pytest.raises(ValueError, match="correction fields"):
             teacher.parse_proposal({**value, **changes}, req)
+
+
+def test_contrastive_tli_candidates_keep_original_target_and_reuse_native_noise(
+    tmp_path,
+):
+    policy, client = SemanticPolicy(), SemanticTeacher()
+    loop = LearningRollout(
+        policy,
+        client,
+        ActionSpec("test", 10, 32, 0.05, (-1,) * 7, (1,) * 7, {}),
+        tmp_path / "trial",
+        episode_id="e",
+        instruction="original task",
+        policy_version=0,
+        seed=1,
+        semantic_interventions=True,
+        text_latent_candidates=True,
+        comparison_feedback=True,
+    )
+    commands = loop.action(observation(0), 0)
+    assert len(loop.steps) == 0 and len(policy.samples) == 6
+    assert all(torch.equal(n, policy.samples[0][1]) for _, n in policy.samples)
+    comparison = next(r for r in client.requests if r["role"] == "compare")
+    candidates = comparison["context"]["candidates"]
+    np.testing.assert_allclose(np.asarray(candidates["subgoal_tli_1"])[:, 0], 0.5)
+    np.testing.assert_allclose(np.asarray(candidates["subgoal_tli_2"])[:, 0], 1.0)
+    for j in range(5):
+        loop.observed_step(
+            observation(j), commands[j], j, observation(j + 1), False, False
+        )
+    loop.action(observation(5), 5)
+    diagnoses = [r for r in client.requests if r["role"] == "diagnose"]
+    assert diagnoses[0]["context"]["recent_candidate_comparisons"] == []
+    feedback = diagnoses[-1]["context"]["recent_candidate_comparisons"]
+    assert len(feedback) == 1 and feedback[0]["step"] == 0
+    assert feedback[0]["judgments"] == loop.comparison_history[0]["judgments"]
+    assert len(loop.steps) == 5  # Feedback and larger candidate pool add no samples.
+    prompt = teacher.build_payload(diagnoses[-1], "model")["messages"][0]["content"]
+    assert teacher.TLI_EXTENSION in prompt
+    assert teacher.COMPARISON_FEEDBACK_EXTENSION in prompt

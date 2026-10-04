@@ -40,6 +40,8 @@ class LearningRollout:
         temporal_diagnosis=False,
         semantic_interventions=False,
         explicit_execution_prefix=False,
+        text_latent_candidates=False,
+        comparison_feedback=False,
         controller_delta_limits=None,
         retain_step_observations=True,
         max_episodes=3,
@@ -69,6 +71,9 @@ class LearningRollout:
         self.temporal_diagnosis = temporal_diagnosis
         self.semantic_interventions = semantic_interventions
         self.explicit_execution_prefix = explicit_execution_prefix
+        self.text_latent_candidates = text_latent_candidates
+        self.comparison_feedback = comparison_feedback
+        self.comparison_history = []
         self.delta_limits = controller_delta_limits
         self.retain_step_observations = retain_step_observations
         if client is not None and not retain_step_observations:
@@ -112,6 +117,12 @@ class LearningRollout:
                     if self.explicit_execution_prefix
                     else {}
                 ),
+                **(
+                    {"text_latent_candidates": True}
+                    if self.text_latent_candidates
+                    else {}
+                ),
+                **({"comparison_feedback": True} if self.comparison_feedback else {}),
                 **context,
             },
         )
@@ -241,6 +252,11 @@ class LearningRollout:
                     ],
                     "correction_episodes_used": self.events,
                     "soft_episode_budget": self.max_episodes,
+                    **(
+                        {"recent_candidate_comparisons": self.comparison_history[-3:]}
+                        if self.comparison_feedback
+                        else {}
+                    ),
                     **history_context,
                 },
             )
@@ -311,6 +327,7 @@ class LearningRollout:
                     self.instruction,
                     rule["subgoal_instruction"],
                     noise,
+                    include_tli=self.text_latent_candidates,
                 )
                 self.active.pop("last_target_error", None)
                 for name, commands, receipt in proposals:
@@ -405,6 +422,16 @@ class LearningRollout:
                     rationale=row["evidence"],
                 )
             selected = comparison["selected"]
+            if self.comparison_feedback:
+                self.comparison_history.append(
+                    {
+                        "step": step,
+                        "rule": copy.deepcopy(rule),
+                        "selected": selected,
+                        "judgments": copy.deepcopy(comparison["judgments"]),
+                        "scope": "Earlier computational preferences, not physical outcomes of rejected candidates; the next batch uses its own fixed reference and rule.",
+                    }
+                )
         commands, claim = batch.claim(selected, self.directory / "execution_claims")
         event_id = self.active["event_id"] if self.active else None
         self.pending = {

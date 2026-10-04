@@ -96,6 +96,29 @@ five actions, it remains relevant. Keep the overall completion rule finite, but
 do not try to constrain future commands that will be regenerated from new images.
 """
 
+TLI_EXTENSION = """
+This version adds TWO TEXT-LATENT candidates to the three language-subgoal
+candidates described above. The original task instruction remains the target
+input. At transformer boundaries 0 through 16, TLI adds respectively
+0.5*(T_subgoal - T_original) or 1.0*(T_subgoal - T_original), on instruction
+tokens only. Both source representations use the SAME current real images
+and robot state, not demonstrations or imagined observations. These stronger
+internal edits may help or harm; judge their actual motor proposals by the
+same fixed-reference gate. They are not privileged future-outcome predictions.
+"""
+
+COMPARISON_FEEDBACK_EXTENSION = """
+Diagnosis also receives recent candidate comparisons. Those records explain why
+earlier alternatives were declined; they are computational judgments, not real
+outcomes of those unexecuted alternatives. If repeated subgoal candidates remain
+indistinguishable or fail to preserve a grasp, reconsider the mechanism or make
+the finite subgoal more concrete, rather than repeatedly proposing the same edit.
+A supported motor correction can address retention or clearance when appropriate.
+Keep the original objective and clear-win gate; do not force an intervention or
+lower the evidence standard just to produce a different candidate. Refresh rules
+between batches only; old preferences never authorize a new batch's execution.
+"""
+
 
 def _object(properties):
     return {
@@ -389,6 +412,16 @@ def build_payload(request, model, *, sampling=None):
                 + (
                     PREFIX_EXTENSION
                     if "execution_prefix_steps" in request["context"]
+                    else ""
+                )
+                + (
+                    TLI_EXTENSION
+                    if request["context"].get("text_latent_candidates", False)
+                    else ""
+                )
+                + (
+                    COMPARISON_FEEDBACK_EXTENSION
+                    if request["context"].get("comparison_feedback", False)
                     else ""
                 ),
             },

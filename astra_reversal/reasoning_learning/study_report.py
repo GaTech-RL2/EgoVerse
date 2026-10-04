@@ -15,7 +15,13 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .teacher import PREFIX_EXTENSION, SEMANTIC_EXTENSION, SYSTEM_PROMPT
+from .teacher import (
+    COMPARISON_FEEDBACK_EXTENSION,
+    PREFIX_EXTENSION,
+    SEMANTIC_EXTENSION,
+    SYSTEM_PROMPT,
+    TLI_EXTENSION,
+)
 
 
 def read_json(path, default=None):
@@ -309,6 +315,8 @@ def export_figures(data, output):
         "teacher_v2": "#d89122",
         "teacher_v3": "#83432a",
         "teacher_v4": "#75639c",
+        "teacher_v5": "#aa3f57",
+        "teacher_v6": "#914ea1",
         "dsrl": "#057a76",
         "ppo": "#4566ba",
     }
@@ -525,6 +533,8 @@ def build(manifest, budget, output):
         "teacher_system_prompt": SYSTEM_PROMPT,
         "teacher_semantic_prompt_extension": SEMANTIC_EXTENSION,
         "teacher_execution_prefix_prompt_extension": PREFIX_EXTENSION,
+        "teacher_tli_prompt_extension": TLI_EXTENSION,
+        "teacher_comparison_feedback_prompt_extension": COMPARISON_FEEDBACK_EXTENSION,
         "notes": [
             "Success is the simulator's binary task predicate. Each scheduled autonomous score uses ten separate reset states; Astra supplies no inference input in these evaluations.",
             "The 80% threshold means at least 8/10 at a scheduled checkpoint. Wilson intervals are descriptive; a single crossing on development data does not prove superiority.",
@@ -536,6 +546,7 @@ def build(manifest, budget, output):
             "A marked shared native baseline reuses the same previously measured episodes after deployment and reset identity checks. It contributes no new evaluation interactions or independent statistical replicate. Updated policies always receive fresh evaluations.",
             "An initial-policy score does not evaluate a later update. Runs stopped between scheduled checkpoints explicitly mark their latest policy update as unevaluated.",
             "Candidate preference is predicted improvement. Only selected commands execute; full observed-useful action windows train. No FRS action steering, physical candidate retries, privileged object poses, or default synthetic training.",
+            "This study generates ten actions and executes five before replanning. The published checkpoint config specifies chunk_size=50 and n_action_steps=10; native parity here refers to the common study runtime, not stock deployment settings.",
             "Teacher V1–V4 averaged flow loss over all 32 internal channels, including padding. This differs from LeRobot's policy-level loss over seven actual action channels. V5 corrects this and requires a weighted native-loss parity check; earlier runs keep their original objective and results.",
         ],
     }

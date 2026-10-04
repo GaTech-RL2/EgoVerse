@@ -34,7 +34,7 @@ from astra_reversal.records import digest
 
 def load_protocol(path=None, *, version=None):
     version = version or os.environ.get("ASTRA_LEARNING_PROTOCOL_VERSION", "v1")
-    if version not in ("v1", "v2", "v3", "v4", "v5"):
+    if version not in ("v1", "v2", "v3", "v4", "v5", "v6"):
         raise ValueError("Unknown learning protocol version")
     path = path or (
         Path(__file__).parents[1] / f"configs/reasoning_policy_learning_{version}.json"
@@ -269,7 +269,14 @@ def main():
 
             write_json(
                 RESULTS / "semantic_preflight.json",
-                semantic_preflight(policy, observation, probe_prompt),
+                semantic_preflight(
+                    policy,
+                    observation,
+                    probe_prompt,
+                    include_tli=protocol["teacher"].get(
+                        "text_latent_candidates", False
+                    ),
+                ),
             )
         write_json(RESULTS / "preflight.json", receipt)
         archive.sync()
@@ -389,6 +396,12 @@ def main():
                 ),
                 explicit_execution_prefix=protocol["teacher"].get(
                     "explicit_execution_prefix", False
+                ),
+                text_latent_candidates=protocol["teacher"].get(
+                    "text_latent_candidates", False
+                ),
+                comparison_feedback=protocol["teacher"].get(
+                    "comparison_feedback", False
                 ),
                 controller_delta_limits=protocol["teacher"].get(
                     "controller_delta_limits"

@@ -374,3 +374,34 @@ and executes five before replanning. Native/zero-guidance parity and all paired
 comparisons refer to this shared runtime, not the publisher's stock rollout
 settings. Both the runtime override and the serial RL integration must be
 considered before claiming a strong published-baseline reproduction.
+
+V6 prospective revision: TLI and computational rejection feedback
+V4 and early V5 semantic proposals often differed too little or had uncertain
+destination effects. V6 adds two TLI candidates alongside prompt and TEI: keep
+the original task input and add 0.5 or 1.0 times the current-observation subgoal
+text latent minus the original-instruction latent, after VLM blocks 0–16. Both
+source banks are freshly captured from the same actual observation; no training
+demonstrations are supplied. Fixed noise, frozen policy/rule/reference and the
+clear-win gate remain in force. Zero-factor TLI and native restoration must
+match exactly before collection.
+
+Diagnosis previously received real outcome reviews but not the verifier's
+reasons for declining its proposals. V6 includes the last three comparison
+records, explicitly identified as past computational judgments. They may
+inform the next diagnosis but cannot authorize its new candidate batch.
+V1–V5 prompts and candidate pools remain unchanged.
+
+The separate visible-pixel geometry probe produced only 3/8 labels above its
+predeclared 0.6 confidence threshold. The minimum was six, so no projection
+was fitted and no geometry intervention was deployed. The retained negative
+result is visual_grounding_probe.json.
+
+DSRL tuning result (Goal OOD 6, seed 173)
+Increasing SAC replay updates from 200 to 600 per collected episode yielded
+4/10, 4/10, 5/10 and 6/10 autonomous successes at 0, 2, 4 and 8 collection
+rollouts (0, 422, 1042 and 1455 collection control steps). Native pi0.5 scored
+5/10. The final model gained reset 21 and retained all five native successes;
+exact reset-state/model/task hashes agree. The intermediate 5/10 is not the
+same set of successful resets. Five of eight collection episodes succeeded.
+This is one development seed, not confirmation. No method has reached the
+predeclared 8/10 threshold. See dsrl_more_goal6_seed173_result.json.

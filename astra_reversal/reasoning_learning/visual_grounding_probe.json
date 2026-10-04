@@ -1,0 +1,221 @@
+{
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-5",
+  "environment_actions": 0,
+  "used_for_training": false,
+  "source_revision": "7084b090d4d504fa91a107353333f7bb7b3cae6d",
+  "module_sha256": "7d38581472eb0cfc4b2d6cbd150048523823b65a9a014d4016f732e0b6eb0570",
+  "labeler_inputs": "Unaltered real external-camera images and instruction only; no proprioception, depth, camera parameters or object poses.",
+  "fit_inputs": "VLM visible pixel labels paired with recorded robot XYZ after labeling.",
+  "thresholds": {
+    "minimum_confidence": 0.6,
+    "maximum_loo_rms_pixels": 8.0,
+    "maximum_design_condition": 100.0
+  },
+  "proposal": {
+    "destination": {
+      "confidence": 0.94,
+      "evidence": "The gray bowl's elliptical opening is visible near the middle of the table, above the red-rimmed plate.",
+      "uv": [
+        0.516,
+        0.569
+      ],
+      "visible": true
+    },
+    "frames": [
+      {
+        "confidence": 0.62,
+        "evidence": "Two angled finger ends are visible beyond the wrist; the point marks the middle of their gap.",
+        "step": 25,
+        "uv": [
+          0.511,
+          0.254
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.71,
+        "evidence": "The broad near fingertip and smaller opposing fingertip outline a gap at the gripper's lower-right end.",
+        "step": 50,
+        "uv": [
+          0.451,
+          0.438
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.66,
+        "evidence": "The two finger ends are distinguishable beside the bottle; their gap defines the grasp center.",
+        "step": 75,
+        "uv": [
+          0.522,
+          0.455
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.53,
+        "evidence": "Finger ends flank the bottle, with the opposing tip partly obscured; the midpoint is only moderately clear.",
+        "step": 100,
+        "uv": [
+          0.542,
+          0.46
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.51,
+        "evidence": "The near finger end and dark opposing tip are visible around the bottle below the gripper palm.",
+        "step": 115,
+        "uv": [
+          0.609,
+          0.299
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0,
+        "evidence": "The bottle and near finger obscure the opposing contact surface, preventing a supported midpoint annotation.",
+        "step": 125,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0,
+        "evidence": "The broad foreground finger obscures the opposing fingertip contact surface at the bottle.",
+        "step": 140,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0,
+        "evidence": "Only the foreground fingertip is clear; the opposing contact surface is hidden behind the finger and bottle.",
+        "step": 155,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      }
+    ],
+    "request_fingerprint": "a6783ddd72ac2f39e83e26fa5275ff8eb76fd3c7cc2d501a3509e8ede18c6ba3"
+  },
+  "receipt": {
+    "backend": "codex_exec",
+    "requested_model": "gpt-6-astra",
+    "configured_model": "gpt-6-astra",
+    "returned_model": null,
+    "reasoning_effort": "medium",
+    "request_fingerprint": "a6783ddd72ac2f39e83e26fa5275ff8eb76fd3c7cc2d501a3509e8ede18c6ba3",
+    "request_sha256": "d35f042adbbd137a5eeb954ad978e35c685305dd77655cf52dcf269f6204b06a",
+    "request_time": 1791079906.84541,
+    "provider_call": true,
+    "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+    "internal_retry_count": null,
+    "internal_turn_count": null,
+    "accepted": true,
+    "provider_unavailable": false,
+    "status": "accepted",
+    "token_usage": {
+      "input_tokens": 16884,
+      "output_tokens": 931,
+      "reasoning_tokens": 516,
+      "total_tokens": 17815
+    },
+    "raw_usage": {
+      "input_tokens": 16884,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 931,
+      "reasoning_output_tokens": 516
+    },
+    "tool_items": [],
+    "cli_version": "codex-cli 0.159.3",
+    "schema_sha256": "a1340a3c7634b24ecf33beb7b31c118a6281d140dff500b6b1f5b91acf31d1a7",
+    "original_schema_sha256": "a1340a3c7634b24ecf33beb7b31c118a6281d140dff500b6b1f5b91acf31d1a7",
+    "prompt_template_version": "reasoning-visible-pixel-labels-1",
+    "prompt_sha256": "906c9060f5e052da1515efd10689432229010183b374653365e3985c5da95cb0",
+    "system_prompt_sha256": "5bed26577f660e5d31ac9b246ba658025299f2ff55f9ec523b3c040f9f4a72b6",
+    "image_hashes": [
+      {
+        "image_index": 0,
+        "file": "image_0.png",
+        "label": "REAL external-camera frame at control step 25",
+        "sha256": "899fdc2834e75c8ceb7f03e4f9946bd0ca3d2ffb89333150891daba73624564e"
+      },
+      {
+        "image_index": 1,
+        "file": "image_1.png",
+        "label": "REAL external-camera frame at control step 50",
+        "sha256": "5fda5442aeb1ecc79f9923e54ca69b5bbecc8d5385e4306b97a446b586d4c3af"
+      },
+      {
+        "image_index": 2,
+        "file": "image_2.png",
+        "label": "REAL external-camera frame at control step 75",
+        "sha256": "9c7f7cc63d0f3ddca290693cc75c171971537dd14e14972bf1cbd4ae41300f38"
+      },
+      {
+        "image_index": 3,
+        "file": "image_3.png",
+        "label": "REAL external-camera frame at control step 100",
+        "sha256": "eb751dc2e021fb581232344fdf6d1a298b94419fe9b96cdb6eda67277d2e6c38"
+      },
+      {
+        "image_index": 4,
+        "file": "image_4.png",
+        "label": "REAL external-camera frame at control step 115",
+        "sha256": "6d1626f78bbb125ff2a98e9863774b977e27ab4de8536465e7b8c64a38369b12"
+      },
+      {
+        "image_index": 5,
+        "file": "image_5.png",
+        "label": "REAL external-camera frame at control step 125",
+        "sha256": "3708d1f1358531d870054d49db7ccc0a24e400fed839b49a75ca2c88e4746fc4"
+      },
+      {
+        "image_index": 6,
+        "file": "image_6.png",
+        "label": "REAL external-camera frame at control step 140",
+        "sha256": "2be5f046a2636b570433da69d41b48f670ac0c0bda8be33695ab2b190a167001"
+      },
+      {
+        "image_index": 7,
+        "file": "image_7.png",
+        "label": "REAL external-camera frame at control step 155",
+        "sha256": "9498fb7fc7e9ef75764c654cc91fcb31d47ad1b43b57192cbb41040af715ab3a"
+      }
+    ],
+    "exit_code": 0,
+    "observed_completed_turns": 1,
+    "raw_usage_events": [
+      {
+        "input_tokens": 16884,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 931,
+        "reasoning_output_tokens": 516
+      }
+    ],
+    "total_tokens_derived": true,
+    "token_usage_is_lower_bound": false,
+    "final_sha256": "89cc2cf6a3647c0d50b94806bae9df48600091fd13c3a2e620236419f852d4f8",
+    "response_time": 1791079950.6114671,
+    "latency_seconds": 43.76595400000224
+  },
+  "retained_label_steps": [
+    25,
+    50,
+    75
+  ],
+  "projection": {
+    "accepted": false,
+    "reason": "fewer_than_six_confident_visible_labels"
+  },
+  "conclusion": "Only three of eight grasp-center labels met the predeclared confidence threshold; no projection was fitted and no geometric guidance was deployed. Occlusion during holding limits this particular visible-point interface."
+}
