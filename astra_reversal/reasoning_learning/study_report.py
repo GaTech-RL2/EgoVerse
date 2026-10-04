@@ -519,7 +519,7 @@ def export_figures(data, output):
         run = next(
             (r for r in data["runs"] if r["workflow"] == receipt["workflow"]), None
         )
-        if not run:
+        if not run or not run["points"]:
             continue
         fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
         for group, label, color in (
@@ -663,6 +663,15 @@ def build(manifest, budget, output):
                 "teacher_usage": usage,
             }
         )
+    replay_video_audit = read_json(Path(__file__).with_name("replay_video_audit.json"))
+    audit_image = Path(__file__).with_name("replay_video_audit.png")
+    if replay_video_audit and audit_image.exists():
+        target = Path("images") / audit_image.name
+        (output / target).parent.mkdir(exist_ok=True)
+        shutil.copy2(audit_image, output / target)
+        replay_video_audit = {**replay_video_audit, "image": str(target)}
+    else:
+        replay_video_audit = None
     ledger = read_json(budget)
     data = {
         "title": "Reasoning-guided policy learning",
@@ -673,6 +682,7 @@ def build(manifest, budget, output):
         "budget": ledger,
         "runs": runs,
         "offline_teacher_diagnostics": diagnostics,
+        "replay_video_audit": replay_video_audit,
         "teacher_system_prompt": SYSTEM_PROMPT,
         "teacher_semantic_prompt_extension": SEMANTIC_EXTENSION,
         "teacher_execution_prefix_prompt_extension": PREFIX_EXTENSION,

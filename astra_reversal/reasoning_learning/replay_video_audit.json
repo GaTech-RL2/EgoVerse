@@ -1,0 +1,83 @@
+{
+  "scope": "Qualitative audit from recorded evaluation videos. No additional environment actions or teacher calls.",
+  "rows": [
+    {
+      "label": "Native policy",
+      "source": "pilot-v1-results/worker_0/evaluation_0/reset_20",
+      "source_video_sha256": "ef1ea52ec50d3228fea6259632751d3d9c3e4101cf1a6ee3ccccb034b1fd690f",
+      "frame_indices": [
+        0,
+        40,
+        80,
+        82
+      ],
+      "video_frames": 83,
+      "success": true,
+      "actions_executed": 83,
+      "reset_identity": {
+        "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+        "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+      }
+    },
+    {
+      "label": "Strict replay \u00b7 200 updates",
+      "source": "replay-v3-results/worker_0/evaluation_200/reset_20",
+      "source_video_sha256": "51bbc77a422101a65c8f25ffb8118baabe423675b526d8bf8017e1dbe9a832b9",
+      "frame_indices": [
+        0,
+        40,
+        80,
+        113
+      ],
+      "video_frames": 114,
+      "success": true,
+      "actions_executed": 114,
+      "reset_identity": {
+        "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+        "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+      }
+    },
+    {
+      "label": "Masked replay \u00b7 100 updates",
+      "source": "replay-v3-masked-results/worker_0/evaluation_100/reset_20",
+      "source_video_sha256": "b300f36da75e7a720541a94ddd245b2385af8f5f5c1cdb98814c4cac9fd130ba",
+      "frame_indices": [
+        0,
+        40,
+        80,
+        116
+      ],
+      "video_frames": 117,
+      "success": true,
+      "actions_executed": 117,
+      "reset_identity": {
+        "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+        "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+      }
+    },
+    {
+      "label": "Masked replay \u00b7 200 updates",
+      "source": "replay-v3-masked-results/worker_0/evaluation_200/reset_20",
+      "source_video_sha256": "0e7ac70f8dbf7dc267b5dce4dc6ff82c659ebfd996555c562efcfe51d8208341",
+      "frame_indices": [
+        0,
+        40,
+        80,
+        299
+      ],
+      "video_frames": 300,
+      "success": false,
+      "actions_executed": 300,
+      "reset_identity": {
+        "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+        "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+      }
+    }
+  ],
+  "caption": "On the same reset 20, native succeeds in 83 controls. Strict replay at 200 updates and masked replay at 100 also succeed, more slowly. At 200 masked updates the policy picks up the bottle, then ends with it on the right-hand cabinet, outside the bowl. This is one qualitative example of transport/destination failure, not an explanation of all ten failures. Frames are original recorded pre-action views; the final recorded frame precedes the last control. Simulator predicates determine the outcomes.",
+  "selection": "Reset 20 is the first scheduled evaluation reset and a native success. Selected for qualitative diagnosis after the aggregate replay results were known; not independent confirmation."
+}

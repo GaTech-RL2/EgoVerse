@@ -608,3 +608,40 @@ window admission apply. Keep20 optimizer steps per collection because stronger
 fixed-data fitting did not improve success. This tests better grounded collection,
 not a larger optimization budget. Geometry calls are bound to their rollout and
 included in its teacher-token accounting. GPU rollout results remain pending.
+
+V6 completed four-collection development screen
+The final autonomous score remained 5/10 after four collections and 80 optimizer
+steps, identical to the native policy on the same five successful reset states.
+All four assisted collections failed. They consumed 1,240 controls, 412 Astra
+calls and 8,606,675 reported tokens (4,679,936 cached input); new evaluation used
+3,970 controls. Eleven assisted five-action prefixes executed, all from RTC.
+No prompt, TEI or TLI candidate was selected. Fifteen strict useful windows were
+admitted across the four collections. See pilot_v6_goal6_seed173_after4.json.
+The stop at four was requested after seeing the two-collection result, to finish
+the next scheduled evaluation within the execution cap. It is development
+evidence, not a preregistered independent confirmation. The after-two receipt
+remains a separate historical milestone.
+
+Evidence-masked replay completed: more fitting harmed autonomy
+Reusing 47 real windows, with loss on the useful steps covering 20 corrected
+actions, scored 5/10, 3/10 and 0/10 at 40, 100 and 200 optimizer steps. Native
+scored 5/10. At 200, all five native successes were lost and none was gained;
+exact reset identities match. The experiment added no collection actions or
+teacher calls. Its source cost remains 620 controls and 4,152,587 teacher tokens;
+new evaluation consumed 7,576 controls. See replay_masked_goal6_seed173_result.json.
+
+On those same training windows, correction-group controller MSE fell from 0.5475
+to 0.1940 at 200 updates, while native-only MSE rose from 0.01727 to 0.04797.
+These fixed-noise measurements explain fit and interference on the training
+data; they are not validation metrics or proof of a particular failure cause.
+The separate diagnostic changed no host policy and executed no actions. Its
+wall interval includes waiting for checkpoints; the existing GPU allocation
+already accounts for that time. See replay_masked_fit_probe.json.
+
+The matched reset20 video shows successful initial pickup followed by placement
+on the right-hand cabinet after 200 masked updates, while native places the
+bottle in the bowl. This one example motivates better task-directed collection
+and preservation checks, rather than treating all losses as grasp failures.
+The contact sheet retains original frames and matching reset/source hashes;
+it introduces no new environment trial. A video frame is the pre-action view,
+including its last recorded frame. Full simulator outcomes remain authoritative.
