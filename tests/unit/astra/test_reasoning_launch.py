@@ -19,7 +19,9 @@ def test_unresolved_budget_prevents_gpu_experiment(tmp_path):
         load_protocol(path)
 
 
-@pytest.mark.parametrize("phase", ["preflight", "replay-credit", "dsrl"])
+@pytest.mark.parametrize(
+    "phase", ["preflight", "replay-credit", "dsrl", "checkpoint-evaluation"]
+)
 def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(
     tmp_path, monkeypatch, phase
 ):
@@ -71,6 +73,10 @@ def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(
     if phase == "dsrl":
         assert spec["tasks"][0]["environment"]["ASTRA_COLLECTION_LIMIT"] == "2"
         assert receipt["collection_limit"] == 2
+    if phase == "checkpoint-evaluation":
+        assert spec["tasks"][0]["environment"]["ASTRA_ENTRY_MODULE"].endswith(
+            "reasoning_checkpoint_evaluation"
+        )
     assert (output / "relay.token").stat().st_mode & 0o777 == 0o600
     (bundle / "payload.tar.gz").write_bytes(b"altered")
     with pytest.raises(ValueError, match="checksum"):

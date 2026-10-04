@@ -64,6 +64,7 @@ def prepare(
             "replay-learning",
             "replay-masked",
             "replay-credit",
+            "checkpoint-evaluation",
         )
         or not math.isfinite(gpu_hours)
         or not (1 / 60) <= gpu_hours <= protocol["compute"]["authorized_gpu_hours"]
@@ -166,6 +167,10 @@ def prepare(
         task["environment"]["ASTRA_ENTRY_MODULE"] = (
             "astra_reversal.osmo.reasoning_credit_learning"
         )
+    if phase == "checkpoint-evaluation":
+        task["environment"]["ASTRA_ENTRY_MODULE"] = (
+            "astra_reversal.osmo.reasoning_checkpoint_evaluation"
+        )
     task["files"] = [
         {"localpath": str(bundle / "bootstrap.sh"), "path": "/tmp/astra-bootstrap.sh"},
         {"localpath": str(token), "path": "/tmp/astra-relay.token"},
@@ -213,6 +218,7 @@ def main():
             "replay-learning",
             "replay-masked",
             "replay-credit",
+            "checkpoint-evaluation",
         ),
         default="preflight",
     )

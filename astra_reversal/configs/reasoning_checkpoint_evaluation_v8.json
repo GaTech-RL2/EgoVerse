@@ -1,0 +1,10 @@
+{
+  "schema": "reasoning-frozen-checkpoint-evaluation-recipe-1",
+  "manifest_sha256": "43fd34a6606099fc553f37acd79d3672e126f527dfe2d715c85a597836592812",
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+  "policy_version": 4,
+  "evaluate_all_fixed_resets": true,
+  "optimizer_updates": 0,
+  "new_teacher_calls": 0,
+  "new_collection_steps": 0
+}

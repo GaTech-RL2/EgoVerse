@@ -794,3 +794,21 @@ a bowl while leaving the milk in place; the two-collection V7 checkpoint moves
 the milk and satisfies the simulator predicate after 178 controls. This example
 was selected after observing a gained success. It illustrates object selection
 without establishing the cause of learning or adding confirmation samples.
+
+Prospective frozen V8 checkpoint evaluation
+------------------------------------------
+If the remaining budget permits after the matched seed179 screens, evaluate the
+saved V8 policy version4 on all ten original reset20..29 states. This is an
+evaluation restart only: no collection, Astra call, optimizer update, checkpoint
+selection or candidate retry. The earlier seven completed evaluation episodes
+and interrupted work remain charged; they are not independent extra samples.
+The new run's evaluation-control column counts its own ten episodes, while the
+source's 3,463 retained evaluation controls stay in the original worker ledger.
+
+reasoning_checkpoint_evaluation_v8.json pins the original artifacts and tensor
+hash. The loader checks deployment, checkpoint version, source costs and fixed
+reset schedule. Before any rollout, the worker verifies the original evaluation
+driver's source hashes, restored adapter tensors, and exact regenerated reset
+state/model/BDDL identities. Use package_payload --reasoning-evaluation-cache
+CACHE, followed by prepare_learning_launch --phase checkpoint-evaluation
+--protocol-version v8 --gpu-hours 0.5. Preparation is not a result or allocation.

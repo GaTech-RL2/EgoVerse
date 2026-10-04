@@ -27,6 +27,7 @@ def main():
     parser.add_argument("--demo-source-cache", type=Path)
     parser.add_argument("--reasoning-replay-cache", type=Path)
     parser.add_argument("--reasoning-credit-cache", type=Path)
+    parser.add_argument("--reasoning-evaluation-cache", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = Path("astra_reversal")
@@ -140,6 +141,17 @@ def main():
             recipe = json.loads((root / "configs/reasoning_credit_v5.json").read_text())
             _, _, manifest = load(cache, recipe["manifest_sha256"])
             destination = root / ".deps/reasoning-credit-inputs"
+            for relative in ("manifest.json", *manifest["files"]):
+                archive.add(cache / relative, arcname=str(destination / relative))
+        if args.reasoning_evaluation_cache:
+            from astra_reversal.reasoning_learning.evaluation_checkpoint import load
+
+            cache = args.reasoning_evaluation_cache.resolve()
+            recipe = json.loads(
+                (root / "configs/reasoning_checkpoint_evaluation_v8.json").read_text()
+            )
+            manifest = load(cache, recipe["manifest_sha256"])
+            destination = root / ".deps/reasoning-evaluation-inputs"
             for relative in ("manifest.json", *manifest["files"]):
                 archive.add(cache / relative, arcname=str(destination / relative))
         if args.include_astra_proposal_replay:
