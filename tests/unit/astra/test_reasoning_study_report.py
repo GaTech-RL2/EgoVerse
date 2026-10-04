@@ -5,6 +5,7 @@ import pytest
 from astra_reversal.reasoning_learning.study_report import (
     paired_native_comparison,
     summarize_run,
+    teacher_decisions,
     usage_by_episode,
     wilson,
 )
@@ -13,6 +14,34 @@ from astra_reversal.reasoning_learning.study_report import (
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value))
+
+
+def test_predicted_wins_are_not_observed_success_or_training_admission(tmp_path):
+    path = tmp_path / "collection/rollout_0/teacher_responses.jsonl"
+    path.parent.mkdir(parents=True)
+    compare = {
+        "decision_id": "batch",
+        "role": "compare",
+        "judgments": [{"preference": "win"}, {"preference": "uncertain"}],
+        "selected": "candidate_a",
+    }
+    rows = [
+        {"decision_id": "diagnosis", "role": "diagnose", "intervene": True},
+        compare,
+        compare,
+        {"decision_id": "review", "role": "assess", "outcome": "failed"},
+    ]
+    path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    result = teacher_decisions(tmp_path)
+    assert result["requested_interventions"] == 1
+    assert result["roles"]["compare"] == 1
+    assert result["candidate_preferences"] == {"win": 1, "uncertain": 1}
+    assert result["selected_non_native_proposals"] == 1
+    assert result["observed_prefix_outcomes"] == {"failed": 1}
+    rows.append({**compare, "selected": "native"})
+    path.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    with pytest.raises(ValueError, match="Conflicting"):
+        teacher_decisions(tmp_path)
 
 
 def test_missing_evaluation_and_partial_collection_are_not_scored_as_failures(tmp_path):

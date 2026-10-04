@@ -1,0 +1,242 @@
+{
+  "environment_actions": 0,
+  "used_for_training": false,
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-6",
+  "step": 150,
+  "source_revision": "fcc061aa09bdbdd8d311fc7edc778ebdfd0bba69",
+  "teacher_module_sha256": "d4bbd0239e5e03c2ae9d38fcfe1f6f7fc44184a7f96237968931a60f28bda31f",
+  "scope": "One historical observation, two fresh calls; diagnostic choice only, no measured candidate or rollout outcome.",
+  "cases": [
+    {
+      "mode": "without_rejection_feedback",
+      "proposal": {
+        "completion": "The retained bottle is visibly centered above the small gray bowl opening, ready for controlled lowering; lifting beside the knife block does not satisfy this condition.",
+        "edits": [],
+        "evidence": "The current views show the bottle at the gripper beside the knife block, offset from the small gray bowl. Retention is plausible but not proven by gripper width. The native five-action prefix commands downward translation throughout and gripper opening at actions 3 and 4, risking release before bowl alignment. Prior real prefixes have not established progress toward centering. The images do not support a reliable numeric world-coordinate redirection.",
+        "intervene": true,
+        "method": "language_subgoal",
+        "plan_complete": false,
+        "rule": "Preserve the bottle grasp and redirect the next five-action prefix toward alignment above the small gray bowl. End this correction phase when the bottle is visibly centered above its opening; reassess from real observations before lowering or releasing.",
+        "subgoal_instruction": "Keep holding the wine bottle and move it over the small gray bowl opening, maintaining clearance. Stop above the bowl before lowering.",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:150:diagnose:30055",
+        "request_fingerprint": "0bc6da688f3803947ba413e9791c272ce1b20f27997106bdbfbaf72fd23c0929",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "diagnose",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 30055,
+        "observation_step": 150
+      },
+      "receipt": {
+        "backend": "codex_exec",
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "returned_model": null,
+        "reasoning_effort": "medium",
+        "request_fingerprint": "0bc6da688f3803947ba413e9791c272ce1b20f27997106bdbfbaf72fd23c0929",
+        "request_sha256": "8ca445635b9834715c6a4816d8dc006dccfe0868fd8803c1958bb55f7505d69a",
+        "request_time": 1791082750.8445802,
+        "provider_call": true,
+        "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+        "internal_retry_count": null,
+        "internal_turn_count": null,
+        "accepted": true,
+        "provider_unavailable": false,
+        "status": "accepted",
+        "token_usage": {
+          "input_tokens": 21092,
+          "output_tokens": 226,
+          "reasoning_tokens": 0,
+          "total_tokens": 21318
+        },
+        "raw_usage": {
+          "input_tokens": 21092,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 226,
+          "reasoning_output_tokens": 0
+        },
+        "tool_items": [],
+        "cli_version": "codex-cli 0.159.3",
+        "schema_sha256": "cfa68b189f9ed417fdf67d8d525b45a4ad23649a1076e027c7599ffcf5c4c488",
+        "original_schema_sha256": "cfa68b189f9ed417fdf67d8d525b45a4ad23649a1076e027c7599ffcf5c4c488",
+        "prompt_template_version": "reasoning-policy-learning-1",
+        "prompt_sha256": "8b9a488ff5eecbe772a6914c74da010b0ac751a27969478222a266847f59756b",
+        "system_prompt_sha256": "00c46b2d14f7852ea5bd3aafb627cb32fc192b25d1199f308968fa55162d297d",
+        "image_hashes": [
+          {
+            "image_index": 0,
+            "file": "image_0.png",
+            "label": "EARLIER real observation in this attempt; actions since then actually executed; real step 145; camera 0",
+            "sha256": "dd26982bbeca0bdc6bdb9fbef909ee519eacc094c8b110b703d662ceeecced24"
+          },
+          {
+            "image_index": 1,
+            "file": "image_1.png",
+            "label": "EARLIER real observation in this attempt; actions since then actually executed; real step 145; camera 1",
+            "sha256": "08d62e3be8935ffa5363694c96125d0756ebdfe90b33afa48c8e5ca7451d3ed1"
+          },
+          {
+            "image_index": 2,
+            "file": "image_2.png",
+            "label": "CURRENT pre-action observation; real step 150; camera 0",
+            "sha256": "069caf6a85c5fe56f8d4d300223298be5b8d6f07139a4539fd6b57e622aaadfb"
+          },
+          {
+            "image_index": 3,
+            "file": "image_3.png",
+            "label": "CURRENT pre-action observation; real step 150; camera 1",
+            "sha256": "37350f7ae3f8053dd96e7f9006481f9ee8dd22290b49367ecf508a3ef13b6888"
+          }
+        ],
+        "exit_code": 0,
+        "observed_completed_turns": 1,
+        "raw_usage_events": [
+          {
+            "input_tokens": 21092,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 226,
+            "reasoning_output_tokens": 0
+          }
+        ],
+        "total_tokens_derived": true,
+        "token_usage_is_lower_bound": false,
+        "final_sha256": "012f99ddc75dbfff04159b1986da6cb1149fd5d71f1db50a90936fec48e219d7",
+        "response_time": 1791082765.6686459,
+        "latency_seconds": 14.825111208017915
+      }
+    },
+    {
+      "mode": "with_rejection_feedback",
+      "proposal": {
+        "completion": "After this five-action prefix, real views show the bottle retained at the gripper without slipping or release. Then reassess transport toward the gray bowl; retention alone does not complete placement or bowl alignment.",
+        "edits": [
+          {
+            "channel": 6,
+            "delta": 1.99,
+            "end": 5,
+            "start": 3
+          }
+        ],
+        "evidence": "The bottle remains visible at the gripper beside the knife block, offset from the small gray bowl. Retention is plausible but not proven by gripper width. Native actions 3\u20134 command nearly full opening before bowl alignment is established, risking premature release. Earlier language candidates also preserved this opening risk and showed no clear alignment improvement.",
+        "intervene": true,
+        "method": "target_guidance",
+        "plan_complete": false,
+        "rule": "For this five-action prefix, preserve bottle retention by changing the opening commands at actions 3\u20134 to closing commands. Reobserve immediately afterward and replan transport to the gray bowl. This bounded retention correction does not establish useful destination motion or authorize release.",
+        "subgoal_instruction": "",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:150:diagnose:31055",
+        "request_fingerprint": "2c4506740f92deea3909b24ad91d2a6ab55e5dc730e27bad7662d76539724ab0",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "diagnose",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 31055,
+        "observation_step": 150
+      },
+      "receipt": {
+        "backend": "codex_exec",
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "returned_model": null,
+        "reasoning_effort": "medium",
+        "request_fingerprint": "2c4506740f92deea3909b24ad91d2a6ab55e5dc730e27bad7662d76539724ab0",
+        "request_sha256": "15857a2039e08d2dd0759c0f9300c03e89afb0cc85160082d24a9dfd5f7a0d6a",
+        "request_time": 1791082765.672914,
+        "provider_call": true,
+        "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+        "internal_retry_count": null,
+        "internal_turn_count": null,
+        "accepted": true,
+        "provider_unavailable": false,
+        "status": "accepted",
+        "token_usage": {
+          "input_tokens": 22567,
+          "output_tokens": 301,
+          "reasoning_tokens": 78,
+          "total_tokens": 22868
+        },
+        "raw_usage": {
+          "input_tokens": 22567,
+          "cached_input_tokens": 12416,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 301,
+          "reasoning_output_tokens": 78
+        },
+        "tool_items": [],
+        "cli_version": "codex-cli 0.159.3",
+        "schema_sha256": "cfa68b189f9ed417fdf67d8d525b45a4ad23649a1076e027c7599ffcf5c4c488",
+        "original_schema_sha256": "cfa68b189f9ed417fdf67d8d525b45a4ad23649a1076e027c7599ffcf5c4c488",
+        "prompt_template_version": "reasoning-policy-learning-1",
+        "prompt_sha256": "0d0202ac30791f78c8092b09f329b5cbcf5723e550a42a2293f4a5b860afcbc0",
+        "system_prompt_sha256": "cc402a414bf0bc778056740f1c4ac113b8fb669398bef9c74a9ed8bdc057d9d0",
+        "image_hashes": [
+          {
+            "image_index": 0,
+            "file": "image_0.png",
+            "label": "EARLIER real observation in this attempt; actions since then actually executed; real step 145; camera 0",
+            "sha256": "dd26982bbeca0bdc6bdb9fbef909ee519eacc094c8b110b703d662ceeecced24"
+          },
+          {
+            "image_index": 1,
+            "file": "image_1.png",
+            "label": "EARLIER real observation in this attempt; actions since then actually executed; real step 145; camera 1",
+            "sha256": "08d62e3be8935ffa5363694c96125d0756ebdfe90b33afa48c8e5ca7451d3ed1"
+          },
+          {
+            "image_index": 2,
+            "file": "image_2.png",
+            "label": "CURRENT pre-action observation; real step 150; camera 0",
+            "sha256": "069caf6a85c5fe56f8d4d300223298be5b8d6f07139a4539fd6b57e622aaadfb"
+          },
+          {
+            "image_index": 3,
+            "file": "image_3.png",
+            "label": "CURRENT pre-action observation; real step 150; camera 1",
+            "sha256": "37350f7ae3f8053dd96e7f9006481f9ee8dd22290b49367ecf508a3ef13b6888"
+          }
+        ],
+        "exit_code": 0,
+        "observed_completed_turns": 1,
+        "raw_usage_events": [
+          {
+            "input_tokens": 22567,
+            "cached_input_tokens": 12416,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 301,
+            "reasoning_output_tokens": 78
+          }
+        ],
+        "total_tokens_derived": true,
+        "token_usage_is_lower_bound": false,
+        "final_sha256": "7ec051f05b3721ad847e9c879cec4e3b719c3220a37ff919cb808f09ff6a87c6",
+        "response_time": 1791082782.1694489,
+        "latency_seconds": 16.49704245798057
+      }
+    }
+  ],
+  "bounded_target_check": {
+    "passed": true,
+    "changed_step_channel_pairs": [
+      [
+        3,
+        6
+      ],
+      [
+        4,
+        6
+      ]
+    ],
+    "native_gripper_at_edited_steps": [
+      -1.0,
+      -0.9983833432197571
+    ],
+    "target_gripper_at_edited_steps": [
+      0.9900000095367432,
+      0.9916166663169861
+    ],
+    "physical_actions": 0,
+    "policy_candidates_generated": 0
+  },
+  "conclusion": "At this one historical observation, adding the three previous rejected comparisons changed diagnosis from the repeated language subgoal to a valid bounded gripper-retention target. Two single model calls do not establish a robust effect or physical success; no candidate generation, execution, or training followed this offline probe."
+}

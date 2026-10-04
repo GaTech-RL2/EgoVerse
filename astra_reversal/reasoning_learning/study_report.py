@@ -12,6 +12,7 @@ import json
 import math
 import shutil
 import subprocess
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -117,6 +118,41 @@ def usage_by_episode(directory, jobs=None, *, receipt_files=()):
             )
         )
     return result
+
+
+def teacher_decisions(directory):
+    """Count retained judgments separately from execution and training evidence."""
+    roles, preferences, outcomes, methods = Counter(), Counter(), Counter(), Counter()
+    seen = {}
+    requested, selected = 0, 0
+    for path in sorted(Path(directory).glob("collection/*/teacher_responses.jsonl")):
+        for line in path.read_text().splitlines():
+            row = json.loads(line)
+            identity = row["decision_id"]
+            if identity in seen:
+                if seen[identity] != row:
+                    raise ValueError("Conflicting retained teacher decisions")
+                continue
+            seen[identity] = row
+            role = row["role"]
+            roles[role] += 1
+            if role == "diagnose" and row["intervene"]:
+                requested += 1
+                methods[row.get("method", "target_guidance")] += 1
+            elif role == "compare":
+                preferences.update(j["preference"] for j in row["judgments"])
+                selected += row["selected"] != "native"
+            elif role == "assess":
+                outcomes[row["outcome"]] += 1
+    return {
+        "roles": dict(roles),
+        "requested_interventions": requested,
+        "requested_methods": dict(methods),
+        "candidate_preferences": dict(preferences),
+        "selected_non_native_proposals": selected,
+        "observed_prefix_outcomes": dict(outcomes),
+        "scope": "Retained parsed responses, including partial attempts. A requested intervention, predicted win, selected proposal, executed prefix and admitted training window are distinct counts.",
+    }
 
 
 def summarize_run(spec):
@@ -282,6 +318,7 @@ def summarize_run(spec):
             latest_evaluated is not None and latest_evaluated >= latest_updated
         ),
         "teacher_usage": totals,
+        "teacher_decisions": teacher_decisions(directory),
         "usage_by_episode": usage,
         "threshold_crossing": next(
             (

@@ -405,3 +405,27 @@ exact reset-state/model/task hashes agree. The intermediate 5/10 is not the
 same set of successful resets. Five of eight collection episodes succeeded.
 This is one development seed, not confirmation. No method has reached the
 predeclared 8/10 threshold. See dsrl_more_goal6_seed173_result.json.
+
+V5 two-rollout screen completed without an intervention
+The updated policy scored 5/10 on exactly the same five reset scenes as native.
+Collection consumed 426 controls, including stabilization, and succeeded on
+one of two episodes. Astra requested 37 language-subgoal interventions, but its
+111 candidate judgments contained 82 uncertain, 14 tie and 15 loss judgments,
+with no wins. No assisted action executed. Twelve useful windows from the
+successful native episode produced one policy update. Therefore this result
+tests filtered native self-imitation, not successful corrective teaching.
+The run used 172 calls and 3,380,126 tokens including cached input. Its stop
+after two collections and the scheduled evaluation was fixed before that score.
+The complete receipt is pilot_v5_goal6_seed173_result.json. The dashboard now
+separates intervention requests, computational preferences, selected proposals,
+executed assistance, outcome reviews and admitted windows.
+
+Offline diagnosis feedback ablation
+At one saved V5 observation (Goal6/reset0, step150), fresh V6 diagnosis calls
+used the same images, history and native proposal. Without rejected-candidate
+feedback, Astra repeated the language subgoal. With the three previous
+comparisons, it chose a +1.99 gripper delta on actions3–4 to prevent premature
+opening. This target passed the original controller bounds. No policy candidate
+was generated or physically executed, and nothing was added to training. The
+two calls support testing the feedback path, not a physical-success claim;
+see diagnosis_feedback_probe.json for their exact outputs and token receipts.
