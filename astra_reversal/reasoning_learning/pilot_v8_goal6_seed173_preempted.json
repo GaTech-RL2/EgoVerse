@@ -1076,7 +1076,7 @@
   "collection_steps_retained": 815,
   "collection_steps_may_be_lower_bound": false,
   "evaluation_steps_retained": 3463,
-  "evaluation_steps_may_be_lower_bound": false,
+  "evaluation_steps_may_be_lower_bound": true,
   "completed_collection_rollouts": 4,
   "collected_successes": 0,
   "policy_updates": 4,
@@ -1234,5 +1234,6 @@
     "collection.json": "d32b0c907a4e34cf1dafb5a9ee3cc866e724747591c17a7376438f3463b98c1d",
     "updates.json": "8a86a30bd12002ae6338b79dfafb596c502ec8c4b84716355608a8a86b91d467"
   },
-  "scope": "Development run externally preempted. Only complete scheduled evaluations are SR points; partial evaluations and the latest unevaluated checkpoint are not scored. All retained collection actions, reasoning and allocation costs remain counted."
+  "scope": "Development run externally preempted. Only complete scheduled evaluations are SR points; partial evaluations and the latest unevaluated checkpoint are not scored. All retained collection actions, reasoning and allocation costs remain counted.",
+  "evaluation_accounting_note": "Seven of ten final episode records were recovered. Any unarchived tail is unknown; retained controls are a lower bound, with no invented extra actions."
 }

@@ -3,6 +3,7 @@ import json
 import pytest
 
 from astra_reversal.reasoning_learning.study_report import (
+    export_evidence,
     paired_native_comparison,
     summarize_run,
     teacher_decisions,
@@ -15,6 +16,34 @@ from astra_reversal.reasoning_learning.study_report import (
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value))
+
+
+def test_evidence_export_excludes_private_provider_streams_and_signed_catalogs(
+    tmp_path,
+):
+    source, target = tmp_path / "source", tmp_path / "public"
+    write(source / "updates.json", [{"policy_version": 1}])
+    write(source / "collection/rollout_0/admission.jsonl", {"useful_steps": [0, 1]})
+    for relative in (
+        "catalog.json",
+        "provider.jsonl",
+        "collection/rollout_0/events.jsonl",
+        "collection/rollout_0/teacher_requests.jsonl",
+        "jobs/one/raw_events.jsonl",
+    ):
+        write(source / relative, {"private_fixture": True})
+    run = {"workflow": "owned-study", "method": "teacher", "source_revision": "fixed"}
+    export_evidence(source, target, 0, run)
+    files = {str(p.relative_to(target)) for p in target.rglob("*") if p.is_file()}
+    assert files == {
+        "evidence/0/updates.json",
+        "evidence/0/collection/rollout_0/admission.jsonl",
+        "evidence/0/manifest.json",
+    }
+    assert run["evidence_record_files"] == 2
+    manifest = json.loads((target / run["evidence_manifest"]).read_text())
+    assert manifest["path_base"] == "dashboard_root"
+    assert all((target / r["path"]).is_file() for r in manifest["files"])
 
 
 def test_rejected_projection_does_not_imply_a_validation_or_deployed_hint(tmp_path):
@@ -150,6 +179,25 @@ def test_report_rejects_incomplete_scheduled_evaluation(tmp_path):
                 "workflow": "test",
             }
         )
+
+
+def test_interrupted_evaluation_can_have_an_unarchived_tail(tmp_path):
+    write(
+        tmp_path / "protocol.json",
+        {"pilot": {"autonomous_evaluation_reset_indices": [20, 21]}},
+    )
+    write(tmp_path / "evaluation_2/reset_20/result.json", {"total_control_steps": 12})
+    result = summarize_run(
+        {
+            "directory": str(tmp_path),
+            "label": "interrupted",
+            "method": "teacher",
+            "workflow": "test",
+        }
+    )
+    assert result["evaluation_steps_retained"] == 12
+    assert result["evaluation_steps_may_be_lower_bound"]
+    assert result["points"] == []
 
 
 def test_report_counts_local_completion_even_without_worker_receipt(tmp_path):

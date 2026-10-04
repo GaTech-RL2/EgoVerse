@@ -7,6 +7,7 @@ interaction lower bounds, not completed rollouts or evaluation failures.
 
 import argparse
 import csv
+import hashlib
 import io
 import json
 import math
@@ -317,6 +318,15 @@ def summarize_run(spec):
         totals["input_tokens"] - totals["cached_input_tokens"]
     )
     evaluation_steps, partial_evaluation = 0, False
+    scheduled_evaluations = len(
+        protocol.get("pilot", {}).get("autonomous_evaluation_reset_indices", [])
+    )
+    if scheduled_evaluations:
+        partial_evaluation = any(
+            len(list(batch.glob("*/result.json"))) < scheduled_evaluations
+            for batch in directory.glob("evaluation_*")
+            if batch.is_dir()
+        )
     for path in sorted(directory.glob("evaluation_*/*")):
         result = read_json(path / "result.json")
         if result:
@@ -817,6 +827,59 @@ def export_figures(data, output):
     return paths
 
 
+def export_evidence(directory, output, index, run):
+    """Copy only named study records; provider logs and signed catalogs stay private."""
+    directory, output = Path(directory), Path(output)
+    evidence = []
+    evidence_paths = [
+        directory / name for name in ("updates.json", "restored_checkpoint.json")
+    ]
+    for collection_directory in sorted((directory / "collection").glob("rollout_*")):
+        evidence_paths.extend(
+            collection_directory / name
+            for name in (
+                "result.json",
+                "executed_steps.jsonl",
+                "decisions.jsonl",
+                "outcomes.jsonl",
+                "admission.jsonl",
+                "teacher_responses.jsonl",
+            )
+        )
+    for path in evidence_paths:
+        if not path.is_file():
+            continue
+        relative = path.relative_to(directory)
+        target = Path("evidence") / str(index) / relative
+        (output / target).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, output / target)
+        evidence.append(
+            {
+                "path": str(target),
+                "source_relative_path": str(relative),
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+    if evidence:
+        target = Path("evidence") / str(index) / "manifest.json"
+        (output / target).write_text(
+            json.dumps(
+                {
+                    "workflow": run["workflow"],
+                    "method": run["method"],
+                    "source_revision": run["source_revision"],
+                    "files": evidence,
+                    "path_base": "dashboard_root",
+                    "scope": "Recorded selected commands, structured teacher decisions, actual outcome assessments and training admissions. Partial collections remain partial. Observation IDs refer to their own pre-action inputs; source costs and completeness are in results.json. Private provider events, credentials and signed URLs are excluded.",
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+        run["evidence_manifest"] = str(target)
+        run["evidence_record_files"] = len(evidence)
+
+
 def build(manifest, budget, output):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
@@ -848,6 +911,7 @@ def build(manifest, budget, output):
                 }
     for i, (spec, run) in enumerate(zip(specs, runs, strict=True)):
         directory = Path(spec["directory"])
+        export_evidence(directory, output, i, run)
         for path in sorted(directory.glob("**/rollout.mp4")):
             relative = path.relative_to(directory)
             if relative.parts[0] != "collection" and not relative.parts[0].startswith(
@@ -936,6 +1000,17 @@ def build(manifest, budget, output):
         credit_video_audit = {**credit_video_audit, "image": str(target)}
     else:
         credit_video_audit = None
+    native_success_audit = read_json(
+        Path(__file__).with_name("native_success_spatial179_selection_audit.json")
+    )
+    native_success_image = Path(__file__).with_name(
+        "native_success_spatial179_windows.png"
+    )
+    if native_success_audit and native_success_image.exists():
+        target = Path("images") / native_success_image.name
+        (output / target).parent.mkdir(exist_ok=True)
+        shutil.copy2(native_success_image, output / target)
+        native_success_audit = {**native_success_audit, "image": str(target)}
     ledger = read_json(budget)
     data = {
         "title": "Reasoning-guided policy learning",
@@ -944,13 +1019,17 @@ def build(manifest, budget, output):
         "scope": "Development experiments; no confirmed sample-efficiency advantage over strong RL.",
         "checkpoint": "lerobot/pi05_libero_base@a217bfd3b14673cf2ce597e69997ab21866438dd",
         "budget": ledger,
+        "accounting_audit": read_json(
+            Path(__file__).with_name("study_accounting.json")
+        ),
         "runs": runs,
         "offline_teacher_diagnostics": diagnostics,
         "replay_video_audit": replay_video_audit,
         "spatial_video_audit": spatial_video_audit,
         "credit_video_audit": credit_video_audit,
-        "native_success_selection_audit": read_json(
-            Path(__file__).with_name("native_success_spatial179_selection_audit.json")
+        "native_success_selection_audit": native_success_audit,
+        "frozen_v8_restart_audit": read_json(
+            Path(__file__).with_name("v8_frozen_restart_audit.json")
         ),
         "intervention_credit_audit": read_json(
             Path(__file__).with_name("intervention_credit_audit.json")

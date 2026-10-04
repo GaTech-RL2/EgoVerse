@@ -1,5 +1,78 @@
 Reasoning-guided policy learning — implementation and study plan
 
+CURRENT DEVELOPMENT RESULTS — 2026-10-04
+
+The research objective remains unmet. No completed checkpoint reaches the
+preregistered 8/10 autonomous target, and no fresh-task or untouched-reset
+confirmation was performed. These are two development tasks: Goal OOD6 at
+seed173, and Spatial OOD2 at seeds173 and179. They are separate from the earlier
+20-task intervention campaign. Each reported SR uses ten declared reset states.
+
+Condition                               Native    Learned     Source controls
+Goal6 / seed173 / V8 after 4 collections   5/10       5/10          815
+Spatial2 / seed173 / V7 after 2            3/10       5/10          620
+Spatial2 / seed179 / V7 after 2            2/10       2/10          416
+Spatial2 / seed179 / local labels         2/10       3/10          106 reused
+Spatial2 / seed179 / whole-success BC     2/10       2/10          106 reused
+
+These rows have different collection budgets and are not pooled. The first
+Spatial V7 gain has not repeated. Its later policy3 was saved but not evaluated
+after external quota preemption. V8's exact saved policy4 has now completed all
+ten original resets; all native binary outcomes are preserved. The restart adds
+1,951 evaluation controls and no training or teacher calls. Original retained
+partial-evaluation costs remain charged, with unknown tails marked as lower
+bounds rather than invented or assumed zero.
+
+The final native-success control is the narrowest positive signal: 14 locally
+useful windows beat 18 whole-success windows by one reset under identical fresh
+initial parameters, 40 uniform updates, sampled flow-time sequences and seven-
+channel loss. Only the local-label student gains reset20; neither branch loses
+a native win. The source is one unassisted native success, with 106 controls,
+24 monitoring calls and 455,499 reported tokens attributed to each branch.
+It adds no collection or teacher calls; the two evaluations add 5,168 controls.
+This is not the original online two-collection learning trajectory, a measured
+teacher-free collection, or a confirmed sample-efficiency advantage.
+
+The tuned RL comparisons remain visible at every scheduled checkpoint. On Goal6,
+DSRL finishes at 6/10 after 1,455 controls and PPO at 4/10 after 1,686, versus
+native 5/10. On Spatial seed173, their final scores are 3/10 and 2/10 after
+2,299 and 2,480 controls, versus native 3/10. Matched seed179 DSRL stays at 2/10
+after 411 controls. These are pinned RLinf components with serial overrides and
+limited tuning, not stock SOTA benchmark reproductions.
+
+Why the recipe falls short: useful five-action corrections often fail the
+complete ten-action window gate. The seed179 teacher executes ten locally
+useful assisted commands but trains on none. Relaxing credit is insufficient:
+evidence-masked replay falls from native 5/10 to 0/10 after 200 updates; the
+Goal hindsight selector scores 4/10 versus 5/10 for local labels and whole-
+success BC. The new success-only control suggests local filtering can sometimes
+help, but one extra win requires repetition. A better next teaching mechanism
+should first obtain coherent task-correct trajectories, for example through
+phase-dependent input skills, then test original-input distillation against
+success-only BC and matched RL on fresh cases. That recipe remains untested here.
+
+Actual use: 22.055960 of 24 authorized L40S GPU-hours, including
+initialization and failed workers; 26 allocations closed; peak concurrency two;
+no GPU jobs remain active. Retained interaction totals are at least
+18,101 collection and 115,777 evaluation controls. Reported teacher use is at
+least 38,616,918 tokens including cached input and offline diagnostics, not an API
+bill. Reused source costs count once globally. Repeated reset evaluations are
+not independent samples. All 64 completed scheduled curve points and incomplete work are retained.
+
+Open index.html for diagrams, prompts, all scores, source camera examples,
+plots and rollout videos. results.json and learning_curves.csv contain the
+compiled data. The evidence/ directory contains checksummed execution,
+judgment, admission and optimizer records; private provider streams and signed
+catalogs are excluded. study_accounting.json, native_success_spatial179_results.json
+and v8_frozen_restart_audit.json supply the final accounting and paired audits.
+Source and linear PR chain: https://github.com/GaTech-RL2/EgoVerse/pull/705
+Branch: astra/reasoning-policy-learning-20261003, based on PR704.
+
+CHRONOLOGICAL IMPLEMENTATION AND EVIDENCE
+The remaining entries preserve the plan and observations at each revision;
+prospective or interim statements are superseded by the current results above.
+
+
 Source: ../proposals/reasoning_guided_policy_learning_20261003.md
 Protocol: ../configs/reasoning_policy_learning_v1.json
 Base branch: astra/demo-skill-library-20260930, commit d4b2b690, PR 704.
@@ -918,3 +991,23 @@ steps. The earlier Spatial seed173 improvement (3/10 to 5/10 after 620
 controls) has not repeated. This does not meet the 8/10 criterion or establish
 a sample-efficiency advantage over strong RL. See
 pilot_v7_spatial2_seed179_after2.json and intervention_credit_audit.json.
+
+Completed frozen V8 evaluation after external quota preemption
+--------------------------------------------------------------
+The exact saved policy4 is restored with matching parameter and checkpoint
+hashes. All ten declared Goal OOD6 / seed173 reset states are evaluated:
+5/10, versus native 5/10, with identical binary outcomes. Original source
+cost remains 815 collection controls and 5,191,153 teacher tokens. The
+restart adds zero collection controls, teacher calls or optimizer updates;
+its ten evaluations add 1,951 controls and 0.204234 L40S hours including
+initialization. The interrupted source retained 3,463 evaluation controls,
+which remain charged separately. See pilot_v8_goal6_seed173_after4_restored.json.
+
+The seven previously completed reset cases reproduce all seven binary
+outcomes; six reproduce every command exactly. On failed reset24, observation
+hashes first differ after action128 despite identical commands, followed by
+a 1.88e-5 action difference at action130 and later trajectory divergence.
+The numerical subsystem responsible was not isolated. Checkpoint identity
+therefore does not assert bitwise simulator reproducibility. These are ten
+fixed reset cases evaluated again, never a seventeen-trial denominator or
+fresh confirmation. See v8_frozen_restart_audit.json.

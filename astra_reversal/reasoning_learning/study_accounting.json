@@ -1,0 +1,215 @@
+{
+  "schema": "reasoning-study-accounting-1",
+  "recorded_utc": "2026-10-04T10:58:19.377050+00:00",
+  "authorized_l40s_gpu_hours": 24,
+  "actual_l40s_gpu_hours_including_initialization_and_failures": 22.055959544722224,
+  "maximum_observed_concurrent_gpus": 2,
+  "closed_gpu_allocations": 26,
+  "open_gpu_allocations": 0,
+  "collection_controls_retained": 18101,
+  "collection_control_total_is_lower_bound": true,
+  "evaluation_controls_retained": 115777,
+  "evaluation_control_total_is_lower_bound": true,
+  "teacher_total_reported_tokens_including_cache_and_offline_diagnostics": 38616918,
+  "teacher_total_is_lower_bound": true,
+  "completed_scheduled_checkpoint_points": 64,
+  "development_task_seed_combinations": [
+    [
+      "libero_goal_ood",
+      6,
+      173
+    ],
+    [
+      "libero_spatial_ood",
+      2,
+      173
+    ],
+    [
+      "libero_spatial_ood",
+      2,
+      179
+    ]
+  ],
+  "autonomous_threshold_crossings": 0,
+  "research_objective_met": false,
+  "fresh_task_or_untouched_reset_confirmation_performed": false,
+  "accounting": "Source collection and teacher tokens count only at the original collection; fixed-data branches attribute them without adding new source cost. Repeated evaluation consumes new controls but does not create independent reset samples. All GPU allocations include worker initialization through workflow end. Missing archived tails remain lower bounds, not zeros.",
+  "gpu_allocations": [
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-preflight-1",
+      "allocation_start_time": "2026-10-03T22:04:46.288265",
+      "end_time": "2026-10-03T22:14:23.466196",
+      "actual_gpu_hours": 0.16032720305555553
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-1",
+      "allocation_start_time": "2026-10-03T22:16:25.108662",
+      "end_time": "2026-10-03T23:10:07.862324",
+      "actual_gpu_hours": 0.8952093505555556
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-baseline-preflight-1",
+      "allocation_start_time": "2026-10-03T22:27:48.341751",
+      "end_time": "2026-10-03T22:31:35.963121",
+      "actual_gpu_hours": 0.06322815833333334
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-dsrl-1",
+      "allocation_start_time": "2026-10-03T23:00:10.662012",
+      "end_time": "2026-10-03T23:48:45.599114",
+      "actual_gpu_hours": 0.8097047505555555
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-guidance-probe-1",
+      "allocation_start_time": "2026-10-03T22:52:08.876639",
+      "end_time": "2026-10-03T22:58:35.504340",
+      "actual_gpu_hours": 0.10739658361111111
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-2",
+      "allocation_start_time": "2026-10-03T23:12:40.606789",
+      "end_time": "2026-10-03T23:57:44.340113",
+      "actual_gpu_hours": 0.7510370344444444
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-ppo-1",
+      "source_revision": "e5bdcf39e4f2de60e57ae3ed9579e271a67b8a3b",
+      "allocation_start_time": "2026-10-03T23:51:48.688016",
+      "end_time": "2026-10-04T00:47:23.994385",
+      "actual_gpu_hours": 0.9264739913888889
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-3",
+      "source_revision": "3439d378fec15e8c85d380cd8b30bd58cb05145d",
+      "allocation_start_time": "2026-10-04T00:00:22.021516",
+      "end_time": "2026-10-04T00:09:21.803834",
+      "actual_gpu_hours": 0.14993953277777777
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-4",
+      "source_revision": "3439d378fec15e8c85d380cd8b30bd58cb05145d",
+      "allocation_start_time": "2026-10-04T00:16:56.591809",
+      "end_time": "2026-10-04T01:38:45.866463",
+      "actual_gpu_hours": 1.3636874038888889
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-5",
+      "source_revision": "77b727e2131837f841bdc941c469e1745f6f74e7",
+      "allocation_start_time": "2026-10-04T00:47:38.952927",
+      "end_time": "2026-10-04T01:17:49.711441",
+      "actual_gpu_hours": 0.5029884761111112
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-dsrl-2",
+      "source_revision": "84b6cfb68cff33047b37173247ff9b319b23d82e",
+      "allocation_start_time": "2026-10-04T01:27:54.021775",
+      "end_time": "2026-10-04T02:17:50.358371",
+      "actual_gpu_hours": 0.8323157211111112
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-6",
+      "source_revision": "6911f2404cdbd760f5bf75b99bd42cd6aafde7a0",
+      "allocation_start_time": "2026-10-04T01:40:32.099910",
+      "end_time": "2026-10-04T02:48:24.404265",
+      "actual_gpu_hours": 1.1311956541666668
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-ppo-2",
+      "source_revision": "84b6cfb68cff33047b37173247ff9b319b23d82e",
+      "allocation_start_time": "2026-10-04T02:23:50.805149",
+      "end_time": "2026-10-04T03:15:32.491152",
+      "actual_gpu_hours": 0.8615794452777777
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-7",
+      "source_revision": "fcc061aa09bdbdd8d311fc7edc778ebdfd0bba69",
+      "allocation_start_time": "2026-10-04T03:07:54.252451",
+      "end_time": "2026-10-04T05:44:09.947952",
+      "actual_gpu_hours": 2.6043598613888888
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-dsrl-3",
+      "source_revision": "fcc061aa09bdbdd8d311fc7edc778ebdfd0bba69",
+      "allocation_start_time": "2026-10-04T03:25:55.001152",
+      "end_time": "2026-10-04T04:28:13.010752",
+      "actual_gpu_hours": 1.038336
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-replay-learning-1",
+      "source_revision": "7b47ed361bbb5071e528b55e936ff672d6c66938",
+      "allocation_start_time": "2026-10-04T04:29:34.591147",
+      "end_time": "2026-10-04T05:06:00.957236",
+      "actual_gpu_hours": 0.6073239136111112
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-replay-masked-1",
+      "source_revision": "c9f69fb78db48b7d73331c21bb6bc4cec5c86c9b",
+      "allocation_start_time": "2026-10-04T05:11:03.864520",
+      "end_time": "2026-10-04T05:48:51.967687",
+      "actual_gpu_hours": 0.6300286575
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-8",
+      "source_revision": "44e8cb7c1e89e14fd60274f81b3c23da9270e4de",
+      "allocation_start_time": "2026-10-04T05:48:52.914725",
+      "end_time": "2026-10-04T06:44:28.764443",
+      "actual_gpu_hours": 0.9266249216666667
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-9",
+      "source_revision": "44e8cb7c1e89e14fd60274f81b3c23da9270e4de",
+      "allocation_start_time": "2026-10-04T05:54:00.795861",
+      "end_time": "2026-10-04T08:27:24.474675",
+      "actual_gpu_hours": 2.5565774483333334
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+      "source_revision": "3c3eb27faa7cb9b465c5bd01e172004bc5ee8e0b",
+      "allocation_start_time": "2026-10-04T06:45:21.068662",
+      "end_time": "2026-10-04T08:27:23.959753",
+      "actual_gpu_hours": 1.7008030808333334
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-replay-credit-1",
+      "source_revision": "0d6de76dbdce8ae5af21b65f27133db99256001e",
+      "allocation_start_time": "2026-10-04T08:28:10.421540",
+      "end_time": "2026-10-04T08:58:24.179324",
+      "actual_gpu_hours": 0.5038216066666666
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-ppo-3",
+      "source_revision": "fcc061aa09bdbdd8d311fc7edc778ebdfd0bba69",
+      "allocation_start_time": "2026-10-04T08:28:41.220699",
+      "end_time": "2026-10-04T09:24:01.093839",
+      "actual_gpu_hours": 0.9221869833333334
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-11",
+      "source_revision": "0b031fdb37b0e0e17fc69d27acf5ed0085cd387e",
+      "allocation_start_time": "2026-10-04T09:14:00.837528",
+      "end_time": "2026-10-04T10:11:53.610094",
+      "actual_gpu_hours": 0.9646590461111111
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-dsrl-4",
+      "source_revision": "0b031fdb37b0e0e17fc69d27acf5ed0085cd387e",
+      "allocation_start_time": "2026-10-04T09:25:54.418643",
+      "end_time": "2026-10-04T09:48:03.432345",
+      "actual_gpu_hours": 0.36917047277777776
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-checkpoint-evaluation-1",
+      "source_revision": "46547f035dffd6aa477e2e4c790476f1ea4472a0",
+      "allocation_start_time": "2026-10-04T10:12:57.356867",
+      "end_time": "2026-10-04T10:25:12.598312",
+      "actual_gpu_hours": 0.20423373472222223
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-replay-success-credit-1",
+      "source_revision": "5b9becdbe617930cfd9db565ae8d44efc8a792a0",
+      "allocation_start_time": "2026-10-04T10:25:46.092072",
+      "end_time": "2026-10-04T10:54:07.993917",
+      "actual_gpu_hours": 0.47275051250000005
+    }
+  ]
+}
